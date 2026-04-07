@@ -11,7 +11,7 @@ npm install
 
 # Generate Prisma client
 echo "🗄️  Generating Prisma client..."
-./node_modules/.bin/prisma generate
+npx prisma generate
 
 # Build TypeScript
 echo "🔨 Building TypeScript..."
@@ -31,7 +31,7 @@ fi
 
 # Run database migrations
 echo "📋 Running database migrations..."
-./node_modules/.bin/prisma migrate deploy
+npx prisma migrate deploy
 
 # Start the server
 echo "✅ Build complete! Starting server..."
