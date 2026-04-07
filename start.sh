@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 echo "🚀 Starting build process..."
 echo "Current directory: $(pwd)"
