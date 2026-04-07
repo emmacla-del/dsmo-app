@@ -1,0 +1,241 @@
+﻿generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  role          UserRole      @default(COMPANY)
+  region        String?
+  department    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  company       Company?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+}
+
+model Company {
+  id                String              @id @default(uuid())
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id])
+  name              String
+  parentCompany     String?
+  mainActivity      String
+  secondaryActivity String?
+  region            String
+  department        String
+  district          String
+  address           String
+  taxNumber         String              @unique
+  cnpsNumber        String?
+  socialCapital     Float?
+  totalEmployees    Int
+  menCount          Int?
+  womenCount        Int?
+  lastYearTotal     Int?
+  declarations      Declaration[]
+  notificationRecipients NotificationRecipient[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model Declaration {
+  id                  String              @id @default(uuid())
+  year                Int
+  companyId           String
+  company             Company             @relation(fields: [companyId], references: [id])
+  region              String
+  division            String
+  status              DeclarationStatus   @default(DRAFT)
+  submittedAt         DateTime?
+  validatedBy         String?
+  validatedAt         DateTime?
+  rejectionReason     String?
+  pdfUrl              String?
+  receiptUrl          String?
+  qrCode              String?
+  employees           Employee[]
+  movements           DeclarationMovement[]
+  qualitativeAnswers  QualitativeQuestion?
+  validationSteps     ValidationStep[]
+  auditLogs           AuditLog[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
+model Employee {
+  id            String        @id @default(uuid())
+  declarationId String
+  declaration   Declaration    @relation(fields: [declarationId], references: [id])
+  fullName      String
+  gender        String
+  age           Int
+  nationality   String
+  diploma       String?
+  function      String
+  seniority     Int
+  salaryCategory String?
+  createdAt     DateTime      @default(now())
+}
+
+model Notification {
+  id                String                  @id @default(uuid())
+  sentBy            String
+  senderUser        User                    @relation(fields: [sentBy], references: [id])
+  regionFilter      String?
+  departmentFilter  String?
+  submissionStatus  DeclarationStatus?
+  subject           String
+  message           String
+  recipientCount    Int                     @default(0)
+  sentAt            DateTime                @default(now())
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  recipients        NotificationRecipient[]
+
+  @@index([sentBy])
+  @@index([sentAt])
+}
+
+model NotificationRecipient {
+  id               String         @id @default(uuid())
+  notificationId   String
+  notification     Notification   @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  email            String
+  status           NotificationStatus @default(SENT)
+  sentAt           DateTime       @default(now())
+  openedAt         DateTime?
+  clickedAt        DateTime?
+  createdAt        DateTime       @default(now())
+}
+
+model AuditLog {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id])
+  declarationId     String?
+  declaration       Declaration?      @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  action            String
+  resourceType      String
+  resourceId        String
+  details           String?
+  previousValue     String?
+  newValue          String?
+  timestamp         DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+
+  @@index([userId])
+  @@index([declarationId])
+  @@index([timestamp])
+}
+
+model QualitativeQuestion {
+  id            String        @id @default(uuid())
+  declarationId String
+  declaration   Declaration   @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  hasTrainingCenter Boolean
+  trainingCenterDetails String?
+  recruitmentPlansNext Boolean
+  recruitmentPlanCount Int?
+  camerounisationPlan Boolean
+  usesTempAgencies Boolean
+  temporaryWorkerCount Int?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model DeclarationMovement {
+  id            String        @id @default(uuid())
+  declarationId String
+  declaration   Declaration   @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  movementType  MovementType
+  cat1_3        Int           @default(0)
+  cat4_6        Int           @default(0)
+  cat7_9        Int           @default(0)
+  cat10_12      Int           @default(0)
+  catNonDeclared Int          @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ValidationStep {
+  id            String        @id @default(uuid())
+  declarationId String
+  declaration   Declaration   @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  stepType      ValidationStepType
+  isValid       Boolean       @default(true)
+  errors        String[]      @default([])
+  message       String?
+  checkedBy     String?
+  checkedAt     DateTime?
+  createdAt     DateTime      @default(now())
+}
+
+model AnalyticsSnapshot {
+  id            String        @id @default(uuid())
+  year          Int
+  region        String?
+  department    String?
+  totalEmployment Int
+  maleEmployment Int
+  femaleEmployment Int
+  totalRecruitment Int
+  totalDismissals Int
+  avgSalaryCategory Float?
+  companiesSubmitted Int
+  companiesApproved Int
+  companiesPending Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum UserRole {
+  COMPANY
+  DIVISIONAL
+  REGIONAL
+  CENTRAL
+}
+
+enum DeclarationStatus {
+  DRAFT
+  SUBMITTED
+  DIVISION_APPROVED
+  REGION_APPROVED
+  FINAL_APPROVED
+  REJECTED
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  BOUNCED
+  OPENED
+}
+
+enum MovementType {
+  RECRUITMENT
+  PROMOTION
+  DISMISSAL
+  RETIREMENT
+  DEATH
+}
+
+enum ValidationStepType {
+  GENDER_SUM
+  CATEGORY_SUM
+  MOVEMENT_CONSISTENCY
+  WORKFORCE_GROWTH
+  EMPLOYEE_VALIDATION
+  OVERALL_CONSISTENCY
+}
