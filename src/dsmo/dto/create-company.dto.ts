@@ -1,18 +1,18 @@
 ﻿import { IsString, IsOptional, IsInt, Min } from 'class-validator';
 
 export class CreateCompanyDto {
-  @IsString() name: string;
+  @IsString() name!: string;
   @IsOptional() @IsString() parentCompany?: string;
-  @IsString() mainActivity: string;
+  @IsString() mainActivity!: string;
   @IsOptional() @IsString() secondaryActivity?: string;
-  @IsString() region: string;
-  @IsString() department: string;
-  @IsString() district: string;
-  @IsString() address: string;
-  @IsString() taxNumber: string;
+  @IsString() region!: string;
+  @IsString() department!: string;
+  @IsString() district!: string;
+  @IsString() address!: string;
+  @IsString() taxNumber!: string;
   @IsOptional() @IsString() cnpsNumber?: string;
   @IsOptional() @IsInt() socialCapital?: number;
-  @IsInt() totalEmployees: number;
+  @IsInt() totalEmployees!: number;
   @IsOptional() @IsInt() menCount?: number;
   @IsOptional() @IsInt() womenCount?: number;
   @IsOptional() @IsInt() lastYearTotal?: number;

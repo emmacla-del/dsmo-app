@@ -25,13 +25,36 @@ export class DsmoService {
   }
 
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
+    const companyData = {
+      name: dto.name,
+      parentCompany: dto.parentCompany,
+      mainActivity: dto.mainActivity,
+      secondaryActivity: dto.secondaryActivity,
+      region: dto.region,
+      department: dto.department,
+      district: dto.district,
+      address: dto.address,
+      taxNumber: dto.taxNumber,
+      cnpsNumber: dto.cnpsNumber,
+      socialCapital: dto.socialCapital,
+      totalEmployees: dto.totalEmployees,
+      menCount: dto.menCount,
+      womenCount: dto.womenCount,
+      lastYearTotal: dto.lastYearTotal,
+      recruitments: dto.recruitments,
+      promotions: dto.promotions,
+      dismissals: dto.dismissals,
+      retirements: dto.retirements,
+      deaths: dto.deaths,
+    };
+
     const existing = await this.prisma.company.findUnique({ where: { userId } });
     if (existing) {
-      const updated = await this.prisma.company.update({ where: { userId }, data: dto });
+      const updated = await this.prisma.company.update({ where: { userId }, data: companyData });
       await this.auditService.log(userId, 'UPDATE_COMPANY', 'Company', existing.id, 'Updated company information');
       return updated;
     }
-    const created = await this.prisma.company.create({ data: { userId, ...dto } });
+    const created = await this.prisma.company.create({ data: { userId, ...companyData } });
     await this.auditService.log(userId, 'CREATE_COMPANY', 'Company', created.id, 'Created new company');
     return created;
   }
@@ -41,7 +64,7 @@ export class DsmoService {
     if (!company) {
       company = await this.createOrUpdateCompany(userId, dto.company);
     } else {
-      company = await this.prisma.company.update({ where: { userId }, data: dto.company });
+      company = await this.createOrUpdateCompany(userId, dto.company);
     }
 
     // Check if declaration already exists for this year
