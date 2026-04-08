@@ -33,6 +33,4 @@ fi
 echo "📋 Running database migrations..."
 node node_modules/prisma/build/index.js migrate deploy
 
-# Start the server
-echo "✅ Build complete! Starting server..."
-npm run start:prod
+echo "✅ Build complete!"
