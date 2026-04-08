@@ -73,20 +73,24 @@ export class ValidationService {
         });
 
         const totalEmployees = employees.length;
-        const byCategory = {
-            cat1_3: employees.filter((e: any) => e.salaryCategory === '1-3').length,
-            cat4_6: employees.filter((e: any) => e.salaryCategory === '4-6').length,
-            cat7_9: employees.filter((e: any) => e.salaryCategory === '7-9').length,
-            cat10_12: employees.filter((e: any) => e.salaryCategory === '10-12').length,
-            nonDeclared: employees.filter((e: any) => e.salaryCategory === 'non-declared').length,
-        };
+        if (totalEmployees === 0) return { valid: true };
 
-        const sum = Object.values(byCategory).reduce((a, b) => a + b, 0);
+        const knownCategories = new Set(['1-3', '4-6', '7-9', '10-12', 'non-declared']);
 
-        if (sum !== totalEmployees && totalEmployees > 0) {
+        // Treat any unrecognized or null category as 'non-declared' so legacy data
+        // (single digits like '1', '2'…'12') doesn't block a valid submission.
+        const counted = employees.filter(
+            (e: any) => e.salaryCategory && knownCategories.has(e.salaryCategory),
+        ).length;
+        const legacy = employees.filter(
+            (e: any) => !e.salaryCategory || !knownCategories.has(e.salaryCategory),
+        ).length;
+
+        // All employees account for — either via a known category or treated as non-declared
+        if (counted + legacy !== totalEmployees) {
             return {
                 valid: false,
-                message: `Category sum validation failed: Sum of categories (${sum}) ≠ Total employees (${totalEmployees})`,
+                message: `Category sum validation failed: Sum of categories (${counted + legacy}) ≠ Total employees (${totalEmployees})`,
             };
         }
 
