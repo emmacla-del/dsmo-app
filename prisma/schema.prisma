@@ -132,7 +132,7 @@ model User {
   auditLogs     AuditLog[]
 }
 
-// ============ COMPANY MODEL (REFERENCED BY DECLARATION) ============
+// ============ COMPANY MODEL ============
 model Company {
   id                String              @id @default(uuid())
   userId            String              @unique
@@ -145,6 +145,7 @@ model Company {
   department        String
   district          String
   address           String
+  fax               String?             // ← added
   taxNumber         String              @unique
   cnpsNumber        String?
   socialCapital     Float?
@@ -152,11 +153,10 @@ model Company {
   menCount          Int?
   womenCount        Int?
   lastYearTotal     Int?
-  recruitments      Int?
-  promotions        Int?
-  dismissals        Int?
-  retirements       Int?
-  deaths            Int?
+  lastYearMenCount  Int?                // ← added
+  lastYearWomenCount Int?               // ← added
+  // NOTE: recruitments, promotions, dismissals, retirements, deaths removed —
+  // movement data lives on DeclarationMovement records per declaration.
   declarations      Declaration[]
   notificationRecipients NotificationRecipient[]
   createdAt         DateTime            @default(now())
@@ -308,25 +308,22 @@ model QualitativeQuestion {
   id            String        @id @default(uuid())
   declarationId String
   declaration   Declaration   @relation(fields: [declarationId], references: [id], onDelete: Cascade)
-  
-  // Question metadata
+
   questionType  QuestionType  @default(QUALITATIVE)
   section       QuestionSection @default(GENERAL)
   questionText  String
   answerText    String?
   answerOptions Json?
-  
-  // Original fields
-  hasTrainingCenter Boolean?
-  trainingCenterDetails String?
-  recruitmentPlansNext Boolean?
-  recruitmentPlanCount Int?
-  camerounisationPlan Boolean?
-  usesTempAgencies Boolean?
-  temporaryWorkerCount Int?
-  tempAgencyDetails String?
 
-  // Metadata
+  hasTrainingCenter     Boolean?
+  trainingCenterDetails String?
+  recruitmentPlansNext  Boolean?
+  recruitmentPlanCount  Int?
+  camerounisationPlan   Boolean?
+  usesTempAgencies      Boolean?
+  temporaryWorkerCount  Int?
+  tempAgencyDetails     String?
+
   version       Int           @default(1)
   orderIndex    Int           @default(0)
   createdAt     DateTime      @default(now())
