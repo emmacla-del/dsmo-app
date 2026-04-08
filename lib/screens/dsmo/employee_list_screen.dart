@@ -102,7 +102,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     '9',
     '10',
     '11',
-    '12',
+    '12'
   ];
 
   @override
@@ -327,6 +327,12 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showWarning(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.orange),
     );
   }
 
@@ -628,28 +634,61 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     }
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Validation against Part A ─────────────────────────────────────────────
 
-  Future<void> _submitDeclaration() async {
-    if (_employees.isEmpty) {
-      _showError('Ajoutez au moins un employé');
-      return;
+  Future<bool> _validateAgainstPartA() async {
+    final totalFromPartA = widget.companyData['totalEmployees'] as int? ?? 0;
+    final menFromPartA = widget.companyData['menCount'] as int? ?? 0;
+    final womenFromPartA = widget.companyData['womenCount'] as int? ?? 0;
+
+    final actualMen = _employees.where((e) => e.gender == 'M').length;
+    final actualWomen = _employees.where((e) => e.gender == 'F').length;
+    final actualTotal = _employees.length;
+
+    final mismatches = <String>[];
+
+    if (actualTotal != totalFromPartA) {
+      mismatches.add(
+          '• Total employés: $actualTotal saisi(s) vs $totalFromPartA déclaré(s)');
+    }
+    if (actualMen != menFromPartA) {
+      mismatches
+          .add('• Hommes: $actualMen saisi(s) vs $menFromPartA déclaré(s)');
+    }
+    if (actualWomen != womenFromPartA) {
+      mismatches.add(
+          '• Femmes: $actualWomen saisie(s) vs $womenFromPartA déclarée(s)');
     }
 
-    if (_employees.length != widget.totalEmployees) {
+    if (mismatches.isNotEmpty) {
       final shouldContinue = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title:
-              const Text('Attention', style: TextStyle(color: Colors.orange)),
-          content: Text(
-            'Vous avez ajouté ${_employees.length} employé(s) sur '
-            '${widget.totalEmployees} déclaré(s).\n\nVoulez-vous continuer ?',
+          title: const Text('⚠️ Incohérence des effectifs',
+              style: TextStyle(color: Colors.orange)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Le nombre d\'employés saisi ne correspond pas aux effectifs déclarés :\n',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              ...mismatches.map((m) => Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 4),
+                    child: Text(m, style: const TextStyle(fontSize: 14)),
+                  )),
+              const SizedBox(height: 16),
+              const Text(
+                'Voulez-vous continuer quand même ?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Retour'),
+              child: const Text('Retour', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
@@ -660,8 +699,22 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
           ],
         ),
       );
-      if (shouldContinue != true) return;
+      return shouldContinue == true;
     }
+    return true;
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+
+  Future<void> _submitDeclaration() async {
+    if (_employees.isEmpty) {
+      _showError('Ajoutez au moins un employé');
+      return;
+    }
+
+    // Validate against Part A totals
+    final isValid = await _validateAgainstPartA();
+    if (!isValid) return;
 
     setState(() => _isLoading = true);
     final api = ref.read(apiClientProvider);
@@ -700,6 +753,10 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get counts from Part A for display
+    final totalFromPartA = widget.companyData['totalEmployees'] as int? ?? 0;
+    final actualTotal = _employees.length;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('PARTIE B : LISTE DES EMPLOYÉS'),
@@ -715,23 +772,41 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
       ),
       body: Column(
         children: [
-          // Progress indicator
+          // Progress indicator with comparison to Part A
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.teal.shade50,
+            color: actualTotal == totalFromPartA
+                ? Colors.teal.shade50
+                : Colors.orange.shade50,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.people, color: Colors.teal),
+                Icon(
+                  actualTotal == totalFromPartA
+                      ? Icons.check_circle
+                      : Icons.warning,
+                  color: actualTotal == totalFromPartA
+                      ? Colors.teal
+                      : Colors.orange,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   '${_employees.length} / ${widget.totalEmployees} employés ajoutés',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.teal,
+                    color: actualTotal == totalFromPartA
+                        ? Colors.teal
+                        : Colors.orange,
                   ),
                 ),
+                if (actualTotal != totalFromPartA) ...[
+                  const SizedBox(width: 8),
+                  const Text(
+                    '(Incohérence)',
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                  ),
+                ],
               ],
             ),
           ),

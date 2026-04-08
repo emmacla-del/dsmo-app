@@ -156,34 +156,44 @@ async function seed() {
             },
         ];
 
+        // Step 1: upsert all regions (10 queries)
+        const regionMap = new Map<string, string>(); // name → id
         for (const regionData of regionsData) {
             const region = await prisma.region.upsert({
                 where: { name: regionData.name },
                 update: {},
                 create: { name: regionData.name },
             });
+            regionMap.set(regionData.name, region.id);
+        }
 
+        // Step 2: upsert all departments (~50 queries)
+        type DeptMeta = { id: string; subdivisions: string[] };
+        const deptMap = new Map<string, DeptMeta>(); // "regionId|deptName" → meta
+        for (const regionData of regionsData) {
+            const regionId = regionMap.get(regionData.name)!;
             for (const deptData of regionData.departments) {
                 const department = await prisma.department.upsert({
-                    where: { name: deptData.name },
+                    where: { regionId_name: { regionId, name: deptData.name } },
                     update: {},
-                    create: {
-                        name: deptData.name,
-                        regionId: region.id,
-                    },
+                    create: { name: deptData.name, regionId },
                 });
-
-                for (const subName of deptData.subdivisions) {
-                    await prisma.subdivision.upsert({
-                        where: { name: subName },
-                        update: {},
-                        create: {
-                            name: subName,
-                            departmentId: department.id,
-                        },
-                    });
-                }
+                deptMap.set(`${regionId}|${deptData.name}`, {
+                    id: department.id,
+                    subdivisions: deptData.subdivisions,
+                });
             }
+        }
+
+        // Step 3: batch-create subdivisions per department (one query each, skipDuplicates)
+        for (const meta of deptMap.values()) {
+            await prisma.subdivision.createMany({
+                data: meta.subdivisions.map(name => ({
+                    name,
+                    departmentId: meta.id,
+                })),
+                skipDuplicates: true,
+            });
         }
         console.log('   ✅ All regions, departments, and subdivisions created');
 
@@ -297,7 +307,7 @@ async function seed() {
                     companyId: company.id,
                     region: company.region,
                     division: company.department,
-                    status: ['DRAFT', 'SUBMITTED', 'DIVISION_APPROVED', 'REGION_APPROVED', 'FINAL_APPROVED'][Math.floor(Math.random() * 5)],
+                    status: (['DRAFT', 'SUBMITTED', 'DIVISION_APPROVED', 'REGION_APPROVED', 'FINAL_APPROVED'] as const)[Math.floor(Math.random() * 5)],
                     submittedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
                 },
             });

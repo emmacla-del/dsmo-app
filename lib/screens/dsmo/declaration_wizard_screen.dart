@@ -723,7 +723,7 @@ class _DeclarationWizardScreenState
           border: const OutlineInputBorder(),
           enabled: isEnabled,
         ),
-        value: selectedId,
+        initialValue: selectedId,
         hint: isLoading
             ? const Text('Chargement...', style: TextStyle(color: Colors.grey))
             : (hint != null

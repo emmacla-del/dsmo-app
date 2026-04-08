@@ -1,4 +1,6 @@
-﻿import { Controller, Post, Body, UseGuards, Req, Get, Patch, Param, Query } from '@nestjs/common';
+﻿import { Controller, Post, Body, UseGuards, Req, Get, Patch, Param, Query, Res, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
+import * as fs from 'fs';
 import { DsmoService } from './dsmo.service';
 import { NotificationService } from './notification.service';
 import { AnalyticsService } from './analytics.service';
@@ -184,6 +186,22 @@ export class DsmoController {
     @Query('limit') limit: number = 20,
   ) {
     return this.analyticsService.getCompaniesWithRecruitmentPlans(year, limit);
+  }
+
+  @Get('declarations/:id/pdf/:copy')
+  async downloadPdf(
+    @Param('id') id: string,
+    @Param('copy') copy: string,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const filePath = await this.dsmoService.getPdfPath(id, req.user.id, parseInt(copy, 10));
+    const filename = filePath.split(/[\\/]/).pop();
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(fs.createReadStream(filePath));
   }
 
   @Get('analytics/dashboard-summary')
