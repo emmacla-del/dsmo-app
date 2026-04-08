@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/api_client.dart';
-import 'employee_list_screen.dart'; // ✅ import at top
+import 'employee_list_screen.dart';
 
 class CompanyRegistrationScreen extends ConsumerStatefulWidget {
   const CompanyRegistrationScreen({super.key});
@@ -48,6 +48,29 @@ class _CompanyRegistrationScreenState
   };
 
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _parentCompanyController.dispose();
+    _mainActivityController.dispose();
+    _secondaryActivityController.dispose();
+    _regionController.dispose();
+    _deptController.dispose();
+    _districtController.dispose();
+    _addressController.dispose();
+    _taxNumberController.dispose();
+    _cnpsController.dispose();
+    _capitalController.dispose();
+    _totalEmp.dispose();
+    _menCount.dispose();
+    _womenCount.dispose();
+    _lastYearTotal.dispose();
+    for (final ctrl in _movements.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
 
   String? _validateGenderSum(String? value) {
     final total = int.tryParse(_totalEmp.text) ?? 0;
@@ -114,6 +137,8 @@ class _CompanyRegistrationScreenState
               builder: (_) => EmployeeListScreen(
                 companyData: response.data['company'] ?? data['company'],
                 year: DateTime.now().year,
+                // ✅ FIX: pass totalEmployees from the form
+                totalEmployees: int.tryParse(_totalEmp.text) ?? 0,
               ),
             ),
           );
@@ -200,7 +225,8 @@ class _CompanyRegistrationScreenState
               ),
               child: _isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('SOUMETTRE LA DÉCLARATION'),
+                  : const Text('SOUMETTRE LA DÉCLARATION',
+                      style: TextStyle(color: Colors.white)),
             ),
             const Text(
               '\nConformément à la loi No 91/023 du 16 déc 1991.',

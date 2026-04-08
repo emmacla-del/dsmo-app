@@ -5,10 +5,12 @@ import '../../../theme/app_colors.dart';
 
 class DeclarationApprovalScreen extends ConsumerStatefulWidget {
   final String declarationId;
+  final bool isReadOnly;
 
   const DeclarationApprovalScreen({
     super.key,
     required this.declarationId,
+    this.isReadOnly = false,
   });
 
   @override
@@ -228,6 +230,9 @@ class _DeclarationApprovalScreenState
                         const Text('Pas de données de validation disponibles'),
                       const SizedBox(height: 24),
 
+                      // Approval / rejection actions — hidden for company users
+                      if (!widget.isReadOnly) ...[
+
                       // Approval section
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -320,6 +325,8 @@ class _DeclarationApprovalScreenState
                           ],
                         ),
                       ),
+
+                      ], // end if (!widget.isReadOnly)
                     ],
                   ),
                 ),

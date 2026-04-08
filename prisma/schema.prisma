@@ -65,6 +65,56 @@ enum QuestionSection {
   FUTURE_PLANS
 }
 
+// ============ LOCATION AND SECTOR MODELS ============
+model Region {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  code        String?      @unique
+  departments Department[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("regions")
+}
+
+model Department {
+  id           String         @id @default(uuid())
+  name         String
+  code         String?        @unique
+  regionId     String
+  region       Region         @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  subdivisions Subdivision[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([regionId, name])
+  @@map("departments")
+}
+
+model Subdivision {
+  id           String       @id @default(uuid())
+  name         String
+  code         String?      @unique
+  departmentId String
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([departmentId, name])
+  @@map("subdivisions")
+}
+
+model Sector {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  category  String?  // Primary, Secondary, Tertiary, Public
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sectors")
+}
+
 // ============ MODELS THAT DON'T RELATE TO OTHERS ============
 model User {
   id            String        @id @default(uuid())
@@ -102,6 +152,11 @@ model Company {
   menCount          Int?
   womenCount        Int?
   lastYearTotal     Int?
+  recruitments      Int?
+  promotions        Int?
+  dismissals        Int?
+  retirements       Int?
+  deaths            Int?
   declarations      Declaration[]
   notificationRecipients NotificationRecipient[]
   createdAt         DateTime            @default(now())
@@ -226,6 +281,7 @@ model AnalyticsSnapshot {
 model Declaration {
   id                  String              @id @default(uuid())
   year                Int
+  fillingDate         DateTime?
   companyId           String
   company             Company             @relation(fields: [companyId], references: [id])
   region              String
@@ -268,7 +324,8 @@ model QualitativeQuestion {
   camerounisationPlan Boolean?
   usesTempAgencies Boolean?
   temporaryWorkerCount Int?
-  
+  tempAgencyDetails String?
+
   // Metadata
   version       Int           @default(1)
   orderIndex    Int           @default(0)

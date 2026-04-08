@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'employee_list_screen.dart';
+import '../../../data/api_client.dart';
 
 class DeclarationWizardScreen extends ConsumerStatefulWidget {
   const DeclarationWizardScreen({super.key});
@@ -13,22 +14,47 @@ class DeclarationWizardScreen extends ConsumerStatefulWidget {
 class _DeclarationWizardScreenState
     extends ConsumerState<DeclarationWizardScreen> {
   int _currentStep = 0;
-  final _formKey = GlobalKey<FormState>();
 
-  // Step 1: Company Identity
+  // ── Loading states for cascading dropdowns ───────────────────────────────
+  bool _isLoadingRegions = true;
+  bool _isLoadingDepartments = false;
+  bool _isLoadingSubdivisions = false;
+  bool _isLoadingSectors = true;
+
+  // ── One form key per step ────────────────────────────────────────────────
+  final _step1FormKey = GlobalKey<FormState>();
+  final _step2FormKey = GlobalKey<FormState>();
+
+  // ── Step 1: declaration metadata ─────────────────────────────────────────
+  int _budgetYear = DateTime.now().year;
+  DateTime _fillingDate = DateTime.now();
+
+  // ── Step 1: free-text fields ─────────────────────────────────────────────
   final _nameController = TextEditingController();
   final _parentCompanyController = TextEditingController();
-  final _mainActivityController = TextEditingController();
   final _secondaryActivityController = TextEditingController();
-  final _regionController = TextEditingController();
-  final _deptController = TextEditingController();
-  final _districtController = TextEditingController();
   final _addressController = TextEditingController();
   final _taxNumberController = TextEditingController();
   final _cnpsController = TextEditingController();
   final _capitalController = TextEditingController();
 
-  // Step 2: Workforce & Movements
+  // ── Cascading dropdown data from backend ─────────────────────────────────
+  List<dynamic> _regions = [];
+  List<dynamic> _departments = [];
+  List<dynamic> _subdivisions = [];
+  List<dynamic> _sectors = [];
+
+  // ── Selected values ──────────────────────────────────────────────────────
+  String? _selectedRegionId;
+  String? _selectedRegionName;
+  String? _selectedDepartmentId;
+  String? _selectedDepartmentName;
+  String? _selectedSubdivisionId;
+  String? _selectedSubdivisionName;
+  String? _selectedSectorId;
+  String? _selectedSectorName;
+
+  // ── Step 2: workforce & movements ────────────────────────────────────────
   final _totalEmp = TextEditingController();
   final _menCount = TextEditingController();
   final _womenCount = TextEditingController();
@@ -39,6 +65,10 @@ class _DeclarationWizardScreenState
     'rec_4_6': TextEditingController(text: '0'),
     'rec_7_9': TextEditingController(text: '0'),
     'rec_10_12': TextEditingController(text: '0'),
+    'pro_1_3': TextEditingController(text: '0'),
+    'pro_4_6': TextEditingController(text: '0'),
+    'pro_7_9': TextEditingController(text: '0'),
+    'pro_10_12': TextEditingController(text: '0'),
     'lic_1_3': TextEditingController(text: '0'),
     'lic_4_6': TextEditingController(text: '0'),
     'lic_7_9': TextEditingController(text: '0'),
@@ -47,183 +77,683 @@ class _DeclarationWizardScreenState
     'ret_4_6': TextEditingController(text: '0'),
     'ret_7_9': TextEditingController(text: '0'),
     'ret_10_12': TextEditingController(text: '0'),
+    'dec_1_3': TextEditingController(text: '0'),
+    'dec_4_6': TextEditingController(text: '0'),
+    'dec_7_9': TextEditingController(text: '0'),
+    'dec_10_12': TextEditingController(text: '0'),
   };
 
-  // Step 3: Employee list (will be stored after navigation)
+  // ── Step 3: qualitative questions ────────────────────────────────────────
+  bool _hasTrainingCenter = false;
+  bool _recruitmentPlansNext = false;
+  bool _camerounisationPlan = false;
+  bool _usesTempAgencies = false;
+  final _tempAgencyDetailsCtrl = TextEditingController();
+
   Map<String, dynamic>? _companyData;
 
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _fetchRegions();
+    _fetchSectors();
+  }
+
+  // ── API Methods for Cascading Dropdowns ───────────────────────────────────
+
+  /// Fetch all regions from backend
+  Future<void> _fetchRegions() async {
+    setState(() => _isLoadingRegions = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.get('/locations/regions');
+
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          _regions = response.data is List ? response.data : [];
+          _isLoadingRegions = false;
+        });
+      } else {
+        throw Exception('Failed to load regions');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRegions = false);
+        _showError('Erreur chargement régions: $e');
+      }
+    }
+  }
+
+  /// Fetch departments for selected region
+  Future<void> _fetchDepartments(String regionId) async {
+    setState(() {
+      _isLoadingDepartments = true;
+      _departments = [];
+      _selectedDepartmentId = null;
+      _selectedDepartmentName = null;
+      _subdivisions = [];
+      _selectedSubdivisionId = null;
+      _selectedSubdivisionName = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final response =
+          await api.get('/locations/regions/$regionId/departments');
+
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          _departments = response.data is List ? response.data : [];
+          _isLoadingDepartments = false;
+        });
+      } else {
+        throw Exception('Failed to load departments');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingDepartments = false);
+        _showError('Erreur chargement départements: $e');
+      }
+    }
+  }
+
+  /// Fetch subdivisions (arrondissements) for selected department
+  Future<void> _fetchSubdivisions(String departmentId) async {
+    setState(() {
+      _isLoadingSubdivisions = true;
+      _subdivisions = [];
+      _selectedSubdivisionId = null;
+      _selectedSubdivisionName = null;
+    });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final response =
+          await api.get('/locations/departments/$departmentId/subdivisions');
+
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          _subdivisions = response.data is List ? response.data : [];
+          _isLoadingSubdivisions = false;
+        });
+      } else {
+        throw Exception('Failed to load subdivisions');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSubdivisions = false);
+        _showError('Erreur chargement arrondissements: $e');
+      }
+    }
+  }
+
+  /// Fetch socioprofessional sectors from backend
+  Future<void> _fetchSectors() async {
+    setState(() => _isLoadingSectors = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.get('/sectors');
+
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          _sectors = response.data is List ? response.data : [];
+          _isLoadingSectors = false;
+        });
+      } else {
+        throw Exception('Failed to load sectors');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSectors = false);
+        _showError('Erreur chargement secteurs: $e');
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  // ── Validation ────────────────────────────────────────────────────────────
   String? _validateGenderSum(String? value) {
     final total = int.tryParse(_totalEmp.text) ?? 0;
     final men = int.tryParse(_menCount.text) ?? 0;
     final women = int.tryParse(_womenCount.text) ?? 0;
-    if (total != (men + women)) return 'Total ≠ M + F';
+    if (total > 0 && total != (men + women)) return 'Total ≠ H + F';
     return null;
   }
 
+  // ── Step navigation ───────────────────────────────────────────────────────
   void _saveStep1() {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_step1FormKey.currentState!.validate()) return;
+
     setState(() {
       _companyData = {
-        'name': _nameController.text,
-        'parentCompany': _parentCompanyController.text.isNotEmpty
-            ? _parentCompanyController.text
+        'name': _nameController.text.trim(),
+        'parentCompany': _parentCompanyController.text.trim().isNotEmpty
+            ? _parentCompanyController.text.trim()
             : null,
-        'mainActivity': _mainActivityController.text,
-        'secondaryActivity': _secondaryActivityController.text.isNotEmpty
-            ? _secondaryActivityController.text
+        'mainActivityId': _selectedSectorId,
+        'mainActivityName': _selectedSectorName,
+        'secondaryActivity': _secondaryActivityController.text.trim().isNotEmpty
+            ? _secondaryActivityController.text.trim()
             : null,
-        'region': _regionController.text,
-        'department': _deptController.text,
-        'district': _districtController.text,
-        'address': _addressController.text,
-        'taxNumber': _taxNumberController.text,
-        'cnpsNumber':
-            _cnpsController.text.isNotEmpty ? _cnpsController.text : null,
-        'socialCapital': _capitalController.text.isNotEmpty
-            ? int.parse(_capitalController.text)
+        'regionId': _selectedRegionId,
+        'regionName': _selectedRegionName,
+        'departmentId': _selectedDepartmentId,
+        'departmentName': _selectedDepartmentName,
+        'subdivisionId': _selectedSubdivisionId,
+        'subdivisionName': _selectedSubdivisionName,
+        'address': _addressController.text.trim(),
+        'taxNumber': _taxNumberController.text.trim(),
+        'cnpsNumber': _cnpsController.text.trim().isNotEmpty
+            ? _cnpsController.text.trim()
+            : null,
+        'socialCapital': _capitalController.text.trim().isNotEmpty
+            ? int.tryParse(_capitalController.text.trim())
             : null,
       };
       _currentStep = 1;
     });
   }
 
-  Future<void> _saveStep2AndGoToEmployees() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _saveStep2() {
+    if (!_step2FormKey.currentState!.validate()) return;
+    setState(() => _currentStep = 2);
+  }
+
+  void _saveStep3AndGoToEmployees() {
     final companyData = {
       ...?_companyData,
       'totalEmployees': int.parse(_totalEmp.text),
-      'menCount': int.parse(_menCount.text),
-      'womenCount': int.parse(_womenCount.text),
+      'menCount': _menCount.text.isNotEmpty ? int.parse(_menCount.text) : null,
+      'womenCount':
+          _womenCount.text.isNotEmpty ? int.parse(_womenCount.text) : null,
       'lastYearTotal': _lastYearTotal.text.isNotEmpty
           ? int.parse(_lastYearTotal.text)
           : null,
-      'recruitments': int.parse(_movements['rec_1_3']!.text) +
-          int.parse(_movements['rec_4_6']!.text) +
-          int.parse(_movements['rec_7_9']!.text) +
-          int.parse(_movements['rec_10_12']!.text),
-      'promotions': int.parse(_movements['lic_1_3']!.text) +
-          int.parse(_movements['lic_4_6']!.text) +
-          int.parse(_movements['lic_7_9']!.text) +
-          int.parse(_movements['lic_10_12']!.text),
-      'dismissals': int.parse(_movements['ret_1_3']!.text) +
-          int.parse(_movements['ret_4_6']!.text) +
-          int.parse(_movements['ret_7_9']!.text) +
-          int.parse(_movements['ret_10_12']!.text),
+      'recruitments': _sumMovement('rec'),
+      'promotions': _sumMovement('pro'),
+      'dismissals': _sumMovement('lic'),
+      'retirements': _sumMovement('ret'),
+      'deaths': _sumMovement('dec'),
     };
+
+    final movements = [
+      _buildMovementPayload('RECRUITMENT', 'rec'),
+      _buildMovementPayload('PROMOTION', 'pro'),
+      _buildMovementPayload('DISMISSAL', 'lic'),
+      _buildMovementPayload('RETIREMENT', 'ret'),
+      _buildMovementPayload('DEATH', 'dec'),
+    ];
+
+    final qualitative = {
+      'hasTrainingCenter': _hasTrainingCenter,
+      'recruitmentPlansNext': _recruitmentPlansNext,
+      'camerounisationPlan': _camerounisationPlan,
+      'usesTempAgencies': _usesTempAgencies,
+      'tempAgencyDetails':
+          _usesTempAgencies ? _tempAgencyDetailsCtrl.text.trim() : null,
+    };
+
+    final totalEmployeesValue = int.tryParse(_totalEmp.text) ?? 0;
+
     if (mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => EmployeeListScreen(
             companyData: companyData,
-            year: DateTime.now().year,
+            year: _budgetYear,
+            fillingDate: _fillingDate.toIso8601String(),
+            movements: movements,
+            qualitative: qualitative,
+            totalEmployees: totalEmployeesValue,
           ),
         ),
       );
     }
   }
 
+  int _sumMovement(String prefix) => ['1_3', '4_6', '7_9', '10_12'].fold(
+      0,
+      (sum, cat) =>
+          sum + (int.tryParse(_movements['${prefix}_$cat']!.text) ?? 0));
+
+  Map<String, dynamic> _buildMovementPayload(String type, String prefix) => {
+        'movementType': type,
+        'cat1_3': int.tryParse(_movements['${prefix}_1_3']!.text) ?? 0,
+        'cat4_6': int.tryParse(_movements['${prefix}_4_6']!.text) ?? 0,
+        'cat7_9': int.tryParse(_movements['${prefix}_7_9']!.text) ?? 0,
+        'cat10_12': int.tryParse(_movements['${prefix}_10_12']!.text) ?? 0,
+      };
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          title: const Text('Déclaration DSMO'), backgroundColor: Colors.teal),
-      body: Form(
-        key: _formKey,
-        child: Stepper(
-          currentStep: _currentStep,
-          onStepContinue:
-              _currentStep == 0 ? _saveStep1 : _saveStep2AndGoToEmployees,
-          onStepCancel:
-              _currentStep == 0 ? null : () => setState(() => _currentStep = 0),
-          steps: [
-            Step(
-              title: const Text('1. Identité de l\'établissement'),
-              content: _buildIdentityStep(),
-              isActive: true,
-              state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+        title: const Text('Déclaration DSMO'),
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+      ),
+      body: Stepper(
+        currentStep: _currentStep,
+        onStepContinue: _currentStep == 0
+            ? _saveStep1
+            : _currentStep == 1
+                ? _saveStep2
+                : _saveStep3AndGoToEmployees,
+        onStepCancel:
+            _currentStep == 0 ? null : () => setState(() => _currentStep -= 1),
+        steps: [
+          Step(
+            title: const Text("1. Identité de l'établissement"),
+            content: Form(
+              key: _step1FormKey,
+              child: SingleChildScrollView(
+                child: _buildIdentityStep(),
+              ),
             ),
-            Step(
-              title: const Text('2. Effectifs et mouvements'),
-              content: _buildWorkforceStep(),
-              isActive: _currentStep >= 1,
-              state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+            isActive: true,
+            state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+          ),
+          Step(
+            title: const Text('2. Effectifs et mouvements'),
+            content: Form(
+              key: _step2FormKey,
+              child: _buildWorkforceStep(),
             ),
-          ],
-        ),
+            isActive: _currentStep >= 1,
+            state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+          ),
+          Step(
+            title: const Text('3. Informations supplémentaires'),
+            content: _buildQualitativeStep(),
+            isActive: _currentStep >= 2,
+            state: StepState.indexed,
+          ),
+        ],
       ),
     );
   }
 
+  // ── Step 1 UI ─────────────────────────────────────────────────────────────
   Widget _buildIdentityStep() {
+    final currentYear = DateTime.now().year;
+    final years = List.generate(6, (i) => currentYear - 4 + i);
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildField(_nameController, 'Raison Sociale *', isRequired: true),
-        _buildField(_taxNumberController, 'N° Contribuable (NIU) *',
+        // ── Année budgétaire ──────────────────────────────────────────────
+        _buildDropdown<int>(
+          label: 'Année budgétaire *',
+          value: _budgetYear,
+          items: years,
+          onChanged: (v) => setState(() => _budgetYear = v ?? currentYear),
+          displayName: (v) => v.toString(),
+        ),
+
+        // ── Date de remplissage ───────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _fillingDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) setState(() => _fillingDate = picked);
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Date de remplissage',
+                border: OutlineInputBorder(),
+                suffixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(
+                '${_fillingDate.day.toString().padLeft(2, '0')}/'
+                '${_fillingDate.month.toString().padLeft(2, '0')}/'
+                '${_fillingDate.year}',
+              ),
+            ),
+          ),
+        ),
+
+        const Divider(height: 8),
+        const SizedBox(height: 8),
+
+        // Raison sociale
+        _buildTextField(_nameController, 'Raison sociale *', isRequired: true),
+        // NIU
+        _buildTextField(_taxNumberController, 'N° Contribuable (NIU) *',
             isRequired: true),
-        Row(children: [
-          Expanded(
-              child:
-                  _buildField(_regionController, 'Région *', isRequired: true)),
-          const SizedBox(width: 10),
-          Expanded(child: _buildField(_cnpsController, 'N° CNPS')),
-        ]),
-        _buildField(_parentCompanyController,
-            'Raison sociale de l\'entreprise dont dépend l\'établissement'),
-        _buildField(_mainActivityController, 'Activité principale *',
+        // N° CNPS
+        _buildTextField(_cnpsController, 'N° CNPS'),
+        // Maison mère
+        _buildTextField(
+          _parentCompanyController,
+          "Raison sociale de l'entreprise dont dépend l'établissement",
+        ),
+
+        // ── Secteur socioprofessionnel (from API) ──────────────────────────
+        _buildCascadingDropdown(
+          label: 'Secteur socioprofessionnel *',
+          items: _sectors,
+          isLoading: _isLoadingSectors,
+          selectedId: _selectedSectorId,
+          displayName: (item) =>
+              item['name'] ?? item['label'] ?? item.toString(),
+          onChanged: (id, name) {
+            setState(() {
+              _selectedSectorId = id;
+              _selectedSectorName = name;
+            });
+          },
+        ),
+
+        // Activité secondaire
+        _buildTextField(_secondaryActivityController, 'Activité secondaire'),
+
+        const Divider(height: 24),
+        const Text('Localisation',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 8),
+
+        // ── Région (from API) ─────────────────────────────────────────────
+        _buildCascadingDropdown(
+          label: 'Région *',
+          items: _regions,
+          isLoading: _isLoadingRegions,
+          selectedId: _selectedRegionId,
+          displayName: (item) =>
+              item['name'] ?? item['label'] ?? item.toString(),
+          onChanged: (id, name) {
+            setState(() {
+              _selectedRegionId = id;
+              _selectedRegionName = name;
+              _selectedDepartmentId = null;
+              _selectedDepartmentName = null;
+              _selectedSubdivisionId = null;
+              _selectedSubdivisionName = null;
+              _departments = [];
+              _subdivisions = [];
+            });
+            if (id != null) {
+              _fetchDepartments(id);
+            }
+          },
+        ),
+
+        // ── Département (from API) ────────────────────────────────────────
+        _buildCascadingDropdown(
+          label: 'Département *',
+          items: _departments,
+          isLoading: _isLoadingDepartments,
+          selectedId: _selectedDepartmentId,
+          displayName: (item) =>
+              item['name'] ?? item['label'] ?? item.toString(),
+          enabled: _selectedRegionId != null,
+          hint: _selectedRegionId == null
+              ? 'Choisissez d\'abord une région'
+              : null,
+          onChanged: (id, name) {
+            setState(() {
+              _selectedDepartmentId = id;
+              _selectedDepartmentName = name;
+              _selectedSubdivisionId = null;
+              _selectedSubdivisionName = null;
+              _subdivisions = [];
+            });
+            if (id != null) {
+              _fetchSubdivisions(id);
+            }
+          },
+        ),
+
+        // ── Arrondissement (from API) ─────────────────────────────────────
+        _buildCascadingDropdown(
+          label: 'Arrondissement *',
+          items: _subdivisions,
+          isLoading: _isLoadingSubdivisions,
+          selectedId: _selectedSubdivisionId,
+          displayName: (item) =>
+              item['name'] ?? item['label'] ?? item.toString(),
+          enabled: _selectedDepartmentId != null,
+          hint: _selectedDepartmentId == null
+              ? 'Choisissez d\'abord un département'
+              : null,
+          onChanged: (id, name) {
+            setState(() {
+              _selectedSubdivisionId = id;
+              _selectedSubdivisionName = name;
+            });
+          },
+        ),
+
+        // Adresse complète
+        _buildTextField(_addressController, 'Adresse complète *',
             isRequired: true),
-        _buildField(_secondaryActivityController, 'Activité secondaire'),
-        _buildField(_deptController, 'Département *', isRequired: true),
-        _buildField(_districtController, 'Arrondissement *', isRequired: true),
-        _buildField(_addressController, 'Adresse *', isRequired: true),
-        _buildField(_capitalController, 'Capital social (XAF)', isNumber: true),
+
+        // Capital social
+        _buildTextField(_capitalController, 'Capital social (XAF)',
+            isNumber: true),
       ],
     );
   }
 
+  // ── Step 2 UI ─────────────────────────────────────────────────────────────
   Widget _buildWorkforceStep() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Effectifs au 31 décembre',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Effectifs au 31 décembre',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(
-              child: _buildField(_totalEmp, 'Total Employés *',
+              child: _buildTextField(_totalEmp, 'Total *',
                   isNumber: true, isRequired: true)),
           const SizedBox(width: 10),
           Expanded(
-              child: _buildField(_menCount, 'Hommes *',
+              child: _buildTextField(_menCount, 'Hommes *',
                   isNumber: true, validator: _validateGenderSum)),
           const SizedBox(width: 10),
           Expanded(
-              child: _buildField(_womenCount, 'Femmes *',
+              child: _buildTextField(_womenCount, 'Femmes *',
                   isNumber: true, validator: _validateGenderSum)),
         ]),
-        _buildField(_lastYearTotal, 'Total employés (année dernière)',
-            isNumber: true),
+        _buildTextField(
+          _lastYearTotal,
+          'Total employés (année précédente)',
+          isNumber: true,
+        ),
         const SizedBox(height: 20),
-        const Text('Mouvements par catégories',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Mouvements par catégories de salaire',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
         _buildMovementTable(),
       ],
     );
   }
 
-  Widget _buildField(TextEditingController ctrl, String label,
-      {bool isNumber = false,
-      bool isRequired = false,
-      String? Function(String?)? validator}) {
+  // ── Step 3 UI ─────────────────────────────────────────────────────────────
+  Widget _buildQualitativeStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Informations supplémentaires',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'Votre établissement dispose-t-il d\'un centre de formation ?',
+            style: TextStyle(fontSize: 14),
+          ),
+          value: _hasTrainingCenter,
+          onChanged: (v) => setState(() => _hasTrainingCenter = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'Votre établissement prévoit-il des recrutements l\'année prochaine ?',
+            style: TextStyle(fontSize: 14),
+          ),
+          value: _recruitmentPlansNext,
+          onChanged: (v) => setState(() => _recruitmentPlansNext = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'Votre établissement dispose-t-il d\'un plan de camerounisation ?',
+            style: TextStyle(fontSize: 14),
+          ),
+          value: _camerounisationPlan,
+          onChanged: (v) => setState(() => _camerounisationPlan = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'Votre établissement a-t-il recours aux entreprises de travail temporaire ?',
+            style: TextStyle(fontSize: 14),
+          ),
+          value: _usesTempAgencies,
+          onChanged: (v) => setState(() => _usesTempAgencies = v),
+        ),
+        if (_usesTempAgencies) ...[
+          const SizedBox(height: 4),
+          _buildTextField(
+            _tempAgencyDetailsCtrl,
+            'Précisez (nom(s) de(s) entreprise(s) de travail temporaire)',
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Reusable Form Widgets ─────────────────────────────────────────────────
+
+  Widget _buildTextField(
+    TextEditingController ctrl,
+    String label, {
+    bool isNumber = false,
+    bool isRequired = false,
+    String? Function(String?)? validator,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         decoration: InputDecoration(
-            labelText: label, border: const OutlineInputBorder()),
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
         validator: validator ??
-            (value) => (isRequired && (value == null || value.isEmpty))
+            (v) => (isRequired && (v == null || v.trim().isEmpty))
                 ? 'Champ requis'
                 : null,
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required void Function(T?) onChanged,
+    required String Function(T) displayName,
+    bool enabled = true,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<T>(
+        initialValue: value,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          enabled: enabled,
+        ),
+        isExpanded: true,
+        items: enabled
+            ? items
+                .map((e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(displayName(e)),
+                    ))
+                .toList()
+            : [],
+        onChanged: enabled ? onChanged : null,
+        validator: (v) => v == null ? 'Champ requis' : null,
+      ),
+    );
+  }
+
+  Widget _buildCascadingDropdown({
+    required String label,
+    required List<dynamic> items,
+    required bool isLoading,
+    required String? selectedId,
+    required String Function(dynamic) displayName,
+    required void Function(String? id, String? name) onChanged,
+    bool enabled = true,
+    String? hint,
+  }) {
+    final isEnabled = enabled && !isLoading;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          enabled: isEnabled,
+        ),
+        value: selectedId,
+        hint: isLoading
+            ? const Text('Chargement...', style: TextStyle(color: Colors.grey))
+            : (hint != null
+                ? Text(hint, style: const TextStyle(color: Colors.grey))
+                : const Text('Sélectionner',
+                    style: TextStyle(color: Colors.grey))),
+        items: isLoading
+            ? null
+            : items.map((item) {
+                final id = item['id']?.toString() ?? item['code']?.toString();
+                final name = displayName(item);
+                return DropdownMenuItem<String>(
+                  value: id,
+                  child: Text(name),
+                );
+              }).toList(),
+        onChanged: isEnabled
+            ? (id) {
+                final selectedItem = items.firstWhere(
+                  (item) =>
+                      (item['id']?.toString() ?? item['code']?.toString()) ==
+                      id,
+                  orElse: () => null,
+                );
+                final name =
+                    selectedItem != null ? displayName(selectedItem) : null;
+                onChanged(id, name);
+              }
+            : null,
+        validator: (v) => v == null ? 'Champ requis' : null,
       ),
     );
   }
@@ -234,30 +764,54 @@ class _DeclarationWizardScreenState
       columnWidths: const {0: FlexColumnWidth(2)},
       children: [
         const TableRow(children: [
-          _Cell('Action', isHeader: true),
-          _Cell('1-3', isHeader: true),
-          _Cell('4-6', isHeader: true),
-          _Cell('7-9', isHeader: true),
-          _Cell('10-12', isHeader: true),
+          _Cell('Mouvement', isHeader: true),
+          _Cell('Cat. 1–3', isHeader: true),
+          _Cell('Cat. 4–6', isHeader: true),
+          _Cell('Cat. 7–9', isHeader: true),
+          _Cell('Cat. 10–12', isHeader: true),
         ]),
         _buildMovementRow('Recrutement', 'rec'),
+        _buildMovementRow('Avancement', 'pro'),
         _buildMovementRow('Licenciement', 'lic'),
         _buildMovementRow('Retraite', 'ret'),
+        _buildMovementRow('Décès', 'dec'),
       ],
     );
   }
 
-  TableRow _buildMovementRow(String label, String keyPrefix) {
+  TableRow _buildMovementRow(String label, String prefix) {
     return TableRow(children: [
       _Cell(label),
-      _EditableCell(_movements['${keyPrefix}_1_3']!),
-      _EditableCell(_movements['${keyPrefix}_4_6']!),
-      _EditableCell(_movements['${keyPrefix}_7_9']!),
-      _EditableCell(_movements['${keyPrefix}_10_12']!),
+      _EditableCell(_movements['${prefix}_1_3']!),
+      _EditableCell(_movements['${prefix}_4_6']!),
+      _EditableCell(_movements['${prefix}_7_9']!),
+      _EditableCell(_movements['${prefix}_10_12']!),
     ]);
+  }
+
+  // ── Lifecycle Cleanup ─────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _parentCompanyController.dispose();
+    _secondaryActivityController.dispose();
+    _addressController.dispose();
+    _taxNumberController.dispose();
+    _cnpsController.dispose();
+    _capitalController.dispose();
+    _totalEmp.dispose();
+    _menCount.dispose();
+    _womenCount.dispose();
+    _lastYearTotal.dispose();
+    _tempAgencyDetailsCtrl.dispose();
+    for (final c in _movements.values) {
+      c.dispose();
+    }
+    super.dispose();
   }
 }
 
+// ── Helper Widgets ──────────────────────────────────────────────────────────
 class _Cell extends StatelessWidget {
   final String text;
   final bool isHeader;
@@ -266,11 +820,15 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Text(text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontWeight: isHeader ? FontWeight.bold : FontWeight.normal)),
+      padding: const EdgeInsets.all(6),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+          fontSize: isHeader ? 12 : 13,
+        ),
+      ),
     );
   }
 }
@@ -284,11 +842,14 @@ class _EditableCell extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(2),
       child: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          decoration:
-              const InputDecoration(isDense: true, border: InputBorder.none)),
+        controller: ctrl,
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+        ),
+      ),
     );
   }
 }

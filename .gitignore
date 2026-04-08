@@ -48,3 +48,13 @@ app.*.map.json
 .env.local
 node_modules/
 dist/
+# Environment variables
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+
+# Credentials
+**/secrets/
+**/credentials/

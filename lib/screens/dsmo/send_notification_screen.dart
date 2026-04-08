@@ -21,36 +21,52 @@ class _SendNotificationScreenState
   String? _selectedDepartment;
   String? _selectedStatus;
   bool _isLoading = false;
-  int? _estimatedRecipientCount;
 
   final List<String> _regions = [
-    'Région 1',
-    'Région 2',
-    'Région 3',
-    'Région 4',
-    'Région 5',
-    'Région 6',
-    'Région 7',
-    'Région 8',
-    'Région 9',
-    'Région 10'
+    'Adamaoua',
+    'Centre',
+    'Est',
+    'Extrême-Nord',
+    'Littoral',
+    'Nord',
+    'Nord-Ouest',
+    'Ouest',
+    'Sud',
+    'Sud-Ouest',
   ];
   final List<String> _departments = [
-    'Division 1',
-    'Division 2',
-    'Division 3',
-    'Division 4'
+    'Adamaoua',
+    'Bamboutos',
+    'Centre',
+    'Djerem',
+    'Est',
+    'Extrême-Nord',
+    'Fako',
+    'Haut-Nkam',
+    'Haute-Sanaga',
+    'Lékié',
+    'Littoral',
+    'Mbam-et-Inoubou',
+    'Mbam-et-Kim',
+    'Mfoundi',
+    'Mungo',
+    'Nord',
+    'Nord-Ouest',
+    'Nyong-et-Kellé',
+    'Nyong-et-Mfoumou',
+    'Nyong-et-So\'o',
+    'Ouest',
+    'Sud',
+    'Sud-Ouest',
+    'Vina',
+    'Wouri',
   ];
   final List<String> _statuses = [
     'SUBMITTED',
     'DIVISION_APPROVED',
-    'REGION_APPROVED'
+    'REGION_APPROVED',
+    'FINAL_APPROVED',
   ];
-
-  Future<void> _estimateRecipients() async {
-    // This would call the backend to get an estimate
-    setState(() => _estimatedRecipientCount = 42);
-  }
 
   Future<void> _sendNotification() async {
     if (!_formKey.currentState!.validate()) return;
@@ -84,7 +100,6 @@ class _SendNotificationScreenState
           _selectedRegion = null;
           _selectedDepartment = null;
           _selectedStatus = null;
-          _estimatedRecipientCount = null;
         });
       }
     } catch (e) {
@@ -128,10 +143,7 @@ class _SendNotificationScreenState
                     .map((r) => DropdownMenuItem(
                         value: r == 'Toutes' ? null : r, child: Text(r)))
                     .toList(),
-                onChanged: (value) {
-                  setState(() => _selectedRegion = value);
-                  _estimateRecipients();
-                },
+                onChanged: (value) => setState(() => _selectedRegion = value),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -143,10 +155,8 @@ class _SendNotificationScreenState
                     .map((d) => DropdownMenuItem(
                         value: d == 'Toutes' ? null : d, child: Text(d)))
                     .toList(),
-                onChanged: (value) {
-                  setState(() => _selectedDepartment = value);
-                  _estimateRecipients();
-                },
+                onChanged: (value) =>
+                    setState(() => _selectedDepartment = value),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -158,26 +168,9 @@ class _SendNotificationScreenState
                     .map((s) => DropdownMenuItem(
                         value: s == 'Tous' ? null : s, child: Text(s)))
                     .toList(),
-                onChanged: (value) {
-                  setState(() => _selectedStatus = value);
-                  _estimateRecipients();
-                },
+                onChanged: (value) =>
+                    setState(() => _selectedStatus = value),
               ),
-              if (_estimatedRecipientCount != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.lightEmerald.withAlpha(50),
-                    border: Border.all(color: AppColors.deepEmerald),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '📊 Nombre estimé de destinataires: $_estimatedRecipientCount',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
               const SizedBox(height: 24),
               Text(
                 'Contenu du message',
@@ -238,7 +231,6 @@ class _SendNotificationScreenState
                       _selectedRegion = null;
                       _selectedDepartment = null;
                       _selectedStatus = null;
-                      _estimatedRecipientCount = null;
                     });
                   },
                   style: OutlinedButton.styleFrom(

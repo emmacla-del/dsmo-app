@@ -21,6 +21,7 @@ export class CreateCompanyDto {
   @IsOptional() @IsInt() dismissals?: number;
   @IsOptional() @IsInt() retirements?: number;
   @IsOptional() @IsInt() deaths?: number;
+
   @IsOptional() @IsInt() cat0_3?: number;
   @IsOptional() @IsInt() cat4_6?: number;
   @IsOptional() @IsInt() cat7_9?: number;

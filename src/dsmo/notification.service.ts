@@ -12,7 +12,6 @@ export class NotificationService {
         private prisma: PrismaService,
         private auditService: AuditService,
     ) {
-        // Initialize email transporter
         this.transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST || 'localhost',
             port: parseInt(process.env.SMTP_PORT || '587'),
@@ -25,8 +24,8 @@ export class NotificationService {
     }
 
     /**
-     * Send notifications to companies based on filters
-     * Only DIVISIONAL, REGIONAL, or CENTRAL users can send notifications
+     * Send notifications to companies based on filters.
+     * Only DIVISIONAL, REGIONAL, or CENTRAL users can send notifications.
      */
     async sendNotification(
         userId: string,
@@ -40,42 +39,35 @@ export class NotificationService {
     ) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-        // Verify user has permission to send notifications
         if (![UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL].includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can send notifications');
         }
 
-        // Build query to find recipient companies
         const where: any = {};
 
         if (user.role === UserRole.DIVISIONAL) {
             if (!user.department) throw new BadRequestException('User has no department assigned');
             where.department = user.department;
-            // Divisional users can only filter within their department
             if (filters.departmentFilter && filters.departmentFilter !== user.department) {
                 throw new ForbiddenException('Cannot send to companies outside your department');
             }
         } else if (user.role === UserRole.REGIONAL) {
             if (!user.region) throw new BadRequestException('User has no region assigned');
             where.region = user.region;
-            // Regional users can only filter within their region
             if (filters.regionFilter && filters.regionFilter !== user.region) {
                 throw new ForbiddenException('Cannot send to companies outside your region');
             }
         } else if (user.role === UserRole.CENTRAL) {
-            // Central users can filter by region and department
             if (filters.regionFilter) where.region = filters.regionFilter;
             if (filters.departmentFilter) where.department = filters.departmentFilter;
         }
 
-        // Get recipient companies
         const companies = await this.prisma.company.findMany({ where });
 
         if (companies.length === 0) {
             throw new BadRequestException('No companies found matching the specified filters');
         }
 
-        // Create notification record
         const notification = await this.prisma.notification.create({
             data: {
                 sentBy: userId,
@@ -88,7 +80,6 @@ export class NotificationService {
             },
         });
 
-        // Create notification recipients and send emails
         const recipients: any[] = [];
         const failures: any[] = [];
 
@@ -99,14 +90,10 @@ export class NotificationService {
                 });
 
                 if (!companyUser || !companyUser.email) {
-                    failures.push({
-                        companyId: company.id,
-                        reason: 'No user email found',
-                    });
+                    failures.push({ companyId: company.id, reason: 'No user email found' });
                     continue;
                 }
 
-                // Create notification recipient record
                 const recipient = await this.prisma.notificationRecipient.create({
                     data: {
                         notificationId: notification.id,
@@ -115,7 +102,6 @@ export class NotificationService {
                     },
                 });
 
-                // Send email
                 const emailHtml = this.generateEmailHtml(company.name, message);
                 const emailText = `${company.name},\n\n${message}\n\nPlatforme DSMO\nMinistère de l'Emploi et de la Formation Professionnelle`;
 
@@ -123,7 +109,7 @@ export class NotificationService {
                     await this.transporter.sendMail({
                         from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
                         to: companyUser.email,
-                        subject: subject,
+                        subject,
                         text: emailText,
                         html: emailHtml,
                     });
@@ -135,33 +121,32 @@ export class NotificationService {
                         status: 'SENT',
                     });
 
-                    // Update notification recipient status
                     await this.prisma.notificationRecipient.update({
                         where: { id: recipient.id },
                         data: { status: 'SENT' },
                     });
                 } catch (emailError) {
+                    // ✅ FIX: cast emailError as Error to access .message safely
                     failures.push({
                         companyId: company.id,
                         email: companyUser.email,
-                        reason: emailError.message,
+                        reason: (emailError as Error).message,
                     });
 
-                    // Update notification recipient status to FAILED
                     await this.prisma.notificationRecipient.update({
                         where: { id: recipient.id },
                         data: { status: 'FAILED' },
                     });
                 }
             } catch (error) {
+                // ✅ FIX: cast error as Error to access .message safely
                 failures.push({
                     companyId: company.id,
-                    reason: error.message,
+                    reason: (error as Error).message,
                 });
             }
         }
 
-        // Log the notification action
         await this.auditService.log(
             userId,
             'SEND_NOTIFICATION',
@@ -180,15 +165,25 @@ export class NotificationService {
     }
 
     /**
-     * Send deadline reminder emails (automated or manual)
+     * Send deadline reminder emails (automated or manual).
      */
-    async sendDeadlineReminders(year: number, deadlineDate: Date, regionFilter?: string, departmentFilter?: string) {
+    async sendDeadlineReminders(
+        year: number,
+        deadlineDate: Date,
+        regionFilter?: string,
+        departmentFilter?: string,
+    ) {
         const where: any = {
             declarations: {
                 none: {
-                    year: year,
+                    year,
                     status: {
-                        in: [DeclarationStatus.SUBMITTED, DeclarationStatus.DIVISION_APPROVED, DeclarationStatus.REGION_APPROVED, DeclarationStatus.FINAL_APPROVED],
+                        in: [
+                            DeclarationStatus.SUBMITTED,
+                            DeclarationStatus.DIVISION_APPROVED,
+                            DeclarationStatus.REGION_APPROVED,
+                            DeclarationStatus.FINAL_APPROVED,
+                        ],
                     },
                 },
             },
@@ -197,11 +192,13 @@ export class NotificationService {
         if (regionFilter) where.region = regionFilter;
         if (departmentFilter) where.department = departmentFilter;
 
-        const companiesWithoutDeclaration = await this.prisma.company.findMany({
-            where,
-        });
+        const companiesWithoutDeclaration = await this.prisma.company.findMany({ where });
 
-        const message = `Rappel: La date limite de soumission de votre Déclaration sur la Situation de la Main d'Œuvre (DSM-O) pour l'année ${year} est le ${deadlineDate.toLocaleDateString('fr-FR')}.\n\nVeuillez soumettre votre déclaration avant cette date via la plateforme DSMO.`;
+        const message =
+            `Rappel: La date limite de soumission de votre Déclaration sur la Situation ` +
+            `de la Main d'Œuvre (DSM-O) pour l'année ${year} est le ` +
+            `${deadlineDate.toLocaleDateString('fr-FR')}.\n\n` +
+            `Veuillez soumettre votre déclaration avant cette date via la plateforme DSMO.`;
 
         let sent = 0;
         let failed = 0;
@@ -223,22 +220,18 @@ export class NotificationService {
                     });
                     sent++;
                 }
-            } catch (error) {
+            } catch {
                 failed++;
             }
         }
 
-        return {
-            sent,
-            failed,
-            total: companiesWithoutDeclaration.length,
-        };
+        return { sent, failed, total: companiesWithoutDeclaration.length };
     }
 
     /**
-     * Get all sent notifications with pagination
+     * Get all sent notifications with pagination.
      */
-    async getNotifications(userId: string, page: number = 1, limit: number = 20) {
+    async getNotifications(userId: string, page = 1, limit = 20) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
         if (![UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL].includes(user.role)) {
@@ -252,22 +245,20 @@ export class NotificationService {
             where.regionFilter = user.region;
         }
 
-        const notifications = await this.prisma.notification.findMany({
+        return this.prisma.notification.findMany({
             where,
             include: {
                 senderUser: { select: { id: true, email: true, firstName: true, lastName: true } },
-                recipients: { take: 10 }, // Show first 10 recipients
+                recipients: { take: 10 },
             },
             orderBy: { sentAt: 'desc' },
             skip: (page - 1) * limit,
             take: limit,
         });
-
-        return notifications;
     }
 
     /**
-     * Get notification details with all recipients
+     * Get notification details with all recipients.
      */
     async getNotificationDetails(notificationId: string) {
         return this.prisma.notification.findUnique({
@@ -275,16 +266,14 @@ export class NotificationService {
             include: {
                 senderUser: { select: { id: true, email: true, firstName: true, lastName: true } },
                 recipients: {
-                    include: {
-                        company: { select: { id: true, name: true } },
-                    },
+                    include: { company: { select: { id: true, name: true } } },
                 },
             },
         });
     }
 
     /**
-     * Get statistics on notification engagement
+     * Get statistics on notification engagement.
      */
     async getNotificationStats(notificationId: string) {
         const notification = await this.prisma.notification.findUnique({
@@ -308,13 +297,16 @@ export class NotificationService {
             failed,
             bounced,
             opened,
-            openRate: opened > 0 ? (opened / notification.recipientCount * 100).toFixed(2) + '%' : '0%',
+            openRate:
+                opened > 0
+                    ? ((opened / notification.recipientCount) * 100).toFixed(2) + '%'
+                    : '0%',
             sentAt: notification.sentAt,
         };
     }
 
     /**
-     * Mark notification as opened (called from email tracking)
+     * Mark notification as opened (called from email tracking).
      */
     async markNotificationAsOpened(recipientId: string) {
         return this.prisma.notificationRecipient.update({
@@ -324,7 +316,7 @@ export class NotificationService {
     }
 
     /**
-     * Generate HTML email template
+     * Generate HTML email template.
      */
     private generateEmailHtml(companyName: string, message: string): string {
         return `
@@ -350,7 +342,9 @@ export class NotificationService {
             <p>Madame, Monsieur,</p>
             <p><strong>${companyName}</strong>,</p>
             <p>${message.replace(/\n/g, '</p><p>')}</p>
-            <a href="${process.env.APP_URL || 'https://dsmo.ministry.cm'}/login" class="button">Accéder à la plateforme DSMO</a>
+            <a href="${process.env.APP_URL || 'https://dsmo.ministry.cm'}/login" class="button">
+              Accéder à la plateforme DSMO
+            </a>
             <p>Si vous avez des questions, n'hésitez pas à contacter l'équipe DSMO.</p>
           </div>
           <div class="footer">

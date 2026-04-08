@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'screens/login_screen.dart';
-import 'screens/dsmo/declaration_wizard_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,9 +21,8 @@ class MyApp extends ConsumerWidget {
       title: 'DSMO - Déclaration Main d\'Œuvre',
       theme: ThemeData(primarySwatch: Colors.teal, useMaterial3: true),
       home: authState.when(
-        data: (user) => user != null
-            ? const DeclarationWizardScreen()
-            : const LoginScreen(),
+        data: (user) =>
+            user != null ? const HomeScreen() : const LoginScreen(),
         loading: () =>
             const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (_, __) => const LoginScreen(),

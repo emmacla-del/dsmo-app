@@ -1,0 +1,23 @@
+﻿# Sensitive files
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+*.secret
+
+# Credentials directories
+**/secrets/
+**/credentials/
+**/.aws/
+**/.ssh/
+
+# Environment files
+.env.local
+.env.production
+.env.development
+
+# Never let Claude see these
+**/*.env
+**/*.key
+**/*.pem

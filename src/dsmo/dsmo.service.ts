@@ -68,6 +68,45 @@ export class DsmoService {
       });
     }
 
+    // Save movements (quarterly breakdown by salary category)
+    if (dto.movements && dto.movements.length > 0) {
+      await this.prisma.declarationMovement.deleteMany({ where: { declarationId: declaration.id } });
+      await this.prisma.declarationMovement.createMany({
+        data: dto.movements.map((m) => ({
+          movementType: m.movementType,
+          cat1_3: m.cat1_3 ?? 0,
+          cat4_6: m.cat4_6 ?? 0,
+          cat7_9: m.cat7_9 ?? 0,
+          cat10_12: m.cat10_12 ?? 0,
+          declarationId: declaration.id,
+        })),
+      });
+    }
+
+    // Save qualitative questions (informations supplémentaires)
+    if (dto.qualitative) {
+      await this.prisma.qualitativeQuestion.deleteMany({ where: { declarationId: declaration.id } });
+      await this.prisma.qualitativeQuestion.create({
+        data: {
+          declarationId: declaration.id,
+          questionText: 'Informations supplémentaires',
+          hasTrainingCenter: dto.qualitative.hasTrainingCenter,
+          recruitmentPlansNext: dto.qualitative.recruitmentPlansNext,
+          camerounisationPlan: dto.qualitative.camerounisationPlan,
+          usesTempAgencies: dto.qualitative.usesTempAgencies,
+          tempAgencyDetails: dto.qualitative.tempAgencyDetails,
+        },
+      });
+    }
+
+    // Save filling date
+    if (dto.fillingDate) {
+      await this.prisma.declaration.update({
+        where: { id: declaration.id },
+        data: { fillingDate: new Date(dto.fillingDate) },
+      });
+    }
+
     // Run validation
     const validationResult = await this.validationService.validateDeclaration(declaration.id);
     if (!validationResult.isValid) {

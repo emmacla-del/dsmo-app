@@ -31,12 +31,21 @@ class _AnalyticsDashboardScreenState
     try {
       final api = ref.read(apiClientProvider);
 
-      final summaryResp =
-          await api.get('/dsmo/analytics/dashboard-summary?year=$selectedYear');
+      final summaryResp = await api.get(
+        '/dsmo/analytics/dashboard-summary',
+        queryParameters: {'year': selectedYear},
+      );
       final trendsResp = await api.get(
-          '/dsmo/analytics/employment-trends?startYear=${selectedYear - 2}&endYear=$selectedYear');
-      final sectorsResp = await api
-          .get('/dsmo/analytics/sector-distribution?year=$selectedYear');
+        '/dsmo/analytics/employment-trends',
+        queryParameters: {
+          'startYear': selectedYear - 2,
+          'endYear': selectedYear,
+        },
+      );
+      final sectorsResp = await api.get(
+        '/dsmo/analytics/sector-distribution',
+        queryParameters: {'year': selectedYear},
+      );
 
       if (!mounted) return;
       setState(() {
