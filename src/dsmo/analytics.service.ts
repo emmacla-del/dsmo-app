@@ -355,18 +355,18 @@ export class AnalyticsService {
             },
             include: {
                 company: true,
-                qualitativeAnswers: true,
+                qualitativeQuestions: true,
             },
         });
 
         const planningCompanies = declarations
-            .filter((d: any) => d.qualitativeAnswers && d.qualitativeAnswers.recruitmentPlansNext)
+            .filter((d: any) => d.qualitativeQuestions && d.qualitativeQuestions.recruitmentPlansNext)
             .map((d: any) => ({
                 company: d.company.name,
                 sector: d.company.mainActivity,
                 region: d.region,
-                plannedRecruitments: d.qualitativeAnswers.recruitmentPlanCount || 'Not specified',
-                hasCamerunisationPlan: d.qualitativeAnswers.camerounisationPlan,
+                plannedRecruitments: d.qualitativeQuestions.recruitmentPlanCount || 'Not specified',
+                hasCamerunisationPlan: d.qualitativeQuestions.camerounisationPlan,
             }))
             .sort((a: any, b: any) => (b.plannedRecruitments as any) - (a.plannedRecruitments as any))
             .slice(0, limit);

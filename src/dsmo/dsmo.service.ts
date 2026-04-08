@@ -181,7 +181,7 @@ export class DsmoService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const declaration = await this.prisma.declaration.findUnique({
       where: { id: declarationId },
-      include: { company: true, employees: true, movements: true, qualitativeAnswers: true, validationSteps: true },
+      include: { company: true, employees: true, movements: true, qualitativeQuestions: true, validationSteps: true },
     });
 
     if (!declaration) throw new NotFoundException('Declaration not found');
@@ -237,7 +237,7 @@ export class DsmoService {
 
     return this.prisma.declaration.findMany({
       where,
-      include: { company: true, employees: true, movements: true, qualitativeAnswers: true },
+      include: { company: true, employees: true, movements: true, qualitativeQuestions: true },
       orderBy: { createdAt: 'desc' },
     });
   }
