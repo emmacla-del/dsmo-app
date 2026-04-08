@@ -1,42 +1,19 @@
-// Manual type definitions for Prisma enums
-// Generated from prisma/schema.prisma
+// Prisma v5 enums live under the $Enums namespace inside @prisma/client.
+// Re-export each one as both a const (for value access) and a type (for annotations)
+// so they are the same type as what Prisma returns from queries.
+import { $Enums } from '@prisma/client';
 
-export enum UserRole {
-  COMPANY = 'COMPANY',
-  DIVISIONAL = 'DIVISIONAL',
-  REGIONAL = 'REGIONAL',
-  CENTRAL = 'CENTRAL',
-}
+export const UserRole = $Enums.UserRole;
+export type UserRole = $Enums.UserRole;
 
-export enum DeclarationStatus {
-  DRAFT = 'DRAFT',
-  SUBMITTED = 'SUBMITTED',
-  DIVISION_APPROVED = 'DIVISION_APPROVED',
-  REGION_APPROVED = 'REGION_APPROVED',
-  FINAL_APPROVED = 'FINAL_APPROVED',
-  REJECTED = 'REJECTED',
-}
+export const DeclarationStatus = $Enums.DeclarationStatus;
+export type DeclarationStatus = $Enums.DeclarationStatus;
 
-export enum NotificationStatus {
-  SENT = 'SENT',
-  FAILED = 'FAILED',
-  BOUNCED = 'BOUNCED',
-  OPENED = 'OPENED',
-}
+export const NotificationStatus = $Enums.NotificationStatus;
+export type NotificationStatus = $Enums.NotificationStatus;
 
-export enum MovementType {
-  RECRUITMENT = 'RECRUITMENT',
-  PROMOTION = 'PROMOTION',
-  DISMISSAL = 'DISMISSAL',
-  RETIREMENT = 'RETIREMENT',
-  DEATH = 'DEATH',
-}
+export const MovementType = $Enums.MovementType;
+export type MovementType = $Enums.MovementType;
 
-export enum ValidationStepType {
-  GENDER_SUM = 'GENDER_SUM',
-  CATEGORY_SUM = 'CATEGORY_SUM',
-  MOVEMENT_CONSISTENCY = 'MOVEMENT_CONSISTENCY',
-  WORKFORCE_GROWTH = 'WORKFORCE_GROWTH',
-  EMPLOYEE_VALIDATION = 'EMPLOYEE_VALIDATION',
-  OVERALL_CONSISTENCY = 'OVERALL_CONSISTENCY',
-}
+export const ValidationStepType = $Enums.ValidationStepType;
+export type ValidationStepType = $Enums.ValidationStepType;

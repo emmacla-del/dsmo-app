@@ -120,43 +120,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     switch (role) {
       case 'COMPANY':
         return [
-          _Tab(
+          const _Tab(
             'Mes déclarations',
             Icons.description_outlined,
-            const DeclarationsListScreen(),
+            DeclarationsListScreen(),
           ),
         ];
       case 'DIVISIONAL':
       case 'REGIONAL':
         return [
-          _Tab(
+          const _Tab(
             'En attente',
             Icons.pending_actions_outlined,
-            const DeclarationsListScreen(),
+            DeclarationsListScreen(),
           ),
-          _Tab(
+          const _Tab(
             'Notifications',
             Icons.notifications_outlined,
-            const SendNotificationScreen(),
+            SendNotificationScreen(),
           ),
         ];
       case 'CENTRAL':
       default:
         return [
-          _Tab(
+          const _Tab(
             'Tableau de bord',
             Icons.dashboard_outlined,
-            const AnalyticsDashboardScreen(),
+            AnalyticsDashboardScreen(),
           ),
-          _Tab(
+          const _Tab(
             'En attente',
             Icons.pending_actions_outlined,
-            const DeclarationsListScreen(),
+            DeclarationsListScreen(),
           ),
-          _Tab(
+          const _Tab(
             'Notifications',
             Icons.notifications_outlined,
-            const SendNotificationScreen(),
+            SendNotificationScreen(),
           ),
         ];
     }

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, DeclarationStatus } from '../types/prisma.types';
 import * as nodemailer from 'nodemailer';
@@ -38,6 +38,7 @@ export class NotificationService {
         },
     ) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
 
         if (![UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL].includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can send notifications');
@@ -233,6 +234,7 @@ export class NotificationService {
      */
     async getNotifications(userId: string, page = 1, limit = 20) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
 
         if (![UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL].includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can view notifications');
@@ -279,6 +281,7 @@ export class NotificationService {
         const notification = await this.prisma.notification.findUnique({
             where: { id: notificationId },
         });
+        if (!notification) throw new NotFoundException('Notification not found');
 
         const recipients = await this.prisma.notificationRecipient.findMany({
             where: { notificationId },

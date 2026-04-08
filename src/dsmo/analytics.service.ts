@@ -273,6 +273,7 @@ export class AnalyticsService {
             const decl = await this.prisma.declaration.findUnique({
                 where: { id: movement.declarationId },
             });
+            if (!decl) continue;
 
             if (movement.movementType === 'RECRUITMENT') {
                 if (!recruitmentByRegion[decl.region]) {
@@ -319,6 +320,7 @@ export class AnalyticsService {
                 where: { id: movement.declarationId },
                 include: { company: true },
             });
+            if (!decl) continue;
 
             const sector = decl.company.mainActivity;
             if (movement.movementType === 'RECRUITMENT') {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'employee_list_screen.dart';
 import '../../../data/api_client.dart';
@@ -102,20 +103,16 @@ class _DeclarationWizardScreenState
 
   // ── API Methods for Cascading Dropdowns ───────────────────────────────────
 
-  /// Fetch all regions from backend
   Future<void> _fetchRegions() async {
     setState(() => _isLoadingRegions = true);
     try {
       final api = ref.read(apiClientProvider);
-      final response = await api.get('/locations/regions');
-
-      if (response.statusCode == 200 && mounted) {
+      final regions = await api.getRegions();
+      if (mounted) {
         setState(() {
-          _regions = response.data is List ? response.data : [];
+          _regions = regions;
           _isLoadingRegions = false;
         });
-      } else {
-        throw Exception('Failed to load regions');
       }
     } catch (e) {
       if (mounted) {
@@ -125,7 +122,6 @@ class _DeclarationWizardScreenState
     }
   }
 
-  /// Fetch departments for selected region
   Future<void> _fetchDepartments(String regionId) async {
     setState(() {
       _isLoadingDepartments = true;
@@ -139,16 +135,12 @@ class _DeclarationWizardScreenState
 
     try {
       final api = ref.read(apiClientProvider);
-      final response =
-          await api.get('/locations/regions/$regionId/departments');
-
-      if (response.statusCode == 200 && mounted) {
+      final departments = await api.getDepartments(regionId);
+      if (mounted) {
         setState(() {
-          _departments = response.data is List ? response.data : [];
+          _departments = departments;
           _isLoadingDepartments = false;
         });
-      } else {
-        throw Exception('Failed to load departments');
       }
     } catch (e) {
       if (mounted) {
@@ -158,7 +150,6 @@ class _DeclarationWizardScreenState
     }
   }
 
-  /// Fetch subdivisions (arrondissements) for selected department
   Future<void> _fetchSubdivisions(String departmentId) async {
     setState(() {
       _isLoadingSubdivisions = true;
@@ -169,16 +160,12 @@ class _DeclarationWizardScreenState
 
     try {
       final api = ref.read(apiClientProvider);
-      final response =
-          await api.get('/locations/departments/$departmentId/subdivisions');
-
-      if (response.statusCode == 200 && mounted) {
+      final subdivisions = await api.getSubdivisions(departmentId);
+      if (mounted) {
         setState(() {
-          _subdivisions = response.data is List ? response.data : [];
+          _subdivisions = subdivisions;
           _isLoadingSubdivisions = false;
         });
-      } else {
-        throw Exception('Failed to load subdivisions');
       }
     } catch (e) {
       if (mounted) {
@@ -188,20 +175,16 @@ class _DeclarationWizardScreenState
     }
   }
 
-  /// Fetch socioprofessional sectors from backend
   Future<void> _fetchSectors() async {
     setState(() => _isLoadingSectors = true);
     try {
       final api = ref.read(apiClientProvider);
-      final response = await api.get('/sectors');
-
-      if (response.statusCode == 200 && mounted) {
+      final sectors = await api.getSectors();
+      if (mounted) {
         setState(() {
-          _sectors = response.data is List ? response.data : [];
+          _sectors = sectors;
           _isLoadingSectors = false;
         });
-      } else {
-        throw Exception('Failed to load sectors');
       }
     } catch (e) {
       if (mounted) {
@@ -217,18 +200,55 @@ class _DeclarationWizardScreenState
     );
   }
 
+  void _showWarning(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.orange),
+    );
+  }
+
   // ── Validation ────────────────────────────────────────────────────────────
   String? _validateGenderSum(String? value) {
     final total = int.tryParse(_totalEmp.text) ?? 0;
     final men = int.tryParse(_menCount.text) ?? 0;
     final women = int.tryParse(_womenCount.text) ?? 0;
-    if (total > 0 && total != (men + women)) return 'Total ≠ H + F';
+    if (total > 0 && total != (men + women)) {
+      return 'Total employés doit être égal à Hommes + Femmes';
+    }
     return null;
+  }
+
+  bool _validateMovements() {
+    return _movements.values.any((ctrl) {
+      final val = int.tryParse(ctrl.text) ?? 0;
+      return val > 0;
+    });
   }
 
   // ── Step navigation ───────────────────────────────────────────────────────
   void _saveStep1() {
-    if (!_step1FormKey.currentState!.validate()) return;
+    // Validate form
+    if (!_step1FormKey.currentState!.validate()) {
+      _showError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    // Validate dropdown selections
+    if (_selectedSectorId == null) {
+      _showError('Veuillez sélectionner un secteur socioprofessionnel');
+      return;
+    }
+    if (_selectedRegionId == null) {
+      _showError('Veuillez sélectionner une région');
+      return;
+    }
+    if (_selectedDepartmentId == null) {
+      _showError('Veuillez sélectionner un département');
+      return;
+    }
+    if (_selectedSubdivisionId == null) {
+      _showError('Veuillez sélectionner un arrondissement');
+      return;
+    }
 
     setState(() {
       _companyData = {
@@ -236,17 +256,13 @@ class _DeclarationWizardScreenState
         'parentCompany': _parentCompanyController.text.trim().isNotEmpty
             ? _parentCompanyController.text.trim()
             : null,
-        'mainActivityId': _selectedSectorId,
-        'mainActivityName': _selectedSectorName,
+        'mainActivity': _selectedSectorName,
         'secondaryActivity': _secondaryActivityController.text.trim().isNotEmpty
             ? _secondaryActivityController.text.trim()
             : null,
-        'regionId': _selectedRegionId,
-        'regionName': _selectedRegionName,
-        'departmentId': _selectedDepartmentId,
-        'departmentName': _selectedDepartmentName,
-        'subdivisionId': _selectedSubdivisionId,
-        'subdivisionName': _selectedSubdivisionName,
+        'region': _selectedRegionName,
+        'department': _selectedDepartmentName,
+        'district': _selectedSubdivisionName,
         'address': _addressController.text.trim(),
         'taxNumber': _taxNumberController.text.trim(),
         'cnpsNumber': _cnpsController.text.trim().isNotEmpty
@@ -261,7 +277,27 @@ class _DeclarationWizardScreenState
   }
 
   void _saveStep2() {
-    if (!_step2FormKey.currentState!.validate()) return;
+    if (!_step2FormKey.currentState!.validate()) {
+      _showError('Veuillez vérifier les effectifs');
+      return;
+    }
+
+    // Validate gender sum
+    final total = int.tryParse(_totalEmp.text) ?? 0;
+    final men = int.tryParse(_menCount.text) ?? 0;
+    final women = int.tryParse(_womenCount.text) ?? 0;
+
+    if (total != men + women) {
+      _showError(
+          'Le total des employés doit être égal à la somme des hommes et des femmes');
+      return;
+    }
+
+    // Optional warning for no movements
+    if (!_validateMovements()) {
+      _showWarning('Aucun mouvement saisi. Vérifiez vos données.');
+    }
+
     setState(() => _currentStep = 2);
   }
 
@@ -389,7 +425,6 @@ class _DeclarationWizardScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Année budgétaire ──────────────────────────────────────────────
         _buildDropdown<int>(
           label: 'Année budgétaire *',
           value: _budgetYear,
@@ -398,7 +433,7 @@ class _DeclarationWizardScreenState
           displayName: (v) => v.toString(),
         ),
 
-        // ── Date de remplissage ───────────────────────────────────────────
+        // Date de remplissage
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: InkWell(
@@ -429,20 +464,24 @@ class _DeclarationWizardScreenState
         const Divider(height: 8),
         const SizedBox(height: 8),
 
-        // Raison sociale
-        _buildTextField(_nameController, 'Raison sociale *', isRequired: true),
-        // NIU
+        _buildTextField(_nameController, 'Raison sociale *',
+            isRequired: true,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Champ requis' : null),
+
         _buildTextField(_taxNumberController, 'N° Contribuable (NIU) *',
-            isRequired: true),
-        // N° CNPS
+            isRequired: true,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Champ requis' : null),
+
         _buildTextField(_cnpsController, 'N° CNPS'),
-        // Maison mère
+
         _buildTextField(
           _parentCompanyController,
           "Raison sociale de l'entreprise dont dépend l'établissement",
         ),
 
-        // ── Secteur socioprofessionnel (from API) ──────────────────────────
+        // Secteur socioprofessionnel
         _buildCascadingDropdown(
           label: 'Secteur socioprofessionnel *',
           items: _sectors,
@@ -458,7 +497,6 @@ class _DeclarationWizardScreenState
           },
         ),
 
-        // Activité secondaire
         _buildTextField(_secondaryActivityController, 'Activité secondaire'),
 
         const Divider(height: 24),
@@ -466,7 +504,7 @@ class _DeclarationWizardScreenState
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
         const SizedBox(height: 8),
 
-        // ── Région (from API) ─────────────────────────────────────────────
+        // Région
         _buildCascadingDropdown(
           label: 'Région *',
           items: _regions,
@@ -491,7 +529,7 @@ class _DeclarationWizardScreenState
           },
         ),
 
-        // ── Département (from API) ────────────────────────────────────────
+        // Département
         _buildCascadingDropdown(
           label: 'Département *',
           items: _departments,
@@ -517,7 +555,7 @@ class _DeclarationWizardScreenState
           },
         ),
 
-        // ── Arrondissement (from API) ─────────────────────────────────────
+        // Arrondissement
         _buildCascadingDropdown(
           label: 'Arrondissement *',
           items: _subdivisions,
@@ -537,11 +575,11 @@ class _DeclarationWizardScreenState
           },
         ),
 
-        // Adresse complète
         _buildTextField(_addressController, 'Adresse complète *',
-            isRequired: true),
+            isRequired: true,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Champ requis' : null),
 
-        // Capital social
         _buildTextField(_capitalController, 'Capital social (XAF)',
             isNumber: true),
       ],
@@ -561,15 +599,24 @@ class _DeclarationWizardScreenState
         Row(children: [
           Expanded(
               child: _buildTextField(_totalEmp, 'Total *',
-                  isNumber: true, isRequired: true)),
+                  isNumber: true, isRequired: true, validator: (v) {
+            if (v == null || v.trim().isEmpty) return 'Champ requis';
+            final val = int.tryParse(v);
+            if (val == null || val < 0) return 'Nombre valide requis';
+            return null;
+          })),
           const SizedBox(width: 10),
           Expanded(
               child: _buildTextField(_menCount, 'Hommes *',
-                  isNumber: true, validator: _validateGenderSum)),
+                  isNumber: true,
+                  isRequired: true,
+                  validator: _validateGenderSum)),
           const SizedBox(width: 10),
           Expanded(
               child: _buildTextField(_womenCount, 'Femmes *',
-                  isNumber: true, validator: _validateGenderSum)),
+                  isNumber: true,
+                  isRequired: true,
+                  validator: _validateGenderSum)),
         ]),
         _buildTextField(
           _lastYearTotal,
@@ -658,6 +705,9 @@ class _DeclarationWizardScreenState
       child: TextFormField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        inputFormatters: isNumber
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : null,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -753,7 +803,12 @@ class _DeclarationWizardScreenState
                 onChanged(id, name);
               }
             : null,
-        validator: (v) => v == null ? 'Champ requis' : null,
+        validator: (v) {
+          if (isEnabled && (v == null || v.isEmpty)) {
+            return 'Champ requis';
+          }
+          return null;
+        },
       ),
     );
   }
@@ -844,6 +899,7 @@ class _EditableCell extends StatelessWidget {
       child: TextField(
         controller: ctrl,
         keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         textAlign: TextAlign.center,
         decoration: const InputDecoration(
           isDense: true,

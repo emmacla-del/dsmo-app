@@ -366,8 +366,8 @@ class _DeclarationApprovalScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Total des employés',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Total des employés',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               Text('${employees.length}',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
             ],

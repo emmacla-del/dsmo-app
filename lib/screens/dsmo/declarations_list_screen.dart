@@ -123,7 +123,7 @@ class _DeclarationsListScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 72, color: AppColors.ghost),
+            const Icon(Icons.inbox_outlined, size: 72, color: AppColors.ghost),
             const SizedBox(height: 16),
             Text(
               isCompany

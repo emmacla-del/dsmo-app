@@ -1,4 +1,4 @@
-﻿import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
@@ -49,14 +49,21 @@ export class DsmoService {
     };
 
     const existing = await this.prisma.company.findUnique({ where: { userId } });
-    if (existing) {
-      const updated = await this.prisma.company.update({ where: { userId }, data: companyData });
-      await this.auditService.log(userId, 'UPDATE_COMPANY', 'Company', existing.id, 'Updated company information');
-      return updated;
+    try {
+      if (existing) {
+        const updated = await this.prisma.company.update({ where: { userId }, data: companyData });
+        await this.auditService.log(userId, 'UPDATE_COMPANY', 'Company', existing.id, 'Updated company information');
+        return updated;
+      }
+      const created = await this.prisma.company.create({ data: { userId, ...companyData } });
+      await this.auditService.log(userId, 'CREATE_COMPANY', 'Company', created.id, 'Created new company');
+      return created;
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === 'P2002') {
+        throw new ConflictException('Ce numéro contribuable (NIU) est déjà utilisé par une autre entreprise.');
+      }
+      throw err;
     }
-    const created = await this.prisma.company.create({ data: { userId, ...companyData } });
-    await this.auditService.log(userId, 'CREATE_COMPANY', 'Company', created.id, 'Created new company');
-    return created;
   }
 
   async submitDeclaration(userId: string, dto: SubmitDeclarationDto) {
@@ -90,12 +97,20 @@ export class DsmoService {
       });
     }
 
-    // Add employees
+    // Add employees — explicit field mapping avoids unknown fields (e.g. otherCountry)
+    // hitting Prisma and causing a rejected write.
     if (dto.employees && dto.employees.length > 0) {
       await this.prisma.employee.deleteMany({ where: { declarationId: declaration.id } });
       await this.prisma.employee.createMany({
         data: dto.employees.map((emp) => ({
-          ...emp,
+          fullName: emp.fullName,
+          gender: emp.gender,
+          age: emp.age,
+          nationality: emp.nationality,
+          diploma: emp.diploma ?? null,
+          function: emp.function,
+          seniority: emp.seniority,
+          salaryCategory: emp.salaryCategory ?? null,
           declarationId: declaration.id,
         })),
       });
@@ -191,7 +206,7 @@ export class DsmoService {
             tempAgencyDetails: q.tempAgencyDetails ?? undefined,
           }
         : undefined,
-      employees: fullDeclaration.employees.map((e) => ({
+      employees: fullDeclaration.employees.map((e: { fullName: string; gender: string; age: number; nationality: string; diploma: string | null; function: string; seniority: number; salaryCategory: string | null }) => ({
         fullName: e.fullName,
         gender: e.gender,
         age: e.age,
@@ -280,6 +295,7 @@ export class DsmoService {
 
   async approveDeclaration(declarationId: string, userId: string, notes?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
     const declaration = await this.getDeclarationWithAccess(userId, declarationId);
 
     let nextStatus: DeclarationStatus;
@@ -319,6 +335,7 @@ export class DsmoService {
 
   async rejectDeclaration(declarationId: string, userId: string, reason: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
     const declaration = await this.getDeclarationWithAccess(userId, declarationId);
 
     if (![DeclarationStatus.SUBMITTED, DeclarationStatus.DIVISION_APPROVED, DeclarationStatus.REGION_APPROVED].includes(declaration.status)) {
@@ -346,6 +363,7 @@ export class DsmoService {
 
   async getDeclarationWithAccess(userId: string, declarationId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
     const declaration = await this.prisma.declaration.findUnique({
       where: { id: declarationId },
       include: { company: true, employees: true, movements: true, qualitativeQuestions: true, validationSteps: true },
@@ -383,6 +401,7 @@ export class DsmoService {
 
   async getDeclarationsForUser(userId: string, filters?: { year?: number; status?: DeclarationStatus; region?: string; department?: string }) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
     const where: any = {};
 
     // Build filter based on role

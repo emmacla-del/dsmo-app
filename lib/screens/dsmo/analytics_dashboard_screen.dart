@@ -246,8 +246,8 @@ class _AnalyticsDashboardScreenState
                             const Icon(Icons.male,
                                 color: Colors.blue, size: 32),
                             const SizedBox(height: 8),
-                            Text('Hommes',
-                                style: const TextStyle(
+                            const Text('Hommes',
+                                style: TextStyle(
                                     fontWeight: FontWeight.bold)),
                             Text(
                                 '${dashboardData['genderDistribution']?['male'] ?? '0'}%'),
@@ -258,8 +258,8 @@ class _AnalyticsDashboardScreenState
                             const Icon(Icons.female,
                                 color: Colors.pink, size: 32),
                             const SizedBox(height: 8),
-                            Text('Femmes',
-                                style: const TextStyle(
+                            const Text('Femmes',
+                                style: TextStyle(
                                     fontWeight: FontWeight.bold)),
                             Text(
                                 '${dashboardData['genderDistribution']?['female'] ?? '0'}%'),
