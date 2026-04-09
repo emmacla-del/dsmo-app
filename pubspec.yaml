@@ -9,17 +9,23 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
+  # --- Your Original Dependencies (Updated for compatibility) ---
   flutter_riverpod: ^2.4.0
   dio: ^5.3.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   intl: ^0.18.0
   url_launcher: ^6.1.0
-  file_picker: ^5.2.0
-  excel: ^2.0.0
+  file_picker: ^8.0.0      # Updated from 5.2.0 to support XFile
+  excel: ^4.0.0            # Updated from 2.0.0 to fix the Part B export logic
   fl_chart: ^0.63.0
   pdf: ^3.10.4
   printing: ^5.9.0
+
+  # --- Newly Added (Required for the Employee List Screen) ---
+  path_provider: ^2.1.0    # Required to save the Excel file temporarily
+  share_plus: ^10.1.0      # Required to share/export the file to other apps
 
 dev_dependencies:
   flutter_test:

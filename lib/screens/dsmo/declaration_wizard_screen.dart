@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'employee_list_screen.dart';
 import '../../../data/api_client.dart';
 
+// Persists chosen language across the session
+final languageProvider = StateProvider<String>((ref) => 'fr');
+
 class DeclarationWizardScreen extends ConsumerStatefulWidget {
   const DeclarationWizardScreen({super.key});
 
@@ -16,36 +19,31 @@ class _DeclarationWizardScreenState
     extends ConsumerState<DeclarationWizardScreen> {
   int _currentStep = 0;
 
-  // ── Loading states for cascading dropdowns ───────────────────────────────
   bool _isLoadingRegions = true;
   bool _isLoadingDepartments = false;
   bool _isLoadingSubdivisions = false;
   bool _isLoadingSectors = true;
 
-  // ── One form key per step ────────────────────────────────────────────────
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
 
-  // ── Step 1: declaration metadata ─────────────────────────────────────────
   int _budgetYear = DateTime.now().year;
   DateTime _fillingDate = DateTime.now();
 
-  // ── Step 1: free-text fields ─────────────────────────────────────────────
   final _nameController = TextEditingController();
   final _parentCompanyController = TextEditingController();
   final _secondaryActivityController = TextEditingController();
   final _addressController = TextEditingController();
+  final _faxController = TextEditingController();
   final _taxNumberController = TextEditingController();
   final _cnpsController = TextEditingController();
   final _capitalController = TextEditingController();
 
-  // ── Cascading dropdown data from backend ─────────────────────────────────
   List<dynamic> _regions = [];
   List<dynamic> _departments = [];
   List<dynamic> _subdivisions = [];
   List<dynamic> _sectors = [];
 
-  // ── Selected values ──────────────────────────────────────────────────────
   String? _selectedRegionId;
   String? _selectedRegionName;
   String? _selectedDepartmentId;
@@ -55,36 +53,42 @@ class _DeclarationWizardScreenState
   String? _selectedSectorId;
   String? _selectedSectorName;
 
-  // ── Step 2: workforce & movements ────────────────────────────────────────
   final _totalEmp = TextEditingController();
   final _menCount = TextEditingController();
   final _womenCount = TextEditingController();
   final _lastYearTotal = TextEditingController();
+  final _lastYearMen = TextEditingController();
+  final _lastYearWomen = TextEditingController();
 
+  // 5 movement types × 5 categories (1_3, 4_6, 7_9, 10_12, nd = Non Déclaré)
   final Map<String, TextEditingController> _movements = {
     'rec_1_3': TextEditingController(text: '0'),
     'rec_4_6': TextEditingController(text: '0'),
     'rec_7_9': TextEditingController(text: '0'),
     'rec_10_12': TextEditingController(text: '0'),
+    'rec_nd': TextEditingController(text: '0'),
     'pro_1_3': TextEditingController(text: '0'),
     'pro_4_6': TextEditingController(text: '0'),
     'pro_7_9': TextEditingController(text: '0'),
     'pro_10_12': TextEditingController(text: '0'),
+    'pro_nd': TextEditingController(text: '0'),
     'lic_1_3': TextEditingController(text: '0'),
     'lic_4_6': TextEditingController(text: '0'),
     'lic_7_9': TextEditingController(text: '0'),
     'lic_10_12': TextEditingController(text: '0'),
+    'lic_nd': TextEditingController(text: '0'),
     'ret_1_3': TextEditingController(text: '0'),
     'ret_4_6': TextEditingController(text: '0'),
     'ret_7_9': TextEditingController(text: '0'),
     'ret_10_12': TextEditingController(text: '0'),
+    'ret_nd': TextEditingController(text: '0'),
     'dec_1_3': TextEditingController(text: '0'),
     'dec_4_6': TextEditingController(text: '0'),
     'dec_7_9': TextEditingController(text: '0'),
     'dec_10_12': TextEditingController(text: '0'),
+    'dec_nd': TextEditingController(text: '0'),
   };
 
-  // ── Step 3: qualitative questions ────────────────────────────────────────
   bool _hasTrainingCenter = false;
   bool _recruitmentPlansNext = false;
   bool _camerounisationPlan = false;
@@ -93,15 +97,59 @@ class _DeclarationWizardScreenState
 
   Map<String, dynamic>? _companyData;
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _fetchRegions();
     _fetchSectors();
+    // Auto-calculation: totals update whenever men/women change
+    _menCount.addListener(_autoCalcCurrentTotal);
+    _womenCount.addListener(_autoCalcCurrentTotal);
+    _lastYearMen.addListener(_autoCalcLastYearTotal);
+    _lastYearWomen.addListener(_autoCalcLastYearTotal);
+    // Movement totals: any change to a movement cell rebuilds the table totals
+    for (final c in _movements.values) {
+      c.addListener(_onMovementChanged);
+    }
   }
 
-  // ── API Methods for Cascading Dropdowns ───────────────────────────────────
+  // ── Auto-calculation helpers ───────────────────────────────────────────────
+
+  void _autoCalcCurrentTotal() {
+    final men = int.tryParse(_menCount.text) ?? 0;
+    final women = int.tryParse(_womenCount.text) ?? 0;
+    final newTotal = (men + women).toString();
+    if (_totalEmp.text != newTotal) {
+      _totalEmp.text = newTotal;
+      _totalEmp.selection =
+          TextSelection.collapsed(offset: _totalEmp.text.length);
+    }
+  }
+
+  void _autoCalcLastYearTotal() {
+    if (_lastYearMen.text.isEmpty && _lastYearWomen.text.isEmpty) return;
+    final men = int.tryParse(_lastYearMen.text) ?? 0;
+    final women = int.tryParse(_lastYearWomen.text) ?? 0;
+    final newTotal = (men + women).toString();
+    if (_lastYearTotal.text != newTotal) {
+      _lastYearTotal.text = newTotal;
+    }
+  }
+
+  void _onMovementChanged() {
+    if (mounted) setState(() {});
+  }
+
+  // ── Movement total helpers ─────────────────────────────────────────────────
+
+  int _movRowTotal(String prefix) => ['1_3', '4_6', '7_9', '10_12', 'nd'].fold(
+      0, (s, k) => s + (int.tryParse(_movements['${prefix}_$k']!.text) ?? 0));
+
+  int _movColTotal(String suffix) => ['rec', 'pro', 'lic', 'ret', 'dec'].fold(
+      0, (s, p) => s + (int.tryParse(_movements['${p}_$suffix']!.text) ?? 0));
+
+  int _movGrandTotal() =>
+      _movements.values.fold(0, (s, c) => s + (int.tryParse(c.text) ?? 0));
 
   Future<void> _fetchRegions() async {
     setState(() => _isLoadingRegions = true);
@@ -132,7 +180,6 @@ class _DeclarationWizardScreenState
       _selectedSubdivisionId = null;
       _selectedSubdivisionName = null;
     });
-
     try {
       final api = ref.read(apiClientProvider);
       final departments = await api.getDepartments(regionId);
@@ -157,7 +204,6 @@ class _DeclarationWizardScreenState
       _selectedSubdivisionId = null;
       _selectedSubdivisionName = null;
     });
-
     try {
       final api = ref.read(apiClientProvider);
       final subdivisions = await api.getSubdivisions(departmentId);
@@ -194,45 +240,30 @@ class _DeclarationWizardScreenState
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
+  void _showError(String msg) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
 
-  void _showWarning(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.orange),
-    );
-  }
+  void _showWarning(String msg) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.orange),
+      );
 
-  // ── Validation ────────────────────────────────────────────────────────────
   String? _validateGenderSum(String? value) {
     final total = int.tryParse(_totalEmp.text) ?? 0;
     final men = int.tryParse(_menCount.text) ?? 0;
     final women = int.tryParse(_womenCount.text) ?? 0;
-    if (total > 0 && total != (men + women)) {
-      return 'Total employés doit être égal à Hommes + Femmes';
-    }
+    if (total > 0 && total != (men + women)) return 'Total ≠ H + F';
     return null;
   }
 
-  bool _validateMovements() {
-    return _movements.values.any((ctrl) {
-      final val = int.tryParse(ctrl.text) ?? 0;
-      return val > 0;
-    });
-  }
+  bool _validateMovements() =>
+      _movements.values.any((c) => (int.tryParse(c.text) ?? 0) > 0);
 
-  // ── Step navigation ───────────────────────────────────────────────────────
   void _saveStep1() {
-    // Validate form
     if (!_step1FormKey.currentState!.validate()) {
       _showError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-
-    // Validate dropdown selections
     if (_selectedSectorId == null) {
       _showError('Veuillez sélectionner un secteur socioprofessionnel');
       return;
@@ -264,6 +295,9 @@ class _DeclarationWizardScreenState
         'department': _selectedDepartmentName,
         'district': _selectedSubdivisionName,
         'address': _addressController.text.trim(),
+        'fax': _faxController.text.trim().isNotEmpty
+            ? _faxController.text.trim()
+            : null,
         'taxNumber': _taxNumberController.text.trim(),
         'cnpsNumber': _cnpsController.text.trim().isNotEmpty
             ? _cnpsController.text.trim()
@@ -281,27 +315,20 @@ class _DeclarationWizardScreenState
       _showError('Veuillez vérifier les effectifs');
       return;
     }
-
-    // Validate gender sum
-    final total = int.tryParse(_totalEmp.text) ?? 0;
-    final men = int.tryParse(_menCount.text) ?? 0;
-    final women = int.tryParse(_womenCount.text) ?? 0;
-
-    if (total != men + women) {
-      _showError(
-          'Le total des employés doit être égal à la somme des hommes et des femmes');
+    // Total is auto-calculated; guard against empty (e.g. men+women both blank)
+    if ((int.tryParse(_totalEmp.text) ?? 0) <= 0) {
+      _showError('Le total des employés doit être supérieur à 0');
       return;
     }
-
-    // Optional warning for no movements
     if (!_validateMovements()) {
       _showWarning('Aucun mouvement saisi. Vérifiez vos données.');
     }
-
     setState(() => _currentStep = 2);
   }
 
   void _saveStep3AndGoToEmployees() {
+    final language = ref.read(languageProvider);
+
     final companyData = {
       ...?_companyData,
       'totalEmployees': int.parse(_totalEmp.text),
@@ -311,13 +338,14 @@ class _DeclarationWizardScreenState
       'lastYearTotal': _lastYearTotal.text.isNotEmpty
           ? int.parse(_lastYearTotal.text)
           : null,
-      'recruitments': _sumMovement('rec'),
-      'promotions': _sumMovement('pro'),
-      'dismissals': _sumMovement('lic'),
-      'retirements': _sumMovement('ret'),
-      'deaths': _sumMovement('dec'),
+      'lastYearMenCount':
+          _lastYearMen.text.isNotEmpty ? int.parse(_lastYearMen.text) : null,
+      'lastYearWomenCount': _lastYearWomen.text.isNotEmpty
+          ? int.parse(_lastYearWomen.text)
+          : null,
     };
 
+    // Build movement payloads including catNonDeclared
     final movements = [
       _buildMovementPayload('RECRUITMENT', 'rec'),
       _buildMovementPayload('PROMOTION', 'pro'),
@@ -335,8 +363,6 @@ class _DeclarationWizardScreenState
           _usesTempAgencies ? _tempAgencyDetailsCtrl.text.trim() : null,
     };
 
-    final totalEmployeesValue = int.tryParse(_totalEmp.text) ?? 0;
-
     if (mounted) {
       Navigator.push(
         context,
@@ -347,34 +373,51 @@ class _DeclarationWizardScreenState
             fillingDate: _fillingDate.toIso8601String(),
             movements: movements,
             qualitative: qualitative,
-            totalEmployees: totalEmployeesValue,
+            language: language,
+            totalEmployees: int.tryParse(_totalEmp.text) ?? 0,
           ),
         ),
       );
     }
   }
 
-  int _sumMovement(String prefix) => ['1_3', '4_6', '7_9', '10_12'].fold(
-      0,
-      (sum, cat) =>
-          sum + (int.tryParse(_movements['${prefix}_$cat']!.text) ?? 0));
-
+  // Builds movement payload including catNonDeclared
   Map<String, dynamic> _buildMovementPayload(String type, String prefix) => {
         'movementType': type,
         'cat1_3': int.tryParse(_movements['${prefix}_1_3']!.text) ?? 0,
         'cat4_6': int.tryParse(_movements['${prefix}_4_6']!.text) ?? 0,
         'cat7_9': int.tryParse(_movements['${prefix}_7_9']!.text) ?? 0,
         'cat10_12': int.tryParse(_movements['${prefix}_10_12']!.text) ?? 0,
+        'catNonDeclared': int.tryParse(_movements['${prefix}_nd']!.text) ?? 0,
       };
 
-  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final language = ref.watch(languageProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Déclaration DSMO'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: ToggleButtons(
+              borderRadius: BorderRadius.circular(8),
+              isSelected: [language == 'fr', language == 'en'],
+              onPressed: (i) => ref.read(languageProvider.notifier).state =
+                  i == 0 ? 'fr' : 'en',
+              color: Colors.white70,
+              selectedColor: Colors.white,
+              fillColor: Colors.teal.shade700,
+              borderColor: Colors.white30,
+              selectedBorderColor: Colors.white,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
+              children: const [Text('FR'), Text('EN')],
+            ),
+          ),
+        ],
       ),
       body: Stepper(
         currentStep: _currentStep,
@@ -390,9 +433,7 @@ class _DeclarationWizardScreenState
             title: const Text("1. Identité de l'établissement"),
             content: Form(
               key: _step1FormKey,
-              child: SingleChildScrollView(
-                child: _buildIdentityStep(),
-              ),
+              child: SingleChildScrollView(child: _buildIdentityStep()),
             ),
             isActive: true,
             state: _currentStep > 0 ? StepState.complete : StepState.indexed,
@@ -417,7 +458,6 @@ class _DeclarationWizardScreenState
     );
   }
 
-  // ── Step 1 UI ─────────────────────────────────────────────────────────────
   Widget _buildIdentityStep() {
     final currentYear = DateTime.now().year;
     final years = List.generate(6, (i) => currentYear - 4 + i);
@@ -425,86 +465,89 @@ class _DeclarationWizardScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildDropdown<int>(
-          label: 'Année budgétaire *',
-          value: _budgetYear,
-          items: years,
-          onChanged: (v) => setState(() => _budgetYear = v ?? currentYear),
-          displayName: (v) => v.toString(),
-        ),
-
-        // Date de remplissage
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: InkWell(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _fillingDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-              );
-              if (picked != null) setState(() => _fillingDate = picked);
-            },
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Date de remplissage',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.calendar_today),
-              ),
-              child: Text(
-                '${_fillingDate.day.toString().padLeft(2, '0')}/'
-                '${_fillingDate.month.toString().padLeft(2, '0')}/'
-                '${_fillingDate.year}',
+        // Row 1: Année budgétaire | Date de remplissage
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildDropdown<int>(
+                label: 'Année budgétaire *',
+                value: _budgetYear,
+                items: years,
+                onChanged: (v) =>
+                    setState(() => _budgetYear = v ?? currentYear),
+                displayName: (v) => v.toString(),
               ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _fillingDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) {
+                      setState(() => _fillingDate = picked);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date de remplissage',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      '${_fillingDate.day.toString().padLeft(2, '0')}/'
+                      '${_fillingDate.month.toString().padLeft(2, '0')}/'
+                      '${_fillingDate.year}',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
 
-        const Divider(height: 8),
-        const SizedBox(height: 8),
-
-        _buildTextField(_nameController, 'Raison sociale *',
-            isRequired: true,
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Champ requis' : null),
-
-        _buildTextField(_taxNumberController, 'N° Contribuable (NIU) *',
-            isRequired: true,
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Champ requis' : null),
-
-        _buildTextField(_cnpsController, 'N° CNPS'),
+        // Section: Identification
+        _sectionHeader("Identification de l'établissement"),
 
         _buildTextField(
+          _nameController,
+          'Raison sociale *',
+          isRequired: true,
+          validator: (v) =>
+              v == null || v.trim().isEmpty ? 'Champ requis' : null,
+        ),
+        _buildTextField(
           _parentCompanyController,
-          "Raison sociale de l'entreprise dont dépend l'établissement",
+          "Raison sociale de l'entreprise mère (si applicable)",
         ),
 
-        // Secteur socioprofessionnel
         _buildCascadingDropdown(
-          label: 'Secteur socioprofessionnel *',
+          label: 'Activité principale / Secteur *',
           items: _sectors,
           isLoading: _isLoadingSectors,
           selectedId: _selectedSectorId,
           displayName: (item) =>
               item['name'] ?? item['label'] ?? item.toString(),
-          onChanged: (id, name) {
-            setState(() {
-              _selectedSectorId = id;
-              _selectedSectorName = name;
-            });
-          },
+          onChanged: (id, name) => setState(() {
+            _selectedSectorId = id;
+            _selectedSectorName = name;
+          }),
+        ),
+        _buildTextField(
+          _secondaryActivityController,
+          'Activité secondaire',
         ),
 
-        _buildTextField(_secondaryActivityController, 'Activité secondaire'),
+        // Section: Localisation
+        _sectionHeader('Localisation'),
 
-        const Divider(height: 24),
-        const Text('Localisation',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        const SizedBox(height: 8),
-
-        // Région
         _buildCascadingDropdown(
           label: 'Région *',
           items: _regions,
@@ -523,13 +566,9 @@ class _DeclarationWizardScreenState
               _departments = [];
               _subdivisions = [];
             });
-            if (id != null) {
-              _fetchDepartments(id);
-            }
+            if (id != null) _fetchDepartments(id);
           },
         ),
-
-        // Département
         _buildCascadingDropdown(
           label: 'Département *',
           items: _departments,
@@ -539,7 +578,7 @@ class _DeclarationWizardScreenState
               item['name'] ?? item['label'] ?? item.toString(),
           enabled: _selectedRegionId != null,
           hint: _selectedRegionId == null
-              ? 'Choisissez d\'abord une région'
+              ? "Choisissez d'abord une région"
               : null,
           onChanged: (id, name) {
             setState(() {
@@ -549,13 +588,9 @@ class _DeclarationWizardScreenState
               _selectedSubdivisionName = null;
               _subdivisions = [];
             });
-            if (id != null) {
-              _fetchSubdivisions(id);
-            }
+            if (id != null) _fetchSubdivisions(id);
           },
         ),
-
-        // Arrondissement
         _buildCascadingDropdown(
           label: 'Arrondissement *',
           items: _subdivisions,
@@ -565,76 +600,226 @@ class _DeclarationWizardScreenState
               item['name'] ?? item['label'] ?? item.toString(),
           enabled: _selectedDepartmentId != null,
           hint: _selectedDepartmentId == null
-              ? 'Choisissez d\'abord un département'
+              ? "Choisissez d'abord un département"
               : null,
-          onChanged: (id, name) {
-            setState(() {
-              _selectedSubdivisionId = id;
-              _selectedSubdivisionName = name;
-            });
-          },
+          onChanged: (id, name) => setState(() {
+            _selectedSubdivisionId = id;
+            _selectedSubdivisionName = name;
+          }),
         ),
 
-        _buildTextField(_addressController, 'Adresse complète *',
-            isRequired: true,
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Champ requis' : null),
+        // Section: Coordonnées administratives
+        _sectionHeader('Coordonnées administratives'),
 
-        _buildTextField(_capitalController, 'Capital social (XAF)',
-            isNumber: true),
+        _buildTextField(
+          _addressController,
+          'Adresse complète *',
+          isRequired: true,
+          validator: (v) =>
+              v == null || v.trim().isEmpty ? 'Champ requis' : null,
+        ),
+
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildTextField(_faxController, 'Fax')),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: _buildTextField(
+                _taxNumberController,
+                'N° Contribuable (NIU) *',
+                isRequired: true,
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Champ requis' : null,
+              ),
+            ),
+          ],
+        ),
+
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildTextField(
+                _capitalController,
+                'Capital social (XAF)',
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField(
+                _cnpsController,
+                'N° Affiliation CNPS',
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  // ── Step 2 UI ─────────────────────────────────────────────────────────────
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.teal.shade200)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: Colors.teal.shade700,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.teal.shade200)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWorkforceStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Effectifs au 31 décembre',
+          'Effectifs au 31 décembre — Année en cours',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(
-              child: _buildTextField(_totalEmp, 'Total *',
-                  isNumber: true, isRequired: true, validator: (v) {
-            if (v == null || v.trim().isEmpty) return 'Champ requis';
-            final val = int.tryParse(v);
-            if (val == null || val < 0) return 'Nombre valide requis';
-            return null;
-          })),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _buildTextField(_menCount, 'Hommes *',
-                  isNumber: true,
-                  isRequired: true,
-                  validator: _validateGenderSum)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _buildTextField(_womenCount, 'Femmes *',
-                  isNumber: true,
-                  isRequired: true,
-                  validator: _validateGenderSum)),
-        ]),
-        _buildTextField(
-          _lastYearTotal,
-          'Total employés (année précédente)',
-          isNumber: true,
+        const SizedBox(height: 2),
+        Text(
+          'Saisissez Hommes et Femmes — le Total se calcule automatiquement.',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildTextField(
+                _menCount,
+                'Hommes *',
+                isNumber: true,
+                isRequired: true,
+                validator: _validateGenderSum,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTextField(
+                _womenCount,
+                'Femmes *',
+                isNumber: true,
+                isRequired: true,
+                validator: _validateGenderSum,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child:
+                  _buildAutoCalcField(_totalEmp, 'Total *', isRequired: true),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Effectifs au 31 décembre — Année précédente',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Facultatif — le Total se calcule automatiquement.',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildTextField(
+                _lastYearMen,
+                'Hommes',
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTextField(
+                _lastYearWomen,
+                'Femmes',
+                isNumber: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildAutoCalcField(_lastYearTotal, 'Total'),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
         const Text(
           'Mouvements par catégories de salaire',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 2),
+        Text(
+          'Remplissez les cellules — les totaux par ligne et colonne se calculent automatiquement.',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        const SizedBox(height: 10),
         _buildMovementTable(),
       ],
     );
   }
 
-  // ── Step 3 UI ─────────────────────────────────────────────────────────────
+  /// Read-only styled field for auto-calculated totals.
+  Widget _buildAutoCalcField(
+    TextEditingController ctrl,
+    String label, {
+    bool isRequired = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: ctrl,
+        readOnly: true,
+        keyboardType: TextInputType.number,
+        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.teal),
+          border: const OutlineInputBorder(),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.teal.shade300),
+          ),
+          filled: true,
+          fillColor: Colors.teal.shade50,
+          suffixIcon: const Tooltip(
+            message: 'Calculé automatiquement',
+            child: Icon(
+              Icons.calculate_outlined,
+              color: Colors.teal,
+              size: 18,
+            ),
+          ),
+        ),
+        validator: isRequired
+            ? (v) {
+                if (v == null || v.trim().isEmpty || v == '0') {
+                  return 'Champ requis';
+                }
+                return null;
+              }
+            : null,
+      ),
+    );
+  }
+
   Widget _buildQualitativeStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,7 +832,7 @@ class _DeclarationWizardScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text(
-            'Votre établissement dispose-t-il d\'un centre de formation ?',
+            "Votre établissement dispose-t-il d'un centre de formation ?",
             style: TextStyle(fontSize: 14),
           ),
           value: _hasTrainingCenter,
@@ -656,7 +841,7 @@ class _DeclarationWizardScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text(
-            'Votre établissement prévoit-il des recrutements l\'année prochaine ?',
+            "Votre établissement prévoit-il des recrutements l'année prochaine ?",
             style: TextStyle(fontSize: 14),
           ),
           value: _recruitmentPlansNext,
@@ -665,7 +850,7 @@ class _DeclarationWizardScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text(
-            'Votre établissement dispose-t-il d\'un plan de camerounisation ?',
+            "Votre établissement dispose-t-il d'un plan de camerounisation ?",
             style: TextStyle(fontSize: 14),
           ),
           value: _camerounisationPlan,
@@ -674,7 +859,7 @@ class _DeclarationWizardScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text(
-            'Votre établissement a-t-il recours aux entreprises de travail temporaire ?',
+            "Votre établissement a-t-il recours aux entreprises de travail temporaire ?",
             style: TextStyle(fontSize: 14),
           ),
           value: _usesTempAgencies,
@@ -684,14 +869,12 @@ class _DeclarationWizardScreenState
           const SizedBox(height: 4),
           _buildTextField(
             _tempAgencyDetailsCtrl,
-            'Précisez (nom(s) de(s) entreprise(s) de travail temporaire)',
+            "Précisez (nom(s) de(s) entreprise(s) de travail temporaire)",
           ),
         ],
       ],
     );
   }
-
-  // ── Reusable Form Widgets ─────────────────────────────────────────────────
 
   Widget _buildTextField(
     TextEditingController ctrl,
@@ -705,9 +888,8 @@ class _DeclarationWizardScreenState
       child: TextFormField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        inputFormatters: isNumber
-            ? [FilteringTextInputFormatter.digitsOnly]
-            : null,
+        inputFormatters:
+            isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -740,10 +922,8 @@ class _DeclarationWizardScreenState
         isExpanded: true,
         items: enabled
             ? items
-                .map((e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(displayName(e)),
-                    ))
+                .map((e) =>
+                    DropdownMenuItem(value: e, child: Text(displayName(e))))
                 .toList()
             : [],
         onChanged: enabled ? onChanged : null,
@@ -763,7 +943,6 @@ class _DeclarationWizardScreenState
     String? hint,
   }) {
     final isEnabled = enabled && !isLoading;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
@@ -775,82 +954,106 @@ class _DeclarationWizardScreenState
         ),
         initialValue: selectedId,
         hint: isLoading
-            ? const Text('Chargement...', style: TextStyle(color: Colors.grey))
+            ? const Text(
+                'Chargement...',
+                style: TextStyle(color: Colors.grey),
+              )
             : (hint != null
-                ? Text(hint, style: const TextStyle(color: Colors.grey))
-                : const Text('Sélectionner',
-                    style: TextStyle(color: Colors.grey))),
+                ? Text(
+                    hint,
+                    style: const TextStyle(color: Colors.grey),
+                  )
+                : const Text(
+                    'Sélectionner',
+                    style: TextStyle(color: Colors.grey),
+                  )),
         items: isLoading
             ? null
             : items.map((item) {
                 final id = item['id']?.toString() ?? item['code']?.toString();
-                final name = displayName(item);
                 return DropdownMenuItem<String>(
                   value: id,
-                  child: Text(name),
+                  child: Text(displayName(item)),
                 );
               }).toList(),
         onChanged: isEnabled
             ? (id) {
-                final selectedItem = items.firstWhere(
+                final sel = items.firstWhere(
                   (item) =>
                       (item['id']?.toString() ?? item['code']?.toString()) ==
                       id,
                   orElse: () => null,
                 );
-                final name =
-                    selectedItem != null ? displayName(selectedItem) : null;
-                onChanged(id, name);
+                onChanged(id, sel != null ? displayName(sel) : null);
               }
             : null,
-        validator: (v) {
-          if (isEnabled && (v == null || v.isEmpty)) {
-            return 'Champ requis';
-          }
-          return null;
-        },
+        validator: (v) =>
+            (isEnabled && (v == null || v.isEmpty)) ? 'Champ requis' : null,
       ),
     );
   }
 
+  // Movement table: 5 editable columns + auto-calculated row totals + column totals row
   Widget _buildMovementTable() {
-    return Table(
-      border: TableBorder.all(color: Colors.grey.shade300),
-      columnWidths: const {0: FlexColumnWidth(2)},
-      children: [
-        const TableRow(children: [
-          _Cell('Mouvement', isHeader: true),
-          _Cell('Cat. 1–3', isHeader: true),
-          _Cell('Cat. 4–6', isHeader: true),
-          _Cell('Cat. 7–9', isHeader: true),
-          _Cell('Cat. 10–12', isHeader: true),
-        ]),
-        _buildMovementRow('Recrutement', 'rec'),
-        _buildMovementRow('Avancement', 'pro'),
-        _buildMovementRow('Licenciement', 'lic'),
-        _buildMovementRow('Retraite', 'ret'),
-        _buildMovementRow('Décès', 'dec'),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Table(
+        border: TableBorder.all(color: Colors.grey.shade300),
+        defaultColumnWidth: const IntrinsicColumnWidth(),
+        children: [
+          const TableRow(
+            children: [
+              _Cell('Mouvement', isHeader: true),
+              _Cell('Cat. 1–3', isHeader: true),
+              _Cell('Cat. 4–6', isHeader: true),
+              _Cell('Cat. 7–9', isHeader: true),
+              _Cell('Cat. 10–12', isHeader: true),
+              _Cell('Non Déclaré', isHeader: true),
+              _Cell('TOTAL', isHeader: true),
+            ],
+          ),
+          _buildMovementRow('Recrutement', 'rec'),
+          _buildMovementRow('Avancement', 'pro'),
+          _buildMovementRow('Licenciement', 'lic'),
+          _buildMovementRow('Retraite', 'ret'),
+          _buildMovementRow('Décès', 'dec'),
+          TableRow(
+            children: [
+              const _Cell('TOTAL', isHeader: true),
+              _TotalDisplayCell(_movColTotal('1_3')),
+              _TotalDisplayCell(_movColTotal('4_6')),
+              _TotalDisplayCell(_movColTotal('7_9')),
+              _TotalDisplayCell(_movColTotal('10_12')),
+              _TotalDisplayCell(_movColTotal('nd')),
+              _TotalDisplayCell(_movGrandTotal(), isGrand: true),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   TableRow _buildMovementRow(String label, String prefix) {
-    return TableRow(children: [
-      _Cell(label),
-      _EditableCell(_movements['${prefix}_1_3']!),
-      _EditableCell(_movements['${prefix}_4_6']!),
-      _EditableCell(_movements['${prefix}_7_9']!),
-      _EditableCell(_movements['${prefix}_10_12']!),
-    ]);
+    return TableRow(
+      children: [
+        _Cell(label),
+        _EditableCell(_movements['${prefix}_1_3']!),
+        _EditableCell(_movements['${prefix}_4_6']!),
+        _EditableCell(_movements['${prefix}_7_9']!),
+        _EditableCell(_movements['${prefix}_10_12']!),
+        _EditableCell(_movements['${prefix}_nd']!),
+        _TotalDisplayCell(_movRowTotal(prefix)),
+      ],
+    );
   }
 
-  // ── Lifecycle Cleanup ─────────────────────────────────────────────────────
   @override
   void dispose() {
     _nameController.dispose();
     _parentCompanyController.dispose();
     _secondaryActivityController.dispose();
     _addressController.dispose();
+    _faxController.dispose();
     _taxNumberController.dispose();
     _cnpsController.dispose();
     _capitalController.dispose();
@@ -858,6 +1061,8 @@ class _DeclarationWizardScreenState
     _menCount.dispose();
     _womenCount.dispose();
     _lastYearTotal.dispose();
+    _lastYearMen.dispose();
+    _lastYearWomen.dispose();
     _tempAgencyDetailsCtrl.dispose();
     for (final c in _movements.values) {
       c.dispose();
@@ -866,7 +1071,6 @@ class _DeclarationWizardScreenState
   }
 }
 
-// ── Helper Widgets ──────────────────────────────────────────────────────────
 class _Cell extends StatelessWidget {
   final String text;
   final bool isHeader;
@@ -904,6 +1108,30 @@ class _EditableCell extends StatelessWidget {
         decoration: const InputDecoration(
           isDense: true,
           border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+}
+
+/// Read-only cell showing an auto-calculated total (teal = grand total).
+class _TotalDisplayCell extends StatelessWidget {
+  final int value;
+  final bool isGrand;
+  const _TotalDisplayCell(this.value, {this.isGrand = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      color: isGrand ? Colors.teal.shade100 : Colors.grey.shade100,
+      child: Text(
+        '$value',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          color: isGrand ? Colors.teal.shade800 : Colors.grey.shade700,
         ),
       ),
     );

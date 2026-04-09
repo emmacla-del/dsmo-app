@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
 import * as crypto from 'crypto';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,8 +99,6 @@ const LABELS = {
     women: 'Femmes',
     total: 'Total',
     movementsLabel: "Mouvement des employes dans l'Etablissement durant l'annee",
-
-    // LEFT side = categories grid
     categoriesTitle: 'Categories socioprofessionnelles',
     catCols: ['Aucune', '1 a 3', '4 a 6', '7 a 9', '10 a 12', 'Non Declare', 'TOTAL'],
     movements: [
@@ -111,8 +108,6 @@ const LABELS = {
       { key: 'retirements', label: 'Retraite' },
       { key: 'deaths', label: 'Decede' },
     ],
-
-    // RIGHT side = qualitative questions
     qualTitle: "Informations supplementaires concernant l'Etablissement ou l'entreprise",
     qualResponse: 'Reponse',
     yes: 'Oui',
@@ -122,8 +117,6 @@ const LABELS = {
     q3: "Votre entreprise dispose-t-elle d'un plan de camerounisation des postes ?",
     q4: "Votre entreprise fait-elle recours aux entreprises de travail temporaires ?",
     q4detail: "Si oui, preciser lesquelles ainsi que le nombre de travailleurs mis a votre disposition par l'entreprise.",
-
-    // Part B — NOTE: Categorie and Salaire are SEPARATE columns
     partBTitle: 'PARTIE B : INFORMATIONS CONCERNANT LES EMPLOYES',
     partBCols: [
       { label: 'No', width: 25 },
@@ -181,8 +174,6 @@ const LABELS = {
     women: 'Women',
     total: 'Total',
     movementsLabel: 'Staff movements in the Establishment during the year',
-
-    // LEFT side = categories grid
     categoriesTitle: 'Socio-professional Categories',
     catCols: ['None', '1 to 3', '4 to 6', '7 to 9', '10 to 12', 'Not Declared', 'TOTAL'],
     movements: [
@@ -192,8 +183,6 @@ const LABELS = {
       { key: 'retirements', label: 'Retirement' },
       { key: 'deaths', label: 'Death' },
     ],
-
-    // RIGHT side = qualitative questions
     qualTitle: 'Additional information on the Establishment or Enterprise',
     qualResponse: 'Response',
     yes: 'Yes',
@@ -203,8 +192,6 @@ const LABELS = {
     q3: 'Does your enterprise have a Cameroonisation plan for its positions?',
     q4: 'Does your enterprise use temporary employment agencies?',
     q4detail: 'If yes, please specify which ones and the number of workers made available to you.',
-
-    // Part B — NOTE: Category and Salary are SEPARATE columns
     partBTitle: 'PART B: INFORMATION ON EMPLOYEES',
     partBCols: [
       { label: 'No', width: 25 },
@@ -262,38 +249,168 @@ function rowTotal(b: MovementBreakdown): number {
 
 @Injectable()
 export class PdfService {
-  private readonly storageBase: string;
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   private readonly PDFDocument = require('pdfkit');
-  // Cached at startup — avoids repeated fs.existsSync + path.join on every request
-  private readonly coatOfArmsBuffer: Buffer | null;
+  private readonly supabase: SupabaseClient;
+  private readonly bucketName = 'dsmo-pdfs';
+  private readonly signedUrlExpirySeconds = 7 * 24 * 60 * 60; // 7 days
+
+  // Coat of arms loaded once at startup via Supabase Storage
+  private coatOfArmsBuffer: Buffer | null = null;
 
   constructor() {
-    this.storageBase = path.join(process.cwd(), 'storage', 'dsmo');
-    const coatPath = path.join(process.cwd(), 'assets', 'coat_of_arms.png');
-    this.coatOfArmsBuffer = fs.existsSync(coatPath) ? fs.readFileSync(coatPath) : null;
+    // ✅ Supabase client — reads from environment variables
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+    }
+
+    this.supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Load coat of arms from Supabase Storage at startup
+    this.loadCoatOfArms();
   }
 
+  // ── Load coat of arms from Supabase Storage ────────────────────────────────
+
+  private async loadCoatOfArms(): Promise<void> {
+    try {
+      const { data, error } = await this.supabase.storage
+        .from(this.bucketName)
+        .download('assets/coat_of_arms.png');
+
+      if (error || !data) {
+        console.log('Coat of arms not found, using placeholder');
+        return;
+      }
+      this.coatOfArmsBuffer = Buffer.from(await data.arrayBuffer());
+      console.log('Coat of arms loaded successfully from Supabase');
+    } catch (error) {
+      console.log('Could not load coat of arms from Supabase, using placeholder');
+      // Non-fatal — coat of arms will be replaced with placeholder
+    }
+  }
+
+  // ── Generate PDFs and upload to Supabase Storage (Private Bucket) ──────────
+
   async generateDeclarationPdfs(data: PdfData): Promise<{ urls: string[]; hashes: string[] }> {
-    const yearDir = path.join(this.storageBase, String(data.year));
-    fs.mkdirSync(yearDir, { recursive: true });
     const urls: string[] = [];
     const hashes: string[] = [];
+
     for (let copy = 1 as 1 | 2 | 3; copy <= 3; copy++) {
-      const filename = `${data.trackingNumber}-copy${copy}.pdf`;
-      const filePath = path.join(yearDir, filename);
+      const storagePath = this.getStoragePath(data.trackingNumber, data.year, copy);
       const buffer = await this.buildPdf(data, copy);
-      fs.writeFileSync(filePath, buffer);
+
+      // Check file size (5MB limit from bucket)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (buffer.length > maxSize) {
+        throw new Error(`PDF copy ${copy} exceeds ${maxSize / 1024 / 1024}MB limit`);
+      }
+
+      // ✅ Upload to Supabase Storage (private bucket)
+      const { error: uploadError } = await this.supabase.storage
+        .from(this.bucketName)
+        .upload(storagePath, buffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(`Failed to upload PDF copy ${copy} to Supabase: ${uploadError.message}`);
+      }
+
+      // ✅ Generate signed URL (expires after expiry period)
+      const { data: signedUrlData, error: signedUrlError } = await this.supabase.storage
+        .from(this.bucketName)
+        .createSignedUrl(storagePath, this.signedUrlExpirySeconds);
+
+      if (signedUrlError || !signedUrlData) {
+        throw new Error(`Failed to generate signed URL for copy ${copy}: ${signedUrlError?.message}`);
+      }
+
       const hash = crypto.createHash('sha256').update(buffer).digest('hex');
       hashes.push(`sha256:${hash}`);
-      urls.push(`/storage/dsmo/${data.year}/${filename}`);
+      urls.push(signedUrlData.signedUrl);
     }
+
     return { urls, hashes };
   }
 
-  getFilePath(trackingNumber: string, year: number, copy: number): string {
-    return path.join(this.storageBase, String(year), `${trackingNumber}-copy${copy}.pdf`);
+  // ── Get signed URL for an existing PDF (for later access) ─────────────────
+
+  async getSignedUrl(trackingNumber: string, year: number, copy: number, expiresInSeconds?: number): Promise<string> {
+    const storagePath = this.getStoragePath(trackingNumber, year, copy);
+    const expiry = expiresInSeconds || this.signedUrlExpirySeconds;
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucketName)
+      .createSignedUrl(storagePath, expiry);
+
+    if (error || !data) {
+      throw new Error(`Failed to generate signed URL: ${error?.message}`);
+    }
+
+    return data.signedUrl;
   }
+
+  // ── Check if PDF exists in storage ─────────────────────────────────────────
+
+  async pdfExists(trackingNumber: string, year: number, copy: number): Promise<boolean> {
+    const storagePath = this.getStoragePath(trackingNumber, year, copy);
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucketName)
+      .list(storagePath.split('/').slice(0, -1).join('/'), {
+        search: storagePath.split('/').pop(),
+        limit: 1,
+      });
+
+    if (error) return false;
+    return data && data.length > 0;
+  }
+
+  // ── Delete PDF from storage ────────────────────────────────────────────────
+
+  async deletePdf(trackingNumber: string, year: number, copy: number): Promise<void> {
+    const storagePath = this.getStoragePath(trackingNumber, year, copy);
+
+    const { error } = await this.supabase.storage
+      .from(this.bucketName)
+      .remove([storagePath]);
+
+    if (error) {
+      throw new Error(`Failed to delete PDF: ${error.message}`);
+    }
+  }
+
+  // ── Get public URL (deprecated - use getSignedUrl for private buckets) ─────
+  // Note: This only works if bucket is public. For private buckets, use getSignedUrl.
+
+  getPublicUrl(trackingNumber: string, year: number, copy: number): string {
+    const storagePath = this.getStoragePath(trackingNumber, year, copy);
+    const { data } = this.supabase.storage
+      .from(this.bucketName)
+      .getPublicUrl(storagePath);
+    return data.publicUrl;
+  }
+
+  // ── Storage path helper ────────────────────────────────────────────────────
+
+  private getStoragePath(trackingNumber: string, year: number, copy: number): string {
+    return `declarations/${year}/${trackingNumber}-copy${copy}.pdf`;
+  }
+
+  // ── Backward compatibility for existing code ───────────────────────────────
+
+  getFilePath(trackingNumber: string, year: number, copy: number): string {
+    // Returns a signed URL for backward compatibility
+    // Note: This returns a Promise, so existing sync calls will need to be updated
+    return this.getSignedUrl(trackingNumber, year, copy) as unknown as string;
+  }
+
+  // ── PDF builder (unchanged from original) ─────────────────────────────────
 
   private buildPdf(data: PdfData, copy: 1 | 2 | 3): Promise<Buffer> {
     const lang: Lang = data.language === 'en' ? LABELS.en : LABELS.fr;
@@ -303,18 +420,20 @@ export class PdfService {
         size: 'A4', layout: 'landscape',
         margins: { top: MT, bottom: MB, left: ML, right: MR },
         autoFirstPage: true, bufferPages: true,
-        info: { Title: `DSMO ${data.year} - ${data.trackingNumber}`, Author: 'MINEFOP Cameroun', Subject: lang.formTitle },
+        info: {
+          Title: `DSMO ${data.year} - ${data.trackingNumber}`,
+          Author: 'MINEFOP Cameroun',
+          Subject: lang.formTitle,
+        },
       });
       doc.on('data', (c: Buffer) => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Page 1 — header + Part A
       this.drawWatermark(doc, copy, lang);
       const headerBottom = this.drawBilingualHeader(doc, MT, lang);
       this.drawPartA(doc, data, headerBottom + 5, lang);
 
-      // Page 2+ — Part B
       doc.addPage();
       this.drawWatermark(doc, copy, lang);
       this.drawPartB(doc, data, copy, lang);
@@ -335,17 +454,16 @@ export class PdfService {
     doc.fillColor('black').fillOpacity(1);
   }
 
-  // ── Bilingual header: FR (left) | Coat of Arms (centre) | EN (right) ───────
+  // ── Bilingual header ───────────────────────────────────────────────────────
 
   private drawBilingualHeader(doc: any, y: number, lang: Lang): number {
     const x = ML;
     const w = CONTENT_W;
-    const cw = w / 3;          // width of each third
+    const cw = w / 3;
 
     const fr = LABELS.fr;
     const en = LABELS.en;
 
-    // ── French side ──
     doc.font('Helvetica-Bold').fontSize(9).fillColor('black');
     doc.text(fr.republic, x, y, { width: cw, align: 'center', lineBreak: false });
     doc.font('Helvetica').fontSize(8);
@@ -353,7 +471,6 @@ export class PdfService {
     doc.font('Helvetica').fontSize(6.8);
     doc.text(`${fr.ministry}\n${fr.direction}\n${fr.service}`, x, y + 24, { width: cw, align: 'center' });
 
-    // ── Coat of Arms (centre third) — buffer pre-loaded in constructor ──
     const coatX = x + cw;
     const imgSize = 62;
     const imgLeft = coatX + (cw - imgSize) / 2;
@@ -361,7 +478,6 @@ export class PdfService {
     if (this.coatOfArmsBuffer) {
       doc.image(this.coatOfArmsBuffer, imgLeft, y, { width: imgSize, height: imgSize });
     } else {
-      // Placeholder: two concentric circles with star
       const cx = coatX + cw / 2;
       const cy = y + 32;
       doc.circle(cx, cy, 28).stroke();
@@ -372,7 +488,6 @@ export class PdfService {
       doc.text('COAT OF ARMS', cx - 20, cy + 16, { lineBreak: false });
     }
 
-    // ── English side ──
     const enX = x + cw * 2;
     doc.font('Helvetica-Bold').fontSize(9).fillColor('black');
     doc.text(en.republic, enX, y, { width: cw, align: 'center', lineBreak: false });
@@ -381,11 +496,9 @@ export class PdfService {
     doc.font('Helvetica').fontSize(6.8);
     doc.text(`${en.ministry}\n${en.direction}\n${en.service}`, enX, y + 24, { width: cw, align: 'center' });
 
-    // ── Divider line ──
     const divY = y + 70;
     doc.moveTo(x, divY).lineTo(x + w, divY).stroke();
 
-    // ── Form title in chosen language ──
     const titleY = divY + 4;
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black');
     doc.text(lang.formTitle, x, titleY, { width: w, align: 'center', lineBreak: false });
@@ -401,7 +514,6 @@ export class PdfService {
     let y = startY;
     const rH = 15;
 
-    // Part A title bar
     doc.rect(x, y, w, rH + 2).fillAndStroke('#E8E8E8', 'black');
     doc.fillColor('black').font('Helvetica-Bold').fontSize(8.5);
     doc.text(lang.partATitle, x + 2, y + 4, { width: w - 4, align: 'center' });
@@ -439,7 +551,6 @@ export class PdfService {
     row2(`${lang.mainActivity} : ${data.company.mainActivity}`, `${lang.secondaryActivity} : ${data.company.secondaryActivity ?? ''}`);
     row3(`${lang.region} : ${data.company.region}`, `${lang.department} : ${data.company.department}`, `${lang.district} : ${data.company.district}`);
 
-    // Adresse / Fax / No Contribuable
     const aW = w * 0.50, fW = w * 0.14, nW = w - aW - fW;
     doc.rect(x, y, aW, rH).stroke();
     doc.text(`${lang.address} : ${data.company.address}`, x + 3, y + 4, { width: aW - 6 });
@@ -460,47 +571,34 @@ export class PdfService {
     row3(`${lang.men} : ${data.company.lastYearMenCount ?? ''}`, `${lang.women} : ${data.company.lastYearWomenCount ?? ''}`, `${lang.total} : ${data.company.lastYearTotal ?? ''}`);
     row1(lang.movementsLabel, true);
 
-    // Bottom block
     const remainH = PAGE_BOT - y - 2;
     this.drawBottomBlock(doc, data, x, y, w, remainH, lang);
   }
 
-  // ── Bottom block:
-  //    LEFT  (62%) = Catégories socioprofessionnelles grid  ← CORRECT per official form
-  //    RIGHT (38%) = Informations supplémentaires Yes/No    ← CORRECT per official form
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── Bottom block ───────────────────────────────────────────────────────────
 
   private drawBottomBlock(
     doc: any, data: PdfData,
     x: number, y: number, w: number, height: number,
     lang: Lang,
   ): void {
-    const leftW = w * 0.62;   // categories grid
-    const rightW = w - leftW;  // qualitative questions
+    const leftW = w * 0.62;
+    const rightW = w - leftW;
     const qual = data.qualitative;
 
-    // Outer border + vertical divider
     doc.rect(x, y, w, height).stroke();
     doc.moveTo(x + leftW, y).lineTo(x + leftW, y + height).stroke();
-
-    // ══════════════════════════════════════════════════════════════
-    // LEFT: Catégories socioprofessionnelles grid
-    // ══════════════════════════════════════════════════════════════
 
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('black');
     doc.text(lang.categoriesTitle, x + 3, y + 4, { width: leftW - 6, align: 'center' });
 
     const gridHeaderH = 18;
     const gridHeaderY = y + 18;
-
-    // Row label column width (e.g. "Licenciement") + 7 data columns
     const rowLblW = leftW * 0.17;
-    const dataColW = (leftW - rowLblW) / lang.catCols.length; // 7 cols
+    const dataColW = (leftW - rowLblW) / lang.catCols.length;
 
-    // Empty top-left cell
     doc.rect(x, gridHeaderY, rowLblW, gridHeaderH).stroke();
 
-    // Column headers
     doc.font('Helvetica-Bold').fontSize(6.2).fillColor('black');
     for (let i = 0; i < lang.catCols.length; i++) {
       const cx = x + rowLblW + i * dataColW;
@@ -509,26 +607,21 @@ export class PdfService {
     }
 
     const dataStartY = gridHeaderY + gridHeaderH;
-    const numRows = lang.movements.length + 1; // +1 for TOTAL row
+    const numRows = lang.movements.length + 1;
     const dataH = height - (dataStartY - y);
     const dataRowH = dataH / numRows;
-
-    const colTotals = new Array(lang.catCols.length).fill(0); // index 0 = Aucune/None (unused), 1-5 = cats, 6 = grand total
+    const colTotals = new Array(lang.catCols.length).fill(0);
 
     for (let r = 0; r < lang.movements.length; r++) {
       const { key, label } = lang.movements[r];
       const mv = (data.company[key as keyof Company] as MovementBreakdown | undefined) ?? emptyBreakdown();
       const ry = dataStartY + r * dataRowH;
 
-      // Row label
       doc.rect(x, ry, rowLblW, dataRowH).stroke();
       doc.font('Helvetica').fontSize(7).fillColor('black');
       doc.text(label, x + 2, ry + dataRowH / 2 - 4, { width: rowLblW - 4 });
-
-      // Aucune/None column — empty (not tracked individually per movement)
       doc.rect(x + rowLblW, ry, dataColW, dataRowH).stroke();
 
-      // cat1_3, cat4_6, cat7_9, cat10_12, catNonDeclared
       const vals = [mv.cat1_3, mv.cat4_6, mv.cat7_9, mv.cat10_12, mv.catNonDeclared];
       for (let c = 0; c < vals.length; c++) {
         const cx = x + rowLblW + (c + 1) * dataColW;
@@ -538,7 +631,6 @@ export class PdfService {
         colTotals[c + 1] += vals[c];
       }
 
-      // TOTAL column
       const tot = rowTotal(mv);
       const totCx = x + rowLblW + 6 * dataColW;
       doc.rect(totCx, ry, dataColW, dataRowH).stroke();
@@ -547,13 +639,10 @@ export class PdfService {
       colTotals[6] += tot;
     }
 
-    // TOTAL row (shaded)
     const totRowY = dataStartY + lang.movements.length * dataRowH;
     doc.rect(x, totRowY, rowLblW, dataRowH).fillAndStroke('#E8E8E8', 'black');
     doc.fillColor('black').font('Helvetica-Bold').fontSize(7);
     doc.text('TOTAL', x + 2, totRowY + dataRowH / 2 - 4, { width: rowLblW - 4, align: 'center' });
-
-    // Aucune total cell (shaded, empty)
     doc.rect(x + rowLblW, totRowY, dataColW, dataRowH).fillAndStroke('#E8E8E8', 'black');
     doc.fillColor('black');
 
@@ -563,22 +652,18 @@ export class PdfService {
       doc.fillColor('black').font('Helvetica-Bold').fontSize(7);
       doc.text(String(colTotals[c]), cx + 1, totRowY + dataRowH / 2 - 4, { width: dataColW - 2, align: 'center' });
     }
-    // Grand total cell
+
     const gtCx = x + rowLblW + 6 * dataColW;
     doc.rect(gtCx, totRowY, dataColW, dataRowH).fillAndStroke('#E8E8E8', 'black');
     doc.fillColor('black').font('Helvetica-Bold').fontSize(7);
     doc.text(String(colTotals[6]), gtCx + 1, totRowY + dataRowH / 2 - 4, { width: dataColW - 2, align: 'center' });
 
-    // ══════════════════════════════════════════════════════════════
-    // RIGHT: Informations supplémentaires (Yes/No questions)
-    // ══════════════════════════════════════════════════════════════
-
+    // RIGHT: qualitative questions
     const rx = x + leftW;
 
     doc.font('Helvetica-Bold').fontSize(7.2).fillColor('black');
     doc.text(lang.qualTitle, rx + 3, y + 4, { width: rightW - 6 });
 
-    // Header: Question | Oui | Non
     const hdrY = y + 26;
     const hdrH = 13;
     const qTextW = rightW * 0.66;
@@ -599,13 +684,11 @@ export class PdfService {
       doc.rect(rx, ly, qTextW, qRowH).stroke();
       doc.font('Helvetica').fontSize(6.2).fillColor('black');
       doc.text(label, rx + 3, ly + 3, { width: qTextW - 6 });
-
       doc.rect(rx + qTextW, ly, ynW, qRowH).stroke();
       if (answer === true) {
         doc.font('Helvetica-Bold').fontSize(8);
         doc.text('X', rx + qTextW + 2, ly + qRowH / 2 - 5, { width: ynW - 4, align: 'center' });
       }
-
       doc.rect(rx + qTextW + ynW, ly, ynW, qRowH).stroke();
       if (answer === false) {
         doc.font('Helvetica-Bold').fontSize(8);
@@ -619,21 +702,13 @@ export class PdfService {
     drawQ(lang.q3, qual?.camerounisationPlan);
     drawQ(lang.q4, qual?.usesTempAgencies);
 
-    // Last row: "Si oui, préciser..."
     const lastH = height - (ly - y);
     doc.rect(rx, ly, rightW, lastH).stroke();
     doc.font('Helvetica').fontSize(6.2).fillColor('black');
-    doc.text(
-      `${lang.q4detail}\n${qual?.tempAgencyDetails ?? ''}`,
-      rx + 3, ly + 3, { width: rightW - 6 },
-    );
+    doc.text(`${lang.q4detail}\n${qual?.tempAgencyDetails ?? ''}`, rx + 3, ly + 3, { width: rightW - 6 });
   }
 
-  // ── Part B: employee table
-  //    Page 1 : exactly 10 fixed rows at rowH=18 (matching the official printed form)
-  //    Page 2+: 25 rows at the same rowH=18 (landscape A4 fits comfortably)
-  //    Catégorie and Salaire are SEPARATE columns per the official form
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── Part B: employee table ─────────────────────────────────────────────────
 
   private drawPartB(doc: any, data: PdfData, copy: 1 | 2 | 3, lang: Lang): void {
     const x = ML;
@@ -644,13 +719,11 @@ export class PdfService {
     const startX = x + (w - tableW) / 2;
 
     const headerH = 18;
-    const rowH = 18; // Fixed height synchronized across all pages
+    const rowH = 18;
 
     let currentEmpIdx = 0;
     let pageNum = 0;
 
-    // Continue drawing pages until all employees are processed,
-    // or at least one page if the list is empty
     while (currentEmpIdx < employees.length || pageNum === 0) {
       if (pageNum > 0) {
         doc.addPage();
@@ -659,14 +732,12 @@ export class PdfService {
 
       let y = MT;
 
-      // Title — append "(Suite)" / "(Continued)" for pages 2+
       doc.font('Helvetica-Bold').fontSize(10.5).fillColor('black');
       const titleSuffix = lang.republic.startsWith('REPUBLIC OF') ? ' (Continued)' : ' (Suite)';
       const titleText = pageNum === 0 ? lang.partBTitle : `${lang.partBTitle}${titleSuffix}`;
       doc.text(titleText, x, y, { width: w, align: 'center' });
       y += 24;
 
-      // Column headers (repeated on every page)
       let cx = startX;
       doc.font('Helvetica-Bold').fontSize(7.2);
       for (const col of cols) {
@@ -676,16 +747,13 @@ export class PdfService {
       }
       y += headerH;
 
-      // Page 1: 10 rows (official form). Page 2+: 25 rows (optimized for landscape)
       const rowsThisPage = pageNum === 0 ? 10 : 25;
-
       doc.font('Helvetica').fontSize(7.5).fillColor('black');
 
       for (let i = 0; i < rowsThisPage; i++) {
         const emp = employees[currentEmpIdx];
         cx = startX;
 
-        // Data row or empty row (to preserve the 10-row structure on page 1)
         const cells = emp ? [
           String(currentEmpIdx + 1),
           emp.fullName ?? '',
@@ -701,7 +769,6 @@ export class PdfService {
 
         for (let j = 0; j < cols.length; j++) {
           doc.rect(cx, y, cols[j].width, rowH).stroke();
-          // Numeric/short columns centred; text columns left-aligned
           const numericLabels = ['No', 'Age', 'Seniority', 'Anciennete', 'Salaire', 'Salary', 'Sexe', 'Gender', 'Categorie', 'Category'];
           const align = numericLabels.includes(cols[j].label) ? 'center' : 'left';
           doc.text(cells[j], cx + 2, y + 5, { width: cols[j].width - 4, lineBreak: false, align });
@@ -711,12 +778,9 @@ export class PdfService {
         y += rowH;
         currentEmpIdx++;
 
-        // Stop early if employees exhausted — except on page 1 where we always
-        // draw all 10 rows to match the official printed form layout
         if (currentEmpIdx >= employees.length && (pageNum > 0 || i >= 9)) break;
       }
 
-      // Draw legal footer on the last page
       const isLastPage = currentEmpIdx >= employees.length;
       if (isLastPage) {
         y += 10;

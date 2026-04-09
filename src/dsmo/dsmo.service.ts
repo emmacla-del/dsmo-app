@@ -12,7 +12,6 @@ import { UserRole, DeclarationStatus, MovementType } from '../types/prisma.types
 import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { PdfService, PdfData } from './pdf.service';
-import * as fs from 'fs';
 
 @Injectable()
 export class DsmoService {
@@ -23,9 +22,6 @@ export class DsmoService {
     private pdfService: PdfService,
   ) { }
 
-  /**
-   * Generates a unique tracking number for official submissions.
-   */
   private async generateTrackingNumber(year: number): Promise<string> {
     const count = await this.prisma.declaration.count({
       where: { year, status: { not: DeclarationStatus.DRAFT } },
@@ -34,9 +30,6 @@ export class DsmoService {
     return `DSMO-${year}-${seq}`;
   }
 
-  /**
-   * Synchronizes company profile data.
-   */
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
     const companyData = {
       name: dto.name,
@@ -62,7 +55,6 @@ export class DsmoService {
         update: companyData,
         create: { userId, ...companyData },
       });
-
       await this.auditService.log(userId, 'UPDATE_COMPANY', 'Company', company.id, 'Mise à jour du profil entreprise');
       return company;
     } catch (err: any) {
@@ -73,9 +65,6 @@ export class DsmoService {
     }
   }
 
-  /**
-   * Main entry point for submitting a DSMO declaration.
-   */
   async submitDeclaration(userId: string, dto: SubmitDeclarationDto) {
     const company = await this.createOrUpdateCompany(userId, dto.company);
 
@@ -106,7 +95,6 @@ export class DsmoService {
       });
     }
 
-    // Atomic data persistence
     await this.prisma.$transaction([
       this.prisma.employee.deleteMany({ where: { declarationId: declaration.id } }),
       this.prisma.employee.createMany({
@@ -145,15 +133,15 @@ export class DsmoService {
       include: { employees: true, movements: true, qualitativeQuestions: true },
     });
 
-    // Solve TS7006 by explicitly typing 'mv'
     const getMovement = (type: MovementType) => {
       const m = fullDecl.movements.find((mv: any) => mv.movementType === type);
       return m ? {
         cat1_3: m.cat1_3, cat4_6: m.cat4_6, cat7_9: m.cat7_9,
-        cat10_12: m.cat10_12, catNonDeclared: m.catNonDeclared
+        cat10_12: m.cat10_12, catNonDeclared: m.catNonDeclared,
       } : undefined;
     };
 
+    // ✅ PDFs are now uploaded directly to Supabase Storage
     const { urls, hashes } = await this.pdfService.generateDeclarationPdfs({
       trackingNumber,
       year: dto.year,
@@ -171,27 +159,32 @@ export class DsmoService {
       employees: fullDecl.employees,
     });
 
+    // urls[0] and urls[1] are now permanent Supabase public URLs
     const submitted = await this.prisma.declaration.update({
       where: { id: declaration.id },
       data: {
         status: DeclarationStatus.SUBMITTED,
         submittedAt: new Date(),
-        pdfUrl: urls[0],
-        receiptUrl: urls[1],
+        pdfUrl: urls[0],     // ✅ Supabase URL — survives redeployments
+        receiptUrl: urls[1], // ✅ Supabase URL — survives redeployments
         qrCode: trackingNumber,
         fillingDate: dto.fillingDate ? new Date(dto.fillingDate) : new Date(),
       },
     });
 
     await this.auditService.log(userId, 'SUBMIT_DECLARATION', 'Declaration', submitted.id, trackingNumber);
-
     return { success: true, trackingNumber, pdfUrls: urls, fileHashes: hashes };
   }
 
-  /** Resolves TS2339: Logic for administrative 'Inbox' */
   async getPendingDeclarations(user: any) {
     const where: any = {
-      status: { in: [DeclarationStatus.SUBMITTED, DeclarationStatus.DIVISION_APPROVED, DeclarationStatus.REGION_APPROVED] }
+      status: {
+        in: [
+          DeclarationStatus.SUBMITTED,
+          DeclarationStatus.DIVISION_APPROVED,
+          DeclarationStatus.REGION_APPROVED,
+        ],
+      },
     };
 
     if (user.role === UserRole.DIVISIONAL) where.division = user.department;
@@ -205,7 +198,6 @@ export class DsmoService {
     });
   }
 
-  /** Resolves TS2339: Unified Validation handler */
   async validateDeclaration(declarationId: string, userId: string, accept: boolean, reason?: string) {
     return accept
       ? this.approveDeclaration(declarationId, userId)
@@ -214,7 +206,7 @@ export class DsmoService {
 
   async approveDeclaration(declarationId: string, userId: string, notes?: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const decl = await this.getDeclarationWithAccess(userId, declarationId);
+    await this.getDeclarationWithAccess(userId, declarationId);
 
     let nextStatus: DeclarationStatus;
     if (user.role === UserRole.DIVISIONAL) nextStatus = DeclarationStatus.DIVISION_APPROVED;
@@ -240,7 +232,6 @@ export class DsmoService {
     });
   }
 
-  /** Resolves TS2339: Search and history retrieval */
   async getDeclarationsForUser(userId: string, filters: any) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const where: any = {};
@@ -248,8 +239,11 @@ export class DsmoService {
     if (user.role === UserRole.COMPANY) {
       const comp = await this.prisma.company.findUnique({ where: { userId } });
       where.companyId = comp?.id;
-    } else if (user.role === UserRole.DIVISIONAL) where.division = user.department;
-    else if (user.role === UserRole.REGIONAL) where.region = user.region;
+    } else if (user.role === UserRole.DIVISIONAL) {
+      where.division = user.department;
+    } else if (user.role === UserRole.REGIONAL) {
+      where.region = user.region;
+    }
 
     if (filters.year) where.year = filters.year;
     if (filters.status) where.status = filters.status;
@@ -261,21 +255,32 @@ export class DsmoService {
     });
   }
 
-  /** Resolves TS2339: PDF retrieval for streaming */
+  /**
+   * ✅ FIXED: PDFs are now stored in Supabase Storage.
+   * The pdfUrl saved in the DB is already a permanent public URL.
+   * We just return it directly — no disk access, no regeneration needed.
+   */
   async getPdfPath(declarationId: string, userId: string, copy: number): Promise<string> {
     const decl = await this.getDeclarationWithAccess(userId, declarationId);
-    if (!decl.qrCode) throw new NotFoundException('Fichier PDF non disponible.');
 
-    const path = this.pdfService.getFilePath(decl.qrCode, decl.year, copy);
-    if (!fs.existsSync(path)) throw new NotFoundException('Le fichier physique est introuvable.');
-    return path;
+    if (!decl.qrCode) {
+      throw new NotFoundException('PDF non disponible — numéro de suivi introuvable.');
+    }
+
+    // ✅ Return Supabase public URL directly
+    return this.pdfService.getPublicUrl(decl.qrCode, decl.year, copy);
   }
 
   async getDeclarationWithAccess(userId: string, declarationId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const decl = await this.prisma.declaration.findUniqueOrThrow({
       where: { id: declarationId },
-      include: { company: true, employees: true, movements: true, qualitativeQuestions: true },
+      include: {
+        company: true,
+        employees: true,
+        movements: true,
+        qualitativeQuestions: true,
+      },
     });
 
     if (user.role === UserRole.COMPANY && decl.company.userId !== userId) {

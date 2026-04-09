@@ -157,10 +157,15 @@ class _DeclarationsListScreenState
           final status = d['status'] as String? ?? '';
           final employees = (d['employees'] as List?) ?? [];
 
+          final isDraft = isCompany && status == 'DRAFT';
+
           return Card(
-            elevation: 2,
+            elevation: isDraft ? 3 : 2,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+                side: isDraft
+                    ? const BorderSide(color: Colors.orange, width: 1.5)
+                    : BorderSide.none),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () async {
@@ -183,11 +188,16 @@ class _DeclarationsListScreenState
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppColors.deepEmerald.withAlpha(25),
+                        color: isDraft
+                            ? Colors.orange.withAlpha(25)
+                            : AppColors.deepEmerald.withAlpha(25),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.business,
-                          color: AppColors.deepEmerald),
+                      child: Icon(
+                          isDraft ? Icons.edit_note : Icons.business,
+                          color: isDraft
+                              ? Colors.orange
+                              : AppColors.deepEmerald),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -201,24 +211,55 @@ class _DeclarationsListScreenState
                                 fontWeight: FontWeight.w700,
                                 fontSize: 15),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
+                          // Row 2: Year • Region / District
                           Text(
-                            'Année ${d['year']}'
-                            '  •  ${company['region'] ?? d['region'] ?? ''}'
-                            '${employees.isNotEmpty ? '  •  ${employees.length} employés' : ''}',
+                            [
+                              'Année ${d['year']}',
+                              if ((company['region'] ?? d['region']) != null)
+                                company['region'] ?? d['region'],
+                              if ((company['district'] as String?)
+                                      ?.isNotEmpty ==
+                                  true)
+                                company['district'],
+                            ].join('  •  '),
                             style: const TextStyle(
                                 color: AppColors.slate, fontSize: 12),
                           ),
+                          // Row 3: NIU + employee count
+                          if ((company['taxNumber'] as String?)
+                                  ?.isNotEmpty ==
+                              true) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'NIU: ${company['taxNumber']}'
+                              '${company['totalEmployees'] != null ? '  •  ${company['totalEmployees']} employé(s)' : employees.isNotEmpty ? '  •  ${employees.length} employé(s)' : ''}',
+                              style: const TextStyle(
+                                  color: AppColors.silver, fontSize: 11),
+                            ),
+                          ],
                           const SizedBox(height: 6),
                           _StatusBadge(
                             label: _statusLabel(status),
                             color: _statusColor(status),
                           ),
+                          if (isDraft) ...[
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Appuyez pour reprendre et soumettre',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.orange,
+                                  fontStyle: FontStyle.italic),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right,
-                        color: AppColors.silver),
+                    Icon(
+                        isDraft ? Icons.arrow_forward : Icons.chevron_right,
+                        color:
+                            isDraft ? Colors.orange : AppColors.silver),
                   ],
                 ),
               ),
