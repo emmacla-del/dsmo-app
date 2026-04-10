@@ -79,8 +79,6 @@ export class AuthService {
           role: role as any,
           region,
           department,
-          isActive: true,
-          createdAt: new Date(),
         },
       });
 
@@ -138,8 +136,6 @@ export class AuthService {
             lastName: '',
             region: companyData.region,
             department: companyData.department,
-            isActive: true,
-            createdAt: new Date(),
           },
         });
 
