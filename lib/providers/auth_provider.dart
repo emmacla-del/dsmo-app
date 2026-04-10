@@ -4,7 +4,10 @@ import '../models/user.dart';
 
 final authProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
-  final api = ref.watch(apiClientProvider);
+  // ✅ FIX: use ref.read instead of ref.watch
+  // ref.watch was recreating AuthNotifier on every apiClientProvider rebuild,
+  // which caused the login screen to rebuild and re-trigger _submit()
+  final api = ref.read(apiClientProvider);
   return AuthNotifier(api);
 });
 
@@ -13,10 +16,20 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   AuthNotifier(this._api) : super(const AsyncValue.data(null));
 
   Future<void> login(String email, String password) async {
+    // Guard: don't re-run if already loading
+    if (state is AsyncLoading) return;
     state = const AsyncValue.loading();
+    await _doLogin(email, password);
+  }
+
+  /// Performs the actual login API call without checking loading state.
+  /// Used internally by [register] which already sets state to loading.
+  Future<void> _doLogin(String email, String password) async {
     try {
-      final response = await _api
-          .post('/auth/login', data: {'email': email, 'password': password});
+      final response = await _api.post(
+        '/auth/login',
+        data: {'email': email, 'password': password},
+      );
       final token = response.data['access_token'];
       await _api.setToken(token);
       final user = User.fromJson(response.data['user']);
@@ -31,19 +44,33 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.data(null);
   }
 
-  Future<void> register(String email, String password, String role,
-      {String? region, String? department}) async {
+  Future<void> register(
+    String email,
+    String password,
+    String firstName,
+    String lastName,
+    String role, {
+    String? region,
+    String? department,
+  }) async {
+    if (state is AsyncLoading) return;
     state = const AsyncValue.loading();
     try {
-      await _api.post('/auth/register', data: {
+      // Register returns { access_token, user } directly — no second login needed
+      final response = await _api.post('/auth/register', data: {
         'email': email,
         'password': password,
+        'firstName': firstName,
+        'lastName': lastName,
         'role': role,
-        'region': region,
-        'department': department,
+        if (region != null) 'region': region,
+        if (department != null) 'department': department,
       });
-      // After registration, log in automatically
-      await login(email, password);
+      final token = response.data['access_token'] as String?;
+      if (token == null) throw 'Aucun token reçu après inscription.';
+      await _api.setToken(token);
+      final user = User.fromJson(response.data['user'] as Map<String, dynamic>);
+      state = AsyncValue.data(user);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

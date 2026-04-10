@@ -96,18 +96,17 @@ class _DeclarationWizardScreenState
   final _tempAgencyDetailsCtrl = TextEditingController();
 
   Map<String, dynamic>? _companyData;
+  Map<String, dynamic>? _savedCompany; // profile fetched from /dsmo/company
 
   @override
   void initState() {
     super.initState();
-    _fetchRegions();
     _fetchSectors();
-    // Auto-calculation: totals update whenever men/women change
+    _fetchRegionsAndAutoFill(); // loads regions then cascades auto-fill
     _menCount.addListener(_autoCalcCurrentTotal);
     _womenCount.addListener(_autoCalcCurrentTotal);
     _lastYearMen.addListener(_autoCalcLastYearTotal);
     _lastYearWomen.addListener(_autoCalcLastYearTotal);
-    // Movement totals: any change to a movement cell rebuilds the table totals
     for (final c in _movements.values) {
       c.addListener(_onMovementChanged);
     }
@@ -151,21 +150,177 @@ class _DeclarationWizardScreenState
   int _movGrandTotal() =>
       _movements.values.fold(0, (s, c) => s + (int.tryParse(c.text) ?? 0));
 
-  Future<void> _fetchRegions() async {
+  /// Fetches regions and the company profile in parallel, then cascades
+  /// auto-fill: region → department → subdivision.
+  Future<void> _fetchRegionsAndAutoFill() async {
     setState(() => _isLoadingRegions = true);
     try {
       final api = ref.read(apiClientProvider);
-      final regions = await api.getRegions();
-      if (mounted) {
-        setState(() {
-          _regions = regions;
-          _isLoadingRegions = false;
-        });
+      final results = await Future.wait([
+        api.getRegions(),
+        api.getMyCompany(),
+      ]);
+
+      final regions = results[0] as List<dynamic>;
+      final company = results[1] as Map<String, dynamic>?;
+
+      if (!mounted) return;
+
+      setState(() {
+        _regions = regions;
+        _isLoadingRegions = false;
+        _savedCompany = company;
+      });
+
+      if (company != null) {
+        _prefillTextFields(company);
+        _autoSelectSector(company['mainActivity'] as String?);
+        await _autoSelectRegion(company['region'] as String?, regions);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingRegions = false);
         _showError('Erreur chargement régions: $e');
+      }
+    }
+  }
+
+  /// Tries to auto-select the sector. Called after both sectors and company are loaded.
+  void _autoSelectSector(String? activityName) {
+    if (activityName == null || activityName.isEmpty || _sectors.isEmpty) return;
+    final match = _sectors.cast<Map<String, dynamic>>().where(
+      (s) => (s['name'] as String?)?.toLowerCase() == activityName.toLowerCase(),
+    ).firstOrNull;
+    if (match != null && mounted) {
+      setState(() {
+        _selectedSectorId   = match['id'] as String?;
+        _selectedSectorName = match['name'] as String?;
+      });
+    }
+  }
+
+  /// Pre-fills all text controllers from the saved company profile.
+  void _prefillTextFields(Map<String, dynamic> c) {
+    _nameController.text        = c['name'] as String? ?? '';
+    _parentCompanyController.text = c['parentCompany'] as String? ?? '';
+    _addressController.text     = c['address'] as String? ?? '';
+    _faxController.text         = c['fax'] as String? ?? '';
+    _taxNumberController.text   = c['taxNumber'] as String? ?? '';
+    _cnpsController.text        = c['cnpsNumber'] as String? ?? '';
+    if (c['socialCapital'] != null) {
+      _capitalController.text   = '${c['socialCapital']}';
+    }
+    // Workforce from last registration — editable before submit
+    if (c['totalEmployees'] != null) {
+      _totalEmp.text  = '${c['totalEmployees']}';
+    }
+    if (c['menCount'] != null)   _menCount.text   = '${c['menCount']}';
+    if (c['womenCount'] != null) _womenCount.text = '${c['womenCount']}';
+    if (c['lastYearTotal'] != null) {
+      _lastYearTotal.text = '${c['lastYearTotal']}';
+    }
+  }
+
+  /// Finds the region by name in the loaded list and triggers the cascade.
+  Future<void> _autoSelectRegion(String? regionName, List<dynamic> regions) async {
+    if (regionName == null || regionName.isEmpty) return;
+    final match = regions.cast<Map<String, dynamic>>().where(
+      (r) => (r['name'] as String?)?.toLowerCase() == regionName.toLowerCase(),
+    ).firstOrNull;
+    if (match == null) return;
+
+    setState(() {
+      _selectedRegionId   = match['id'] as String?;
+      _selectedRegionName = match['name'] as String?;
+    });
+
+    if (_selectedRegionId != null) {
+      await _fetchDepartmentsAndAutoSelect(
+        _selectedRegionId!,
+        _savedCompany?['department'] as String?,
+      );
+    }
+  }
+
+  /// Loads departments for the region, auto-selects by name, then loads subdivisions.
+  Future<void> _fetchDepartmentsAndAutoSelect(
+      String regionId, String? deptName) async {
+    setState(() {
+      _isLoadingDepartments = true;
+      _departments = [];
+      _selectedDepartmentId = null;
+      _selectedDepartmentName = null;
+      _subdivisions = [];
+      _selectedSubdivisionId = null;
+      _selectedSubdivisionName = null;
+    });
+    try {
+      final api = ref.read(apiClientProvider);
+      final departments = await api.getDepartments(regionId);
+      if (!mounted) return;
+      setState(() {
+        _departments = departments;
+        _isLoadingDepartments = false;
+      });
+
+      if (deptName != null && deptName.isNotEmpty) {
+        final match = departments.cast<Map<String, dynamic>>().where(
+          (d) => (d['name'] as String?)?.toLowerCase() == deptName.toLowerCase(),
+        ).firstOrNull;
+        if (match != null) {
+          setState(() {
+            _selectedDepartmentId   = match['id'] as String?;
+            _selectedDepartmentName = match['name'] as String?;
+          });
+          if (_selectedDepartmentId != null) {
+            await _fetchSubdivisionsAndAutoSelect(
+              _selectedDepartmentId!,
+              _savedCompany?['district'] as String?,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingDepartments = false);
+        _showError('Erreur chargement départements: $e');
+      }
+    }
+  }
+
+  /// Loads subdivisions for the department and auto-selects by name.
+  Future<void> _fetchSubdivisionsAndAutoSelect(
+      String departmentId, String? districtName) async {
+    setState(() {
+      _isLoadingSubdivisions = true;
+      _subdivisions = [];
+      _selectedSubdivisionId = null;
+      _selectedSubdivisionName = null;
+    });
+    try {
+      final api = ref.read(apiClientProvider);
+      final subdivisions = await api.getSubdivisions(departmentId);
+      if (!mounted) return;
+      setState(() {
+        _subdivisions = subdivisions;
+        _isLoadingSubdivisions = false;
+      });
+
+      if (districtName != null && districtName.isNotEmpty) {
+        final match = subdivisions.cast<Map<String, dynamic>>().where(
+          (s) => (s['name'] as String?)?.toLowerCase() == districtName.toLowerCase(),
+        ).firstOrNull;
+        if (match != null) {
+          setState(() {
+            _selectedSubdivisionId   = match['id'] as String?;
+            _selectedSubdivisionName = match['name'] as String?;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSubdivisions = false);
+        _showError('Erreur chargement arrondissements: $e');
       }
     }
   }
@@ -226,11 +381,14 @@ class _DeclarationWizardScreenState
     try {
       final api = ref.read(apiClientProvider);
       final sectors = await api.getSectors();
-      if (mounted) {
-        setState(() {
-          _sectors = sectors;
-          _isLoadingSectors = false;
-        });
+      if (!mounted) return;
+      setState(() {
+        _sectors = sectors;
+        _isLoadingSectors = false;
+      });
+      // Auto-select if company profile is already loaded (parallel race won)
+      if (_savedCompany != null) {
+        _autoSelectSector(_savedCompany!['mainActivity'] as String?);
       }
     } catch (e) {
       if (mounted) {

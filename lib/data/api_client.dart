@@ -181,6 +181,27 @@ class ApiClient {
     }
   }
 
+  // ==================== COMPANY METHODS ====================
+
+  Future<Map<String, dynamic>> saveCompanyProfile(Map<String, dynamic> data) async {
+    try {
+      final response = await dio.post('/dsmo/company', data: data);
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>?> getMyCompany() async {
+    try {
+      final response = await dio.get('/dsmo/company');
+      return response.data as Map<String, dynamic>?;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw _handleError(e);
+    }
+  }
+
   // ==================== DECLARATION METHODS ====================
 
   Future<Map<String, dynamic>> createDeclaration(

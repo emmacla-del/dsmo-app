@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/api_client.dart';
+import '../../../providers/auth_provider.dart';
 import 'employee_list_screen.dart';
 
 class CompanyRegistrationScreen extends ConsumerStatefulWidget {
@@ -48,6 +49,19 @@ class _CompanyRegistrationScreenState
   };
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill region and department from the logged-in user's account data
+    final user = ref.read(authProvider).valueOrNull;
+    if (user?.region != null && user!.region!.isNotEmpty) {
+      _regionController.text = user.region!;
+    }
+    if (user?.department != null && user!.department!.isNotEmpty) {
+      _deptController.text = user.department!;
+    }
+  }
 
   @override
   void dispose() {

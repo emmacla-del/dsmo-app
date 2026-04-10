@@ -156,8 +156,10 @@ class _DeclarationsListScreenState
               (d['company'] as Map<String, dynamic>?) ?? {};
           final status = d['status'] as String? ?? '';
           final employees = (d['employees'] as List?) ?? [];
+          final rejectionReason = d['rejectionReason'] as String?;
 
           final isDraft = isCompany && status == 'DRAFT';
+          final showTimeline = isCompany && status != 'DRAFT';
 
           return Card(
             elevation: isDraft ? 3 : 2,
@@ -165,7 +167,9 @@ class _DeclarationsListScreenState
                 borderRadius: BorderRadius.circular(10),
                 side: isDraft
                     ? const BorderSide(color: Colors.orange, width: 1.5)
-                    : BorderSide.none),
+                    : status == 'REJECTED'
+                        ? const BorderSide(color: Colors.red, width: 1.5)
+                        : BorderSide.none),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () async {
@@ -182,84 +186,135 @@ class _DeclarationsListScreenState
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isDraft
-                            ? Colors.orange.withAlpha(25)
-                            : AppColors.deepEmerald.withAlpha(25),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                          isDraft ? Icons.edit_note : Icons.business,
-                          color: isDraft
-                              ? Colors.orange
-                              : AppColors.deepEmerald),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            company['name'] as String? ??
-                                'Entreprise inconnue',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15),
+                    Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: isDraft
+                                ? Colors.orange.withAlpha(25)
+                                : status == 'REJECTED'
+                                    ? Colors.red.withAlpha(25)
+                                    : AppColors.deepEmerald.withAlpha(25),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(height: 3),
-                          // Row 2: Year • Region / District
-                          Text(
-                            [
-                              'Année ${d['year']}',
-                              if ((company['region'] ?? d['region']) != null)
-                                company['region'] ?? d['region'],
-                              if ((company['district'] as String?)
+                          child: Icon(
+                              isDraft
+                                  ? Icons.edit_note
+                                  : status == 'REJECTED'
+                                      ? Icons.cancel_outlined
+                                      : Icons.business,
+                              color: isDraft
+                                  ? Colors.orange
+                                  : status == 'REJECTED'
+                                      ? Colors.red
+                                      : AppColors.deepEmerald),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                company['name'] as String? ??
+                                    'Entreprise inconnue',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                [
+                                  'Année ${d['year']}',
+                                  if ((company['region'] ?? d['region']) != null)
+                                    company['region'] ?? d['region'],
+                                  if ((company['district'] as String?)
+                                          ?.isNotEmpty ==
+                                      true)
+                                    company['district'],
+                                ].join('  •  '),
+                                style: const TextStyle(
+                                    color: AppColors.slate, fontSize: 12),
+                              ),
+                              if ((company['taxNumber'] as String?)
                                       ?.isNotEmpty ==
-                                  true)
-                                company['district'],
-                            ].join('  •  '),
-                            style: const TextStyle(
-                                color: AppColors.slate, fontSize: 12),
+                                  true) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'NIU: ${company['taxNumber']}'
+                                  '${company['totalEmployees'] != null ? '  •  ${company['totalEmployees']} employé(s)' : employees.isNotEmpty ? '  •  ${employees.length} employé(s)' : ''}',
+                                  style: const TextStyle(
+                                      color: AppColors.silver, fontSize: 11),
+                                ),
+                              ],
+                              const SizedBox(height: 6),
+                              _StatusBadge(
+                                label: _statusLabel(status),
+                                color: _statusColor(status),
+                              ),
+                              if (isDraft) ...[
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Appuyez pour reprendre et soumettre',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.orange,
+                                      fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                            ],
                           ),
-                          // Row 3: NIU + employee count
-                          if ((company['taxNumber'] as String?)
-                                  ?.isNotEmpty ==
-                              true) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              'NIU: ${company['taxNumber']}'
-                              '${company['totalEmployees'] != null ? '  •  ${company['totalEmployees']} employé(s)' : employees.isNotEmpty ? '  •  ${employees.length} employé(s)' : ''}',
-                              style: const TextStyle(
-                                  color: AppColors.silver, fontSize: 11),
-                            ),
-                          ],
-                          const SizedBox(height: 6),
-                          _StatusBadge(
-                            label: _statusLabel(status),
-                            color: _statusColor(status),
-                          ),
-                          if (isDraft) ...[
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Appuyez pour reprendre et soumettre',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.orange,
-                                  fontStyle: FontStyle.italic),
-                            ),
-                          ],
-                        ],
-                      ),
+                        ),
+                        Icon(
+                            isDraft ? Icons.arrow_forward : Icons.chevron_right,
+                            color:
+                                isDraft ? Colors.orange : AppColors.silver),
+                      ],
                     ),
-                    Icon(
-                        isDraft ? Icons.arrow_forward : Icons.chevron_right,
-                        color:
-                            isDraft ? Colors.orange : AppColors.silver),
+
+                    // ── Approval chain timeline (companies only, non-draft) ──
+                    if (showTimeline) ...[
+                      const SizedBox(height: 14),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      _ApprovalTimeline(status: status),
+                    ],
+
+                    // ── Rejection reason ────────────────────────────────────
+                    if (status == 'REJECTED' &&
+                        rejectionReason != null &&
+                        rejectionReason.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.info_outline,
+                                color: Colors.red, size: 16),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Motif : $rejectionReason',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red.shade700),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -270,6 +325,113 @@ class _DeclarationsListScreenState
     );
   }
 }
+
+// ── Approval chain timeline ─────────────────────────────────────────────────
+
+class _ApprovalTimeline extends StatelessWidget {
+  final String status;
+
+  const _ApprovalTimeline({required this.status});
+
+  // Returns 0-based index of the last completed step.
+  // -1 means none completed yet (SUBMITTED = step 0 in progress).
+  int get _completedUpTo {
+    switch (status) {
+      case 'SUBMITTED':
+        return 0; // step 0 done (submitted)
+      case 'DIVISION_APPROVED':
+        return 1;
+      case 'REGION_APPROVED':
+        return 2;
+      case 'FINAL_APPROVED':
+        return 3;
+      case 'REJECTED':
+        return -1; // will be handled separately
+      default:
+        return -1;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = ['Soumise', 'Division', 'Région', 'Central'];
+    final done = _completedUpTo;
+    final isRejected = status == 'REJECTED';
+
+    return Row(
+      children: List.generate(steps.length * 2 - 1, (i) {
+        // Odd indices are connectors
+        if (i.isOdd) {
+          final stepIndex = i ~/ 2;
+          final lineComplete = done >= stepIndex + 1;
+          return Expanded(
+            child: Container(
+              height: 2,
+              color: isRejected
+                  ? Colors.red.shade200
+                  : lineComplete
+                      ? Colors.green
+                      : Colors.grey.shade300,
+            ),
+          );
+        }
+
+        final stepIndex = i ~/ 2;
+        final isComplete = !isRejected && done >= stepIndex;
+        final isActive = !isRejected && done == stepIndex - 1 + 1;
+
+        Color nodeColor;
+        Widget nodeIcon;
+
+        if (isRejected) {
+          nodeColor = Colors.red.shade100;
+          nodeIcon = Icon(Icons.close, size: 12, color: Colors.red.shade400);
+        } else if (isComplete) {
+          nodeColor = Colors.green;
+          nodeIcon = const Icon(Icons.check, size: 12, color: Colors.white);
+        } else if (isActive) {
+          nodeColor = Colors.orange;
+          nodeIcon =
+              const Icon(Icons.schedule, size: 12, color: Colors.white);
+        } else {
+          nodeColor = Colors.grey.shade300;
+          nodeIcon = Icon(Icons.circle,
+              size: 6, color: Colors.grey.shade400);
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: nodeColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(child: nodeIcon),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              steps[stepIndex],
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: isComplete ? FontWeight.w600 : FontWeight.normal,
+                color: isRejected
+                    ? Colors.red.shade400
+                    : isComplete
+                        ? Colors.green.shade700
+                        : Colors.grey.shade500,
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+// ── Status badge ────────────────────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
   final String label;

@@ -22,9 +22,11 @@ export class AuthController {
     region?: string;
     department?: string;
   }) {
-    return this.authService.register(
+    const user = await this.authService.register(
       body.email, body.password, body.firstName, body.lastName,
       body.role, body.region, body.department,
     );
+    // Return a JWT immediately so the client doesn't need a second login call
+    return this.authService.login(user);
   }
 }

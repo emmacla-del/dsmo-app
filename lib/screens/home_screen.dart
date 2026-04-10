@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -19,8 +20,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).valueOrNull;
-    if (user == null) return const SizedBox.shrink();
+    // ✅ authState is AsyncValue<User?>
+    final authState = ref.watch(authProvider);
+
+    // ✅ Handle loading state
+    if (authState.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // ✅ Handle error state
+    if (authState.hasError) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Erreur: ${authState.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, '/login');
+                },
+                child: const Text('Retour à la connexion'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ✅ Get user from AsyncValue
+    final user = authState.value;
+
+    // ✅ Redirect to login if not authenticated
+    if (user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     final tabs = _buildTabs(user.role);
 
@@ -49,13 +99,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Text(
                       user.email,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.black87),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _roleLabel(user.role),
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.slate),
+                      style:
+                          const TextStyle(fontSize: 12, color: AppColors.slate),
                     ),
                     if (user.region != null)
                       Text(
@@ -73,8 +124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.logout, color: Colors.red),
                     SizedBox(width: 8),
-                    Text('Déconnexion',
-                        style: TextStyle(color: Colors.red)),
+                    Text('Déconnexion', style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -100,11 +150,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : null,
       floatingActionButton: user.role == 'COMPANY'
           ? FloatingActionButton.extended(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const DeclarationWizardScreen()),
-              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const DeclarationWizardScreen()),
+                );
+              },
               backgroundColor: AppColors.deepEmerald,
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text(
@@ -190,8 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Déconnecter',
                 style: TextStyle(color: Colors.white)),
           ),
@@ -199,7 +250,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
     if (confirm == true && mounted) {
-      ref.read(authProvider.notifier).logout();
+      await ref.read(authProvider.notifier).logout();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     }
   }
 }

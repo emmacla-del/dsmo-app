@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../theme/app_colors.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -10,14 +11,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _formKey      = GlobalKey<FormState>();
+  final _emailCtrl    = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool _isRegistering = false;
   bool _obscurePassword = true;
-  String _role = 'COMPANY';
-  String? _region;
-  String? _department;
+  bool _isSubmitting    = false;
 
   @override
   void dispose() {
@@ -27,217 +25,247 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
 
-    if (_isRegistering) {
-      if (_role == 'DIVISIONAL' && (_department == null || _department!.trim().isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veuillez entrer le département'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-      if (_role == 'REGIONAL' && (_region == null || _region!.trim().isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veuillez entrer la région'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-      await ref.read(authProvider.notifier).register(
-            _emailCtrl.text.trim(),
-            _passwordCtrl.text,
-            _role,
-            region: _region,
-            department: _department,
-          );
-    } else {
+    setState(() => _isSubmitting = true);
+    try {
       await ref
           .read(authProvider.notifier)
           .login(_emailCtrl.text.trim(), _passwordCtrl.text);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<dynamic>>(authProvider, (_, next) {
+      if (next is AsyncData && next.value != null) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    });
+
     final authState = ref.watch(authProvider);
+    final bool isBusy = _isSubmitting || authState.isLoading;
+
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: AutofillGroup(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.business_center, size: 64, color: Colors.teal),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'DSMO Digital',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Déclaration Statistique sur les\nMouvements d\'emploi',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Email
-                  TextFormField(
-                    controller: _emailCtrl,
-                    autofillHints: const [AutofillHints.email],
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Adresse email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Email requis';
-                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                      if (!emailRegex.hasMatch(v.trim())) return 'Email invalide';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password
-                  TextFormField(
-                    controller: _passwordCtrl,
-                    autofillHints: _isRegistering
-                        ? const [AutofillHints.newPassword]
-                        : const [AutofillHints.password],
-                    obscureText: _obscurePassword,
-                    textInputAction: _isRegistering ? TextInputAction.next : TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: 'Mot de passe',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                        ),
-                        tooltip: _obscurePassword ? 'Afficher' : 'Masquer',
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                      ),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Mot de passe requis';
-                      if (_isRegistering && v.length < 6) return 'Minimum 6 caractères';
-                      return null;
-                    },
-                  ),
-
-                  // Registration-only fields
-                  if (_isRegistering) ...[
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _role,
-                      decoration: const InputDecoration(
-                        labelText: 'Rôle',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.badge_outlined),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'COMPANY', child: Text('Entreprise')),
-                        DropdownMenuItem(value: 'DIVISIONAL', child: Text('Délégation divisionnaire')),
-                        DropdownMenuItem(value: 'REGIONAL', child: Text('Délégation régionale')),
-                      ],
-                      onChanged: (v) => setState(() => _role = v!),
-                      validator: (v) => v == null ? 'Champ requis' : null,
-                    ),
-                    if (_role == 'DIVISIONAL') ...[
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        decoration: const InputDecoration(
-                          labelText: 'Département assigné *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.location_city_outlined),
-                        ),
-                        onChanged: (v) => _department = v.trim(),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Département requis' : null,
+      backgroundColor: Colors.grey.shade50,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ── Logo / branding ───────────────────────────────────────
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.deepEmerald,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.deepEmerald.withAlpha(80),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
-                    if (_role == 'REGIONAL') ...[
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        decoration: const InputDecoration(
-                          labelText: 'Région assignée *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.map_outlined),
-                        ),
-                        onChanged: (v) => _region = v.trim(),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Région requise' : null,
+                  ),
+                  child: const Icon(Icons.business_center,
+                      size: 40, color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'DSMO Digital',
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Déclaration Statistique sur les Mouvements d\'emploi',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppColors.slate),
+                ),
+                const SizedBox(height: 40),
+
+                // ── Form card ─────────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(12),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
                       ),
                     ],
-                  ],
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Connexion',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        const Text('Accédez à votre espace DSMO.',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.slate)),
+                        const SizedBox(height: 22),
 
-                  const SizedBox(height: 24),
+                        // Email
+                        TextFormField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Adresse e-mail',
+                            prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'Email requis';
+                            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                .hasMatch(v.trim())) return 'Email invalide';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
 
-                  if (authState.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: CircularProgressIndicator(),
-                    ),
+                        // Password
+                        TextFormField(
+                          controller: _passwordCtrl,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) {
+                            if (!isBusy) _submit();
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Mot de passe',
+                            prefixIcon:
+                                const Icon(Icons.lock_outline, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                size: 20,
+                              ),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
+                            ),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Mot de passe requis'
+                              : null,
+                        ),
+                        const SizedBox(height: 20),
 
-                  if (authState.hasError)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        border: Border.all(color: Colors.red.shade200),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _isRegistering
-                                  ? 'Inscription échouée. Vérifiez vos informations.'
-                                  : 'Email ou mot de passe incorrect.',
-                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                        // Error
+                        if (authState.hasError && !isBusy)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              border:
+                                  Border.all(color: Colors.red.shade200),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: Colors.red, size: 18),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Email ou mot de passe incorrect.',
+                                    style: TextStyle(
+                                        color: Colors.red, fontSize: 13),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+
+                        // Loading
+                        if (isBusy)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 14),
+                            child: LinearProgressIndicator(),
+                          ),
+
+                        // Submit button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: isBusy ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.deepEmerald,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: isBusy
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white),
+                                  )
+                                : const Text('Se connecter',
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // ── Create account link ────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Pas encore de compte ?',
+                        style:
+                            TextStyle(color: AppColors.slate, fontSize: 14)),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/register'),
+                      child: const Text(
+                        'Créer un compte',
+                        style: TextStyle(
+                          color: AppColors.deepEmerald,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-
-                  ElevatedButton(
-                    onPressed: authState.isLoading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text(
-                      _isRegistering ? 'Créer le compte' : 'Se connecter',
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _isRegistering = !_isRegistering;
-                      _formKey.currentState?.reset();
-                      _role = 'COMPANY';
-                    }),
-                    child: Text(
-                      _isRegistering
-                          ? 'Déjà un compte ? Se connecter'
-                          : 'Pas de compte ? S\'inscrire',
-                      style: const TextStyle(color: Colors.teal),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
