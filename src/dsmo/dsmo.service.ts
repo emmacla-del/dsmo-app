@@ -141,7 +141,6 @@ export class DsmoService {
       } : undefined;
     };
 
-    // ✅ PDFs are now uploaded directly to Supabase Storage
     const { urls, hashes } = await this.pdfService.generateDeclarationPdfs({
       trackingNumber,
       year: dto.year,
@@ -159,14 +158,13 @@ export class DsmoService {
       employees: fullDecl.employees,
     });
 
-    // urls[0] and urls[1] are now permanent Supabase public URLs
     const submitted = await this.prisma.declaration.update({
       where: { id: declaration.id },
       data: {
         status: DeclarationStatus.SUBMITTED,
         submittedAt: new Date(),
-        pdfUrl: urls[0],     // ✅ Supabase URL — survives redeployments
-        receiptUrl: urls[1], // ✅ Supabase URL — survives redeployments
+        pdfUrl: urls[0],
+        receiptUrl: urls[1],
         qrCode: trackingNumber,
         fillingDate: dto.fillingDate ? new Date(dto.fillingDate) : new Date(),
       },
@@ -186,7 +184,6 @@ export class DsmoService {
         ],
       },
     };
-
     if (user.role === UserRole.DIVISIONAL) where.division = user.department;
     else if (user.role === UserRole.REGIONAL) where.region = user.region;
     else if (user.role === UserRole.COMPANY) throw new ForbiddenException('Accès refusé.');
@@ -256,9 +253,14 @@ export class DsmoService {
   }
 
   /**
-   * ✅ FIXED: PDFs are now stored in Supabase Storage.
-   * The pdfUrl saved in the DB is already a permanent public URL.
-   * We just return it directly — no disk access, no regeneration needed.
+   * ✅ FIXED: Returns a signed Supabase URL for the requested PDF copy.
+   *
+   * Problem: Old declarations were submitted before the Supabase migration,
+   * so their PDFs never got uploaded. getSignedUrl() then throws
+   * "Object not found" → 400 error in Flutter.
+   *
+   * Fix: Check if the file exists first. If missing, regenerate all 3 copies
+   * and upload them to Supabase, then return a fresh signed URL.
    */
   async getPdfPath(declarationId: string, userId: string, copy: number): Promise<string> {
     const decl = await this.getDeclarationWithAccess(userId, declarationId);
@@ -267,8 +269,84 @@ export class DsmoService {
       throw new NotFoundException('PDF non disponible — numéro de suivi introuvable.');
     }
 
-    // ✅ Return signed URL (works for both public and private buckets)
+    // ✅ Check if file exists in Supabase Storage before requesting signed URL
+    const exists = await this.pdfService.pdfExists(decl.qrCode, decl.year, copy);
+
+    if (!exists) {
+      // ✅ Regenerate & upload all 3 copies — silent recovery, no 404
+      console.log(`[PDF] Missing: ${decl.qrCode} copy ${copy} — regenerating...`);
+      await this._regeneratePdfs(decl);
+      console.log(`[PDF] Regenerated: ${decl.qrCode}`);
+    }
+
+    // ✅ Return fresh signed URL (valid 7 days)
     return this.pdfService.getSignedUrl(decl.qrCode, decl.year, copy);
+  }
+
+  /**
+   * Rebuilds PdfData from DB and uploads all 3 copies to Supabase Storage.
+   */
+  private async _regeneratePdfs(decl: any): Promise<void> {
+    const q = decl.qualitativeQuestions?.[0];
+
+    const getMovement = (type: string) => {
+      const m = decl.movements?.find((mv: any) => mv.movementType === type);
+      if (!m) return undefined;
+      return {
+        cat1_3: m.cat1_3,
+        cat4_6: m.cat4_6,
+        cat7_9: m.cat7_9,
+        cat10_12: m.cat10_12,
+        catNonDeclared: m.catNonDeclared,
+      };
+    };
+
+    const pdfData: PdfData = {
+      trackingNumber: decl.qrCode,
+      year: decl.year,
+      language: 'fr',
+      company: {
+        name: decl.company.name,
+        mainActivity: decl.company.mainActivity,
+        region: decl.company.region,
+        department: decl.company.department,
+        district: decl.company.district,
+        address: decl.company.address,
+        taxNumber: decl.company.taxNumber,
+        totalEmployees: decl.company.totalEmployees,
+        cnpsNumber: decl.company.cnpsNumber ?? undefined,
+        socialCapital: decl.company.socialCapital ?? undefined,
+        menCount: decl.company.menCount ?? undefined,
+        womenCount: decl.company.womenCount ?? undefined,
+        lastYearTotal: decl.company.lastYearTotal ?? undefined,
+        recruitments: getMovement('RECRUITMENT'),
+        promotions: getMovement('PROMOTION'),
+        dismissals: getMovement('DISMISSAL'),
+        retirements: getMovement('RETIREMENT'),
+        deaths: getMovement('DEATH'),
+      },
+      qualitative: q
+        ? {
+          hasTrainingCenter: q.hasTrainingCenter ?? undefined,
+          recruitmentPlansNext: q.recruitmentPlansNext ?? undefined,
+          camerounisationPlan: q.camerounisationPlan ?? undefined,
+          usesTempAgencies: q.usesTempAgencies ?? undefined,
+          tempAgencyDetails: q.tempAgencyDetails ?? undefined,
+        }
+        : undefined,
+      employees: decl.employees.map((e: any) => ({
+        fullName: e.fullName,
+        gender: e.gender,
+        age: e.age,
+        nationality: e.nationality,
+        diploma: e.diploma ?? undefined,
+        function: e.function,
+        seniority: e.seniority,
+        salaryCategory: e.salaryCategory ?? undefined,
+      })),
+    };
+
+    await this.pdfService.generateDeclarationPdfs(pdfData);
   }
 
   async getDeclarationWithAccess(userId: string, declarationId: string) {

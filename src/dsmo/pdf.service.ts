@@ -145,7 +145,6 @@ const LABELS = {
     watermarks: { 1: 'ORIGINAL - EMPLOYEUR', 2: 'DUPLICATA - AUTORITE', 3: 'TRIPLICATA - ARCHIVES' } as Record<1 | 2 | 3, string>,
     fcfa: 'FCFA',
   },
-
   en: {
     republic: 'REPUBLIC OF CAMEROON',
     motto: 'Peace - Work - Fatherland',
@@ -254,46 +253,44 @@ export class PdfService {
   private readonly supabase: SupabaseClient;
   private readonly bucketName = 'dsmo-pdfs';
   private readonly signedUrlExpirySeconds = 7 * 24 * 60 * 60; // 7 days
-
-  // Coat of arms loaded once at startup via Supabase Storage
   private coatOfArmsBuffer: Buffer | null = null;
 
   constructor() {
-    // ✅ Supabase client — reads from environment variables
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error(
+        'Missing Supabase environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.',
+      );
     }
 
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Load coat of arms from Supabase Storage at startup
     this.loadCoatOfArms();
   }
 
-  // ── Load coat of arms from Supabase Storage ────────────────────────────────
+  // ── Coat of arms ───────────────────────────────────────────────────────────
 
   private async loadCoatOfArms(): Promise<void> {
     try {
       const { data, error } = await this.supabase.storage
         .from(this.bucketName)
         .download('assets/coat_of_arms.png');
-
-      if (error || !data) {
-        console.log('Coat of arms not found, using placeholder');
-        return;
-      }
+      if (error || !data) return;
       this.coatOfArmsBuffer = Buffer.from(await data.arrayBuffer());
-      console.log('Coat of arms loaded successfully from Supabase');
-    } catch (error) {
-      console.log('Could not load coat of arms from Supabase, using placeholder');
-      // Non-fatal — coat of arms will be replaced with placeholder
+    } catch {
+      // Non-fatal — placeholder used instead
     }
   }
 
-  // ── Generate PDFs and upload to Supabase Storage (Private Bucket) ──────────
+  // ── Storage path ───────────────────────────────────────────────────────────
+
+  private getStoragePath(trackingNumber: string, year: number, copy: number): string {
+    // e.g. "declarations/2025/DSMO-2025-0000001-copy1.pdf"
+    return `declarations/${year}/${trackingNumber}-copy${copy}.pdf`;
+  }
+
+  // ── Generate PDFs and upload to Supabase ───────────────────────────────────
 
   async generateDeclarationPdfs(data: PdfData): Promise<{ urls: string[]; hashes: string[] }> {
     const urls: string[] = [];
@@ -302,47 +299,44 @@ export class PdfService {
     for (let copy = 1 as 1 | 2 | 3; copy <= 3; copy++) {
       const storagePath = this.getStoragePath(data.trackingNumber, data.year, copy);
       const buffer = await this.buildPdf(data, copy);
+      const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+      hashes.push(`sha256:${hash}`);
 
-      // Check file size (5MB limit from bucket)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (buffer.length > maxSize) {
-        throw new Error(`PDF copy ${copy} exceeds ${maxSize / 1024 / 1024}MB limit`);
-      }
-
-      // ✅ Upload to Supabase Storage (private bucket)
       const { error: uploadError } = await this.supabase.storage
         .from(this.bucketName)
         .upload(storagePath, buffer, {
           contentType: 'application/pdf',
-          upsert: true,
+          upsert: true, // safe to overwrite
         });
 
       if (uploadError) {
-        throw new Error(`Failed to upload PDF copy ${copy} to Supabase: ${uploadError.message}`);
+        throw new Error(`Failed to upload PDF copy ${copy}: ${uploadError.message}`);
       }
 
-      // ✅ Generate signed URL (expires after expiry period)
       const { data: signedUrlData, error: signedUrlError } = await this.supabase.storage
         .from(this.bucketName)
         .createSignedUrl(storagePath, this.signedUrlExpirySeconds);
 
       if (signedUrlError || !signedUrlData) {
-        throw new Error(`Failed to generate signed URL for copy ${copy}: ${signedUrlError?.message}`);
+        throw new Error(`Failed to create signed URL for copy ${copy}: ${signedUrlError?.message}`);
       }
 
-      const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-      hashes.push(`sha256:${hash}`);
       urls.push(signedUrlData.signedUrl);
     }
 
     return { urls, hashes };
   }
 
-  // ── Get signed URL for an existing PDF (for later access) ─────────────────
+  // ── Get signed URL for an existing PDF ─────────────────────────────────────
 
-  async getSignedUrl(trackingNumber: string, year: number, copy: number, expiresInSeconds?: number): Promise<string> {
+  async getSignedUrl(
+    trackingNumber: string,
+    year: number,
+    copy: number,
+    expiresInSeconds?: number,
+  ): Promise<string> {
     const storagePath = this.getStoragePath(trackingNumber, year, copy);
-    const expiry = expiresInSeconds || this.signedUrlExpirySeconds;
+    const expiry = expiresInSeconds ?? this.signedUrlExpirySeconds;
 
     const { data, error } = await this.supabase.storage
       .from(this.bucketName)
@@ -355,38 +349,32 @@ export class PdfService {
     return data.signedUrl;
   }
 
-  // ── Check if PDF exists in storage ─────────────────────────────────────────
-
+  /**
+   * ✅ FIXED: Check if a PDF exists in Supabase Storage.
+   * Previous version used path.split('/').slice(0, -1) which was fragile.
+   * Now uses the known folder structure directly.
+   */
   async pdfExists(trackingNumber: string, year: number, copy: number): Promise<boolean> {
-    const storagePath = this.getStoragePath(trackingNumber, year, copy);
+    try {
+      // Folder: "declarations/2025", filename: "DSMO-2025-0000001-copy1.pdf"
+      const folder = `declarations/${year}`;
+      const filename = `${trackingNumber}-copy${copy}.pdf`;
 
-    const { data, error } = await this.supabase.storage
-      .from(this.bucketName)
-      .list(storagePath.split('/').slice(0, -1).join('/'), {
-        search: storagePath.split('/').pop(),
-        limit: 1,
-      });
+      const { data, error } = await this.supabase.storage
+        .from(this.bucketName)
+        .list(folder, {
+          search: filename,
+          limit: 1,
+        });
 
-    if (error) return false;
-    return data && data.length > 0;
-  }
-
-  // ── Delete PDF from storage ────────────────────────────────────────────────
-
-  async deletePdf(trackingNumber: string, year: number, copy: number): Promise<void> {
-    const storagePath = this.getStoragePath(trackingNumber, year, copy);
-
-    const { error } = await this.supabase.storage
-      .from(this.bucketName)
-      .remove([storagePath]);
-
-    if (error) {
-      throw new Error(`Failed to delete PDF: ${error.message}`);
+      if (error || !data) return false;
+      return data.some((f) => f.name === filename);
+    } catch {
+      return false;
     }
   }
 
-  // ── Get public URL (deprecated - use getSignedUrl for private buckets) ─────
-  // Note: This only works if bucket is public. For private buckets, use getSignedUrl.
+  // ── Public URL (for public buckets only) ───────────────────────────────────
 
   getPublicUrl(trackingNumber: string, year: number, copy: number): string {
     const storagePath = this.getStoragePath(trackingNumber, year, copy);
@@ -396,21 +384,12 @@ export class PdfService {
     return data.publicUrl;
   }
 
-  // ── Storage path helper ────────────────────────────────────────────────────
-
-  private getStoragePath(trackingNumber: string, year: number, copy: number): string {
-    return `declarations/${year}/${trackingNumber}-copy${copy}.pdf`;
-  }
-
-  // ── Backward compatibility for existing code ───────────────────────────────
-
+  /** @deprecated Use getSignedUrl() instead */
   getFilePath(trackingNumber: string, year: number, copy: number): string {
-    // Returns a signed URL for backward compatibility
-    // Note: This returns a Promise, so existing sync calls will need to be updated
-    return this.getSignedUrl(trackingNumber, year, copy) as unknown as string;
+    return this.getPublicUrl(trackingNumber, year, copy);
   }
 
-  // ── PDF builder (unchanged from original) ─────────────────────────────────
+  // ── PDF building ──────────────────────────────────────────────────────────
 
   private buildPdf(data: PdfData, copy: 1 | 2 | 3): Promise<Buffer> {
     const lang: Lang = data.language === 'en' ? LABELS.en : LABELS.fr;
@@ -433,16 +412,12 @@ export class PdfService {
       this.drawWatermark(doc, copy, lang);
       const headerBottom = this.drawBilingualHeader(doc, MT, lang);
       this.drawPartA(doc, data, headerBottom + 5, lang);
-
       doc.addPage();
       this.drawWatermark(doc, copy, lang);
       this.drawPartB(doc, data, copy, lang);
-
       doc.end();
     });
   }
-
-  // ── Watermark ──────────────────────────────────────────────────────────────
 
   private drawWatermark(doc: any, copy: 1 | 2 | 3, lang: Lang): void {
     doc.save();
@@ -454,13 +429,10 @@ export class PdfService {
     doc.fillColor('black').fillOpacity(1);
   }
 
-  // ── Bilingual header ───────────────────────────────────────────────────────
-
   private drawBilingualHeader(doc: any, y: number, lang: Lang): number {
     const x = ML;
     const w = CONTENT_W;
     const cw = w / 3;
-
     const fr = LABELS.fr;
     const en = LABELS.en;
 
@@ -474,7 +446,6 @@ export class PdfService {
     const coatX = x + cw;
     const imgSize = 62;
     const imgLeft = coatX + (cw - imgSize) / 2;
-
     if (this.coatOfArmsBuffer) {
       doc.image(this.coatOfArmsBuffer, imgLeft, y, { width: imgSize, height: imgSize });
     } else {
@@ -498,15 +469,11 @@ export class PdfService {
 
     const divY = y + 70;
     doc.moveTo(x, divY).lineTo(x + w, divY).stroke();
-
     const titleY = divY + 4;
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black');
     doc.text(lang.formTitle, x, titleY, { width: w, align: 'center', lineBreak: false });
-
     return titleY + 17;
   }
-
-  // ── Part A ─────────────────────────────────────────────────────────────────
 
   private drawPartA(doc: any, data: PdfData, startY: number, lang: Lang): void {
     const x = ML;
@@ -564,7 +531,6 @@ export class PdfService {
       `${lang.socialCapital} : ${data.company.socialCapital != null ? data.company.socialCapital.toLocaleString('fr-FR') + ' ' + lang.fcfa : ''}`,
       `${lang.cnps} : ${data.company.cnpsNumber ?? ''}`,
     );
-
     row1(lang.currentEmployeesLabel, true);
     row3(`${lang.men} : ${data.company.menCount ?? ''}`, `${lang.women} : ${data.company.womenCount ?? ''}`, `${lang.total} : ${data.company.totalEmployees}`);
     row1(lang.lastYearEmployeesLabel, true);
@@ -575,13 +541,7 @@ export class PdfService {
     this.drawBottomBlock(doc, data, x, y, w, remainH, lang);
   }
 
-  // ── Bottom block ───────────────────────────────────────────────────────────
-
-  private drawBottomBlock(
-    doc: any, data: PdfData,
-    x: number, y: number, w: number, height: number,
-    lang: Lang,
-  ): void {
+  private drawBottomBlock(doc: any, data: PdfData, x: number, y: number, w: number, height: number, lang: Lang): void {
     const leftW = w * 0.62;
     const rightW = w - leftW;
     const qual = data.qualitative;
@@ -598,7 +558,6 @@ export class PdfService {
     const dataColW = (leftW - rowLblW) / lang.catCols.length;
 
     doc.rect(x, gridHeaderY, rowLblW, gridHeaderH).stroke();
-
     doc.font('Helvetica-Bold').fontSize(6.2).fillColor('black');
     for (let i = 0; i < lang.catCols.length; i++) {
       const cx = x + rowLblW + i * dataColW;
@@ -645,22 +604,18 @@ export class PdfService {
     doc.text('TOTAL', x + 2, totRowY + dataRowH / 2 - 4, { width: rowLblW - 4, align: 'center' });
     doc.rect(x + rowLblW, totRowY, dataColW, dataRowH).fillAndStroke('#E8E8E8', 'black');
     doc.fillColor('black');
-
     for (let c = 1; c <= 5; c++) {
       const cx = x + rowLblW + c * dataColW;
       doc.rect(cx, totRowY, dataColW, dataRowH).fillAndStroke('#E8E8E8', 'black');
       doc.fillColor('black').font('Helvetica-Bold').fontSize(7);
       doc.text(String(colTotals[c]), cx + 1, totRowY + dataRowH / 2 - 4, { width: dataColW - 2, align: 'center' });
     }
-
     const gtCx = x + rowLblW + 6 * dataColW;
     doc.rect(gtCx, totRowY, dataColW, dataRowH).fillAndStroke('#E8E8E8', 'black');
     doc.fillColor('black').font('Helvetica-Bold').fontSize(7);
     doc.text(String(colTotals[6]), gtCx + 1, totRowY + dataRowH / 2 - 4, { width: dataColW - 2, align: 'center' });
 
-    // RIGHT: qualitative questions
     const rx = x + leftW;
-
     doc.font('Helvetica-Bold').fontSize(7.2).fillColor('black');
     doc.text(lang.qualTitle, rx + 3, y + 4, { width: rightW - 6 });
 
@@ -685,15 +640,9 @@ export class PdfService {
       doc.font('Helvetica').fontSize(6.2).fillColor('black');
       doc.text(label, rx + 3, ly + 3, { width: qTextW - 6 });
       doc.rect(rx + qTextW, ly, ynW, qRowH).stroke();
-      if (answer === true) {
-        doc.font('Helvetica-Bold').fontSize(8);
-        doc.text('X', rx + qTextW + 2, ly + qRowH / 2 - 5, { width: ynW - 4, align: 'center' });
-      }
+      if (answer === true) { doc.font('Helvetica-Bold').fontSize(8); doc.text('X', rx + qTextW + 2, ly + qRowH / 2 - 5, { width: ynW - 4, align: 'center' }); }
       doc.rect(rx + qTextW + ynW, ly, ynW, qRowH).stroke();
-      if (answer === false) {
-        doc.font('Helvetica-Bold').fontSize(8);
-        doc.text('X', rx + qTextW + ynW + 2, ly + qRowH / 2 - 5, { width: ynW - 4, align: 'center' });
-      }
+      if (answer === false) { doc.font('Helvetica-Bold').fontSize(8); doc.text('X', rx + qTextW + ynW + 2, ly + qRowH / 2 - 5, { width: ynW - 4, align: 'center' }); }
       ly += qRowH;
     };
 
@@ -708,8 +657,6 @@ export class PdfService {
     doc.text(`${lang.q4detail}\n${qual?.tempAgencyDetails ?? ''}`, rx + 3, ly + 3, { width: rightW - 6 });
   }
 
-  // ── Part B: employee table ─────────────────────────────────────────────────
-
   private drawPartB(doc: any, data: PdfData, copy: 1 | 2 | 3, lang: Lang): void {
     const x = ML;
     const w = CONTENT_W;
@@ -717,25 +664,17 @@ export class PdfService {
     const cols = lang.partBCols;
     const tableW = cols.reduce((s, c) => s + c.width, 0);
     const startX = x + (w - tableW) / 2;
-
     const headerH = 18;
     const rowH = 18;
-
     let currentEmpIdx = 0;
     let pageNum = 0;
 
     while (currentEmpIdx < employees.length || pageNum === 0) {
-      if (pageNum > 0) {
-        doc.addPage();
-        this.drawWatermark(doc, copy, lang);
-      }
-
+      if (pageNum > 0) { doc.addPage(); this.drawWatermark(doc, copy, lang); }
       let y = MT;
-
       doc.font('Helvetica-Bold').fontSize(10.5).fillColor('black');
       const titleSuffix = lang.republic.startsWith('REPUBLIC OF') ? ' (Continued)' : ' (Suite)';
-      const titleText = pageNum === 0 ? lang.partBTitle : `${lang.partBTitle}${titleSuffix}`;
-      doc.text(titleText, x, y, { width: w, align: 'center' });
+      doc.text(pageNum === 0 ? lang.partBTitle : `${lang.partBTitle}${titleSuffix}`, x, y, { width: w, align: 'center' });
       y += 24;
 
       let cx = startX;
@@ -753,15 +692,10 @@ export class PdfService {
       for (let i = 0; i < rowsThisPage; i++) {
         const emp = employees[currentEmpIdx];
         cx = startX;
-
         const cells = emp ? [
-          String(currentEmpIdx + 1),
-          emp.fullName ?? '',
-          emp.gender ?? '',
-          emp.age != null ? String(emp.age) : '',
-          emp.nationality ?? '',
-          emp.diploma ?? '',
-          emp.function ?? '',
+          String(currentEmpIdx + 1), emp.fullName ?? '', emp.gender ?? '',
+          emp.age != null ? String(emp.age) : '', emp.nationality ?? '',
+          emp.diploma ?? '', emp.function ?? '',
           emp.seniority != null ? `${emp.seniority} ${lang.senioritySuffix}` : '',
           emp.salaryCategory ?? '',
           emp.salary != null ? emp.salary.toLocaleString('fr-FR') : '',
@@ -774,56 +708,35 @@ export class PdfService {
           doc.text(cells[j], cx + 2, y + 5, { width: cols[j].width - 4, lineBreak: false, align });
           cx += cols[j].width;
         }
-
         y += rowH;
         currentEmpIdx++;
-
         if (currentEmpIdx >= employees.length && (pageNum > 0 || i >= 9)) break;
       }
 
-      const isLastPage = currentEmpIdx >= employees.length;
-      if (isLastPage) {
-        y += 10;
-        this.drawLegalFooter(doc, data, copy, y, startX, tableW, lang);
-      }
-
+      if (currentEmpIdx >= employees.length) { y += 10; this.drawLegalFooter(doc, data, copy, y, startX, tableW, lang); }
       pageNum++;
     }
   }
 
-  // ── Legal footer ───────────────────────────────────────────────────────────
-
-  private drawLegalFooter(
-    doc: any, data: PdfData, copy: 1 | 2 | 3,
-    y: number, startX: number, tableW: number, lang: Lang,
-  ): void {
-    if (y + 110 > PAGE_BOT) {
-      doc.addPage();
-      this.drawWatermark(doc, copy, lang);
-      y = 50;
-    }
-
+  private drawLegalFooter(doc: any, data: PdfData, copy: 1 | 2 | 3, y: number, startX: number, tableW: number, lang: Lang): void {
+    if (y + 110 > PAGE_BOT) { doc.addPage(); this.drawWatermark(doc, copy, lang); y = 50; }
     doc.font('Helvetica').fontSize(8).fillColor('black');
     doc.text(`${lang.trackingLabel} : ${data.trackingNumber}`, startX, y);
     y += 13;
     doc.text(`${lang.dateLabel} : ___________________`, startX, y);
     doc.text(`${lang.signatureLabel} : ____________________`, startX + 290, y);
     y += 46;
-
     doc.font('Helvetica-Bold').fontSize(8);
     doc.text(`${lang.authorityLabel} :`, startX, y);
     y += 13;
     doc.font('Helvetica').fontSize(8);
     doc.text(`${lang.visaLabel} : __________________________________________`, startX, y);
     y += 26;
-
     const noteH = 62;
     doc.rect(startX, y, tableW, noteH).stroke();
     doc.font('Helvetica-Oblique').fontSize(6.3);
     doc.text(lang.legalNote, startX + 5, y + 5, { width: tableW - 10 });
   }
-
-  // ── Legacy stubs ───────────────────────────────────────────────────────────
 
   async generateDeclarationPdf(_c: any, _e: any[], _y: number): Promise<Buffer> { return Buffer.from(''); }
   async generateReceipt(_id: string, _name: string, _year: number): Promise<Buffer> { return Buffer.from(''); }
