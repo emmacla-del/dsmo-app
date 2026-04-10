@@ -52,6 +52,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     String role, {
     String? region,
     String? department,
+    String? matricule,
+    String? poste,
   }) async {
     if (state is AsyncLoading) return;
     state = const AsyncValue.loading();
@@ -65,6 +67,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         'role': role,
         if (region != null) 'region': region,
         if (department != null) 'department': department,
+        if (matricule != null) 'matricule': matricule,
+        if (poste != null) 'poste': poste,
       });
       final token = response.data['access_token'] as String?;
       if (token == null) throw 'Aucun token reçu après inscription.';

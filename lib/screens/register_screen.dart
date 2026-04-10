@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../data/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
@@ -21,11 +22,18 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  static const _kDraftBox = 'draftBox';
+  static const _kDraftKey = 'registration_draft';
+
   final PageController _pageCtrl = PageController();
 
   final _identityKey  = GlobalKey<FormState>();
   final _companyKey   = GlobalKey<FormState>();
   final _securityKey  = GlobalKey<FormState>();
+
+  // Flipped to true after draft is loaded — forces child StatefulWidgets
+  // to recreate their controllers with the restored values.
+  bool _draftLoaded = false;
 
   // ── Role
   String _role = '';
@@ -34,6 +42,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String _email     = '';
   String _firstName = ''; // used by gov roles; for COMPANY holds raison sociale
   String _lastName  = ''; // gov only
+  String _matricule = ''; // government staff ID (DIVISIONAL, REGIONAL, CENTRAL)
+  String _poste     = ''; // job title / position (government only)
 
   // ── Company details (COMPANY only)
   String  _taxNumber         = '';
@@ -86,9 +96,111 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   int get _currentVisibleIdx => _visibleSteps.indexOf(_step);
 
   @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  @override
   void dispose() {
     _pageCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Draft persistence ───────────────────────────────────────────────────────
+
+  Future<void> _saveDraft() async {
+    try {
+      final box = await Hive.openBox(_kDraftBox);
+      await box.put(_kDraftKey, {
+        'role': _role,
+        'email': _email,
+        'firstName': _firstName,
+        'lastName': _lastName,
+        'matricule': _matricule,
+        'poste': _poste,
+        'taxNumber': _taxNumber,
+        'cnpsNumber': _cnpsNumber,
+        'fax': _fax,
+        'address': _address,
+        'parentCompany': _parentCompany,
+        'secondaryActivity': _secondaryActivity,
+        'socialCapital': _socialCapital,
+        'selectedSector': _selectedSector,
+        'selectedRegion': _selectedRegion,
+        'selectedDepartment': _selectedDepartment,
+        'step': _step,
+      });
+    } catch (e) {
+      debugPrint('Draft save failed: $e');
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final box = await Hive.openBox(_kDraftBox);
+      final raw = box.get(_kDraftKey);
+      if (raw == null || !mounted) return;
+
+      final data = Map<String, dynamic>.from(raw as Map);
+
+      // Nothing useful saved
+      if ((data['role'] as String? ?? '').isEmpty) return;
+
+      setState(() {
+        _role               = data['role']              as String? ?? '';
+        _email              = data['email']             as String? ?? '';
+        _firstName          = data['firstName']         as String? ?? '';
+        _lastName           = data['lastName']          as String? ?? '';
+        _matricule          = data['matricule']         as String? ?? '';
+        _poste              = data['poste']             as String? ?? '';
+        _taxNumber          = data['taxNumber']         as String? ?? '';
+        _cnpsNumber         = data['cnpsNumber']        as String? ?? '';
+        _fax                = data['fax']               as String? ?? '';
+        _address            = data['address']           as String? ?? '';
+        _parentCompany      = data['parentCompany']     as String?;
+        _secondaryActivity  = data['secondaryActivity'] as String? ?? '';
+        _socialCapital      = data['socialCapital']     as int?;
+
+        final sec  = data['selectedSector'];
+        final reg  = data['selectedRegion'];
+        final dept = data['selectedDepartment'];
+        if (sec  != null) _selectedSector     = Map<String, dynamic>.from(sec  as Map);
+        if (reg  != null) _selectedRegion     = Map<String, dynamic>.from(reg  as Map);
+        if (dept != null) _selectedDepartment = Map<String, dynamic>.from(dept as Map);
+
+        final savedStep = data['step'] as int? ?? _kStepRole;
+        _step = savedStep;
+
+        // Flip flag so child StatefulWidgets recreate with restored values
+        _draftLoaded = true;
+      });
+
+      // Navigate to the saved step after the frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _step > _kStepRole) {
+          _pageCtrl.jumpToPage(_step);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Brouillon restauré — vous pouvez continuer votre inscription.'),
+              backgroundColor: Colors.teal,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('Draft load failed: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final box = await Hive.openBox(_kDraftBox);
+      await box.delete(_kDraftKey);
+    } catch (e) {
+      debugPrint('Draft clear failed: $e');
+    }
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -123,11 +235,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
         _next();
+        _saveDraft();
 
       case _kStepIdentity:
         if (!_identityKey.currentState!.validate()) return;
         _identityKey.currentState!.save();
         _next();
+        _saveDraft();
 
       case _kStepCompanyInfo:
         if (!_companyKey.currentState!.validate()) return;
@@ -137,6 +251,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         }
         _companyKey.currentState!.save();
         _next();
+        _saveDraft();
 
       case _kStepAssignment:
         if (_selectedRegion == null) {
@@ -148,6 +263,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
         _next();
+        _saveDraft();
 
       case _kStepSecurity:
         if (!_securityKey.currentState!.validate()) return;
@@ -204,22 +320,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ? (_selectedDepartment?['name'] as String?)
           : null;
 
-      // Register user account + auto-login (sets JWT token)
+      // Register user account (returns JWT directly)
       await ref.read(authProvider.notifier).register(
         _email,
         _password,
-        _isCompany ? _firstName : _firstName, // raison sociale OR first name
+        _firstName, // raison sociale for COMPANY, prénom for gov
         _isCompany ? '' : _lastName,
         _role,
         region: regionName,
         department: deptName,
+        matricule: !_isCompany && _matricule.isNotEmpty ? _matricule : null,
+        poste: !_isCompany && _poste.isNotEmpty ? _poste : null,
       );
+
+      // Abort if registration failed (auth state is error, no token)
+      final authState = ref.read(authProvider);
+      if (authState is AsyncError || authState.valueOrNull == null) return;
+
+      // Clear the draft — account created successfully
+      await _clearDraft();
 
       // For COMPANY: save the full profile now that the token is set
       if (_isCompany && mounted) {
         try {
           await ref.read(apiClientProvider).saveCompanyProfile({
-            'name': _firstName,       // raison sociale stored in _firstName
+            'name': _firstName,
             'taxNumber': _taxNumber,
             'mainActivity': _selectedSector?['name'] ?? '',
             'region': regionName ?? '',
@@ -233,7 +358,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             if (_socialCapital != null) 'socialCapital': _socialCapital,
           });
         } catch (e) {
-          // Non-fatal — user can update the profile later
           debugPrint('Company profile save failed: $e');
         }
       }
@@ -327,24 +451,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       _selectedRegion = null;
                       _selectedDepartment = null;
                     });
+                    _saveDraft();
                   }),
 
                   // 1 — Identity
                   _StepIdentity(
+                    key: ValueKey(_draftLoaded),
                     formKey: _identityKey,
                     isCompany: _isCompany,
                     initialFirstName: _firstName,
                     initialLastName: _lastName,
                     initialEmail: _email,
-                    onSave: (fn, ln, em) {
+                    initialMatricule: _matricule,
+                    initialPoste: _poste,
+                    onSave: (fn, ln, em, mat, pos) {
                       _firstName = fn;
                       _lastName  = ln;
                       _email     = em;
+                      _matricule = mat;
+                      _poste     = pos;
                     },
                   ),
 
                   // 2 — Company info (COMPANY only page)
                   _StepCompanyInfo(
+                    key: ValueKey(_draftLoaded),
                     formKey: _companyKey,
                     sectors: _sectors,
                     loadingSectors: _loadingSectors,
@@ -584,7 +715,7 @@ class _StepRole extends StatelessWidget {
           _RoleCard(
             value: 'DIVISIONAL', selected: selected,
             icon: Icons.location_city_outlined, color: Colors.indigo,
-            title: 'Délégation Divisionnaire',
+            title: 'Délégation Départementale (DDEFOP)',
             subtitle: 'Valide les déclarations au niveau départemental.',
             onTap: onSelect,
           ),
@@ -592,15 +723,15 @@ class _StepRole extends StatelessWidget {
           _RoleCard(
             value: 'REGIONAL', selected: selected,
             icon: Icons.map_outlined, color: Colors.blue.shade700,
-            title: 'Délégation Régionale',
-            subtitle: 'Supervise et valide après approbation divisionnaire.',
+            title: 'Délégation Régionale (DREFOP)',
+            subtitle: 'Supervise et valide après approbation départementale.',
             onTap: onSelect,
           ),
           const SizedBox(height: 12),
           _RoleCard(
             value: 'CENTRAL', selected: selected,
             icon: Icons.account_balance_outlined, color: Colors.deepPurple,
-            title: 'Direction Nationale (MINTSS)',
+            title: 'Services Centraux (MINEFOP)',
             subtitle: 'Administration centrale. Approbation finale nationale.',
             onTap: onSelect,
           ),
@@ -689,14 +820,18 @@ class _StepIdentity extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final bool isCompany;
   final String initialFirstName, initialLastName, initialEmail;
-  final void Function(String fn, String ln, String em) onSave;
+  final String initialMatricule, initialPoste;
+  final void Function(String fn, String ln, String em, String mat, String pos) onSave;
 
   const _StepIdentity({
+    super.key,
     required this.formKey,
     required this.isCompany,
     required this.initialFirstName,
     required this.initialLastName,
     required this.initialEmail,
+    required this.initialMatricule,
+    required this.initialPoste,
     required this.onSave,
   });
 
@@ -705,26 +840,33 @@ class _StepIdentity extends StatefulWidget {
 }
 
 class _StepIdentityState extends State<_StepIdentity> {
-  late final TextEditingController _c1; // company name OR first name
-  late final TextEditingController _c2; // last name (gov only)
+  late final TextEditingController _c1;         // company name OR first name
+  late final TextEditingController _c2;         // last name (gov only)
   late final TextEditingController _emailCtrl;
+  late final TextEditingController _matriculeCtrl;
+  late final TextEditingController _posteCtrl;
 
   @override
   void initState() {
     super.initState();
-    _c1 = TextEditingController(text: widget.initialFirstName);
-    _c2 = TextEditingController(text: widget.initialLastName);
-    _emailCtrl = TextEditingController(text: widget.initialEmail);
+    _c1           = TextEditingController(text: widget.initialFirstName);
+    _c2           = TextEditingController(text: widget.initialLastName);
+    _emailCtrl    = TextEditingController(text: widget.initialEmail);
+    _matriculeCtrl = TextEditingController(text: widget.initialMatricule);
+    _posteCtrl    = TextEditingController(text: widget.initialPoste);
   }
 
   @override
   void dispose() {
     _c1.dispose(); _c2.dispose(); _emailCtrl.dispose();
+    _matriculeCtrl.dispose(); _posteCtrl.dispose();
     super.dispose();
   }
 
-  void _notify() =>
-      widget.onSave(_c1.text.trim(), _c2.text.trim(), _emailCtrl.text.trim());
+  void _notify() => widget.onSave(
+        _c1.text.trim(), _c2.text.trim(), _emailCtrl.text.trim(),
+        _matriculeCtrl.text.trim(), _posteCtrl.text.trim(),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -737,14 +879,14 @@ class _StepIdentityState extends State<_StepIdentity> {
           Text(
             widget.isCompany
                 ? 'Identification de l\'entreprise'
-                : 'Vos informations personnelles',
+                : 'Informations personnelles',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
             widget.isCompany
                 ? 'Renseignez la dénomination sociale et l\'email de contact de l\'entreprise.'
-                : 'Ces informations identifient votre compte.',
+                : 'Ces informations identifient votre compte au sein du MINEFOP.',
             style: const TextStyle(color: AppColors.slate, fontSize: 14),
           ),
           const SizedBox(height: 28),
@@ -782,6 +924,23 @@ class _StepIdentityState extends State<_StepIdentity> {
                 ),
               ),
             ]),
+            const SizedBox(height: 14),
+            _Field(
+              controller: _matriculeCtrl,
+              label: 'Matricule *',
+              icon: Icons.numbers_outlined,
+              textInputAction: TextInputAction.next,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
+            const SizedBox(height: 14),
+            _Field(
+              controller: _posteCtrl,
+              label: 'Poste / Fonction *',
+              icon: Icons.work_outline,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.next,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
           ],
           const SizedBox(height: 14),
           _Field(
@@ -832,6 +991,7 @@ class _StepCompanyInfo extends StatefulWidget {
       String parent, String sec, int? cap) onSave;
 
   const _StepCompanyInfo({
+    super.key,
     required this.formKey,
     required this.sectors,
     required this.loadingSectors,
@@ -1364,9 +1524,9 @@ class _StepReview extends StatelessWidget {
   String get _roleLabel {
     switch (role) {
       case 'COMPANY':    return 'Entreprise';
-      case 'DIVISIONAL': return 'Délégation Divisionnaire';
-      case 'REGIONAL':   return 'Délégation Régionale';
-      case 'CENTRAL':    return 'Direction Nationale (MINTSS)';
+      case 'DIVISIONAL': return 'Délégation Départementale (DDEFOP)';
+      case 'REGIONAL':   return 'Délégation Régionale (DREFOP)';
+      case 'CENTRAL':    return 'Services Centraux (MINEFOP)';
       default:           return role;
     }
   }

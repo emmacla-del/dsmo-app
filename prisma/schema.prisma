@@ -125,6 +125,9 @@ model User {
   role          UserRole      @default(COMPANY)
   region        String?
   department    String?
+  matricule     String?       // Government staff ID (DIVISIONAL, REGIONAL, CENTRAL only)
+  poste         String?       // Job title / position (government only)
+  isActive      Boolean       @default(true)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   company       Company?

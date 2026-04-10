@@ -54,6 +54,8 @@ export class AuthService {
     role: string,
     region?: string,
     department?: string,
+    matricule?: string,
+    poste?: string,
   ) {
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -79,6 +81,8 @@ export class AuthService {
           role: role as any,
           region,
           department,
+          matricule,
+          poste,
         },
       });
 
