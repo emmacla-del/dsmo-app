@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
+import { RegisterCompanyProfileDto } from './dto/register-company-profile.dto';
 import { DeclarationStatus } from '../types/prisma.types';
 
 @Controller('dsmo')
@@ -20,6 +21,20 @@ export class DsmoController {
     private readonly notificationService: NotificationService,
     private readonly analyticsService: AnalyticsService,
   ) { }
+
+  // ===== COMPANY PROFILE =====
+
+  @Get('company')
+  @Roles('COMPANY')
+  async getMyCompany(@Req() req: any) {
+    return this.dsmoService.getMyCompany(req.user.id);
+  }
+
+  @Post('company')
+  @Roles('COMPANY')
+  async saveCompanyProfile(@Req() req: any, @Body() dto: RegisterCompanyProfileDto) {
+    return this.dsmoService.saveCompanyProfile(req.user.id, dto);
+  }
 
   // ===== CORE DECLARATION ENDPOINTS =====
 

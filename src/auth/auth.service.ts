@@ -21,10 +21,14 @@ export class AuthService {
     return { access_token: this.jwtService.sign(payload), user };
   }
 
-  async register(email: string, password: string, role: string, region?: string, department?: string) {
+  async register(
+    email: string, password: string,
+    firstName: string, lastName: string,
+    role: string, region?: string, department?: string,
+  ) {
     const hashed = await bcrypt.hash(password, 10);
     return this.prisma.user.create({
-      data: { email, passwordHash: hashed, role: role as any, region, department },
+      data: { email, passwordHash: hashed, firstName, lastName, role: role as any, region, department },
     });
   }
 }

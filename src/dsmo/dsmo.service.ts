@@ -30,6 +30,44 @@ export class DsmoService {
     return `DSMO-${year}-${seq}`;
   }
 
+  async getMyCompany(userId: string) {
+    return this.prisma.company.findUnique({ where: { userId } });
+  }
+
+  async saveCompanyProfile(userId: string, dto: any) {
+    const data = {
+      name: dto.name,
+      taxNumber: dto.taxNumber,
+      mainActivity: dto.mainActivity,
+      region: dto.region,
+      department: dto.department,
+      // district is optional at registration; default to department name until filled via declaration
+      district: dto.district ?? dto.department,
+      address: dto.address,
+      parentCompany: dto.parentCompany,
+      secondaryActivity: dto.secondaryActivity,
+      cnpsNumber: dto.cnpsNumber,
+      fax: dto.fax,
+      socialCapital: dto.socialCapital,
+      // Workforce fields stay at 0 until the first declaration is submitted
+      totalEmployees: 0,
+    };
+    try {
+      const company = await this.prisma.company.upsert({
+        where: { userId },
+        update: data,
+        create: { userId, ...data },
+      });
+      await this.auditService.log(userId, 'CREATE_COMPANY_PROFILE', 'Company', company.id, dto.name);
+      return company;
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        throw new ConflictException('Le numéro contribuable (NIU) est déjà utilisé.');
+      }
+      throw err;
+    }
+  }
+
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
     const companyData = {
       name: dto.name,
