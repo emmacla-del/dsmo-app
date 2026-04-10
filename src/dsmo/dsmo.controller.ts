@@ -1,9 +1,8 @@
 ﻿import {
   Controller, Post, Body, UseGuards, Req, Get, Patch,
-  Param, Query, Res, StreamableFile, ParseIntPipe
+  Param, Query, Res, ParseIntPipe
 } from '@nestjs/common';
 import type { Response } from 'express';
-import * as fs from 'fs';
 import { DsmoService } from './dsmo.service';
 import { NotificationService } from './notification.service';
 import { AnalyticsService } from './analytics.service';
@@ -137,17 +136,9 @@ export class DsmoController {
     @Param('id') id: string,
     @Param('copy', ParseIntPipe) copy: number,
     @Req() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<StreamableFile> {
-    const filePath = await this.dsmoService.getPdfPath(id, req.user.id, copy);
-    const filename = filePath.split(/[\\/]/).pop();
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    });
-
-    const file = fs.createReadStream(filePath);
-    return new StreamableFile(file);
+    @Res() res: Response,
+  ): Promise<void> {
+    const url = await this.dsmoService.getPdfPath(id, req.user.id, copy);
+    res.redirect(url);
   }
 }

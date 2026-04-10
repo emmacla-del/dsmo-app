@@ -267,8 +267,8 @@ export class DsmoService {
       throw new NotFoundException('PDF non disponible — numéro de suivi introuvable.');
     }
 
-    // ✅ Return Supabase public URL directly
-    return this.pdfService.getPublicUrl(decl.qrCode, decl.year, copy);
+    // ✅ Return signed URL (works for both public and private buckets)
+    return this.pdfService.getSignedUrl(decl.qrCode, decl.year, copy);
   }
 
   async getDeclarationWithAccess(userId: string, declarationId: string) {
