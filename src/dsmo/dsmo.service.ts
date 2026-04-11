@@ -22,6 +22,36 @@ export class DsmoService {
     private pdfService: PdfService,
   ) { }
 
+  /**
+   * Looks up the MINEFOP processing service for a company declaration.
+   * Companies are handled at the DDEFOP (departmental) level.
+   * Returns the service info for the PDF header, with its parent (DREFOP) if available.
+   */
+  private async resolveProcessingService(): Promise<PdfData['processingService']> {
+    try {
+      const svc = await this.prisma.minefopService.findUnique({
+        where: { code: 'DDEFOP' },
+      });
+      if (!svc) return undefined;
+
+      let parent: typeof svc | null = null;
+      if (svc.parentCode) {
+        parent = await this.prisma.minefopService.findUnique({ where: { code: svc.parentCode } });
+      }
+
+      return {
+        name: svc.name,
+        nameEn: svc.nameEn,
+        acronym: svc.acronym,
+        parentName: parent?.name ?? null,
+        parentNameEn: parent?.nameEn ?? null,
+        parentAcronym: parent?.acronym ?? null,
+      };
+    } catch {
+      return undefined; // non-fatal — PDF falls back to static labels
+    }
+  }
+
   private async generateTrackingNumber(year: number): Promise<string> {
     const count = await this.prisma.declaration.count({
       where: { year, status: { not: DeclarationStatus.DRAFT } },
@@ -179,21 +209,49 @@ export class DsmoService {
       } : undefined;
     };
 
+    const processingService = await this.resolveProcessingService();
     const { urls, hashes } = await this.pdfService.generateDeclarationPdfs({
       trackingNumber,
       year: dto.year,
       fillingDate: dto.fillingDate || new Date().toISOString(),
       language: dto.language ?? 'fr',
+      processingService,
       company: {
         ...company,
+        parentCompany: company.parentCompany ?? undefined,
+        secondaryActivity: company.secondaryActivity ?? undefined,
+        fax: company.fax ?? undefined,
+        cnpsNumber: company.cnpsNumber ?? undefined,
+        socialCapital: company.socialCapital ?? undefined,
+        menCount: company.menCount ?? undefined,
+        womenCount: company.womenCount ?? undefined,
+        lastYearMenCount: company.lastYearMenCount ?? undefined,
+        lastYearWomenCount: company.lastYearWomenCount ?? undefined,
+        lastYearTotal: company.lastYearTotal ?? undefined,
         recruitments: getMovement(MovementType.RECRUITMENT),
         promotions: getMovement(MovementType.PROMOTION),
         dismissals: getMovement(MovementType.DISMISSAL),
         retirements: getMovement(MovementType.RETIREMENT),
         deaths: getMovement(MovementType.DEATH),
       },
-      qualitative: fullDecl.qualitativeQuestions[0],
-      employees: fullDecl.employees,
+      qualitative: fullDecl.qualitativeQuestions[0] ? {
+        hasTrainingCenter: fullDecl.qualitativeQuestions[0].hasTrainingCenter ?? undefined,
+        recruitmentPlansNext: fullDecl.qualitativeQuestions[0].recruitmentPlansNext ?? undefined,
+        camerounisationPlan: fullDecl.qualitativeQuestions[0].camerounisationPlan ?? undefined,
+        usesTempAgencies: fullDecl.qualitativeQuestions[0].usesTempAgencies ?? undefined,
+        tempAgencyDetails: fullDecl.qualitativeQuestions[0].tempAgencyDetails ?? undefined,
+      } : undefined,
+      employees: fullDecl.employees.map(e => ({
+        fullName: e.fullName,
+        gender: e.gender,
+        age: e.age,
+        nationality: e.nationality,
+        diploma: e.diploma ?? undefined,
+        function: e.function,
+        seniority: e.seniority,
+        salaryCategory: e.salaryCategory ?? undefined,
+        salary: e.salary ?? undefined,
+      })),
     });
 
     const submitted = await this.prisma.declaration.update({
@@ -339,10 +397,12 @@ export class DsmoService {
       };
     };
 
+    const processingService = await this.resolveProcessingService();
     const pdfData: PdfData = {
       trackingNumber: decl.qrCode,
       year: decl.year,
       language: 'fr',
+      processingService,
       company: {
         name: decl.company.name,
         mainActivity: decl.company.mainActivity,

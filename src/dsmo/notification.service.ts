@@ -40,7 +40,7 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        if (![UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL].includes(user.role)) {
+        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL] as UserRole[]).includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can send notifications');
         }
 
@@ -236,7 +236,7 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        if (![UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL].includes(user.role)) {
+        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL] as UserRole[]).includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can view notifications');
         }
 

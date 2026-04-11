@@ -58,6 +58,15 @@ interface Qualitative {
   tempAgencyDetails?: string;
 }
 
+export interface ProcessingServiceInfo {
+  name: string;
+  nameEn?: string | null;
+  acronym?: string | null;
+  parentName?: string | null;
+  parentNameEn?: string | null;
+  parentAcronym?: string | null;
+}
+
 export interface PdfData {
   trackingNumber: string;
   year: number;
@@ -66,6 +75,8 @@ export interface PdfData {
   qualitative?: Qualitative;
   employees: Employee[];
   language?: 'fr' | 'en';
+  /** The MINEFOP service responsible for receiving/processing this declaration */
+  processingService?: ProcessingServiceInfo;
 }
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
@@ -410,7 +421,7 @@ export class PdfService {
       doc.on('error', reject);
 
       this.drawWatermark(doc, copy, lang);
-      const headerBottom = this.drawBilingualHeader(doc, MT, lang);
+      const headerBottom = this.drawBilingualHeader(doc, MT, lang, data.processingService);
       this.drawPartA(doc, data, headerBottom + 5, lang);
       doc.addPage();
       this.drawWatermark(doc, copy, lang);
@@ -429,19 +440,47 @@ export class PdfService {
     doc.fillColor('black').fillOpacity(1);
   }
 
-  private drawBilingualHeader(doc: any, y: number, lang: Lang): number {
+  private drawBilingualHeader(doc: any, y: number, lang: Lang, processingService?: ProcessingServiceInfo): number {
     const x = ML;
     const w = CONTENT_W;
     const cw = w / 3;
     const fr = LABELS.fr;
     const en = LABELS.en;
 
+    // Build the direction/service lines from the MINEFOP hierarchy when available,
+    // otherwise fall back to the static labels.
+    const frDirLine = processingService
+      ? [
+          processingService.parentName
+            ? (processingService.parentAcronym
+                ? `${processingService.parentAcronym} — ${processingService.parentName}`
+                : processingService.parentName)
+            : null,
+          processingService.acronym
+            ? `${processingService.acronym} — ${processingService.name}`
+            : processingService.name,
+        ].filter(Boolean).join('\n')
+      : `${fr.direction}\n${fr.service}`;
+
+    const enDirLine = processingService
+      ? [
+          processingService.parentNameEn || processingService.parentName
+            ? (processingService.parentAcronym
+                ? `${processingService.parentAcronym} — ${processingService.parentNameEn ?? processingService.parentName}`
+                : (processingService.parentNameEn ?? processingService.parentName))
+            : null,
+          processingService.acronym
+            ? `${processingService.acronym} — ${processingService.nameEn ?? processingService.name}`
+            : (processingService.nameEn ?? processingService.name),
+        ].filter(Boolean).join('\n')
+      : `${en.direction}\n${en.service}`;
+
     doc.font('Helvetica-Bold').fontSize(9).fillColor('black');
     doc.text(fr.republic, x, y, { width: cw, align: 'center', lineBreak: false });
     doc.font('Helvetica').fontSize(8);
     doc.text(fr.motto, x, y + 12, { width: cw, align: 'center', lineBreak: false });
     doc.font('Helvetica').fontSize(6.8);
-    doc.text(`${fr.ministry}\n${fr.direction}\n${fr.service}`, x, y + 24, { width: cw, align: 'center' });
+    doc.text(`${fr.ministry}\n${frDirLine}`, x, y + 24, { width: cw, align: 'center' });
 
     const coatX = x + cw;
     const imgSize = 62;
@@ -465,7 +504,7 @@ export class PdfService {
     doc.font('Helvetica').fontSize(8);
     doc.text(en.motto, enX, y + 12, { width: cw, align: 'center', lineBreak: false });
     doc.font('Helvetica').fontSize(6.8);
-    doc.text(`${en.ministry}\n${en.direction}\n${en.service}`, enX, y + 24, { width: cw, align: 'center' });
+    doc.text(`${en.ministry}\n${enDirLine}`, enX, y + 24, { width: cw, align: 'center' });
 
     const divY = y + 70;
     doc.moveTo(x, divY).lineTo(x + w, divY).stroke();

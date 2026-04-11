@@ -56,6 +56,7 @@ export class AuthService {
     department?: string,
     matricule?: string,
     poste?: string,
+    serviceCode?: string,
   ) {
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -83,6 +84,7 @@ export class AuthService {
           department,
           matricule,
           poste,
+          ...(serviceCode ? { serviceCode } : {}),
         },
       });
 

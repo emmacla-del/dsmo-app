@@ -65,10 +65,29 @@ enum QuestionSection {
   FUTURE_PLANS
 }
 
+// ============ NEW ENUMS FOR MINEFOP HIERARCHY ============
+enum ServiceCategory {
+  DECONCENTRE   // Regional/Departmental delegations
+  CENTRALE      // Central administration
+  RATTACHE      // Attached organizations
+}
+
+enum PositionType {
+  HEAD              // Chef de Direction / Chef de Service / Chef de Bureau
+  DEPUTY_HEAD       // Chef de Service Adjoint / Chef de Bureau Adjoint
+  DIVISION_HEAD     // Chef de Division
+  SUB_DIRECTION_HEAD // Chef de Sous-Direction
+  OFFICER           // Chargé d'Études / Chargé de Mission
+  ASSISTANT         // Assistant / Attaché
+  TECHNICIAN        // Technicien
+  ADMIN             // Administrateur
+}
+
 // ============ LOCATION AND SECTOR MODELS ============
 model Region {
   id          String       @id @default(uuid())
   name        String       @unique
+  nameEn      String?
   code        String?      @unique
   departments Department[]
   createdAt   DateTime     @default(now())
@@ -80,6 +99,7 @@ model Region {
 model Department {
   id           String         @id @default(uuid())
   name         String
+  nameEn       String?
   code         String?        @unique
   regionId     String
   region       Region         @relation(fields: [regionId], references: [id], onDelete: Cascade)
@@ -94,6 +114,7 @@ model Department {
 model Subdivision {
   id           String       @id @default(uuid())
   name         String
+  nameEn       String?
   code         String?      @unique
   departmentId String
   department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
@@ -107,6 +128,7 @@ model Subdivision {
 model Sector {
   id        String   @id @default(uuid())
   name      String   @unique
+  nameEn    String?
   code      String?  @unique
   category  String?  // Primary, Secondary, Tertiary, Public
   createdAt DateTime @default(now())
@@ -115,24 +137,91 @@ model Sector {
   @@map("sectors")
 }
 
+// ============ NEW: MINEFOP SERVICE HIERARCHY ============
+model MinefopService {
+  id                 String            @id @default(uuid())
+  // ✅ FIX 1: Removed duplicate @unique here — @@unique([code]) below already enforces uniqueness.
+  //           Having both caused constraint name collision: `minefop_services_code_key`
+  code               String
+  name               String
+  nameEn             String?
+  acronym            String?
+  category           ServiceCategory   @default(CENTRALE)
+  level              Int               // 1=Direction, 2=Sous-Direction, 3=Service, 4=Bureau
+  parentCode         String?
+  parent             MinefopService?   @relation("ServiceHierarchy", fields: [parentCode], references: [code])
+  children           MinefopService[]  @relation("ServiceHierarchy")
+  roleMapping        UserRole          // CENTRAL, REGIONAL, DIVISIONAL, COMPANY
+  requiresRegion     Boolean           @default(false)
+  requiresDepartment Boolean           @default(false)
+  orderIndex         Int
+  isActive           Boolean           @default(true)
+  positions          ServicePosition[] // Positions available in this service
+  // ✅ FIX 2: Added back-relation for User.service field
+  users              User[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  // ✅ FIX 1 (continued): Keep only @@unique([code]) with explicit map name to avoid collision
+  @@unique([code], map: "minefop_services_code_unique")
+  @@index([parentCode])
+  @@index([level])
+  @@index([category])
+  @@map("minefop_services")
+}
+
+// ============ NEW: SERVICE POSITIONS (ROLES WITHIN SERVICES) ============
+model ServicePosition {
+  id              String        @id @default(uuid())
+  serviceCode     String
+  service         MinefopService @relation(fields: [serviceCode], references: [code])
+  positionType    PositionType
+  title           String        // "Chef de Bureau", "Chargé d'Études", etc.
+  titleEn         String?
+  level           Int           // 1=Head, 2=Deputy, 3=Officer, 4=Assistant
+  orderIndex      Int
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([serviceCode, positionType])
+  @@index([serviceCode])
+  @@index([level])
+  @@map("service_positions")
+}
+
 // ============ MODELS THAT DON'T RELATE TO OTHERS ============
 model User {
-  id            String        @id @default(uuid())
-  email         String        @unique
-  passwordHash  String
-  firstName     String?
-  lastName      String?
-  role          UserRole      @default(COMPANY)
-  region        String?
-  department    String?
-  matricule     String?       // Government staff ID (DIVISIONAL, REGIONAL, CENTRAL only)
-  poste         String?       // Job title / position (government only)
-  isActive      Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  company       Company?
-  notifications Notification[]
-  auditLogs     AuditLog[]
+  id                String            @id @default(uuid())
+  email             String            @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  role              UserRole          @default(COMPANY)
+  region            String?
+  department        String?
+  subdivision       String?
+  matricule         String?           // Government staff ID (DIVISIONAL, REGIONAL, CENTRAL only)
+  poste             String?           // Job title / position (government only)
+  
+  // ✅ NEW: MINEFOP service and position mapping
+  serviceCode       String?           // MINEFOP service (for government users)
+  service           MinefopService?   @relation(fields: [serviceCode], references: [code])
+  positionType      PositionType?     // Position within the service
+  positionTitle     String?           // Custom title if needed
+  
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  company           Company?
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+
+  @@index([role])
+  @@index([serviceCode])
+  @@index([positionType])
+  @@map("users")
 }
 
 // ============ COMPANY MODEL ============
@@ -148,7 +237,7 @@ model Company {
   department        String
   district          String
   address           String
-  fax               String?             // ← added
+  fax               String?
   taxNumber         String              @unique
   cnpsNumber        String?
   socialCapital     Float?
@@ -156,10 +245,8 @@ model Company {
   menCount          Int?
   womenCount        Int?
   lastYearTotal     Int?
-  lastYearMenCount  Int?                // ← added
-  lastYearWomenCount Int?               // ← added
-  // NOTE: recruitments, promotions, dismissals, retirements, deaths removed —
-  // movement data lives on DeclarationMovement records per declaration.
+  lastYearMenCount  Int?
+  lastYearWomenCount Int?
   declarations      Declaration[]
   notificationRecipients NotificationRecipient[]
   createdAt         DateTime            @default(now())
@@ -179,6 +266,7 @@ model Employee {
   function      String
   seniority     Int
   salaryCategory String?
+  salary        Int?
   createdAt     DateTime      @default(now())
 }
 

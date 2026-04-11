@@ -24,6 +24,7 @@ export class AuthController {
     department?: string;
     matricule?: string;
     poste?: string;
+    serviceCode?: string;
   }) {
     try {
       const user = await this.authService.register(
@@ -36,6 +37,7 @@ export class AuthController {
         body.department,
         body.matricule,
         body.poste,
+        body.serviceCode,
       );
       // Return a JWT immediately so the client doesn't need a second login call
       return this.authService.login(user);
