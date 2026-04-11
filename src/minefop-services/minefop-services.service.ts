@@ -146,10 +146,6 @@ export class MinefopServicesService {
       orderBy: { orderIndex: 'asc' },
     });
 
-    if (positions.length === 0) {
-      throw new NotFoundException(`No positions found for service with code: ${serviceCode}`);
-    }
-
     return positions;
   }
 
