@@ -35,6 +35,6 @@ node node_modules/prisma/build/index.js migrate deploy
 
 # Run seed (inserts positions, sectors, locations, test users)
 echo "🌱 Seeding database..."
-node node_modules/prisma/build/index.js db seed
+npx ts-node prisma/seed.ts
 
 echo "✅ Build complete!"
