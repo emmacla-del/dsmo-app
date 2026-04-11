@@ -29,13 +29,12 @@ else
     exit 1
 fi
 
-# Run database migrations
+## Run database migrations
 echo "📋 Running database migrations..."
 node node_modules/prisma/build/index.js migrate deploy
 
-# Run the seed using ts-node with the transpile-only flag
-# This bypasses the type-checking errors and runs the source file directly
+# Run the seed with explicit flags to ignore the deprecated baseUrl and type errors
 echo "🌱 Seeding database..."
-npx ts-node --transpile-only prisma/seed.ts
+npx ts-node --transpile-only --compiler-options '{"ignoreDeprecations": "5023"}' prisma/seed.ts
 
 echo "✅ Build complete!"
