@@ -33,8 +33,9 @@ fi
 echo "📋 Running database migrations..."
 node node_modules/prisma/build/index.js migrate deploy
 
-# Run seed (inserts positions, sectors, locations, test users)
+# Compile seed to JavaScript and run it
 echo "🌱 Seeding database..."
-npx ts-node prisma/seed.ts
+npx tsc prisma/seed.ts --outDir dist/prisma --target es2020 --module commonjs
+node dist/prisma/seed.js
 
 echo "✅ Build complete!"
