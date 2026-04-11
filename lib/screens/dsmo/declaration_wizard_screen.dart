@@ -187,13 +187,19 @@ class _DeclarationWizardScreenState
 
   /// Tries to auto-select the sector. Called after both sectors and company are loaded.
   void _autoSelectSector(String? activityName) {
-    if (activityName == null || activityName.isEmpty || _sectors.isEmpty) return;
-    final match = _sectors.cast<Map<String, dynamic>>().where(
-      (s) => (s['name'] as String?)?.toLowerCase() == activityName.toLowerCase(),
-    ).firstOrNull;
+    if (activityName == null || activityName.isEmpty || _sectors.isEmpty)
+      return;
+    final match = _sectors
+        .cast<Map<String, dynamic>>()
+        .where(
+          (s) =>
+              (s['name'] as String?)?.toLowerCase() ==
+              activityName.toLowerCase(),
+        )
+        .firstOrNull;
     if (match != null && mounted) {
       setState(() {
-        _selectedSectorId   = match['id'] as String?;
+        _selectedSectorId = match['id'] as String?;
         _selectedSectorName = match['name'] as String?;
       });
     }
@@ -201,20 +207,20 @@ class _DeclarationWizardScreenState
 
   /// Pre-fills all text controllers from the saved company profile.
   void _prefillTextFields(Map<String, dynamic> c) {
-    _nameController.text        = c['name'] as String? ?? '';
+    _nameController.text = c['name'] as String? ?? '';
     _parentCompanyController.text = c['parentCompany'] as String? ?? '';
-    _addressController.text     = c['address'] as String? ?? '';
-    _faxController.text         = c['fax'] as String? ?? '';
-    _taxNumberController.text   = c['taxNumber'] as String? ?? '';
-    _cnpsController.text        = c['cnpsNumber'] as String? ?? '';
+    _addressController.text = c['address'] as String? ?? '';
+    _faxController.text = c['fax'] as String? ?? '';
+    _taxNumberController.text = c['taxNumber'] as String? ?? '';
+    _cnpsController.text = c['cnpsNumber'] as String? ?? '';
     if (c['socialCapital'] != null) {
-      _capitalController.text   = '${c['socialCapital']}';
+      _capitalController.text = '${c['socialCapital']}';
     }
     // Workforce from last registration — editable before submit
     if (c['totalEmployees'] != null) {
-      _totalEmp.text  = '${c['totalEmployees']}';
+      _totalEmp.text = '${c['totalEmployees']}';
     }
-    if (c['menCount'] != null)   _menCount.text   = '${c['menCount']}';
+    if (c['menCount'] != null) _menCount.text = '${c['menCount']}';
     if (c['womenCount'] != null) _womenCount.text = '${c['womenCount']}';
     if (c['lastYearTotal'] != null) {
       _lastYearTotal.text = '${c['lastYearTotal']}';
@@ -222,15 +228,20 @@ class _DeclarationWizardScreenState
   }
 
   /// Finds the region by name in the loaded list and triggers the cascade.
-  Future<void> _autoSelectRegion(String? regionName, List<dynamic> regions) async {
+  Future<void> _autoSelectRegion(
+      String? regionName, List<dynamic> regions) async {
     if (regionName == null || regionName.isEmpty) return;
-    final match = regions.cast<Map<String, dynamic>>().where(
-      (r) => (r['name'] as String?)?.toLowerCase() == regionName.toLowerCase(),
-    ).firstOrNull;
+    final match = regions
+        .cast<Map<String, dynamic>>()
+        .where(
+          (r) =>
+              (r['name'] as String?)?.toLowerCase() == regionName.toLowerCase(),
+        )
+        .firstOrNull;
     if (match == null) return;
 
     setState(() {
-      _selectedRegionId   = match['id'] as String?;
+      _selectedRegionId = match['id'] as String?;
       _selectedRegionName = match['name'] as String?;
     });
 
@@ -264,12 +275,17 @@ class _DeclarationWizardScreenState
       });
 
       if (deptName != null && deptName.isNotEmpty) {
-        final match = departments.cast<Map<String, dynamic>>().where(
-          (d) => (d['name'] as String?)?.toLowerCase() == deptName.toLowerCase(),
-        ).firstOrNull;
+        final match = departments
+            .cast<Map<String, dynamic>>()
+            .where(
+              (d) =>
+                  (d['name'] as String?)?.toLowerCase() ==
+                  deptName.toLowerCase(),
+            )
+            .firstOrNull;
         if (match != null) {
           setState(() {
-            _selectedDepartmentId   = match['id'] as String?;
+            _selectedDepartmentId = match['id'] as String?;
             _selectedDepartmentName = match['name'] as String?;
           });
           if (_selectedDepartmentId != null) {
@@ -307,12 +323,17 @@ class _DeclarationWizardScreenState
       });
 
       if (districtName != null && districtName.isNotEmpty) {
-        final match = subdivisions.cast<Map<String, dynamic>>().where(
-          (s) => (s['name'] as String?)?.toLowerCase() == districtName.toLowerCase(),
-        ).firstOrNull;
+        final match = subdivisions
+            .cast<Map<String, dynamic>>()
+            .where(
+              (s) =>
+                  (s['name'] as String?)?.toLowerCase() ==
+                  districtName.toLowerCase(),
+            )
+            .firstOrNull;
         if (match != null) {
           setState(() {
-            _selectedSubdivisionId   = match['id'] as String?;
+            _selectedSubdivisionId = match['id'] as String?;
             _selectedSubdivisionName = match['name'] as String?;
           });
         }
@@ -850,7 +871,7 @@ class _DeclarationWizardScreenState
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 2),
-        Text(
+        const Text(
           'Saisissez Hommes et Femmes — le Total se calcule automatiquement.',
           style: TextStyle(fontSize: 11, color: Colors.grey),
         ),
@@ -890,7 +911,7 @@ class _DeclarationWizardScreenState
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 2),
-        Text(
+        const Text(
           'Facultatif — le Total se calcule automatiquement.',
           style: TextStyle(fontSize: 11, color: Colors.grey),
         ),
@@ -925,7 +946,7 @@ class _DeclarationWizardScreenState
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 2),
-        Text(
+        const Text(
           'Remplissez les cellules — les totaux par ligne et colonne se calculent automatiquement.',
           style: TextStyle(fontSize: 11, color: Colors.grey),
         ),

@@ -346,8 +346,9 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
       _ageController.text = emp.age.toString();
       _nationality =
           emp.nationality == 'Cameroonian' ? 'Camerounais' : 'Étranger';
-      if (_nationality == 'Étranger')
+      if (_nationality == 'Étranger') {
         _otherCountryController.text = emp.otherCountry ?? '';
+      }
       _diploma = emp.diploma;
       _functionController.text = emp.function;
       _seniority = emp.seniority;

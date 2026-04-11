@@ -11,11 +11,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey      = GlobalKey<FormState>();
-  final _emailCtrl    = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
-  bool _isSubmitting    = false;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -127,16 +127,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           textInputAction: TextInputAction.next,
                           decoration: InputDecoration(
                             labelText: 'Adresse e-mail',
-                            prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                            prefixIcon:
+                                const Icon(Icons.email_outlined, size: 20),
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             filled: true,
                             fillColor: Colors.grey.shade50,
                           ),
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'Email requis';
+                            if (v == null || v.trim().isEmpty)
+                              return 'Email requis';
                             if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                .hasMatch(v.trim())) return 'Email invalide';
+                                .hasMatch(v.trim())) {
+                              return 'Email invalide';
+                            }
                             return null;
                           },
                         ),
@@ -183,16 +187,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.red.shade50,
-                              border:
-                                  Border.all(color: Colors.red.shade200),
+                              border: Border.all(color: Colors.red.shade200),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Row(
+                            child: const Row(
                               children: [
-                                const Icon(Icons.error_outline,
+                                Icon(Icons.error_outline,
                                     color: Colors.red, size: 18),
-                                const SizedBox(width: 8),
-                                const Expanded(
+                                SizedBox(width: 8),
+                                Expanded(
                                   child: Text(
                                     'Email ou mot de passe incorrect.',
                                     style: TextStyle(
@@ -228,8 +231,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white),
+                                        strokeWidth: 2, color: Colors.white),
                                   )
                                 : const Text('Se connecter',
                                     style: TextStyle(
@@ -248,12 +250,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text('Pas encore de compte ?',
-                        style:
-                            TextStyle(color: AppColors.slate, fontSize: 14)),
+                        style: TextStyle(color: AppColors.slate, fontSize: 14)),
                     const SizedBox(width: 6),
                     GestureDetector(
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/register'),
+                      onTap: () => Navigator.pushNamed(context, '/register'),
                       child: const Text(
                         'Créer un compte',
                         style: TextStyle(

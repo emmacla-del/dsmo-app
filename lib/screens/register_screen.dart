@@ -5,14 +5,46 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../data/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
+import '../widgets/service_picker.dart';
 
 // ─── Step indices (page positions in PageView) ───────────────────────────────
-const _kStepRole          = 0;
-const _kStepIdentity      = 1; // company name + email  OR  first/last name + email
-const _kStepCompanyInfo   = 2; // COMPANY ONLY: NIU, CNPS, activity, address, fax, capital
-const _kStepAssignment    = 3; // region + department
-const _kStepSecurity      = 4;
-const _kStepReview        = 5;
+const _kStepRole = 0;
+const _kStepIdentity = 1; // company name + email  OR  first/last name + email
+const _kStepCompanyInfo =
+    2; // COMPANY ONLY: NIU, CNPS, activity, address, fax, capital
+const _kStepService = 3; // MINEFOP ONLY: service hierarchy picker
+const _kStepPosition = 4; // MINEFOP ONLY: role/position within service
+const _kStepAssignment = 5; // region + department (if service requires it)
+const _kStepSecurity = 6;
+const _kStepReview = 7;
+
+// ─── Lightweight position model ──────────────────────────────────────────────
+class _ServicePosition {
+  final String id;
+  final String title;
+  final String? titleEn;
+  final String positionType;
+
+  const _ServicePosition({
+    required this.id,
+    required this.title,
+    this.titleEn,
+    required this.positionType,
+  });
+
+  factory _ServicePosition.fromJson(Map<String, dynamic> j) => _ServicePosition(
+        id: j['id'] as String,
+        title: j['title'] as String,
+        titleEn: j['titleEn'] as String?,
+        positionType: j['positionType'] as String,
+      );
+
+  @override
+  bool operator ==(Object other) => other is _ServicePosition && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -27,72 +59,90 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   final PageController _pageCtrl = PageController();
 
-  final _identityKey  = GlobalKey<FormState>();
-  final _companyKey   = GlobalKey<FormState>();
-  final _securityKey  = GlobalKey<FormState>();
+  final _identityKey = GlobalKey<FormState>();
+  final _companyKey = GlobalKey<FormState>();
+  final _securityKey = GlobalKey<FormState>();
 
   // Flipped to true after draft is loaded — forces child StatefulWidgets
   // to recreate their controllers with the restored values.
   bool _draftLoaded = false;
 
-  // ── Role
-  String _role = '';
+  // ── Account type (step 0)
+  String _role = ''; // 'COMPANY' or derived from service.roleMapping
+  bool _isMinefopUser = false; // true when Personnel MINEFOP chosen
 
   // ── Identity (all roles)
-  String _email     = '';
+  String _email = '';
   String _firstName = ''; // used by gov roles; for COMPANY holds raison sociale
-  String _lastName  = ''; // gov only
-  String _matricule = ''; // government staff ID (DIVISIONAL, REGIONAL, CENTRAL)
-  String _poste     = ''; // job title / position (government only)
+  String _lastName = ''; // gov only
+  String _matricule = ''; // government staff ID
+
+  // ── MINEFOP position (step 4)
+  List<_ServicePosition> _positions = [];
+  bool _loadingPositions = false;
+  _ServicePosition? _selectedPosition;
 
   // ── Company details (COMPANY only)
-  String  _taxNumber         = '';
-  String  _cnpsNumber        = '';
-  String  _fax               = '';
-  String  _address           = '';
+  String _taxNumber = '';
+  String _cnpsNumber = '';
+  String _fax = '';
+  String _address = '';
   String? _parentCompany;
-  String  _secondaryActivity = '';
-  int?    _socialCapital;
+  String _secondaryActivity = '';
+  int? _socialCapital;
   Map<String, dynamic>? _selectedSector; // mainActivity
+
+  // ── MINEFOP service (government users)
+  MinefopServiceNode? _selectedMinefopService;
 
   // ── Assignment / location
   Map<String, dynamic>? _selectedRegion;
   Map<String, dynamic>? _selectedDepartment;
 
   // ── Location data from API
-  List<dynamic> _regions     = [];
+  List<dynamic> _regions = [];
   List<dynamic> _departments = [];
-  List<dynamic> _sectors     = [];
+  List<dynamic> _sectors = [];
   bool _loadingLocations = false;
-  bool _loadingSectors   = false;
+  bool _loadingSectors = false;
 
   // ── Security
-  String _password     = '';
-  bool   _obscurePw      = true;
-  bool   _obscureConfirm = true;
+  String _password = '';
+  bool _obscurePw = true;
+  bool _obscureConfirm = true;
 
   // ── UI state
-  int  _step         = _kStepRole;
+  int _step = _kStepRole;
   bool _isSubmitting = false;
 
   // ── Computed: which pages are visible for the current role
   bool get _isCompany => _role == 'COMPANY';
-  bool get _needsAssignment =>
-      _role == 'COMPANY' || _role == 'DIVISIONAL' || _role == 'REGIONAL';
+  bool get _isMinefop => _isMinefopUser;
+
+  bool get _needsAssignment {
+    if (_isCompany) return true;
+    if (_selectedMinefopService != null) {
+      return _selectedMinefopService!.requiresRegion ||
+          _selectedMinefopService!.requiresDepartment;
+    }
+    return false;
+  }
 
   List<int> get _visibleSteps {
-    if (_role.isEmpty) return [_kStepRole];
+    if (_role.isEmpty && !_isMinefopUser) return [_kStepRole];
     return [
       _kStepRole,
       _kStepIdentity,
       if (_isCompany) _kStepCompanyInfo,
+      if (_isMinefop) _kStepService,
+      if (_isMinefop) _kStepPosition,
       if (_needsAssignment) _kStepAssignment,
       _kStepSecurity,
       _kStepReview,
     ];
   }
 
-  int get _visibleCount     => _visibleSteps.length;
+  int get _visibleCount => _visibleSteps.length;
   int get _currentVisibleIdx => _visibleSteps.indexOf(_step);
 
   @override
@@ -114,11 +164,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final box = await Hive.openBox(_kDraftBox);
       await box.put(_kDraftKey, {
         'role': _role,
+        'isMinefopUser': _isMinefopUser,
         'email': _email,
         'firstName': _firstName,
         'lastName': _lastName,
         'matricule': _matricule,
-        'poste': _poste,
         'taxNumber': _taxNumber,
         'cnpsNumber': _cnpsNumber,
         'fax': _fax,
@@ -129,6 +179,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'selectedSector': _selectedSector,
         'selectedRegion': _selectedRegion,
         'selectedDepartment': _selectedDepartment,
+        'selectedMinefopService': _selectedMinefopService != null
+            ? {
+                'id': _selectedMinefopService!.id,
+                'code': _selectedMinefopService!.code,
+                'category': _selectedMinefopService!.category,
+                'level': _selectedMinefopService!.level,
+                'parentCode': _selectedMinefopService!.parentCode,
+                'name': _selectedMinefopService!.name,
+                'nameEn': _selectedMinefopService!.nameEn,
+                'acronym': _selectedMinefopService!.acronym,
+                'roleMapping': _selectedMinefopService!.roleMapping,
+                'requiresRegion': _selectedMinefopService!.requiresRegion,
+                'requiresDepartment':
+                    _selectedMinefopService!.requiresDepartment,
+              }
+            : null,
         'step': _step,
       });
     } catch (e) {
@@ -148,26 +214,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if ((data['role'] as String? ?? '').isEmpty) return;
 
       setState(() {
-        _role               = data['role']              as String? ?? '';
-        _email              = data['email']             as String? ?? '';
-        _firstName          = data['firstName']         as String? ?? '';
-        _lastName           = data['lastName']          as String? ?? '';
-        _matricule          = data['matricule']         as String? ?? '';
-        _poste              = data['poste']             as String? ?? '';
-        _taxNumber          = data['taxNumber']         as String? ?? '';
-        _cnpsNumber         = data['cnpsNumber']        as String? ?? '';
-        _fax                = data['fax']               as String? ?? '';
-        _address            = data['address']           as String? ?? '';
-        _parentCompany      = data['parentCompany']     as String?;
-        _secondaryActivity  = data['secondaryActivity'] as String? ?? '';
-        _socialCapital      = data['socialCapital']     as int?;
+        _role = data['role'] as String? ?? '';
+        _isMinefopUser = data['isMinefopUser'] as bool? ?? false;
+        _email = data['email'] as String? ?? '';
+        _firstName = data['firstName'] as String? ?? '';
+        _lastName = data['lastName'] as String? ?? '';
+        _matricule = data['matricule'] as String? ?? '';
+        _taxNumber = data['taxNumber'] as String? ?? '';
+        _cnpsNumber = data['cnpsNumber'] as String? ?? '';
+        _fax = data['fax'] as String? ?? '';
+        _address = data['address'] as String? ?? '';
+        _parentCompany = data['parentCompany'] as String?;
+        _secondaryActivity = data['secondaryActivity'] as String? ?? '';
+        _socialCapital = data['socialCapital'] as int?;
 
-        final sec  = data['selectedSector'];
-        final reg  = data['selectedRegion'];
+        final sec = data['selectedSector'];
+        final reg = data['selectedRegion'];
         final dept = data['selectedDepartment'];
-        if (sec  != null) _selectedSector     = Map<String, dynamic>.from(sec  as Map);
-        if (reg  != null) _selectedRegion     = Map<String, dynamic>.from(reg  as Map);
-        if (dept != null) _selectedDepartment = Map<String, dynamic>.from(dept as Map);
+        final svc = data['selectedMinefopService'];
+        if (sec != null)
+          _selectedSector = Map<String, dynamic>.from(sec as Map);
+        if (reg != null)
+          _selectedRegion = Map<String, dynamic>.from(reg as Map);
+        if (dept != null)
+          _selectedDepartment = Map<String, dynamic>.from(dept as Map);
+        if (svc != null) {
+          _selectedMinefopService = MinefopServiceNode.fromJson(
+              Map<String, dynamic>.from(svc as Map));
+        }
 
         final savedStep = data['step'] as int? ?? _kStepRole;
         _step = savedStep;
@@ -182,7 +256,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           _pageCtrl.jumpToPage(_step);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Brouillon restauré — vous pouvez continuer votre inscription.'),
+              content: Text(
+                  'Brouillon restauré — vous pouvez continuer votre inscription.'),
               backgroundColor: Colors.teal,
               duration: Duration(seconds: 3),
             ),
@@ -230,7 +305,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _advance() async {
     switch (_step) {
       case _kStepRole:
-        if (_role.isEmpty) {
+        if (_role.isEmpty && !_isMinefopUser) {
           _snack('Veuillez choisir un type de compte', error: true);
           return;
         }
@@ -253,12 +328,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         _next();
         _saveDraft();
 
+      case _kStepService:
+        if (_selectedMinefopService == null) {
+          _snack('Veuillez sélectionner votre service d\'affectation',
+              error: true);
+          return;
+        }
+        _next();
+        _saveDraft();
+
+      case _kStepPosition:
+        if (_selectedPosition == null) {
+          _snack('Veuillez sélectionner votre fonction dans ce service',
+              error: true);
+          return;
+        }
+        _next();
+        _saveDraft();
+
       case _kStepAssignment:
         if (_selectedRegion == null) {
           _snack('Veuillez sélectionner une région', error: true);
           return;
         }
-        if ((_isCompany || _role == 'DIVISIONAL') && _selectedDepartment == null) {
+        if ((_isCompany || _role == 'DIVISIONAL') &&
+            _selectedDepartment == null) {
           _snack('Veuillez sélectionner un département', error: true);
           return;
         }
@@ -277,22 +371,55 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   // ── Data loaders ────────────────────────────────────────────────────────────
 
+  Future<void> _loadPositions(String serviceCode) async {
+    setState(() {
+      _loadingPositions = true;
+      _positions = [];
+      _selectedPosition = null;
+    });
+    try {
+      final api = ref.read(apiClientProvider);
+      final resp = await api.get('/minefop-services/$serviceCode/positions');
+      final list = (resp.data as List)
+          .map((j) => _ServicePosition.fromJson(j as Map<String, dynamic>))
+          .toList();
+      if (mounted)
+        setState(() {
+          _positions = list;
+          _loadingPositions = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => _loadingPositions = false);
+    }
+  }
+
   Future<void> _loadRegions() async {
     if (_regions.isNotEmpty) return;
     setState(() => _loadingLocations = true);
     try {
       final data = await ref.read(apiClientProvider).getRegions();
-      if (mounted) setState(() { _regions = data; _loadingLocations = false; });
+      if (mounted)
+        setState(() {
+          _regions = data;
+          _loadingLocations = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loadingLocations = false);
     }
   }
 
   Future<void> _loadDepartments(String regionId) async {
-    setState(() { _departments = []; _loadingLocations = true; });
+    setState(() {
+      _departments = [];
+      _loadingLocations = true;
+    });
     try {
       final data = await ref.read(apiClientProvider).getDepartments(regionId);
-      if (mounted) setState(() { _departments = data; _loadingLocations = false; });
+      if (mounted)
+        setState(() {
+          _departments = data;
+          _loadingLocations = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loadingLocations = false);
     }
@@ -303,7 +430,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _loadingSectors = true);
     try {
       final data = await ref.read(apiClientProvider).getSectors();
-      if (mounted) setState(() { _sectors = data; _loadingSectors = false; });
+      if (mounted)
+        setState(() {
+          _sectors = data;
+          _loadingSectors = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loadingSectors = false);
     }
@@ -316,22 +447,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _isSubmitting = true);
     try {
       final regionName = (_selectedRegion?['name'] as String?);
-      final deptName   = (_isCompany || _role == 'DIVISIONAL')
-          ? (_selectedDepartment?['name'] as String?)
-          : null;
+      final effectiveRole = _isCompany
+          ? 'COMPANY'
+          : (_selectedMinefopService?.roleMapping ?? 'CENTRAL');
+      final needsDept = _isCompany || effectiveRole == 'DIVISIONAL';
+      final deptName =
+          needsDept ? (_selectedDepartment?['name'] as String?) : null;
+      final poste = _isMinefop ? _selectedPosition?.title : null;
 
       // Register user account (returns JWT directly)
       await ref.read(authProvider.notifier).register(
-        _email,
-        _password,
-        _firstName, // raison sociale for COMPANY, prénom for gov
-        _isCompany ? '' : _lastName,
-        _role,
-        region: regionName,
-        department: deptName,
-        matricule: !_isCompany && _matricule.isNotEmpty ? _matricule : null,
-        poste: !_isCompany && _poste.isNotEmpty ? _poste : null,
-      );
+            _email,
+            _password,
+            _firstName,
+            _isCompany ? '' : _lastName,
+            effectiveRole,
+            region: regionName,
+            department: deptName,
+            matricule: _isMinefop && _matricule.isNotEmpty ? _matricule : null,
+            poste: poste,
+            serviceCode: _isMinefop ? _selectedMinefopService?.code : null,
+          );
 
       // Abort if registration failed (auth state is error, no token)
       final authState = ref.read(authProvider);
@@ -352,7 +488,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             'address': _address,
             if (_cnpsNumber.isNotEmpty) 'cnpsNumber': _cnpsNumber,
             if (_fax.isNotEmpty) 'fax': _fax,
-            if (_secondaryActivity.isNotEmpty) 'secondaryActivity': _secondaryActivity,
+            if (_secondaryActivity.isNotEmpty)
+              'secondaryActivity': _secondaryActivity,
             if (_parentCompany != null && _parentCompany!.isNotEmpty)
               'parentCompany': _parentCompany,
             if (_socialCapital != null) 'socialCapital': _socialCapital,
@@ -379,7 +516,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   double _pwStrength(String pw) {
     if (pw.isEmpty) return 0;
     double s = 0;
-    if (pw.length >= 8)  s += 0.25;
+    if (pw.length >= 8) s += 0.25;
     if (pw.length >= 12) s += 0.15;
     if (pw.contains(RegExp(r'[A-Z]'))) s += 0.2;
     if (pw.contains(RegExp(r'[0-9]'))) s += 0.2;
@@ -387,11 +524,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return s.clamp(0, 1);
   }
 
-  Color _pwColor(double s) =>
-      s < 0.35 ? Colors.red : s < 0.65 ? Colors.orange : Colors.green;
+  Color _pwColor(double s) => s < 0.35
+      ? Colors.red
+      : s < 0.65
+          ? Colors.orange
+          : Colors.green;
 
-  String _pwLabel(double s) =>
-      s < 0.35 ? 'Faible' : s < 0.65 ? 'Moyen' : s < 0.9 ? 'Fort' : 'Très fort';
+  String _pwLabel(double s) => s < 0.35
+      ? 'Faible'
+      : s < 0.65
+          ? 'Moyen'
+          : s < 0.9
+              ? 'Fort'
+              : 'Très fort';
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
@@ -418,7 +563,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               isCompany: _isCompany,
               onBack: _back,
             ),
-
             if (authState.hasError && !isBusy)
               Container(
                 width: double.infinity,
@@ -434,25 +578,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(authState.error.toString(),
-                        style: const TextStyle(color: Colors.red, fontSize: 13)),
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 13)),
                   ),
                 ]),
               ),
-
             Expanded(
               child: PageView(
                 controller: _pageCtrl,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  // 0 — Role
-                  _StepRole(selected: _role, onSelect: (r) {
-                    setState(() {
-                      _role = r;
-                      _selectedRegion = null;
-                      _selectedDepartment = null;
-                    });
-                    _saveDraft();
-                  }),
+                  // 0 — Role (binary: Entreprise vs Personnel MINEFOP)
+                  _StepRole(
+                    isCompany: _isCompany,
+                    isMinefop: _isMinefopUser,
+                    onSelect: (isCompany) {
+                      setState(() {
+                        _isMinefopUser = !isCompany;
+                        _role = isCompany ? 'COMPANY' : '';
+                        _selectedRegion = null;
+                        _selectedDepartment = null;
+                        _selectedMinefopService = null;
+                        _selectedPosition = null;
+                        _positions = [];
+                      });
+                      _saveDraft();
+                    },
+                  ),
 
                   // 1 — Identity
                   _StepIdentity(
@@ -463,17 +615,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     initialLastName: _lastName,
                     initialEmail: _email,
                     initialMatricule: _matricule,
-                    initialPoste: _poste,
-                    onSave: (fn, ln, em, mat, pos) {
+                    onSave: (fn, ln, em, mat) {
                       _firstName = fn;
-                      _lastName  = ln;
-                      _email     = em;
+                      _lastName = ln;
+                      _email = em;
                       _matricule = mat;
-                      _poste     = pos;
                     },
                   ),
 
-                  // 2 — Company info (COMPANY only page)
+                  // 2 — Company info (COMPANY only)
                   _StepCompanyInfo(
                     key: ValueKey(_draftLoaded),
                     formKey: _companyKey,
@@ -490,17 +640,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     initialCapital: _socialCapital,
                     onInit: _loadSectors,
                     onSave: (niu, cnps, fax, addr, parent, sec, cap) {
-                      _taxNumber          = niu;
-                      _cnpsNumber         = cnps;
-                      _fax                = fax;
-                      _address            = addr;
-                      _parentCompany      = parent.isNotEmpty ? parent : null;
-                      _secondaryActivity  = sec;
-                      _socialCapital      = cap;
+                      _taxNumber = niu;
+                      _cnpsNumber = cnps;
+                      _fax = fax;
+                      _address = addr;
+                      _parentCompany = parent.isNotEmpty ? parent : null;
+                      _secondaryActivity = sec;
+                      _socialCapital = cap;
                     },
                   ),
 
-                  // 3 — Assignment / Location
+                  // 3 — Service picker (MINEFOP only)
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: ServicePicker(
+                      initialValue: _selectedMinefopService,
+                      onSelected: (node) {
+                        setState(() {
+                          _selectedMinefopService = node;
+                          _role = node.roleMapping;
+                          _selectedPosition = null;
+                          _positions = [];
+                          if (!node.requiresRegion &&
+                              !node.requiresDepartment) {
+                            _selectedRegion = null;
+                            _selectedDepartment = null;
+                          }
+                        });
+                        _loadPositions(node.code);
+                        _saveDraft();
+                      },
+                    ),
+                  ),
+
+                  // 4 — Position within service (MINEFOP only)
+                  _StepPosition(
+                    positions: _positions,
+                    loading: _loadingPositions,
+                    selected: _selectedPosition,
+                    serviceName: _selectedMinefopService?.name,
+                    onChanged: (p) => setState(() => _selectedPosition = p),
+                  ),
+
+                  // 5 — Assignment / Location
                   _StepAssignment(
                     role: _role,
                     regions: _regions,
@@ -516,27 +698,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       });
                       if (r != null) _loadDepartments(r['id'] as String);
                     },
-                    onDepartmentChanged: (d) => setState(() => _selectedDepartment = d),
+                    onDepartmentChanged: (d) =>
+                        setState(() => _selectedDepartment = d),
                     onInit: _loadRegions,
                   ),
 
-                  // 4 — Security
+                  // 6 — Security
                   _StepSecurity(
                     formKey: _securityKey,
                     initialPassword: _password,
                     obscurePw: _obscurePw,
                     obscureConfirm: _obscureConfirm,
                     onTogglePw: () => setState(() => _obscurePw = !_obscurePw),
-                    onToggleConfirm: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                    onSave: (pw, _) { _password = pw; },
+                    onToggleConfirm: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
+                    onSave: (pw, _) {
+                      _password = pw;
+                    },
                     strengthOf: _pwStrength,
                     strengthColor: _pwColor,
                     strengthLabel: _pwLabel,
                   ),
 
-                  // 5 — Review
+                  // 7 — Review
                   _StepReview(
                     role: _role,
+                    isMinefop: _isMinefopUser,
                     firstName: _firstName,
                     lastName: _lastName,
                     email: _email,
@@ -547,11 +734,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     address: _address,
                     selectedRegion: _selectedRegion,
                     selectedDepartment: _selectedDepartment,
+                    serviceName: _selectedMinefopService?.name,
+                    positionTitle: _selectedPosition?.title,
                   ),
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
@@ -574,7 +762,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         elevation: 2,
                       ),
                       child: Text(
-                        _step == _kStepReview ? 'Créer mon compte' : 'Continuer',
+                        _step == _kStepReview
+                            ? 'Créer mon compte'
+                            : 'Continuer',
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600),
                       ),
@@ -611,13 +801,24 @@ class _Header extends StatelessWidget {
 
   String get _title {
     switch (step) {
-      case _kStepRole:        return 'Type de compte';
-      case _kStepIdentity:    return isCompany ? 'Identification' : 'Informations personnelles';
-      case _kStepCompanyInfo: return 'Informations de l\'entreprise';
-      case _kStepAssignment:  return isCompany ? 'Localisation' : 'Zone d\'affectation';
-      case _kStepSecurity:    return 'Sécurité';
-      case _kStepReview:      return 'Récapitulatif';
-      default:                return '';
+      case _kStepRole:
+        return 'Type de compte';
+      case _kStepIdentity:
+        return isCompany ? 'Identification' : 'Informations personnelles';
+      case _kStepCompanyInfo:
+        return 'Informations de l\'entreprise';
+      case _kStepService:
+        return 'Service d\'affectation';
+      case _kStepPosition:
+        return 'Fonction / Rôle';
+      case _kStepAssignment:
+        return isCompany ? 'Localisation' : 'Zone d\'affectation';
+      case _kStepSecurity:
+        return 'Sécurité';
+      case _kStepReview:
+        return 'Récapitulatif';
+      default:
+        return '';
     }
   }
 
@@ -675,65 +876,54 @@ class _Header extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StepRole extends StatelessWidget {
-  final String selected;
-  final ValueChanged<String> onSelect;
-  const _StepRole({required this.selected, required this.onSelect});
+  final bool isCompany;
+  final bool isMinefop;
+  final ValueChanged<bool> onSelect; // true = company, false = minefop
+
+  const _StepRole({
+    required this.isCompany,
+    required this.isMinefop,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final companySelected = isCompany;
+    final minefopSelected = isMinefop;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Quel est votre type de compte ?',
+          const Text('Créer un compte',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          const Text('Choisissez le profil correspondant à votre organisation.',
-              style: TextStyle(color: AppColors.slate, fontSize: 14)),
-          const SizedBox(height: 28),
+          const Text(
+            'Sélectionnez votre profil pour commencer.',
+            style: TextStyle(color: AppColors.slate, fontSize: 14),
+          ),
+          const SizedBox(height: 32),
           _RoleCard(
-            value: 'COMPANY', selected: selected,
-            icon: Icons.business_outlined, color: Colors.teal,
+            value: 'COMPANY',
+            selected: companySelected ? 'COMPANY' : '',
+            icon: Icons.business_outlined,
+            color: Colors.teal,
             title: 'Entreprise',
-            subtitle: 'Société soumise à la déclaration annuelle des mouvements d\'emploi (DSMO).',
-            onTap: onSelect,
+            subtitle:
+                'Société soumise à la déclaration annuelle des mouvements d\'emploi (DSMO).',
+            onTap: (_) => onSelect(true),
           ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text('Services de l\'État',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-              ),
-              const Expanded(child: Divider()),
-            ]),
-          ),
+          const SizedBox(height: 16),
           _RoleCard(
-            value: 'DIVISIONAL', selected: selected,
-            icon: Icons.location_city_outlined, color: Colors.indigo,
-            title: 'Délégation Départementale (DDEFOP)',
-            subtitle: 'Valide les déclarations au niveau départemental.',
-            onTap: onSelect,
-          ),
-          const SizedBox(height: 12),
-          _RoleCard(
-            value: 'REGIONAL', selected: selected,
-            icon: Icons.map_outlined, color: Colors.blue.shade700,
-            title: 'Délégation Régionale (DREFOP)',
-            subtitle: 'Supervise et valide après approbation départementale.',
-            onTap: onSelect,
-          ),
-          const SizedBox(height: 12),
-          _RoleCard(
-            value: 'CENTRAL', selected: selected,
-            icon: Icons.account_balance_outlined, color: Colors.deepPurple,
-            title: 'Services Centraux (MINEFOP)',
-            subtitle: 'Administration centrale. Approbation finale nationale.',
-            onTap: onSelect,
+            value: 'MINEFOP',
+            selected: minefopSelected ? 'MINEFOP' : '',
+            icon: Icons.account_balance_outlined,
+            color: Colors.deepPurple,
+            title: 'Personnel MINEFOP',
+            subtitle:
+                'Agent du Ministère de l\'Emploi et de la Formation Professionnelle.',
+            onTap: (_) => onSelect(false),
           ),
         ],
       ),
@@ -748,9 +938,12 @@ class _RoleCard extends StatelessWidget {
   final ValueChanged<String> onTap;
 
   const _RoleCard({
-    required this.value, required this.selected,
-    required this.icon, required this.color,
-    required this.title, required this.subtitle,
+    required this.value,
+    required this.selected,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
     required this.onTap,
   });
 
@@ -780,7 +973,8 @@ class _RoleCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(children: [
             Container(
-              width: 48, height: 48,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                   color: color.withAlpha(25),
                   borderRadius: BorderRadius.circular(12)),
@@ -788,17 +982,19 @@ class _RoleCard extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: isSelected ? color : Colors.black87)),
-                const SizedBox(height: 3),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.slate, height: 1.4)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: isSelected ? color : Colors.black87)),
+                    const SizedBox(height: 3),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.slate, height: 1.4)),
+                  ]),
             ),
             const SizedBox(width: 6),
             Icon(
@@ -820,8 +1016,8 @@ class _StepIdentity extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final bool isCompany;
   final String initialFirstName, initialLastName, initialEmail;
-  final String initialMatricule, initialPoste;
-  final void Function(String fn, String ln, String em, String mat, String pos) onSave;
+  final String initialMatricule;
+  final void Function(String fn, String ln, String em, String mat) onSave;
 
   const _StepIdentity({
     super.key,
@@ -831,7 +1027,6 @@ class _StepIdentity extends StatefulWidget {
     required this.initialLastName,
     required this.initialEmail,
     required this.initialMatricule,
-    required this.initialPoste,
     required this.onSave,
   });
 
@@ -840,32 +1035,34 @@ class _StepIdentity extends StatefulWidget {
 }
 
 class _StepIdentityState extends State<_StepIdentity> {
-  late final TextEditingController _c1;         // company name OR first name
-  late final TextEditingController _c2;         // last name (gov only)
+  late final TextEditingController _c1; // company name OR first name
+  late final TextEditingController _c2; // last name (gov only)
   late final TextEditingController _emailCtrl;
   late final TextEditingController _matriculeCtrl;
-  late final TextEditingController _posteCtrl;
 
   @override
   void initState() {
     super.initState();
-    _c1           = TextEditingController(text: widget.initialFirstName);
-    _c2           = TextEditingController(text: widget.initialLastName);
-    _emailCtrl    = TextEditingController(text: widget.initialEmail);
+    _c1 = TextEditingController(text: widget.initialFirstName);
+    _c2 = TextEditingController(text: widget.initialLastName);
+    _emailCtrl = TextEditingController(text: widget.initialEmail);
     _matriculeCtrl = TextEditingController(text: widget.initialMatricule);
-    _posteCtrl    = TextEditingController(text: widget.initialPoste);
   }
 
   @override
   void dispose() {
-    _c1.dispose(); _c2.dispose(); _emailCtrl.dispose();
-    _matriculeCtrl.dispose(); _posteCtrl.dispose();
+    _c1.dispose();
+    _c2.dispose();
+    _emailCtrl.dispose();
+    _matriculeCtrl.dispose();
     super.dispose();
   }
 
   void _notify() => widget.onSave(
-        _c1.text.trim(), _c2.text.trim(), _emailCtrl.text.trim(),
-        _matriculeCtrl.text.trim(), _posteCtrl.text.trim(),
+        _c1.text.trim(),
+        _c2.text.trim(),
+        _emailCtrl.text.trim(),
+        _matriculeCtrl.text.trim(),
       );
 
   @override
@@ -890,7 +1087,6 @@ class _StepIdentityState extends State<_StepIdentity> {
             style: const TextStyle(color: AppColors.slate, fontSize: 14),
           ),
           const SizedBox(height: 28),
-
           if (widget.isCompany) ...[
             _Field(
               controller: _c1,
@@ -898,7 +1094,8 @@ class _StepIdentityState extends State<_StepIdentity> {
               icon: Icons.business_outlined,
               textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
             ),
           ] else ...[
             Row(children: [
@@ -909,7 +1106,8 @@ class _StepIdentityState extends State<_StepIdentity> {
                   icon: Icons.person_outline,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Requis' : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -920,7 +1118,8 @@ class _StepIdentityState extends State<_StepIdentity> {
                   icon: Icons.badge_outlined,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Requis' : null,
                 ),
               ),
             ]),
@@ -930,16 +1129,8 @@ class _StepIdentityState extends State<_StepIdentity> {
               label: 'Matricule *',
               icon: Icons.numbers_outlined,
               textInputAction: TextInputAction.next,
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
-            ),
-            const SizedBox(height: 14),
-            _Field(
-              controller: _posteCtrl,
-              label: 'Poste / Fonction *',
-              icon: Icons.work_outline,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: TextInputAction.next,
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
             ),
           ],
           const SizedBox(height: 14),
@@ -1024,10 +1215,10 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
   @override
   void initState() {
     super.initState();
-    _niuCtrl    = TextEditingController(text: widget.initialTaxNumber);
-    _cnpsCtrl   = TextEditingController(text: widget.initialCnps);
-    _faxCtrl    = TextEditingController(text: widget.initialFax);
-    _addrCtrl   = TextEditingController(text: widget.initialAddress);
+    _niuCtrl = TextEditingController(text: widget.initialTaxNumber);
+    _cnpsCtrl = TextEditingController(text: widget.initialCnps);
+    _faxCtrl = TextEditingController(text: widget.initialFax);
+    _addrCtrl = TextEditingController(text: widget.initialAddress);
     _parentCtrl = TextEditingController(text: widget.initialParentCompany);
     _secActCtrl = TextEditingController(text: widget.initialSecondaryActivity);
     _capitalCtrl = TextEditingController(
@@ -1037,8 +1228,12 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
 
   @override
   void dispose() {
-    _niuCtrl.dispose(); _cnpsCtrl.dispose(); _faxCtrl.dispose();
-    _addrCtrl.dispose(); _parentCtrl.dispose(); _secActCtrl.dispose();
+    _niuCtrl.dispose();
+    _cnpsCtrl.dispose();
+    _faxCtrl.dispose();
+    _addrCtrl.dispose();
+    _parentCtrl.dispose();
+    _secActCtrl.dispose();
     _capitalCtrl.dispose();
     super.dispose();
   }
@@ -1072,7 +1267,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
           const SizedBox(height: 20),
 
           // ── Identification fiscale ────────────────────────────────────────
-          _SectionLabel('Identification fiscale'),
+          const _SectionLabel('Identification fiscale'),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
               flex: 3,
@@ -1113,7 +1308,8 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
                 controller: _capitalCtrl,
                 label: 'Capital social (XAF)',
                 icon: Icons.account_balance_outlined,
-                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: false),
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 textInputAction: TextInputAction.next,
               ),
@@ -1121,7 +1317,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
           ]),
 
           // ── Activité ──────────────────────────────────────────────────────
-          _SectionLabel('Activité'),
+          const _SectionLabel('Activité'),
           if (widget.loadingSectors)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
@@ -1129,7 +1325,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
             )
           else
             DropdownButtonFormField<Map<String, dynamic>>(
-              value: widget.selectedSector,
+              initialValue: widget.selectedSector,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Activité principale / Secteur *',
@@ -1150,8 +1346,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
                 widget.onSectorChanged(v);
                 _notify();
               },
-              validator: (_) =>
-                  widget.selectedSector == null ? 'Requis' : null,
+              validator: (_) => widget.selectedSector == null ? 'Requis' : null,
             ),
           const SizedBox(height: 14),
           _Field(
@@ -1162,7 +1357,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
           ),
 
           // ── Coordonnées ───────────────────────────────────────────────────
-          _SectionLabel('Coordonnées'),
+          const _SectionLabel('Coordonnées'),
           _Field(
             controller: _addrCtrl,
             label: 'Adresse complète *',
@@ -1180,7 +1375,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
           ),
 
           const SizedBox(height: 8),
-          _InfoBox(
+          const _InfoBox(
             icon: Icons.auto_fix_high_outlined,
             color: Colors.teal,
             text:
@@ -1193,7 +1388,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Step 3 — Assignment / Location
+// Step 5 — Assignment / Location
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StepAssignment extends StatefulWidget {
@@ -1207,10 +1402,13 @@ class _StepAssignment extends StatefulWidget {
 
   const _StepAssignment({
     required this.role,
-    required this.regions, required this.departments,
+    required this.regions,
+    required this.departments,
     required this.loadingLocations,
-    required this.selectedRegion, required this.selectedDepartment,
-    required this.onRegionChanged, required this.onDepartmentChanged,
+    required this.selectedRegion,
+    required this.selectedDepartment,
+    required this.onRegionChanged,
+    required this.onDepartmentChanged,
     required this.onInit,
   });
 
@@ -1226,7 +1424,7 @@ class _StepAssignmentState extends State<_StepAssignment> {
   }
 
   bool get _isCompany => widget.role == 'COMPANY';
-  bool get _showDept  => _isCompany || widget.role == 'DIVISIONAL';
+  bool get _showDept => _isCompany || widget.role == 'DIVISIONAL';
 
   @override
   Widget build(BuildContext context) {
@@ -1236,7 +1434,9 @@ class _StepAssignmentState extends State<_StepAssignment> {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
-          _isCompany ? 'Localisation de l\'établissement' : 'Zone d\'affectation',
+          _isCompany
+              ? 'Localisation de l\'établissement'
+              : 'Zone d\'affectation',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
@@ -1249,9 +1449,9 @@ class _StepAssignmentState extends State<_StepAssignment> {
           style: const TextStyle(color: AppColors.slate, fontSize: 14),
         ),
         const SizedBox(height: 28),
-
         if (widget.loadingLocations)
-          const Center(child: Padding(
+          const Center(
+              child: Padding(
             padding: EdgeInsets.all(32),
             child: CircularProgressIndicator(),
           ))
@@ -1274,12 +1474,16 @@ class _StepAssignmentState extends State<_StepAssignment> {
                   : 'Sélectionner un département',
               items: widget.departments,
               selected: widget.selectedDepartment,
-              onChanged: widget.selectedRegion == null ? null : widget.onDepartmentChanged,
+              onChanged: widget.selectedRegion == null
+                  ? null
+                  : widget.onDepartmentChanged,
             ),
           ],
           const SizedBox(height: 20),
           _InfoBox(
-            icon: _isCompany ? Icons.auto_fix_high_outlined : Icons.shield_outlined,
+            icon: _isCompany
+                ? Icons.auto_fix_high_outlined
+                : Icons.shield_outlined,
             color: color,
             text: _isCompany
                 ? 'Ces informations seront automatiquement pré-remplies dans vos déclarations DSMO.'
@@ -1299,8 +1503,12 @@ class _LocationDropdown extends StatelessWidget {
   final ValueChanged<Map<String, dynamic>?>? onChanged;
 
   const _LocationDropdown({
-    required this.label, required this.hint, required this.icon,
-    required this.items, required this.selected, required this.onChanged,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    required this.items,
+    required this.selected,
+    required this.onChanged,
   });
 
   @override
@@ -1308,7 +1516,9 @@ class _LocationDropdown extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.slate)),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.slate)),
       const SizedBox(height: 6),
       DropdownButtonFormField<Map<String, dynamic>>(
         initialValue: selected,
@@ -1334,7 +1544,96 @@ class _LocationDropdown extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Step 4 — Security
+// Step 4 — Position within service (MINEFOP only)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _StepPosition extends StatelessWidget {
+  final List<_ServicePosition> positions;
+  final bool loading;
+  final _ServicePosition? selected;
+  final String? serviceName;
+  final ValueChanged<_ServicePosition?> onChanged;
+
+  const _StepPosition({
+    required this.positions,
+    required this.loading,
+    required this.selected,
+    required this.serviceName,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Fonction / Rôle',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text(
+            serviceName != null
+                ? 'Sélectionnez votre fonction au sein de : $serviceName'
+                : 'Sélectionnez votre fonction dans ce service.',
+            style: const TextStyle(color: AppColors.slate, fontSize: 14),
+          ),
+          const SizedBox(height: 28),
+          if (loading)
+            const Center(child: CircularProgressIndicator())
+          else if (positions.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(children: [
+                Icon(Icons.info_outline,
+                    color: Colors.orange.shade700, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Aucune fonction définie pour ce service. Veuillez contacter l\'administrateur ou sélectionner un autre service.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ]),
+            )
+          else
+            DropdownButtonFormField<_ServicePosition>(
+              initialValue: selected,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Fonction *',
+                prefixIcon: const Icon(Icons.work_outline, size: 20),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              items: positions
+                  .map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(
+                          p.titleEn != null
+                              ? '${p.title} / ${p.titleEn}'
+                              : p.title,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ))
+                  .toList(),
+              onChanged: onChanged,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Step 6 — Security
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StepSecurity extends StatefulWidget {
@@ -1350,10 +1649,13 @@ class _StepSecurity extends StatefulWidget {
   const _StepSecurity({
     required this.formKey,
     required this.initialPassword,
-    required this.obscurePw, required this.obscureConfirm,
-    required this.onTogglePw, required this.onToggleConfirm,
+    required this.obscurePw,
+    required this.obscureConfirm,
+    required this.onTogglePw,
+    required this.onToggleConfirm,
     required this.onSave,
-    required this.strengthOf, required this.strengthColor,
+    required this.strengthOf,
+    required this.strengthColor,
     required this.strengthLabel,
   });
 
@@ -1376,11 +1678,16 @@ class _StepSecurityState extends State<_StepSecurity> {
       setState(() => _strength = widget.strengthOf(_pwCtrl.text));
       widget.onSave(_pwCtrl.text, _confirmCtrl.text);
     });
-    _confirmCtrl.addListener(() => widget.onSave(_pwCtrl.text, _confirmCtrl.text));
+    _confirmCtrl
+        .addListener(() => widget.onSave(_pwCtrl.text, _confirmCtrl.text));
   }
 
   @override
-  void dispose() { _pwCtrl.dispose(); _confirmCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _pwCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1396,7 +1703,6 @@ class _StepSecurityState extends State<_StepSecurity> {
           const Text('Choisissez un mot de passe robuste.',
               style: TextStyle(color: AppColors.slate, fontSize: 14)),
           const SizedBox(height: 28),
-
           TextFormField(
             controller: _pwCtrl,
             obscureText: widget.obscurePw,
@@ -1410,8 +1716,10 @@ class _StepSecurityState extends State<_StepSecurity> {
                     : Icons.visibility_off_outlined),
                 onPressed: widget.onTogglePw,
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true, fillColor: Colors.white,
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.white,
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Mot de passe requis';
@@ -1437,13 +1745,13 @@ class _StepSecurityState extends State<_StepSecurity> {
             const SizedBox(width: 10),
             Text(
               _pwCtrl.text.isEmpty ? '' : widget.strengthLabel(_strength),
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: sc),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: sc),
             ),
           ]),
           const SizedBox(height: 8),
           _PasswordTips(password: _pwCtrl.text),
           const SizedBox(height: 20),
-
           TextFormField(
             controller: _confirmCtrl,
             obscureText: widget.obscureConfirm,
@@ -1457,12 +1765,15 @@ class _StepSecurityState extends State<_StepSecurity> {
                     : Icons.visibility_off_outlined),
                 onPressed: widget.onToggleConfirm,
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true, fillColor: Colors.white,
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.white,
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Confirmation requise';
-              if (v != _pwCtrl.text) return 'Les mots de passe ne correspondent pas';
+              if (v != _pwCtrl.text)
+                return 'Les mots de passe ne correspondent pas';
               return null;
             },
           ),
@@ -1485,7 +1796,8 @@ class _PasswordTips extends StatelessWidget {
       ('Un caractère spécial', password.contains(RegExp(r'[!@#\$%^&*]'))),
     ];
     return Wrap(
-      spacing: 8, runSpacing: 4,
+      spacing: 8,
+      runSpacing: 4,
       children: tips.map((t) {
         final (label, ok) = t;
         return Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1503,41 +1815,45 @@ class _PasswordTips extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Step 5 — Review
+// Step 7 — Review
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StepReview extends StatelessWidget {
   final String role, firstName, lastName, email;
   final String taxNumber, cnpsNumber, mainActivity, secondaryActivity, address;
   final Map<String, dynamic>? selectedRegion, selectedDepartment;
+  final String? serviceName;
+  final String? positionTitle;
+  final bool isMinefop;
 
   const _StepReview({
-    required this.role, required this.firstName, required this.lastName,
-    required this.email, required this.taxNumber, required this.cnpsNumber,
-    required this.mainActivity, required this.secondaryActivity,
+    required this.role,
+    required this.isMinefop,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    required this.taxNumber,
+    required this.cnpsNumber,
+    required this.mainActivity,
+    required this.secondaryActivity,
     required this.address,
-    required this.selectedRegion, required this.selectedDepartment,
+    required this.selectedRegion,
+    required this.selectedDepartment,
+    this.serviceName,
+    this.positionTitle,
   });
 
   bool get _isCompany => role == 'COMPANY';
 
   String get _roleLabel {
-    switch (role) {
-      case 'COMPANY':    return 'Entreprise';
-      case 'DIVISIONAL': return 'Délégation Départementale (DDEFOP)';
-      case 'REGIONAL':   return 'Délégation Régionale (DREFOP)';
-      case 'CENTRAL':    return 'Services Centraux (MINEFOP)';
-      default:           return role;
-    }
+    if (_isCompany) return 'Entreprise';
+    if (isMinefop) return 'Personnel MINEFOP';
+    return role;
   }
 
   Color get _roleColor {
-    switch (role) {
-      case 'COMPANY':    return Colors.teal;
-      case 'DIVISIONAL': return Colors.indigo;
-      case 'REGIONAL':   return Colors.blue.shade700;
-      default:           return Colors.deepPurple;
-    }
+    if (_isCompany) return Colors.teal;
+    return Colors.deepPurple;
   }
 
   @override
@@ -1594,8 +1910,21 @@ class _StepReview extends StatelessWidget {
               ('NIU', taxNumber),
               if (cnpsNumber.isNotEmpty) ('N° CNPS', cnpsNumber),
               ('Activité principale', mainActivity),
-              if (secondaryActivity.isNotEmpty) ('Activité secondaire', secondaryActivity),
+              if (secondaryActivity.isNotEmpty)
+                ('Activité secondaire', secondaryActivity),
               if (address.isNotEmpty) ('Adresse', address),
+            ],
+          ),
+        ],
+
+        if (!_isCompany && serviceName != null) ...[
+          const SizedBox(height: 12),
+          _ReviewCard(
+            title: 'Service d\'affectation',
+            icon: Icons.account_balance_outlined,
+            rows: [
+              ('Service', serviceName!),
+              if (positionTitle != null) ('Fonction', positionTitle!),
             ],
           ),
         ],
@@ -1615,15 +1944,16 @@ class _StepReview extends StatelessWidget {
         ],
 
         const SizedBox(height: 16),
-        _InfoBox(
+        const _InfoBox(
           icon: Icons.check_circle_outline,
           color: Colors.green,
-          text: 'Votre mot de passe est sécurisé et ne sera jamais affiché en clair.',
+          text:
+              'Votre mot de passe est sécurisé et ne sera jamais affiché en clair.',
         ),
 
         if (_isCompany) ...[
           const SizedBox(height: 10),
-          _InfoBox(
+          const _InfoBox(
             icon: Icons.auto_fix_high_outlined,
             color: Colors.teal,
             text:
@@ -1640,7 +1970,8 @@ class _ReviewCard extends StatelessWidget {
   final IconData icon;
   final List<(String, String)> rows;
 
-  const _ReviewCard({required this.title, required this.icon, required this.rows});
+  const _ReviewCard(
+      {required this.title, required this.icon, required this.rows});
 
   @override
   Widget build(BuildContext context) {
@@ -1649,7 +1980,12 @@ class _ReviewCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withAlpha(8),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
@@ -1673,11 +2009,13 @@ class _ReviewCard extends StatelessWidget {
               SizedBox(
                 width: 120,
                 child: Text(label,
-                    style: const TextStyle(fontSize: 12, color: AppColors.slate)),
+                    style:
+                        const TextStyle(fontSize: 12, color: AppColors.slate)),
               ),
               Expanded(
                 child: Text(value.isEmpty ? '—' : value,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w500)),
               ),
             ]),
           );
