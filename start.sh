@@ -35,6 +35,6 @@ node node_modules/prisma/build/index.js migrate deploy
 
 # Run the seed with explicit flags to ignore the deprecated baseUrl and type errors
 echo "🌱 Seeding database..."
-npx ts-node --transpile-only --compiler-options '{"ignoreDeprecations": "5023"}' prisma/seed.ts
+npx ts-node --skip-project --transpile-only prisma/seed.ts || echo "⚠️ Seed skipped"
 
 echo "✅ Build complete!"
