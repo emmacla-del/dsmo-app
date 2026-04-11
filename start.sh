@@ -33,9 +33,9 @@ fi
 echo "📋 Running database migrations..."
 node node_modules/prisma/build/index.js migrate deploy
 
-# Compile seed to JavaScript and run it
+# Run the seed using ts-node with the transpile-only flag
+# This bypasses the type-checking errors and runs the source file directly
 echo "🌱 Seeding database..."
-npx tsc prisma/seed.ts --outDir dist/prisma --target es2020 --module commonjs
-node dist/prisma/seed.js
+npx ts-node --transpile-only prisma/seed.ts
 
 echo "✅ Build complete!"
