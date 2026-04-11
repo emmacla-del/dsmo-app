@@ -1,11 +1,59 @@
-// src/minefop-services/dto/update-service.dto.ts
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateServiceDto } from './create-service.dto';
-import { IsBoolean, IsOptional } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsEnum, IsOptional, IsBoolean, IsInt, Min, Max, Length, Matches } from 'class-validator';
+import { ServiceCategory, UserRole } from '@prisma/client';
 
-export class UpdateServiceDto extends PartialType(CreateServiceDto) {
-  @ApiPropertyOptional({ default: true })
+export class UpdateServiceDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Z0-9-]+$/, { message: 'Code must contain only uppercase letters, numbers, and hyphens' })
+  @Length(2, 50)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 200)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 200)
+  nameEn?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  acronym?: string;
+
+  @IsOptional()
+  @IsEnum(ServiceCategory)
+  category?: ServiceCategory;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  level?: number;
+
+  @IsOptional()
+  @IsString()
+  parentCode?: string;
+
+  @IsOptional()
+  @IsEnum(UserRole)
+  roleMapping?: UserRole;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresRegion?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresDepartment?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  orderIndex?: number;
+
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
