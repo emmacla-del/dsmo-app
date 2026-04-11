@@ -74,14 +74,56 @@ enum ServiceCategory {
 }
 
 enum PositionType {
-  HEAD              // Chef de Direction / Chef de Service / Chef de Bureau
-  DEPUTY_HEAD       // Chef de Service Adjoint / Chef de Bureau Adjoint
-  DIVISION_HEAD     // Chef de Division
-  SUB_DIRECTION_HEAD // Chef de Sous-Direction
-  OFFICER           // Chargé d'Études / Chargé de Mission
-  ASSISTANT         // Assistant / Attaché
-  TECHNICIAN        // Technicien
-  ADMIN             // Administrateur
+  // Cabinet du Ministre (Art. 1, 3, 4)
+  MINISTRE
+  CHEF_SECRETARIAT_PARTICULIER
+  CONSEILLER_TECHNIQUE
+  
+  // Inspection Générale (Art. 5, 7)
+  INSPECTEUR_GENERAL_SERVICES
+  INSPECTEUR_GENERAL_FORMATIONS
+  INSPECTEUR_SERVICES
+  INSPECTEUR_FORMATIONS
+  ATTACHE_PEDAGOGIQUE
+  
+  // Administration Centrale — Secrétariat Général (Art. 9)
+  SECRETAIRE_GENERAL
+  
+  // Administration Centrale — Directions & Divisions (Art. 28, 36, 49)
+  DIRECTEUR
+  
+  // Administration Centrale — Divisions (Art. 11, 25, 46)
+  CHEF_DIVISION
+  
+  // Administration Centrale — Sous-Directions (Art. 18, 22, 29, 32, 37, 40, 43, 51, 55, 58)
+  SOUS_DIRECTEUR
+  
+  // Administration Centrale — Services (Art. 19, 20, 21, 23, 24, 30, 31, 33, 34, 35, 38, 39, 41, 42, 44, 45, 52, 53, 54, 56, 57, 59, 60)
+  CHEF_SERVICE
+  
+  // Administration Centrale — Cellules (Art. 12, 13, 14, 15, 16, 17, 26, 27, 47, 48, 50)
+  CHEF_CELLULE
+  
+  // Administration Centrale — Bureaux (Art. 19, 20, 23, 24, 31, 33, 34, 35, 38, 39, 41, 42, 44, 45, 52, 53, 56, 57)
+  CHEF_BUREAU
+  
+  // Administration Centrale — Assistants (Art. 12, 13, 14, 15, 16, 17, 26, 27, 47, 48, 50)
+  CHARGE_ETUDES_ASSISTANT
+  
+  // Services Déconcentrés — Régional (Art. 62)
+  DELEGUE_REGIONAL
+  
+  // Services Déconcentrés — Inspection Régionale (Art. 63)
+  INSPECTEUR_REGIONAL_FORMATIONS
+  
+  // Services Déconcentrés — Conseiller Régional (Art. 63)
+  CONSEILLER_REGIONAL_FORMATIONS
+  
+  // Services Déconcentrés — Départemental (Art. 69)
+  DELEGUE_DEPARTEMENTAL
+  
+  // Structures Publiques de Formation Professionnelle (Art. 74) — optional, separate texts
+  RESPONSABLE_STRUCTURE_FORMATION
 }
 
 // ============ LOCATION AND SECTOR MODELS ============
