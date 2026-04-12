@@ -109,6 +109,9 @@ enum PositionType {
   
   // Administration Centrale — Assistants (Art. 12, 13, 14, 15, 16, 17, 26, 27, 47, 48, 50)
   CHARGE_ETUDES_ASSISTANT
+
+  // For all services
+    STAFF
   
   // Services Déconcentrés — Régional (Art. 62)
   DELEGUE_REGIONAL
