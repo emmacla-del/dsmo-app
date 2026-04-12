@@ -2,16 +2,14 @@
 
 echo "🚀 Starting build process..."
 echo "Current directory: $(pwd)"
-echo "Listing files before build:"
-ls -la
 
 # Install dependencies
 echo "📦 Installing dependencies..."
 npm install
 
-# Generate Prisma client
+# Generate Prisma client using the standard command
 echo "🗄️  Generating Prisma client..."
-node node_modules/prisma/build/index.js generate
+npx prisma generate
 
 # Build TypeScript
 echo "🔨 Building TypeScript..."
@@ -24,17 +22,15 @@ if [ -d "dist" ]; then
     ls -la dist/
 else
     echo "❌ dist folder not found!"
-    echo "Contents of current directory:"
-    ls -la
     exit 1
 fi
 
-## Run database migrations
+# Run database migrations using Prisma
 echo "📋 Running database migrations..."
-node node_modules/prisma/build/index.js migrate deploy
+npx prisma migrate deploy
 
-# Run the seed with explicit flags to ignore the deprecated baseUrl and type errors
+# Run the seed using compiled JavaScript (no ts-node)
 echo "🌱 Seeding database..."
-npx ts-node --skip-project --transpile-only prisma/seed.ts || echo "⚠️ Seed skipped"
+node prisma/seed.js || echo "⚠️ Seed skipped"
 
 echo "✅ Build complete!"
