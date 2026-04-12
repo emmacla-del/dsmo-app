@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:printing/printing.dart';
 import '../../../data/api_client.dart';
-import '../../../models/employee_adapter.dart';
 
 final employeeListProvider = StateProvider<List<Employee>>((ref) => []);
 

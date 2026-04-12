@@ -144,6 +144,27 @@ export class DsmoController {
     return this.analyticsService.getDashboardSummary(year, region);
   }
 
+  // ===== NEW ANALYTICS ENDPOINTS (for Flutter dashboard) =====
+
+  @Get('analytics/employment-trends')
+  @Roles('CENTRAL', 'REGIONAL')
+  async getEmploymentTrends(
+    @Query('startYear', ParseIntPipe) startYear: number,
+    @Query('endYear', ParseIntPipe) endYear: number,
+    @Query('region') region?: string,
+  ) {
+    return this.analyticsService.getEmploymentTrends(startYear, endYear, region);
+  }
+
+  @Get('analytics/sector-distribution')
+  @Roles('CENTRAL', 'REGIONAL')
+  async getSectorDistribution(
+    @Query('year', ParseIntPipe) year: number,
+    @Query('region') region?: string,
+  ) {
+    return this.analyticsService.getSectorDistribution(year, region);
+  }
+
   // ===== DOCUMENT MANAGEMENT ENDPOINTS =====
 
   @Get('declarations/:id/pdf/:copy')

@@ -187,8 +187,9 @@ class _DeclarationWizardScreenState
 
   /// Tries to auto-select the sector. Called after both sectors and company are loaded.
   void _autoSelectSector(String? activityName) {
-    if (activityName == null || activityName.isEmpty || _sectors.isEmpty)
+    if (activityName == null || activityName.isEmpty || _sectors.isEmpty) {
       return;
+    }
     final match = _sectors
         .cast<Map<String, dynamic>>()
         .where(

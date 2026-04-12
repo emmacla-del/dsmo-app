@@ -135,8 +135,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fillColor: Colors.grey.shade50,
                           ),
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty)
+                            if (v == null || v.trim().isEmpty) {
                               return 'Email requis';
+                            }
                             if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                                 .hasMatch(v.trim())) {
                               return 'Email invalide';

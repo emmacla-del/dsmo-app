@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,82 +8,67 @@ import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/service_picker.dart';
 
-// ─── Step indices (page positions in PageView) ───────────────────────────────
+// ─── Step indices ───────────────────────────────────────────────
 const _kStepRole = 0;
-const _kStepIdentity = 1; // company name + email  OR  first/last name + email
-const _kStepCompanyInfo =
-    2; // COMPANY ONLY: NIU, CNPS, activity, address, fax, capital
-const _kStepService = 3; // MINEFOP ONLY: service hierarchy picker
-const _kStepPosition = 4; // MINEFOP ONLY: role/position within service
-const _kStepAssignment = 5; // region + department (if service requires it)
+const _kStepIdentity = 1;
+const _kStepCompanyInfo = 2;
+const _kStepService = 3;
+const _kStepPosition = 4;
+const _kStepAssignment = 5;
 const _kStepSecurity = 6;
 const _kStepReview = 7;
 
-// ─── Lightweight position model ──────────────────────────────────────────────
+// ─── Lightweight position model ─────────────────────────────────
 class _ServicePosition {
   final String id;
   final String title;
   final String? titleEn;
   final String positionType;
-
-  const _ServicePosition({
-    required this.id,
-    required this.title,
-    this.titleEn,
-    required this.positionType,
-  });
-
+  const _ServicePosition(
+      {required this.id,
+      required this.title,
+      this.titleEn,
+      required this.positionType});
   factory _ServicePosition.fromJson(Map<String, dynamic> j) => _ServicePosition(
         id: j['id'] as String,
         title: j['title'] as String,
         titleEn: j['titleEn'] as String?,
         positionType: j['positionType'] as String,
       );
-
   @override
   bool operator ==(Object other) => other is _ServicePosition && other.id == id;
-
   @override
   int get hashCode => id.hashCode;
 }
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
-
   @override
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen>
+    with WidgetsBindingObserver {
   static const _kDraftBox = 'draftBox';
   static const _kDraftKey = 'registration_draft';
-
   final PageController _pageCtrl = PageController();
-
   final _identityKey = GlobalKey<FormState>();
   final _companyKey = GlobalKey<FormState>();
   final _securityKey = GlobalKey<FormState>();
+  final FocusNode _globalFocusNode = FocusNode();
+  final List<ScrollController> _stepScrollControllers =
+      List.generate(8, (_) => ScrollController());
 
-  // Flipped to true after draft is loaded — forces child StatefulWidgets
-  // to recreate their controllers with the restored values.
   bool _draftLoaded = false;
-
-  // ── Account type (step 0)
-  String _role = ''; // 'COMPANY' or derived from service.roleMapping
-  bool _isMinefopUser = false; // true when Personnel MINEFOP chosen
-
-  // ── Identity (all roles)
+  String _role = '';
+  bool _isMinefopUser = false;
   String _email = '';
-  String _firstName = ''; // used by gov roles; for COMPANY holds raison sociale
-  String _lastName = ''; // gov only
-  String _matricule = ''; // government staff ID
-
-  // ── MINEFOP position (step 4)
+  String _firstName = '';
+  String _lastName = '';
+  String _matricule = '';
   List<_ServicePosition> _positions = [];
   bool _loadingPositions = false;
   _ServicePosition? _selectedPosition;
-
-  // ── Company details (COMPANY only)
   String _taxNumber = '';
   String _cnpsNumber = '';
   String _fax = '';
@@ -90,32 +76,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _parentCompany;
   String _secondaryActivity = '';
   int? _socialCapital;
-  Map<String, dynamic>? _selectedSector; // mainActivity
-
-  // ── MINEFOP service (government users)
+  Map<String, dynamic>? _selectedSector;
   MinefopServiceNode? _selectedMinefopService;
-
-  // ── Assignment / location
   Map<String, dynamic>? _selectedRegion;
   Map<String, dynamic>? _selectedDepartment;
-
-  // ── Location data from API
   List<dynamic> _regions = [];
   List<dynamic> _departments = [];
   List<dynamic> _sectors = [];
   bool _loadingLocations = false;
   bool _loadingSectors = false;
-
-  // ── Security
   String _password = '';
   bool _obscurePw = true;
   bool _obscureConfirm = true;
-
-  // ── UI state
   int _step = _kStepRole;
   bool _isSubmitting = false;
+  Timer? _debounce;
 
-  // ── Computed: which pages are visible for the current role
   bool get _isCompany => _role == 'COMPANY';
   bool get _isMinefop => _isMinefopUser;
 
@@ -145,21 +121,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   int get _visibleCount => _visibleSteps.length;
   int get _currentVisibleIdx => _visibleSteps.indexOf(_step);
 
+  // ── Lifecycle ─────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadDraft();
+    _globalFocusNode.requestFocus();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _debounce?.cancel();
+    _globalFocusNode.dispose();
+    for (var ctrl in _stepScrollControllers) {
+      ctrl.dispose();
+    }
     _pageCtrl.dispose();
     super.dispose();
   }
 
-  // ── Draft persistence ───────────────────────────────────────────────────────
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _saveDraft(immediate: true);
+    }
+  }
 
-  Future<void> _saveDraft() async {
+  // ── Draft persistence ─────────────────────────────────────────
+  void _scheduleDraftSave() {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(
+        const Duration(milliseconds: 500), () => _saveDraft(immediate: true));
+  }
+
+  Future<void> _saveDraft({bool immediate = false}) async {
+    if (!immediate && _debounce?.isActive == true) return;
     try {
       final box = await Hive.openBox(_kDraftBox);
       await box.put(_kDraftKey, {
@@ -207,12 +206,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final box = await Hive.openBox(_kDraftBox);
       final raw = box.get(_kDraftKey);
       if (raw == null || !mounted) return;
-
       final data = Map<String, dynamic>.from(raw as Map);
-
-      // Nothing useful saved
       if ((data['role'] as String? ?? '').isEmpty) return;
-
       setState(() {
         _role = data['role'] as String? ?? '';
         _isMinefopUser = data['isMinefopUser'] as bool? ?? false;
@@ -227,40 +222,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         _parentCompany = data['parentCompany'] as String?;
         _secondaryActivity = data['secondaryActivity'] as String? ?? '';
         _socialCapital = data['socialCapital'] as int?;
-
-        final sec = data['selectedSector'];
-        final reg = data['selectedRegion'];
-        final dept = data['selectedDepartment'];
-        final svc = data['selectedMinefopService'];
-        if (sec != null)
-          _selectedSector = Map<String, dynamic>.from(sec as Map);
-        if (reg != null)
-          _selectedRegion = Map<String, dynamic>.from(reg as Map);
-        if (dept != null)
-          _selectedDepartment = Map<String, dynamic>.from(dept as Map);
-        if (svc != null) {
-          _selectedMinefopService = MinefopServiceNode.fromJson(
-              Map<String, dynamic>.from(svc as Map));
+        if (data['selectedSector'] != null) {
+          _selectedSector =
+              Map<String, dynamic>.from(data['selectedSector'] as Map);
         }
-
-        final savedStep = data['step'] as int? ?? _kStepRole;
-        _step = savedStep;
-
-        // Flip flag so child StatefulWidgets recreate with restored values
+        if (data['selectedRegion'] != null) {
+          _selectedRegion =
+              Map<String, dynamic>.from(data['selectedRegion'] as Map);
+        }
+        if (data['selectedDepartment'] != null) {
+          _selectedDepartment =
+              Map<String, dynamic>.from(data['selectedDepartment'] as Map);
+        }
+        if (data['selectedMinefopService'] != null) {
+          _selectedMinefopService = MinefopServiceNode.fromJson(
+              Map<String, dynamic>.from(data['selectedMinefopService'] as Map));
+        }
+        _step = data['step'] as int? ?? _kStepRole;
         _draftLoaded = true;
       });
-
-      // Navigate to the saved step after the frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _step > _kStepRole) {
           _pageCtrl.jumpToPage(_step);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Brouillon restauré — vous pouvez continuer votre inscription.'),
-              backgroundColor: Colors.teal,
-              duration: Duration(seconds: 3),
-            ),
+                content: Text(
+                    'Brouillon restauré — vous pouvez continuer votre inscription.'),
+                backgroundColor: Colors.teal,
+                duration: Duration(seconds: 3)),
           );
         }
       });
@@ -278,12 +267,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
-
+  // ── Navigation ────────────────────────────────────────────────
   void _goToStep(int step) {
     setState(() => _step = step);
     _pageCtrl.animateToPage(step,
         duration: const Duration(milliseconds: 320), curve: Curves.easeInOut);
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (_stepScrollControllers[step].hasClients) {
+        _stepScrollControllers[step].animateTo(0,
+            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      }
+    });
   }
 
   void _next() {
@@ -300,8 +294,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  // ── Advance with validation ─────────────────────────────────────────────────
-
   Future<void> _advance() async {
     switch (_step) {
       case _kStepRole:
@@ -310,14 +302,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
         _next();
-        _saveDraft();
-
+        _saveDraft(immediate: true);
+        break;
       case _kStepIdentity:
         if (!_identityKey.currentState!.validate()) return;
         _identityKey.currentState!.save();
         _next();
-        _saveDraft();
-
+        _saveDraft(immediate: true);
+        break;
       case _kStepCompanyInfo:
         if (!_companyKey.currentState!.validate()) return;
         if (_selectedSector == null) {
@@ -326,8 +318,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         }
         _companyKey.currentState!.save();
         _next();
-        _saveDraft();
-
+        _saveDraft(immediate: true);
+        break;
       case _kStepService:
         if (_selectedMinefopService == null) {
           _snack('Veuillez sélectionner votre service d\'affectation',
@@ -335,8 +327,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
         _next();
-        _saveDraft();
-
+        _saveDraft(immediate: true);
+        break;
       case _kStepPosition:
         if (_selectedPosition == null) {
           _snack('Veuillez sélectionner votre fonction dans ce service',
@@ -344,8 +336,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
         _next();
-        _saveDraft();
-
+        _saveDraft(immediate: true);
+        break;
       case _kStepAssignment:
         if (_selectedRegion == null) {
           _snack('Veuillez sélectionner une région', error: true);
@@ -357,20 +349,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
         _next();
-        _saveDraft();
-
+        _saveDraft(immediate: true);
+        break;
       case _kStepSecurity:
         if (!_securityKey.currentState!.validate()) return;
         _securityKey.currentState!.save();
         _next();
-
+        break;
       case _kStepReview:
         await _submit();
+        break;
     }
   }
 
-  // ── Data loaders ────────────────────────────────────────────────────────────
-
+  // ── Data loaders ──────────────────────────────────────────────
   Future<void> _loadPositions(String serviceCode) async {
     setState(() {
       _loadingPositions = true;
@@ -383,12 +375,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final list = (resp.data as List)
           .map((j) => _ServicePosition.fromJson(j as Map<String, dynamic>))
           .toList();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _positions = list;
           _loadingPositions = false;
         });
-    } catch (_) {
+      }
+    } catch (e) {
+      debugPrint('❌ loadPositions error: $e');
       if (mounted) setState(() => _loadingPositions = false);
     }
   }
@@ -398,11 +392,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _loadingLocations = true);
     try {
       final data = await ref.read(apiClientProvider).getRegions();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _regions = data;
           _loadingLocations = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingLocations = false);
     }
@@ -415,11 +410,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
     try {
       final data = await ref.read(apiClientProvider).getDepartments(regionId);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _departments = data;
           _loadingLocations = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingLocations = false);
     }
@@ -430,23 +426,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _loadingSectors = true);
     try {
       final data = await ref.read(apiClientProvider).getSectors();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _sectors = data;
           _loadingSectors = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingSectors = false);
     }
   }
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
-
+  // ── Submit ────────────────────────────────────────────────────
   Future<void> _submit() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
-      final regionName = (_selectedRegion?['name'] as String?);
+      final regionName = _selectedRegion?['name'] as String?;
       final effectiveRole = _isCompany
           ? 'COMPANY'
           : (_selectedMinefopService?.roleMapping ?? 'CENTRAL');
@@ -455,7 +451,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           needsDept ? (_selectedDepartment?['name'] as String?) : null;
       final poste = _isMinefop ? _selectedPosition?.title : null;
 
-      // Register user account (returns JWT directly)
       await ref.read(authProvider.notifier).register(
             _email,
             _password,
@@ -469,14 +464,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             serviceCode: _isMinefop ? _selectedMinefopService?.code : null,
           );
 
-      // Abort if registration failed (auth state is error, no token)
       final authState = ref.read(authProvider);
       if (authState is AsyncError || authState.valueOrNull == null) return;
 
-      // Clear the draft — account created successfully
       await _clearDraft();
 
-      // For COMPANY: save the full profile now that the token is set
       if (_isCompany && mounted) {
         try {
           await ref.read(apiClientProvider).saveCompanyProfile({
@@ -503,16 +495,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  void _snack(String msg, {bool error = false}) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: error ? Colors.red : Colors.green,
-        ),
-      );
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: error ? Colors.red : Colors.green));
+  }
 
-  // ── Password helpers ────────────────────────────────────────────────────────
-
+  // ── Password helpers ─────────────────────────────────────────
   double _pwStrength(String pw) {
     if (pw.isEmpty) return 0;
     double s = 0;
@@ -524,22 +513,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return s.clamp(0, 1);
   }
 
-  Color _pwColor(double s) => s < 0.35
-      ? Colors.red
-      : s < 0.65
-          ? Colors.orange
-          : Colors.green;
+  Color _pwColor(double s) {
+    if (s < 0.35) return Colors.red;
+    if (s < 0.65) return Colors.orange;
+    return Colors.green;
+  }
 
-  String _pwLabel(double s) => s < 0.35
-      ? 'Faible'
-      : s < 0.65
-          ? 'Moyen'
-          : s < 0.9
-              ? 'Fort'
-              : 'Très fort';
+  String _pwLabel(double s) {
+    if (s < 0.35) return 'Faible';
+    if (s < 0.65) return 'Moyen';
+    if (s < 0.9) return 'Fort';
+    return 'Très fort';
+  }
 
-  // ── Build ───────────────────────────────────────────────────────────────────
-
+  // ── Build ─────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<dynamic>>(authProvider, (_, next) {
@@ -547,209 +534,276 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         Navigator.pushReplacementNamed(context, '/home');
       }
     });
-
     final authState = ref.watch(authProvider);
     final bool isBusy = _isSubmitting || authState.isLoading;
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _Header(
-              currentStep: _currentVisibleIdx,
-              totalSteps: _visibleCount,
-              step: _step,
-              isCompany: _isCompany,
-              onBack: _back,
-            ),
-            if (authState.hasError && !isBusy)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  border: Border.all(color: Colors.red.shade200),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(authState.error.toString(),
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 13)),
-                  ),
-                ]),
+    return KeyboardListener(
+      focusNode: _globalFocusNode,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            HardwareKeyboard.instance
+                .isLogicalKeyPressed(LogicalKeyboardKey.enter) &&
+            !_isSubmitting) {
+          _advance();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _Header(
+                currentStep: _currentVisibleIdx,
+                totalSteps: _visibleCount,
+                step: _step,
+                isCompany: _isCompany,
+                onBack: _back,
               ),
-            Expanded(
-              child: PageView(
-                controller: _pageCtrl,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  // 0 — Role (binary: Entreprise vs Personnel MINEFOP)
-                  _StepRole(
-                    isCompany: _isCompany,
-                    isMinefop: _isMinefopUser,
-                    onSelect: (isCompany) {
-                      setState(() {
-                        _isMinefopUser = !isCompany;
-                        _role = isCompany ? 'COMPANY' : '';
-                        _selectedRegion = null;
-                        _selectedDepartment = null;
-                        _selectedMinefopService = null;
-                        _selectedPosition = null;
-                        _positions = [];
-                      });
-                      _saveDraft();
-                    },
-                  ),
-
-                  // 1 — Identity
-                  _StepIdentity(
-                    key: ValueKey(_draftLoaded),
-                    formKey: _identityKey,
-                    isCompany: _isCompany,
-                    initialFirstName: _firstName,
-                    initialLastName: _lastName,
-                    initialEmail: _email,
-                    initialMatricule: _matricule,
-                    onSave: (fn, ln, em, mat) {
-                      _firstName = fn;
-                      _lastName = ln;
-                      _email = em;
-                      _matricule = mat;
-                    },
-                  ),
-
-                  // 2 — Company info (COMPANY only)
-                  _StepCompanyInfo(
-                    key: ValueKey(_draftLoaded),
-                    formKey: _companyKey,
-                    sectors: _sectors,
-                    loadingSectors: _loadingSectors,
-                    selectedSector: _selectedSector,
-                    onSectorChanged: (s) => setState(() => _selectedSector = s),
-                    initialTaxNumber: _taxNumber,
-                    initialCnps: _cnpsNumber,
-                    initialFax: _fax,
-                    initialAddress: _address,
-                    initialParentCompany: _parentCompany ?? '',
-                    initialSecondaryActivity: _secondaryActivity,
-                    initialCapital: _socialCapital,
-                    onInit: _loadSectors,
-                    onSave: (niu, cnps, fax, addr, parent, sec, cap) {
-                      _taxNumber = niu;
-                      _cnpsNumber = cnps;
-                      _fax = fax;
-                      _address = addr;
-                      _parentCompany = parent.isNotEmpty ? parent : null;
-                      _secondaryActivity = sec;
-                      _socialCapital = cap;
-                    },
-                  ),
-
-                  // 3 — Service picker (MINEFOP only)
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                    child: ServicePicker(
-                      initialValue: _selectedMinefopService,
-                      onSelected: (node) {
-                        setState(() {
-                          _selectedMinefopService = node;
-                          _role = node.roleMapping;
-                          _selectedPosition = null;
-                          _positions = [];
-                          if (!node.requiresRegion &&
-                              !node.requiresDepartment) {
+              if (authState.hasError && !isBusy)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      border: Border.all(color: Colors.red.shade200),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(authState.error.toString(),
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 13))),
+                  ]),
+                ),
+              Expanded(
+                child: PageView(
+                  controller: _pageCtrl,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    // 0 – Role
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepRole),
+                      maintainState: true,
+                      child: _StepRole(
+                        isCompany: _isCompany,
+                        isMinefop: _isMinefopUser,
+                        onSelect: (isCompany) {
+                          setState(() {
+                            _isMinefopUser = !isCompany;
+                            _role = isCompany ? 'COMPANY' : '';
                             _selectedRegion = null;
                             _selectedDepartment = null;
-                          }
-                        });
-                        _loadPositions(node.code);
-                        _saveDraft();
-                      },
+                            _selectedMinefopService = null;
+                            _selectedPosition = null;
+                            _positions = [];
+                          });
+                          _saveDraft(immediate: true);
+                          _advance(); // <-- ONLY ADDED LINE
+                        },
+                        scrollController: _stepScrollControllers[_kStepRole],
+                      ),
                     ),
-                  ),
-
-                  // 4 — Position within service (MINEFOP only)
-                  _StepPosition(
-                    positions: _positions,
-                    loading: _loadingPositions,
-                    selected: _selectedPosition,
-                    serviceName: _selectedMinefopService?.name,
-                    onChanged: (p) => setState(() => _selectedPosition = p),
-                  ),
-
-                  // 5 — Assignment / Location
-                  _StepAssignment(
-                    role: _role,
-                    regions: _regions,
-                    departments: _departments,
-                    loadingLocations: _loadingLocations,
-                    selectedRegion: _selectedRegion,
-                    selectedDepartment: _selectedDepartment,
-                    onRegionChanged: (r) {
-                      setState(() {
-                        _selectedRegion = r;
-                        _selectedDepartment = null;
-                        _departments = [];
-                      });
-                      if (r != null) _loadDepartments(r['id'] as String);
-                    },
-                    onDepartmentChanged: (d) =>
-                        setState(() => _selectedDepartment = d),
-                    onInit: _loadRegions,
-                  ),
-
-                  // 6 — Security
-                  _StepSecurity(
-                    formKey: _securityKey,
-                    initialPassword: _password,
-                    obscurePw: _obscurePw,
-                    obscureConfirm: _obscureConfirm,
-                    onTogglePw: () => setState(() => _obscurePw = !_obscurePw),
-                    onToggleConfirm: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                    onSave: (pw, _) {
-                      _password = pw;
-                    },
-                    strengthOf: _pwStrength,
-                    strengthColor: _pwColor,
-                    strengthLabel: _pwLabel,
-                  ),
-
-                  // 7 — Review
-                  _StepReview(
-                    role: _role,
-                    isMinefop: _isMinefopUser,
-                    firstName: _firstName,
-                    lastName: _lastName,
-                    email: _email,
-                    taxNumber: _taxNumber,
-                    cnpsNumber: _cnpsNumber,
-                    mainActivity: _selectedSector?['name'] as String? ?? '',
-                    secondaryActivity: _secondaryActivity,
-                    address: _address,
-                    selectedRegion: _selectedRegion,
-                    selectedDepartment: _selectedDepartment,
-                    serviceName: _selectedMinefopService?.name,
-                    positionTitle: _selectedPosition?.title,
-                  ),
-                ],
+                    // 1 – Identity
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepIdentity),
+                      maintainState: true,
+                      child: _StepIdentity(
+                        key: ValueKey(_draftLoaded),
+                        formKey: _identityKey,
+                        isCompany: _isCompany,
+                        initialFirstName: _firstName,
+                        initialLastName: _lastName,
+                        initialEmail: _email,
+                        initialMatricule: _matricule,
+                        onFirstNameChanged: (val) {
+                          _firstName = val;
+                          _scheduleDraftSave();
+                        },
+                        onLastNameChanged: (val) {
+                          _lastName = val;
+                          _scheduleDraftSave();
+                        },
+                        onEmailChanged: (val) {
+                          _email = val;
+                          _scheduleDraftSave();
+                        },
+                        onMatriculeChanged: (val) {
+                          _matricule = val;
+                          _scheduleDraftSave();
+                        },
+                        onSave: (fn, ln, em, mat) {
+                          _firstName = fn;
+                          _lastName = ln;
+                          _email = em;
+                          _matricule = mat;
+                        },
+                        scrollController:
+                            _stepScrollControllers[_kStepIdentity],
+                      ),
+                    ),
+                    // 2 – Company info
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepCompanyInfo),
+                      maintainState: true,
+                      child: _StepCompanyInfo(
+                        key: ValueKey(_draftLoaded),
+                        formKey: _companyKey,
+                        sectors: _sectors,
+                        loadingSectors: _loadingSectors,
+                        selectedSector: _selectedSector,
+                        onSectorChanged: (s) {
+                          setState(() => _selectedSector = s);
+                          _scheduleDraftSave();
+                        },
+                        initialTaxNumber: _taxNumber,
+                        initialCnps: _cnpsNumber,
+                        initialFax: _fax,
+                        initialAddress: _address,
+                        initialParentCompany: _parentCompany ?? '',
+                        initialSecondaryActivity: _secondaryActivity,
+                        initialCapital: _socialCapital,
+                        onInit: _loadSectors,
+                        onSave: (niu, cnps, fax, addr, parent, sec, cap) {
+                          _taxNumber = niu;
+                          _cnpsNumber = cnps;
+                          _fax = fax;
+                          _address = addr;
+                          _parentCompany = parent.isNotEmpty ? parent : null;
+                          _secondaryActivity = sec;
+                          _socialCapital = cap;
+                          _scheduleDraftSave();
+                        },
+                        scrollController:
+                            _stepScrollControllers[_kStepCompanyInfo],
+                      ),
+                    ),
+                    // 3 – Service picker (MINEFOP) – NO extra SingleChildScrollView
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepService),
+                      maintainState: true,
+                      child: ServicePicker(
+                        initialValue: _selectedMinefopService,
+                        onSelected: (node) {
+                          setState(() {
+                            _selectedMinefopService = node;
+                            _role = node.roleMapping;
+                            _selectedPosition = null;
+                            _positions = [];
+                            if (!node.requiresRegion &&
+                                !node.requiresDepartment) {
+                              _selectedRegion = null;
+                              _selectedDepartment = null;
+                            }
+                          });
+                          _loadPositions(node.code);
+                          _saveDraft(immediate: true);
+                        },
+                      ),
+                    ),
+                    // 4 – Position (MINEFOP)
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepPosition),
+                      maintainState: true,
+                      child: _StepPosition(
+                        positions: _positions,
+                        loading: _loadingPositions,
+                        selected: _selectedPosition,
+                        serviceName: _selectedMinefopService?.name,
+                        onChanged: (p) {
+                          setState(() => _selectedPosition = p);
+                          _scheduleDraftSave();
+                        },
+                        scrollController:
+                            _stepScrollControllers[_kStepPosition],
+                      ),
+                    ),
+                    // 5 – Assignment
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepAssignment),
+                      maintainState: true,
+                      child: _StepAssignment(
+                        role: _role,
+                        regions: _regions,
+                        departments: _departments,
+                        loadingLocations: _loadingLocations,
+                        selectedRegion: _selectedRegion,
+                        selectedDepartment: _selectedDepartment,
+                        onRegionChanged: (r) {
+                          setState(() {
+                            _selectedRegion = r;
+                            _selectedDepartment = null;
+                            _departments = [];
+                          });
+                          if (r != null) _loadDepartments(r['id'] as String);
+                          _scheduleDraftSave();
+                        },
+                        onDepartmentChanged: (d) {
+                          setState(() => _selectedDepartment = d);
+                          _scheduleDraftSave();
+                        },
+                        onInit: _loadRegions,
+                        scrollController:
+                            _stepScrollControllers[_kStepAssignment],
+                      ),
+                    ),
+                    // 6 – Security
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepSecurity),
+                      maintainState: true,
+                      child: _StepSecurity(
+                        formKey: _securityKey,
+                        initialPassword: _password,
+                        obscurePw: _obscurePw,
+                        obscureConfirm: _obscureConfirm,
+                        onTogglePw: () =>
+                            setState(() => _obscurePw = !_obscurePw),
+                        onToggleConfirm: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
+                        onSave: (pw, _) {
+                          _password = pw;
+                          _scheduleDraftSave();
+                        },
+                        strengthOf: _pwStrength,
+                        strengthColor: _pwColor,
+                        strengthLabel: _pwLabel,
+                        scrollController:
+                            _stepScrollControllers[_kStepSecurity],
+                      ),
+                    ),
+                    // 7 – Review
+                    Visibility(
+                      visible: _visibleSteps.contains(_kStepReview),
+                      maintainState: true,
+                      child: _StepReview(
+                        role: _role,
+                        isMinefop: _isMinefopUser,
+                        firstName: _firstName,
+                        lastName: _lastName,
+                        email: _email,
+                        taxNumber: _taxNumber,
+                        cnpsNumber: _cnpsNumber,
+                        mainActivity: _selectedSector?['name'] as String? ?? '',
+                        secondaryActivity: _secondaryActivity,
+                        address: _address,
+                        selectedRegion: _selectedRegion,
+                        selectedDepartment: _selectedDepartment,
+                        serviceName: _selectedMinefopService?.name,
+                        positionTitle: _selectedPosition?.title,
+                        scrollController: _stepScrollControllers[_kStepReview],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Column(
-                children: [
-                  if (isBusy)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 10),
-                      child: LinearProgressIndicator(),
-                    ),
-                  SizedBox(
+              // Sticky button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
@@ -762,18 +816,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         elevation: 2,
                       ),
                       child: Text(
-                        _step == _kStepReview
-                            ? 'Créer mon compte'
-                            : 'Continuer',
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
+                          _step == _kStepReview
+                              ? 'Créer mon compte'
+                              : 'Continuer',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -878,12 +931,14 @@ class _Header extends StatelessWidget {
 class _StepRole extends StatelessWidget {
   final bool isCompany;
   final bool isMinefop;
-  final ValueChanged<bool> onSelect; // true = company, false = minefop
+  final ValueChanged<bool> onSelect;
+  final ScrollController? scrollController;
 
   const _StepRole({
     required this.isCompany,
     required this.isMinefop,
     required this.onSelect,
+    this.scrollController,
   });
 
   @override
@@ -892,6 +947,7 @@ class _StepRole extends StatelessWidget {
     final minefopSelected = isMinefop;
 
     return SingleChildScrollView(
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1009,15 +1065,22 @@ class _RoleCard extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Step 1 — Identity (role-aware)
+// Step 1 — Identity (Nom first, then Prénom)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StepIdentity extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final bool isCompany;
-  final String initialFirstName, initialLastName, initialEmail;
-  final String initialMatricule;
+  final String initialFirstName,
+      initialLastName,
+      initialEmail,
+      initialMatricule;
   final void Function(String fn, String ln, String em, String mat) onSave;
+  final void Function(String)? onFirstNameChanged,
+      onLastNameChanged,
+      onEmailChanged,
+      onMatriculeChanged;
+  final ScrollController? scrollController;
 
   const _StepIdentity({
     super.key,
@@ -1028,6 +1091,11 @@ class _StepIdentity extends StatefulWidget {
     required this.initialEmail,
     required this.initialMatricule,
     required this.onSave,
+    this.onFirstNameChanged,
+    this.onLastNameChanged,
+    this.onEmailChanged,
+    this.onMatriculeChanged,
+    this.scrollController,
   });
 
   @override
@@ -1035,39 +1103,42 @@ class _StepIdentity extends StatefulWidget {
 }
 
 class _StepIdentityState extends State<_StepIdentity> {
-  late final TextEditingController _c1; // company name OR first name
-  late final TextEditingController _c2; // last name (gov only)
-  late final TextEditingController _emailCtrl;
-  late final TextEditingController _matriculeCtrl;
+  late final TextEditingController _nomCtrl,
+      _prenomCtrl,
+      _emailCtrl,
+      _matriculeCtrl;
 
   @override
   void initState() {
     super.initState();
-    _c1 = TextEditingController(text: widget.initialFirstName);
-    _c2 = TextEditingController(text: widget.initialLastName);
+    _nomCtrl = TextEditingController(text: widget.initialLastName);
+    _prenomCtrl = TextEditingController(text: widget.initialFirstName);
     _emailCtrl = TextEditingController(text: widget.initialEmail);
     _matriculeCtrl = TextEditingController(text: widget.initialMatricule);
+    _nomCtrl.addListener(() => widget.onLastNameChanged?.call(_nomCtrl.text));
+    _prenomCtrl
+        .addListener(() => widget.onFirstNameChanged?.call(_prenomCtrl.text));
+    _emailCtrl.addListener(() => widget.onEmailChanged?.call(_emailCtrl.text));
+    _matriculeCtrl.addListener(
+        () => widget.onMatriculeChanged?.call(_matriculeCtrl.text));
   }
 
   @override
   void dispose() {
-    _c1.dispose();
-    _c2.dispose();
+    _nomCtrl.dispose();
+    _prenomCtrl.dispose();
     _emailCtrl.dispose();
     _matriculeCtrl.dispose();
     super.dispose();
   }
 
-  void _notify() => widget.onSave(
-        _c1.text.trim(),
-        _c2.text.trim(),
-        _emailCtrl.text.trim(),
-        _matriculeCtrl.text.trim(),
-      );
+  void _notify() => widget.onSave(_prenomCtrl.text.trim(), _nomCtrl.text.trim(),
+      _emailCtrl.text.trim(), _matriculeCtrl.text.trim());
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: widget.scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Form(
         key: widget.formKey,
@@ -1089,7 +1160,7 @@ class _StepIdentityState extends State<_StepIdentity> {
           const SizedBox(height: 28),
           if (widget.isCompany) ...[
             _Field(
-              controller: _c1,
+              controller: _prenomCtrl,
               label: 'Raison sociale *',
               icon: Icons.business_outlined,
               textCapitalization: TextCapitalization.words,
@@ -1098,12 +1169,13 @@ class _StepIdentityState extends State<_StepIdentity> {
                   (v == null || v.trim().isEmpty) ? 'Requis' : null,
             ),
           ] else ...[
+            // Nom (surname) first, then Prénom
             Row(children: [
               Expanded(
                 child: _Field(
-                  controller: _c1,
-                  label: 'Prénom *',
-                  icon: Icons.person_outline,
+                  controller: _nomCtrl,
+                  label: 'Nom *',
+                  icon: Icons.badge_outlined,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   validator: (v) =>
@@ -1113,9 +1185,9 @@ class _StepIdentityState extends State<_StepIdentity> {
               const SizedBox(width: 12),
               Expanded(
                 child: _Field(
-                  controller: _c2,
-                  label: 'Nom *',
-                  icon: Icons.badge_outlined,
+                  controller: _prenomCtrl,
+                  label: 'Prénom *',
+                  icon: Icons.person_outline,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   validator: (v) =>
@@ -1165,7 +1237,7 @@ class _StepIdentityState extends State<_StepIdentity> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Step 2 — Company info (COMPANY only)
+// Step 2 — Company info (unchanged except scrollController)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StepCompanyInfo extends StatefulWidget {
@@ -1180,6 +1252,7 @@ class _StepCompanyInfo extends StatefulWidget {
   final VoidCallback onInit;
   final void Function(String niu, String cnps, String fax, String addr,
       String parent, String sec, int? cap) onSave;
+  final ScrollController? scrollController;
 
   const _StepCompanyInfo({
     super.key,
@@ -1197,6 +1270,7 @@ class _StepCompanyInfo extends StatefulWidget {
     required this.initialCapital,
     required this.onInit,
     required this.onSave,
+    this.scrollController,
   });
 
   @override
@@ -1204,13 +1278,13 @@ class _StepCompanyInfo extends StatefulWidget {
 }
 
 class _StepCompanyInfoState extends State<_StepCompanyInfo> {
-  late final TextEditingController _niuCtrl;
-  late final TextEditingController _cnpsCtrl;
-  late final TextEditingController _faxCtrl;
-  late final TextEditingController _addrCtrl;
-  late final TextEditingController _parentCtrl;
-  late final TextEditingController _secActCtrl;
-  late final TextEditingController _capitalCtrl;
+  late final TextEditingController _niuCtrl,
+      _cnpsCtrl,
+      _faxCtrl,
+      _addrCtrl,
+      _parentCtrl,
+      _secActCtrl,
+      _capitalCtrl;
 
   @override
   void initState() {
@@ -1253,6 +1327,7 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: widget.scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Form(
         key: widget.formKey,
@@ -1265,64 +1340,51 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
               'Ces données seront pré-remplies automatiquement dans vos déclarations DSMO.',
               style: TextStyle(color: AppColors.slate, fontSize: 14)),
           const SizedBox(height: 20),
-
-          // ── Identification fiscale ────────────────────────────────────────
           const _SectionLabel('Identification fiscale'),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
-              flex: 3,
-              child: _Field(
-                controller: _niuCtrl,
-                label: 'N° Contribuable (NIU) *',
-                icon: Icons.tag,
-                textInputAction: TextInputAction.next,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'NIU requis' : null,
-              ),
-            ),
+                flex: 3,
+                child: _Field(
+                    controller: _niuCtrl,
+                    label: 'N° Contribuable (NIU) *',
+                    icon: Icons.tag,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'NIU requis' : null)),
             const SizedBox(width: 12),
             Expanded(
-              flex: 2,
-              child: _Field(
-                controller: _cnpsCtrl,
-                label: 'N° CNPS',
-                icon: Icons.shield_outlined,
-                textInputAction: TextInputAction.next,
-              ),
-            ),
+                flex: 2,
+                child: _Field(
+                    controller: _cnpsCtrl,
+                    label: 'N° CNPS',
+                    icon: Icons.shield_outlined,
+                    textInputAction: TextInputAction.next)),
           ]),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
-              child: _Field(
-                controller: _faxCtrl,
-                label: 'Fax',
-                icon: Icons.print_outlined,
-                keyboardType: TextInputType.phone,
-                textInputAction: TextInputAction.next,
-              ),
-            ),
+                child: _Field(
+                    controller: _faxCtrl,
+                    label: 'Fax',
+                    icon: Icons.print_outlined,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next)),
             const SizedBox(width: 12),
             Expanded(
-              flex: 2,
-              child: _Field(
-                controller: _capitalCtrl,
-                label: 'Capital social (XAF)',
-                icon: Icons.account_balance_outlined,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: false),
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                textInputAction: TextInputAction.next,
-              ),
-            ),
+                flex: 2,
+                child: _Field(
+                    controller: _capitalCtrl,
+                    label: 'Capital social (XAF)',
+                    icon: Icons.account_balance_outlined,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: false),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.next)),
           ]),
-
-          // ── Activité ──────────────────────────────────────────────────────
           const _SectionLabel('Activité'),
           if (widget.loadingSectors)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            )
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()))
           else
             DropdownButtonFormField<Map<String, dynamic>>(
               initialValue: widget.selectedSector,
@@ -1350,38 +1412,119 @@ class _StepCompanyInfoState extends State<_StepCompanyInfo> {
             ),
           const SizedBox(height: 14),
           _Field(
-            controller: _secActCtrl,
-            label: 'Activité secondaire (optionnel)',
-            icon: Icons.work_history_outlined,
-            textInputAction: TextInputAction.next,
-          ),
-
-          // ── Coordonnées ───────────────────────────────────────────────────
+              controller: _secActCtrl,
+              label: 'Activité secondaire (optionnel)',
+              icon: Icons.work_history_outlined,
+              textInputAction: TextInputAction.next),
           const _SectionLabel('Coordonnées'),
           _Field(
-            controller: _addrCtrl,
-            label: 'Adresse complète *',
-            icon: Icons.location_on_outlined,
-            textInputAction: TextInputAction.next,
-            maxLines: 2,
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Adresse requise' : null,
-          ),
+              controller: _addrCtrl,
+              label: 'Adresse complète *',
+              icon: Icons.location_on_outlined,
+              textInputAction: TextInputAction.next,
+              maxLines: 2,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Adresse requise' : null),
           _Field(
-            controller: _parentCtrl,
-            label: 'Maison mère / Groupe (optionnel)',
-            icon: Icons.corporate_fare_outlined,
-            textInputAction: TextInputAction.done,
-          ),
-
+              controller: _parentCtrl,
+              label: 'Maison mère / Groupe (optionnel)',
+              icon: Icons.corporate_fare_outlined,
+              textInputAction: TextInputAction.done),
           const SizedBox(height: 8),
           const _InfoBox(
-            icon: Icons.auto_fix_high_outlined,
-            color: Colors.teal,
-            text:
-                'Ces informations seront automatiquement pré-remplies dans la Partie A de vos futures déclarations DSMO.',
-          ),
+              icon: Icons.auto_fix_high_outlined,
+              color: Colors.teal,
+              text:
+                  'Ces informations seront automatiquement pré-remplies dans la Partie A de vos futures déclarations DSMO.'),
         ]),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Step 4 — Position within service
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _StepPosition extends StatelessWidget {
+  final List<_ServicePosition> positions;
+  final bool loading;
+  final _ServicePosition? selected;
+  final String? serviceName;
+  final ValueChanged<_ServicePosition?> onChanged;
+  final ScrollController? scrollController;
+
+  const _StepPosition({
+    required this.positions,
+    required this.loading,
+    required this.selected,
+    required this.serviceName,
+    required this.onChanged,
+    this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Fonction / Rôle',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text(
+            serviceName != null
+                ? 'Sélectionnez votre fonction au sein de : $serviceName'
+                : 'Sélectionnez votre fonction dans ce service.',
+            style: const TextStyle(color: AppColors.slate, fontSize: 14),
+          ),
+          const SizedBox(height: 28),
+          if (loading)
+            const Center(child: CircularProgressIndicator())
+          else if (positions.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200)),
+              child: Row(children: [
+                Icon(Icons.info_outline,
+                    color: Colors.orange.shade700, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                    child: Text(
+                        'Aucune fonction définie pour ce service. Veuillez contacter l\'administrateur ou sélectionner un autre service.',
+                        style: TextStyle(fontSize: 13))),
+              ]),
+            )
+          else
+            DropdownButtonFormField<_ServicePosition>(
+              initialValue: selected,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Fonction *',
+                prefixIcon: const Icon(Icons.work_outline, size: 20),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              items: positions
+                  .map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(
+                            p.titleEn != null
+                                ? '${p.title} / ${p.titleEn}'
+                                : p.title,
+                            overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: onChanged,
+            ),
+        ],
       ),
     );
   }
@@ -1399,6 +1542,7 @@ class _StepAssignment extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>?> onRegionChanged;
   final ValueChanged<Map<String, dynamic>?> onDepartmentChanged;
   final VoidCallback onInit;
+  final ScrollController? scrollController;
 
   const _StepAssignment({
     required this.role,
@@ -1410,6 +1554,7 @@ class _StepAssignment extends StatefulWidget {
     required this.onRegionChanged,
     required this.onDepartmentChanged,
     required this.onInit,
+    this.scrollController,
   });
 
   @override
@@ -1429,16 +1574,15 @@ class _StepAssignmentState extends State<_StepAssignment> {
   @override
   Widget build(BuildContext context) {
     final color = _isCompany ? Colors.teal : Colors.indigo;
-
     return SingleChildScrollView(
+      controller: widget.scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
-          _isCompany
-              ? 'Localisation de l\'établissement'
-              : 'Zone d\'affectation',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
+            _isCompany
+                ? 'Localisation de l\'établissement'
+                : 'Zone d\'affectation',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Text(
           _isCompany
@@ -1452,9 +1596,8 @@ class _StepAssignmentState extends State<_StepAssignment> {
         if (widget.loadingLocations)
           const Center(
               child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(),
-          ))
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator()))
         else ...[
           _LocationDropdown(
             label: 'Région *',
@@ -1544,95 +1687,6 @@ class _LocationDropdown extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Step 4 — Position within service (MINEFOP only)
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _StepPosition extends StatelessWidget {
-  final List<_ServicePosition> positions;
-  final bool loading;
-  final _ServicePosition? selected;
-  final String? serviceName;
-  final ValueChanged<_ServicePosition?> onChanged;
-
-  const _StepPosition({
-    required this.positions,
-    required this.loading,
-    required this.selected,
-    required this.serviceName,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Fonction / Rôle',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text(
-            serviceName != null
-                ? 'Sélectionnez votre fonction au sein de : $serviceName'
-                : 'Sélectionnez votre fonction dans ce service.',
-            style: const TextStyle(color: AppColors.slate, fontSize: 14),
-          ),
-          const SizedBox(height: 28),
-          if (loading)
-            const Center(child: CircularProgressIndicator())
-          else if (positions.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Row(children: [
-                Icon(Icons.info_outline,
-                    color: Colors.orange.shade700, size: 20),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Aucune fonction définie pour ce service. Veuillez contacter l\'administrateur ou sélectionner un autre service.',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ]),
-            )
-          else
-            DropdownButtonFormField<_ServicePosition>(
-              initialValue: selected,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Fonction *',
-                prefixIcon: const Icon(Icons.work_outline, size: 20),
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              items: positions
-                  .map((p) => DropdownMenuItem(
-                        value: p,
-                        child: Text(
-                          p.titleEn != null
-                              ? '${p.title} / ${p.titleEn}'
-                              : p.title,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ))
-                  .toList(),
-              onChanged: onChanged,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // Step 6 — Security
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1645,6 +1699,7 @@ class _StepSecurity extends StatefulWidget {
   final double Function(String) strengthOf;
   final Color Function(double) strengthColor;
   final String Function(double) strengthLabel;
+  final ScrollController? scrollController;
 
   const _StepSecurity({
     required this.formKey,
@@ -1657,6 +1712,7 @@ class _StepSecurity extends StatefulWidget {
     required this.strengthOf,
     required this.strengthColor,
     required this.strengthLabel,
+    this.scrollController,
   });
 
   @override
@@ -1664,8 +1720,7 @@ class _StepSecurity extends StatefulWidget {
 }
 
 class _StepSecurityState extends State<_StepSecurity> {
-  late final TextEditingController _pwCtrl;
-  late final TextEditingController _confirmCtrl;
+  late final TextEditingController _pwCtrl, _confirmCtrl;
   double _strength = 0;
 
   @override
@@ -1693,6 +1748,7 @@ class _StepSecurityState extends State<_StepSecurity> {
   Widget build(BuildContext context) {
     final sc = widget.strengthColor(_strength);
     return SingleChildScrollView(
+      controller: widget.scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Form(
         key: widget.formKey,
@@ -1733,21 +1789,17 @@ class _StepSecurityState extends State<_StepSecurity> {
           const SizedBox(height: 10),
           Row(children: [
             Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                    value: _strength,
-                    minHeight: 5,
-                    backgroundColor: Colors.grey.shade200,
-                    color: sc),
-              ),
-            ),
+                child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                        value: _strength,
+                        minHeight: 5,
+                        backgroundColor: Colors.grey.shade200,
+                        color: sc))),
             const SizedBox(width: 10),
-            Text(
-              _pwCtrl.text.isEmpty ? '' : widget.strengthLabel(_strength),
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: sc),
-            ),
+            Text(_pwCtrl.text.isEmpty ? '' : widget.strengthLabel(_strength),
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600, color: sc)),
           ]),
           const SizedBox(height: 8),
           _PasswordTips(password: _pwCtrl.text),
@@ -1772,8 +1824,9 @@ class _StepSecurityState extends State<_StepSecurity> {
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Confirmation requise';
-              if (v != _pwCtrl.text)
+              if (v != _pwCtrl.text) {
                 return 'Les mots de passe ne correspondent pas';
+              }
               return null;
             },
           ),
@@ -1825,6 +1878,7 @@ class _StepReview extends StatelessWidget {
   final String? serviceName;
   final String? positionTitle;
   final bool isMinefop;
+  final ScrollController? scrollController;
 
   const _StepReview({
     required this.role,
@@ -1841,24 +1895,18 @@ class _StepReview extends StatelessWidget {
     required this.selectedDepartment,
     this.serviceName,
     this.positionTitle,
+    this.scrollController,
   });
 
   bool get _isCompany => role == 'COMPANY';
-
-  String get _roleLabel {
-    if (_isCompany) return 'Entreprise';
-    if (isMinefop) return 'Personnel MINEFOP';
-    return role;
-  }
-
-  Color get _roleColor {
-    if (_isCompany) return Colors.teal;
-    return Colors.deepPurple;
-  }
+  String get _roleLabel =>
+      _isCompany ? 'Entreprise' : (isMinefop ? 'Personnel MINEFOP' : role);
+  Color get _roleColor => _isCompany ? Colors.teal : Colors.deepPurple;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Récapitulatif',
@@ -1867,16 +1915,13 @@ class _StepReview extends StatelessWidget {
         const Text('Vérifiez vos informations avant de créer le compte.',
             style: TextStyle(color: AppColors.slate, fontSize: 14)),
         const SizedBox(height: 24),
-
-        // Role badge
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _roleColor.withAlpha(20),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _roleColor.withAlpha(80)),
-          ),
+              color: _roleColor.withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _roleColor.withAlpha(80))),
           child: Row(children: [
             Icon(Icons.verified_user_outlined, color: _roleColor),
             const SizedBox(width: 10),
@@ -1888,8 +1933,6 @@ class _StepReview extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 16),
-
-        // Identity card
         _ReviewCard(
           title: _isCompany ? 'Entreprise' : 'Identité',
           icon: _isCompany ? Icons.business_outlined : Icons.person_outline,
@@ -1900,7 +1943,6 @@ class _StepReview extends StatelessWidget {
             ('E-mail', email),
           ],
         ),
-
         if (_isCompany) ...[
           const SizedBox(height: 12),
           _ReviewCard(
@@ -1916,7 +1958,6 @@ class _StepReview extends StatelessWidget {
             ],
           ),
         ],
-
         if (!_isCompany && serviceName != null) ...[
           const SizedBox(height: 12),
           _ReviewCard(
@@ -1928,7 +1969,6 @@ class _StepReview extends StatelessWidget {
             ],
           ),
         ],
-
         if (selectedRegion != null || selectedDepartment != null) ...[
           const SizedBox(height: 12),
           _ReviewCard(
@@ -1942,23 +1982,19 @@ class _StepReview extends StatelessWidget {
             ],
           ),
         ],
-
         const SizedBox(height: 16),
         const _InfoBox(
-          icon: Icons.check_circle_outline,
-          color: Colors.green,
-          text:
-              'Votre mot de passe est sécurisé et ne sera jamais affiché en clair.',
-        ),
-
+            icon: Icons.check_circle_outline,
+            color: Colors.green,
+            text:
+                'Votre mot de passe est sécurisé et ne sera jamais affiché en clair.'),
         if (_isCompany) ...[
           const SizedBox(height: 10),
           const _InfoBox(
-            icon: Icons.auto_fix_high_outlined,
-            color: Colors.teal,
-            text:
-                'Les informations de votre entreprise seront automatiquement pré-remplies dans la Partie A de chaque déclaration DSMO.',
-          ),
+              icon: Icons.auto_fix_high_outlined,
+              color: Colors.teal,
+              text:
+                  'Les informations de votre entreprise seront automatiquement pré-remplies dans la Partie A de chaque déclaration DSMO.'),
         ],
       ]),
     );
@@ -2007,16 +2043,14 @@ class _ReviewCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             child: Row(children: [
               SizedBox(
-                width: 120,
-                child: Text(label,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppColors.slate)),
-              ),
+                  width: 120,
+                  child: Text(label,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.slate))),
               Expanded(
-                child: Text(value.isEmpty ? '—' : value,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500)),
-              ),
+                  child: Text(value.isEmpty ? '—' : value,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w500))),
             ]),
           );
         }),
@@ -2040,13 +2074,12 @@ class _SectionLabel extends StatelessWidget {
       child: Row(children: [
         Expanded(child: Divider(color: Colors.teal.shade200)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text(text,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.teal.shade700)),
-        ),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.teal.shade700))),
         Expanded(child: Divider(color: Colors.teal.shade200)),
       ]),
     );
@@ -2064,17 +2097,15 @@ class _InfoBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withAlpha(15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withAlpha(60)),
-      ),
+          color: color.withAlpha(15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withAlpha(60))),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text,
-              style: TextStyle(fontSize: 12, color: color, height: 1.5)),
-        ),
+            child: Text(text,
+                style: TextStyle(fontSize: 12, color: color, height: 1.5))),
       ]),
     );
   }
