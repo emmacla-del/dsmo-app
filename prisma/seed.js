@@ -183,14 +183,14 @@ const minefopServices = [
     { code: 'COSUP', category: 'RATTACHE', level: 1, parentCode: null, name: "Centres d'Organisation Scolaire, Universitaire et Professionnelle", acronym: 'COSUP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 402 },
 ];
 // ============================================================
-// EXPLICIT SERVICE POSITIONS (from the decree)
+// EXPLICIT SERVICE POSITIONS (from the decree, corrected titles)
 // ============================================================
 const servicePositions = [
-    // Cabinet du Ministre (root)
+    // Cabinet du Ministre
     { serviceCode: 'CAB', positionType: 'MINISTRE', title: 'Ministre de l\'Emploi et de la Formation Professionnelle', titleEn: 'Minister of Employment and Vocational Training', level: 1, orderIndex: 1 },
-    { serviceCode: 'SP', positionType: 'CHEF_SECRETARIAT_PARTICULIER', title: 'Chef de Secrétariat Particulier', titleEn: 'Head of Private Secretariat', level: 1, orderIndex: 1 },
-    { serviceCode: 'CT', positionType: 'CONSEILLER_TECHNIQUE', title: 'Conseiller Technique N°1', titleEn: 'Technical Adviser No. 1', level: 1, orderIndex: 1 },
-    { serviceCode: 'CT', positionType: 'CONSEILLER_TECHNIQUE', title: 'Conseiller Technique N°2', titleEn: 'Technical Adviser No. 2', level: 1, orderIndex: 2 },
+    { serviceCode: 'SP', positionType: 'CHEF_SECRETARIAT_PARTICULIER', title: 'Secrétaire Particulier du Ministre', titleEn: 'Private Secretary to the Minister', level: 1, orderIndex: 1 },
+    { serviceCode: 'CT', positionType: 'CONSEILLER_TECHNIQUE', title: 'Conseiller Technique du Ministre', titleEn: 'Technical Adviser to the Minister', level: 1, orderIndex: 1 },
+    { serviceCode: 'CT', positionType: 'CONSEILLER_TECHNIQUE', title: 'Conseiller Technique du Ministre (N°2)', titleEn: 'Technical Adviser to the Minister (No. 2)', level: 1, orderIndex: 2 },
     // Inspections
     { serviceCode: 'IGS', positionType: 'INSPECTEUR_GENERAL_SERVICES', title: 'Inspecteur Général des Services', titleEn: 'Inspector General of Services', level: 1, orderIndex: 1 },
     { serviceCode: 'IGS', positionType: 'INSPECTEUR_SERVICES', title: 'Inspecteur des Services', titleEn: 'Inspector of Services', level: 2, orderIndex: 2 },
@@ -201,18 +201,18 @@ const servicePositions = [
     { serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL', title: 'Secrétaire Général', titleEn: 'Secretary General', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-DAJ', positionType: 'CHEF_DIVISION', title: 'Chef de la Division des Affaires Juridiques', titleEn: 'Head of Legal Affairs Division', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-DAJ-CER', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule des Études et de la Réglementation', titleEn: 'Head of Studies and Regulation Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'SG-DAJ-CER', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'SG-DAJ-CER', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'SG-DAJ-CC', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule du Contentieux', titleEn: 'Head of Litigation Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'SG-DAJ-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'SG-DAJ-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'SG-CS', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Suivi', titleEn: 'Head of Monitoring Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'SG-CS', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'SG-CS', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'SG-CC', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Communication', titleEn: 'Head of Communication Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'SG-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'SG-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'SG-CI', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule Informatique', titleEn: 'Head of IT Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'SG-CI', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'SG-CI', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'SG-CT', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Traduction', titleEn: 'Head of Translation Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'SG-CT', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant (Français)', titleEn: 'Assistant Research Officer (French)', level: 2, orderIndex: 2 },
-    { serviceCode: 'SG-CT', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant (Anglais)', titleEn: 'Assistant Research Officer (English)', level: 2, orderIndex: 3 },
+    { serviceCode: 'SG-CT', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études (Français)', titleEn: 'Research Officer (French)', level: 2, orderIndex: 2 },
+    { serviceCode: 'SG-CT', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études (Anglais)', titleEn: 'Research Officer (English)', level: 2, orderIndex: 3 },
     { serviceCode: 'SG-SDACL', positionType: 'SOUS_DIRECTEUR', title: 'Sous-Directeur de l\'Accueil, du Courrier et de Liaison', titleEn: 'Sub-Director of Reception, Mail and Liaison', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-SDACL-SAO', positionType: 'CHEF_SERVICE', title: 'Chef du Service de l\'Accueil et de l\'Orientation', titleEn: 'Head of Reception and Orientation Service', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-SDACL-SAO-BAI', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de l\'Accueil et de l\'Information', titleEn: 'Head of Reception and Information Bureau', level: 1, orderIndex: 1 },
@@ -232,9 +232,9 @@ const servicePositions = [
     // DPE
     { serviceCode: 'DPE', positionType: 'CHEF_DIVISION', title: 'Chef de la Division de la Promotion de l\'Emploi', titleEn: 'Head of Employment Promotion Division', level: 1, orderIndex: 1 },
     { serviceCode: 'DPE-CPDE', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de la Planification et du Développement de l\'Emploi', titleEn: 'Head of Employment Planning and Development Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'DPE-CPDE', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'DPE-CPDE', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'DPE-CLC', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Lutte contre le Chômage', titleEn: 'Head of Anti-Unemployment Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'DPE-CLC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'DPE-CLC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     // DRMO
     { serviceCode: 'DRMO', positionType: 'DIRECTEUR', title: 'Directeur de la Régulation de la Main-d\'Oeuvre', titleEn: 'Director of Labour Regulation', level: 1, orderIndex: 1 },
     { serviceCode: 'DRMO-SDRPMO', positionType: 'SOUS_DIRECTEUR', title: 'Sous-Directeur de la Réglementation et de la Planification de la Main-d\'Oeuvre', titleEn: 'Sub-Director of Labour Regulation and Planning', level: 1, orderIndex: 1 },
@@ -278,13 +278,13 @@ const servicePositions = [
     // DEPC
     { serviceCode: 'DEPC', positionType: 'CHEF_DIVISION', title: 'Chef de la Division des Études, de la Prospective et de la Coopération', titleEn: 'Head of Studies, Foresight and Cooperation Division', level: 1, orderIndex: 1 },
     { serviceCode: 'DEPC-CEPS', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule des Études, de la Prospective et des Statistiques', titleEn: 'Head of Studies, Foresight and Statistics Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'DEPC-CEPS', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'DEPC-CEPS', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'DEPC-CC', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de la Coopération', titleEn: 'Head of Cooperation Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'DEPC-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'DEPC-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     // DAG
     { serviceCode: 'DAG', positionType: 'DIRECTEUR', title: 'Directeur des Affaires Générales', titleEn: 'Director of General Affairs', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-CSIGIPES', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Gestion du Projet SIGIPES', titleEn: 'Head of SIGIPES Project Unit', level: 1, orderIndex: 1 },
-    { serviceCode: 'DAG-CSIGIPES', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études Assistant', titleEn: 'Assistant Research Officer', level: 2, orderIndex: 2 },
+    { serviceCode: 'DAG-CSIGIPES', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'DAG-SDPSP', positionType: 'SOUS_DIRECTEUR', title: 'Sous-Directeur du Personnel, de la Solde et des Pensions', titleEn: 'Sub-Director of Staff, Payroll and Pensions', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-SDPSP-SPFC', positionType: 'CHEF_SERVICE', title: 'Chef du Service du Personnel et de la Formation Continue', titleEn: 'Head of Staff and Continuing Education Service', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-SDPSP-SPFC-BPF', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau du Personnel Fonctionnaire', titleEn: 'Head of Civil Servant Bureau', level: 1, orderIndex: 1 },
@@ -518,7 +518,7 @@ async function seed() {
                 console.log(`   ... ${posCreated} new positions created`);
         }
         console.log(`   ✅ ${posCreated} new explicit positions created (${servicePositions.length - posCreated} already existed)`);
-        // 3. Add STAFF position for EVERY service
+        // 3. Add STAFF position for EVERY service – title 'Cadre' (not 'Agent de service')
         console.log('👥 Adding STAFF positions for all services...');
         const allServices = await prisma.minefopService.findMany();
         let staffCreated = 0;
@@ -532,8 +532,8 @@ async function seed() {
                         }
                     },
                     update: {
-                        title: 'Agent de service',
-                        titleEn: 'Staff',
+                        title: 'Cadre',
+                        titleEn: 'Officer',
                         level: 2,
                         orderIndex: 999,
                         isActive: true,
@@ -541,8 +541,8 @@ async function seed() {
                     create: {
                         serviceCode: service.code,
                         positionType: 'STAFF',
-                        title: 'Agent de service',
-                        titleEn: 'Staff',
+                        title: 'Cadre',
+                        titleEn: 'Officer',
                         level: 2,
                         orderIndex: 999,
                         isActive: true,
