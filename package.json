@@ -1,12 +1,6 @@
 {
-  "name": "dsmo-backend",
-  "version": "1.0.0",
-  "description": "DSMO digital declaration backend",
-  "engines": {
-    "node": "20.x"
-  },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node prisma/seed.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -17,37 +11,5 @@
     "prisma:migrate": "node node_modules/prisma/build/index.js migrate dev",
     "prisma:migrate:deploy": "node node_modules/prisma/build/index.js migrate deploy",
     "postinstall": "npm run prisma:generate"
-  },
-  "dependencies": {
-    "@nestjs/common": "^10.0.0",
-    "@nestjs/core": "^10.0.0",
-    "@nestjs/jwt": "^10.0.0",
-    "@nestjs/passport": "^10.0.0",
-    "@nestjs/platform-express": "^10.0.0",
-    "@prisma/client": "^5.22.0",
-    "@supabase/supabase-js": "^2.102.1",
-    "bcrypt": "^5.1.0",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.4",
-    "nodemailer": "^8.0.4",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
-    "passport-local": "^1.0.0",
-    "pdfkit": "^0.18.0",
-    "prisma": "^5.22.0",
-    "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.8.0"
-  },
-  "devDependencies": {
-    "@nestjs/cli": "^10.0.0",
-    "@types/bcrypt": "^5.0.2",
-    "@types/express": "^4.17.25",
-    "@types/node": "^20.19.39",
-    "@types/nodemailer": "^8.0.0",
-    "@types/passport-jwt": "^4.0.1",
-    "@types/passport-local": "^1.0.38",
-    "@types/pdfkit": "^0.17.5",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.0.0"
   }
 }
