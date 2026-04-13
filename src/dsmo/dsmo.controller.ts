@@ -50,10 +50,6 @@ export class DsmoController {
     return this.dsmoService.getPendingDeclarations(req.user);
   }
 
-  /**
-   * Universal Validation Endpoint
-   * Used for both approval and rejection via a single boolean toggle.
-   */
   @Patch('declarations/:id/validate')
   @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL')
   async validate(
@@ -118,16 +114,16 @@ export class DsmoController {
     return this.notificationService.getNotifications(req.user.id, page, limit);
   }
 
-  // ===== ANALYTICS & INTELLIGENCE ENDPOINTS =====
+  // ===== ANALYTICS & INTELLIGENCE ENDPOINTS (with SUPER_ADMIN added) =====
 
   @Get('analytics/employment-by-region')
-  @Roles('CENTRAL')
+  @Roles('CENTRAL', 'SUPER_ADMIN')
   async getEmploymentByRegion(@Query('year', ParseIntPipe) year: number) {
     return this.analyticsService.getEmploymentByRegion(year);
   }
 
   @Get('analytics/gender-distribution')
-  @Roles('CENTRAL')
+  @Roles('CENTRAL', 'SUPER_ADMIN')
   async getGenderDistribution(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
@@ -136,7 +132,7 @@ export class DsmoController {
   }
 
   @Get('analytics/dashboard-summary')
-  @Roles('CENTRAL', 'REGIONAL')
+  @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
   async getDashboardSummary(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
@@ -144,10 +140,8 @@ export class DsmoController {
     return this.analyticsService.getDashboardSummary(year, region);
   }
 
-  // ===== NEW ANALYTICS ENDPOINTS (for Flutter dashboard) =====
-
   @Get('analytics/employment-trends')
-  @Roles('CENTRAL', 'REGIONAL')
+  @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
   async getEmploymentTrends(
     @Query('startYear', ParseIntPipe) startYear: number,
     @Query('endYear', ParseIntPipe) endYear: number,
@@ -157,7 +151,7 @@ export class DsmoController {
   }
 
   @Get('analytics/sector-distribution')
-  @Roles('CENTRAL', 'REGIONAL')
+  @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
   async getSectorDistribution(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
