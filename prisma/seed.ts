@@ -677,6 +677,22 @@ async function seed() {
             });
         }
 
+
+        // Add to testUsers array or create separately
+        await prisma.user.upsert({
+            where: { email: 'superadmin@minefop.cm' },
+            update: {},
+            create: {
+                email: 'superadmin@minefop.cm',
+                passwordHash: await bcrypt.hash('password123', 10),
+                firstName: 'Super',
+                lastName: 'Admin',
+                role: 'SUPER_ADMIN',
+                isActive: true,
+                status: 'ACTIVE',
+            },
+        });
+
         // 7. Create sample companies
         console.log('🏢 Creating sample companies...');
         const sectorList = await prisma.sector.findMany();

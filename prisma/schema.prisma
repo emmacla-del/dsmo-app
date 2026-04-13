@@ -14,6 +14,7 @@ enum UserRole {
   DIVISIONAL
   REGIONAL
   CENTRAL
+  SUPER_ADMIN 
 }
 
 enum DeclarationStatus {
