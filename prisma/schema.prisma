@@ -66,6 +66,13 @@ enum QuestionSection {
   FUTURE_PLANS
 }
 
+enum UserStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+
+}
+
 // ============ NEW ENUMS FOR MINEFOP HIERARCHY ============
 enum ServiceCategory {
   DECONCENTRE   // Regional/Departmental delegations
@@ -249,6 +256,7 @@ model User {
   subdivision       String?
   matricule         String?           // Government staff ID (DIVISIONAL, REGIONAL, CENTRAL only)
   poste             String?           // Job title / position (government only)
+    status UserStatus @default(PENDING_APPROVAL)
   
   // ✅ NEW: MINEFOP service and position mapping
   serviceCode       String?           // MINEFOP service (for government users)

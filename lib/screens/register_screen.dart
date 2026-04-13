@@ -451,6 +451,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           needsDept ? (_selectedDepartment?['name'] as String?) : null;
       final poste = _isMinefop ? _selectedPosition?.title : null;
 
+      // Register via authProvider (this also attempts to log in)
       await ref.read(authProvider.notifier).register(
             _email,
             _password,
@@ -464,11 +465,36 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             serviceCode: _isMinefop ? _selectedMinefopService?.code : null,
           );
 
-      final authState = ref.read(authProvider);
-      if (authState is AsyncError || authState.valueOrNull == null) return;
-
+      // Clear draft regardless of role
       await _clearDraft();
 
+      // For MINEFOP users, do NOT auto-login; show pending approval dialog and go back to login
+      if (_isMinefop && mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text('Inscription soumise'),
+            content: const Text(
+              'Votre demande d\'inscription a été soumise avec succès.\n'
+              'Un administrateur l\'examinera et vous recevrez un email une fois approuvée.\n\n'
+              'Vous pourrez vous connecter dès que votre compte sera activé.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // close dialog
+                  Navigator.popUntil(context, (route) => route.isFirst);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return; // Stop further processing (no company profile, no navigation)
+      }
+
+      // For companies, save company profile if needed
       if (_isCompany && mounted) {
         try {
           await ref.read(apiClientProvider).saveCompanyProfile({
@@ -490,6 +516,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           debugPrint('Company profile save failed: $e');
         }
       }
+      // For companies, the authProvider listener will redirect to home automatically.
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -530,7 +557,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<dynamic>>(authProvider, (_, next) {
-      if (next is AsyncData && next.value != null) {
+      if (next is AsyncData && next.value != null && !_isMinefop) {
+        // Only auto‑navigate for companies (MINEFOP users are handled manually)
         Navigator.pushReplacementNamed(context, '/home');
       }
     });
@@ -601,7 +629,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                             _positions = [];
                           });
                           _saveDraft(immediate: true);
-                          _advance(); // <-- ONLY ADDED LINE
+                          _advance();
                         },
                         scrollController: _stepScrollControllers[_kStepRole],
                       ),
@@ -680,7 +708,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                             _stepScrollControllers[_kStepCompanyInfo],
                       ),
                     ),
-                    // 3 – Service picker (MINEFOP) – NO extra SingleChildScrollView
+                    // 3 – Service picker (MINEFOP)
                     Visibility(
                       visible: _visibleSteps.contains(_kStepService),
                       maintainState: true,

@@ -1,8 +1,7 @@
 ﻿import { Injectable, BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-// ✅ Import error class directly from the client package
+import { Prisma, UserStatus } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
 
@@ -16,6 +15,10 @@ export class AuthService {
   async validateUser(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
+      // Only allow login if user is active and approved (for MINEFOP roles)
+      if (!user.isActive || user.status !== 'ACTIVE') {
+        return null;
+      }
       const { passwordHash, ...result } = user;
       return result;
     }
@@ -71,6 +74,7 @@ export class AuthService {
     }
 
     const hashed = await bcrypt.hash(password, 10);
+    const isMinefop = role !== 'COMPANY';
 
     try {
       const user = await this.prisma.user.create({
@@ -84,11 +88,16 @@ export class AuthService {
           department,
           matricule,
           poste,
-          ...(serviceCode ? { serviceCode } : {}),
+          serviceCode: serviceCode ?? null,
+          // MINEFOP users require admin approval
+          status: isMinefop ? 'PENDING_APPROVAL' : 'ACTIVE',
+          isActive: isMinefop ? false : true,
         },
       });
 
       const { passwordHash: _, ...result } = user;
+      // For MINEFOP, we still return a JWT but the user won't be able to log in until approved.
+      // This is fine; the login guard will reject them.
       return result;
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -131,7 +140,6 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, 10);
 
     try {
-      // ✅ Properly typed transaction client (tx)
       const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const user = await tx.user.create({
           data: {
@@ -142,6 +150,8 @@ export class AuthService {
             lastName: '',
             region: companyData.region,
             department: companyData.department,
+            status: 'ACTIVE',
+            isActive: true,
           },
         });
 
@@ -168,11 +178,55 @@ export class AuthService {
 
       return this.login(result.user);
     } catch (error: any) {
-      // ✅ Narrowing error type for safe code access
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Un utilisateur avec cet email ou ce numéro contribuable existe déjà');
       }
       throw error;
     }
+  }
+
+  // ========== ADMIN METHODS ==========
+
+  async getPendingMinefopUsers() {
+    return this.prisma.user.findMany({
+      where: {
+        role: { not: 'COMPANY' },
+        status: 'PENDING_APPROVAL',
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        matricule: true,
+        serviceCode: true,
+        createdAt: true,
+        role: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async approveUser(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    if (user.role === 'COMPANY') throw new BadRequestException('Les entreprises sont automatiquement approuvées');
+    if (user.status !== 'PENDING_APPROVAL') {
+      throw new BadRequestException('Cet utilisateur n\'est pas en attente d\'approbation');
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: { status: 'ACTIVE', isActive: true },
+    });
+  }
+
+  async rejectUser(id: string, reason?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    if (user.role === 'COMPANY') throw new BadRequestException('Les entreprises ne peuvent pas être rejetées');
+    return this.prisma.user.update({
+      where: { id },
+      data: { status: 'REJECTED', isActive: false },
+    });
   }
 }

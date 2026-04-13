@@ -1,7 +1,10 @@
 ﻿// src/auth/auth.controller.ts
-import { Controller, Post, Body, UseGuards, Request, ConflictException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, Patch, Param, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -39,10 +42,10 @@ export class AuthController {
         body.poste,
         body.serviceCode,
       );
-      // Return a JWT immediately so the client doesn't need a second login call
+      // Return a JWT immediately (companies only; MINEFOP users will be pending approval)
+      // For MINEFOP, we still return a JWT but the user won't be able to log in until approved.
       return this.authService.login(user);
     } catch (error) {
-      // Pass through NestJS exceptions
       throw error;
     }
   }
@@ -78,5 +81,28 @@ export class AuthController {
       socialCapital: body.socialCapital,
       contactName: body.contactName,
     });
+  }
+
+  // ===== ADMIN ENDPOINTS =====
+
+  @Get('pending-minefop')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  async getPendingMinefopUsers() {
+    return this.authService.getPendingMinefopUsers();
+  }
+
+  @Patch('approve-user/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  async approveUser(@Param('id') id: string) {
+    return this.authService.approveUser(id);
+  }
+
+  @Patch('reject-user/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  async rejectUser(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.authService.rejectUser(id, reason);
   }
 }

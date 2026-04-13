@@ -97,6 +97,9 @@ class ApiClient {
     required String role,
     String? region,
     String? department,
+    String? matricule,
+    String? poste,
+    String? serviceCode,
   }) async {
     try {
       final response = await dio.post('/auth/register', data: {
@@ -107,6 +110,9 @@ class ApiClient {
         'role': role,
         if (region != null) 'region': region,
         if (department != null) 'department': department,
+        if (matricule != null) 'matricule': matricule,
+        if (poste != null) 'poste': poste,
+        if (serviceCode != null) 'serviceCode': serviceCode,
       });
       return response.data;
     } on DioException catch (e) {
@@ -137,6 +143,37 @@ class ApiClient {
 
   Future<void> logout() async {
     await _clearToken();
+  }
+
+  // ========== ADMIN: PENDING MINEFOP USERS ==========
+
+  Future<List<dynamic>> getPendingMinefopUsers() async {
+    try {
+      final response = await dio.get('/auth/pending-minefop');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> approveUser(String userId) async {
+    try {
+      final response = await dio.patch('/auth/approve-user/$userId');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectUser(String userId,
+      {String? reason}) async {
+    try {
+      final response = await dio.patch('/auth/reject-user/$userId',
+          data: reason != null ? {'reason': reason} : null);
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
   }
 
   // ==================== LOCATION METHODS ====================
@@ -183,7 +220,8 @@ class ApiClient {
 
   // ==================== COMPANY METHODS ====================
 
-  Future<Map<String, dynamic>> saveCompanyProfile(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> saveCompanyProfile(
+      Map<String, dynamic> data) async {
     try {
       final response = await dio.post('/dsmo/company', data: data);
       return response.data as Map<String, dynamic>;
@@ -278,9 +316,14 @@ class ApiClient {
 
   // ==================== ANALYTICS METHODS ====================
 
-  Future<Map<String, dynamic>> getDashboardSummary() async {
+  Future<Map<String, dynamic>> getDashboardSummary(
+      {int? year, String? region}) async {
     try {
-      final response = await dio.get('/dsmo/analytics/dashboard-summary');
+      final query = <String, dynamic>{};
+      if (year != null) query['year'] = year;
+      if (region != null) query['region'] = region;
+      final response = await dio.get('/dsmo/analytics/dashboard-summary',
+          queryParameters: query);
       return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
