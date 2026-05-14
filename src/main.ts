@@ -1,4 +1,4 @@
-﻿import 'reflect-metadata';
+﻿// main.ts
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -6,25 +6,26 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Transforms plain JSON bodies into typed DTO instances, strips unknown fields,
-  // and runs all class-validator decorators (including @ValidateNested + @Type).
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,       // coerce JSON → DTO class instances
-      whitelist: true,       // strip fields not declared in DTOs (e.g. otherCountry)
-      forbidNonWhitelisted: false, // warn but don't reject — safer during rollout
-    }),
-  );
+  app.setGlobalPrefix('api'); // ← added
 
   app.enableCors({
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    credentials: false, // must be false when origin is '*'
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: false,
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      skipMissingProperties: true,
+    }),
+  );
+
   const port = process.env.PORT ?? 3000;
-  await app.listen(port, '0.0.0.0');
-  console.log(`Server running on port ${port}`);
+  await app.listen(port);
+  console.log(`🚀 Server running on http://localhost:${port}`);
 }
+
 bootstrap();

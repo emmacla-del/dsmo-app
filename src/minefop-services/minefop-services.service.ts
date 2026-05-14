@@ -1,19 +1,18 @@
-// src/minefop-services/minefop-services.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ServiceCategory, PositionType, UserRole } from '@prisma/client';
+import { $Enums } from '@prisma/client';
 import { CreateServiceDto, UpdateServiceDto, CreatePositionDto, UpdatePositionDto } from './dto';
 
 export interface ServiceNode {
   id: string;
   code: string;
-  category: ServiceCategory;
+  category: $Enums.ServiceCategory;
   level: number;
   parentCode: string | null;
   name: string;
   nameEn: string | null;
   acronym: string | null;
-  roleMapping: UserRole;
+  roleMapping: $Enums.UserRole;
   requiresRegion: boolean;
   requiresDepartment: boolean;
   orderIndex: number;
@@ -24,9 +23,7 @@ export interface ServiceNode {
 export class MinefopServicesService {
   constructor(private prisma: PrismaService) { }
 
-  // ==================== QUERY METHODS ====================
-
-  async findAll(category?: ServiceCategory) {
+  async findAll(category?: $Enums.ServiceCategory) {
     return this.prisma.minefopService.findMany({
       where: {
         isActive: true,
@@ -36,7 +33,7 @@ export class MinefopServicesService {
     });
   }
 
-  async findAllWithInactive(category?: ServiceCategory) {
+  async findAllWithInactive(category?: $Enums.ServiceCategory) {
     return this.prisma.minefopService.findMany({
       where: {
         ...(category && { category }),
@@ -45,7 +42,7 @@ export class MinefopServicesService {
     });
   }
 
-  async getRoots(category?: ServiceCategory) {
+  async getRoots(category?: $Enums.ServiceCategory) {
     return this.prisma.minefopService.findMany({
       where: {
         isActive: true,
@@ -63,7 +60,7 @@ export class MinefopServicesService {
     });
   }
 
-  async getTree(category?: ServiceCategory): Promise<ServiceNode[]> {
+  async getTree(category?: $Enums.ServiceCategory): Promise<ServiceNode[]> {
     const all = await this.prisma.minefopService.findMany({
       where: {
         isActive: true,
@@ -76,7 +73,22 @@ export class MinefopServicesService {
     const roots: ServiceNode[] = [];
 
     for (const s of all) {
-      map.set(s.code, { ...s, children: [] });
+      const node: ServiceNode = {
+        id: s.code,
+        code: s.code,
+        name: s.name,
+        nameEn: s.nameEn,
+        acronym: s.acronym,
+        category: s.category as $Enums.ServiceCategory,
+        level: s.level,
+        parentCode: s.parentCode,
+        roleMapping: s.roleMapping as $Enums.UserRole,
+        requiresRegion: s.requiresRegion,
+        requiresDepartment: s.requiresDepartment,
+        orderIndex: s.orderIndex,
+        children: [],
+      };
+      map.set(s.code, node);
     }
 
     for (const s of all) {
@@ -116,8 +128,11 @@ export class MinefopServicesService {
   }
 
   async getServiceById(id: string) {
-    const service = await this.prisma.minefopService.findUnique({
-      where: { id },
+    // FIX: Use 'code' as the unique identifier since MinefopService only has 'code' as @id
+    // Since id is a UUID, we need to find by id - but the model doesn't have an 'id' field
+    // Let's find by code instead or use a different approach
+    const service = await this.prisma.minefopService.findFirst({
+      where: { code: id },
       include: {
         children: {
           where: { isActive: true },
@@ -138,18 +153,16 @@ export class MinefopServicesService {
   }
 
   async getPositionsByService(serviceCode: string) {
-    const positions = await this.prisma.servicePosition.findMany({
+    return this.prisma.servicePosition.findMany({
       where: {
         serviceCode,
         isActive: true,
       },
       orderBy: { orderIndex: 'asc' },
     });
-
-    return positions;
   }
 
-  async getServicesByRole(role: UserRole) {
+  async getServicesByRole(role: $Enums.UserRole) {
     const services = await this.prisma.minefopService.findMany({
       where: {
         isActive: true,
@@ -175,8 +188,6 @@ export class MinefopServicesService {
     });
   }
 
-  // ==================== MUTATION METHODS ====================
-
   async createService(data: CreateServiceDto) {
     if (data.parentCode) {
       const parent = await this.prisma.minefopService.findUnique({
@@ -200,10 +211,10 @@ export class MinefopServicesService {
         name: data.name,
         nameEn: data.nameEn,
         acronym: data.acronym,
-        category: data.category,
+        category: data.category as $Enums.ServiceCategory,
         level: data.level,
         parentCode: data.parentCode,
-        roleMapping: data.roleMapping,
+        roleMapping: data.roleMapping as $Enums.UserRole,
         requiresRegion: data.requiresRegion ?? false,
         requiresDepartment: data.requiresDepartment ?? false,
         orderIndex: data.orderIndex,
@@ -235,10 +246,10 @@ export class MinefopServicesService {
         name: data.name,
         nameEn: data.nameEn,
         acronym: data.acronym,
-        category: data.category,
+        category: data.category as $Enums.ServiceCategory,
         level: data.level,
         parentCode: data.parentCode,
-        roleMapping: data.roleMapping,
+        roleMapping: data.roleMapping as $Enums.UserRole,
         requiresRegion: data.requiresRegion,
         requiresDepartment: data.requiresDepartment,
         orderIndex: data.orderIndex,
@@ -301,8 +312,6 @@ export class MinefopServicesService {
     });
   }
 
-  // ==================== POSITION METHODS ====================
-
   async createPosition(data: CreatePositionDto) {
     const service = await this.prisma.minefopService.findUnique({
       where: { code: data.serviceCode },
@@ -329,7 +338,7 @@ export class MinefopServicesService {
         serviceCode: data.serviceCode,
         positionType: data.positionType,
         title: data.title,
-        titleEn: data.titleEn,
+        titleEn: data.titleEn ?? '',  // FIX: empty string instead of null
         level: data.level,
         orderIndex: data.orderIndex,
         isActive: true,
@@ -350,7 +359,7 @@ export class MinefopServicesService {
       data: {
         positionType: data.positionType,
         title: data.title,
-        titleEn: data.titleEn,
+        titleEn: data.titleEn ?? '',
         level: data.level,
         orderIndex: data.orderIndex,
         isActive: data.isActive,
@@ -371,8 +380,6 @@ export class MinefopServicesService {
       data: { isActive: false },
     });
   }
-
-  // ==================== UTILITY METHODS ====================
 
   async getServiceHierarchyPath(code: string): Promise<{ path: string[]; breadcrumb: string[] }> {
     const path: string[] = [];

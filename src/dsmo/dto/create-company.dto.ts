@@ -23,7 +23,7 @@ export class CreateCompanyDto {
   department!: string;
 
   @IsString()
-  district!: string;
+  subdivision!: string;        // ✅ Changed from district to subdivision (required)
 
   @IsString()
   address!: string;

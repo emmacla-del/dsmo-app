@@ -20,7 +20,7 @@ import {
 } from '@nestjs/common';
 import { MinefopServicesService } from './minefop-services.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ServiceCategory, UserRole, PositionType } from '@prisma/client';
+import { $Enums } from '@prisma/client';
 import { CreateServiceDto, UpdateServiceDto, CreatePositionDto, UpdatePositionDto } from './dto';
 
 @Controller('minefop-services')
@@ -35,8 +35,8 @@ export class MinefopServicesController {
      */
     @Get()
     async findAll(
-        @Query('category', new ParseEnumPipe(ServiceCategory, { optional: true }))
-        category?: ServiceCategory
+        @Query('category', new ParseEnumPipe($Enums.ServiceCategory, { optional: true }))
+        category?: $Enums.ServiceCategory
     ) {
         return this.svc.findAll(category);
     }
@@ -46,8 +46,8 @@ export class MinefopServicesController {
      */
     @Get('tree')
     async getTree(
-        @Query('category', new ParseEnumPipe(ServiceCategory, { optional: true }))
-        category?: ServiceCategory
+        @Query('category', new ParseEnumPipe($Enums.ServiceCategory, { optional: true }))
+        category?: $Enums.ServiceCategory
     ) {
         return this.svc.getTree(category);
     }
@@ -57,8 +57,8 @@ export class MinefopServicesController {
      */
     @Get('roots')
     async getRoots(
-        @Query('category', new ParseEnumPipe(ServiceCategory, { optional: true }))
-        category?: ServiceCategory
+        @Query('category', new ParseEnumPipe($Enums.ServiceCategory, { optional: true }))
+        category?: $Enums.ServiceCategory
     ) {
         return this.svc.getRoots(category);
     }
@@ -154,8 +154,8 @@ export class MinefopServicesController {
      */
     @Get('role/:role')
     async getByRole(
-        @Param('role', new ParseEnumPipe(UserRole))
-        role: UserRole
+        @Param('role', new ParseEnumPipe($Enums.UserRole))
+        role: $Enums.UserRole
     ) {
         return this.svc.getServicesByRole(role);
     }

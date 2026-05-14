@@ -1,49 +1,9 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
-const bcrypt = __importStar(require("bcrypt"));
+const bcrypt = require("bcrypt");
 const prisma = new client_1.PrismaClient();
-// ============================================================
-// MINEFOP SERVICE HIERARCHY (Décret 2012)
-// – For CENTRALE category: roots are the main directorates
-// – For DECONCENTRE: roots are DREFOP, DDEFOP
-// – For RATTACHE: roots are ONEFOP, PIAASI, COSUP
-// ============================================================
 const minefopServices = [
-    // ─── CENTRALE – roots (level 1, parentCode = null) ─────────────────────────
     { code: 'CAB', category: 'CENTRALE', level: 1, parentCode: null, name: 'Cabinet du Ministre', acronym: 'CAB', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 1 },
     { code: 'IGS', category: 'CENTRALE', level: 1, parentCode: null, name: 'Inspection Générale des Services', acronym: 'IGS', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 2 },
     { code: 'IGF', category: 'CENTRALE', level: 1, parentCode: null, name: 'Inspection Générale des Formations', acronym: 'IGF', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 3 },
@@ -53,10 +13,8 @@ const minefopServices = [
     { code: 'DFOP', category: 'CENTRALE', level: 1, parentCode: null, name: "Direction de la Formation et de l'Orientation Professionnelles", acronym: 'DFOP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 7 },
     { code: 'DEPC', category: 'CENTRALE', level: 1, parentCode: null, name: "Division des Études, de la Prospective et de la Coopération", acronym: 'DEPC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 8 },
     { code: 'DAG', category: 'CENTRALE', level: 1, parentCode: null, name: 'Direction des Affaires Générales', acronym: 'DAG', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 9 },
-    // ─── CENTRALE – children under CAB (level 2) ───────────────────────────────
     { code: 'SP', category: 'CENTRALE', level: 2, parentCode: 'CAB', name: 'Secrétariat Particulier', acronym: 'SP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 10 },
     { code: 'CT', category: 'CENTRALE', level: 2, parentCode: 'CAB', name: 'Conseillers Techniques', acronym: 'CT', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 11 },
-    // ─── CENTRALE – children under SG (Secrétariat Général) ────────────────────
     { code: 'SG-DAJ', category: 'CENTRALE', level: 2, parentCode: 'SG', name: 'Division des Affaires Juridiques', acronym: 'DAJ', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 20 },
     { code: 'SG-DAJ-CER', category: 'CENTRALE', level: 3, parentCode: 'SG-DAJ', name: 'Cellule des Études et de la Réglementation', acronym: 'CER', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 21 },
     { code: 'SG-DAJ-CC', category: 'CENTRALE', level: 3, parentCode: 'SG-DAJ', name: 'Cellule du Contentieux', acronym: 'CC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 22 },
@@ -80,10 +38,8 @@ const minefopServices = [
     { code: 'SG-SDDA-SA', category: 'CENTRALE', level: 3, parentCode: 'SG-SDDA', name: "Service des Archives", acronym: 'SA', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 40 },
     { code: 'SG-SDDA-SA-BC', category: 'CENTRALE', level: 4, parentCode: 'SG-SDDA-SA', name: "Bureau du Classement", acronym: 'BC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 41 },
     { code: 'SG-SDDA-SA-BN', category: 'CENTRALE', level: 4, parentCode: 'SG-SDDA-SA', name: "Bureau de la Numérique", acronym: 'BN', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 42 },
-    // ─── CENTRALE – children under DPE ────────────────────────────────────────
     { code: 'DPE-CPDE', category: 'CENTRALE', level: 2, parentCode: 'DPE', name: "Cellule de la Planification et du Développement de l'Emploi", acronym: 'CPDE', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 50 },
     { code: 'DPE-CLC', category: 'CENTRALE', level: 2, parentCode: 'DPE', name: "Cellule de Lutte contre le Chômage", acronym: 'CLC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 51 },
-    // ─── CENTRALE – children under DRMO ───────────────────────────────────────
     { code: 'DRMO-SDRPMO', category: 'CENTRALE', level: 2, parentCode: 'DRMO', name: "Sous-Direction de la Réglementation et de la Planification de la Main-d'Oeuvre", acronym: 'SDRPMO', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 60 },
     { code: 'DRMO-SDRPMO-SRMO', category: 'CENTRALE', level: 3, parentCode: 'DRMO-SDRPMO', name: "Service de la Réglementation de la Main-d'Oeuvre", acronym: 'SRMO', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 61 },
     { code: 'DRMO-SDRPMO-SSPMO', category: 'CENTRALE', level: 3, parentCode: 'DRMO-SDRPMO', name: "Service des Statistiques et de la Planification de la Main-d'Oeuvre", acronym: 'SSPMO', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 62 },
@@ -99,7 +55,6 @@ const minefopServices = [
     { code: 'DRMO-SDIA-SAC', category: 'CENTRALE', level: 3, parentCode: 'DRMO-SDIA', name: "Service des Agréments et des Contrôles", acronym: 'SAC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 72 },
     { code: 'DRMO-SDIA-SAC-BA', category: 'CENTRALE', level: 4, parentCode: 'DRMO-SDIA-SAC', name: "Bureau des Agréments", acronym: 'BA', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 73 },
     { code: 'DRMO-SDIA-SAC-BSA', category: 'CENTRALE', level: 4, parentCode: 'DRMO-SDIA-SAC', name: "Bureau du Suivi des Activités", acronym: 'BSA', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 74 },
-    // ─── CENTRALE – children under DFOP ───────────────────────────────────────
     { code: 'DFOP-SDGSF', category: 'CENTRALE', level: 2, parentCode: 'DFOP', name: "Sous-Direction de la Gestion des Structures de Formation", acronym: 'SDGSF', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 80 },
     { code: 'DFOP-SDGSF-SSFPA', category: 'CENTRALE', level: 3, parentCode: 'DFOP-SDGSF', name: "Service de Suivi des Structures de Formation Professionnelle", acronym: 'SSFPA', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 81 },
     { code: 'DFOP-SDGSF-SSFPA-BSSPP', category: 'CENTRALE', level: 4, parentCode: 'DFOP-SDGSF-SSFPA', name: "Bureau du Suivi des Structures Publiques et Privées de Formation Professionnelle", acronym: 'BSSPP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 82 },
@@ -121,10 +76,8 @@ const minefopServices = [
     { code: 'DFOP-SDOP-SRP', category: 'CENTRALE', level: 3, parentCode: 'DFOP-SDOP', name: "Service du Reclassement Professionnel", acronym: 'SRP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 98 },
     { code: 'DFOP-SDOP-SRP-BRP', category: 'CENTRALE', level: 4, parentCode: 'DFOP-SDOP-SRP', name: "Bureau de la Réglementation Psychotechnique", acronym: 'BRP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 99 },
     { code: 'DFOP-SDOP-SRP-BARP', category: 'CENTRALE', level: 4, parentCode: 'DFOP-SDOP-SRP', name: "Bureau des Agréments et des Reclassements Professionnels", acronym: 'BARP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 100 },
-    // ─── CENTRALE – children under DEPC ────────────────────────────────────────
     { code: 'DEPC-CEPS', category: 'CENTRALE', level: 2, parentCode: 'DEPC', name: "Cellule des Études, de la Prospective et des Statistiques", acronym: 'CEPS', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 110 },
     { code: 'DEPC-CC', category: 'CENTRALE', level: 2, parentCode: 'DEPC', name: "Cellule de la Coopération", acronym: 'CC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 111 },
-    // ─── CENTRALE – children under DAG ─────────────────────────────────────────
     { code: 'DAG-CSIGIPES', category: 'CENTRALE', level: 2, parentCode: 'DAG', name: "Cellule de Gestion du Projet SIGIPES", acronym: 'CSIGIPES', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 120 },
     { code: 'DAG-SDPSP', category: 'CENTRALE', level: 2, parentCode: 'DAG', name: "Sous-Direction du Personnel, de la Solde et des Pensions", acronym: 'SDPSP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 121 },
     { code: 'DAG-SDPSP-SPFC', category: 'CENTRALE', level: 3, parentCode: 'DAG-SDPSP', name: "Service du Personnel et de la Formation Continue", acronym: 'SPFC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 122 },
@@ -146,10 +99,8 @@ const minefopServices = [
     { code: 'DAG-SDIEM', category: 'CENTRALE', level: 2, parentCode: 'DAG', name: "Sous-Direction des Infrastructures, des Equipements et de la Maintenance", acronym: 'SDIEM', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 138 },
     { code: 'DAG-SDIEM-SNC', category: 'CENTRALE', level: 3, parentCode: 'DAG-SDIEM', name: "Service des Normes de Construction", acronym: 'SNC', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 139 },
     { code: 'DAG-SDIEM-SMEM', category: 'CENTRALE', level: 3, parentCode: 'DAG-SDIEM', name: "Service du Matériel, des Equipements et de la Maintenance", acronym: 'SMEM', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 140 },
-    // ─── DECONCENTRE – roots ───────────────────────────────────────────────────
     { code: 'DREFOP', category: 'DECONCENTRE', level: 1, parentCode: null, name: "Délégation Régionale de l'Emploi et de la Formation Professionnelle", acronym: 'DREFOP', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 100 },
     { code: 'DDEFOP', category: 'DECONCENTRE', level: 1, parentCode: null, name: "Délégation Départementale de l'Emploi et de la Formation Professionnelle", acronym: 'DDEFOP', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 101 },
-    // ─── DECONCENTRE – children under DREFOP ───────────────────────────────────
     { code: 'DREFOP-IRF', category: 'DECONCENTRE', level: 2, parentCode: 'DREFOP', name: "Inspection Régionale des Formations", acronym: 'IRF', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 200 },
     { code: 'DREFOP-SPE', category: 'DECONCENTRE', level: 2, parentCode: 'DREFOP', name: "Service de la Promotion de l'Emploi", acronym: 'SPE', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 201 },
     { code: 'DREFOP-SPE-BAE', category: 'DECONCENTRE', level: 3, parentCode: 'DREFOP-SPE', name: "Bureau de la promotion de l'auto emploi", acronym: 'BAE', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 202 },
@@ -166,7 +117,6 @@ const minefopServices = [
     { code: 'DREFOP-SAF-BP', category: 'DECONCENTRE', level: 3, parentCode: 'DREFOP-SAF', name: "Bureau du personnel", acronym: 'BP', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 213 },
     { code: 'DREFOP-SAF-BBM', category: 'DECONCENTRE', level: 3, parentCode: 'DREFOP-SAF', name: "Bureau du budget et du Matériel", acronym: 'BBM', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 214 },
     { code: 'DREFOP-BACL', category: 'DECONCENTRE', level: 2, parentCode: 'DREFOP', name: "Bureau de l'Accueil, du Courrier et de Liaison", acronym: 'BACL', roleMapping: 'REGIONAL', requiresRegion: true, requiresDepartment: false, orderIndex: 215 },
-    // ─── DECONCENTRE – children under DDEFOP ───────────────────────────────────
     { code: 'DDEFOP-SLSCJ', category: 'DECONCENTRE', level: 2, parentCode: 'DDEFOP', name: "Service de lutte contre le sous-emploi et le chômage des jeunes", acronym: 'SLSCJ', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 300 },
     { code: 'DDEFOP-SLSCJ-BES', category: 'DECONCENTRE', level: 3, parentCode: 'DDEFOP-SLSCJ', name: "Bureau de l'emploi Salarié", acronym: 'BES', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 301 },
     { code: 'DDEFOP-SLSCJ-BEI', category: 'DECONCENTRE', level: 3, parentCode: 'DDEFOP-SLSCJ', name: "Bureau de l'emploi Indépendant", acronym: 'BEI', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 302 },
@@ -177,27 +127,20 @@ const minefopServices = [
     { code: 'DDEFOP-SFOE-BGSF', category: 'DECONCENTRE', level: 3, parentCode: 'DDEFOP-SFOE', name: "Bureau de la gestion des structures de formation", acronym: 'BGSF', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 307 },
     { code: 'DDEFOP-BAG', category: 'DECONCENTRE', level: 2, parentCode: 'DDEFOP', name: "Bureau des Affaires Générales", acronym: 'BAG', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 308 },
     { code: 'DDEFOP-BACL', category: 'DECONCENTRE', level: 2, parentCode: 'DDEFOP', name: "Bureau de l'Accueil, du Courrier et de Liaison", acronym: 'BACL', roleMapping: 'DIVISIONAL', requiresRegion: true, requiresDepartment: true, orderIndex: 309 },
-    // ─── RATTACHE – roots ──────────────────────────────────────────────────────
     { code: 'ONEFOP', category: 'RATTACHE', level: 1, parentCode: null, name: "Observatoire National de l'Emploi et de la Formation Professionnelle", acronym: 'ONEFOP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 400 },
     { code: 'PIAASI', category: 'RATTACHE', level: 1, parentCode: null, name: "Projet Intégré d'Appui aux Acteurs du Secteur Informel", acronym: 'PIAASI', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 401 },
     { code: 'COSUP', category: 'RATTACHE', level: 1, parentCode: null, name: "Centres d'Organisation Scolaire, Universitaire et Professionnelle", acronym: 'COSUP', roleMapping: 'CENTRAL', requiresRegion: false, requiresDepartment: false, orderIndex: 402 },
 ];
-// ============================================================
-// EXPLICIT SERVICE POSITIONS (from the decree, corrected titles)
-// ============================================================
 const servicePositions = [
-    // Cabinet du Ministre
     { serviceCode: 'CAB', positionType: 'MINISTRE', title: 'Ministre de l\'Emploi et de la Formation Professionnelle', titleEn: 'Minister of Employment and Vocational Training', level: 1, orderIndex: 1 },
     { serviceCode: 'SP', positionType: 'CHEF_SECRETARIAT_PARTICULIER', title: 'Secrétaire Particulier du Ministre', titleEn: 'Private Secretary to the Minister', level: 1, orderIndex: 1 },
     { serviceCode: 'CT', positionType: 'CONSEILLER_TECHNIQUE', title: 'Conseiller Technique du Ministre', titleEn: 'Technical Adviser to the Minister', level: 1, orderIndex: 1 },
     { serviceCode: 'CT', positionType: 'CONSEILLER_TECHNIQUE', title: 'Conseiller Technique du Ministre (N°2)', titleEn: 'Technical Adviser to the Minister (No. 2)', level: 1, orderIndex: 2 },
-    // Inspections
     { serviceCode: 'IGS', positionType: 'INSPECTEUR_GENERAL_SERVICES', title: 'Inspecteur Général des Services', titleEn: 'Inspector General of Services', level: 1, orderIndex: 1 },
     { serviceCode: 'IGS', positionType: 'INSPECTEUR_SERVICES', title: 'Inspecteur des Services', titleEn: 'Inspector of Services', level: 2, orderIndex: 2 },
     { serviceCode: 'IGF', positionType: 'INSPECTEUR_GENERAL_FORMATIONS', title: 'Inspecteur Général des Formations', titleEn: 'Inspector General of Training', level: 1, orderIndex: 1 },
     { serviceCode: 'IGF', positionType: 'INSPECTEUR_FORMATIONS', title: 'Inspecteur des Formations', titleEn: 'Inspector of Training', level: 2, orderIndex: 2 },
     { serviceCode: 'IGF', positionType: 'ATTACHE_PEDAGOGIQUE', title: 'Attaché Pédagogique', titleEn: 'Pedagogical Attaché', level: 3, orderIndex: 3 },
-    // Secrétariat Général
     { serviceCode: 'SG', positionType: 'SECRETAIRE_GENERAL', title: 'Secrétaire Général', titleEn: 'Secretary General', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-DAJ', positionType: 'CHEF_DIVISION', title: 'Chef de la Division des Affaires Juridiques', titleEn: 'Head of Legal Affairs Division', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-DAJ-CER', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule des Études et de la Réglementation', titleEn: 'Head of Studies and Regulation Unit', level: 1, orderIndex: 1 },
@@ -229,13 +172,11 @@ const servicePositions = [
     { serviceCode: 'SG-SDDA-SA', positionType: 'CHEF_SERVICE', title: 'Chef du Service des Archives', titleEn: 'Head of Archives Service', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-SDDA-SA-BC', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau du Classement', titleEn: 'Head of Classification Bureau', level: 1, orderIndex: 1 },
     { serviceCode: 'SG-SDDA-SA-BN', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de la Numérique', titleEn: 'Head of Digital Bureau', level: 1, orderIndex: 1 },
-    // DPE
     { serviceCode: 'DPE', positionType: 'CHEF_DIVISION', title: 'Chef de la Division de la Promotion de l\'Emploi', titleEn: 'Head of Employment Promotion Division', level: 1, orderIndex: 1 },
     { serviceCode: 'DPE-CPDE', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de la Planification et du Développement de l\'Emploi', titleEn: 'Head of Employment Planning and Development Unit', level: 1, orderIndex: 1 },
     { serviceCode: 'DPE-CPDE', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'DPE-CLC', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Lutte contre le Chômage', titleEn: 'Head of Anti-Unemployment Unit', level: 1, orderIndex: 1 },
     { serviceCode: 'DPE-CLC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
-    // DRMO
     { serviceCode: 'DRMO', positionType: 'DIRECTEUR', title: 'Directeur de la Régulation de la Main-d\'Oeuvre', titleEn: 'Director of Labour Regulation', level: 1, orderIndex: 1 },
     { serviceCode: 'DRMO-SDRPMO', positionType: 'SOUS_DIRECTEUR', title: 'Sous-Directeur de la Réglementation et de la Planification de la Main-d\'Oeuvre', titleEn: 'Sub-Director of Labour Regulation and Planning', level: 1, orderIndex: 1 },
     { serviceCode: 'DRMO-SDRPMO-SRMO', positionType: 'CHEF_SERVICE', title: 'Chef du Service de la Réglementation de la Main-d\'Oeuvre', titleEn: 'Head of Labour Regulation Service', level: 1, orderIndex: 1 },
@@ -252,7 +193,6 @@ const servicePositions = [
     { serviceCode: 'DRMO-SDIA-SAC', positionType: 'CHEF_SERVICE', title: 'Chef du Service des Agréments et des Contrôles', titleEn: 'Head of Approvals and Controls Service', level: 1, orderIndex: 1 },
     { serviceCode: 'DRMO-SDIA-SAC-BA', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau des Agréments', titleEn: 'Head of Approvals Bureau', level: 1, orderIndex: 1 },
     { serviceCode: 'DRMO-SDIA-SAC-BSA', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau du Suivi des Activités', titleEn: 'Head of Activity Monitoring Bureau', level: 1, orderIndex: 1 },
-    // DFOP
     { serviceCode: 'DFOP', positionType: 'DIRECTEUR', title: 'Directeur de la Formation et de l\'Orientation Professionnelles', titleEn: 'Director of Vocational Training and Guidance', level: 1, orderIndex: 1 },
     { serviceCode: 'DFOP-SDGSF', positionType: 'SOUS_DIRECTEUR', title: 'Sous-Directeur de la Gestion des Structures de Formation', titleEn: 'Sub-Director of Training Structures Management', level: 1, orderIndex: 1 },
     { serviceCode: 'DFOP-SDGSF-SSFPA', positionType: 'CHEF_SERVICE', title: 'Chef du Service de Suivi des Structures de Formation Professionnelle', titleEn: 'Head of VTC Monitoring Service', level: 1, orderIndex: 1 },
@@ -275,13 +215,11 @@ const servicePositions = [
     { serviceCode: 'DFOP-SDOP-SRP', positionType: 'CHEF_SERVICE', title: 'Chef du Service du Reclassement Professionnel', titleEn: 'Head of Professional Reclassification Service', level: 1, orderIndex: 1 },
     { serviceCode: 'DFOP-SDOP-SRP-BRP', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de la Réglementation Psychotechnique', titleEn: 'Head of Psychotechnical Regulation Bureau', level: 1, orderIndex: 1 },
     { serviceCode: 'DFOP-SDOP-SRP-BARP', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau des Agréments et des Reclassements Professionnels', titleEn: 'Head of Approvals and Professional Reclassification Bureau', level: 1, orderIndex: 1 },
-    // DEPC
     { serviceCode: 'DEPC', positionType: 'CHEF_DIVISION', title: 'Chef de la Division des Études, de la Prospective et de la Coopération', titleEn: 'Head of Studies, Foresight and Cooperation Division', level: 1, orderIndex: 1 },
     { serviceCode: 'DEPC-CEPS', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule des Études, de la Prospective et des Statistiques', titleEn: 'Head of Studies, Foresight and Statistics Unit', level: 1, orderIndex: 1 },
     { serviceCode: 'DEPC-CEPS', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
     { serviceCode: 'DEPC-CC', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de la Coopération', titleEn: 'Head of Cooperation Unit', level: 1, orderIndex: 1 },
     { serviceCode: 'DEPC-CC', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
-    // DAG
     { serviceCode: 'DAG', positionType: 'DIRECTEUR', title: 'Directeur des Affaires Générales', titleEn: 'Director of General Affairs', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-CSIGIPES', positionType: 'CHEF_CELLULE', title: 'Chef de la Cellule de Gestion du Projet SIGIPES', titleEn: 'Head of SIGIPES Project Unit', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-CSIGIPES', positionType: 'CHARGE_ETUDES_ASSISTANT', title: 'Chargé d\'Études', titleEn: 'Research Officer', level: 2, orderIndex: 2 },
@@ -305,7 +243,6 @@ const servicePositions = [
     { serviceCode: 'DAG-SDIEM', positionType: 'SOUS_DIRECTEUR', title: 'Sous-Directeur des Infrastructures, des Equipements et de la Maintenance', titleEn: 'Sub-Director of Infrastructure, Equipment and Maintenance', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-SDIEM-SNC', positionType: 'CHEF_SERVICE', title: 'Chef du Service des Normes de Construction', titleEn: 'Head of Construction Standards Service', level: 1, orderIndex: 1 },
     { serviceCode: 'DAG-SDIEM-SMEM', positionType: 'CHEF_SERVICE', title: 'Chef du Service du Matériel, des Equipements et de la Maintenance', titleEn: 'Head of Equipment and Maintenance Service', level: 1, orderIndex: 1 },
-    // DREFOP
     { serviceCode: 'DREFOP', positionType: 'DELEGUE_REGIONAL', title: 'Délégué Régional de l\'Emploi et de la Formation Professionnelle', titleEn: 'Regional Delegate of Employment and Vocational Training', level: 1, orderIndex: 1 },
     { serviceCode: 'DREFOP-IRF', positionType: 'INSPECTEUR_REGIONAL_FORMATIONS', title: 'Inspecteur Régional des Formations', titleEn: 'Regional Training Inspector', level: 1, orderIndex: 1 },
     { serviceCode: 'DREFOP-IRF', positionType: 'CONSEILLER_REGIONAL_FORMATIONS', title: 'Conseiller Régional des Formations', titleEn: 'Regional Training Adviser', level: 2, orderIndex: 2 },
@@ -324,7 +261,6 @@ const servicePositions = [
     { serviceCode: 'DREFOP-SAF-BP', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau du personnel', titleEn: 'Head of Staff Bureau', level: 1, orderIndex: 1 },
     { serviceCode: 'DREFOP-SAF-BBM', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau du budget et du Matériel', titleEn: 'Head of Budget and Equipment Bureau', level: 1, orderIndex: 1 },
     { serviceCode: 'DREFOP-BACL', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de l\'Accueil, du Courrier et de Liaison', titleEn: 'Head of Reception, Mail and Liaison Bureau', level: 1, orderIndex: 1 },
-    // DDEFOP
     { serviceCode: 'DDEFOP', positionType: 'DELEGUE_DEPARTEMENTAL', title: 'Délégué Départemental de l\'Emploi et de la Formation Professionnelle', titleEn: 'Divisional Delegate of Employment and Vocational Training', level: 1, orderIndex: 1 },
     { serviceCode: 'DDEFOP-SLSCJ', positionType: 'CHEF_SERVICE', title: 'Chef du Service de lutte contre le sous-emploi et le chômage des jeunes', titleEn: 'Head of Underemployment and Youth Unemployment Service', level: 1, orderIndex: 1 },
     { serviceCode: 'DDEFOP-SLSCJ-BES', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de l\'emploi Salarié', titleEn: 'Head of Salaried Employment Bureau', level: 1, orderIndex: 1 },
@@ -337,9 +273,6 @@ const servicePositions = [
     { serviceCode: 'DDEFOP-BAG', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau des Affaires Générales', titleEn: 'Head of General Affairs Bureau', level: 1, orderIndex: 1 },
     { serviceCode: 'DDEFOP-BACL', positionType: 'CHEF_BUREAU', title: 'Chef du Bureau de l\'Accueil, du Courrier et de Liaison', titleEn: 'Head of Reception, Mail and Liaison Bureau', level: 1, orderIndex: 1 },
 ];
-// ============================================================
-// CAMEROON REGIONS, DEPARTMENTS AND SUBDIVISIONS (full)
-// ============================================================
 const regionsData = [
     {
         name: 'Adamaoua', departments: [
@@ -440,9 +373,6 @@ const regionsData = [
         ]
     },
 ];
-// ============================================================
-// SEED FUNCTION
-// ============================================================
 async function seed() {
     console.log('🌱 Starting MINEFOP seed (Décret 2012) – Directorates as roots for CENTRALE\n');
     async function withRetry(fn, retries = 3, delay = 2000) {
@@ -472,7 +402,6 @@ async function seed() {
             'REGIONAL': client_1.UserRole.REGIONAL,
             'DIVISIONAL': client_1.UserRole.DIVISIONAL,
         };
-        // 1. Create services
         console.log('🏛️  Creating MINEFOP service hierarchy...');
         let serviceCount = 0;
         for (const s of minefopServices) {
@@ -501,7 +430,6 @@ async function seed() {
                 console.log(`   ... ${serviceCount}/${minefopServices.length} services processed`);
         }
         console.log(`   ✅ ${serviceCount} new services created (${minefopServices.length - serviceCount} already existed)`);
-        // 2. Create explicit positions
         console.log('👔 Creating explicit service positions...');
         let posCreated = 0;
         for (const pos of servicePositions) {
@@ -518,7 +446,6 @@ async function seed() {
                 console.log(`   ... ${posCreated} new positions created`);
         }
         console.log(`   ✅ ${posCreated} new explicit positions created (${servicePositions.length - posCreated} already existed)`);
-        // 3. Add STAFF position for EVERY service – title 'Cadre' (not 'Agent de service')
         console.log('👥 Adding STAFF positions for all services...');
         const allServices = await prisma.minefopService.findMany();
         let staffCreated = 0;
@@ -552,7 +479,6 @@ async function seed() {
             });
         }
         console.log(`   ✅ ${staffCreated} STAFF positions created/updated`);
-        // 4. Create sectors
         console.log('🏭 Creating socioprofessional sectors...');
         const sectors = [
             { name: 'Agriculture, élevage, sylviculture et pêche', category: 'Primary' },
@@ -586,7 +512,6 @@ async function seed() {
             });
         }
         console.log(`   ✅ ${sectorCreated} new sectors (${sectors.length - sectorCreated} already existed)`);
-        // 5. Create regions, departments, subdivisions
         console.log('🗺️  Creating locations...');
         const regionMap = new Map();
         for (const r of regionsData) {
@@ -644,7 +569,6 @@ async function seed() {
         const totalDepts = regionsData.reduce((acc, r) => acc + r.departments.length, 0);
         const totalSubdivs = regionsData.reduce((acc, r) => acc + r.departments.reduce((a, d) => a + d.subdivisions.length, 0), 0);
         console.log(`   ✅ ${deptCreated}/${totalDepts} departments created, ${subdivCreated}/${totalSubdivs} subdivisions created`);
-        // 6. Create test users
         console.log('👥 Creating test users...');
         const testUsers = [
             { email: 'minister@minefop.cm', firstName: 'Paul', lastName: 'Biya', role: client_1.UserRole.CENTRAL, serviceCode: 'CAB', positionType: client_1.PositionType.MINISTRE, region: null, department: null },
@@ -675,7 +599,19 @@ async function seed() {
                 }
             });
         }
-        // 7. Create sample companies
+        await prisma.user.upsert({
+            where: { email: 'superadmin@minefop.cm' },
+            update: {},
+            create: {
+                email: 'superadmin@minefop.cm',
+                passwordHash: await bcrypt.hash('password123', 10),
+                firstName: 'Super',
+                lastName: 'Admin',
+                role: 'SUPER_ADMIN',
+                isActive: true,
+                status: 'ACTIVE',
+            },
+        });
         console.log('🏢 Creating sample companies...');
         const sectorList = await prisma.sector.findMany();
         const regionList = await prisma.region.findMany();
@@ -708,7 +644,7 @@ async function seed() {
                             secondaryActivity: 'General Services',
                             region: region.name,
                             department: department.name,
-                            district: department.subdivisions?.[0]?.name || 'Unknown',
+                            subdivision: department.subdivisions?.[0]?.name || 'Unknown',
                             address: `P.O. Box ${1000 + i}, ${region.name}`,
                             taxNumber: `CT${String(i).padStart(6, '0')}`,
                             cnpsNumber: `CN${String(i).padStart(6, '0')}`,
@@ -744,3 +680,4 @@ async function seed() {
     }
 }
 seed();
+//# sourceMappingURL=seed.js.map

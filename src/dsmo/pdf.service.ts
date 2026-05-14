@@ -31,7 +31,7 @@ interface Company {
   secondaryActivity?: string;
   region: string;
   department: string;
-  district: string;
+  subdivision: string;
   address: string;
   fax?: string;
   taxNumber: string;
@@ -98,7 +98,7 @@ const LABELS = {
     secondaryActivity: 'Activite secondaire',
     region: 'Region',
     department: 'Departement',
-    district: 'Arrondissement',
+    subdivision: 'Arrondissement',
     address: 'Adresse',
     fax: 'Fax',
     taxNumber: 'No Contribuable',
@@ -172,7 +172,7 @@ const LABELS = {
     secondaryActivity: 'Secondary Activity',
     region: 'Region',
     department: 'Division',
-    district: 'Sub-Division',
+    subdivision: 'Sub-Division',
     address: 'Address',
     fax: 'Fax',
     taxNumber: 'Taxpayer Number',
@@ -451,28 +451,28 @@ export class PdfService {
     // otherwise fall back to the static labels.
     const frDirLine = processingService
       ? [
-          processingService.parentName
-            ? (processingService.parentAcronym
-                ? `${processingService.parentAcronym} — ${processingService.parentName}`
-                : processingService.parentName)
-            : null,
-          processingService.acronym
-            ? `${processingService.acronym} — ${processingService.name}`
-            : processingService.name,
-        ].filter(Boolean).join('\n')
+        processingService.parentName
+          ? (processingService.parentAcronym
+            ? `${processingService.parentAcronym} — ${processingService.parentName}`
+            : processingService.parentName)
+          : null,
+        processingService.acronym
+          ? `${processingService.acronym} — ${processingService.name}`
+          : processingService.name,
+      ].filter(Boolean).join('\n')
       : `${fr.direction}\n${fr.service}`;
 
     const enDirLine = processingService
       ? [
-          processingService.parentNameEn || processingService.parentName
-            ? (processingService.parentAcronym
-                ? `${processingService.parentAcronym} — ${processingService.parentNameEn ?? processingService.parentName}`
-                : (processingService.parentNameEn ?? processingService.parentName))
-            : null,
-          processingService.acronym
-            ? `${processingService.acronym} — ${processingService.nameEn ?? processingService.name}`
-            : (processingService.nameEn ?? processingService.name),
-        ].filter(Boolean).join('\n')
+        processingService.parentNameEn || processingService.parentName
+          ? (processingService.parentAcronym
+            ? `${processingService.parentAcronym} — ${processingService.parentNameEn ?? processingService.parentName}`
+            : (processingService.parentNameEn ?? processingService.parentName))
+          : null,
+        processingService.acronym
+          ? `${processingService.acronym} — ${processingService.nameEn ?? processingService.name}`
+          : (processingService.nameEn ?? processingService.name),
+      ].filter(Boolean).join('\n')
       : `${en.direction}\n${en.service}`;
 
     doc.font('Helvetica-Bold').fontSize(9).fillColor('black');
@@ -555,7 +555,7 @@ export class PdfService {
     row2(`${lang.budgetYear} : ${data.year}`, `${lang.fillingDate} : ${data.fillingDate ?? ''}`);
     row2(`${lang.companyName} : ${data.company.name}`, `${lang.parentCompany} : ${data.company.parentCompany ?? ''}`);
     row2(`${lang.mainActivity} : ${data.company.mainActivity}`, `${lang.secondaryActivity} : ${data.company.secondaryActivity ?? ''}`);
-    row3(`${lang.region} : ${data.company.region}`, `${lang.department} : ${data.company.department}`, `${lang.district} : ${data.company.district}`);
+    row3(`${lang.region} : ${data.company.region}`, `${lang.department} : ${data.company.department}`, `${lang.subdivision} : ${data.company.subdivision}`);
 
     const aW = w * 0.50, fW = w * 0.14, nW = w - aW - fW;
     doc.rect(x, y, aW, rH).stroke();

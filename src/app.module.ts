@@ -5,6 +5,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { LocationsModule } from './locations/locations.module';
 import { SectorsModule } from './sectors/sectors.module';
 import { MinefopServicesModule } from './minefop-services/minefop-services.module';
+import { QuestionnairesModule } from './questionnaires/questionnaires.module';
+import { OnefopAnalyticsModule } from './analytics/onefop-analytics.module';
+import { PdfModule } from './pdf/pdf.module';
 
 @Module({
   imports: [
@@ -13,7 +16,10 @@ import { MinefopServicesModule } from './minefop-services/minefop-services.modul
     PrismaModule,
     LocationsModule,
     SectorsModule,
-    MinefopServicesModule,
+    MinefopServicesModule,  // ← COMMENT THIS OUT
+    QuestionnairesModule,
+    OnefopAnalyticsModule,
+    PdfModule,
   ],
 })
 export class AppModule { }

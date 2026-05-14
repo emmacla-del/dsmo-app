@@ -99,6 +99,11 @@ export class SubmitDeclarationDto {
   employees!: CreateEmployeeDto[]; // Added ! to resolve TS2564
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  employeeCount?: number;
+
+  @IsOptional()
   @IsIn(['fr', 'en'])
   language?: 'fr' | 'en' = 'fr';
 }

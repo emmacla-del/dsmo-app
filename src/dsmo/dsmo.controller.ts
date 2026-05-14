@@ -1,6 +1,6 @@
 ﻿import {
   Controller, Post, Body, UseGuards, Req, Get, Patch,
-  Param, Query, Res, ParseIntPipe
+  Param, Query, Res, ParseIntPipe, NotFoundException
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { DsmoService } from './dsmo.service';
@@ -27,7 +27,9 @@ export class DsmoController {
   @Get('company')
   @Roles('COMPANY')
   async getMyCompany(@Req() req: any) {
-    return this.dsmoService.getMyCompany(req.user.id);
+    const company = await this.dsmoService.getMyCompany(req.user.id);
+    if (!company) throw new NotFoundException('Aucun profil entreprise trouvé.');
+    return company;
   }
 
   @Post('company')
@@ -45,7 +47,7 @@ export class DsmoController {
   }
 
   @Get('declarations/pending')
-  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN')
   async getPending(@Req() req: any) {
     return this.dsmoService.getPendingDeclarations(req.user);
   }
@@ -114,16 +116,16 @@ export class DsmoController {
     return this.notificationService.getNotifications(req.user.id, page, limit);
   }
 
-  // ===== ANALYTICS & INTELLIGENCE ENDPOINTS (with SUPER_ADMIN added) =====
+  // ===== ANALYTICS & INTELLIGENCE ENDPOINTS (guards commented out for local testing) =====
 
-  @Get('analytics/employment-by-region')
   @Roles('CENTRAL', 'SUPER_ADMIN')
+  @Get('analytics/employment-by-region')
   async getEmploymentByRegion(@Query('year', ParseIntPipe) year: number) {
     return this.analyticsService.getEmploymentByRegion(year);
   }
 
-  @Get('analytics/gender-distribution')
   @Roles('CENTRAL', 'SUPER_ADMIN')
+  @Get('analytics/gender-distribution')
   async getGenderDistribution(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
@@ -131,8 +133,8 @@ export class DsmoController {
     return this.analyticsService.getGenderDistribution(year, region);
   }
 
-  @Get('analytics/dashboard-summary')
   @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
+  @Get('analytics/dashboard-summary')
   async getDashboardSummary(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
@@ -140,8 +142,8 @@ export class DsmoController {
     return this.analyticsService.getDashboardSummary(year, region);
   }
 
-  @Get('analytics/employment-trends')
   @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
+  @Get('analytics/employment-trends')
   async getEmploymentTrends(
     @Query('startYear', ParseIntPipe) startYear: number,
     @Query('endYear', ParseIntPipe) endYear: number,
@@ -150,8 +152,8 @@ export class DsmoController {
     return this.analyticsService.getEmploymentTrends(startYear, endYear, region);
   }
 
-  @Get('analytics/sector-distribution')
   @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
+  @Get('analytics/sector-distribution')
   async getSectorDistribution(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,

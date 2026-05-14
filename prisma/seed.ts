@@ -1,13 +1,14 @@
-import { PrismaClient, UserRole, ServiceCategory, PositionType } from '@prisma/client';
+// prisma/seed.ts
+// FULLY UPDATED - Matches current schema (OnefopEntityType, OnefopSubmission, submissionId)
+import { PrismaClient, UserRole, ServiceCategory, OnefopEntityType, OnefopStatus } from '@prisma/client';
+
+
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 // ============================================================
 // MINEFOP SERVICE HIERARCHY (Décret 2012)
-// – For CENTRALE category: roots are the main directorates
-// – For DECONCENTRE: roots are DREFOP, DDEFOP
-// – For RATTACHE: roots are ONEFOP, PIAASI, COSUP
 // ============================================================
 const minefopServices = [
     // ─── CENTRALE – roots (level 1, parentCode = null) ─────────────────────────
@@ -162,11 +163,11 @@ const minefopServices = [
 ];
 
 // ============================================================
-// EXPLICIT SERVICE POSITIONS (from the decree, corrected titles)
+// EXPLICIT SERVICE POSITIONS
 // ============================================================
 const servicePositions: {
     serviceCode: string;
-    positionType: PositionType;
+    positionType: string;
     title: string;
     titleEn: string;
     level: number;
@@ -334,7 +335,7 @@ const servicePositions: {
     ];
 
 // ============================================================
-// CAMEROON REGIONS, DEPARTMENTS AND SUBDIVISIONS (full)
+// CAMEROON REGIONS, DEPARTMENTS AND SUBDIVISIONS
 // ============================================================
 const regionsData = [
     {
@@ -438,10 +439,120 @@ const regionsData = [
 ];
 
 // ============================================================
+// ONEFOP TEST DATA (UPDATED to match schema)
+// ============================================================
+const onefopTestSubmissions = [
+    {
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.APPROVED,
+        surveyYear: 2025,
+        rawData: {
+            companyName: "AgroSARL",
+            legalStatus: 2,
+            permanentWorkers: 45,
+            vacancies: 5,
+            region: "Littoral",
+            department: "Wouri",
+            subdivision: "Douala I",
+            businessSector: 1,
+            companySize: 2,
+            skillsNeeds: [
+                { description: "Agronomie", male: 3, female: 2, total: 5 },
+                { description: "Gestion de ferme", male: 2, female: 1, total: 3 },
+            ],
+            trainingNeeds: [
+                { domain: "Irrigation moderne", male: 2, female: 0, total: 2 },
+            ],
+            recruitmentsPermanent: {
+                executives: {
+                    male: { age15_24: 0, age25_34: 1, age35plus: 0, total: 1 },
+                    female: { age15_24: 0, age25_34: 0, age35plus: 0, total: 0 },
+                    total: { age15_24: 0, age25_34: 1, age35plus: 0, total: 1 }
+                },
+                foremen: {
+                    male: { age15_24: 0, age25_34: 2, age35plus: 1, total: 3 },
+                    female: { age15_24: 1, age25_34: 0, age35plus: 0, total: 1 },
+                    total: { age15_24: 1, age25_34: 2, age35plus: 1, total: 4 }
+                },
+                fieldWorkers: {
+                    male: { age15_24: 5, age25_34: 10, age35plus: 2, total: 17 },
+                    female: { age15_24: 3, age25_34: 4, age35plus: 1, total: 8 },
+                    total: { age15_24: 8, age25_34: 14, age35plus: 3, total: 25 }
+                },
+                total: {
+                    male: { age15_24: 5, age25_34: 13, age35plus: 3, total: 21 },
+                    female: { age15_24: 4, age25_34: 4, age35plus: 1, total: 9 },
+                    total: { age15_24: 9, age25_34: 17, age35plus: 4, total: 30 }
+                }
+            },
+            recruitmentsTemporary: {
+                total: { total: { total: 8 } }
+            },
+            jobApplications: {
+                total: { male: { total: 45 }, female: { total: 30 }, total: { total: 75 } }
+            },
+            disabledRecruitments: {
+                total: { total: { total: 2 } }
+            },
+            vulnerableRecruitments: {
+                internalDisplaced: { total: { total: 1 } },
+                refugees: { total: { total: 1 } },
+                orphans: { total: { total: 0 } },
+                total: { total: { total: 2 } }
+            },
+            departures: {
+                total: {
+                    dismissals: { total: 1 },
+                    resignations: { total: 2 },
+                    retirements: { total: 0 },
+                    others: { total: 0 },
+                    ensemble: { total: 3 }
+                }
+            }
+        }
+    },
+    {
+        formType: OnefopEntityType.COOPERATIVE,
+        status: OnefopStatus.APPROVED,
+        surveyYear: 2025,
+        rawData: {
+            cooperativeName: "Coopérative des Planteurs",
+            headOffice: "Bafoussam",
+            yearOfCreation: 2010,
+            cooperativeType: 2,
+            region: "Ouest",
+            department: "Mifi",
+            businessSector: 1,
+            skillsNeeds: [
+                { description: "Commercialisation", male: 4, female: 2, total: 6 }
+            ],
+            recruitmentsPermanent: { total: { total: { total: 12 } } }
+        }
+    },
+    {
+        formType: OnefopEntityType.ONG,
+        status: OnefopStatus.APPROVED,
+        surveyYear: 2025,
+        rawData: {
+            ongName: "Action pour l'Environnement",
+            headOffice: "Yaoundé",
+            yearOfCreation: 2005,
+            mainMission: "Protection de la biodiversité",
+            region: "Centre",
+            businessSector: 3,
+            skillsNeeds: [
+                { description: "Gestion de projet", male: 3, female: 3, total: 6 }
+            ],
+            recruitmentsPermanent: { total: { total: { total: 8 } } }
+        }
+    }
+];
+
+// ============================================================
 // SEED FUNCTION
 // ============================================================
 async function seed() {
-    console.log('🌱 Starting MINEFOP seed (Décret 2012) – Directorates as roots for CENTRALE\n');
+    console.log('🌱 Starting MINEFOP + ONEFOP seed\n');
 
     async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
         for (let i = 0; i < retries; i++) {
@@ -460,6 +571,10 @@ async function seed() {
     }
 
     try {
+        // ─────────────────────────────────────────────────────────────────
+        // 1. Create MINEFOP services
+        // ─────────────────────────────────────────────────────────────────
+        console.log('🏛️  Creating MINEFOP service hierarchy...');
         const categoryMap: Record<string, ServiceCategory> = {
             'CENTRALE': ServiceCategory.CENTRALE,
             'DECONCENTRE': ServiceCategory.DECONCENTRE,
@@ -470,9 +585,6 @@ async function seed() {
             'REGIONAL': UserRole.REGIONAL,
             'DIVISIONAL': UserRole.DIVISIONAL,
         };
-
-        // 1. Create services
-        console.log('🏛️  Creating MINEFOP service hierarchy...');
         let serviceCount = 0;
         for (const s of minefopServices) {
             await withRetry(async () => {
@@ -517,7 +629,7 @@ async function seed() {
         }
         console.log(`   ✅ ${posCreated} new explicit positions created (${servicePositions.length - posCreated} already existed)`);
 
-        // 3. Add STAFF position for EVERY service – title 'Cadre' (not 'Agent de service')
+        // 3. Add STAFF positions
         console.log('👥 Adding STAFF positions for all services...');
         const allServices = await prisma.minefopService.findMany();
         let staffCreated = 0;
@@ -587,7 +699,7 @@ async function seed() {
         }
         console.log(`   ✅ ${sectorCreated} new sectors (${sectors.length - sectorCreated} already existed)`);
 
-        // 5. Create regions, departments, subdivisions
+        // 5. Create locations (regions, departments, subdivisions)
         console.log('🗺️  Creating locations...');
         const regionMap = new Map<string, string>();
         for (const r of regionsData) {
@@ -640,7 +752,6 @@ async function seed() {
                 }
             }
         }
-
         const totalDepts = regionsData.reduce((acc, r) => acc + r.departments.length, 0);
         const totalSubdivs = regionsData.reduce((acc, r) => acc + r.departments.reduce((a, d) => a + d.subdivisions.length, 0), 0);
         console.log(`   ✅ ${deptCreated}/${totalDepts} departments created, ${subdivCreated}/${totalSubdivs} subdivisions created`);
@@ -648,11 +759,11 @@ async function seed() {
         // 6. Create test users
         console.log('👥 Creating test users...');
         const testUsers = [
-            { email: 'minister@minefop.cm', firstName: 'Paul', lastName: 'Biya', role: UserRole.CENTRAL, serviceCode: 'CAB', positionType: PositionType.MINISTRE, region: null, department: null },
-            { email: 'regional.centre@minefop.cm', firstName: 'Jean', lastName: 'Nkuéta', role: UserRole.REGIONAL, region: 'Centre', department: null, serviceCode: 'DREFOP', positionType: PositionType.DELEGUE_REGIONAL },
-            { email: 'divisional.mfoundi@minefop.cm', firstName: 'Marie', lastName: 'Ebanda', role: UserRole.DIVISIONAL, region: 'Centre', department: 'Mfoundi', serviceCode: 'DDEFOP', positionType: PositionType.DELEGUE_DEPARTEMENTAL },
+            { email: 'minister@minefop.cm', firstName: 'Paul', lastName: 'Biya', role: UserRole.CENTRAL, serviceCode: 'CAB', positionType: 'MINISTRE', region: null, department: null },
+            { email: 'regional.centre@minefop.cm', firstName: 'Jean', lastName: 'Nkuéta', role: UserRole.REGIONAL, region: 'Centre', department: null, serviceCode: 'DREFOP', positionType: 'DELEGUE_REGIONAL' },
+            { email: 'divisional.mfoundi@minefop.cm', firstName: 'Marie', lastName: 'Ebanda', role: UserRole.DIVISIONAL, region: 'Centre', department: 'Mfoundi', serviceCode: 'DDEFOP', positionType: 'DELEGUE_DEPARTEMENTAL' },
+            { email: 'superadmin@minefop.cm', firstName: 'Super', lastName: 'Admin', role: UserRole.SUPER_ADMIN, region: null, department: null, serviceCode: null, positionType: null },
         ];
-
         for (const userData of testUsers) {
             await withRetry(async () => {
                 const exists = await prisma.user.findUnique({ where: { email: userData.email } });
@@ -668,6 +779,8 @@ async function seed() {
                             department: userData.department,
                             serviceCode: userData.serviceCode,
                             positionType: userData.positionType,
+                            status: 'ACTIVE',
+                            isActive: true,
                         },
                     });
                     console.log(`   ✅ Created user: ${userData.email}`);
@@ -676,22 +789,6 @@ async function seed() {
                 }
             });
         }
-
-
-        // Add to testUsers array or create separately
-        await prisma.user.upsert({
-            where: { email: 'superadmin@minefop.cm' },
-            update: {},
-            create: {
-                email: 'superadmin@minefop.cm',
-                passwordHash: await bcrypt.hash('password123', 10),
-                firstName: 'Super',
-                lastName: 'Admin',
-                role: 'SUPER_ADMIN',
-                isActive: true,
-                status: 'ACTIVE',
-            },
-        });
 
         // 7. Create sample companies
         console.log('🏢 Creating sample companies...');
@@ -718,6 +815,8 @@ async function seed() {
                             role: UserRole.COMPANY,
                             region: region.name,
                             department: department.name,
+                            status: 'ACTIVE',
+                            isActive: true,
                         },
                     });
 
@@ -729,7 +828,7 @@ async function seed() {
                             secondaryActivity: 'General Services',
                             region: region.name,
                             department: department.name,
-                            district: department.subdivisions?.[0]?.name || 'Unknown',
+                            subdivision: department.subdivisions?.[0]?.name || 'Unknown',
                             address: `P.O. Box ${1000 + i}, ${region.name}`,
                             taxNumber: `CT${String(i).padStart(6, '0')}`,
                             cnpsNumber: `CN${String(i).padStart(6, '0')}`,
@@ -747,6 +846,153 @@ async function seed() {
         }
         console.log(`   ✅ ${companyCreated} new companies created`);
 
+        // ─────────────────────────────────────────────────────────────────
+        // 8. Seed ONEFOP submissions (UPDATED to use onefopSubmission)
+        // ─────────────────────────────────────────────────────────────────
+        console.log('📋 Seeding ONEFOP test submissions...');
+        let submissionCreated = 0;
+        for (const q of onefopTestSubmissions) {
+            await withRetry(async () => {
+                let exists = false;
+                if (q.formType === OnefopEntityType.ENTREPRISE) {
+                    exists = !!(await prisma.onefopSubmission.findFirst({
+                        where: {
+                            surveyYear: q.surveyYear,
+                            formType: q.formType,
+                            rawData: { path: ['companyName'], equals: q.rawData.companyName }
+                        }
+                    }));
+                } else if (q.formType === OnefopEntityType.COOPERATIVE) {
+                    exists = !!(await prisma.onefopSubmission.findFirst({
+                        where: {
+                            surveyYear: q.surveyYear,
+                            formType: q.formType,
+                            rawData: { path: ['cooperativeName'], equals: q.rawData.cooperativeName }
+                        }
+                    }));
+                } else {
+                    exists = !!(await prisma.onefopSubmission.findFirst({
+                        where: {
+                            surveyYear: q.surveyYear,
+                            formType: q.formType,
+                            rawData: { path: ['ongName'], equals: q.rawData.ongName }
+                        }
+                    }));
+                }
+                if (!exists) {
+                    await prisma.onefopSubmission.create({ data: q as any });
+                    submissionCreated++;
+                }
+            });
+        }
+        console.log(`   ✅ ${submissionCreated} new ONEFOP submissions created (${onefopTestSubmissions.length - submissionCreated} already existed)`);
+
+        // Flatten recruitments into fact table (UPDATED to use submissionId)
+        console.log('🔁 Flattening ONEFOP recruitments into fact table...');
+        const approvedSubmissions = await prisma.onefopSubmission.findMany({ where: { status: 'APPROVED' } });
+        let factCreated = 0;
+        for (const sub of approvedSubmissions) {
+            const raw = sub.rawData as any;
+            const year = sub.surveyYear;
+            const region = raw.region;
+            const department = raw.department;
+            const subdivision = raw.subdivision;
+            const businessSector = raw.businessSector;
+            const companySize = raw.companySize;
+
+            const flattenRecruitment = (table: any, recruitmentType: string) => {
+                if (!table) return [];
+                const rows: any[] = [];
+                for (const csp of ['executives', 'foremen', 'fieldWorkers']) {
+                    const cspData = table[csp];
+                    if (!cspData) continue;
+                    for (const gender of ['male', 'female']) {
+                        const genderData = cspData[gender];
+                        if (!genderData) continue;
+                        for (const [ageKey, ageGroup] of [['age15_24', '15_24'], ['age25_34', '25_34'], ['age35plus', '35plus']]) {
+                            const count = genderData[ageKey] ?? 0;
+                            if (count > 0) {
+                                rows.push({
+                                    submissionId: sub.id,
+                                    year,
+                                    region,
+                                    department,
+                                    subdivision,
+                                    businessSector,
+                                    companySize,
+                                    csp,
+                                    gender,
+                                    ageGroup,
+                                    count,
+                                    recruitmentType,
+                                });
+                            }
+                        }
+                    }
+                }
+                return rows;
+            };
+
+            const permanentRows = flattenRecruitment(raw.recruitmentsPermanent, 'permanent');
+            const temporaryRows = flattenRecruitment(raw.recruitmentsTemporary, 'temporary');
+            const allRows = [...permanentRows, ...temporaryRows];
+
+            for (const row of allRows) {
+                await withRetry(async () => {
+                    const existing = await prisma.onefopFactRecruitment.findFirst({
+                        where: {
+                            submissionId: row.submissionId,
+                            csp: row.csp,
+                            gender: row.gender,
+                            ageGroup: row.ageGroup,
+                            recruitmentType: row.recruitmentType,
+                        }
+                    });
+                    if (!existing) {
+                        await prisma.onefopFactRecruitment.create({ data: row });
+                        factCreated++;
+                    }
+                });
+            }
+        }
+        console.log(`   ✅ ${factCreated} fact recruitment records created`);
+
+        // Flatten skill needs (UPDATED to use submissionId)
+        console.log('📊 Flattening ONEFOP skill needs...');
+        let skillCreated = 0;
+        for (const sub of approvedSubmissions) {
+            const raw = sub.rawData as any;
+            const skills = raw.skillsNeeds || [];
+            for (const skill of skills) {
+                if (!skill.description) continue;
+                await withRetry(async () => {
+                    const exists = await prisma.onefopFactSkillNeed.findFirst({
+                        where: {
+                            submissionId: sub.id,
+                            skillDescription: skill.description,
+                        }
+                    });
+                    if (!exists) {
+                        await prisma.onefopFactSkillNeed.create({
+                            data: {
+                                submissionId: sub.id,
+                                year: sub.surveyYear,
+                                region: raw.region,
+                                department: raw.department,
+                                subdivision: raw.subdivision,
+                                businessSector: raw.businessSector,
+                                companySize: raw.companySize,
+                                skillDescription: skill.description,
+                                count: skill.total ?? 1,
+                            }
+                        });
+                        skillCreated++;
+                    }
+                });
+            }
+        }
+        console.log(`   ✅ ${skillCreated} fact skill need records created`);
+
         console.log('\n✅ Seed completed!\n');
         console.log('📝 Credentials (all use password "password123"):');
         console.log('   MINISTER:      minister@minefop.cm');
@@ -754,7 +1000,9 @@ async function seed() {
         console.log('   DIVISIONAL:    divisional.mfoundi@minefop.cm');
         console.log('   COMPANY:       company1@example.cm ... company20@example.cm');
         console.log(`\n🏛️  Services: ${serviceCount} new | Positions: ${posCreated} new + ${staffCreated} staff`);
-        console.log(`🗺️  Regions: ${regionsData.length}\n`);
+        console.log(`🗺️  Regions: ${regionsData.length}`);
+        console.log(`📋 ONEFOP submissions seeded: ${submissionCreated}`);
+        console.log(`🔁 ONEFOP fact recruitments: ${factCreated} | Skill needs: ${skillCreated}\n`);
 
     } catch (error) {
         console.error('❌ Seed error:', error);

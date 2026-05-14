@@ -1,4 +1,5 @@
-﻿import {
+﻿// src/dsmo/dsmo.service.ts
+import {
   Injectable,
   BadRequestException,
   ConflictException,
@@ -64,24 +65,27 @@ export class DsmoService {
     return this.prisma.company.findUnique({ where: { userId } });
   }
 
+  // ✅ FIXED: saveCompanyProfile - ensures subdivision is never undefined
   async saveCompanyProfile(userId: string, dto: any) {
+    const subdivisionValue = dto.subdivision ?? dto.department ?? 'Non spécifié';
+
     const data = {
       name: dto.name,
       taxNumber: dto.taxNumber,
       mainActivity: dto.mainActivity,
       region: dto.region,
       department: dto.department,
-      // district is optional at registration; default to department name until filled via declaration
-      district: dto.district ?? dto.department,
+      subdivision: subdivisionValue,
       address: dto.address,
       parentCompany: dto.parentCompany,
       secondaryActivity: dto.secondaryActivity,
       cnpsNumber: dto.cnpsNumber,
       fax: dto.fax,
       socialCapital: dto.socialCapital,
-      // Workforce fields stay at 0 until the first declaration is submitted
+      ...(dto.entityType ? { entityType: dto.entityType as any } : {}),
       totalEmployees: 0,
     };
+
     try {
       const company = await this.prisma.company.upsert({
         where: { userId },
@@ -98,7 +102,10 @@ export class DsmoService {
     }
   }
 
+  // ✅ FIXED: createOrUpdateCompany - ensures subdivision is never undefined
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
+    const subdivisionValue = dto.subdivision ?? 'Non spécifié';
+
     const companyData = {
       name: dto.name,
       parentCompany: dto.parentCompany,
@@ -106,7 +113,7 @@ export class DsmoService {
       secondaryActivity: dto.secondaryActivity,
       region: dto.region,
       department: dto.department,
-      district: dto.district,
+      subdivision: subdivisionValue,
       address: dto.address,
       taxNumber: dto.taxNumber,
       cnpsNumber: dto.cnpsNumber,
@@ -115,6 +122,8 @@ export class DsmoService {
       menCount: dto.menCount,
       womenCount: dto.womenCount,
       lastYearTotal: dto.lastYearTotal,
+      lastYearMenCount: dto.lastYearMenCount,
+      lastYearWomenCount: dto.lastYearWomenCount,
     };
 
     try {
@@ -184,6 +193,8 @@ export class DsmoService {
       this.prisma.qualitativeQuestion.create({
         data: {
           declarationId: declaration.id,
+          questionType: 'QUALITATIVE',   // ✅ FIXED: required field added
+          section: 'GENERAL',            // ✅ FIXED: required field added
           questionText: 'Informations qualitatives DSMO',
           ...dto.qualitative,
         },
@@ -348,16 +359,6 @@ export class DsmoService {
     });
   }
 
-  /**
-   * ✅ FIXED: Returns a signed Supabase URL for the requested PDF copy.
-   *
-   * Problem: Old declarations were submitted before the Supabase migration,
-   * so their PDFs never got uploaded. getSignedUrl() then throws
-   * "Object not found" → 400 error in Flutter.
-   *
-   * Fix: Check if the file exists first. If missing, regenerate all 3 copies
-   * and upload them to Supabase, then return a fresh signed URL.
-   */
   async getPdfPath(declarationId: string, userId: string, copy: number): Promise<string> {
     const decl = await this.getDeclarationWithAccess(userId, declarationId);
 
@@ -365,23 +366,17 @@ export class DsmoService {
       throw new NotFoundException('PDF non disponible — numéro de suivi introuvable.');
     }
 
-    // ✅ Check if file exists in Supabase Storage before requesting signed URL
     const exists = await this.pdfService.pdfExists(decl.qrCode, decl.year, copy);
 
     if (!exists) {
-      // ✅ Regenerate & upload all 3 copies — silent recovery, no 404
       console.log(`[PDF] Missing: ${decl.qrCode} copy ${copy} — regenerating...`);
       await this._regeneratePdfs(decl);
       console.log(`[PDF] Regenerated: ${decl.qrCode}`);
     }
 
-    // ✅ Return fresh signed URL (valid 7 days)
     return this.pdfService.getSignedUrl(decl.qrCode, decl.year, copy);
   }
 
-  /**
-   * Rebuilds PdfData from DB and uploads all 3 copies to Supabase Storage.
-   */
   private async _regeneratePdfs(decl: any): Promise<void> {
     const q = decl.qualitativeQuestions?.[0];
 
@@ -408,7 +403,7 @@ export class DsmoService {
         mainActivity: decl.company.mainActivity,
         region: decl.company.region,
         department: decl.company.department,
-        district: decl.company.district,
+        subdivision: decl.company.subdivision,
         address: decl.company.address,
         taxNumber: decl.company.taxNumber,
         totalEmployees: decl.company.totalEmployees,

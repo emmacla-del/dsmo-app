@@ -1,13 +1,13 @@
-import { IsString, IsEnum, IsOptional, IsInt, Min, Max, Length } from 'class-validator';
-import { PositionType } from '@prisma/client';
+import { IsString, IsOptional, IsInt, Min, Max, Length } from 'class-validator';
 
 export class CreatePositionDto {
   @IsString()
   @Length(2, 50)
   serviceCode!: string;
 
-  @IsEnum(PositionType)
-  positionType!: PositionType;
+  @IsString()
+  @Length(2, 50)
+  positionType!: string;  // Changed from enum to string
 
   @IsString()
   @Length(2, 200)

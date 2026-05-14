@@ -46,4 +46,12 @@ export class RegisterCompanyProfileDto {
   @Min(0)
   @Type(() => Number)
   socialCapital?: number;
+
+  @IsOptional()
+  @IsString()
+  subdivision?: string;
+
+  @IsOptional()
+  @IsString()
+  entityType?: string;
 }

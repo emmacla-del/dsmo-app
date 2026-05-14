@@ -1,5 +1,4 @@
-﻿// src/auth/auth.controller.ts
-import { Controller, Post, Body, UseGuards, Request, Get, Patch, Param, BadRequestException } from '@nestjs/common';
+﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -42,8 +41,9 @@ export class AuthController {
         body.poste,
         body.serviceCode,
       );
-      // Return a JWT immediately (companies only; MINEFOP users will be pending approval)
-      // For MINEFOP, we still return a JWT but the user won't be able to log in until approved.
+      if (body.role !== 'COMPANY') {
+        return { message: "Inscription reçue. Votre compte est en attente d'approbation par un administrateur." };
+      }
       return this.authService.login(user);
     } catch (error) {
       throw error;
@@ -60,27 +60,65 @@ export class AuthController {
     secondaryActivity?: string;
     region: string;
     department: string;
-    district: string;
+    subdivision: string;
     address: string;
     taxNumber: string;
     cnpsNumber?: string;
     socialCapital?: number;
     contactName?: string;
+    entityType?: string;
+    // New fields
+    area?: string;
+    sectorId?: string;
+    phone?: string;
+    phone2?: string;
+    poBox?: string;
+    legalStatus?: string;
+    cooperativeType?: string;
+    ctdType?: string;
+    yearOfCreation?: string;
+    mainMission?: string;
+    registrationNumber?: string;
+    trainingDomains?: string;
+    respondentPhone?: string;
+    respondentPhone2?: string;
+    respondentFunction?: string;
   }) {
-    return this.authService.registerCompany(body.email, body.password, {
-      name: body.companyName,
-      parentCompany: body.parentCompany,
-      mainActivity: body.mainActivity,
-      secondaryActivity: body.secondaryActivity,
-      region: body.region,
-      department: body.department,
-      district: body.district,
-      address: body.address,
-      taxNumber: body.taxNumber,
-      cnpsNumber: body.cnpsNumber,
-      socialCapital: body.socialCapital,
-      contactName: body.contactName,
-    });
+    return this.authService.registerCompany(
+      body.email,
+      body.password,
+      {
+        name: body.companyName,
+        parentCompany: body.parentCompany,
+        mainActivity: body.mainActivity,
+        secondaryActivity: body.secondaryActivity,
+        region: body.region,
+        department: body.department,
+        subdivision: body.subdivision,
+        address: body.address,
+        taxNumber: body.taxNumber,
+        cnpsNumber: body.cnpsNumber,
+        socialCapital: body.socialCapital,
+        contactName: body.contactName,
+        entityType: body.entityType,
+        // New fields
+        area: body.area,
+        sectorId: body.sectorId,
+        phone: body.phone,
+        phone2: body.phone2,
+        poBox: body.poBox,
+        legalStatus: body.legalStatus,
+        cooperativeType: body.cooperativeType,
+        ctdType: body.ctdType,
+        yearOfCreation: body.yearOfCreation,
+        mainMission: body.mainMission,
+        registrationNumber: body.registrationNumber,
+        trainingDomains: body.trainingDomains,
+        respondentPhone: body.respondentPhone,
+        respondentPhone2: body.respondentPhone2,
+        respondentFunction: body.respondentFunction,
+      }
+    );
   }
 
   // ===== ADMIN ENDPOINTS =====
@@ -103,6 +141,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
   async rejectUser(@Param('id') id: string, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id, reason);
+    return this.authService.rejectUser(id);
   }
 }

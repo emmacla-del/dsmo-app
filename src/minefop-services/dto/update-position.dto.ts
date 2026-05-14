@@ -1,10 +1,9 @@
-import { IsEnum, IsOptional, IsBoolean, IsInt, IsString, Min, Max, Length } from 'class-validator';
-import { PositionType } from '@prisma/client';
+import { IsOptional, IsBoolean, IsInt, IsString, Min, Max, Length } from 'class-validator';
 
 export class UpdatePositionDto {
   @IsOptional()
-  @IsEnum(PositionType)
-  positionType?: PositionType;
+  @IsString()
+  positionType?: string;
 
   @IsOptional()
   @IsString()

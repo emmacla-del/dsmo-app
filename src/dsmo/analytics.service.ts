@@ -41,27 +41,72 @@ export class AnalyticsService {
         return Object.values(byRegion);
     }
 
-    // ===== EMPLOYMENT TRENDS (supports region) =====
+    // ===== EMPLOYMENT TRENDS =====
     async getEmploymentTrends(
         startYear: number,
         endYear: number,
         region?: string,
-    ): Promise<{ year: number; totalEmployees: number }[]> {
-        const trends = [];
+        granularity: 'year' | 'semester' | 'quarter' = 'year',
+    ): Promise<{ year: number; period: string; label: string; totalEmployees: number }[]> {
+        const trends: { year: number; period: string; label: string; totalEmployees: number }[] = [];
+
         for (let year = startYear; year <= endYear; year++) {
             const where: any = { year, status: DeclarationStatus.FINAL_APPROVED };
             if (region) where.region = region;
+
             const declarations = await this.prisma.declaration.findMany({
                 where,
                 include: { employees: true },
             });
-            const totalEmployees = declarations.reduce((sum, d) => sum + d.employees.length, 0);
-            trends.push({ year, totalEmployees });
+
+            if (granularity === 'year') {
+                const totalEmployees = declarations.reduce((sum, d) => sum + d.employees.length, 0);
+                trends.push({
+                    year,
+                    period: String(year),
+                    label: String(year),
+                    totalEmployees,
+                });
+            } else if (granularity === 'semester') {
+                // Split into S1 and S2 based on fillingDate if available, otherwise bucket all in S1
+                const s1 = declarations.filter(d => !d.fillingDate || new Date(d.fillingDate).getMonth() < 6);
+                const s2 = declarations.filter(d => d.fillingDate && new Date(d.fillingDate).getMonth() >= 6);
+
+                trends.push({
+                    year,
+                    period: `${year}-S1`,
+                    label: `${year} S1`,
+                    totalEmployees: s1.reduce((sum, d) => sum + d.employees.length, 0),
+                });
+                trends.push({
+                    year,
+                    period: `${year}-S2`,
+                    label: `${year} S2`,
+                    totalEmployees: s2.reduce((sum, d) => sum + d.employees.length, 0),
+                });
+            } else if (granularity === 'quarter') {
+                for (let q = 1; q <= 4; q++) {
+                    const qStart = (q - 1) * 3;
+                    const qEnd = q * 3;
+                    const qDecls = declarations.filter(d => {
+                        if (!d.fillingDate) return q === 1;
+                        const month = new Date(d.fillingDate).getMonth();
+                        return month >= qStart && month < qEnd;
+                    });
+                    trends.push({
+                        year,
+                        period: `${year}-Q${q}`,
+                        label: `${year} Q${q}`,
+                        totalEmployees: qDecls.reduce((sum, d) => sum + d.employees.length, 0),
+                    });
+                }
+            }
         }
+
         return trends;
     }
 
-    // ===== SECTOR DISTRIBUTION (supports region, returns male/female) =====
+    // ===== SECTOR DISTRIBUTION =====
     async getSectorDistribution(
         year: number,
         region?: string,
@@ -71,10 +116,7 @@ export class AnalyticsService {
 
         const declarations = await this.prisma.declaration.findMany({
             where,
-            include: {
-                company: true,
-                employees: true,
-            },
+            include: { company: true, employees: true },
         });
 
         const sectorsMap: Record<string, { employees: number; male: number; female: number }> = {};
@@ -101,7 +143,7 @@ export class AnalyticsService {
         return result;
     }
 
-    // ===== GENDER DISTRIBUTION (supports region) =====
+    // ===== GENDER DISTRIBUTION =====
     async getGenderDistribution(year: number, region?: string) {
         const where: any = { year, status: DeclarationStatus.FINAL_APPROVED };
         if (region) where.region = region;
@@ -135,13 +177,7 @@ export class AnalyticsService {
             include: { employees: true },
         });
 
-        const categories = {
-            cat1_3: 0,
-            cat4_6: 0,
-            cat7_9: 0,
-            cat10_12: 0,
-            nonDeclared: 0,
-        };
+        const categories = { cat1_3: 0, cat4_6: 0, cat7_9: 0, cat10_12: 0, nonDeclared: 0 };
 
         for (const decl of declarations) {
             for (const emp of decl.employees) {
@@ -166,13 +202,11 @@ export class AnalyticsService {
         };
     }
 
-    // ===== RECRUITMENT FORECAST (simple moving average) =====
+    // ===== RECRUITMENT FORECAST =====
     async getRecruitmentForecast(years: number = 3, forecastYears: number = 2) {
         const currentYear = new Date().getFullYear();
         const startYear = currentYear - years;
 
-        // Use the employment trends method (which returns totalRecruitments? No, it returns totalEmployees. We need recruitment data.
-        // Better to fetch directly:
         const declarations = await this.prisma.declaration.findMany({
             where: { year: { gte: startYear, lte: currentYear }, status: DeclarationStatus.FINAL_APPROVED },
             include: { movements: true },
@@ -261,7 +295,9 @@ export class AnalyticsService {
                 sector: sector.sector,
                 employees: sector.employees,
                 recruitments: recruitmentBySector[sector.sector] || 0,
-                shortageIndex: sector.employees > 0 ? (recruitmentBySector[sector.sector] || 0) / sector.employees * 100 : 0,
+                shortageIndex: sector.employees > 0
+                    ? (recruitmentBySector[sector.sector] || 0) / sector.employees * 100
+                    : 0,
             }))
             .filter(s => s.shortageIndex > 5)
             .sort((a, b) => b.shortageIndex - a.shortageIndex);
@@ -291,7 +327,7 @@ export class AnalyticsService {
         return planning;
     }
 
-    // ===== DASHBOARD SUMMARY (enhanced for Flutter dashboard) =====
+    // ===== DASHBOARD SUMMARY =====
     async getDashboardSummary(year: number, region?: string) {
         const where: any = { year, status: DeclarationStatus.FINAL_APPROVED };
         if (region) where.region = region;
@@ -326,7 +362,9 @@ export class AnalyticsService {
             include: { employees: true },
         });
         const prevEmployees = prevDeclarations.reduce((sum, d) => sum + d.employees.length, 0);
-        const employmentGrowthRate = prevEmployees === 0 ? 0 : ((totalEmployees - prevEmployees) / prevEmployees) * 100;
+        const employmentGrowthRate = prevEmployees === 0
+            ? 0
+            : ((totalEmployees - prevEmployees) / prevEmployees) * 100;
 
         const gender = await this.getGenderDistribution(year, region);
         const sectors = await this.getSectorDistribution(year, region);
