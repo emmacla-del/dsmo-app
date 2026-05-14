@@ -10,20 +10,18 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "postbuild": "if exist src\\pdf\\assets xcopy src\\pdf\\assets dist\\pdf\\assets /E /I /Y && if exist src\\pdf\\templates xcopy src\\pdf\\templates dist\\pdf\\templates /E /I /Y",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
-    "@nestjs/jwt": "^10.0.0",
-    "@nestjs/passport": "^10.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.1.19",
     "@prisma/client": "^5.22.0",
     "@supabase/supabase-js": "^2.103.0",
