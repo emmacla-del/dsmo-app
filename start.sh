@@ -1,8 +1,8 @@
 #!/bin/bash
-set -e  # ← stop on any error so you see exactly what failed
+set -e
 
-echo "📦 Installing dependencies..."
-npm install
+echo "📦 Installing dependencies (including dev for build)..."
+npm install --include=dev
 
 echo "⚙️ Generating Prisma client..."
 npx prisma generate
