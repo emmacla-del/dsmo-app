@@ -47,7 +47,6 @@ app.*.map.json
 .env
 .env.local
 node_modules/
-dist/
 # Environment variables
 .env
 .env.*
