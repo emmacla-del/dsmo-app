@@ -146,8 +146,10 @@ export class AuthService {
       mainMission?: string;
       registrationNumber?: string;
       trainingDomains?: string;
-      branch?: string;           // ← NEW: branche d'activité
+      branch?: string;           // ← branche d'activité
       // ── Respondent ────────────────────────────────────────
+      respondentFirstName?: string;   // ← ADDED: split from contactName
+      respondentLastName?: string;    // ← ADDED: split from contactName
       respondentPhone?: string;
       respondentPhone2?: string;
       respondentFunction?: string;
@@ -175,8 +177,9 @@ export class AuthService {
           email,
           passwordHash: hashed,
           role: 'COMPANY',
-          firstName: companyData.contactName ?? email.split('@')[0],
-          lastName: '',
+          // Use respondentFirstName as user.firstName if available, fallback to contactName or email prefix
+          firstName: companyData.respondentFirstName ?? companyData.contactName ?? email.split('@')[0],
+          lastName: companyData.respondentLastName ?? '',
           region: companyData.region,
           department: companyData.department,
           status: 'ACTIVE',
@@ -217,8 +220,10 @@ export class AuthService {
           mainMission: companyData.mainMission,
           registrationNumber: companyData.registrationNumber,
           trainingDomains: companyData.trainingDomains,
-          branch: companyData.branch,           // ← NEW
+          branch: companyData.branch,
           // ── Respondent ────────────────────────────────────
+          respondentFirstName: companyData.respondentFirstName,  // ← ADDED
+          respondentLastName: companyData.respondentLastName,    // ← ADDED
           respondentPhone: companyData.respondentPhone,
           respondentPhone2: companyData.respondentPhone2,
           respondentFunction: companyData.respondentFunction,
@@ -232,9 +237,7 @@ export class AuthService {
       }
       throw error;
     }
-  }
-
-  async getPendingMinefopUsers() {
+  } async getPendingMinefopUsers() {
     return this.prisma.user.findMany({
       where: { role: { not: 'COMPANY' }, status: 'PENDING_APPROVAL' },
       select: {

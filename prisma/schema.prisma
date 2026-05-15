@@ -408,6 +408,8 @@ model Company {
   respondentPhone    String?
   respondentPhone2   String?
   respondentFunction String?
+  respondentFirstName String?   // ← ADD
+  respondentLastName  String?   // ← ADD
 
   regionId      String?
   departmentId  String?

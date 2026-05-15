@@ -3,6 +3,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "ES2021",
+    "ignoreDeprecations": "5.0", // ← ADD THIS
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
