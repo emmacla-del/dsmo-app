@@ -401,6 +401,7 @@ model Company {
   cooperativeType    String?
   ctdType            String?
   yearOfCreation     String?
+  branch             String?   
   mainMission        String?
   registrationNumber String?
   trainingDomains    String?
