@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "companies" ADD COLUMN     "area" TEXT,
+ADD COLUMN     "cooperativeType" TEXT,
+ADD COLUMN     "ctdType" TEXT,
+ADD COLUMN     "legalStatus" TEXT,
+ADD COLUMN     "mainMission" TEXT,
+ADD COLUMN     "phone" TEXT,
+ADD COLUMN     "phone2" TEXT,
+ADD COLUMN     "poBox" TEXT,
+ADD COLUMN     "registrationNumber" TEXT,
+ADD COLUMN     "respondentFunction" TEXT,
+ADD COLUMN     "respondentPhone" TEXT,
+ADD COLUMN     "respondentPhone2" TEXT,
+ADD COLUMN     "trainingDomains" TEXT,
+ADD COLUMN     "yearOfCreation" TEXT;
