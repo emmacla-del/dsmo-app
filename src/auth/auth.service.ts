@@ -118,6 +118,7 @@ export class AuthService {
     email: string,
     password: string,
     companyData: {
+      // ── Core identity ──────────────────────────────────────
       name: string;
       parentCompany?: string;
       mainActivity: string;
@@ -131,13 +132,22 @@ export class AuthService {
       socialCapital?: number;
       contactName?: string;
       entityType?: string;
+      // ── Workforce ─────────────────────────────────────────
+      fax?: string;
+      totalEmployees?: number;
+      menCount?: number;
+      womenCount?: number;
+      lastYearMenCount?: number;
+      lastYearWomenCount?: number;
+      lastYearTotal?: number;
       // ── Location & classification ──────────────────────────
       area?: string;
       sectorId?: string;
-      // ── Contact ───────────────────────────────────────────
+      // ── Entity Contact (Section 1) ─────────────────────────
       phone?: string;
       phone2?: string;
       poBox?: string;
+      branch?: string;
       // ── Entity-specific fields ─────────────────────────────
       legalStatus?: string;
       cooperativeType?: string;
@@ -146,10 +156,9 @@ export class AuthService {
       mainMission?: string;
       registrationNumber?: string;
       trainingDomains?: string;
-      branch?: string;           // ← branche d'activité
-      // ── Respondent ────────────────────────────────────────
-      respondentFirstName?: string;   // ← ADDED: split from contactName
-      respondentLastName?: string;    // ← ADDED: split from contactName
+      // ── Respondent Contact (Section 0) ─────────────────────
+      respondentFirstName?: string;
+      respondentLastName?: string;
       respondentPhone?: string;
       respondentPhone2?: string;
       respondentFunction?: string;
@@ -177,19 +186,19 @@ export class AuthService {
           email,
           passwordHash: hashed,
           role: 'COMPANY',
-          // Use respondentFirstName as user.firstName if available, fallback to contactName or email prefix
           firstName: companyData.respondentFirstName ?? companyData.contactName ?? email.split('@')[0],
-          lastName: companyData.respondentLastName ?? '',
+          lastName: companyData.respondentLastName ?? '',  // ← will now receive real value
           region: companyData.region,
           department: companyData.department,
           status: 'ACTIVE',
           isActive: true,
         },
       });
-
       const company = await this.prisma.company.create({
         data: {
+          // ── User relation ──────────────────────────────────
           userId: user.id,
+          // ── Core identity ──────────────────────────────────
           name: companyData.name,
           parentCompany: companyData.parentCompany,
           mainActivity: companyData.mainActivity,
@@ -198,21 +207,27 @@ export class AuthService {
           department: companyData.department,
           subdivision: companyData.subdivision,
           address: companyData.address,
+          fax: companyData.fax,
           taxNumber: companyData.taxNumber,
           cnpsNumber: companyData.cnpsNumber,
           socialCapital: companyData.socialCapital,
           entityType: companyData.entityType as any,
-          totalEmployees: 0,
-          menCount: 0,
-          womenCount: 0,
+          // ── Workforce ──────────────────────────────────────
+          totalEmployees: companyData.totalEmployees ?? 0,
+          menCount: companyData.menCount,
+          womenCount: companyData.womenCount,
+          lastYearMenCount: companyData.lastYearMenCount,
+          lastYearWomenCount: companyData.lastYearWomenCount,
+          lastYearTotal: companyData.lastYearTotal,
           // ── Location & classification ──────────────────────
           area: companyData.area,
           sectorId: companyData.sectorId,
-          // ── Contact ───────────────────────────────────────
+          // ── Entity Contact (Section 1) ─────────────────────
           phone: companyData.phone,
           phone2: companyData.phone2,
           poBox: companyData.poBox,
-          // ── Entity-specific ───────────────────────────────
+          branch: companyData.branch,
+          // ── Entity-specific fields ─────────────────────────
           legalStatus: companyData.legalStatus,
           cooperativeType: companyData.cooperativeType,
           ctdType: companyData.ctdType,
@@ -220,10 +235,9 @@ export class AuthService {
           mainMission: companyData.mainMission,
           registrationNumber: companyData.registrationNumber,
           trainingDomains: companyData.trainingDomains,
-          branch: companyData.branch,
-          // ── Respondent ────────────────────────────────────
-          respondentFirstName: companyData.respondentFirstName,  // ← ADDED
-          respondentLastName: companyData.respondentLastName,    // ← ADDED
+          // ── Respondent Contact (Section 0) ─────────────────
+          respondentFirstName: companyData.respondentFirstName,
+          respondentLastName: companyData.respondentLastName,
           respondentPhone: companyData.respondentPhone,
           respondentPhone2: companyData.respondentPhone2,
           respondentFunction: companyData.respondentFunction,
@@ -237,7 +251,9 @@ export class AuthService {
       }
       throw error;
     }
-  } async getPendingMinefopUsers() {
+  }
+
+  async getPendingMinefopUsers() {
     return this.prisma.user.findMany({
       where: { role: { not: 'COMPANY' }, status: 'PENDING_APPROVAL' },
       select: {

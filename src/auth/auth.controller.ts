@@ -67,7 +67,6 @@ export class AuthController {
     socialCapital?: number;
     contactName?: string;
     entityType?: string;
-    // New fields
     area?: string;
     sectorId?: string;
     phone?: string;
@@ -83,6 +82,11 @@ export class AuthController {
     respondentPhone?: string;
     respondentPhone2?: string;
     respondentFunction?: string;
+    respondentFirstName?: string;   // ← ADD THIS
+    respondentLastName?: string;    // ← ADD THIS
+    firstName?: string;             // ← ADD THIS (Flutter also sends this)
+    lastName?: string;              // ← ADD THIS (Flutter also sends this)
+    branch?: string;                // ← ADD THIS (was also missing)
   }) {
     return this.authService.registerCompany(
       body.email,
@@ -101,7 +105,6 @@ export class AuthController {
         socialCapital: body.socialCapital,
         contactName: body.contactName,
         entityType: body.entityType,
-        // New fields
         area: body.area,
         sectorId: body.sectorId,
         phone: body.phone,
@@ -117,6 +120,9 @@ export class AuthController {
         respondentPhone: body.respondentPhone,
         respondentPhone2: body.respondentPhone2,
         respondentFunction: body.respondentFunction,
+        respondentFirstName: body.respondentFirstName ?? body.firstName,  // ← ADD
+        respondentLastName: body.respondentLastName ?? body.lastName,     // ← ADD
+        branch: body.branch,                                               // ← ADD
       }
     );
   }
