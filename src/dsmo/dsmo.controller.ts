@@ -5,7 +5,6 @@
 import type { Response } from 'express';
 import { DsmoService } from './dsmo.service';
 import { NotificationService } from './notification.service';
-import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -19,7 +18,6 @@ export class DsmoController {
   constructor(
     private readonly dsmoService: DsmoService,
     private readonly notificationService: NotificationService,
-    private readonly analyticsService: AnalyticsService,
   ) { }
 
   // ===== COMPANY PROFILE =====
@@ -114,51 +112,6 @@ export class DsmoController {
     @Query('limit') limit: number = 20,
   ) {
     return this.notificationService.getNotifications(req.user.id, page, limit);
-  }
-
-  // ===== ANALYTICS & INTELLIGENCE ENDPOINTS (guards commented out for local testing) =====
-
-  @Roles('CENTRAL', 'SUPER_ADMIN')
-  @Get('analytics/employment-by-region')
-  async getEmploymentByRegion(@Query('year', ParseIntPipe) year: number) {
-    return this.analyticsService.getEmploymentByRegion(year);
-  }
-
-  @Roles('CENTRAL', 'SUPER_ADMIN')
-  @Get('analytics/gender-distribution')
-  async getGenderDistribution(
-    @Query('year', ParseIntPipe) year: number,
-    @Query('region') region?: string,
-  ) {
-    return this.analyticsService.getGenderDistribution(year, region);
-  }
-
-  @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
-  @Get('analytics/dashboard-summary')
-  async getDashboardSummary(
-    @Query('year', ParseIntPipe) year: number,
-    @Query('region') region?: string,
-  ) {
-    return this.analyticsService.getDashboardSummary(year, region);
-  }
-
-  @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
-  @Get('analytics/employment-trends')
-  async getEmploymentTrends(
-    @Query('startYear', ParseIntPipe) startYear: number,
-    @Query('endYear', ParseIntPipe) endYear: number,
-    @Query('region') region?: string,
-  ) {
-    return this.analyticsService.getEmploymentTrends(startYear, endYear, region);
-  }
-
-  @Roles('CENTRAL', 'REGIONAL', 'SUPER_ADMIN')
-  @Get('analytics/sector-distribution')
-  async getSectorDistribution(
-    @Query('year', ParseIntPipe) year: number,
-    @Query('region') region?: string,
-  ) {
-    return this.analyticsService.getSectorDistribution(year, region);
   }
 
   // ===== DOCUMENT MANAGEMENT ENDPOINTS =====
