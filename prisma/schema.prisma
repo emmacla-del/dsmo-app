@@ -391,6 +391,7 @@ model Company {
   lastYearWomenCount Int?
   entityType         OnefopEntityType?
   sectorId           String?
+  enterpriseSize     String?
 
   // Registration fields — pre-fill ONEFOP Section 0 & 1
   area               String?
