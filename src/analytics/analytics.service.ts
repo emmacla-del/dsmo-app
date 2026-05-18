@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeclarationStatus } from '../types/prisma.types';
 
@@ -68,9 +68,8 @@ export class AnalyticsService {
                     totalEmployees,
                 });
             } else if (granularity === 'semester') {
-                // Split into S1 and S2 based on fillingDate if available, otherwise bucket all in S1
-                const s1 = declarations.filter(d => !d.fillingDate || new Date(d.fillingDate).getMonth() < 6);
-                const s2 = declarations.filter(d => d.fillingDate && new Date(d.fillingDate).getMonth() >= 6);
+                const s1 = declarations.filter((d) => !d.fillingDate || new Date(d.fillingDate).getMonth() < 6);
+                const s2 = declarations.filter((d) => d.fillingDate && new Date(d.fillingDate).getMonth() >= 6);
 
                 trends.push({
                     year,
@@ -88,7 +87,7 @@ export class AnalyticsService {
                 for (let q = 1; q <= 4; q++) {
                     const qStart = (q - 1) * 3;
                     const qEnd = q * 3;
-                    const qDecls = declarations.filter(d => {
+                    const qDecls = declarations.filter((d) => {
                         if (!d.fillingDate) return q === 1;
                         const month = new Date(d.fillingDate).getMonth();
                         return month >= qStart && month < qEnd;
@@ -153,7 +152,9 @@ export class AnalyticsService {
             include: { employees: true },
         });
 
-        let maleCount = 0, femaleCount = 0, otherCount = 0;
+        let maleCount = 0,
+            femaleCount = 0,
+            otherCount = 0;
         for (const decl of declarations) {
             for (const emp of decl.employees) {
                 if (emp.gender === 'M') maleCount++;
@@ -223,7 +224,7 @@ export class AnalyticsService {
         }
 
         const yearsList = Array.from({ length: years }, (_, i) => startYear + i);
-        const recruitmentValues = yearsList.map(y => recruitmentsByYear[y] || 0);
+        const recruitmentValues = yearsList.map((y) => recruitmentsByYear[y] || 0);
         const avgRecruitment = recruitmentValues.reduce((a, b) => a + b, 0) / recruitmentValues.length;
 
         const forecast = [];
@@ -295,11 +296,9 @@ export class AnalyticsService {
                 sector: sector.sector,
                 employees: sector.employees,
                 recruitments: recruitmentBySector[sector.sector] || 0,
-                shortageIndex: sector.employees > 0
-                    ? (recruitmentBySector[sector.sector] || 0) / sector.employees * 100
-                    : 0,
+                shortageIndex: sector.employees > 0 ? (recruitmentBySector[sector.sector] || 0) / sector.employees * 100 : 0,
             }))
-            .filter(s => s.shortageIndex > 5)
+            .filter((s) => s.shortageIndex > 5)
             .sort((a, b) => b.shortageIndex - a.shortageIndex);
 
         return shortages.slice(0, 5);
@@ -362,9 +361,7 @@ export class AnalyticsService {
             include: { employees: true },
         });
         const prevEmployees = prevDeclarations.reduce((sum, d) => sum + d.employees.length, 0);
-        const employmentGrowthRate = prevEmployees === 0
-            ? 0
-            : ((totalEmployees - prevEmployees) / prevEmployees) * 100;
+        const employmentGrowthRate = prevEmployees === 0 ? 0 : ((totalEmployees - prevEmployees) / prevEmployees) * 100;
 
         const gender = await this.getGenderDistribution(year, region);
         const sectors = await this.getSectorDistribution(year, region);
@@ -379,12 +376,165 @@ export class AnalyticsService {
                 male: gender.male.percentage,
                 female: gender.female.percentage,
             },
-            topSectors: sectors.slice(0, 5).map(s => ({ sector: s.sector, employees: s.employees })),
+            topSectors: sectors.slice(0, 5).map((s) => ({ sector: s.sector, employees: s.employees })),
             totalRecruitments,
             totalDismissals,
             totalRetirements,
             totalPromotions,
             netChange: totalRecruitments - totalDismissals,
         };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // COMPANY-SCOPED ANALYTICS (Tier 1)
+    // ═══════════════════════════════════════════════════════════
+
+    async getCompanySummary(companyId: string, year: number) {
+        const declarations = await this.prisma.declaration.findMany({
+            where: {
+                year,
+                status: DeclarationStatus.FINAL_APPROVED,
+                companyId,
+            },
+            include: { employees: true, movements: true },
+        });
+
+        const employees = declarations.flatMap((d) => d.employees);
+        const total = employees.length;
+        const male = employees.filter((e) => e.gender === 'M').length;
+        const female = employees.filter((e) => e.gender === 'F').length;
+
+        const byCategory = {
+            cat1_3: employees.filter((e) => e.salaryCategory === '1-3').length,
+            cat4_6: employees.filter((e) => e.salaryCategory === '4-6').length,
+            cat7_9: employees.filter((e) => e.salaryCategory === '7-9').length,
+            cat10_12: employees.filter((e) => e.salaryCategory === '10-12').length,
+            nonDeclared: employees.filter((e) => !e.salaryCategory).length,
+        };
+
+        const movements = declarations.flatMap((d) => d.movements);
+        const recruitments = movements
+            .filter((m) => m.movementType === 'RECRUITMENT')
+            .reduce((s, m) => s + m.cat1_3 + m.cat4_6 + m.cat7_9 + m.cat10_12 + m.catNonDeclared, 0);
+        const dismissals = movements
+            .filter((m) => m.movementType === 'DISMISSAL')
+            .reduce((s, m) => s + m.cat1_3 + m.cat4_6 + m.cat7_9 + m.cat10_12 + m.catNonDeclared, 0);
+        const retirements = movements
+            .filter((m) => m.movementType === 'RETIREMENT')
+            .reduce((s, m) => s + m.cat1_3 + m.cat4_6 + m.cat7_9 + m.cat10_12 + m.catNonDeclared, 0);
+
+        const prevYear = year - 1;
+        const prevDeclarations = await this.prisma.declaration.findMany({
+            where: { year: prevYear, status: DeclarationStatus.FINAL_APPROVED, companyId },
+            include: { employees: true },
+        });
+        const prevTotal = prevDeclarations.flatMap((d) => d.employees).length;
+        const growthRate = prevTotal === 0 ? 0 : +(((total - prevTotal) / prevTotal) * 100).toFixed(1);
+
+        return {
+            year,
+            totalEmployees: total,
+            gender: {
+                male,
+                female,
+                malePct: total > 0 ? +((male / total) * 100).toFixed(1) : 0,
+                femalePct: total > 0 ? +((female / total) * 100).toFixed(1) : 0,
+            },
+            categories: byCategory,
+            movements: {
+                recruitments,
+                dismissals,
+                retirements,
+                netChange: recruitments - dismissals,
+            },
+            growthRate,
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // COMPANY BENCHMARKING (Tier 2)
+    // ═══════════════════════════════════════════════════════════
+
+    async getCompanyBenchmarks(
+        companyId: string,
+        year: number,
+        groupBy: 'sector' | 'size' | 'region' = 'sector',
+    ) {
+        const company = await this.prisma.company.findUnique({
+            where: { id: companyId },
+            select: { mainActivity: true, enterpriseSize: true, region: true },
+        });
+        if (!company) throw new BadRequestException('Entreprise non trouvée');
+
+        const peerWhere: any = {
+            year,
+            status: DeclarationStatus.FINAL_APPROVED,
+            companyId: { not: companyId },
+        };
+        if (groupBy === 'sector') {
+            peerWhere.company = { mainActivity: company.mainActivity };
+        } else if (groupBy === 'size') {
+            peerWhere.company = { enterpriseSize: company.enterpriseSize };
+        } else if (groupBy === 'region') {
+            peerWhere.region = company.region;
+        }
+
+        const peers = await this.prisma.declaration.findMany({
+            where: peerWhere,
+            include: { employees: true, company: true },
+        });
+
+        if (peers.length < 5) {
+            return {
+                available: false,
+                reason: 'INSUFFICIENT_DATA',
+                peerCount: peers.length,
+                minRequired: 5,
+            };
+        }
+
+        const peerEmployeeCounts = peers.map((p) => p.employees.length).sort((a, b) => a - b);
+        const medianEmployees = peerEmployeeCounts[Math.floor(peerEmployeeCounts.length / 2)];
+
+        const peerGenderRatios = peers
+            .map((p) => {
+                const total = p.employees.length;
+                if (total === 0) return 0;
+                const female = p.employees.filter((e) => e.gender === 'F').length;
+                return (female / total) * 100;
+            })
+            .sort((a, b) => a - b);
+        const medianFemalePct = peerGenderRatios[Math.floor(peerGenderRatios.length / 2)];
+
+        const myDeclarations = await this.prisma.declaration.findMany({
+            where: { year, status: DeclarationStatus.FINAL_APPROVED, companyId },
+            include: { employees: true },
+        });
+        const myEmployees = myDeclarations.flatMap((d) => d.employees);
+        const myTotal = myEmployees.length;
+        const myFemalePct = myTotal > 0 ? (myEmployees.filter((e) => e.gender === 'F').length / myTotal) * 100 : 0;
+
+        return {
+            available: true,
+            groupBy,
+            peerCount: peers.length,
+            metrics: {
+                totalEmployees: {
+                    mine: myTotal,
+                    median: medianEmployees,
+                    percentile: this.calculatePercentile(peerEmployeeCounts, myTotal),
+                },
+                femalePercentage: {
+                    mine: +myFemalePct.toFixed(1),
+                    median: +medianFemalePct.toFixed(1),
+                    percentile: this.calculatePercentile(peerGenderRatios, myFemalePct),
+                },
+            },
+        };
+    }
+
+    private calculatePercentile(sortedArray: number[], value: number): number {
+        const below = sortedArray.filter((v) => v < value).length;
+        return Math.round((below / sortedArray.length) * 100);
     }
 }

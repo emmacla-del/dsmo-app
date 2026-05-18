@@ -1,23 +1,40 @@
-// src/dsmo/analytics.controller.ts
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    Query,
+    Res,
+    Req,
+    UseGuards,
+    ForbiddenException,
+    BadRequestException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { AnalyticsService } from './analytics.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('dsmo/analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
 export class AnalyticsController {
-    constructor(private readonly analyticsService: AnalyticsService) { }
+    constructor(
+        private readonly analyticsService: AnalyticsService,
+        private readonly prisma: PrismaService,
+    ) { }
+
+    // ═══════════════════════════════════════════════════════════
+    // NATIONAL/REGIONAL ENDPOINTS — MINEFOP roles only
+    // ═══════════════════════════════════════════════════════════
 
     @Get('employment-by-region')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getEmploymentByRegion(@Query('year') year: number) {
         return this.analyticsService.getEmploymentByRegion(year);
     }
 
     @Get('employment-trends')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getEmploymentTrends(
         @Query('startYear') startYear: number,
         @Query('endYear') endYear: number,
@@ -33,6 +50,7 @@ export class AnalyticsController {
     }
 
     @Get('sector-distribution')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getSectorDistribution(
         @Query('year') year: number,
         @Query('region') region?: string,
@@ -41,6 +59,7 @@ export class AnalyticsController {
     }
 
     @Get('gender-distribution')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getGenderDistribution(
         @Query('year') year: number,
         @Query('region') region?: string,
@@ -49,11 +68,13 @@ export class AnalyticsController {
     }
 
     @Get('category-distribution')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getCategoryDistribution(@Query('year') year: number) {
         return this.analyticsService.getCategoryDistribution(year);
     }
 
     @Get('recruitment-forecast')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getRecruitmentForecast(
         @Query('years') years?: number,
         @Query('forecastYears') forecastYears?: number,
@@ -62,16 +83,19 @@ export class AnalyticsController {
     }
 
     @Get('unemployment-risk-regions')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getUnemploymentRiskRegions(@Query('year') year: number) {
         return this.analyticsService.getUnemploymentRiskRegions(year);
     }
 
     @Get('sector-labor-shortages')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getSectorLaborShortages(@Query('year') year: number) {
         return this.analyticsService.getSectorLaborShortages(year);
     }
 
     @Get('companies-with-recruitment-plans')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getCompaniesWithRecruitmentPlans(
         @Query('year') year: number,
         @Query('limit') limit?: number,
@@ -80,6 +104,7 @@ export class AnalyticsController {
     }
 
     @Get('dashboard-summary')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async getDashboardSummary(
         @Query('year') year: number,
         @Query('region') region?: string,
@@ -87,11 +112,57 @@ export class AnalyticsController {
         return this.analyticsService.getDashboardSummary(year, region);
     }
 
-    /**
-     * Bulk CSV export — streams employment trend data for a year range.
-     * GET /dsmo/analytics/export?startYear=2020&endYear=2024&format=csv
-     */
+    // ═══════════════════════════════════════════════════════════
+    // COMPANY-SCOPED ENDPOINTS
+    // ═══════════════════════════════════════════════════════════
+
+    @Get('company-summary')
+    @Roles('COMPANY')
+    async getCompanySummary(
+        @Query('year') year: number,
+        @Req() req: any,
+    ) {
+        if (!req.user.features?.onefopBasicAnalytics) {
+            throw new ForbiddenException(
+                'Soumettez le questionnaire ONEFOP pour accéder à vos analyses.',
+            );
+        }
+
+        const company = await this.prisma.company.findUnique({
+            where: { userId: req.user.sub },
+        });
+        if (!company) throw new BadRequestException('Entreprise non trouvée');
+
+        return this.analyticsService.getCompanySummary(company.id, year);
+    }
+
+    @Get('company-benchmarks')
+    @Roles('COMPANY')
+    async getCompanyBenchmarks(
+        @Query('year') year: number,
+        @Query('groupBy') groupBy: 'sector' | 'size' | 'region',
+        @Req() req: any,
+    ) {
+        if (!req.user.features?.onefopBenchmarking) {
+            throw new ForbiddenException(
+                'Le benchmarking sera disponible après approbation de votre questionnaire ONEFOP.',
+            );
+        }
+
+        const company = await this.prisma.company.findUnique({
+            where: { userId: req.user.sub },
+        });
+        if (!company) throw new BadRequestException('Entreprise non trouvée');
+
+        return this.analyticsService.getCompanyBenchmarks(company.id, year, groupBy);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // EXPORT
+    // ═══════════════════════════════════════════════════════════
+
     @Get('export')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
     async exportData(
         @Query('startYear') startYear: number,
         @Query('endYear') endYear: number,
@@ -111,13 +182,10 @@ export class AnalyticsController {
             return res.json({ trends, summary });
         }
 
-        // Build CSV
-        const lines: string[] = [
-            'year,period,label,totalEmployees'
-        ];
+        const lines: string[] = ['year,period,label,totalEmployees'];
         for (const t of trends) {
             lines.push(
-                `${t.year},"${t.period ?? ''}","${t.label ?? t.year}",${t.totalEmployees ?? 0}`
+                `${t.year},"${t.period ?? ''}","${t.label ?? t.year}",${t.totalEmployees ?? 0}`,
             );
         }
 

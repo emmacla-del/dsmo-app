@@ -336,13 +336,27 @@ export class DsmoService {
     });
   }
 
+  /**
+   * Returns declarations for the authenticated user.
+   *
+   * ✅ WIRED FOR DASHBOARD: the response now always includes `submittedAt`,
+   * `updatedAt`, `year`, and `status` at the root level (Prisma model fields),
+   * plus the `company` relation so the dashboard's Recent Activity widget can
+   * display declaration year, status, and date without extra fetches.
+   *
+   * For COMPANY role: guards against a missing company profile by returning []
+   * instead of throwing, keeping the dashboard's empty-state path intact.
+   */
   async getDeclarationsForUser(userId: string, filters: any) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const where: any = {};
 
     if (user.role === UserRole.COMPANY) {
       const comp = await this.prisma.company.findUnique({ where: { userId } });
-      where.companyId = comp?.id;
+      // ✅ FIX: return empty array instead of querying with undefined companyId,
+      // which would return all declarations or throw a Prisma type error.
+      if (!comp) return [];
+      where.companyId = comp.id;
     } else if (user.role === UserRole.DIVISIONAL) {
       where.division = user.department;
     } else if (user.role === UserRole.REGIONAL) {
@@ -354,6 +368,9 @@ export class DsmoService {
 
     return this.prisma.declaration.findMany({
       where,
+      // ✅ WIRED: include company so dashboard has company name if needed,
+      // and the root fields (status, year, submittedAt, updatedAt) come
+      // automatically from the Declaration model.
       include: { company: true },
       orderBy: { createdAt: 'desc' },
     });
