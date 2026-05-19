@@ -1,0 +1,37 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
+import { OnefopResponseDto } from '../dto/onefop-response.dto';
+export declare class QuestionnairesService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    submitQuestionnaire(dto: OnefopSubmissionDto): Promise<OnefopResponseDto>;
+    private enforceFinalRequiredFields;
+    private flatInt;
+    private flatStr;
+    private saveCspGenderAgeFlat;
+    private saveDiplomaFlat;
+    private saveDisabilityFlat;
+    private saveVulnerableEnterpriseFlat;
+    private saveVulnerableOtherFlat;
+    private saveFirstTimeWorkersFlat;
+    private saveDepartureFlat;
+    private saveDismissalReasonsFlat;
+    private saveDismissalUnemploymentFlat;
+    private saveInternshipFlat;
+    private saveSkillsFlat;
+    private saveTrainingFlat;
+    private mapLegalStatus;
+    private mapArea;
+    private mapSector;
+    private mapCompanySize;
+    private mapCooperativeType;
+    private mapCtdType;
+    private mapCouncilType;
+    getAllQuestionnaires(): Promise<any>;
+    getQuestionnaireById(id: string): Promise<any>;
+    listByStatus(status: string, limit: number, offset: number): Promise<any>;
+    getById(id: string): Promise<any>;
+    approve(id: string, reviewedBy?: string): Promise<any>;
+    reject(id: string, reason: string, reviewedBy?: string): Promise<any>;
+    requestCorrection(id: string, comments: string, reviewedBy?: string): Promise<any>;
+}
