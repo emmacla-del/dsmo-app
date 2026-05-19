@@ -1,9 +1,4 @@
 // src/questionnaires/questionnaires.service.ts
-// UPDATED — uses normalizeFlatKeys() + buildNestedDto() instead of
-// FlatToNestedTransformer. The normalized flat object is shared between
-// the DB persistence path (S0/S1 nested DTO + S2–S4 flat reads) and the
-// PDF path (mapCooperativeData etc. in the controller).
-
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -77,8 +72,6 @@ export class QuestionnairesService {
     console.log('data keys  :', Object.keys(dto.data).length);
     debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
 
-    // ── STEP 1: Normalize Flutter keys → schema-registry keys ────────────────
-    // This is the single normalization point shared by DB and PDF pipelines.
     const normalized = normalizeFlatKeys(dto.data, dto.entityType);
 
     debugLog('🔄 Normalized keys sample (S0/S1):', {
@@ -90,7 +83,6 @@ export class QuestionnairesService {
       COOP_S1Q12: normalized['COOP_S1Q12'],
     });
 
-    // ── STEP 2: Build nested DTO for validation ───────────────────────────────
     const nestedData = buildNestedDto(normalized, dto.entityType);
 
     debugLog('🔄 respondent :', nestedData['respondent']);
@@ -99,7 +91,6 @@ export class QuestionnairesService {
     debugLog('🔄 ctd        :', nestedData['ctd']);
     debugLog('🔄 ong        :', nestedData['ong']);
 
-    // ── STEP 3: Validate ──────────────────────────────────────────────────────
     let questionnaireData: AnyQuestionnaireDto;
     switch (dto.entityType) {
       case 'enterprise':
@@ -142,8 +133,6 @@ export class QuestionnairesService {
       this.enforceFinalRequiredFields(questionnaireData, dto.entityType);
     }
 
-    // ── STEP 4: Persist ───────────────────────────────────────────────────────
-    // S2–S4 flat saves read from `normalized` (same object as the PDF mapper).
     const flat = normalized as unknown as FlatFormData;
 
     const result = await (this.prisma as any).$transaction(async (tx: TxClient) => {
@@ -175,7 +164,7 @@ export class QuestionnairesService {
         data: {
           submissionId: randomUUID(),
           formType: dto.entityType.toUpperCase(),
-          rawData: dto.data as any,      // store original payload
+          rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
           submittedBy: dto.userId,
           region: entityRegion,
@@ -187,7 +176,6 @@ export class QuestionnairesService {
 
       const sid: string = submission.id;
 
-      // S0
       if (respondent) {
         await tx.onefopRespondent.create({
           data: {
@@ -201,7 +189,6 @@ export class QuestionnairesService {
         });
       }
 
-      // S1
       if (dto.entityType === 'enterprise' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
         const e = questionnaireData.enterprise;
         await tx.onefopEnterpriseDetail.create({
@@ -304,7 +291,6 @@ export class QuestionnairesService {
         });
       }
 
-      // S2–S4 (reads from normalized flat — same keys the PDF mapper uses)
       for (const t of [
         { prefix: 's21q01' },
         { prefix: 's22q01' },
@@ -343,14 +329,6 @@ export class QuestionnairesService {
     };
   }
 
-  // ── The rest of the file is UNCHANGED from the original ───────────────────
-  // (enforceFinalRequiredFields, flatInt, flatStr, all save* methods,
-  //  mapLegalStatus, mapArea, mapSector, mapCompanySize, mapCooperativeType,
-  //  mapCtdType, mapCouncilType, getAllQuestionnaires, getQuestionnaireById,
-  //  listByStatus, getById, approve, reject, requestCorrection)
-  // Copy them verbatim from the original questionnaires.service.ts.
-  // Only the import block and submitQuestionnaire() body changed above.
-
   private enforceFinalRequiredFields(data: AnyQuestionnaireDto, entityType: string): void {
     const missingFields: string[] = [];
     const respondentRequired = FINAL_REQUIRED_FIELDS['respondent'] ?? [];
@@ -385,6 +363,11 @@ export class QuestionnairesService {
     return v !== undefined && v !== null ? String(v) : '';
   }
 
+  // ── Uppercase helper for Prisma enums ─────────────────────────
+  private up(v: string): string {
+    return v.toUpperCase();
+  }
+
   private async saveCspGenderAgeFlat(tx: TxClient, submissionId: string, flat: FlatFormData, prefix: string, tableName: string): Promise<void> {
     const cspRows = ['cadres', 'foremen', 'workers'];
     const genders = ['male', 'female', 'total'];
@@ -394,14 +377,14 @@ export class QuestionnairesService {
       for (const gender of genders) {
         for (const age of ageBands) {
           const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${age}`);
-          if (value !== 0) rows.push({ submissionId, tableName, cspCategory: csp, gender, ageBand: age, value });
+          if (value !== 0) rows.push({ submissionId, tableName, cspCategory: this.up(csp), gender: this.up(gender), ageBand: age, value });
         }
       }
     }
     for (const gender of genders) {
       for (const age of ageBands) {
         const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
-        if (value !== 0) rows.push({ submissionId, tableName, cspCategory: 'total', gender, ageBand: age, value });
+        if (value !== 0) rows.push({ submissionId, tableName, cspCategory: 'TOTAL', gender: this.up(gender), ageBand: age, value });
       }
     }
     if (rows.length > 0) await tx.onefopCspGenderAge.createMany({ data: rows, skipDuplicates: true });
@@ -417,14 +400,14 @@ export class QuestionnairesService {
       for (const gender of genders) {
         for (const age of ageBands) {
           const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${age}`);
-          if (value !== 0) rows.push({ submissionId, diploma, gender, ageBand: age, value });
+          if (value !== 0) rows.push({ submissionId, diploma: this.up(diploma), gender: this.up(gender), ageBand: age, value });
         }
       }
     }
     for (const gender of genders) {
       for (const age of ageBands) {
         const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
-        if (value !== 0) rows.push({ submissionId, diploma: 'total', gender, ageBand: age, value });
+        if (value !== 0) rows.push({ submissionId, diploma: 'TOTAL', gender: this.up(gender), ageBand: age, value });
       }
     }
     if (rows.length > 0) await tx.onefopDiplomaData.createMany({ data: rows, skipDuplicates: true });
@@ -439,7 +422,7 @@ export class QuestionnairesService {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
-          if (value !== 0) records.push({ submissionId, cspCategory: row, status, gender, value });
+          if (value !== 0) records.push({ submissionId, cspCategory: this.up(row), status: this.up(status), gender: this.up(gender), value });
         }
       }
     }
@@ -456,7 +439,7 @@ export class QuestionnairesService {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${vRow}_${status}_${gender}`);
-          if (value !== 0) records.push({ submissionId, vulnerableType: vRow, status, gender, value });
+          if (value !== 0) records.push({ submissionId, vulnerableType: this.up(vRow), status: this.up(status), gender: this.up(gender), value });
         }
       }
     }
@@ -473,7 +456,7 @@ export class QuestionnairesService {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
-          if (value !== 0) records.push({ submissionId, vulnerableType: row, status, gender, value });
+          if (value !== 0) records.push({ submissionId, vulnerableType: this.up(row), status: this.up(status), gender: this.up(gender), value });
         }
       }
     }
@@ -492,21 +475,21 @@ export class QuestionnairesService {
         for (const gender of genders) {
           for (const age of ageBands) {
             const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${age}`);
-            if (value !== 0) records.push({ submissionId, contractType: contract, cspCategory: csp, gender, ageBand: age, value });
+            if (value !== 0) records.push({ submissionId, contractType: this.up(contract), cspCategory: this.up(csp), gender: this.up(gender), ageBand: age, value });
           }
         }
       }
       for (const gender of genders) {
         for (const age of ageBands) {
           const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${age}`);
-          if (value !== 0) records.push({ submissionId, contractType: contract, cspCategory: 'subtotal', gender, ageBand: age, value });
+          if (value !== 0) records.push({ submissionId, contractType: this.up(contract), cspCategory: 'SUBTOTAL', gender: this.up(gender), ageBand: age, value });
         }
       }
     }
     for (const gender of genders) {
       for (const age of ageBands) {
         const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
-        if (value !== 0) records.push({ submissionId, contractType: 'total', cspCategory: 'total', gender, ageBand: age, value });
+        if (value !== 0) records.push({ submissionId, contractType: 'TOTAL', cspCategory: 'TOTAL', gender: this.up(gender), ageBand: age, value });
       }
     }
     if (records.length > 0) await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
@@ -522,7 +505,7 @@ export class QuestionnairesService {
       for (const type of departureTypes) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${csp}_${type}_${gender}`);
-          if (value !== 0) records.push({ submissionId, cspCategory: csp, departureType: type, gender, value });
+          if (value !== 0) records.push({ submissionId, cspCategory: this.up(csp), departureType: this.up(type), gender: this.up(gender), value });
         }
       }
     }
@@ -553,7 +536,7 @@ export class QuestionnairesService {
       for (const type of types) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${csp}_${type}_${gender}`);
-          if (value !== 0) records.push({ submissionId, cspCategory: csp, type, gender, value });
+          if (value !== 0) records.push({ submissionId, cspCategory: this.up(csp), type: this.up(type), gender: this.up(gender), value });
         }
       }
     }
@@ -568,7 +551,7 @@ export class QuestionnairesService {
     for (const type of internshipTypes) {
       for (const gender of genders) {
         const value = this.flatInt(flat, `${prefix}_${type}_${gender}`);
-        if (value !== 0) records.push({ submissionId, internshipType: type, gender, value });
+        if (value !== 0) records.push({ submissionId, internshipType: this.up(type), gender: this.up(gender), value });
       }
     }
     if (records.length > 0) await tx.onefopInternshipData.createMany({ data: records, skipDuplicates: true });

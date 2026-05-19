@@ -339,6 +339,9 @@ let QuestionnairesService = class QuestionnairesService {
         const v = flat[key];
         return v !== undefined && v !== null ? String(v) : '';
     }
+    up(v) {
+        return v.toUpperCase();
+    }
     async saveCspGenderAgeFlat(tx, submissionId, flat, prefix, tableName) {
         const cspRows = ['cadres', 'foremen', 'workers'];
         const genders = ['male', 'female', 'total'];
@@ -349,7 +352,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const age of ageBands) {
                     const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${age}`);
                     if (value !== 0)
-                        rows.push({ submissionId, tableName, cspCategory: csp, gender, ageBand: age, value });
+                        rows.push({ submissionId, tableName, cspCategory: this.up(csp), gender: this.up(gender), ageBand: age, value });
                 }
             }
         }
@@ -357,7 +360,7 @@ let QuestionnairesService = class QuestionnairesService {
             for (const age of ageBands) {
                 const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
                 if (value !== 0)
-                    rows.push({ submissionId, tableName, cspCategory: 'total', gender, ageBand: age, value });
+                    rows.push({ submissionId, tableName, cspCategory: 'TOTAL', gender: this.up(gender), ageBand: age, value });
             }
         }
         if (rows.length > 0)
@@ -374,7 +377,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const age of ageBands) {
                     const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${age}`);
                     if (value !== 0)
-                        rows.push({ submissionId, diploma, gender, ageBand: age, value });
+                        rows.push({ submissionId, diploma: this.up(diploma), gender: this.up(gender), ageBand: age, value });
                 }
             }
         }
@@ -382,7 +385,7 @@ let QuestionnairesService = class QuestionnairesService {
             for (const age of ageBands) {
                 const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
                 if (value !== 0)
-                    rows.push({ submissionId, diploma: 'total', gender, ageBand: age, value });
+                    rows.push({ submissionId, diploma: 'TOTAL', gender: this.up(gender), ageBand: age, value });
             }
         }
         if (rows.length > 0)
@@ -398,7 +401,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const gender of genders) {
                     const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
                     if (value !== 0)
-                        records.push({ submissionId, cspCategory: row, status, gender, value });
+                        records.push({ submissionId, cspCategory: this.up(row), status: this.up(status), gender: this.up(gender), value });
                 }
             }
         }
@@ -416,7 +419,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const gender of genders) {
                     const value = this.flatInt(flat, `${prefix}_${vRow}_${status}_${gender}`);
                     if (value !== 0)
-                        records.push({ submissionId, vulnerableType: vRow, status, gender, value });
+                        records.push({ submissionId, vulnerableType: this.up(vRow), status: this.up(status), gender: this.up(gender), value });
                 }
             }
         }
@@ -434,7 +437,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const gender of genders) {
                     const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
                     if (value !== 0)
-                        records.push({ submissionId, vulnerableType: row, status, gender, value });
+                        records.push({ submissionId, vulnerableType: this.up(row), status: this.up(status), gender: this.up(gender), value });
                 }
             }
         }
@@ -454,7 +457,7 @@ let QuestionnairesService = class QuestionnairesService {
                     for (const age of ageBands) {
                         const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${age}`);
                         if (value !== 0)
-                            records.push({ submissionId, contractType: contract, cspCategory: csp, gender, ageBand: age, value });
+                            records.push({ submissionId, contractType: this.up(contract), cspCategory: this.up(csp), gender: this.up(gender), ageBand: age, value });
                     }
                 }
             }
@@ -462,7 +465,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const age of ageBands) {
                     const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${age}`);
                     if (value !== 0)
-                        records.push({ submissionId, contractType: contract, cspCategory: 'subtotal', gender, ageBand: age, value });
+                        records.push({ submissionId, contractType: this.up(contract), cspCategory: 'SUBTOTAL', gender: this.up(gender), ageBand: age, value });
                 }
             }
         }
@@ -470,7 +473,7 @@ let QuestionnairesService = class QuestionnairesService {
             for (const age of ageBands) {
                 const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
                 if (value !== 0)
-                    records.push({ submissionId, contractType: 'total', cspCategory: 'total', gender, ageBand: age, value });
+                    records.push({ submissionId, contractType: 'TOTAL', cspCategory: 'TOTAL', gender: this.up(gender), ageBand: age, value });
             }
         }
         if (records.length > 0)
@@ -487,7 +490,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const gender of genders) {
                     const value = this.flatInt(flat, `${prefix}_${csp}_${type}_${gender}`);
                     if (value !== 0)
-                        records.push({ submissionId, cspCategory: csp, departureType: type, gender, value });
+                        records.push({ submissionId, cspCategory: this.up(csp), departureType: this.up(type), gender: this.up(gender), value });
                 }
             }
         }
@@ -519,7 +522,7 @@ let QuestionnairesService = class QuestionnairesService {
                 for (const gender of genders) {
                     const value = this.flatInt(flat, `${prefix}_${csp}_${type}_${gender}`);
                     if (value !== 0)
-                        records.push({ submissionId, cspCategory: csp, type, gender, value });
+                        records.push({ submissionId, cspCategory: this.up(csp), type: this.up(type), gender: this.up(gender), value });
                 }
             }
         }
@@ -535,7 +538,7 @@ let QuestionnairesService = class QuestionnairesService {
             for (const gender of genders) {
                 const value = this.flatInt(flat, `${prefix}_${type}_${gender}`);
                 if (value !== 0)
-                    records.push({ submissionId, internshipType: type, gender, value });
+                    records.push({ submissionId, internshipType: this.up(type), gender: this.up(gender), value });
             }
         }
         if (records.length > 0)

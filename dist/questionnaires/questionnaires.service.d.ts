@@ -8,6 +8,7 @@ export declare class QuestionnairesService {
     private enforceFinalRequiredFields;
     private flatInt;
     private flatStr;
+    private up;
     private saveCspGenderAgeFlat;
     private saveDiplomaFlat;
     private saveDisabilityFlat;
