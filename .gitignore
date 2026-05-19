@@ -57,3 +57,5 @@ secrets.json
 # Credentials
 **/secrets/
 **/credentials/
+
+dist/
