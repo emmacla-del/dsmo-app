@@ -16,7 +16,6 @@ exports.DsmoController = void 0;
 const common_1 = require("@nestjs/common");
 const dsmo_service_1 = require("./dsmo.service");
 const notification_service_1 = require("./notification.service");
-const analytics_service_1 = require("./analytics.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../auth/roles.guard");
 const roles_decorator_1 = require("../auth/roles.decorator");
@@ -24,10 +23,9 @@ const submit_declaration_dto_1 = require("./dto/submit-declaration.dto");
 const register_company_profile_dto_1 = require("./dto/register-company-profile.dto");
 const prisma_types_1 = require("../types/prisma.types");
 let DsmoController = class DsmoController {
-    constructor(dsmoService, notificationService, analyticsService) {
+    constructor(dsmoService, notificationService) {
         this.dsmoService = dsmoService;
         this.notificationService = notificationService;
-        this.analyticsService = analyticsService;
     }
     async getMyCompany(req) {
         const company = await this.dsmoService.getMyCompany(req.user.id);
@@ -66,21 +64,6 @@ let DsmoController = class DsmoController {
     }
     async getNotifications(req, page = 1, limit = 20) {
         return this.notificationService.getNotifications(req.user.id, page, limit);
-    }
-    async getEmploymentByRegion(year) {
-        return this.analyticsService.getEmploymentByRegion(year);
-    }
-    async getGenderDistribution(year, region) {
-        return this.analyticsService.getGenderDistribution(year, region);
-    }
-    async getDashboardSummary(year, region) {
-        return this.analyticsService.getDashboardSummary(year, region);
-    }
-    async getEmploymentTrends(startYear, endYear, region) {
-        return this.analyticsService.getEmploymentTrends(startYear, endYear, region);
-    }
-    async getSectorDistribution(year, region) {
-        return this.analyticsService.getSectorDistribution(year, region);
     }
     async downloadPdf(id, copy, req, res) {
         const url = await this.dsmoService.getPdfPath(id, req.user.id, copy);
@@ -183,51 +166,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], DsmoController.prototype, "getNotifications", null);
 __decorate([
-    (0, roles_decorator_1.Roles)('CENTRAL', 'SUPER_ADMIN'),
-    (0, common_1.Get)('analytics/employment-by-region'),
-    __param(0, (0, common_1.Query)('year', common_1.ParseIntPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
-    __metadata("design:returntype", Promise)
-], DsmoController.prototype, "getEmploymentByRegion", null);
-__decorate([
-    (0, roles_decorator_1.Roles)('CENTRAL', 'SUPER_ADMIN'),
-    (0, common_1.Get)('analytics/gender-distribution'),
-    __param(0, (0, common_1.Query)('year', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Query)('region')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, String]),
-    __metadata("design:returntype", Promise)
-], DsmoController.prototype, "getGenderDistribution", null);
-__decorate([
-    (0, roles_decorator_1.Roles)('CENTRAL', 'REGIONAL', 'SUPER_ADMIN'),
-    (0, common_1.Get)('analytics/dashboard-summary'),
-    __param(0, (0, common_1.Query)('year', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Query)('region')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, String]),
-    __metadata("design:returntype", Promise)
-], DsmoController.prototype, "getDashboardSummary", null);
-__decorate([
-    (0, roles_decorator_1.Roles)('CENTRAL', 'REGIONAL', 'SUPER_ADMIN'),
-    (0, common_1.Get)('analytics/employment-trends'),
-    __param(0, (0, common_1.Query)('startYear', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Query)('endYear', common_1.ParseIntPipe)),
-    __param(2, (0, common_1.Query)('region')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number, String]),
-    __metadata("design:returntype", Promise)
-], DsmoController.prototype, "getEmploymentTrends", null);
-__decorate([
-    (0, roles_decorator_1.Roles)('CENTRAL', 'REGIONAL', 'SUPER_ADMIN'),
-    (0, common_1.Get)('analytics/sector-distribution'),
-    __param(0, (0, common_1.Query)('year', common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Query)('region')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, String]),
-    __metadata("design:returntype", Promise)
-], DsmoController.prototype, "getSectorDistribution", null);
-__decorate([
     (0, common_1.Get)('declarations/:id/pdf/:copy'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('copy', common_1.ParseIntPipe)),
@@ -241,7 +179,6 @@ exports.DsmoController = DsmoController = __decorate([
     (0, common_1.Controller)('dsmo'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     __metadata("design:paramtypes", [dsmo_service_1.DsmoService,
-        notification_service_1.NotificationService,
-        analytics_service_1.AnalyticsService])
+        notification_service_1.NotificationService])
 ], DsmoController);
 //# sourceMappingURL=dsmo.controller.js.map

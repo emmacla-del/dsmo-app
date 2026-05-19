@@ -13,10 +13,10 @@ const dsmo_module_1 = require("./dsmo/dsmo.module");
 const prisma_module_1 = require("./prisma/prisma.module");
 const locations_module_1 = require("./locations/locations.module");
 const sectors_module_1 = require("./sectors/sectors.module");
-const minefop_services_module_1 = require("./minefop-services/minefop-services.module");
 const questionnaires_module_1 = require("./questionnaires/questionnaires.module");
 const onefop_analytics_module_1 = require("./analytics/onefop-analytics.module");
 const pdf_module_1 = require("./pdf/pdf.module");
+const analytics_module_1 = require("./analytics/analytics.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -28,10 +28,10 @@ exports.AppModule = AppModule = __decorate([
             prisma_module_1.PrismaModule,
             locations_module_1.LocationsModule,
             sectors_module_1.SectorsModule,
-            minefop_services_module_1.MinefopServicesModule,
             questionnaires_module_1.QuestionnairesModule,
             onefop_analytics_module_1.OnefopAnalyticsModule,
             pdf_module_1.PdfModule,
+            analytics_module_1.AnalyticsModule,
         ],
     })
 ], AppModule);

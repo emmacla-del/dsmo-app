@@ -1,23 +1,24 @@
 import type { Response } from 'express';
 import { DsmoService } from './dsmo.service';
 import { NotificationService } from './notification.service';
-import { AnalyticsService } from './analytics.service';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
 import { RegisterCompanyProfileDto } from './dto/register-company-profile.dto';
 import { DeclarationStatus } from '../types/prisma.types';
 export declare class DsmoController {
     private readonly dsmoService;
     private readonly notificationService;
-    private readonly analyticsService;
-    constructor(dsmoService: DsmoService, notificationService: NotificationService, analyticsService: AnalyticsService);
+    constructor(dsmoService: DsmoService, notificationService: NotificationService);
     getMyCompany(req: any): Promise<{
+        id: string;
         region: string;
         department: string;
         subdivision: string;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        regionId: string | null;
+        departmentId: string | null;
+        subdivisionId: string | null;
         userId: string;
         taxNumber: string;
         parentCompany: string | null;
@@ -35,6 +36,7 @@ export declare class DsmoController {
         lastYearWomenCount: number | null;
         entityType: import(".prisma/client").$Enums.OnefopEntityType | null;
         sectorId: string | null;
+        enterpriseSize: string | null;
         area: string | null;
         phone: string | null;
         phone2: string | null;
@@ -43,24 +45,27 @@ export declare class DsmoController {
         cooperativeType: string | null;
         ctdType: string | null;
         yearOfCreation: string | null;
+        branch: string | null;
         mainMission: string | null;
         registrationNumber: string | null;
         trainingDomains: string | null;
         respondentPhone: string | null;
         respondentPhone2: string | null;
         respondentFunction: string | null;
-        regionId: string | null;
-        departmentId: string | null;
-        subdivisionId: string | null;
+        respondentFirstName: string | null;
+        respondentLastName: string | null;
     }>;
     saveCompanyProfile(req: any, dto: RegisterCompanyProfileDto): Promise<{
+        id: string;
         region: string;
         department: string;
         subdivision: string;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        regionId: string | null;
+        departmentId: string | null;
+        subdivisionId: string | null;
         userId: string;
         taxNumber: string;
         parentCompany: string | null;
@@ -78,6 +83,7 @@ export declare class DsmoController {
         lastYearWomenCount: number | null;
         entityType: import(".prisma/client").$Enums.OnefopEntityType | null;
         sectorId: string | null;
+        enterpriseSize: string | null;
         area: string | null;
         phone: string | null;
         phone2: string | null;
@@ -86,15 +92,15 @@ export declare class DsmoController {
         cooperativeType: string | null;
         ctdType: string | null;
         yearOfCreation: string | null;
+        branch: string | null;
         mainMission: string | null;
         registrationNumber: string | null;
         trainingDomains: string | null;
         respondentPhone: string | null;
         respondentPhone2: string | null;
         respondentFunction: string | null;
-        regionId: string | null;
-        departmentId: string | null;
-        subdivisionId: string | null;
+        respondentFirstName: string | null;
+        respondentLastName: string | null;
     }>;
     submitDeclaration(req: any, dto: SubmitDeclarationDto): Promise<{
         success: boolean;
@@ -104,13 +110,16 @@ export declare class DsmoController {
     }>;
     getPending(req: any): Promise<({
         company: {
+            id: string;
             region: string;
             department: string;
             subdivision: string;
-            id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            regionId: string | null;
+            departmentId: string | null;
+            subdivisionId: string | null;
             userId: string;
             taxNumber: string;
             parentCompany: string | null;
@@ -128,6 +137,7 @@ export declare class DsmoController {
             lastYearWomenCount: number | null;
             entityType: import(".prisma/client").$Enums.OnefopEntityType | null;
             sectorId: string | null;
+            enterpriseSize: string | null;
             area: string | null;
             phone: string | null;
             phone2: string | null;
@@ -136,15 +146,15 @@ export declare class DsmoController {
             cooperativeType: string | null;
             ctdType: string | null;
             yearOfCreation: string | null;
+            branch: string | null;
             mainMission: string | null;
             registrationNumber: string | null;
             trainingDomains: string | null;
             respondentPhone: string | null;
             respondentPhone2: string | null;
             respondentFunction: string | null;
-            regionId: string | null;
-            departmentId: string | null;
-            subdivisionId: string | null;
+            respondentFirstName: string | null;
+            respondentLastName: string | null;
         };
         employees: {
             function: string;
@@ -161,50 +171,53 @@ export declare class DsmoController {
             salary: number | null;
         }[];
     } & {
-        region: string;
         id: string;
+        region: string;
         rejectionReason: string | null;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.DeclarationStatus;
-        year: number;
-        fillingDate: Date | null;
+        pdfUrl: string | null;
         companyId: string;
+        year: number;
         division: string;
         submittedAt: Date | null;
         validatedBy: string | null;
         validatedAt: Date | null;
-        pdfUrl: string | null;
         receiptUrl: string | null;
         qrCode: string | null;
+        fillingDate: Date | null;
     })[]>;
     validate(id: string, req: any, accept: boolean, rejectionReason?: string): Promise<{
-        region: string;
         id: string;
+        region: string;
         rejectionReason: string | null;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.DeclarationStatus;
-        year: number;
-        fillingDate: Date | null;
+        pdfUrl: string | null;
         companyId: string;
+        year: number;
         division: string;
         submittedAt: Date | null;
         validatedBy: string | null;
         validatedAt: Date | null;
-        pdfUrl: string | null;
         receiptUrl: string | null;
         qrCode: string | null;
+        fillingDate: Date | null;
     }>;
     getDeclarations(req: any, year?: string, status?: DeclarationStatus, region?: string, department?: string): Promise<({
         company: {
+            id: string;
             region: string;
             department: string;
             subdivision: string;
-            id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            regionId: string | null;
+            departmentId: string | null;
+            subdivisionId: string | null;
             userId: string;
             taxNumber: string;
             parentCompany: string | null;
@@ -222,6 +235,7 @@ export declare class DsmoController {
             lastYearWomenCount: number | null;
             entityType: import(".prisma/client").$Enums.OnefopEntityType | null;
             sectorId: string | null;
+            enterpriseSize: string | null;
             area: string | null;
             phone: string | null;
             phone2: string | null;
@@ -230,43 +244,46 @@ export declare class DsmoController {
             cooperativeType: string | null;
             ctdType: string | null;
             yearOfCreation: string | null;
+            branch: string | null;
             mainMission: string | null;
             registrationNumber: string | null;
             trainingDomains: string | null;
             respondentPhone: string | null;
             respondentPhone2: string | null;
             respondentFunction: string | null;
-            regionId: string | null;
-            departmentId: string | null;
-            subdivisionId: string | null;
+            respondentFirstName: string | null;
+            respondentLastName: string | null;
         };
     } & {
-        region: string;
         id: string;
+        region: string;
         rejectionReason: string | null;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.DeclarationStatus;
-        year: number;
-        fillingDate: Date | null;
+        pdfUrl: string | null;
         companyId: string;
+        year: number;
         division: string;
         submittedAt: Date | null;
         validatedBy: string | null;
         validatedAt: Date | null;
-        pdfUrl: string | null;
         receiptUrl: string | null;
         qrCode: string | null;
+        fillingDate: Date | null;
     })[]>;
     getDeclaration(id: string, req: any): Promise<{
         company: {
+            id: string;
             region: string;
             department: string;
             subdivision: string;
-            id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            regionId: string | null;
+            departmentId: string | null;
+            subdivisionId: string | null;
             userId: string;
             taxNumber: string;
             parentCompany: string | null;
@@ -284,6 +301,7 @@ export declare class DsmoController {
             lastYearWomenCount: number | null;
             entityType: import(".prisma/client").$Enums.OnefopEntityType | null;
             sectorId: string | null;
+            enterpriseSize: string | null;
             area: string | null;
             phone: string | null;
             phone2: string | null;
@@ -292,27 +310,27 @@ export declare class DsmoController {
             cooperativeType: string | null;
             ctdType: string | null;
             yearOfCreation: string | null;
+            branch: string | null;
             mainMission: string | null;
             registrationNumber: string | null;
             trainingDomains: string | null;
             respondentPhone: string | null;
             respondentPhone2: string | null;
             respondentFunction: string | null;
-            regionId: string | null;
-            departmentId: string | null;
-            subdivisionId: string | null;
+            respondentFirstName: string | null;
+            respondentLastName: string | null;
         };
         movements: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            declarationId: string;
             movementType: import(".prisma/client").$Enums.MovementType;
             cat1_3: number;
             cat4_6: number;
             cat7_9: number;
             cat10_12: number;
             catNonDeclared: number;
-            declarationId: string;
         }[];
         employees: {
             function: string;
@@ -332,40 +350,40 @@ export declare class DsmoController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            hasTrainingCenter: boolean | null;
-            recruitmentPlansNext: boolean | null;
-            camerounisationPlan: boolean | null;
-            usesTempAgencies: boolean | null;
-            tempAgencyDetails: string | null;
             declarationId: string;
-            orderIndex: number;
             questionType: string;
             section: string;
             questionText: string;
             answerText: string | null;
             answerOptions: import("@prisma/client/runtime/library").JsonValue | null;
+            hasTrainingCenter: boolean | null;
             trainingCenterDetails: string | null;
+            recruitmentPlansNext: boolean | null;
             recruitmentPlanCount: number | null;
+            camerounisationPlan: boolean | null;
+            usesTempAgencies: boolean | null;
             temporaryWorkerCount: number | null;
             version: number;
+            orderIndex: number;
+            tempAgencyDetails: string | null;
         }[];
     } & {
-        region: string;
         id: string;
+        region: string;
         rejectionReason: string | null;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.DeclarationStatus;
-        year: number;
-        fillingDate: Date | null;
+        pdfUrl: string | null;
         companyId: string;
+        year: number;
         division: string;
         submittedAt: Date | null;
         validatedBy: string | null;
         validatedAt: Date | null;
-        pdfUrl: string | null;
         receiptUrl: string | null;
         qrCode: string | null;
+        fillingDate: Date | null;
     }>;
     getDeclarationStats(year: number, region?: string, department?: string): Promise<{
         total: number;
@@ -394,9 +412,9 @@ export declare class DsmoController {
             status: import(".prisma/client").$Enums.NotificationStatus;
             companyId: string;
             sentAt: Date;
+            notificationId: string;
             openedAt: Date | null;
             clickedAt: Date | null;
-            notificationId: string;
         }[];
     } & {
         id: string;
@@ -411,53 +429,5 @@ export declare class DsmoController {
         sentAt: Date;
         sentBy: string;
     })[]>;
-    getEmploymentByRegion(year: number): Promise<any[]>;
-    getGenderDistribution(year: number, region?: string): Promise<{
-        male: {
-            count: number;
-            percentage: number;
-        };
-        female: {
-            count: number;
-            percentage: number;
-        };
-        other: {
-            count: number;
-            percentage: number;
-        };
-        total: number;
-    }>;
-    getDashboardSummary(year: number, region?: string): Promise<{
-        year: number;
-        region: string;
-        totalDeclarations: number;
-        totalEmployees: number;
-        employmentGrowthRate: number;
-        genderDistribution: {
-            male: number;
-            female: number;
-        };
-        topSectors: {
-            sector: string;
-            employees: number;
-        }[];
-        totalRecruitments: number;
-        totalDismissals: number;
-        totalRetirements: number;
-        totalPromotions: number;
-        netChange: number;
-    }>;
-    getEmploymentTrends(startYear: number, endYear: number, region?: string): Promise<{
-        year: number;
-        period: string;
-        label: string;
-        totalEmployees: number;
-    }[]>;
-    getSectorDistribution(year: number, region?: string): Promise<{
-        sector: string;
-        employees: number;
-        male: number;
-        female: number;
-    }[]>;
     downloadPdf(id: string, copy: number, req: any, res: Response): Promise<void>;
 }

@@ -6,7 +6,9 @@ import '../../../theme/app_colors.dart';
 import 'declaration_approval_screen.dart';
 
 class DeclarationsListScreen extends ConsumerStatefulWidget {
-  const DeclarationsListScreen({super.key});
+  final VoidCallback? onNewSubmission;
+
+  const DeclarationsListScreen({super.key, this.onNewSubmission});
 
   @override
   ConsumerState<DeclarationsListScreen> createState() =>
@@ -129,15 +131,14 @@ class _DeclarationsListScreenState
               isCompany
                   ? 'Aucune déclaration soumise'
                   : 'Aucune déclaration en attente',
-              style:
-                  const TextStyle(fontSize: 16, color: AppColors.slate),
+              style: const TextStyle(fontSize: 16, color: AppColors.slate),
             ),
             const SizedBox(height: 8),
-            if (isCompany)
-              const Text(
-                'Utilisez le bouton + pour soumettre votre première déclaration.',
-                style: TextStyle(fontSize: 13, color: AppColors.silver),
-                textAlign: TextAlign.center,
+            if (isCompany && widget.onNewSubmission != null)
+              ElevatedButton.icon(
+                onPressed: widget.onNewSubmission,
+                icon: const Icon(Icons.add),
+                label: const Text('Nouvelle soumission'),
               ),
           ],
         ),
@@ -148,12 +149,38 @@ class _DeclarationsListScreenState
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
-        itemCount: _declarations.length,
+        itemCount: _declarations.length +
+            (isCompany && widget.onNewSubmission != null ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          final d = _declarations[index] as Map<String, dynamic>;
-          final company =
-              (d['company'] as Map<String, dynamic>?) ?? {};
+          // Header button for new submission (first item, company only)
+          if (isCompany && widget.onNewSubmission != null && index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: widget.onNewSubmission,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Nouvelle soumission'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.deepEmerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          final actualIndex =
+              isCompany && widget.onNewSubmission != null ? index - 1 : index;
+          final d = _declarations[actualIndex] as Map<String, dynamic>;
+          final company = (d['company'] as Map<String, dynamic>?) ?? {};
           final status = d['status'] as String? ?? '';
           final employees = (d['employees'] as List?) ?? [];
           final rejectionReason = d['rejectionReason'] as String?;
@@ -223,19 +250,19 @@ class _DeclarationsListScreenState
                                 company['name'] as String? ??
                                     'Entreprise inconnue',
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15),
+                                    fontWeight: FontWeight.w700, fontSize: 15),
                               ),
                               const SizedBox(height: 3),
                               Text(
                                 [
                                   'Année ${d['year']}',
-                                  if ((company['region'] ?? d['region']) != null)
+                                  if ((company['region'] ?? d['region']) !=
+                                      null)
                                     company['region'] ?? d['region'],
-                                  if ((company['district'] as String?)
+                                  if ((company['subdivision'] as String?)
                                           ?.isNotEmpty ==
                                       true)
-                                    company['district'],
+                                    company['subdivision'],
                                 ].join('  •  '),
                                 style: const TextStyle(
                                     color: AppColors.slate, fontSize: 12),
@@ -271,8 +298,7 @@ class _DeclarationsListScreenState
                         ),
                         Icon(
                             isDraft ? Icons.arrow_forward : Icons.chevron_right,
-                            color:
-                                isDraft ? Colors.orange : AppColors.silver),
+                            color: isDraft ? Colors.orange : AppColors.silver),
                       ],
                     ),
 
@@ -307,8 +333,7 @@ class _DeclarationsListScreenState
                               child: Text(
                                 'Motif : $rejectionReason',
                                 style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red.shade700),
+                                    fontSize: 12, color: Colors.red.shade700),
                               ),
                             ),
                           ],
@@ -391,12 +416,10 @@ class _ApprovalTimeline extends StatelessWidget {
           nodeIcon = const Icon(Icons.check, size: 12, color: Colors.white);
         } else if (isActive) {
           nodeColor = Colors.orange;
-          nodeIcon =
-              const Icon(Icons.schedule, size: 12, color: Colors.white);
+          nodeIcon = const Icon(Icons.schedule, size: 12, color: Colors.white);
         } else {
           nodeColor = Colors.grey.shade300;
-          nodeIcon = Icon(Icons.circle,
-              size: 6, color: Colors.grey.shade400);
+          nodeIcon = Icon(Icons.circle, size: 6, color: Colors.grey.shade400);
         }
 
         return Column(

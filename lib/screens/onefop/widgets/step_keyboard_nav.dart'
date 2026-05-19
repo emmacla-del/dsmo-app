@@ -1,0 +1,173 @@
+// step_keyboard_nav.dart
+//
+// Provides two things:
+//
+// 1. StepKeyboardNav — wraps a single form step in a FocusTraversalGroup
+//    so that:
+//      • Tab / Enter / ArrowDown  → next focusable field
+//      • Shift+Tab / ArrowUp      → previous focusable field
+//      • Enter on the LAST field  → calls onStepComplete (advances step)
+//
+// 2. NavField — a drop-in replacement for the field() helper that
+//    participates properly in traversal and calls onLastField when
+//    it is the last field in the step.
+//
+// Usage in _buildStep1():
+//
+//   StepKeyboardNav(
+//     onStepComplete: _next,      // called when Enter pressed on last field
+//     child: SingleChildScrollView(
+//       child: Column(children: [
+//         FormCard(child: NavField('Nom', 'Ex: ...', _ctrl)),
+//         FormCard(child: NavField('Région', 'Ex: ...', _regionCtrl)),
+//         // ... all fields for this step
+//       ]),
+//     ),
+//   )
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/theme/onefop_colors.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP KEYBOARD NAV WRAPPER
+// ─────────────────────────────────────────────────────────────────────────────
+
+class StepKeyboardNav extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onStepComplete; // called when Enter on last field
+
+  const StepKeyboardNav({
+    super.key,
+    required this.child,
+    this.onStepComplete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusTraversalGroup(
+      policy: _StepTraversalPolicy(onStepComplete: onStepComplete),
+      child: _ArrowKeyHandler(
+        child: child,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRAVERSAL POLICY
+// Uses ReadingOrderTraversalPolicy (left-to-right, top-to-bottom) which
+// matches the visual order of fields on screen. When next() is called on
+// the last node, it calls onStepComplete instead of doing nothing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StepTraversalPolicy extends ReadingOrderTraversalPolicy {
+  final VoidCallback? onStepComplete;
+  _StepTraversalPolicy({this.onStepComplete});
+
+  @override
+  bool next(FocusNode currentNode, FocusTraversalGroup group, bool forward,
+      {required Iterable<FocusNode> candidates}) {
+    final moved = super.next(currentNode, group, forward,
+        candidates: candidates);
+    if (!moved && forward && onStepComplete != null) {
+      // Reached the end of this step — advance to the next step
+      onStepComplete!();
+    }
+    return moved;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ARROW KEY HANDLER
+// Intercepts Up/Down arrow keys and translates them to
+// previousFocus/nextFocus so they work the same as Tab/Shift+Tab.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ArrowKeyHandler extends StatelessWidget {
+  final Widget child;
+  const _ArrowKeyHandler({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false, // transparent to focus — only intercepts keys
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
+        final key = event.logicalKey;
+        if (key == LogicalKeyboardKey.arrowDown) {
+          FocusScope.of(context).nextFocus();
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.arrowUp) {
+          FocusScope.of(context).previousFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: child,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV FIELD — drop-in for field()
+// A proper StatelessWidget so it has a BuildContext and can call
+// FocusScope.of(context).nextFocus() in onFieldSubmitted.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class NavField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final TextInputType type;
+  final int? maxLength;
+
+  const NavField(
+    this.label,
+    this.hint,
+    this.controller, {
+    super.key,
+    this.type = TextInputType.text,
+    this.maxLength,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: type,
+      maxLength: maxLength,
+      textInputAction: TextInputAction.next,
+      onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+      style: const TextStyle(fontSize: 13, color: OnefopColors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle:
+            const TextStyle(fontSize: 12, color: OnefopColors.white60),
+        hintStyle:
+            const TextStyle(fontSize: 12, color: OnefopColors.white40),
+        filled: true,
+        fillColor: OnefopColors.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: OnefopColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: OnefopColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: OnefopColors.teal, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        counterText: '',
+      ),
+    );
+  }
+}

@@ -98,11 +98,14 @@ class _DeclarationWizardScreenState
   Map<String, dynamic>? _companyData;
   Map<String, dynamic>? _savedCompany; // profile fetched from /dsmo/company
 
+  static const _movPrefixes = ['rec', 'pro', 'lic', 'ret', 'dec'];
+  static const _movSuffixes = ['1_3', '4_6', '7_9', '10_12', 'nd'];
+
   @override
   void initState() {
     super.initState();
     _fetchSectors();
-    _fetchRegionsAndAutoFill(); // loads regions then cascades auto-fill
+    _fetchRegionsAndAutoFill();
     _menCount.addListener(_autoCalcCurrentTotal);
     _womenCount.addListener(_autoCalcCurrentTotal);
     _lastYearMen.addListener(_autoCalcLastYearTotal);
@@ -292,7 +295,7 @@ class _DeclarationWizardScreenState
           if (_selectedDepartmentId != null) {
             await _fetchSubdivisionsAndAutoSelect(
               _selectedDepartmentId!,
-              _savedCompany?['district'] as String?,
+              _savedCompany?['subdivision'] as String?,
             );
           }
         }
@@ -307,7 +310,7 @@ class _DeclarationWizardScreenState
 
   /// Loads subdivisions for the department and auto-selects by name.
   Future<void> _fetchSubdivisionsAndAutoSelect(
-      String departmentId, String? districtName) async {
+      String departmentId, String? subdivisionName) async {
     setState(() {
       _isLoadingSubdivisions = true;
       _subdivisions = [];
@@ -323,13 +326,13 @@ class _DeclarationWizardScreenState
         _isLoadingSubdivisions = false;
       });
 
-      if (districtName != null && districtName.isNotEmpty) {
+      if (subdivisionName != null && subdivisionName.isNotEmpty) {
         final match = subdivisions
             .cast<Map<String, dynamic>>()
             .where(
               (s) =>
                   (s['name'] as String?)?.toLowerCase() ==
-                  districtName.toLowerCase(),
+                  subdivisionName.toLowerCase(),
             )
             .firstOrNull;
         if (match != null) {
@@ -473,7 +476,7 @@ class _DeclarationWizardScreenState
             : null,
         'region': _selectedRegionName,
         'department': _selectedDepartmentName,
-        'district': _selectedSubdivisionName,
+        'subdivision': _selectedSubdivisionName,
         'address': _addressController.text.trim(),
         'fax': _faxController.text.trim().isNotEmpty
             ? _faxController.text.trim()
@@ -693,7 +696,7 @@ class _DeclarationWizardScreenState
           ],
         ),
 
-        // Section: Identification
+        // ── Section: Identification ──────────────────────────────────────────
         _sectionHeader("Identification de l'établissement"),
 
         _buildTextField(
@@ -725,7 +728,7 @@ class _DeclarationWizardScreenState
           'Activité secondaire',
         ),
 
-        // Section: Localisation
+        // ── Section: Localisation ────────────────────────────────────────────
         _sectionHeader('Localisation'),
 
         _buildCascadingDropdown(
@@ -788,7 +791,7 @@ class _DeclarationWizardScreenState
           }),
         ),
 
-        // Section: Coordonnées administratives
+        // ── Section: Coordonnées administratives ─────────────────────────────
         _sectionHeader('Coordonnées administratives'),
 
         _buildTextField(
@@ -802,7 +805,9 @@ class _DeclarationWizardScreenState
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _buildTextField(_faxController, 'Fax')),
+            Expanded(
+              child: _buildTextField(_faxController, 'Fax'),
+            ),
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
@@ -821,18 +826,12 @@ class _DeclarationWizardScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _buildTextField(
-                _capitalController,
-                'Capital social (XAF)',
-                isNumber: true,
-              ),
+              child: _buildTextField(_capitalController, 'Capital social (XAF)',
+                  isNumber: true),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField(
-                _cnpsController,
-                'N° Affiliation CNPS',
-              ),
+              child: _buildTextField(_cnpsController, 'N° Affiliation CNPS'),
             ),
           ],
         ),
@@ -1070,6 +1069,7 @@ class _DeclarationWizardScreenState
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         inputFormatters:
             isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+        textInputAction: TextInputAction.next,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -1217,11 +1217,9 @@ class _DeclarationWizardScreenState
     return TableRow(
       children: [
         _Cell(label),
-        _EditableCell(_movements['${prefix}_1_3']!),
-        _EditableCell(_movements['${prefix}_4_6']!),
-        _EditableCell(_movements['${prefix}_7_9']!),
-        _EditableCell(_movements['${prefix}_10_12']!),
-        _EditableCell(_movements['${prefix}_nd']!),
+        ..._movSuffixes.map((suffix) {
+          return _EditableCell(_movements['${prefix}_$suffix']!);
+        }),
         _TotalDisplayCell(_movRowTotal(prefix)),
       ],
     );
@@ -1251,6 +1249,10 @@ class _DeclarationWizardScreenState
   }
 }
 
+// ============================================================
+// SIMPLIFIED HELPER WIDGETS (No focus management)
+// ============================================================
+
 class _Cell extends StatelessWidget {
   final String text;
   final bool isHeader;
@@ -1274,6 +1276,7 @@ class _Cell extends StatelessWidget {
 
 class _EditableCell extends StatelessWidget {
   final TextEditingController ctrl;
+
   const _EditableCell(this.ctrl);
 
   @override
@@ -1285,6 +1288,7 @@ class _EditableCell extends StatelessWidget {
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         textAlign: TextAlign.center,
+        textInputAction: TextInputAction.next,
         decoration: const InputDecoration(
           isDense: true,
           border: InputBorder.none,

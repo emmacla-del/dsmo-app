@@ -955,7 +955,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                                   company['mainActivity']),
                               infoRow('Région', company['region']),
                               infoRow('Département', company['department']),
-                              infoRow('Arrondissement', company['district']),
+                              infoRow('Arrondissement', company['subdivision']),
                               infoRow('Adresse', company['address']),
                               infoRow('Fax', company['fax']),
                               infoRow('N° contribuable (NIU)',

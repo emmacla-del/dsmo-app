@@ -1,0 +1,3456 @@
+// lib/screens/onefop/onefop_unified_form_screen_v3.dart
+//
+// ══════════════════════════════════════════════════════════════
+// PIXEL-PERFECT UNIFIED FORM RENDERER  (v7)
+//
+// CHANGES vs v6:
+//   • CRITICAL BUG FIX — OnefopSectionContainer (onefop_section_renderer.dart
+//     line ~290) was receiving unconstrained width from a SingleChildScrollView
+//     (horizontal).  Fixed by wrapping the horizontal scroll child in an
+//     IntrinsicWidth + explicit SizedBox(_kScrollChildW) so every widget in
+//     the subtree sees a finite max-width.
+//
+//   • LAYOUT: _kDocW increased 940 → 980 px.  The 2-column paired-field
+//     gap is computed from the live _kDocW so the 1 px overflow is gone.
+//
+//   • MERGED STEP: Section 0 (Répondant) + Section 1 (entity-specific)
+//     are now rendered on the SAME page/step.  They are stacked vertically
+//     inside one scrollable viewport, separated by a visual divider.  The
+//     sidebar still shows them as two separate items (with their own
+//     completion badges) so the user always knows what's still missing.
+//     Navigation jumps over section 1 automatically since it is always
+//     rendered together with section 0.
+//
+//   • VERTICAL SCROLL + HIGHLIGHT: every question block and every table
+//     is wrapped in a _HighlightBlock that, when the block contains the
+//     currently-focused field, animates a soft blue left-border highlight
+//     and scrolls itself into view.  Works for all field types including
+//     nested table cells.
+//
+//   • SIDEBAR: now has three widths — 240 px (expanded), 56 px (icons-only
+//     collapsed), 0 px (fully hidden, toggled by AppBar button).  InkWell
+//     ripples and AnimatedContainer transitions throughout.  Missing-field
+//     count shown in orange pill badge.
+//
+//   • OVERFLOW FIX: the paired 2-column Row now uses
+//     colW = (_kDocW - _kColGap) / 2  where _kColGap = 16, so neither
+//     column can exceed the available width even at 980 px.
+// ══════════════════════════════════════════════════════════════
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import '../../core/focus/onefop_form_loader.dart';
+import '../../core/focus/schema/form_schema_v2.dart';
+import '../../core/focus/schema/field_schema.dart';
+import '../../core/focus/schema/section_schema.dart';
+import '../../core/focus/unified_focus_manager_v2.dart';
+import '../../core/focus/schema/navigation_engine.dart';
+import '../../core/focus/renderers/table_renderer.dart';
+import '../../core/focus/compiler/section_title_lookup.dart';
+import '../../core/focus/utils/table_calculator.dart';
+import '../../core/focus/renderers/onefop_layout_constants.dart';
+import '../../core/focus/renderers/onefop_section_renderer.dart';
+import '../../core/focus/renderers/grid_theme.dart';
+import '../../widgets/pdf_viewer_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../widgets/pdf_viewer_screen_web.dart' show PdfCache;
+
+// ─────────────────────────────────────────────────────────────
+// BASE URL
+// ─────────────────────────────────────────────────────────────
+const String _kBaseUrl = 'http://localhost:3000/api';
+
+// ─────────────────────────────────────────────────────────────
+// Document-width constants  (single source of truth)
+// Increased from 940 → 980 px to reduce overflow risk.
+// ─────────────────────────────────────────────────────────────
+const double _kDocW = 980.0; // was GridTheme.tableTargetWidth = 940
+const double _kHybridNumW = GridTheme.colWidth; //  52 px
+const double _kHybridTextW = _kDocW - 3 * _kHybridNumW; // 824 px
+const double _kColGap = 16.0; // gap between paired columns
+const double _kColW = (_kDocW - _kColGap) / 2; // each paired-column width
+
+// total horizontal-scroll child width = document + side padding
+const double _kScrollChildW = _kDocW + OL.sectionBodyPaddingH * 2;
+
+// ─────────────────────────────────────────────────────────────
+// Sidebar widths
+// ─────────────────────────────────────────────────────────────
+const double _kSidebarFull = 240.0;
+const double _kSidebarCollapsed = 56.0;
+
+// ─────────────────────────────────────────────────────────────
+// Harmonised table typography
+// Aligns all table text (headers, data cells, totals, numeric
+// input cells) with the 12–13 px scale used in Section 2 fields.
+// These override the smaller values baked into OL.thStyle /
+// OL.tdStyle so every table looks consistent regardless of section.
+// ─────────────────────────────────────────────────────────────
+const TextStyle _kThStyle = TextStyle(
+  // column/row header
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF2C3E50),
+);
+const TextStyle _kTdStyle = TextStyle(
+  // data-cell label text
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF212121),
+);
+const TextStyle _kTotStyle = TextStyle(
+  // calculated total cells
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF1F3864),
+);
+const TextStyle _kGrandTotStyle = TextStyle(
+  // grand-total row
+  fontSize: 12,
+  fontWeight: FontWeight.w700,
+  color: Color(0xFF1F3864),
+);
+const double _kNumCellFontSize = 12.0; // numeric input cells (_HNC)
+
+// ─────────────────────────────────────────────────────────────
+// BACKEND MAPPERS
+// ─────────────────────────────────────────────────────────────
+class _Map {
+  static int area(String? v) {
+    if (v == null) return 0;
+    if (v.contains('Urbain')) return 1;
+    if (v.contains('Rural')) return 2;
+    return 0;
+  }
+
+  static int sector(String? v) {
+    if (v == null) return 0;
+    if (v.contains('Primaire')) return 1;
+    if (v.contains('Secondaire')) return 2;
+    if (v.contains('Tertiaire')) return 3;
+    return 0;
+  }
+
+  static int coopType(String? v) {
+    if (v == null) return 0;
+    if (v.contains('simplifiée')) return 1;
+    if (v.contains("conseil d'administration")) return 2;
+    if (v.contains('Autre')) return 3;
+    return 0;
+  }
+
+  static int legalStatus(String? v) {
+    if (v == null) return 0;
+    if (v.contains('unipersonnelle')) return 1;
+    if (v.contains('SARL')) return 2;
+    if (v.contains('SA')) return 3;
+    if (v.contains('Autres')) return 4;
+    return 0;
+  }
+
+  static int size(String? v) {
+    if (v == null) return 0;
+    if (v.contains('TPE')) return 1;
+    if (v.contains('GE')) return 4;
+    if (v.contains('ME')) return 3;
+    if (v.contains('PE')) return 2;
+    return 0;
+  }
+
+  static int ctdType(String? v) {
+    if (v == null) return 0;
+    if (v.contains('Commune')) return 2;
+    if (v.contains('Région')) return 1;
+    return 0;
+  }
+
+  static int councilType(String? v) {
+    if (v == null) return 0;
+    if (v.contains('Arrondissement')) return 1;
+    if (v.contains('Urbaine')) return 2;
+    return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENTITY TYPE
+// ─────────────────────────────────────────────────────────────
+enum EntityType { enterprise, cooperative, ctd, ong }
+
+// ─────────────────────────────────────────────────────────────
+// HYBRID TABLE DEFINITION
+// ─────────────────────────────────────────────────────────────
+class _HTDef {
+  final List<String> rowKeys;
+  final String textSuffix;
+  final List<String> rowLabels;
+  const _HTDef({
+    required this.rowKeys,
+    required this.textSuffix,
+    required this.rowLabels,
+  });
+}
+
+class _FG {
+  final String? sub;
+  final List<FieldSchema> fields;
+  const _FG({required this.sub, required this.fields});
+}
+
+const Set<String> _hybridAstIds = {
+  'S3Q02_REASON_1_TEXT',
+  'S3Q02_REASON_2_TEXT',
+  'S3Q02_REASON_3_TEXT',
+  'S4Q02_DOMAIN_1_TEXT',
+  'S4Q02_DOMAIN_2_TEXT',
+  'S4Q02_DOMAIN_3_TEXT',
+  'S4Q03_DOMAIN_1_TEXT',
+  'S4Q03_DOMAIN_2_TEXT',
+  'S4Q03_DOMAIN_3_TEXT',
+};
+
+const Set<String> _optionalOverrides = {'S0Q03_TEL2', 'S0Q03_EMAIL'};
+
+class _SM {
+  final String lbl;
+  final IconData icon;
+  const _SM(this.lbl, this.icon);
+}
+
+const Map<String, _SM> _sm = {
+  'section0': _SM('Répondant', Icons.person_outline),
+  'section1': _SM('Entité', Icons.corporate_fare_outlined),
+  'section1_cooperative': _SM('Coopérative', Icons.corporate_fare_outlined),
+  'section1_enterprise': _SM('Entreprise', Icons.business_outlined),
+  'section1_ctd': _SM('CTD', Icons.account_balance_outlined),
+  'section1_ong': _SM('ONG', Icons.volunteer_activism_outlined),
+  'section2': _SM('Emploi', Icons.work_outline),
+  'section3': _SM('Départs', Icons.exit_to_app_outlined),
+  'section4': _SM('Formation', Icons.school_outlined),
+};
+
+const Map<String, String> _div = {
+  'S0Q03': 'Contacts',
+  'S1Q04': 'Localisation',
+  'S1Q06': 'Coordonnées',
+  'S1Q07': 'Activité',
+  'S1Q10': 'Structure',
+};
+
+// ─────────────────────────────────────────────────────────────
+// DATA SANITISER
+// ─────────────────────────────────────────────────────────────
+Map<String, dynamic> _sanitiseInitialData(Map<String, dynamic> raw) {
+  return Map.fromEntries(raw.entries.where((e) {
+    final v = e.value;
+    if (v == null) return false;
+    if (v is String && v.trim().isEmpty) return false;
+    return true;
+  }));
+}
+
+// ══════════════════════════════════════════════════════════════
+// SCREEN
+// ══════════════════════════════════════════════════════════════
+class OnefopUnifiedFormScreenV2 extends StatefulWidget {
+  final EntityType entityType;
+  final Map<String, dynamic> initialData;
+  final void Function(Map<String, dynamic>) onSave;
+  final VoidCallback? onCancel;
+  final String? userId;
+
+  const OnefopUnifiedFormScreenV2({
+    super.key,
+    required this.entityType,
+    required this.initialData,
+    required this.onSave,
+    this.onCancel,
+    this.userId,
+  });
+
+  @override
+  State<OnefopUnifiedFormScreenV2> createState() => _State();
+}
+
+class _State extends State<OnefopUnifiedFormScreenV2> {
+  late NavigationEngine _engine;
+  late UnifiedFocusManagerV2 _fm;
+  FormSchemaV2? _schema;
+
+  late final Map<String, dynamic> _data;
+
+  final Map<String, TextEditingController> _ctrl = {};
+  final Map<String, int> _uGrid = {};
+  Map<String, int> _aGrid = {};
+  final Map<String, String> _tv = {};
+  final Map<String, String> _htv = {};
+  final Map<String, TextEditingController> _hctrl = {};
+
+  final Set<String> _touched = {};
+  bool _dirty = false;
+  bool _saving = false;
+  Timer? _asTimer;
+
+  final Set<String> _dirtyT = {};
+  Timer? _rTimer;
+
+  bool _loading = true;
+  String? _err;
+
+  // _si is the "virtual" page index shown in the nav-bar / sidebar.
+  // Because section 0 and section 1 are merged onto page 0, the mapping
+  // from virtual index → schema section index is _sectionIndexForPage().
+  int _si = 0;
+
+  final Map<String, bool> _valid = {};
+
+  Map<String, dynamic>? _submissionSnapshot;
+
+  // Sidebar: 0 = hidden, 1 = icons-only, 2 = full
+  int _sidebarMode = 2;
+
+  // Vertical scroll controller for the main content area
+  final ScrollController _mainScroll = ScrollController();
+
+  // GlobalKeys for each "question block" — used for scroll-into-view
+  final Map<String, GlobalKey> _blockKeys = {};
+
+  static const Map<String, _HTDef> _ht = {
+    's3q02': _HTDef(
+      rowKeys: ['reason_1', 'reason_2', 'reason_3'],
+      textSuffix: 'text',
+      rowLabels: ['Motif 1/Reason 1', 'Motif 2/Reason 2', 'Motif 3/Reason 3'],
+    ),
+    's4q02': _HTDef(
+      rowKeys: ['skill_1', 'skill_2', 'skill_3'],
+      textSuffix: 'text',
+      rowLabels: [
+        'Compétence 1/Skill 1',
+        'Compétence 2/Skill 2',
+        'Compétence 3/Skill 3',
+      ],
+    ),
+    's4q03': _HTDef(
+      rowKeys: ['domain_1', 'domain_2', 'domain_3'],
+      textSuffix: 'text',
+      rowLabels: [
+        'Domaine 1/Domain 1',
+        'Domaine 2/Domain 2',
+        'Domaine 3/Domain 3',
+      ],
+    ),
+  };
+
+  // ── Merged page logic ────────────────────────────────────────
+  // "Page 0" renders section0 + section1_* together.
+  // All other pages are 1:1 with the remaining schema sections.
+
+  bool _isMergedPage(int page) => page == 0;
+
+  /// Returns how many "virtual pages" we show in the nav.
+  /// If schema has sections [s0, s1_coop, s2, s3, s4] → 4 pages
+  /// (s0+s1 merged → page 0, s2 → page 1, s3 → page 2, s4 → page 3).
+  int get _pageCount {
+    if (_schema == null) return 1;
+    final n = _schema!.sections.length;
+    // Always merge first two sections (section0 + section1_*) into one page
+    return n <= 2 ? 1 : n - 1;
+  }
+
+  /// Returns the schema section indices that belong to virtual page [page].
+  List<int> _sectionIndicesForPage(int page) {
+    if (_schema == null) return [];
+    final n = _schema!.sections.length;
+    if (page == 0) {
+      // Page 0: section0 (index 0) + section1_* (index 1, if present)
+      return n >= 2 ? [0, 1] : [0];
+    }
+    // Pages 1+ map to schema indices 2, 3, 4…
+    final schemaIdx = page + 1;
+    if (schemaIdx < n) return [schemaIdx];
+    return [];
+  }
+
+  SectionSchema? _primarySection(int page) {
+    final idxs = _sectionIndicesForPage(page);
+    if (idxs.isEmpty) return null;
+    return _schema!.sections[idxs.first];
+  }
+
+  // ── lifecycle ────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _data = _sanitiseInitialData(Map.from(widget.initialData));
+    _loadSchema();
+  }
+
+  @override
+  void dispose() {
+    _rTimer?.cancel();
+    _asTimer?.cancel();
+    _fm.dispose();
+    for (final c in _ctrl.values) c.dispose();
+    for (final c in _hctrl.values) c.dispose();
+    _mainScroll.dispose();
+    super.dispose();
+  }
+
+  // ── schema loading ───────────────────────────────────────────
+  Future<void> _loadSchema() async {
+    try {
+      final s = await OnefopFormLoader.loadForEntity(_eStr(widget.entityType));
+      _schema = s;
+      _engine = NavigationEngine(s);
+      _fm = UnifiedFocusManagerV2(_engine);
+      _initCtrl();
+      _initTV();
+      _initGrid();
+      _initHybrid();
+      _initFN();
+      _initKeyH();
+      for (final sec in s.sections) {
+        _valid[sec.id] = false;
+      }
+      // Pre-create block keys for every field
+      for (final f in s.fields) {
+        _blockKeys[f.id] = GlobalKey();
+      }
+      // Focus the first visible field on page 0 after schema loads.
+      // Use a post-frame callback so the widget tree is ready.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusFirst());
+      if (mounted) setState(() => _loading = false);
+    } catch (e, st) {
+      debugPrint('schema error: $e\n$st');
+      if (mounted) {
+        setState(() {
+          _err = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _eStr(EntityType t) {
+    switch (t) {
+      case EntityType.enterprise:
+        return 'enterprise';
+      case EntityType.cooperative:
+        return 'cooperative';
+      case EntityType.ctd:
+        return 'ctd';
+      case EntityType.ong:
+        return 'ong';
+    }
+  }
+
+  // ── init helpers ─────────────────────────────────────────────
+  void _initCtrl() {
+    for (final f in _schema!.fields) {
+      if (f.type == 'table' || _hybridAstIds.contains(f.id)) continue;
+      final c = TextEditingController(text: _data[f.id]?.toString() ?? '');
+      c.addListener(() => _onFC(f.id, c.text));
+      _ctrl[f.id] = c;
+    }
+  }
+
+  void _initTV() {
+    for (final f in _schema!.fields) {
+      if (f.type == 'table' || _hybridAstIds.contains(f.id)) continue;
+      _tv[f.id] = _data[f.id]?.toString() ?? '';
+    }
+  }
+
+  void _initGrid() {
+    for (final f in _schema!.fields) {
+      if (f.type != 'table') continue;
+      for (final id in _cellIds(f)) {
+        final v = _data[id] as int?;
+        if (v != null && v != 0) _uGrid[id] = v;
+      }
+    }
+    _aGrid = Map.from(_uGrid);
+    if (_uGrid.isNotEmpty) _recalcAll();
+  }
+
+  void _initHybrid() {
+    for (final e in _ht.entries) {
+      for (final rk in e.value.rowKeys) {
+        final id = '${e.key}_${rk}_${e.value.textSuffix}';
+        _htv[id] = _data[id]?.toString() ?? '';
+        _hc(id);
+      }
+    }
+  }
+
+  void _initFN() {
+    for (final f in _schema!.fields) {
+      _fm.node(f.id);
+    }
+  }
+
+  void _initKeyH() {
+    for (final f in _schema!.fields) {
+      if (f.type == 'table' || _hybridAstIds.contains(f.id)) continue;
+      _fm.node(f.id).onKeyEvent = (n, e) => _handleFieldKey(n, e, f);
+    }
+  }
+
+  // ── cell IDs ─────────────────────────────────────────────────
+  List<String> _cellIds(FieldSchema f) {
+    final spec = f.tableSpec;
+    if (spec == null) return [];
+    final tpl = spec['template'] as String? ?? '';
+    final pfx = (spec['prefix'] as String? ?? f.id).toLowerCase();
+    switch (tpl) {
+      case 'csp_gender_age_table':
+      case 'csp_table':
+        return _cGA(pfx);
+      case 'diploma_gender_age_table':
+      case 'diploma_table':
+        return _cDip(pfx);
+      case 'csp_status_gender_table':
+      case 'disability_table':
+      case 'vulnerable_table':
+      case 'vulnerable_csp_rows_table':
+        return _cSG(pfx, ['cadres', 'foremen', 'workers']);
+      case 'vulnerable_named_rows_table':
+        return _cSG(pfx, ['deplaces_internes', 'refugies', 'orphelins']);
+      case 'departure_table':
+        return _cDep(pfx);
+      case 'dismissal_unemployment_table':
+        return _cDU(pfx);
+      case 'first_time_workers_table':
+        return _cFTW(pfx);
+      case 'internship_table':
+        return _cInt(pfx);
+      case 'reasons_table':
+        return _cHN(pfx, ['reason_1', 'reason_2', 'reason_3']);
+      case 'skills_table':
+        return _cHN(pfx, ['skill_1', 'skill_2', 'skill_3']);
+      case 'training_table':
+        return _cHN(pfx, ['domain_1', 'domain_2', 'domain_3']);
+      default:
+        return [];
+    }
+  }
+
+  List<String> _cGA(String p) {
+    const r = ['cadres', 'foremen', 'workers'];
+    const g = ['male', 'female'];
+    const a = ['15_24', '25_34', '35_plus'];
+    return [
+      for (final rv in r)
+        for (final gv in g)
+          for (final av in a) '${p}_${rv}_${gv}_$av'
+    ];
+  }
+
+  List<String> _cDip(String p) {
+    const d = [
+      'cep',
+      'bepc',
+      'probatoire',
+      'bac',
+      'bts',
+      'licence',
+      'maitrise',
+      'master',
+      'dqp',
+      'cqp',
+      'autres',
+      'sans_diplome'
+    ];
+    const g = ['male', 'female'];
+    const a = ['15_24', '25_34', '35_plus'];
+    return [
+      for (final dv in d)
+        for (final gv in g)
+          for (final av in a) '${p}_${dv}_${gv}_$av'
+    ];
+  }
+
+  List<String> _cSG(String p, List<String> rows) {
+    const s = ['permanent', 'temporary'];
+    const g = ['male', 'female'];
+    return [
+      for (final r in rows)
+        for (final sv in s)
+          for (final gv in g) '${p}_${r}_${sv}_$gv'
+    ];
+  }
+
+  List<String> _cDep(String p) {
+    const r = ['cadres', 'foremen', 'workers'];
+    const t = ['dismissal', 'resignation', 'retirement', 'other'];
+    const g = ['male', 'female'];
+    return [
+      for (final rv in r)
+        for (final tv in t)
+          for (final gv in g) '${p}_${rv}_${tv}_$gv'
+    ];
+  }
+
+  List<String> _cDU(String p) {
+    const r = ['cadres', 'foremen', 'workers'];
+    const t = ['dismissal', 'technical_unemployment'];
+    const g = ['male', 'female'];
+    return [
+      for (final rv in r)
+        for (final tv in t)
+          for (final gv in g) '${p}_${rv}_${tv}_$gv'
+    ];
+  }
+
+  List<String> _cFTW(String p) {
+    const c = ['permanent', 'temporary'];
+    const r = ['cadres', 'foremen', 'workers'];
+    const g = ['male', 'female'];
+    const a = ['15_24', '25_34', '35_plus'];
+    return [
+      for (final cv in c)
+        for (final rv in r)
+          for (final gv in g)
+            for (final av in a) '${p}_${cv}_${rv}_${gv}_$av'
+    ];
+  }
+
+  List<String> _cInt(String p) {
+    const r = ['vacation', 'academic', 'professional', 'pre_employment'];
+    const g = ['male', 'female'];
+    return [
+      for (final rv in r)
+        for (final gv in g) '${p}_${rv}_$gv'
+    ];
+  }
+
+  List<String> _cHN(String p, List<String> rks) {
+    const g = ['male', 'female'];
+    return [
+      for (final r in rks)
+        for (final gv in g) '${p}_${r}_$gv'
+    ];
+  }
+
+  static const Set<String> _twoTokenPrefixes = {'s22q05_ent', 's22q05_oth'};
+
+  String _pfx(String id) {
+    for (final p in _twoTokenPrefixes) {
+      if (id.startsWith('${p}_')) return p;
+    }
+    return id.split('_').first;
+  }
+
+  // ── grid cell change ─────────────────────────────────────────
+  void _onGC(String id, int v) {
+    if (v != 0) {
+      _uGrid[id] = v;
+    } else {
+      _uGrid.remove(id);
+    }
+    _aGrid[id] = v;
+    _data[id] = v;
+    _schedAS();
+    _dirtyT.add(_pfx(id));
+    _rTimer?.cancel();
+    _rTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _recalcDirty();
+    });
+  }
+
+  TextEditingController _hc(String id) {
+    return _hctrl.putIfAbsent(id, () {
+      final c = TextEditingController(text: _htv[id] ?? '');
+      c.addListener(() {
+        _htv[id] = c.text;
+        _data[id] = c.text;
+        _schedAS();
+        if (mounted) setState(() {});
+      });
+      if (!_data.containsKey(id)) _data[id] = '';
+      return c;
+    });
+  }
+
+  // ── auto-save ─────────────────────────────────────────────────
+  void _schedAS() {
+    if (!_dirty && mounted) setState(() => _dirty = true);
+    _asTimer?.cancel();
+    _asTimer = Timer(const Duration(seconds: 2), _doAS);
+  }
+
+  void _doAS() {
+    if (!mounted) return;
+    setState(() {
+      _saving = true;
+      _dirty = false;
+    });
+    widget.onSave(Map.from(_data));
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _saving = false);
+    });
+  }
+
+  // ── recalculation ─────────────────────────────────────────────
+  void _recalcAll() {
+    if (_schema == null) return;
+    for (final f in _schema!.fields) {
+      if (f.type != 'table') continue;
+      final sp = f.tableSpec;
+      if (sp == null) continue;
+      final rawPfx = (sp['prefix'] as String? ?? f.id).toLowerCase();
+      _dirtyT.add(_pfx('${rawPfx}_x'));
+    }
+    _recalcDirty();
+  }
+
+  void _recalcDirty() {
+    if (_dirtyT.isEmpty) return;
+    var w = Map<String, int>.from(_aGrid);
+    final tp = Set<String>.from(_dirtyT);
+    _dirtyT.clear();
+    for (final p in tp) {
+      w = _dispatch(w, p);
+    }
+    for (final e in w.entries) {
+      _data[e.key] = e.value;
+    }
+    if (mounted) setState(() => _aGrid = w);
+  }
+
+  Map<String, int> _dispatch(Map<String, int> c, String p) {
+    Map<String, int> ga(String x) => TableCalculator.recalculateCspGenderAge(
+          current: c,
+          prefix: x,
+          rows: ['cadres', 'foremen', 'workers'],
+          genders: ['male', 'female', 'total'],
+          ageBands: ['15_24', '25_34', '35_plus'],
+        );
+    Map<String, int> sg(String x, List<String> r) =>
+        TableCalculator.recalculateCspStatusGender(
+          current: c,
+          prefix: x,
+          rows: r,
+          statuses: ['permanent', 'temporary'],
+          genders: ['male', 'female', 'total'],
+        );
+    switch (p) {
+      case 's21q01':
+      case 's22q01':
+      case 's22q02':
+      case 's23q01':
+        return ga(p);
+      case 's22q03':
+        return TableCalculator.recalculateCspGenderAge(
+          current: c,
+          prefix: p,
+          rows: [
+            'cep',
+            'bepc',
+            'probatoire',
+            'bac',
+            'bts',
+            'licence',
+            'maitrise',
+            'master',
+            'dqp',
+            'cqp',
+            'autres',
+            'sans_diplome'
+          ],
+          genders: ['male', 'female', 'total'],
+          ageBands: ['15_24', '25_34', '35_plus'],
+        );
+      case 's22q04':
+        return sg(p, ['cadres', 'foremen', 'workers']);
+      case 's22q05_ent':
+        return sg(p, ['deplaces_internes', 'refugies', 'orphelins']);
+      case 's22q05_oth':
+        return sg(p, ['cadres', 'foremen', 'workers']);
+      case 's23q02':
+        return TableCalculator.recalculateFirstTimeWorkers(
+          current: c,
+          prefix: p,
+          contractTypes: ['permanent', 'temporary'],
+          rows: ['cadres', 'foremen', 'workers'],
+          genders: ['male', 'female', 'total'],
+          ageBands: ['15_24', '25_34', '35_plus'],
+        );
+      case 's3q01':
+        return TableCalculator.recalculateDeparture(
+          current: c,
+          prefix: p,
+          rows: ['cadres', 'foremen', 'workers'],
+          departureTypes: [
+            'dismissal',
+            'resignation',
+            'retirement',
+            'other',
+            'ensemble'
+          ],
+          genders: ['male', 'female', 'total'],
+        );
+      case 's3q02':
+        return TableCalculator.recalculateReasons(
+          current: c,
+          prefix: p,
+          reasons: ['reason_1', 'reason_2', 'reason_3'],
+          genders: ['male', 'female', 'total'],
+        );
+      case 's3q03':
+        return TableCalculator.recalculateDismissalUnemployment(
+          current: c,
+          prefix: p,
+          rows: ['cadres', 'foremen', 'workers'],
+          types: ['dismissal', 'technical_unemployment', 'total'],
+          genders: ['male', 'female', 'total'],
+        );
+      case 's4q01':
+        return TableCalculator.recalculateInternship(
+          current: c,
+          prefix: p,
+          rows: ['vacation', 'academic', 'professional', 'pre_employment'],
+          genders: ['male', 'female', 'total'],
+        );
+      case 's4q02':
+        return TableCalculator.recalculateSkillsOrTraining(
+          current: c,
+          prefix: p,
+          rows: ['skill_1', 'skill_2', 'skill_3'],
+          genders: ['male', 'female', 'total'],
+        );
+      case 's4q03':
+        return TableCalculator.recalculateSkillsOrTraining(
+          current: c,
+          prefix: p,
+          rows: ['domain_1', 'domain_2', 'domain_3'],
+          genders: ['male', 'female', 'total'],
+        );
+      default:
+        return c;
+    }
+  }
+
+  // ── field change / blur / error ──────────────────────────────
+  void _onFC(String id, String v) {
+    if (_schema == null) return;
+    final f = _schema!.getField(id);
+    if (f == null) return;
+    _data[id] = f.type == 'number' ? (int.tryParse(v) ?? 0) : v;
+    _tv[id] = v;
+    _schedAS();
+    _revalidateCurrentPage();
+    setState(() {});
+    // Scroll the focused block into view
+    _scrollToBlock(id);
+  }
+
+  void _revalidateCurrentPage() {
+    for (final idx in _sectionIndicesForPage(_si)) {
+      final s = _schema!.sections[idx];
+      _valid[s.id] = _vSec(s);
+    }
+  }
+
+  void _onBlur(String id) {
+    if (!_touched.contains(id)) setState(() => _touched.add(id));
+  }
+
+  bool _hasErr(FieldSchema f) {
+    if (_optionalOverrides.contains(f.id)) return false;
+    if (!f.required || !_touched.contains(f.id)) return false;
+    final v = _data[f.id];
+    return v == null || v.toString().isEmpty;
+  }
+
+  // ── scroll to block ──────────────────────────────────────────
+  void _scrollToBlock(String fieldId) {
+    final key = _blockKeys[fieldId];
+    if (key == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = key.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+  }
+
+  // ── validation ───────────────────────────────────────────────
+  // CRITICAL FIX: also skip fields that are currently hidden by a
+  // dependsOn condition — otherwise choosing any option other than
+  // the one that reveals a dependent field permanently blocks the
+  // "Suivant" button even though all visible fields are filled.
+  bool _vSec(SectionSchema s) {
+    if (_schema == null) return true;
+    for (final id in s.fieldIds) {
+      final f = _schema!.getField(id);
+      if (f == null ||
+          !f.required ||
+          !_vis(f) || // ← skip hidden conditional fields
+          f.type == 'table' ||
+          _hybridAstIds.contains(f.id) ||
+          _optionalOverrides.contains(f.id)) continue;
+      final v = _data[id];
+      if (v == null || v.toString().isEmpty) return false;
+    }
+    return true;
+  }
+
+  bool _vPage(int page) {
+    return _sectionIndicesForPage(page).every(
+      (i) => _vSec(_schema!.sections[i]),
+    );
+  }
+
+  List<String> _missing(SectionSchema s) {
+    if (_schema == null) return [];
+    final out = <String>[];
+    for (final id in s.fieldIds) {
+      final f = _schema!.getField(id);
+      if (f == null ||
+          !f.required ||
+          !_vis(f) || // skip hidden conditional fields
+          f.type == 'table' ||
+          _hybridAstIds.contains(f.id) ||
+          _optionalOverrides.contains(f.id)) continue;
+      final v = _data[id];
+      if (v == null || v.toString().isEmpty) out.add(_lbl(f));
+    }
+    return out;
+  }
+
+  bool _vAllPages() {
+    if (_schema == null) return false;
+    for (int p = 0; p < _pageCount; p++) {
+      if (!_vPage(p)) return false;
+    }
+    return true;
+  }
+
+  int _firstFailingPage() {
+    for (int p = 0; p < _pageCount; p++) {
+      if (!_vPage(p)) return p;
+    }
+    return -1;
+  }
+
+  // ── keyboard navigation ──────────────────────────────────────
+
+  /// Returns the ordered list of field IDs that are currently VISIBLE
+  /// on the active page, excluding hidden conditional fields and the
+  /// internal hybrid-AST satellite IDs.  This is the single source of
+  /// truth for all keyboard navigation so that arrow keys never land on
+  /// a field the user cannot see (e.g. a dependsOn field whose condition
+  /// is not met, or the text-column ghost IDs of a hybrid table).
+  List<String> _visiblePageFieldIds() {
+    if (_schema == null) return [];
+    final result = <String>[];
+    for (final idx in _sectionIndicesForPage(_si)) {
+      for (final id in _schema!.sections[idx].fieldIds) {
+        if (_hybridAstIds.contains(id)) continue;
+        final f = _schema!.getField(id);
+        if (f == null) continue;
+        if (!_vis(f)) continue; // skip hidden conditional fields
+        result.add(id);
+      }
+    }
+    return result;
+  }
+
+  /// Focuses the field [delta] positions away from the current field in
+  /// the visible-field list.  Correctly handles table fields (jumps to
+  /// their first/last cell) and wraps to the previous/next page when
+  /// the list is exhausted.
+  void _focusFieldOffset(int delta) {
+    if (_schema == null) return;
+    final fieldIds = _visiblePageFieldIds();
+
+    final activeId = _fm.activeId;
+    if (activeId == null) return;
+
+    // If the active id is a table CELL, map it back to its parent field id
+    String currentFieldId = activeId;
+    for (final fid in fieldIds) {
+      final field = _schema!.getField(fid);
+      if (field != null && field.type == 'table') {
+        if (_cellIds(field).contains(activeId)) {
+          currentFieldId = fid;
+          break;
+        }
+      }
+    }
+
+    final idx = fieldIds.indexOf(currentFieldId);
+    if (idx < 0) return;
+
+    final targetIdx = idx + delta;
+    if (targetIdx >= 0 && targetIdx < fieldIds.length) {
+      _focusFieldId(fieldIds[targetIdx], preferFirst: delta > 0);
+    } else if (targetIdx >= fieldIds.length && delta > 0) {
+      _next();
+    } else if (targetIdx < 0 && delta < 0) {
+      _prev();
+    }
+  }
+
+  /// Focuses a specific field by id.  For table fields, focuses the
+  /// first cell (preferFirst=true) or last cell (preferFirst=false).
+  void _focusFieldId(String fieldId, {bool preferFirst = true}) {
+    final field = _schema?.getField(fieldId);
+    if (field != null && field.type == 'table') {
+      final cells = _cellIds(field);
+      if (cells.isNotEmpty) {
+        _fm.focus(preferFirst ? cells.first : cells.last);
+      } else {
+        _fm.focus(fieldId);
+      }
+    } else {
+      _fm.focus(fieldId);
+    }
+    _scrollToBlock(fieldId);
+  }
+
+  /// Called when Tab/Enter exits a table forwards — focuses the next
+  /// VISIBLE field after [fieldId], or advances to the next page.
+  void _exitTable(String fieldId) {
+    final fieldIds = _visiblePageFieldIds();
+    final idx = fieldIds.indexOf(fieldId);
+    if (idx >= 0 && idx < fieldIds.length - 1) {
+      _focusFieldId(fieldIds[idx + 1], preferFirst: true);
+    } else {
+      _next();
+    }
+  }
+
+  /// Called when Shift-Tab/backwards arrow exits a table — focuses the
+  /// previous VISIBLE field before [fieldId], or goes to the previous page.
+  void _exitTablePrevious(String fieldId) {
+    final fieldIds = _visiblePageFieldIds();
+    final idx = fieldIds.indexOf(fieldId);
+    if (idx > 0) {
+      _focusFieldId(fieldIds[idx - 1], preferFirst: false);
+    } else {
+      _prev();
+    }
+  }
+
+  KeyEventResult _handleFieldKey(FocusNode n, KeyEvent e, FieldSchema f) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final kb = HardwareKeyboard.instance;
+
+    if (f.type == 'radio') {
+      final opts = f.options ?? [];
+      if (opts.isNotEmpty) {
+        final cur = _data[f.id] as String?;
+        final idx = opts.indexOf(cur ?? '');
+        if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+          final ni = idx > 0 ? idx - 1 : opts.length - 1;
+          _setRadioValue(f, opts[ni]);
+          return KeyEventResult.handled;
+        }
+        if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowRight)) {
+          final ni = idx >= 0 && idx < opts.length - 1 ? idx + 1 : 0;
+          _setRadioValue(f, opts[ni]);
+          return KeyEventResult.handled;
+        }
+      }
+    }
+
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowUp)) {
+      _focusFieldOffset(-1);
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowDown)) {
+      _focusFieldOffset(1);
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.enter)) {
+      _onBlur(f.id);
+      _focusFieldOffset(1);
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.tab)) {
+      _onBlur(f.id);
+      if (kb.isShiftPressed) {
+        _focusFieldOffset(-1);
+      } else {
+        _focusFieldOffset(1);
+      }
+      return KeyEventResult.handled;
+    }
+    return _fm.handleKey(n, e);
+  }
+
+  void _setRadioValue(FieldSchema f, String value) {
+    _data[f.id] = value;
+    _tv[f.id] = value;
+    _touched.add(f.id);
+    _revalidateCurrentPage();
+    setState(() {});
+  }
+
+  // ── navigation ───────────────────────────────────────────────
+  void _next() {
+    if (_schema == null) return;
+    if (!_vPage(_si)) {
+      // Touch all visible required fields on this page
+      for (final idx in _sectionIndicesForPage(_si)) {
+        for (final id in _schema!.sections[idx].fieldIds) {
+          final f = _schema!.getField(id);
+          if (f != null &&
+              f.required &&
+              _vis(f) &&
+              !_optionalOverrides.contains(f.id)) {
+            _touched.add(id);
+          }
+        }
+      }
+      setState(() {});
+      _snack('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+    if (_si < _pageCount - 1) {
+      setState(() => _si++);
+      _focusFirst();
+      // Scroll back to top of content
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_mainScroll.hasClients) {
+          _mainScroll.animateTo(0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut);
+        }
+      });
+    }
+  }
+
+  void _prev() {
+    if (_si > 0) {
+      setState(() => _si--);
+      _focusFirst();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_mainScroll.hasClients) {
+          _mainScroll.animateTo(0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut);
+        }
+      });
+    }
+  }
+
+  void _goto(int page) {
+    setState(() => _si = page);
+    _focusFirst();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_mainScroll.hasClients) {
+        _mainScroll.animateTo(0,
+            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      }
+    });
+  }
+
+  void _focusFirst() {
+    if (_schema == null) return;
+    final visible = _visiblePageFieldIds();
+    if (visible.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusFieldId(visible.first, preferFirst: true);
+      });
+    }
+  }
+
+  void _snack(String m) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(m, style: const TextStyle(fontSize: 13)),
+      backgroundColor: const Color(0xFFCC0000),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  // ── visibility ───────────────────────────────────────────────
+  bool _vis(FieldSchema f) {
+    if (f.dependsOn != null && f.dependsOn!.isNotEmpty) {
+      if (_data[f.dependsOn] != f.dependsValue) return false;
+    }
+    return true;
+  }
+
+  bool _isDesktop() => MediaQuery.of(context).size.width >= OL.pageWidth;
+
+  bool _isSimpleSection(String sectionId) =>
+      sectionId == 'section0' || sectionId.startsWith('section1_');
+
+  // ── Highlight block key ──────────────────────────────────────
+  /// Returns true if any field in [fieldIds] (or their table cells)
+  /// is currently focused.
+  bool _isBlockFocused(List<String> fieldIds) {
+    final activeId = _fm.activeId;
+    if (activeId == null) return false;
+    for (final id in fieldIds) {
+      if (id == activeId) return true;
+      final f = _schema?.getField(id);
+      if (f != null && f.type == 'table') {
+        if (_cellIds(f).contains(activeId)) return true;
+      }
+    }
+    return false;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // FIELD RENDERERS
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _lw(FieldSchema f) {
+    String label = _lbl(f);
+    final currentSectionId = _primarySection(_si)?.id ?? '';
+    final isSimple = _isSimpleSection(currentSectionId);
+    if (isSimple &&
+        f.paperCode != null &&
+        f.paperCode!.isNotEmpty &&
+        !label.startsWith(f.paperCode!)) {
+      label = '${f.paperCode} - $label';
+    }
+    return OnefopFieldLabel(
+      label: label,
+      required: f.required,
+      optional: _optionalOverrides.contains(f.id),
+    );
+  }
+
+  Widget _errRow(String m) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 12, color: Color(0xFFE24B4A)),
+            const SizedBox(width: 4),
+            Text(m,
+                style: const TextStyle(fontSize: 10, color: Color(0xFFA32D2D))),
+          ],
+        ),
+      );
+
+  // ── Simple text / number field ────────────────────────────────
+  Widget _simpleF(FieldSchema f) {
+    final c = _ctrl[f.id]!;
+    final fn = _fm.getNode(f.id);
+    final e = _hasErr(f);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: OL.questionGapV),
+      child: SizedBox(
+        width: _kDocW,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _lw(f),
+            ListenableBuilder(
+              listenable: fn,
+              builder: (ctx, _) => TextFormField(
+                controller: c,
+                focusNode: fn,
+                keyboardType: _kt(f.type),
+                textInputAction: TextInputAction.next,
+                inputFormatters: f.type == 'number'
+                    ? [FilteringTextInputFormatter.digitsOnly]
+                    : null,
+                style: OL.lblStyle.copyWith(fontSize: 13),
+                decoration: OnefopInputDecoration.standard(
+                  focused: fn.hasFocus,
+                  hasError: e,
+                  hint: f.type == 'number' ? '0' : null,
+                ),
+                onTapOutside: (_) => _onBlur(f.id),
+                onFieldSubmitted: (_) {
+                  _onBlur(f.id);
+                  _focusFieldOffset(1);
+                },
+              ),
+            ),
+            if (e) _errRow('Champ obligatoire'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _simpleFW(FieldSchema f, double w) {
+    final c = _ctrl[f.id]!;
+    final fn = _fm.getNode(f.id);
+    final e = _hasErr(f);
+
+    return SizedBox(
+      width: w,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _lw(f),
+          ListenableBuilder(
+            listenable: fn,
+            builder: (ctx, _) => TextFormField(
+              controller: c,
+              focusNode: fn,
+              keyboardType: _kt(f.type),
+              textInputAction: TextInputAction.next,
+              inputFormatters: f.type == 'number'
+                  ? [FilteringTextInputFormatter.digitsOnly]
+                  : null,
+              style: OL.lblStyle.copyWith(fontSize: 13),
+              decoration: OnefopInputDecoration.standard(
+                focused: fn.hasFocus,
+                hasError: e,
+                hint: f.type == 'number' ? '0' : null,
+              ),
+              onTapOutside: (_) => _onBlur(f.id),
+              onFieldSubmitted: (_) {
+                _onBlur(f.id);
+                _focusFieldOffset(1);
+              },
+            ),
+          ),
+          if (e) _errRow('Champ obligatoire'),
+        ],
+      ),
+    );
+  }
+
+  // ── Radio field ───────────────────────────────────────────────
+  // • No enclosing focus-border frame (removed — visually noisy).
+  // • 2 options  → side-by-side equal-width pill row.
+  // • 3+ options → vertical spaced list (6 px gap between pills).
+  Widget _radioF(FieldSchema f) {
+    final opts = f.options ?? [];
+    final cur = _data[f.id] as String?;
+    final e = _hasErr(f);
+    final horizontal = opts.length == 2;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: OL.questionGapV),
+      child: SizedBox(
+        width: _kDocW,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _lw(f),
+            const SizedBox(height: 6),
+            Focus(
+              focusNode: _fm.getNode(f.id),
+              child: ListenableBuilder(
+                listenable: _fm.getNode(f.id),
+                builder: (context, _) {
+                  final optWidgets = opts
+                      .map((o) => _RadioOpt(
+                            label: o,
+                            isSelected: cur == o,
+                            onTap: () {
+                              _fm.focus(f.id);
+                              _setRadioValue(f, o);
+                            },
+                          ))
+                      .toList();
+
+                  if (horizontal) {
+                    return Row(
+                      children:
+                          optWidgets.map((w) => Expanded(child: w)).toList(),
+                    );
+                  }
+                  // 3+ options: vertical, no surrounding box
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < optWidgets.length; i++) ...[
+                        optWidgets[i],
+                        if (i < optWidgets.length - 1)
+                          const SizedBox(height: 6),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+            if (e) ...[
+              const SizedBox(height: 4),
+              _errRow('Veuillez sélectionner une option'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Select field ──────────────────────────────────────────────
+  Widget _selectF(FieldSchema f) {
+    final opts = f.options ?? [];
+    final cur = _data[f.id] as String?;
+    final e = _hasErr(f);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: OL.questionGapV),
+      child: SizedBox(
+        width: _kDocW,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _lw(f),
+            Focus(
+              focusNode: _fm.getNode(f.id),
+              child: DropdownButtonFormField<String>(
+                initialValue: cur,
+                hint: const Text('Sélectionner',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFBDBDBD))),
+                isExpanded: true,
+                style: OL.lblStyle.copyWith(fontSize: 13),
+                items: opts
+                    .map((o) => DropdownMenuItem(
+                          value: o,
+                          child: Text(o,
+                              style: OL.lblStyle.copyWith(fontSize: 13)),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  _data[f.id] = v;
+                  _tv[f.id] = v ?? '';
+                  _touched.add(f.id);
+                  _revalidateCurrentPage();
+                  setState(() {});
+                  _fm.focusNext();
+                },
+                decoration: _dropdownDeco(e),
+              ),
+            ),
+            if (e && (cur == null || cur.isEmpty))
+              _errRow('Veuillez sélectionner une option'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _selectFW(FieldSchema f, double w) {
+    final opts = f.options ?? [];
+    final cur = _data[f.id] as String?;
+    final e = _hasErr(f);
+
+    return SizedBox(
+      width: w,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _lw(f),
+          Focus(
+            focusNode: _fm.getNode(f.id),
+            child: DropdownButtonFormField<String>(
+              initialValue: cur,
+              hint: const Text('Sélectionner',
+                  style: TextStyle(fontSize: 13, color: Color(0xFFBDBDBD))),
+              isExpanded: true,
+              style: OL.lblStyle.copyWith(fontSize: 13),
+              items: opts
+                  .map((o) => DropdownMenuItem(
+                        value: o,
+                        child:
+                            Text(o, style: OL.lblStyle.copyWith(fontSize: 13)),
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                _data[f.id] = v;
+                _tv[f.id] = v ?? '';
+                _touched.add(f.id);
+                _revalidateCurrentPage();
+                setState(() {});
+                _fm.focusNext();
+              },
+              decoration: _dropdownDeco(e),
+            ),
+          ),
+          if (e && (cur == null || cur.isEmpty))
+            _errRow('Veuillez sélectionner une option'),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _dropdownDeco(bool hasError) => InputDecoration(
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        filled: true,
+        fillColor: hasError ? const Color(0xFFFCEBEB) : OL.inputCellBg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: Color(0xFFCFD8DC), width: 0.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(
+            color: hasError ? const Color(0xFFE24B4A) : const Color(0xFFCFD8DC),
+            width: 0.5,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: Color(0xFF4472C4), width: 2),
+        ),
+      );
+
+  // ══════════════════════════════════════════════════════════════
+  // HYBRID TABLE  (S3Q02 / S4Q02 / S4Q03)
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _hybridT(FieldSchema f) {
+    final sp = f.tableSpec!;
+    final pfx = (sp['prefix'] as String).toLowerCase();
+    final def = _ht[pfx];
+    if (def == null) return const SizedBox.shrink();
+
+    final allCells = [
+      for (final rk in def.rowKeys) ...[
+        '${pfx}_${rk}_male',
+        '${pfx}_${rk}_female',
+      ],
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OnefopQuestionHeader(
+          paperCode: f.paperCode,
+          questionText: f.questionText ?? f.label,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: OL.questionGapV),
+          child: SizedBox(
+            width: _kDocW,
+            child: _buildHybridTable(pfx, def, f.label ?? '', allCells, f.id),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHybridTable(
+    String pfx,
+    _HTDef def,
+    String tableLabel,
+    List<String> allCells,
+    String fieldId,
+  ) {
+    const tc = _kHybridTextW;
+    const nc = _kHybridNumW;
+
+    Widget headerRow = Container(
+      height: OL.headerRowHeight,
+      decoration: const BoxDecoration(
+        color: OL.tableHdrBg,
+        border: Border(
+          top: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          right: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          bottom: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+        ),
+      ),
+      child: Row(children: [
+        SizedBox(
+          width: tc,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: Text(tableLabel,
+                style: _kThStyle, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        for (final col in ['Homme / Male', 'Femme / Female', 'Total'])
+          Container(
+            width: nc,
+            height: OL.headerRowHeight,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+              ),
+            ),
+            child: Text(col, style: _kThStyle),
+          ),
+      ]),
+    );
+
+    final dataRows = <Widget>[];
+    for (int i = 0; i < def.rowKeys.length; i++) {
+      final rk = def.rowKeys[i];
+      final tid = '${pfx}_${rk}_${def.textSuffix}';
+      final mid = '${pfx}_${rk}_male';
+      final fid = '${pfx}_${rk}_female';
+      final tot = _aGrid['${pfx}_${rk}_total'] ?? 0;
+      dataRows.add(_hybridDataRow(
+        index: i,
+        tc: tc,
+        nc: nc,
+        tid: tid,
+        mid: mid,
+        fid: fid,
+        tot: tot,
+        rowLabel: def.rowLabels[i],
+        isEven: i % 2 == 0,
+        allCells: allCells,
+        fieldId: fieldId,
+      ));
+    }
+
+    int tm = 0, tf = 0, tt = 0;
+    for (final k in def.rowKeys) {
+      tm += _aGrid['${pfx}_${k}_male'] ?? 0;
+      tf += _aGrid['${pfx}_${k}_female'] ?? 0;
+      tt += _aGrid['${pfx}_${k}_total'] ?? 0;
+    }
+
+    Widget grandTotalRow = Container(
+      height: OL.rowHeight,
+      decoration: const BoxDecoration(
+        color: OL.grandTotalBg,
+        border: Border(
+          left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          right: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          bottom: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+        ),
+      ),
+      child: Row(children: [
+        SizedBox(
+          width: tc,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: Text('TOTAL', style: _kGrandTotStyle),
+          ),
+        ),
+        for (final v in [tm, tf, tt])
+          Container(
+            width: nc,
+            height: OL.rowHeight,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+              ),
+            ),
+            child: Text(v == 0 ? '—' : '$v', style: _kGrandTotStyle),
+          ),
+      ]),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [headerRow, ...dataRows, grandTotalRow],
+    );
+  }
+
+  Widget _hybridDataRow({
+    required int index,
+    required double tc,
+    required double nc,
+    required String tid,
+    required String mid,
+    required String fid,
+    required int tot,
+    required String rowLabel,
+    required bool isEven,
+    required List<String> allCells,
+    required String fieldId,
+  }) {
+    final rowBg = isEven ? OL.tableRowEven : OL.tableRowOdd;
+
+    return Container(
+      height: OL.rowHeight,
+      decoration: BoxDecoration(
+        color: rowBg,
+        border: const Border(
+          left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          right: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+          bottom: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: tc,
+            child: TextFormField(
+              controller: _hc(tid),
+              style: _kTdStyle,
+              textAlignVertical: TextAlignVertical.center,
+              decoration: InputDecoration(
+                hintText: rowLabel,
+                hintStyle:
+                    const TextStyle(fontSize: 12, color: Color(0xFFBDBDBD)),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: OL.cellPadH, vertical: 0),
+                isDense: true,
+              ),
+            ),
+          ),
+          Container(
+            width: nc,
+            decoration: const BoxDecoration(
+              color: OL.inputCellBg,
+              border: Border(
+                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+              ),
+            ),
+            child: _HNC(
+              cellId: mid,
+              value: _aGrid[mid] ?? 0,
+              onChanged: _onGC,
+              fm: _fm,
+              tableId: 's3q02',
+              allCells: allCells,
+              rowWidth: 2,
+              onExitTable: () => _exitTable(fieldId),
+              onExitPrevious: () => _exitTablePrevious(fieldId),
+            ),
+          ),
+          Container(
+            width: nc,
+            decoration: const BoxDecoration(
+              color: OL.inputCellBg,
+              border: Border(
+                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+              ),
+            ),
+            child: _HNC(
+              cellId: fid,
+              value: _aGrid[fid] ?? 0,
+              onChanged: _onGC,
+              fm: _fm,
+              tableId: 's3q02',
+              allCells: allCells,
+              rowWidth: 2,
+              onExitTable: () => _exitTable(fieldId),
+              onExitPrevious: () => _exitTablePrevious(fieldId),
+            ),
+          ),
+          Container(
+            width: nc,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tot > 0 ? OL.totalCellBg : OL.inputCellBgTotal,
+              border: const Border(
+                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+              ),
+            ),
+            child: Text(
+              tot == 0 ? '—' : '$tot',
+              style: tot > 0
+                  ? _kTotStyle
+                  : _kTdStyle.copyWith(color: const Color(0xFFBDBDBD)),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Table dispatcher ──────────────────────────────────────────
+  Widget _tableF(FieldSchema f) {
+    final tpl = (f.tableSpec?['template'] as String?) ?? '';
+    if (tpl == 'reasons_table' ||
+        tpl == 'skills_table' ||
+        tpl == 'training_table') {
+      return _hybridT(f);
+    }
+    return TableRenderer.renderTable(
+      field: f,
+      gridValues: _aGrid,
+      onCellChanged: _onGC,
+      focusManager: _fm,
+      entityType: _eStr(widget.entityType),
+      onExitTable: () => _exitTable(f.id),
+      onExitPrevious: () => _exitTablePrevious(f.id),
+    );
+  }
+
+  TextInputType _kt(String t) {
+    switch (t) {
+      case 'number':
+        return TextInputType.number;
+      case 'email':
+        return TextInputType.emailAddress;
+      case 'tel':
+        return TextInputType.phone;
+      default:
+        return TextInputType.text;
+    }
+  }
+
+  // ── Field dispatcher ──────────────────────────────────────────
+  Widget _buildF(FieldSchema f) {
+    if (!_vis(f) || _hybridAstIds.contains(f.id)) {
+      return const SizedBox.shrink();
+    }
+
+    final currentSectionId = _primarySection(_si)?.id ?? '';
+    final isSimple = _isSimpleSection(currentSectionId);
+
+    final Widget? qh = (f.type != 'table' && !isSimple)
+        ? OnefopQuestionHeader(
+            paperCode: f.paperCode,
+            questionText: f.questionText ?? f.label,
+            subLabel:
+                (f.label != null && (f.questionText ?? f.label) != f.label)
+                    ? f.label
+                    : null,
+          )
+        : null;
+
+    Widget field;
+    switch (f.type) {
+      case 'radio':
+        field = _radioF(f);
+        break;
+      case 'select':
+        field = _selectF(f);
+        break;
+      case 'table':
+        field = _tableF(f);
+        break;
+      default:
+        field = _simpleF(f);
+    }
+
+    final content = qh == null
+        ? field
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [qh, field],
+          );
+
+    // Wrap in highlight block for scroll-into-view + focus highlight
+    return _HighlightBlock(
+      key: _blockKeys[f.id],
+      fieldId: f.id,
+      fm: _fm,
+      isTable: f.type == 'table',
+      child: content,
+    );
+  }
+
+  Widget _buildFW(FieldSchema f, double w) {
+    if (!_vis(f) || _hybridAstIds.contains(f.id)) {
+      return const SizedBox.shrink();
+    }
+    switch (f.type) {
+      case 'select':
+        return _selectFW(f, w);
+      case 'table':
+        return _tableF(f);
+      default:
+        return _simpleFW(f, w);
+    }
+  }
+
+  String _lbl(FieldSchema f) {
+    if (f.label != null && f.label!.isNotEmpty) return f.label!;
+    if (f.instruction != null && f.instruction!.isNotEmpty)
+      return f.instruction!;
+    if (f.questionText != null && f.questionText!.isNotEmpty)
+      return f.questionText!;
+    return f.id;
+  }
+
+  Widget? _divBefore(FieldSchema f) {
+    final l = _div[f.id];
+    if (l == null) return null;
+    return OnefopDividerLabel(label: l);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // SECTION / PAGE BUILDER
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _buildSec(SectionSchema sec, {bool isSecondary = false}) {
+    if (_schema == null) return const SizedBox.shrink();
+    final title = SectionTitleLookup.getTitle(sec.id);
+    final fields = sec.fieldIds
+        .map((id) => _schema!.getField(id))
+        .whereType<FieldSchema>()
+        .toList();
+    final isV = _valid[sec.id] ?? false;
+    final meta = _sm[sec.id];
+    final isSimple = _isSimpleSection(sec.id);
+
+    final groups = <_FG>[];
+    String? cSub;
+    final cF = <FieldSchema>[];
+    for (final f in fields) {
+      final sub = (f.type == 'table' &&
+              f.subsection != null &&
+              f.subsection!.isNotEmpty)
+          ? f.subsection
+          : null;
+      if (sub != cSub) {
+        if (cF.isNotEmpty) {
+          groups.add(_FG(sub: cSub, fields: List.from(cF)));
+          cF.clear();
+        }
+        cSub = sub;
+      }
+      cF.add(f);
+    }
+    if (cF.isNotEmpty) groups.add(_FG(sub: cSub, fields: List.from(cF)));
+
+    Widget buildGroupContent(_FG g) {
+      final children = <Widget>[];
+
+      if (g.sub != null && g.sub!.isNotEmpty) {
+        children.add(OnefopSubsectionHeader(title: g.sub!));
+      }
+
+      if (isSimple) {
+        final visible = g.fields.where(_vis).toList();
+        int i = 0;
+        while (i < visible.length) {
+          final f = visible[i];
+          if (_divBefore(f) != null) children.add(_divBefore(f)!);
+
+          final canPair = f.type != 'table' &&
+              f.type != 'radio' &&
+              !_hybridAstIds.contains(f.id);
+          final hasNext = i + 1 < visible.length;
+          final next = hasNext ? visible[i + 1] : null;
+          final nextCanPair = next != null &&
+              next.type != 'table' &&
+              next.type != 'radio' &&
+              !_hybridAstIds.contains(next.id);
+
+          if (canPair && nextCanPair) {
+            // BUG FIX: use _kColW (pre-computed with _kColGap) to avoid overflow
+            children.add(
+              Padding(
+                padding: const EdgeInsets.only(bottom: OL.questionGapV),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFW(f, _kColW),
+                    SizedBox(width: _kColGap),
+                    _buildFW(next, _kColW),
+                  ],
+                ),
+              ),
+            );
+            i += 2;
+          } else {
+            children.add(_buildF(f));
+            i++;
+          }
+        }
+      } else {
+        for (final f in g.fields) {
+          if (_divBefore(f) != null) children.add(_divBefore(f)!);
+          children.add(_buildF(f));
+        }
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      );
+    }
+
+    final body = SizedBox(
+      width: _kDocW,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: groups.map(buildGroupContent).toList(),
+      ),
+    );
+
+    return OnefopSectionContainer(
+      sectionId: sec.id,
+      title: title,
+      icon: meta?.icon,
+      isComplete: isV,
+      body: body,
+    );
+  }
+
+  /// Builds the merged page 0 = section0 + section1 stacked.
+  Widget _buildMergedPage() {
+    if (_schema == null) return const SizedBox.shrink();
+    final idxs = _sectionIndicesForPage(0);
+    final widgets = <Widget>[];
+    for (int i = 0; i < idxs.length; i++) {
+      if (i > 0) {
+        // Visual separator between the two sections on the merged page
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(children: [
+              const Expanded(
+                  child: Divider(color: Color(0xFFDDE3EC), thickness: 1)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  SectionTitleLookup.getTitle(_schema!.sections[idxs[i]].id),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF4472C4),
+                  ),
+                ),
+              ),
+              const Expanded(
+                  child: Divider(color: Color(0xFFDDE3EC), thickness: 1)),
+            ]),
+          ),
+        );
+      }
+      widgets.add(_buildSec(_schema!.sections[idxs[i]], isSecondary: i > 0));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
+    );
+  }
+
+  Widget _buildPage(int page) {
+    if (page == 0) return _buildMergedPage();
+    final idxs = _sectionIndicesForPage(page);
+    if (idxs.isEmpty) return const SizedBox.shrink();
+    return _buildSec(_schema!.sections[idxs.first]);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // SIDEBAR
+  // ══════════════════════════════════════════════════════════════
+  double get _sidebarWidth {
+    switch (_sidebarMode) {
+      case 0:
+        return 0;
+      case 1:
+        return _kSidebarCollapsed;
+      default:
+        return _kSidebarFull;
+    }
+  }
+
+  Widget _sidebar() {
+    if (_schema == null || _sidebarMode == 0) return const SizedBox.shrink();
+    final secs = _schema!.sections;
+    final done = _valid.values.where((v) => v).length;
+    final ratio = done / secs.length.clamp(1, 999);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      width: _sidebarWidth,
+      color: const Color(0xFFF0F4FA),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Progress header — only in full mode
+          if (_sidebarMode == 2) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Row(children: [
+                Text('$done/${secs.length}',
+                    style: const TextStyle(
+                        fontSize: 10, color: Color(0xFF757575))),
+                const Spacer(),
+                Text('${(ratio * 100).round()}%',
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4472C4))),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: ratio,
+                  backgroundColor: const Color(0xFFDDE3EC),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Color(0xFF70AD47)),
+                  minHeight: 4,
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFDDE3EC)),
+            const SizedBox(height: 4),
+          ],
+
+          // Section list — virtual pages
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(
+                  horizontal: _sidebarMode == 2 ? 6 : 4, vertical: 2),
+              itemCount: _pageCount,
+              itemBuilder: (ctx, page) => _sidebarPageItem(page),
+            ),
+          ),
+          if (_sidebarMode == 2) _asIndicator(),
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarPageItem(int page) {
+    // A "page" may cover multiple schema sections.
+    // The badge shows total missing across all sections on that page.
+    final idxs = _sectionIndicesForPage(page);
+    final allDone = idxs.every((i) => _valid[_schema!.sections[i].id] ?? false);
+    final isActive = page == _si;
+
+    // Aggregate missing count
+    int missingCount = 0;
+    for (final i in idxs) {
+      missingCount += _missing(_schema!.sections[i]).length;
+    }
+
+    // Use the FIRST section's meta for icon/label
+    final firstSec = idxs.isNotEmpty ? _schema!.sections[idxs.first] : null;
+    final meta = firstSec != null ? _sm[firstSec.id] : null;
+
+    // For merged page show compound label
+    String label;
+    if (page == 0 && idxs.length >= 2) {
+      final m0 = _sm[_schema!.sections[idxs[0]].id];
+      final m1 = _sm[_schema!.sections[idxs[1]].id];
+      label = '${m0?.lbl ?? 'Sec.1'} + ${m1?.lbl ?? 'Sec.2'}';
+    } else {
+      label = meta?.lbl ?? 'Page ${page + 1}';
+    }
+
+    final subtitle = idxs.isNotEmpty
+        ? SectionTitleLookup.getTitle(_schema!.sections[idxs.first].id)
+        : '';
+
+    return InkWell(
+      onTap: () => _goto(page),
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+        padding: EdgeInsets.symmetric(
+          horizontal: _sidebarMode == 2 ? 10 : 7,
+          vertical: _sidebarMode == 2 ? 10 : 7,
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFD6E4F7) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: isActive
+              ? Border.all(
+                  color: const Color(0xFF4472C4).withValues(alpha: 0.3),
+                  width: 1)
+              : null,
+        ),
+        child: Row(children: [
+          // Circle badge
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: allDone
+                  ? const Color(0xFF70AD47)
+                  : isActive
+                      ? const Color(0xFF4472C4)
+                      : const Color(0xFFCFD8DC),
+            ),
+            alignment: Alignment.center,
+            child: allDone
+                ? const Icon(Icons.check, color: Colors.white, size: 13)
+                : (isActive && meta != null)
+                    ? Icon(meta.icon, color: Colors.white, size: 12)
+                    : Text(
+                        '${page + 1}',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color:
+                              isActive ? Colors.white : const Color(0xFF9E9E9E),
+                        ),
+                      ),
+          ),
+          if (_sidebarMode == 2) ...[
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive
+                          ? const Color(0xFF1F3864)
+                          : const Color(0xFF424242),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                          fontSize: 10, color: Color(0xFF9E9E9E)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  // Orange missing badge
+                  if (!allDone && missingCount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(top: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: const Color(0xFFFFB74D), width: 0.5),
+                      ),
+                      child: Text(
+                        '$missingCount manquant${missingCount > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Color(0xFFE65100),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (allDone)
+              const Icon(Icons.check_circle,
+                  size: 15, color: Color(0xFF70AD47)),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _asIndicator() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFDDE3EC), width: 1)),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          transitionBuilder: (child, anim) =>
+              FadeTransition(opacity: anim, child: child),
+          child: _saving
+              ? const Row(
+                  key: ValueKey('s'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.5, color: Color(0xFF9E9E9E)),
+                    ),
+                    SizedBox(width: 6),
+                    Text('Sauvegarde…',
+                        style:
+                            TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
+                  ],
+                )
+              : _dirty
+                  ? const Row(
+                      key: ValueKey('d'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.circle, size: 7, color: Color(0xFFF57C00)),
+                        SizedBox(width: 6),
+                        Text('Non sauvegardé',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFF57C00))),
+                      ],
+                    )
+                  : const Row(
+                      key: ValueKey('ok'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_outline,
+                            size: 12, color: Color(0xFF70AD47)),
+                        SizedBox(width: 6),
+                        Text('Sauvegardé',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFF70AD47))),
+                      ],
+                    ),
+        ),
+      );
+
+  // ══════════════════════════════════════════════════════════════
+  // NAV BAR
+  // ══════════════════════════════════════════════════════════════
+  Widget _navBar() {
+    if (_schema == null) return const SizedBox.shrink();
+    final isLast = _si == _pageCount - 1;
+    final pageValid = _vPage(_si);
+    final allValid = _vAllPages();
+    final canProceed = isLast ? allValid : pageValid;
+
+    // Current page label
+    final idxs = _sectionIndicesForPage(_si);
+    String pageLabel;
+    if (_si == 0 && idxs.length >= 2) {
+      final m0 = _sm[_schema!.sections[idxs[0]].id];
+      final m1 = _sm[_schema!.sections[idxs[1]].id];
+      pageLabel = '${m0?.lbl ?? ''} · ${m1?.lbl ?? ''}';
+    } else {
+      final meta =
+          idxs.isNotEmpty ? _sm[_schema!.sections[idxs.first].id] : null;
+      pageLabel = meta?.lbl ?? '';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE0E0E0), width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(children: [
+          if (_si > 0)
+            _NavBtn(label: '← Précédent', primary: false, onPressed: _prev)
+          else
+            const SizedBox(width: 100),
+          const Spacer(),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_si + 1} / $_pageCount  —  $pageLabel',
+                style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF4472C4)),
+              ),
+              const SizedBox(height: 5),
+              SizedBox(
+                width: 140,
+                height: 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: (_si + 1) / _pageCount,
+                    backgroundColor: const Color(0xFFE0E0E0),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      allValid
+                          ? const Color(0xFF70AD47)
+                          : const Color(0xFF4472C4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          _NavBtn(
+            label: isLast ? 'Aperçu PDF →' : 'Suivant →',
+            primary: canProceed,
+            onPressed: canProceed ? (isLast ? _previewSubmit : _next) : null,
+          ),
+        ]),
+      ),
+    );
+  }
+
+  // ── Data collection & mappers ─────────────────────────────────
+  void _collect() {
+    for (final e in _aGrid.entries) {
+      if (e.value != 0) _data[e.key] = e.value;
+    }
+    for (final e in _htv.entries) {
+      if (e.value.isNotEmpty) _data[e.key] = e.value;
+    }
+    if (_schema != null) {
+      for (final f in _schema!.fields) {
+        if (f.type != 'table') continue;
+        for (final id in _cellIds(f)) {
+          if (!_data.containsKey(id)) _data[id] = 0;
+        }
+      }
+    }
+    for (final e in _ctrl.entries) {
+      if (e.value.text.isNotEmpty) _data[e.key] = e.value.text;
+    }
+  }
+
+  Map<String, dynamic> _mapped(Map<String, dynamic> d) {
+    final m = Map<String, dynamic>.from(d);
+    if (m['area'] is String) m['area'] = _Map.area(m['area'] as String?);
+    if (m['businessSector'] is String)
+      m['businessSector'] = _Map.sector(m['businessSector'] as String?);
+    if (m['cooperativeType'] is String)
+      m['cooperativeType'] = _Map.coopType(m['cooperativeType'] as String?);
+    if (m['legalStatus'] is String)
+      m['legalStatus'] = _Map.legalStatus(m['legalStatus'] as String?);
+    if (m['enterpriseSize'] is String)
+      m['enterpriseSize'] = _Map.size(m['enterpriseSize'] as String?);
+    if (m['ctdType'] is String)
+      m['ctdType'] = _Map.ctdType(m['ctdType'] as String?);
+    if (m['councilType'] is String)
+      m['councilType'] = _Map.councilType(m['councilType'] as String?);
+    return m;
+  }
+
+  // ── Preview & submit ──────────────────────────────────────────
+  Future<void> _previewSubmit() async {
+    if (!_vAllPages()) {
+      if (_schema != null) {
+        for (final s in _schema!.sections) {
+          for (final id in s.fieldIds) {
+            final f = _schema!.getField(id);
+            if (f != null &&
+                f.required &&
+                _vis(f) &&
+                !_optionalOverrides.contains(f.id)) {
+              _touched.add(id);
+            }
+          }
+        }
+      }
+      final failPage = _firstFailingPage();
+      if (failPage >= 0) setState(() => _si = failPage);
+      setState(() {});
+      _snack(
+          'Veuillez remplir tous les champs obligatoires avant de soumettre');
+      return;
+    }
+
+    _collect();
+    final snapshot = _mapped(Map.from(_data));
+    _submissionSnapshot = snapshot;
+
+    _showProgress("Génération de l'aperçu PDF…");
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$_kBaseUrl/onefop/preview'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'data': snapshot,
+              'entityType': _eStr(widget.entityType),
+              'userId': widget.userId ?? 'unknown',
+              'formId': 'PREVIEW_${DateTime.now().millisecondsSinceEpoch}',
+              'isDraft': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (r.statusCode == 200 || r.statusCode == 201) {
+        final fn =
+            'onefop_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        if (kIsWeb) {
+          PdfCache.currentPdfBytes = r.bodyBytes;
+          PdfCache.currentPdfName = fn;
+          if (!mounted) return;
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    PdfViewerScreen(pdfPath: fn, onConfirm: _submitForm),
+              ));
+        } else {
+          final td = await getTemporaryDirectory();
+          if (!mounted) return;
+          final ff = File('${td.path}/$fn');
+          await ff.writeAsBytes(r.bodyBytes);
+          if (!mounted) return;
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    PdfViewerScreen(pdfPath: ff.path, onConfirm: _submitForm),
+              ));
+        }
+      } else {
+        _snack('Erreur aperçu (${r.statusCode})');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _snack('Erreur réseau : $e');
+    }
+  }
+
+  Future<void> _submitForm() async {
+    if (!mounted) return;
+    final snapshot = _submissionSnapshot;
+    if (snapshot == null) {
+      _snack('Erreur interne : aperçu non disponible');
+      return;
+    }
+
+    _showProgress('Soumission en cours…');
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$_kBaseUrl/onefop/submit'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'data': snapshot,
+              'entityType': _eStr(widget.entityType),
+              'userId': widget.userId ?? 'unknown',
+              'formId': 'ONEFOP_${DateTime.now().millisecondsSinceEpoch}',
+              'isDraft': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (r.statusCode == 200 || r.statusCode == 201) {
+        _submissionSnapshot = null;
+        widget.onSave({});
+        if (mounted) _successDialog();
+      } else {
+        final body = r.body.isNotEmpty ? r.body : '(pas de détail)';
+        _snack('Erreur soumission (${r.statusCode}) : $body');
+      }
+    } on TimeoutException {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _snack("Délai d'attente dépassé — veuillez réessayer");
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _snack('Erreur réseau : $e');
+    }
+  }
+
+  void _showProgress(String msg) => showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Center(
+          child: Card(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: Color(0xFF4472C4)),
+                  const SizedBox(height: 14),
+                  Text(msg, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+  void _successDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) => Transform.scale(
+                scale: value,
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF70AD47).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle,
+                      color: Color(0xFF70AD47), size: 36),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Soumission réussie !',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF212121)),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Votre formulaire ONEFOP a été soumis avec succès.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Color(0xFF616161)),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4472C4),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Terminer',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // BUILD
+  // ══════════════════════════════════════════════════════════════
+  @override
+  Widget build(BuildContext context) {
+    final title = 'ONEFOP — ${_eTitle()}';
+    final desktop = _isDesktop();
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: _appBar(title),
+        body: _skeletonScreen(),
+      );
+    }
+
+    if (_err != null || _schema == null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: _appBar(title),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 48, color: Color(0xFFCC0000)),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text('Erreur : $_err',
+                    style:
+                        const TextStyle(color: Color(0xFFCC0000), fontSize: 12),
+                    textAlign: TextAlign.center),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _loadSchema,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4472C4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Réessayer',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: _appBar(title),
+      body: desktop ? _desktopLayout() : _mobileLayout(),
+    );
+  }
+
+  // ── Desktop layout ────────────────────────────────────────────
+  // BUG FIX: Wrap the horizontal scroll's Column in a SizedBox with
+  // explicit finite width (_kScrollChildW) — prevents the
+  // "BoxConstraints forces an infinite width" crash in every
+  // descendant that uses double.infinity or relies on parent width.
+  Widget _desktopLayout() => Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sidebar(),
+          if (_sidebarMode > 0)
+            const VerticalDivider(
+                width: 1, thickness: 1, color: Color(0xFFDDE3EC)),
+          Expanded(
+            child: Column(children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _mainScroll,
+                  scrollDirection: Axis.vertical,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: OL.sectionBodyPaddingH,
+                    vertical: OL.sectionBodyPaddingH,
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    // ✅ BUG FIX: explicit finite width
+                    child: SizedBox(
+                      width: _kScrollChildW,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPage(_si),
+                          const SizedBox(height: 32),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              _navBar(),
+            ]),
+          ),
+        ],
+      );
+
+  // ── Mobile layout ─────────────────────────────────────────────
+  Widget _mobileLayout() => Column(children: [
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border:
+                Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 1)),
+          ),
+          child: _stepperStrip(),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _mainScroll,
+            scrollDirection: Axis.vertical,
+            padding: const EdgeInsets.symmetric(
+              horizontal: OL.sectionBodyPaddingH,
+              vertical: OL.sectionBodyPaddingH,
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              // ✅ BUG FIX: explicit finite width
+              child: SizedBox(
+                width: _kScrollChildW,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildPage(_si),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        _navBar(),
+      ]);
+
+  // ── Stepper strip (mobile) ────────────────────────────────────
+  Widget _stepperStrip() {
+    if (_schema == null) return const SizedBox.shrink();
+    return Container(
+      height: 60,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          for (int p = 0; p < _pageCount; p++) ...[
+            Expanded(
+              child: _StepperItem(
+                index: p,
+                label: _pageLabel(p),
+                isActive: p == _si,
+                isCompleted: _vPage(p),
+                onTap: () => _goto(p),
+              ),
+            ),
+            if (p < _pageCount - 1) _StepConnector(isCompleted: _vPage(p)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _pageLabel(int page) {
+    final idxs = _sectionIndicesForPage(page);
+    if (page == 0 && idxs.length >= 2) return 'Identité';
+    if (idxs.isNotEmpty) {
+      return _sm[_schema!.sections[idxs.first].id]?.lbl ?? 'Pg ${page + 1}';
+    }
+    return 'Pg ${page + 1}';
+  }
+
+  AppBar _appBar(String title) => AppBar(
+        title: Text(title,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        backgroundColor: const Color(0xFF4472C4),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: _sidebarModeButton(),
+        leadingWidth: 48,
+        actions: [
+          if (!_loading)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: _saving
+                      ? const SizedBox(
+                          key: ValueKey('s'),
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 1.5, color: Colors.white70),
+                        )
+                      : _dirty
+                          ? Icon(
+                              key: const ValueKey('d'),
+                              Icons.circle,
+                              size: 7,
+                              color: Colors.orange.shade300)
+                          : const Icon(
+                              key: ValueKey('ok'),
+                              Icons.cloud_done_outlined,
+                              size: 16,
+                              color: Colors.white70),
+                ),
+              ),
+            ),
+          if (widget.onCancel != null)
+            TextButton(
+              onPressed: widget.onCancel,
+              child: const Text('ANNULER',
+                  style: TextStyle(color: Colors.white70, fontSize: 11)),
+            ),
+          const SizedBox(width: 4),
+        ],
+      );
+
+  /// Cycles sidebar through modes: 2 (full) → 1 (icons) → 0 (hidden) → 2
+  Widget _sidebarModeButton() {
+    final icons = [
+      Icons.menu_open, // from hidden → show full  (mode 0)
+      Icons.last_page, // from full   → icons-only (mode 2)
+      Icons.first_page, // from icons  → hidden     (mode 1)
+    ];
+    // Show icon that represents the NEXT action
+    final iconIdx = _sidebarMode;
+    return IconButton(
+      icon: Icon(icons[iconIdx], size: 20),
+      tooltip: _sidebarMode == 2
+          ? 'Réduire la barre'
+          : _sidebarMode == 1
+              ? 'Masquer la barre'
+              : 'Afficher la barre',
+      onPressed: () => setState(() {
+        _sidebarMode = (_sidebarMode + 1) % 3;
+      }),
+    );
+  }
+
+  String _eTitle() {
+    switch (widget.entityType) {
+      case EntityType.enterprise:
+        return 'ENTREPRISE';
+      case EntityType.cooperative:
+        return 'COOPÉRATIVE';
+      case EntityType.ctd:
+        return 'CTD';
+      case EntityType.ong:
+        return 'ONG';
+    }
+  }
+
+  Widget _skeletonScreen() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (int i = 0; i < 4; i++) ...[
+                Expanded(
+                  child: Column(children: [
+                    _SkeletonCircle(size: 24),
+                    const SizedBox(height: 3),
+                    _SkeletonLine(width: 40, height: 8),
+                  ]),
+                ),
+                if (i < 3) Expanded(child: _SkeletonLine(width: 20, height: 2)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkeletonLine(width: 130, height: 16),
+                  const SizedBox(height: 12),
+                  for (int i = 0; i < 6; i++) ...[
+                    _SkeletonLine(width: 400, height: 36),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// _HighlightBlock
+//
+// Wraps a question / table widget.  When the focused field id
+// matches this block's fieldId, it shows a subtle animated
+// left-border highlight and scrolls itself into view.
+// ══════════════════════════════════════════════════════════════
+class _HighlightBlock extends StatefulWidget {
+  final String fieldId;
+  final UnifiedFocusManagerV2 fm;
+  final bool isTable;
+  final Widget child;
+
+  const _HighlightBlock({
+    super.key,
+    required this.fieldId,
+    required this.fm,
+    required this.isTable,
+    required this.child,
+  });
+
+  @override
+  State<_HighlightBlock> createState() => _HighlightBlockState();
+}
+
+class _HighlightBlockState extends State<_HighlightBlock> {
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.fm.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(_HighlightBlock old) {
+    super.didUpdateWidget(old);
+    if (old.fm != widget.fm) {
+      old.fm.removeListener(_onFocusChange);
+      widget.fm.addListener(_onFocusChange);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.fm.removeListener(_onFocusChange);
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    final active = widget.fm.activeId;
+    final isFocused = active == widget.fieldId;
+    if (isFocused != _focused) {
+      setState(() => _focused = isFocused);
+      if (isFocused && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            Scrollable.ensureVisible(
+              context,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOut,
+              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+            );
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        color: _focused
+            ? (widget.isTable
+                ? const Color(0xFFF0F6FF)
+                : const Color(0xFFF5F8FF))
+            : Colors.transparent,
+        border: _focused
+            ? Border(
+                left: BorderSide(
+                  color: const Color(0xFF4472C4).withValues(alpha: 0.7),
+                  width: 3,
+                ),
+              )
+            : null,
+      ),
+      child: widget.child,
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// _RadioOpt
+// ══════════════════════════════════════════════════════════════
+class _RadioOpt extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _RadioOpt({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFDCE6F1) : Colors.transparent,
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF4472C4)
+                  : const Color(0xFFCFD8DC),
+              width: isSelected ? 1.5 : 0.5,
+            ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF4472C4)
+                          : const Color(0xFF9E9E9E),
+                      width: 1.5,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: isSelected
+                      ? Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF4472C4),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? const Color(0xFF1F3864)
+                        : const Color(0xFF424242),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// STANDALONE WIDGETS
+// ══════════════════════════════════════════════════════════════
+
+class _StepperItem extends StatelessWidget {
+  final int index;
+  final String label;
+  final bool isActive;
+  final bool isCompleted;
+  final VoidCallback onTap;
+
+  const _StepperItem({
+    required this.index,
+    required this.label,
+    required this.isActive,
+    required this.isCompleted,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isCompleted
+                  ? const Color(0xFF70AD47)
+                  : isActive
+                      ? const Color(0xFF4472C4)
+                      : const Color(0xFFE0E0E0),
+            ),
+            alignment: Alignment.center,
+            child: isCompleted
+                ? const Icon(Icons.check, color: Colors.white, size: 13)
+                : Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isActive ? Colors.white : const Color(0xFF9E9E9E),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              color:
+                  isActive ? const Color(0xFF4472C4) : const Color(0xFF757575),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepConnector extends StatelessWidget {
+  final bool isCompleted;
+  const _StepConnector({required this.isCompleted});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 20,
+        height: 2,
+        decoration: BoxDecoration(
+          color:
+              isCompleted ? const Color(0xFF70AD47) : const Color(0xFFDDE3EC),
+          borderRadius: BorderRadius.circular(1),
+        ),
+      );
+}
+
+class _NavBtn extends StatelessWidget {
+  final String label;
+  final bool primary;
+  final VoidCallback? onPressed;
+
+  const _NavBtn({
+    required this.label,
+    required this.primary,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            primary ? const Color(0xFF4472C4) : const Color(0xFFEEEEEE),
+        foregroundColor: primary ? Colors.white : const Color(0xFF424242),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+      ),
+      child: Text(label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: primary ? Colors.white : const Color(0xFF424242),
+          )),
+    );
+  }
+}
+
+class _SkeletonLine extends StatelessWidget {
+  final double width;
+  final double height;
+  const _SkeletonLine({required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE0E0E0),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      );
+}
+
+class _SkeletonCircle extends StatelessWidget {
+  final double size;
+  const _SkeletonCircle({required this.size});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(
+          color: Color(0xFFE0E0E0),
+          shape: BoxShape.circle,
+        ),
+      );
+}
+
+// ══════════════════════════════════════════════════════════════
+// _HNC — Hybrid Numeric Cell
+// ══════════════════════════════════════════════════════════════
+class _HNC extends StatefulWidget {
+  final String cellId;
+  final int value;
+  final void Function(String, int) onChanged;
+  final UnifiedFocusManagerV2 fm;
+  final String tableId;
+  final List<String> allCells;
+  final int rowWidth;
+  final VoidCallback onExitTable;
+  final VoidCallback onExitPrevious;
+
+  const _HNC({
+    required this.cellId,
+    required this.value,
+    required this.onChanged,
+    required this.fm,
+    required this.tableId,
+    required this.allCells,
+    required this.rowWidth,
+    required this.onExitTable,
+    required this.onExitPrevious,
+  });
+
+  @override
+  State<_HNC> createState() => _HNCSt();
+}
+
+class _HNCSt extends State<_HNC> {
+  late final TextEditingController _c;
+  FocusNode get _n => widget.fm.node(widget.cellId);
+  String _t(int v) => v == 0 ? '' : '$v';
+
+  @override
+  void initState() {
+    super.initState();
+    _c = TextEditingController(text: _t(widget.value));
+    _n.onKeyEvent = _key;
+  }
+
+  KeyEventResult _key(FocusNode n, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final kb = HardwareKeyboard.instance;
+
+    final idx = widget.allCells.indexOf(widget.cellId);
+    if (idx < 0) return widget.fm.handleKey(n, e, gridId: widget.tableId);
+
+    final row = idx ~/ widget.rowWidth;
+    final col = idx % widget.rowWidth;
+    final totalRows = (widget.allCells.length / widget.rowWidth).ceil();
+
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowRight)) {
+      if (col < widget.rowWidth - 1 && idx < widget.allCells.length - 1) {
+        widget.fm.focus(widget.allCells[idx + 1]);
+      } else if (row < totalRows - 1) {
+        widget.fm.focus(widget.allCells[(row + 1) * widget.rowWidth]);
+      } else {
+        widget.onExitTable();
+      }
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+      if (col > 0) {
+        widget.fm.focus(widget.allCells[idx - 1]);
+      } else if (row > 0) {
+        widget.fm.focus(widget.allCells[row * widget.rowWidth - 1]);
+      } else {
+        widget.onExitPrevious();
+      }
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowDown)) {
+      final nextIdx = (row + 1) * widget.rowWidth + col;
+      if (nextIdx < widget.allCells.length) {
+        widget.fm.focus(widget.allCells[nextIdx]);
+      } else {
+        widget.onExitTable();
+      }
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowUp)) {
+      final prevIdx = (row - 1) * widget.rowWidth + col;
+      if (prevIdx >= 0) {
+        widget.fm.focus(widget.allCells[prevIdx]);
+      } else {
+        widget.onExitPrevious();
+      }
+      return KeyEventResult.handled;
+    }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.enter) ||
+        kb.isLogicalKeyPressed(LogicalKeyboardKey.tab)) {
+      if (kb.isShiftPressed) {
+        if (idx > 0) {
+          widget.fm.focus(widget.allCells[idx - 1]);
+        } else {
+          widget.onExitPrevious();
+        }
+      } else {
+        if (idx < widget.allCells.length - 1) {
+          widget.fm.focus(widget.allCells[idx + 1]);
+        } else {
+          widget.onExitTable();
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    return widget.fm.handleKey(n, e, gridId: widget.tableId);
+  }
+
+  @override
+  void didUpdateWidget(_HNC old) {
+    super.didUpdateWidget(old);
+    if (old.tableId != widget.tableId || old.fm != widget.fm) {
+      _n.onKeyEvent = _key;
+    }
+    if (old.value != widget.value) {
+      final t = _t(widget.value);
+      if (_c.text != t) _c.text = t;
+    }
+  }
+
+  @override
+  void dispose() {
+    _n.onKeyEvent = null;
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: _n,
+        builder: (ctx, _) {
+          final focused = _n.hasFocus;
+          return ColoredBox(
+            color: focused ? const Color(0xFFEBF3FF) : Colors.transparent,
+            child: TextField(
+              controller: _c,
+              focusNode: _n,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              textAlignVertical: TextAlignVertical.center,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: const TextStyle(
+                fontSize: _kNumCellFontSize,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF000000),
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                hintText: focused ? '0' : null,
+                hintStyle: const TextStyle(
+                  fontSize: _kNumCellFontSize,
+                  color: Color(0xFFCCCCCC),
+                ),
+              ),
+              onChanged: (v) =>
+                  widget.onChanged(widget.cellId, int.tryParse(v) ?? 0),
+              onSubmitted: (_) => _key(
+                _n,
+                const KeyDownEvent(
+                  physicalKey: PhysicalKeyboardKey.enter,
+                  logicalKey: LogicalKeyboardKey.enter,
+                  timeStamp: Duration.zero,
+                ),
+              ),
+            ),
+          );
+        },
+      );
+}

@@ -68,6 +68,9 @@ let AuthController = class AuthController {
             respondentPhone: body.respondentPhone,
             respondentPhone2: body.respondentPhone2,
             respondentFunction: body.respondentFunction,
+            respondentFirstName: body.respondentFirstName ?? body.firstName,
+            respondentLastName: body.respondentLastName ?? body.lastName,
+            branch: body.branch,
         });
     }
     async getPendingMinefopUsers() {

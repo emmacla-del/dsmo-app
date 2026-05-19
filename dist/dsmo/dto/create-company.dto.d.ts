@@ -17,4 +17,22 @@ export declare class CreateCompanyDto {
     lastYearMenCount?: number;
     lastYearWomenCount?: number;
     lastYearTotal?: number;
+    phone?: string;
+    phone2?: string;
+    poBox?: string;
+    branch?: string;
+    area?: string;
+    legalStatus?: string;
+    cooperativeType?: string;
+    ctdType?: string;
+    yearOfCreation?: string;
+    entityType?: string;
+    mainMission?: string;
+    registrationNumber?: string;
+    trainingDomains?: string;
+    respondentPhone?: string;
+    respondentPhone2?: string;
+    respondentFunction?: string;
+    respondentFirstName?: string;
+    respondentLastName?: string;
 }

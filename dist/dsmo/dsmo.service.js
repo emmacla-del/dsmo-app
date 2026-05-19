@@ -316,7 +316,9 @@ let DsmoService = class DsmoService {
         const where = {};
         if (user.role === prisma_types_1.UserRole.COMPANY) {
             const comp = await this.prisma.company.findUnique({ where: { userId } });
-            where.companyId = comp?.id;
+            if (!comp)
+                return [];
+            where.companyId = comp.id;
         }
         else if (user.role === prisma_types_1.UserRole.DIVISIONAL) {
             where.division = user.department;

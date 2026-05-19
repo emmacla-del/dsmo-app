@@ -1,0 +1,117 @@
+class YourFormPageState extends State<YourFormPage> {
+  final UnifiedFocusManager focusManager = UnifiedFocusManager();
+
+  late final FormSchema schema;
+
+  int _step = 0;
+  bool _loading = false;
+  bool _submitted = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    schema = buildYourSchema(); // <-- YOUR SCHEMA FACTORY
+
+    focusManager.buildFromSchema(schema);
+
+    focusManager.bindStepNavigation(
+      totalSteps: schema.sections.length,
+      initialStep: 0,
+      onStepChanged: (step) {
+        setState(() => _step = step);
+      },
+    );
+  }
+
+  // ============================================================
+  // GLOBAL KEY HANDLER (ONLY ONE - CLEAN)
+  // ============================================================
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    return focusManager.handleKey(node, event);
+  }
+
+  // ============================================================
+  // NAV BAR (SIMPLIFIED)
+  // ============================================================
+
+  Widget _buildNavBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: const BoxDecoration(
+        color: OnefopColors.card,
+        border: Border(top: BorderSide(color: OnefopColors.border)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (_step > 0) {
+                setState(() => _step--);
+              }
+            },
+          ),
+
+          Text("Step ${_step + 1}/${schema.sections.length}"),
+
+          IconButton(
+            icon: const Icon(Icons.arrow_forward),
+            onPressed: () {
+              if (_step < schema.sections.length - 1) {
+                setState(() => _step++);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final currentSection = schema.sections[_step];
+
+    return Focus(
+      onKeyEvent: _handleKey,
+      child: Scaffold(
+        backgroundColor: OnefopColors.bg,
+        body: SafeArea(
+          child: Column(
+            children: [
+              TopBar(
+                entityLabel: widget.entityType.frLabel,
+                stepTitle: currentSection.title,
+                progressValue: (_step + 1) / schema.sections.length,
+                currentStep: _step + 1,
+                totalSteps: schema.sections.length,
+              ),
+
+              Expanded(
+                child: SchemaRenderer(
+                  section: currentSection,
+                  focusManager: focusManager,
+                  onChanged: () => setState(() {}),
+                ),
+              ),
+
+              _buildNavBar(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    focusManager.dispose();
+    super.dispose();
+  }
+}

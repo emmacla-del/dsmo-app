@@ -12,6 +12,14 @@ export declare class AuthController {
             role: any;
             region: any;
             department: any;
+            stream: any;
+            features: {
+                onefopBasicAnalytics: boolean;
+                onefopBenchmarking: boolean;
+                onefopSubmissionStatus: import(".prisma/client").$Enums.OnefopStatus | null;
+                onefopSurveyYear: number | null;
+                onefopHasDraft: boolean;
+            };
         };
     }>;
     register(body: {
@@ -35,6 +43,14 @@ export declare class AuthController {
             role: any;
             region: any;
             department: any;
+            stream: any;
+            features: {
+                onefopBasicAnalytics: boolean;
+                onefopBenchmarking: boolean;
+                onefopSubmissionStatus: import(".prisma/client").$Enums.OnefopStatus | null;
+                onefopSurveyYear: number | null;
+                onefopHasDraft: boolean;
+            };
         };
     } | {
         message: string;
@@ -70,6 +86,11 @@ export declare class AuthController {
         respondentPhone?: string;
         respondentPhone2?: string;
         respondentFunction?: string;
+        respondentFirstName?: string;
+        respondentLastName?: string;
+        firstName?: string;
+        lastName?: string;
+        branch?: string;
     }): Promise<{
         access_token: string;
         user: {
@@ -80,6 +101,14 @@ export declare class AuthController {
             role: any;
             region: any;
             department: any;
+            stream: any;
+            features: {
+                onefopBasicAnalytics: boolean;
+                onefopBenchmarking: boolean;
+                onefopSubmissionStatus: import(".prisma/client").$Enums.OnefopStatus | null;
+                onefopSurveyYear: number | null;
+                onefopHasDraft: boolean;
+            };
         };
     }>;
     getPendingMinefopUsers(): Promise<{
@@ -93,15 +122,15 @@ export declare class AuthController {
         createdAt: Date;
     }[]>;
     approveUser(id: string): Promise<{
-        region: string | null;
-        department: string | null;
-        subdivision: string | null;
         id: string;
         email: string;
         passwordHash: string;
         firstName: string | null;
         lastName: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        region: string | null;
+        department: string | null;
+        subdivision: string | null;
         matricule: string | null;
         poste: string | null;
         serviceCode: string | null;
@@ -115,15 +144,15 @@ export declare class AuthController {
         status: import(".prisma/client").$Enums.UserStatus;
     }>;
     rejectUser(id: string, reason?: string): Promise<{
-        region: string | null;
-        department: string | null;
-        subdivision: string | null;
         id: string;
         email: string;
         passwordHash: string;
         firstName: string | null;
         lastName: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        region: string | null;
+        department: string | null;
+        subdivision: string | null;
         matricule: string | null;
         poste: string | null;
         serviceCode: string | null;

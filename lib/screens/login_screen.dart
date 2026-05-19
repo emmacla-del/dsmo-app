@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_colors.dart';
+import '../main.dart' show router; // ✅ import the global router
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -42,7 +43,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<dynamic>>(authProvider, (_, next) {
       if (next is AsyncData && next.value != null) {
-        Navigator.pushReplacementNamed(context, '/home');
+        // ✅ Use the router instance directly
+        router.go('/home');
       }
     });
 
@@ -191,15 +193,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               border: Border.all(color: Colors.red.shade200),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(Icons.error_outline,
+                                const Icon(Icons.error_outline,
                                     color: Colors.red, size: 18),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Email ou mot de passe incorrect.',
-                                    style: TextStyle(
+                                    authState.error is String
+                                        ? authState.error as String
+                                        : 'Email ou mot de passe incorrect.',
+                                    style: const TextStyle(
                                         color: Colors.red, fontSize: 13),
                                   ),
                                 ),
@@ -254,7 +258,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(color: AppColors.slate, fontSize: 14)),
                     const SizedBox(width: 6),
                     GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/register'),
+                      onTap: () => router.go('/register'), // ✅ use router
                       child: const Text(
                         'Créer un compte',
                         style: TextStyle(

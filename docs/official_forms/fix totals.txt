@@ -1,0 +1,43 @@
+I can see the problem clearly now. The edit was only partially done — only `this.total.total` was changed in one cell, but `total.age15_24`, `total.age25_34`, and `total.age35plus` were left unchanged inside `{{#each rows}}`.
+
+Find this block inside `{{#each rows}}` in the `cspAgeTable` partial:
+
+```handlebars
+<td>{{formatCell total.age15_24}}</td>
+<td>{{formatCell total.age25_34}}</td>
+<td>{{formatCell total.age35plus}}</td>
+<td class="tot-col">{{formatCell this.total.total}}</td>
+```
+
+Change all 4 lines to:
+
+```handlebars
+<td>{{formatCell this.total.age15_24}}</td>
+<td>{{formatCell this.total.age25_34}}</td>
+<td>{{formatCell this.total.age35plus}}</td>
+<td class="tot-col">{{formatCell this.total.total}}</td>
+```
+
+Same fix needed in `{{#each s23q02.permanent}}` and `{{#each s23q02.temporary}}` — change:
+
+```handlebars
+<td>{{formatCell total.age15_24}}</td>
+<td>{{formatCell total.age25_34}}</td>
+<td>{{formatCell total.age35plus}}</td>
+<td class="tot-col">{{formatCell this.total.total}}</td>
+```
+
+To:
+
+```handlebars
+<td>{{formatCell this.total.age15_24}}</td>
+<td>{{formatCell this.total.age25_34}}</td>
+<td>{{formatCell this.total.age35plus}}</td>
+<td class="tot-col">{{formatCell this.total.total}}</td>
+```
+
+Then save and run:
+
+```powershell
+copy src\pdf\templates\dynamic\cooperative.hbs dist\pdf\templates\dynamic\cooperative.hbs
+``` 

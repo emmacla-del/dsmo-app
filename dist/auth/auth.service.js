@@ -21,9 +21,7 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async validateUser(email, password) {
-        const user = await this.prisma.user.findUnique({
-            where: { email },
-        });
+        const user = await this.prisma.user.findUnique({ where: { email } });
         if (!user)
             return null;
         const passwordValid = await bcrypt.compare(password, user.passwordHash);
@@ -38,6 +36,31 @@ let AuthService = class AuthService {
         const { passwordHash, ...safeUser } = user;
         return safeUser;
     }
+    async buildFeatures(userId, role) {
+        if (role !== 'COMPANY') {
+            return {
+                onefopBasicAnalytics: false,
+                onefopBenchmarking: false,
+                onefopSubmissionStatus: null,
+                onefopSurveyYear: null,
+                onefopHasDraft: false,
+            };
+        }
+        const onefopSubs = await this.prisma.onefopSubmission.findMany({
+            where: { submittedBy: userId },
+            orderBy: { createdAt: 'desc' },
+            select: { status: true, surveyYear: true },
+        });
+        const latestSubmitted = onefopSubs.find((s) => ['PENDING_REVIEW', 'APPROVED'].includes(s.status));
+        const latestApproved = onefopSubs.find((s) => s.status === 'APPROVED');
+        return {
+            onefopBasicAnalytics: !!latestSubmitted,
+            onefopBenchmarking: !!latestApproved,
+            onefopSubmissionStatus: latestSubmitted?.status ?? null,
+            onefopSurveyYear: latestSubmitted?.surveyYear ?? null,
+            onefopHasDraft: onefopSubs.some((s) => s.status === 'DRAFT'),
+        };
+    }
     async login(user) {
         const payload = {
             sub: user.id,
@@ -48,6 +71,7 @@ let AuthService = class AuthService {
             firstName: user.firstName,
             lastName: user.lastName,
         };
+        const features = await this.buildFeatures(user.id, user.role);
         return {
             access_token: this.jwtService.sign(payload),
             user: {
@@ -58,13 +82,13 @@ let AuthService = class AuthService {
                 role: user.role,
                 region: user.region,
                 department: user.department,
+                stream: user.stream,
+                features,
             },
         };
     }
     async register(email, password, firstName, lastName, role, region, department, matricule, poste, serviceCode) {
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email },
-        });
+        const existingUser = await this.prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             throw new common_1.ConflictException('Un utilisateur avec cet email existe déjà');
         }
@@ -97,17 +121,14 @@ let AuthService = class AuthService {
             return safeUser;
         }
         catch (error) {
-            if (error instanceof library_1.PrismaClientKnownRequestError &&
-                error.code === 'P2002') {
+            if (error instanceof library_1.PrismaClientKnownRequestError && error.code === 'P2002') {
                 throw new common_1.ConflictException('Un utilisateur avec cet email existe déjà');
             }
             throw error;
         }
     }
     async registerCompany(email, password, companyData) {
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email },
-        });
+        const existingUser = await this.prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             throw new common_1.ConflictException('Un utilisateur avec cet email existe déjà');
         }
@@ -124,16 +145,15 @@ let AuthService = class AuthService {
                     email,
                     passwordHash: hashed,
                     role: 'COMPANY',
-                    firstName: companyData.contactName ??
-                        email.split('@')[0],
-                    lastName: '',
+                    firstName: companyData.respondentFirstName ?? companyData.contactName ?? email.split('@')[0],
+                    lastName: companyData.respondentLastName ?? '',
                     region: companyData.region,
                     department: companyData.department,
                     status: 'ACTIVE',
                     isActive: true,
                 },
             });
-            const company = await this.prisma.company.create({
+            await this.prisma.company.create({
                 data: {
                     userId: user.id,
                     name: companyData.name,
@@ -144,18 +164,23 @@ let AuthService = class AuthService {
                     department: companyData.department,
                     subdivision: companyData.subdivision,
                     address: companyData.address,
+                    fax: companyData.fax,
                     taxNumber: companyData.taxNumber,
                     cnpsNumber: companyData.cnpsNumber,
                     socialCapital: companyData.socialCapital,
                     entityType: companyData.entityType,
-                    totalEmployees: 0,
-                    menCount: 0,
-                    womenCount: 0,
+                    totalEmployees: companyData.totalEmployees ?? 0,
+                    menCount: companyData.menCount,
+                    womenCount: companyData.womenCount,
+                    lastYearMenCount: companyData.lastYearMenCount,
+                    lastYearWomenCount: companyData.lastYearWomenCount,
+                    lastYearTotal: companyData.lastYearTotal,
                     area: companyData.area,
                     sectorId: companyData.sectorId,
                     phone: companyData.phone,
                     phone2: companyData.phone2,
                     poBox: companyData.poBox,
+                    branch: companyData.branch,
                     legalStatus: companyData.legalStatus,
                     cooperativeType: companyData.cooperativeType,
                     ctdType: companyData.ctdType,
@@ -163,6 +188,8 @@ let AuthService = class AuthService {
                     mainMission: companyData.mainMission,
                     registrationNumber: companyData.registrationNumber,
                     trainingDomains: companyData.trainingDomains,
+                    respondentFirstName: companyData.respondentFirstName,
+                    respondentLastName: companyData.respondentLastName,
                     respondentPhone: companyData.respondentPhone,
                     respondentPhone2: companyData.respondentPhone2,
                     respondentFunction: companyData.respondentFunction,
@@ -171,8 +198,7 @@ let AuthService = class AuthService {
             return this.login(user);
         }
         catch (error) {
-            if (error instanceof library_1.PrismaClientKnownRequestError &&
-                error.code === 'P2002') {
+            if (error instanceof library_1.PrismaClientKnownRequestError && error.code === 'P2002') {
                 throw new common_1.ConflictException('Email ou numéro contribuable déjà utilisé');
             }
             throw error;
@@ -180,10 +206,7 @@ let AuthService = class AuthService {
     }
     async getPendingMinefopUsers() {
         return this.prisma.user.findMany({
-            where: {
-                role: { not: 'COMPANY' },
-                status: 'PENDING_APPROVAL',
-            },
+            where: { role: { not: 'COMPANY' }, status: 'PENDING_APPROVAL' },
             select: {
                 id: true,
                 email: true,
@@ -194,18 +217,13 @@ let AuthService = class AuthService {
                 createdAt: true,
                 role: true,
             },
-            orderBy: {
-                createdAt: 'asc',
-            },
+            orderBy: { createdAt: 'asc' },
         });
     }
     async approveUser(id) {
-        const user = await this.prisma.user.findUnique({
-            where: { id },
-        });
-        if (!user) {
+        const user = await this.prisma.user.findUnique({ where: { id } });
+        if (!user)
             throw new common_1.BadRequestException('Utilisateur non trouvé');
-        }
         if (user.role === 'COMPANY') {
             throw new common_1.BadRequestException('Les entreprises sont automatiquement approuvées');
         }
@@ -214,28 +232,19 @@ let AuthService = class AuthService {
         }
         return this.prisma.user.update({
             where: { id },
-            data: {
-                status: 'ACTIVE',
-                isActive: true,
-            },
+            data: { status: 'ACTIVE', isActive: true },
         });
     }
     async rejectUser(id) {
-        const user = await this.prisma.user.findUnique({
-            where: { id },
-        });
-        if (!user) {
+        const user = await this.prisma.user.findUnique({ where: { id } });
+        if (!user)
             throw new common_1.BadRequestException('Utilisateur non trouvé');
-        }
         if (user.role === 'COMPANY') {
             throw new common_1.BadRequestException('Les entreprises ne peuvent pas être rejetées');
         }
         return this.prisma.user.update({
             where: { id },
-            data: {
-                status: 'REJECTED',
-                isActive: false,
-            },
+            data: { status: 'REJECTED', isActive: false },
         });
     }
 };

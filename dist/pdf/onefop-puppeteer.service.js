@@ -8,7 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OnefopPuppeteerService = void 0;
 const common_1 = require("@nestjs/common");
-const puppeteer = require("puppeteer-core");
+const puppeteer = require("puppeteer");
 const Handlebars = require("handlebars");
 const fs = require("fs");
 const path = require("path");
@@ -77,12 +77,7 @@ let OnefopPuppeteerService = class OnefopPuppeteerService {
     async htmlToPdf(html) {
         let page;
         try {
-            if (!this.browser || this.browser.isConnected === false) {
-                await this.initializeBrowser();
-            }
-            if (!this.browser.isConnected()) {
-                console.warn('⚠️ Browser connection lost, reinitializing...');
-                this.browser = null;
+            if (!this.browser || !this.browser.isConnected()) {
                 await this.initializeBrowser();
             }
             page = await this.browser.newPage();
@@ -127,36 +122,22 @@ let OnefopPuppeteerService = class OnefopPuppeteerService {
         }
     }
     async initializeBrowser() {
-        const chromePath = this.getChromePath();
-        console.log(`🌐 Launching Chrome from: ${chromePath}`);
+        console.log('🌐 Launching bundled Chrome...');
         this.browser = await puppeteer.launch({
-            executablePath: chromePath,
             headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--disable-web-resources',
-                '--disable-extensions',
+                '--single-process',
+                '--no-zygote',
             ],
         });
         this.browser.on('disconnected', () => {
             console.warn('⚠️ Browser connection disconnected');
             this.browser = null;
         });
-    }
-    getChromePath() {
-        const possiblePaths = [
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-        ];
-        for (const chromePath of possiblePaths) {
-            if (fs.existsSync(chromePath))
-                return chromePath;
-        }
-        throw new Error('Google Chrome not found. Please install Chrome.');
     }
     async onModuleDestroy() {
         if (this.browser) {

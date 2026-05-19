@@ -24,6 +24,7 @@ export declare class MinefopServicesService {
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -33,13 +34,13 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }[]>;
     findAllWithInactive(category?: $Enums.ServiceCategory): Promise<{
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -49,13 +50,13 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }[]>;
     getRoots(category?: $Enums.ServiceCategory): Promise<{
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -65,13 +66,13 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }[]>;
     getChildren(parentCode: string): Promise<{
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -81,7 +82,6 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }[]>;
     getTree(category?: $Enums.ServiceCategory): Promise<ServiceNode[]>;
     getServiceByCode(code: string): Promise<{
@@ -90,6 +90,7 @@ export declare class MinefopServicesService {
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            orderIndex: number;
             code: string;
             nameEn: string | null;
             acronym: string | null;
@@ -99,7 +100,6 @@ export declare class MinefopServicesService {
             roleMapping: $Enums.UserRole;
             requiresRegion: boolean;
             requiresDepartment: boolean;
-            orderIndex: number;
         }[];
         positions: {
             id: string;
@@ -108,8 +108,8 @@ export declare class MinefopServicesService {
             isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            level: number;
             orderIndex: number;
+            level: number;
             title: string;
             titleEn: string | null;
         }[];
@@ -118,6 +118,7 @@ export declare class MinefopServicesService {
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -127,7 +128,6 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }>;
     getServiceById(id: string): Promise<{
         children: {
@@ -135,6 +135,7 @@ export declare class MinefopServicesService {
             createdAt: Date;
             updatedAt: Date;
             name: string;
+            orderIndex: number;
             code: string;
             nameEn: string | null;
             acronym: string | null;
@@ -144,7 +145,6 @@ export declare class MinefopServicesService {
             roleMapping: $Enums.UserRole;
             requiresRegion: boolean;
             requiresDepartment: boolean;
-            orderIndex: number;
         }[];
         positions: {
             id: string;
@@ -153,8 +153,8 @@ export declare class MinefopServicesService {
             isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            level: number;
             orderIndex: number;
+            level: number;
             title: string;
             titleEn: string | null;
         }[];
@@ -163,6 +163,7 @@ export declare class MinefopServicesService {
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -172,7 +173,6 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }>;
     getPositionsByService(serviceCode: string): Promise<{
         id: string;
@@ -181,8 +181,8 @@ export declare class MinefopServicesService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        level: number;
         orderIndex: number;
+        level: number;
         title: string;
         titleEn: string | null;
     }[]>;
@@ -191,6 +191,7 @@ export declare class MinefopServicesService {
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -200,13 +201,13 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }[]>;
     getServicesByRegion(): Promise<{
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -216,13 +217,13 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }[]>;
     createService(data: CreateServiceDto): Promise<{
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -232,13 +233,13 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }>;
     updateService(code: string, data: UpdateServiceDto): Promise<{
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         name: string;
+        orderIndex: number;
         code: string;
         nameEn: string | null;
         acronym: string | null;
@@ -248,7 +249,6 @@ export declare class MinefopServicesService {
         roleMapping: $Enums.UserRole;
         requiresRegion: boolean;
         requiresDepartment: boolean;
-        orderIndex: number;
     }>;
     deleteService(code: string): Promise<void>;
     hardDeleteService(code: string): Promise<void>;
@@ -259,8 +259,8 @@ export declare class MinefopServicesService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        level: number;
         orderIndex: number;
+        level: number;
         title: string;
         titleEn: string | null;
     }>;
@@ -271,8 +271,8 @@ export declare class MinefopServicesService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        level: number;
         orderIndex: number;
+        level: number;
         title: string;
         titleEn: string | null;
     }>;

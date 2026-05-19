@@ -22,7 +22,7 @@ class _CompanyRegistrationScreenState
   final _secondaryActivityController = TextEditingController();
   final _regionController = TextEditingController();
   final _deptController = TextEditingController();
-  final _districtController = TextEditingController();
+  final _subdivisionController = TextEditingController();
   final _addressController = TextEditingController();
   final _taxNumberController = TextEditingController();
   final _cnpsController = TextEditingController();
@@ -71,7 +71,7 @@ class _CompanyRegistrationScreenState
     _secondaryActivityController.dispose();
     _regionController.dispose();
     _deptController.dispose();
-    _districtController.dispose();
+    _subdivisionController.dispose();
     _addressController.dispose();
     _taxNumberController.dispose();
     _cnpsController.dispose();
@@ -111,7 +111,7 @@ class _CompanyRegistrationScreenState
             : null,
         'region': _regionController.text,
         'department': _deptController.text,
-        'district': _districtController.text,
+        'subdivision': _subdivisionController.text,
         'address': _addressController.text,
         'taxNumber': _taxNumberController.text,
         'cnpsNumber':
@@ -203,7 +203,7 @@ class _CompanyRegistrationScreenState
                 isRequired: true),
             _buildField(_secondaryActivityController, 'Activité secondaire'),
             _buildField(_deptController, 'Département *', isRequired: true),
-            _buildField(_districtController, 'Arrondissement *',
+            _buildField(_subdivisionController, 'Arrondissement *',
                 isRequired: true),
             _buildField(_addressController, 'Adresse *', isRequired: true),
             _buildField(_capitalController, 'Capital social (XAF)',

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "DSMO digital declaration backend",
   "engines": {
-    "node": "20.x"
+    "node": ">=20.x"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -15,7 +15,7 @@
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate && npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.19",
@@ -24,7 +24,6 @@
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.1.19",
     "@prisma/client": "^5.22.0",
-    "@sparticuz/chromium": "^148.0.0",
     "@supabase/supabase-js": "^2.103.0",
     "bcrypt": "^5.1.0",
     "class-transformer": "^0.5.1",
@@ -38,8 +37,7 @@
     "pdfkit": "^0.18.0",
     "pdfkit-table": "^0.1.99",
     "prisma": "^5.22.0",
-    "puppeteer": "^24.42.0",
-    "puppeteer-core": "^24.42.0",
+    "puppeteer": "22.15.0",
     "reflect-metadata": "^0.1.14",
     "rxjs": "^7.8.2"
   },
@@ -53,7 +51,6 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/pdfkit": "^0.17.5",
-    "@types/puppeteer": "^5.4.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
   }

@@ -341,7 +341,7 @@ class _DeclarationApprovalScreenState
             _buildInfoRow('Activité second.', c['secondaryActivity']),
           _buildInfoRow(
               'Localisation',
-              [c['region'], c['department'], c['district']]
+              [c['region'], c['department'], c['subdivision']]
                   .where((v) => v != null && v.toString().isNotEmpty)
                   .join(' / ')),
           _buildInfoRow('Adresse', c['address'] ?? 'N/A'),

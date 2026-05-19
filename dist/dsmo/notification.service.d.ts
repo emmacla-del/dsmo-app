@@ -36,9 +36,9 @@ export declare class NotificationService {
             status: import(".prisma/client").$Enums.NotificationStatus;
             companyId: string;
             sentAt: Date;
+            notificationId: string;
             openedAt: Date | null;
             clickedAt: Date | null;
-            notificationId: string;
         }[];
     } & {
         id: string;
@@ -72,9 +72,9 @@ export declare class NotificationService {
             status: import(".prisma/client").$Enums.NotificationStatus;
             companyId: string;
             sentAt: Date;
+            notificationId: string;
             openedAt: Date | null;
             clickedAt: Date | null;
-            notificationId: string;
         })[];
     } & {
         id: string;
@@ -107,9 +107,9 @@ export declare class NotificationService {
         status: import(".prisma/client").$Enums.NotificationStatus;
         companyId: string;
         sentAt: Date;
+        notificationId: string;
         openedAt: Date | null;
         clickedAt: Date | null;
-        notificationId: string;
     }>;
     private generateEmailHtml;
 }

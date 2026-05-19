@@ -1,0 +1,749 @@
+﻿
+====================================================================================================
+FILE: Questionnaire_Coope╠ürative ONEFOP .docx
+====================================================================================================
+
+ALL PARAGRAPHS WITH TEXT:
+----------------------------------------------------------------------------------------------------
+13: IDENTIFICATION DU REPONDANT DE LA COOPERATIVE/ IDENTIFICATION OF COOPERATIVE RESPONDENT
+15: IDENTIFICATION DE LA COOPERATIVE / COOPERATIVE DETAILS
+17: EMPLOI ET TRAVAIL/ EMPLOYMENT AND LABOUR
+18: DEMANDE DÔÇÖEMPLOIS/ JOB APPLICATION
+20: RECRUTEMENTS/ RECRUITMENTS
+28: PRIMO DEMANDEUR (personne ├á la recherche de son premier emploi)/ FIRST-TIME JOB SEEKER
+35: DEPARTS/ DEPARTURES
+37: STAGE ET FORMATION/ INTERNSHIP AND TRAINING
+
+
+TABLE DETAILS:
+----------------------------------------------------------------------------------------------------
+
+TABLE 0 (8 rows x 3 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['REPUBLIQUE DU CAMEROUN\nPaix ÔÇô Travail ÔÇô Patrie', '', 'REPUBLIC OF CAMEROON\nPeace ÔÇô Work ÔÇô Fatherland']
+R1: ['-----------', '', '-----------']
+R2: ["MINISTERE DE L'EMPLOI ET DE LA FORMATION PROFESSIO", '', 'MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING']
+R3: ['-----------', '', '-----------']
+R4: ['SECRETARIAT GENERAL', '', 'SECRETARIAT GENERAL']
+R5: ['-----------', '', '-----------']
+R6: ['OBSERVATOIRE NATIONAL DE LÔÇÖEMPLOI ET DE LA FORMATI', '', 'NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL ']
+R7: ['-----------', '', '-----------']
+
+TABLE 1 (3 rows x 2 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S0Q01', "Noms, pr├®noms du r├®pondant/ Respondent's full name"]
+R1: ['S0Q02', "Fonction du r├®pondant/ Respondent's function\xa0: ___"]
+R2: ['S0Q03', 'Contacts r├®pondant/ RespondentÔÇÖs contacts\xa0: T├®l 1\xa0']
+
+TABLE 2 (12 rows x 5 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S1Q01', 'Nom de la coop├®rative/ Cooperative name : ________', 'Nom de la coop├®rative/ Cooperative name : ________', 'Nom de la coop├®rative/ Cooperative name : ________', 'Nom de la coop├®rative/ Cooperative name : ________']
+R1: ['S1Q02', 'Si├¿ge social\xa0: ___________________________________', 'Si├¿ge social\xa0: ___________________________________', 'Si├¿ge social\xa0: ___________________________________', 'Si├¿ge social\xa0: ___________________________________']
+R2: ['S1Q03', 'Ann├®e de cr├®ation de la coop├®rative/  Cooperative ', 'Ann├®e de cr├®ation de la coop├®rative/  Cooperative ', 'Ann├®e de cr├®ation de la coop├®rative/  Cooperative ', 'Ann├®e de cr├®ation de la coop├®rative/  Cooperative ']
+R3: ['S1Q04', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban']
+R4: ['S1Q05', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ']
+R5: ['S1Q06', 'T├®l 1/ Tel 1\xa0\xa0: |__|__|__|__|__|__|__|__|__|', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|     B', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|     B', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|     B']
+R6: ['S1Q07', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/']
+R7: ['S1Q08', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________']
+R8: ['S1Q09', 'Activit├® principale/ Main activity _______________', 'Activit├® principale/ Main activity _______________', '|__|__|__|__|', '|__|__|__|__|']
+R9: ['S1Q10', 'Type de la coop├®rative\xa0: 1. Coop├®rative ├á comptabi', 'Type de la coop├®rative\xa0: 1. Coop├®rative ├á comptabi', 'Type de la coop├®rative\xa0: 1. Coop├®rative ├á comptabi', 'Type de la coop├®rative\xa0: 1. Coop├®rative ├á comptabi']
+R10: ['S1Q11', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', '|__|__|__|__|']
+R11: ['S1Q12', 'Nombre de poste vacant/ Nomber of vacancies', 'Nombre de poste vacant/ Nomber of vacancies', 'Nombre de poste vacant/ Nomber of vacancies', '|__|__|__|']
+
+TABLE 3 (7 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 4 (14 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0']
+R8: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 5 (16 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['CEP\xa0/ CEPE/ FSLC/', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['BEPC/ CAP/ GCE-OL', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['PROBATOIRE/ Lower sith', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['BAC/ GCE-AL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['BTS/DUT/ HND', '', '', '', '', '', '', '', '', '', '', '', '']
+R8: ['Licence (Bac+3)/ Bachelor', '', '', '', '', '', '', '', '', '', '', '', '']
+R9: ['Maitrise (Bac +4/ Master 1', '', '', '', '', '', '', '', '', '', '', '', '']
+R10: ['Master (Bac +5)/ Master 2', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['DQP/ PQD', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['CQP/ CPQ', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Autres/ Othes', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Sans dipl├┤me/ Without diploma', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 6 (14 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand']
+R1: ['CSP/ SPC', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+R7: ['S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou']
+R8: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R9: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 7 (19 rows x 23 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre']
+R1: ['Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", "Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ']
+R8: ['Statut', 'Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ['Statut', "Tranche d'├óge/\nAge group", "Tranche d'├óge/\nAge group", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', 'Total']
+R10: ['Permanent/ Permanent', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Permanent/ Permanent', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Permanent/ Permanent', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Permanent/ Permanent', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Temporaire/ Temporary', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['Temporaire/ Temporary', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R16: ['Temporaire/ Temporary', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R17: ['Temporaire/ Temporary', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R18: ['TOTAL', 'TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 8 (13 rows x 19 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d']
+R1: ['CSP/ SPC', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'M', 'F', 'T', 'T', 'M', 'F', 'F', 'T', 'M', 'M', 'F', 'T']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc']
+R8: ['Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'M', 'M', 'M', 'F', 'F', 'F', 'Total', 'Total', 'Total']
+R9: ['Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R10: ['Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R11: ['Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R12: ['Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', '', '', '', '', '', '', '', '', '']
+
+TABLE 9 (7 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ']
+R1: ['CSP/ SPC', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'Total', 'M', 'F', 'Total', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 10 (22 rows x 4 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d']
+R1: ['Nature du stage/ Nature of internship', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R2: ['Nature du stage/ Nature of internship', 'M', 'F', 'Total']
+R3: ['Stage de vacance/ Holyday jobs', '', '', '']
+R4: ['Stage acad├®mique/ Academic internship', '', '', '']
+R5: ['Stage professionnelle/ Professional internship', '', '', '']
+R6: ['Stage pr├®-emploi/ Pre-work internship', '', '', '']
+R7: ['Total', '', '', '']
+R8: ['S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo']
+R9: ['Comp├®tence/ Skill', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R10: ['Comp├®tence/ Skill', 'M', 'F', 'Total']
+R11: ['Comp├®tence 1/ Skill 1 :___________________________', '', '', '']
+R12: ['Comp├®tence 2/ Skill 2 :___________________________', '', '', '']
+R13: ['Comp├®tence 3/ Skill 3 : __________________________', '', '', '']
+R14: ['Total', '', '', '']
+R15: ['S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe']
+R16: ['Domaine de formation/ Domain of training', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R17: ['Domaine de formation/ Domain of training', 'M', 'F', 'Total']
+R18: ['Domaine 1/ Domain 1 : ____________________________', '', '', '']
+R19: ['Domaine 2/ Domain 2 : ____________________________', '', '', '']
+R20: ['Domaine 3/ Domain 3 : ____________________________', '', '', '']
+R21: ['Total', '', '', '']
+
+====================================================================================================
+FILE: Questionnaire_CTD ONEFOP .docx
+====================================================================================================
+
+ALL PARAGRAPHS WITH TEXT:
+----------------------------------------------------------------------------------------------------
+13: IDENTIFICATION DU REPONDANT DE LA CTD/ IDENTIFICATION OF RLA RESPONDENT
+15: IDENTIFICATION DE LA CTD/ RLA DETAILS
+17: EMPLOI ET TRAVAIL/ EMPLOYMENT AND LABOUR
+18: DEMANDE DÔÇÖEMPLOIS/ JOB APPLICATION
+20: RECRUTEMENTS/ RECRUITMENTS
+28: PRIMO DEMANDEUR (personne ├á la recherche de son premier emploi)/ FIRST-TIME JOB SEEKER
+35: DEPARTS/ DEPARTURES
+37: STAGE ET FORMATION/ INTERNSHIP AND TRAINING
+
+
+TABLE DETAILS:
+----------------------------------------------------------------------------------------------------
+
+TABLE 0 (8 rows x 3 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['REPUBLIQUE DU CAMEROUN\nPaix ÔÇô Travail ÔÇô Patrie', '', 'REPUBLIC OF CAMEROON\nPeace ÔÇô Work ÔÇô Fatherland']
+R1: ['-----------', '', '-----------']
+R2: ["MINISTERE DE L'EMPLOI ET DE LA FORMATION PROFESSIO", '', 'MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING']
+R3: ['-----------', '', '-----------']
+R4: ['SECRETARIAT GENERAL', '', 'SECRETARIAT GENERAL']
+R5: ['-----------', '', '-----------']
+R6: ['OBSERVATOIRE NATIONAL DE LÔÇÖEMPLOI ET DE LA FORMATI', '', 'NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL ']
+R7: ['-----------', '', '-----------']
+
+TABLE 1 (3 rows x 2 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S0Q01', "Noms, pr├®noms du r├®pondant/ Respondent's full name"]
+R1: ['S0Q02', "Fonction du r├®pondant/ Respondent's function\xa0: ___"]
+R2: ['S0Q03', 'Contacts r├®pondant/ RespondentÔÇÖs contacts\xa0: T├®l 1\xa0']
+
+TABLE 2 (10 rows x 4 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S1Q01', 'Type de CTD/ Type of RLA\xa0: 1. R├®gion/ Region     2', 'Type de CTD/ Type of RLA\xa0: 1. R├®gion/ Region     2', 'Type de CTD/ Type of RLA\xa0: 1. R├®gion/ Region     2']
+R1: ['S1Q02', 'Si 2, Quel est le type de Commune/ If 2, what type', 'Si 2, Quel est le type de Commune/ If 2, what type', 'Si 2, Quel est le type de Commune/ If 2, what type']
+R2: ['S1Q03', 'Ann├®e de cr├®ation de la CTD/ Year of creation of R', 'Ann├®e de cr├®ation de la CTD/ Year of creation of R', 'Ann├®e de cr├®ation de la CTD/ Year of creation of R']
+R3: ['S1Q04', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban']
+R4: ['S1Q05', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ']
+R5: ['S1Q06', 'T├®l 1/ Tel 1\xa0\xa0: |__|__|__|__|__|__|__|__|__|', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ']
+R6: ['S1Q07', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/']
+R7: ['S1Q08', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________']
+R8: ['S1Q09', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', '|__|__|__|__|']
+R9: ['S1Q10', 'Nombre de poste vacant/ Nomber of vacancies', 'Nombre de poste vacant/ Nomber of vacancies', '|__|__|__|']
+
+TABLE 3 (7 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 4 (14 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0']
+R8: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 5 (16 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['CEP\xa0/ CEPE/ FSLC/', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['BEPC/ CAP/ GCE-OL', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['PROBATOIRE/ Lower sith', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['BAC/ GCE-AL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['BTS/DUT/ HND', '', '', '', '', '', '', '', '', '', '', '', '']
+R8: ['Licence (Bac+3)/ Bachelor', '', '', '', '', '', '', '', '', '', '', '', '']
+R9: ['Maitrise (Bac +4/ Master 1', '', '', '', '', '', '', '', '', '', '', '', '']
+R10: ['Master (Bac +5)/ Master 2', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['DQP/ PQD', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['CQP/ CPQ', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Autres/ Othes', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Sans dipl├┤me/ Without diploma', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 6 (14 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand']
+R1: ['CSP/ SPC', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+R7: ['S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou']
+R8: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R9: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 7 (19 rows x 23 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre']
+R1: ['Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", "Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ']
+R8: ['Statut', 'Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ['Statut', "Tranche d'├óge/\nAge group", "Tranche d'├óge/\nAge group", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', 'Total']
+R10: ['Permanent/ Permanent', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Permanent/ Permanent', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Permanent/ Permanent', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Permanent/ Permanent', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Temporaire/ Temporary', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['Temporaire/ Temporary', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R16: ['Temporaire/ Temporary', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R17: ['Temporaire/ Temporary', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R18: ['TOTAL', 'TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 8 (13 rows x 19 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d']
+R1: ['CSP/ SPC', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'M', 'F', 'T', 'T', 'M', 'F', 'F', 'T', 'M', 'M', 'F', 'T']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc']
+R8: ['Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'M', 'M', 'M', 'F', 'F', 'F', 'Total', 'Total', 'Total']
+R9: ['Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R10: ['Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R11: ['Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R12: ['Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', '', '', '', '', '', '', '', '', '']
+
+TABLE 9 (7 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ']
+R1: ['CSP/ SPC', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'Total', 'M', 'F', 'Total', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 10 (22 rows x 4 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d']
+R1: ['Nature du stage/ Nature of internship', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R2: ['Nature du stage/ Nature of internship', 'M', 'F', 'Total']
+R3: ['Stage de vacance/ Holyday jobs', '', '', '']
+R4: ['Stage acad├®mique/ Academic internship', '', '', '']
+R5: ['Stage professionnelle/ Professional internship', '', '', '']
+R6: ['Stage pr├®-emploi/ Pre-work internship', '', '', '']
+R7: ['Total', '', '', '']
+R8: ['S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo']
+R9: ['Comp├®tence/ Skill', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R10: ['Comp├®tence/ Skill', 'M', 'F', 'Total']
+R11: ['Comp├®tence 1/ Skill 1 :___________________________', '', '', '']
+R12: ['Comp├®tence 2/ Skill 2 :___________________________', '', '', '']
+R13: ['Comp├®tence 3/ Skill 3 : __________________________', '', '', '']
+R14: ['Total', '', '', '']
+R15: ['S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe']
+R16: ['Domaine de formation/ Domain of training', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R17: ['Domaine de formation/ Domain of training', 'M', 'F', 'Total']
+R18: ['Domaine 1/ Domain 1 : ____________________________', '', '', '']
+R19: ['Domaine 2/ Domain 2 : ____________________________', '', '', '']
+R20: ['Domaine 3/ Domain 3 : ____________________________', '', '', '']
+R21: ['Total', '', '', '']
+
+====================================================================================================
+FILE: Questionnaire_ENTREPRISES ONEFOP .docx
+====================================================================================================
+
+ALL PARAGRAPHS WITH TEXT:
+----------------------------------------------------------------------------------------------------
+13: IDENTIFICATION DU REPONDANT DE LÔÇÖENTREPRISE/ IDENTIFICATION OF ENTERPRISE RESPONDENT
+15: IDENTIFICATION DE LÔÇÖENTREPRISE/ COMPANY DETAILS
+17: EMPLOI ET TRAVAIL/ EMPLOYMENT AND LABOUR
+18: DEMANDE DÔÇÖEMPLOIS/ JOB APPLICATION
+20: RECRUTEMENTS/ RECRUITMENTS
+28: PRIMO DEMANDEUR (personne ├á la recherche de son premier emploi)/ FIRST-TIME JOB SEEKER
+35: DEPARTS/ DEPARTURES
+37: STAGE ET FORMATION/ INTERNSHIP AND TRAINING
+
+
+TABLE DETAILS:
+----------------------------------------------------------------------------------------------------
+
+TABLE 0 (8 rows x 3 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['REPUBLIQUE DU CAMEROUN\nPaix ÔÇô Travail ÔÇô Patrie', '', 'REPUBLIC OF CAMEROON\nPeace ÔÇô Work ÔÇô Fatherland']
+R1: ['-----------', '', '-----------']
+R2: ["MINISTERE DE L'EMPLOI ET DE LA FORMATION PROFESSIO", '', 'MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING']
+R3: ['-----------', '', '-----------']
+R4: ['SECRETARIAT GENERAL', '', 'SECRETARIAT GENERAL']
+R5: ['-----------', '', '-----------']
+R6: ['OBSERVATOIRE NATIONAL DE LÔÇÖEMPLOI ET DE LA FORMATI', '', 'NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL ']
+R7: ['-----------', '', '-----------']
+
+TABLE 1 (3 rows x 2 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S0Q01', "Noms, pr├®noms du r├®pondant/ Respondent's full name"]
+R1: ['S0Q02', "Fonction du r├®pondant/ Respondent's function\xa0: ___"]
+R2: ['S0Q03', 'Contacts r├®pondant/ RespondentÔÇÖs contacts\xa0: T├®l 1\xa0']
+
+TABLE 2 (12 rows x 5 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S1Q01', 'Quelle est le r├®gime/statut juridique de votre ins', 'Quelle est le r├®gime/statut juridique de votre ins', 'Quelle est le r├®gime/statut juridique de votre ins', 'Quelle est le r├®gime/statut juridique de votre ins']
+R1: ['S1Q02', 'Nom de lÔÇÖentreprise/ Company name : ______________', 'Nom de lÔÇÖentreprise/ Company name : ______________', 'Nom de lÔÇÖentreprise/ Company name : ______________', 'Nom de lÔÇÖentreprise/ Company name : ______________']
+R2: ['S1Q03', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban']
+R3: ['S1Q04', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ']
+R4: ['S1Q05', 'T├®l 1/ Tel 1\xa0\xa0: |__|__|__|__|__|__|__|__|__|', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ']
+R5: ['S1Q06', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/']
+R6: ['S1Q07', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________']
+R7: ['S1Q08', 'Activit├® principale/ Main activity _______________', 'Activit├® principale/ Main activity _______________', '|__|__|__|__|', '|__|__|__|__|']
+R8: ['S1Q09', "Si├¿ge social de lÔÇÖentreprise/ Company's head offic", "Si├¿ge social de lÔÇÖentreprise/ Company's head offic", "Si├¿ge social de lÔÇÖentreprise/ Company's head offic", "Si├¿ge social de lÔÇÖentreprise/ Company's head offic"]
+R9: ['S1Q10', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', '|__|__|__|__|']
+R10: ['S1Q11', 'Nombre de poste vacant/ Nomber of vacancies', 'Nombre de poste vacant/ Nomber of vacancies', 'Nombre de poste vacant/ Nomber of vacancies', '|__|__|__|']
+R11: ['S1Q12', 'Taille de lÔÇÖentreprise/ Enterprise size   \xa0   1.TP', 'Taille de lÔÇÖentreprise/ Enterprise size   \xa0   1.TP', 'Taille de lÔÇÖentreprise/ Enterprise size   \xa0   1.TP', '|__|']
+
+TABLE 3 (7 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 4 (14 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0']
+R8: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 5 (16 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['CEP\xa0/ CEPE/ FSLC/', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['BEPC/ CAP/ GCE-OL', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['PROBATOIRE/ Lower sith', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['BAC/ GCE-AL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['BTS/DUT/ HND', '', '', '', '', '', '', '', '', '', '', '', '']
+R8: ['Licence (Bac+3)/ Bachelor', '', '', '', '', '', '', '', '', '', '', '', '']
+R9: ['Maitrise (Bac +4/ Master 1', '', '', '', '', '', '', '', '', '', '', '', '']
+R10: ['Master (Bac +5)/ Master 2', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['DQP/ PQD', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['CQP/ CPQ', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Autres/ Othes', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Sans dipl├┤me/ Without diploma', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 6 (14 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand']
+R1: ['CSP/ SPC', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+R7: ['S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou']
+R8: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R9: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R10: ['D├®plac├®s internes/ Internal displaced', '', '', '', '', '', '', '']
+R11: ['Refugi├®s/ Refugees', '', '', '', '', '', '', '']
+R12: ['Orphelins/ Orphans', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 7 (19 rows x 23 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre']
+R1: ['Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", "Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ']
+R8: ['Statut', 'Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ['Statut', "Tranche d'├óge/\nAge group", "Tranche d'├óge/\nAge group", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', 'Total']
+R10: ['Permanent/ Permanent', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Permanent/ Permanent', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Permanent/ Permanent', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Permanent/ Permanent', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Temporaire/ Temporary', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['Temporaire/ Temporary', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R16: ['Temporaire/ Temporary', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R17: ['Temporaire/ Temporary', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R18: ['TOTAL', 'TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 8 (13 rows x 19 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d']
+R1: ['CSP/ SPC', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'M', 'F', 'T', 'T', 'M', 'F', 'F', 'T', 'M', 'M', 'F', 'T']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc']
+R8: ['Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'M', 'M', 'M', 'F', 'F', 'F', 'Total', 'Total', 'Total']
+R9: ['Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R10: ['Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R11: ['Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R12: ['Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', '', '', '', '', '', '', '', '', '']
+
+TABLE 9 (7 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ']
+R1: ['CSP/ SPC', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'Total', 'M', 'F', 'Total', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 10 (22 rows x 4 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d']
+R1: ['Nature du stage/ Nature of internship', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R2: ['Nature du stage/ Nature of internship', 'M', 'F', 'Total']
+R3: ['Stage de vacance/ Holyday jobs', '', '', '']
+R4: ['Stage acad├®mique/ Academic internship', '', '', '']
+R5: ['Stage professionnelle/ Professional internship', '', '', '']
+R6: ['Stage pr├®-emploi/ Pre-work internship', '', '', '']
+R7: ['Total', '', '', '']
+R8: ['S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo']
+R9: ['Comp├®tence/ Skill', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R10: ['Comp├®tence/ Skill', 'M', 'F', 'Total']
+R11: ['Comp├®tence 1/ Skill 1 :___________________________', '', '', '']
+R12: ['Comp├®tence 2/ Skill 2 :___________________________', '', '', '']
+R13: ['Comp├®tence 3/ Skill 3 : __________________________', '', '', '']
+R14: ['Total', '', '', '']
+R15: ['S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe']
+R16: ['Domaine de formation/ Domain of training', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R17: ['Domaine de formation/ Domain of training', 'M', 'F', 'Total']
+R18: ['Domaine 1/ Domain 1 : ____________________________', '', '', '']
+R19: ['Domaine 2/ Domain 2 : ____________________________', '', '', '']
+R20: ['Domaine 3/ Domain 3 : ____________________________', '', '', '']
+R21: ['Total', '', '', '']
+
+====================================================================================================
+FILE: Questionnaire_ONG ONEFOP .docx
+====================================================================================================
+
+ALL PARAGRAPHS WITH TEXT:
+----------------------------------------------------------------------------------------------------
+13: IDENTIFICATION DU REPONDANT DE LÔÇÖENTREPRISE/ IDENTIFICATION OF ENTERPRISE RESPONDENT
+15: IDENTIFICATION DE LÔÇÖONG/ NGO DETAILS
+17: EMPLOI ET TRAVAIL/ EMPLOYMENT AND LABOUR
+18: DEMANDE DÔÇÖEMPLOIS/ JOB APPLICATION
+20: RECRUTEMENTS/ RECRUITMENTS
+28: PRIMO DEMANDEUR (personne ├á la recherche de son premier emploi)/ FIRST-TIME JOB SEEKER
+35: DEPARTS/ DEPARTURES
+37: STAGE ET FORMATION/ INTERNSHIP AND TRAINING
+
+
+TABLE DETAILS:
+----------------------------------------------------------------------------------------------------
+
+TABLE 0 (8 rows x 3 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['REPUBLIQUE DU CAMEROUN\nPaix ÔÇô Travail ÔÇô Patrie', '', 'REPUBLIC OF CAMEROON\nPeace ÔÇô Work ÔÇô Fatherland']
+R1: ['-----------', '', '-----------']
+R2: ["MINISTERE DE L'EMPLOI ET DE LA FORMATION PROFESSIO", '', 'MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING']
+R3: ['-----------', '', '-----------']
+R4: ['SECRETARIAT GENERAL', '', 'SECRETARIAT GENERAL']
+R5: ['-----------', '', '-----------']
+R6: ['OBSERVATOIRE NATIONAL DE LÔÇÖEMPLOI ET DE LA FORMATI', '', 'NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL ']
+R7: ['-----------', '', '-----------']
+
+TABLE 1 (3 rows x 2 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S0Q01', "Noms, pr├®noms du r├®pondant/ Respondent's full name"]
+R1: ['S0Q02', "Fonction du r├®pondant/ Respondent's function\xa0: ___"]
+R2: ['S0Q03', 'Contacts r├®pondant/ RespondentÔÇÖs contacts\xa0: T├®l 1\xa0']
+
+TABLE 2 (11 rows x 5 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S1Q01', 'Nom de lÔÇÖONG/ NGOÔÇÖs name : _______________________', 'Nom de lÔÇÖONG/ NGOÔÇÖs name : _______________________', 'Nom de lÔÇÖONG/ NGOÔÇÖs name : _______________________', 'Nom de lÔÇÖONG/ NGOÔÇÖs name : _______________________']
+R1: ['S1Q02', 'Si├¿ge social/ NGO head office\xa0: __________________', 'Si├¿ge social/ NGO head office\xa0: __________________', 'Si├¿ge social/ NGO head office\xa0: __________________', 'Si├¿ge social/ NGO head office\xa0: __________________']
+R2: ['S1Q03', 'Ann├®e de cr├®ation de lÔÇÖONG/ Year of creation of NG', 'Ann├®e de cr├®ation de lÔÇÖONG/ Year of creation of NG', 'Ann├®e de cr├®ation de lÔÇÖONG/ Year of creation of NG', 'Ann├®e de cr├®ation de lÔÇÖONG/ Year of creation of NG']
+R3: ['S1Q04', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban', 'Milieu de r├®sidence/ Area          1.Urbain/ Urban']
+R4: ['S1Q05', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ', 'R├®gion/ R├®gion -   _______________________|__|__| ']
+R5: ['S1Q06', 'T├®l 1/ Tel 1\xa0\xa0: |__|__|__|__|__|__|__|__|__|', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ', 'T├®l 2/ Tel 2\xa0\xa0: |__|__|__|__|__|__|__|__|__|      ']
+R6: ['S1Q07', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/', 'Secteur dÔÇÖactivit├®/ Business sector    1.Primaire/']
+R7: ['S1Q08', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________', 'Branche dÔÇÖactivit├®/ Branch of activity ___________']
+R8: ['S1Q09', 'Quelle est votre mission principale\xa0?/ What is you', 'Quelle est votre mission principale\xa0?/ What is you', 'Quelle est votre mission principale\xa0?/ What is you', '|__|__|__|__|']
+R9: ['S1Q10', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', 'Nombre dÔÇÖemploy├® permanent/ Number of permanent wo', '|__|__|__|__|', '|__|__|__|__|']
+R10: ['S1Q11', 'Nombre de poste vacant/ Nomber of vacancies', 'Nombre de poste vacant/ Nomber of vacancies', '|__|__|__|', '|__|__|__|']
+
+TABLE 3 (7 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e', 'S21Q01\xa0: Combien de demandes dÔÇÖemplois avez-vous e']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin', 'Feminin', 'Feminin', 'Feminin', 'TOTAL/ Female', 'TOTAL/ Female', 'TOTAL/ Female', 'TOTAL/ Female']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 4 (14 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s', 'S22Q01\xa0: Combien de permanents avez-vous recrut├® s']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0', 'S22Q02\xa0: Combien de temporaires avez-vous recrut├®\xa0']
+R8: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 5 (16 rows x 13 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se', 'S22Q03\xa0: Combien de personnes avez-vous recrut├® se']
+R1: ['Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total']
+R3: ['CEP\xa0/ CEPE/ FSLC/', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['BEPC/ CAP/ GCE-OL', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['PROBATOIRE/ Lower sith', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['BAC/ GCE-AL', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['BTS/DUT/ HND', '', '', '', '', '', '', '', '', '', '', '', '']
+R8: ['Licence (Bac+3)/ Bachelor', '', '', '', '', '', '', '', '', '', '', '', '']
+R9: ['Maitrise (Bac +4/ Master 1', '', '', '', '', '', '', '', '', '', '', '', '']
+R10: ['Master (Bac +5)/ Master 2', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['DQP/ PQD', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['CQP/ CPQ', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Autres/ Othes', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Sans dipl├┤me/ Without diploma', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 6 (14 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand', 'S22Q04 : Combien de personnes en situation de hand']
+R1: ['CSP/ SPC', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+R7: ['S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou', 'S22Q05 : Combien de personnes vuln├®rables avez-vou']
+R8: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Permanent/ Permanent', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Temporaire/ Temporary', 'Total']
+R9: ['Nature de vuln├®rabilit├®/ Nature of vuln├®rability', 'M', 'F', 'T', 'M', 'F', 'T', 'Total']
+R10: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R11: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R12: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R13: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 7 (19 rows x 23 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre', 'S23Q01\xa0: Combien de personnes recherchant leur pre']
+R1: ['Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R2: ["Tranche d'├óge (ans)\n/ Age group (years)", "Tranche d'├óge (ans)\n/ Age group (years)", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total']
+R3: ['Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ', 'S23Q02\xa0: Combien de personnes travaillant pour la ']
+R8: ['Statut', 'Sexe/ Sex', 'Sexe/ Sex', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Masculin/ Male', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'Feminin/ Female', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL', 'TOTAL']
+R9: ['Statut', "Tranche d'├óge/\nAge group", "Tranche d'├óge/\nAge group", '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', 'Total', '15 ├á 24/ 15 to 24', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', '35 et +/ 35 and above', 'Total', '15 ├á 24/ 15 to 24', '25 ├á 34/ 25 to 34', '35 et +/ 35 and above', 'Total', 'Total']
+R10: ['Permanent/ Permanent', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R11: ['Permanent/ Permanent', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R12: ['Permanent/ Permanent', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R13: ['Permanent/ Permanent', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R14: ['Temporaire/ Temporary', 'Cadres/ Executives', 'Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R15: ['Temporaire/ Temporary', 'Agents de Ma├«trise/ Foremen', 'Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R16: ['Temporaire/ Temporary', 'Agents dÔÇÖex├®cution/ Field workers', 'Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R17: ['Temporaire/ Temporary', 'Total', 'Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R18: ['TOTAL', 'TOTAL', 'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+
+TABLE 8 (13 rows x 19 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d', 'S3Q01 : Combien de d├®parts avez-vous enregistr├®s d']
+R1: ['CSP/ SPC', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'Licenciements/ Dismissal', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®missions/ Resignation', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'D├®part ├á la retraite/ Retirement', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Autres d├®parts/ Other departure', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole', 'Ensemble/ Whole']
+R2: ['CSP/ SPC', 'M', 'F', 'T', 'M', 'F', 'T', 'M', 'F', 'T', 'T', 'M', 'F', 'F', 'T', 'M', 'M', 'F', 'T']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R6: ['Total', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+R7: ['S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc', 'S3Q02 : Quels sont les principaux motifs de licenc']
+R8: ['Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'Motif// Reason', 'M', 'M', 'M', 'F', 'F', 'F', 'Total', 'Total', 'Total']
+R9: ['Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', 'Motif 1/ Reason 1\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R10: ['Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', 'Motif 2/ Reason 2\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R11: ['Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', 'Motif 3/ Reason 3\xa0: ______________________________', '', '', '', '', '', '', '', '', '']
+R12: ['Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', 'Total', '', '', '', '', '', '', '', '', '']
+
+TABLE 9 (7 rows x 8 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ', 'S3Q03 : Combien de personnes avez-vous licenci├®es ']
+R1: ['CSP/ SPC', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Licenciement/  Dismissal', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Ch├┤mage technique/  Technical unemployment', 'Total']
+R2: ['CSP/ SPC', 'M', 'F', 'Total', 'M', 'F', 'Total', 'Total']
+R3: ['Cadres/ Executives', '', '', '', '', '', '', '']
+R4: ['Agents de Ma├«trise/ Foremen', '', '', '', '', '', '', '']
+R5: ['Agents dÔÇÖex├®cution/ Field workers', '', '', '', '', '', '', '']
+R6: ['TOTAL', '', '', '', '', '', '', '']
+
+TABLE 10 (22 rows x 4 cols)
+----------------------------------------------------------------------------------------------------
+R0: ['S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d', 'S4Q01 : Combien de stagiaires avez-vous recrut├®s d']
+R1: ['Nature du stage/ Nature of internship', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R2: ['Nature du stage/ Nature of internship', 'M', 'F', 'Total']
+R3: ['Stage de vacance/ Holyday jobs', '', '', '']
+R4: ['Stage acad├®mique/ Academic internship', '', '', '']
+R5: ['Stage professionnelle/ Professional internship', '', '', '']
+R6: ['Stage pr├®-emploi/ Pre-work internship', '', '', '']
+R7: ['Total', '', '', '']
+R8: ['S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo', 'S4Q02 : Quels sont les besoins en comp├®tence de vo']
+R9: ['Comp├®tence/ Skill', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R10: ['Comp├®tence/ Skill', 'M', 'F', 'Total']
+R11: ['Comp├®tence 1/ Skill 1 :___________________________', '', '', '']
+R12: ['Comp├®tence 2/ Skill 2 :___________________________', '', '', '']
+R13: ['Comp├®tence 3/ Skill 3 : __________________________', '', '', '']
+R14: ['Total', '', '', '']
+R15: ['S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe', 'S4Q03 : Quels sont les besoins en formation des pe']
+R16: ['Domaine de formation/ Domain of training', 'Sexe/ Sex', 'Sexe/ Sex', 'Total']
+R17: ['Domaine de formation/ Domain of training', 'M', 'F', 'Total']
+R18: ['Domaine 1/ Domain 1 : ____________________________', '', '', '']
+R19: ['Domaine 2/ Domain 2 : ____________________________', '', '', '']
+R20: ['Domaine 3/ Domain 3 : ____________________________', '', '', '']
+R21: ['Total', '', '', '']
+
+====================================================================================================
+EXTRACTION COMPLETE
+====================================================================================================

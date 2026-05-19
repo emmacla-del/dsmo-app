@@ -6,6 +6,5 @@ export declare class OnefopPuppeteerService {
     private getTemplatePath;
     private htmlToPdf;
     private initializeBrowser;
-    private getChromePath;
     onModuleDestroy(): Promise<void>;
 }

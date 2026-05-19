@@ -5,14 +5,14 @@ export declare class AuthService {
     private jwtService;
     constructor(prisma: PrismaService, jwtService: JwtService);
     validateUser(email: string, password: string): Promise<{
-        region: string | null;
-        department: string | null;
-        subdivision: string | null;
         id: string;
         email: string;
         firstName: string | null;
         lastName: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        region: string | null;
+        department: string | null;
+        subdivision: string | null;
         matricule: string | null;
         poste: string | null;
         serviceCode: string | null;
@@ -25,6 +25,7 @@ export declare class AuthService {
         updatedAt: Date;
         status: import(".prisma/client").$Enums.UserStatus;
     } | null>;
+    private buildFeatures;
     login(user: any): Promise<{
         access_token: string;
         user: {
@@ -35,17 +36,25 @@ export declare class AuthService {
             role: any;
             region: any;
             department: any;
+            stream: any;
+            features: {
+                onefopBasicAnalytics: boolean;
+                onefopBenchmarking: boolean;
+                onefopSubmissionStatus: import(".prisma/client").$Enums.OnefopStatus | null;
+                onefopSurveyYear: number | null;
+                onefopHasDraft: boolean;
+            };
         };
     }>;
     register(email: string, password: string, firstName: string, lastName: string, role: string, region?: string, department?: string, matricule?: string, poste?: string, serviceCode?: string): Promise<{
-        region: string | null;
-        department: string | null;
-        subdivision: string | null;
         id: string;
         email: string;
         firstName: string | null;
         lastName: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        region: string | null;
+        department: string | null;
+        subdivision: string | null;
         matricule: string | null;
         poste: string | null;
         serviceCode: string | null;
@@ -72,11 +81,19 @@ export declare class AuthService {
         socialCapital?: number;
         contactName?: string;
         entityType?: string;
+        fax?: string;
+        totalEmployees?: number;
+        menCount?: number;
+        womenCount?: number;
+        lastYearMenCount?: number;
+        lastYearWomenCount?: number;
+        lastYearTotal?: number;
         area?: string;
         sectorId?: string;
         phone?: string;
         phone2?: string;
         poBox?: string;
+        branch?: string;
         legalStatus?: string;
         cooperativeType?: string;
         ctdType?: string;
@@ -84,6 +101,8 @@ export declare class AuthService {
         mainMission?: string;
         registrationNumber?: string;
         trainingDomains?: string;
+        respondentFirstName?: string;
+        respondentLastName?: string;
         respondentPhone?: string;
         respondentPhone2?: string;
         respondentFunction?: string;
@@ -97,6 +116,14 @@ export declare class AuthService {
             role: any;
             region: any;
             department: any;
+            stream: any;
+            features: {
+                onefopBasicAnalytics: boolean;
+                onefopBenchmarking: boolean;
+                onefopSubmissionStatus: import(".prisma/client").$Enums.OnefopStatus | null;
+                onefopSurveyYear: number | null;
+                onefopHasDraft: boolean;
+            };
         };
     }>;
     getPendingMinefopUsers(): Promise<{
@@ -110,15 +137,15 @@ export declare class AuthService {
         createdAt: Date;
     }[]>;
     approveUser(id: string): Promise<{
-        region: string | null;
-        department: string | null;
-        subdivision: string | null;
         id: string;
         email: string;
         passwordHash: string;
         firstName: string | null;
         lastName: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        region: string | null;
+        department: string | null;
+        subdivision: string | null;
         matricule: string | null;
         poste: string | null;
         serviceCode: string | null;
@@ -132,15 +159,15 @@ export declare class AuthService {
         status: import(".prisma/client").$Enums.UserStatus;
     }>;
     rejectUser(id: string): Promise<{
-        region: string | null;
-        department: string | null;
-        subdivision: string | null;
         id: string;
         email: string;
         passwordHash: string;
         firstName: string | null;
         lastName: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        region: string | null;
+        department: string | null;
+        subdivision: string | null;
         matricule: string | null;
         poste: string | null;
         serviceCode: string | null;

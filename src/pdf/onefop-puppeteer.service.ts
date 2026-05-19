@@ -1,8 +1,7 @@
 // src/pdf/onefop-puppeteer.service.ts
 
 import { Injectable } from '@nestjs/common';
-import * as puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+import * as puppeteer from 'puppeteer';  // ← plain puppeteer, no chromium
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -25,7 +24,6 @@ export class OnefopPuppeteerService {
 
             const templateData = this.prepareDynamicData(data);
 
-            // ── DEBUG: log what the template actually receives ──────────
             console.log('🗺️  Template data (S0/S1 sample):');
             console.log(JSON.stringify({
                 respondentName: templateData.respondentName,
@@ -38,7 +36,6 @@ export class OnefopPuppeteerService {
                 recruitmentsByDiplomaRows: templateData.recruitmentsByDiplomaRows?.length,
                 internshipsRows: templateData.internshipsRows?.length,
             }, null, 2));
-            // ────────────────────────────────────────────────────────────
 
             const html = template(templateData);
             const pdf = await this.htmlToPdf(html);
@@ -52,22 +49,6 @@ export class OnefopPuppeteerService {
         }
     }
 
-    /**
-     * prepareDynamicData
-     *
-     * The mapper (mapCooperativeData / mapEnterpriseData …) already builds
-     * every array the template needs and names them exactly as the template
-     * expects (jobApplicationsRows, recruitmentsPermanentRows, …).
-     *
-     * All this method needs to do is:
-     *   1. Pass everything through with spread.
-     *   2. Inject the logo (not available in the mapper).
-     *   3. Nothing else — do NOT re-map or rename any key.
-     *
-     * Previous version was calling tableToRows() / prepareList() on the
-     * already-built arrays, receiving `undefined` for every table key, and
-     * silently producing empty arrays for the whole PDF.
-     */
     private prepareDynamicData(data: any): any {
         let logoBase64 = '';
         try {
@@ -76,22 +57,18 @@ export class OnefopPuppeteerService {
         } catch (_) { /* logo missing — header renders without it */ }
 
         return {
-            ...data,          // ← pass ALL mapper output straight through
-            logoBase64,       // ← only addition this layer makes
+            ...data,
+            logoBase64,
         };
     }
 
     private registerHelpers(): void {
-        // Used by every checkbox: {{#if (eq cooperativeType 1)}}☑{{else}}☐{{/if}}
         Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
         Handlebars.registerHelper('neq', (a: any, b: any) => a !== b);
         Handlebars.registerHelper('or', (a: any, b: any) => a || b);
         Handlebars.registerHelper('and', (a: any, b: any) => a && b);
         Handlebars.registerHelper('add', (a: any, b: any) => (a ?? 0) + (b ?? 0));
 
-        // Used by every table cell: {{formatCell male.age15_24}}
-        // Returns '' for zero/null (cleaner than '0' in empty cells),
-        // but returns the actual value when non-zero.
         Handlebars.registerHelper('formatCell', (value: any) => {
             if (value === null || value === undefined || value === 0) return '';
             return `<span style="color:#1F3864;font-weight:bold">${value}</span>`;
@@ -103,15 +80,9 @@ export class OnefopPuppeteerService {
     }
 
     private async htmlToPdf(html: string): Promise<Buffer> {
-        let page;
+        let page: any;
         try {
-            if (!this.browser || this.browser.isConnected === false) {
-                await this.initializeBrowser();
-            }
-
-            if (!this.browser.isConnected()) {
-                console.warn('⚠️ Browser connection lost, reinitializing...');
-                this.browser = null;
+            if (!this.browser || !this.browser.isConnected()) {
                 await this.initializeBrowser();
             }
 
@@ -146,25 +117,28 @@ export class OnefopPuppeteerService {
             if (page) {
                 try { await page.close(); } catch (_) { /* ignore */ }
             }
-
             console.error('⚠️ Error during PDF generation:', (error as Error).message);
-
             if (this.browser) {
                 try { await this.browser.close(); } catch (_) { /* ignore */ }
                 this.browser = null;
             }
-
             throw error;
         }
     }
 
     private async initializeBrowser(): Promise<void> {
-        console.log('🌐 Launching Chromium via @sparticuz/chromium...');
+        console.log('🌐 Launching bundled Chrome...');
 
         this.browser = await puppeteer.launch({
-            args: chromium.args,
-            executablePath: await chromium.executablePath(),
             headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote',
+            ],
         });
 
         this.browser.on('disconnected', () => {
