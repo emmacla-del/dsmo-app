@@ -2,6 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import * as puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -158,40 +159,18 @@ export class OnefopPuppeteerService {
     }
 
     private async initializeBrowser(): Promise<void> {
-        const chromePath = this.getChromePath();
-        console.log(`🌐 Launching Chrome from: ${chromePath}`);
+        console.log('🌐 Launching Chromium via @sparticuz/chromium...');
 
         this.browser = await puppeteer.launch({
-            executablePath: chromePath,
+            args: chromium.args,
+            executablePath: await chromium.executablePath(),
             headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-web-resources',
-                '--disable-extensions',
-            ],
         });
 
         this.browser.on('disconnected', () => {
             console.warn('⚠️ Browser connection disconnected');
             this.browser = null;
         });
-    }
-
-    private getChromePath(): string {
-        const possiblePaths = [
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-        ];
-
-        for (const chromePath of possiblePaths) {
-            if (fs.existsSync(chromePath)) return chromePath;
-        }
-
-        throw new Error('Google Chrome not found. Please install Chrome.');
     }
 
     async onModuleDestroy() {
