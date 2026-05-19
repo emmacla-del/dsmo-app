@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+echo "🌐 Installing Google Chrome for PDF generation..."
+apt-get update -y
+apt-get install -y google-chrome-stable
+
 echo "📦 Installing dependencies (including dev for build)..."
 npm install --include=dev
 
