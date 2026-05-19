@@ -13,4 +13,7 @@ npx prisma migrate deploy
 echo "🔨 Building NestJS..."
 npm run build
 
+echo "🌐 Installing Chrome for Puppeteer..."
+npx puppeteer browsers install chrome
+
 echo "✅ Build complete."
