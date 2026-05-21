@@ -119,21 +119,29 @@ export class AnalyticsController {
     @Get('company-summary')
     @Roles('COMPANY')
     async getCompanySummary(
-        @Query('year') year: number,
+        @Query('year') year: any,
         @Req() req: any,
     ) {
+        console.log('[company-summary] user:', JSON.stringify(req.user));
+        console.log('[company-summary] year param:', year, typeof year);
+
         if (!req.user.features?.onefopBasicAnalytics) {
             throw new ForbiddenException(
                 'Soumettez le questionnaire ONEFOP pour accéder à vos analyses.',
             );
         }
 
+        const userId = req.user?.sub;
+        if (!userId) throw new BadRequestException('Utilisateur non identifié');
+
         const company = await this.prisma.company.findUnique({
-            where: { userId: req.user.sub },
+            where: { userId },
+            select: { id: true },
         });
         if (!company) throw new BadRequestException('Entreprise non trouvée');
 
-        return this.analyticsService.getCompanySummary(company.id, year);
+        const resolvedYear = year ? parseInt(year, 10) : new Date().getFullYear();
+        return this.analyticsService.getCompanySummary(company.id, resolvedYear);
     }
 
     @Get('company-benchmarks')
