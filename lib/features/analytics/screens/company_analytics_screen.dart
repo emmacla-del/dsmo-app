@@ -131,6 +131,7 @@ class BenchmarkData {
 // ═══════════════════════════════════════════════════════════
 
 /// v1 — company overview aggregated from DSMO
+
 final companySummaryProvider =
     FutureProvider.family<CompanySummary?, int>((ref, year) async {
   final api = ref.read(apiClientProvider);
@@ -139,7 +140,10 @@ final companySummaryProvider =
         queryParameters: {'year': year});
     return CompanySummary.fromJson(response.data as Map<String, dynamic>);
   } on DioException catch (e) {
-    if (e.response?.statusCode == 403) return null;
+    // Treat 403 (forbidden) and 404 (not found) as "no data available"
+    if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
+      return null;
+    }
     rethrow;
   }
 });
@@ -155,11 +159,11 @@ final companyBenchmarksProvider =
     );
     return BenchmarkData.fromJson(response.data as Map<String, dynamic>);
   } on DioException catch (e) {
-    if (e.response?.statusCode == 403) return null;
+    if (e.response?.statusCode == 403 || e.response?.statusCode == 404)
+      return null;
     rethrow;
   }
 });
-
 // bilanRhProvider is defined in ../data/bilan_rh.dart (v2)
 
 // ═══════════════════════════════════════════════════════════
@@ -194,8 +198,8 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).value;
-    final hasBenchmarking = user?.features?.onefopBenchmarking ?? false;
-    final submissionStatus = user?.features?.onefopSubmissionStatus;
+    final hasBenchmarking = user?.features.onefopBenchmarking ?? false;
+    final submissionStatus = user?.features.onefopSubmissionStatus;
 
     final bilanAsync = ref.watch(bilanRhProvider(_currentYear));
     final summaryAsync = ref.watch(companySummaryProvider(_currentYear));
@@ -228,7 +232,7 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
                       const Text('Benchmarking'),
                       if (hasBenchmarking) ...[
                         const SizedBox(width: 6),
-                        _ActiveBadge(
+                        const _ActiveBadge(
                             label: 'Actif', color: Colors.green, mini: true),
                       ],
                     ],
@@ -342,11 +346,12 @@ class _BilanTabContent extends StatelessWidget {
         const SizedBox(height: 24),
 
         // ── v1 CompanySummary section ─────────────────────
-        _SectionTitle('Ma Situation'),
+        const _SectionTitle('Ma Situation'),
         summaryAsync.when(
           data: (s) {
-            if (s == null)
+            if (s == null) {
               return _LockedAnalyticsCard(status: submissionStatus);
+            }
             return _SummaryCards(summary: s);
           },
           loading: () => const _ShimmerSummary(),
@@ -356,7 +361,7 @@ class _BilanTabContent extends StatelessWidget {
 
         // ── v2 BilanRh section ────────────────────────────
         if (bilan != null) ...[
-          _SectionTitle('Bilan RH Détaillé'),
+          const _SectionTitle('Bilan RH Détaillé'),
           _BilanRhView(bilan: bilan, year: currentYear),
         ] else if (bilanAsync.isLoading) ...[
           const _ShimmerBenchmark(),
@@ -387,7 +392,7 @@ class _BenchmarkingTabContent extends StatelessWidget {
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _SectionTitle(
+          const _SectionTitle(
             'Benchmarking Sectoriel',
             trailing:
                 _ActiveBadge(label: 'En attente', color: UltraTheme.warning),
@@ -414,7 +419,7 @@ class _BenchmarkingTabContent extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              _SectionTitle(
+              const _SectionTitle(
                 'Benchmarking Sectoriel',
                 trailing: _ActiveBadge(label: 'Actif', color: Colors.green),
               ),
@@ -428,7 +433,7 @@ class _BenchmarkingTabContent extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _SectionTitle(
+            const _SectionTitle(
               'Benchmarking Sectoriel',
               trailing: _ActiveBadge(label: 'Actif', color: Colors.green),
             ),
@@ -563,7 +568,7 @@ class _BilanRhView extends StatelessWidget {
         Text('Données issues de votre déclaration ONEFOP approuvée',
             style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
         const SizedBox(height: 20),
-        _SectionLabel('Effectifs'),
+        const _SectionLabel('Effectifs'),
         _MetricRow(children: [
           _MetricCard(
             label: 'Employés permanents',
@@ -596,19 +601,19 @@ class _BilanRhView extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 24),
-        _SectionLabel('Recrutements par catégorie'),
+        const _SectionLabel('Recrutements par catégorie'),
         _CspRecruitmentCard(breakdown: bilan.recruitments.combined),
         const SizedBox(height: 24),
-        _SectionLabel('Départs'),
+        const _SectionLabel('Départs'),
         _DeparturesCard(departures: bilan.departures),
         const SizedBox(height: 24),
         if (bilan.internships.total > 0) ...[
-          _SectionLabel('Stagiaires'),
+          const _SectionLabel('Stagiaires'),
           _InternshipCard(internships: bilan.internships),
           const SizedBox(height: 24),
         ],
         if (bilan.skillNeeds.isNotEmpty || bilan.trainingNeeds.isNotEmpty) ...[
-          _SectionLabel('Compétences & Formation'),
+          const _SectionLabel('Compétences & Formation'),
           _SkillsTrainingCard(
               skillNeeds: bilan.skillNeeds, trainingNeeds: bilan.trainingNeeds),
           const SizedBox(height: 24),
@@ -1186,7 +1191,7 @@ class _CspRecruitmentCard extends StatelessWidget {
                   width: 48,
                   child: Text(breakdown.total.total.toString(),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
                           color: UltraTheme.primary))),
@@ -1312,7 +1317,7 @@ class _DeparturesCard extends StatelessWidget {
                     style: UltraTheme.bodyMedium
                         .copyWith(fontWeight: FontWeight.w600))),
             Text(departures.total.total.toString(),
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: UltraTheme.primary)),
@@ -1363,7 +1368,7 @@ class _InternshipCard extends StatelessWidget {
                     style: UltraTheme.bodyMedium
                         .copyWith(fontWeight: FontWeight.w600))),
             Text(internships.total.toString(),
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: UltraTheme.primary)),
@@ -1680,7 +1685,7 @@ class _InsufficientDataCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.bar_chart, size: 40, color: UltraTheme.textMuted),
+          const Icon(Icons.bar_chart, size: 40, color: UltraTheme.textMuted),
           const SizedBox(height: 12),
           Text('Données insuffisantes pour le benchmarking',
               textAlign: TextAlign.center,
@@ -1725,7 +1730,7 @@ class _ComingSoonView extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(badgeLabel,
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: UltraTheme.primary)),
@@ -1762,11 +1767,12 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: UltraTheme.error),
+          const Icon(Icons.error_outline, color: UltraTheme.error),
           const SizedBox(width: 12),
           Expanded(
               child: Text(message,
-                  style: TextStyle(color: UltraTheme.error, fontSize: 13))),
+                  style:
+                      const TextStyle(color: UltraTheme.error, fontSize: 13))),
         ],
       ),
     );
@@ -1783,11 +1789,12 @@ class _ErrorView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Row(children: [
-          Icon(Icons.error_outline, color: UltraTheme.error),
+          const Icon(Icons.error_outline, color: UltraTheme.error),
           const SizedBox(width: 12),
           Expanded(
               child: Text(message,
-                  style: TextStyle(color: UltraTheme.error, fontSize: 13))),
+                  style:
+                      const TextStyle(color: UltraTheme.error, fontSize: 13))),
         ]),
       ),
     );
@@ -1806,8 +1813,8 @@ class _ShimmerSummary extends StatelessWidget {
     return Column(
       children: List.generate(
           5,
-          (i) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+          (i) => const Padding(
+                padding: EdgeInsets.only(bottom: 12),
                 child: _ShimmerCard(height: 80, borderRadius: 16),
               )),
     );
@@ -1822,8 +1829,8 @@ class _ShimmerBenchmark extends StatelessWidget {
     return Column(
       children: List.generate(
           2,
-          (i) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+          (i) => const Padding(
+                padding: EdgeInsets.only(bottom: 12),
                 child: _ShimmerCard(height: 120, borderRadius: 16),
               )),
     );
@@ -1839,8 +1846,8 @@ class _ShimmerBenchmarkFull extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: List.generate(
           3,
-          (_) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+          (_) => const Padding(
+                padding: EdgeInsets.only(bottom: 12),
                 child: _ShimmerCard(height: 120, borderRadius: 16),
               )),
     );
@@ -1856,8 +1863,8 @@ class _ShimmerBilan extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: List.generate(
           5,
-          (_) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+          (_) => const Padding(
+                padding: EdgeInsets.only(bottom: 12),
                 child: _ShimmerCard(height: 80, borderRadius: 12),
               )),
     );
