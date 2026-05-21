@@ -1,4 +1,4 @@
-﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Param } from '@nestjs/common';
+﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Param, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -148,5 +148,11 @@ export class AuthController {
   @Roles('SUPER_ADMIN')
   async rejectUser(@Param('id') id: string, @Body('reason') reason?: string) {
     return this.authService.rejectUser(id);
+  }
+
+  @Get('check-email')
+  async checkEmail(@Query('email') email: string) {
+    const available = await this.authService.isEmailAvailable(email);
+    return { available };
   }
 }

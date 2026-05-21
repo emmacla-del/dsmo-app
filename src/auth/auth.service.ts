@@ -293,6 +293,11 @@ export class AuthService {
     });
   }
 
+  async isEmailAvailable(email: string): Promise<{ available: boolean }> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    return { available: !user };
+  }
+
   async approveUser(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
