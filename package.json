@@ -9,7 +9,7 @@
     "seed": "node prisma/seed.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp -r src/pdf/templates dist/pdf/templates",
+    "build": "tsc -p tsconfig.json && node -e \"const{cpSync}=require('fs');cpSync('src/pdf/templates','dist/pdf/templates',{recursive:true})\"",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
     "start:dev": "nest start --watch",
