@@ -36,6 +36,10 @@ export class OnefopPuppeteerService {
                 jobApplicationsRows: templateData.jobApplicationsRows?.length,
                 recruitmentsByDiplomaRows: templateData.recruitmentsByDiplomaRows?.length,
                 internshipsRows: templateData.internshipsRows?.length,
+                // ← DEBUG: reasons / skills / training
+                dismissalReasons: templateData.dismissalReasons,
+                skills: templateData.skills,
+                trainingNeeds: templateData.trainingNeeds,
             }, null, 2));
 
             const html = template(templateData);
