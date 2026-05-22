@@ -1,11 +1,5 @@
-{{! ONEFOP — Questionnaire Entreprise — carbon copy of PDF form }}
-{{! REQUIRED HANDLEBARS HELPERS: eq, formatCell (must be registered in NestJS service) }}
-{{! REQUIRED ARRAY LENGTHS (mapper must pad with empty strings to exact size): }}
-{{! respondentPhone1Digits: 9, respondentPhone2Digits: 9 }}
-{{! regionCodeDigits: 2, departmentCodeDigits: 2, subdivisionCodeDigits: 3 }}
-{{! phone1Digits: 9, phone2Digits: 9 }}
-{{! branchActivityCodeDigits: 4, mainActivityCodeDigits: 4 }}
-{{! permanentWorkersDigits: 4, vacanciesDigits: 3 }}
+{{! ONEFOP — Questionnaire Entreprise — matched to pdf-data-mapper.service.ts }}
+{{! REQUIRED HANDLEBARS HELPERS: eq, formatCell }}
 {{#with this}}
 <!DOCTYPE html>
 <html lang="fr">
@@ -274,329 +268,159 @@
 
   {{! ══════════ PAGE 1 — S0 + S1 ══════════ }}
   <div class="page">
-
     <div class="hdr">
-      {{#if logoBase64}}
-      <div class="hdr-logo"><img src="{{logoBase64}}" alt="ONEFOP" /></div>
-      {{else}}
-      <div class="hdr-logo-blank"></div>
-      {{/if}}
+      {{#if logoBase64}}<div class="hdr-logo"><img src="{{logoBase64}}" alt="ONEFOP" /></div>
+      {{else}}<div class="hdr-logo-blank"></div>{{/if}}
       <div class="hdr-title">
-        <h1>ENQUÊTE SUR L'EMPLOI ET LA FORMATION PROFESSIONNELLE<br />
-          Survey on Employment and Vocational Training</h1>
-        <h2>Questionnaire — ENTREPRISE / ENTERPRISE</h2>
+        <h1>ENQU&Ecirc;TE SUR L'EMPLOI ET LA FORMATION PROFESSIONNELLE<br />Survey on Employment and Vocational Training
+        </h1>
+        <h2>Questionnaire &mdash; ENTREPRISE / ENTERPRISE</h2>
       </div>
-      <div class="hdr-meta">
-        <strong>Année / Year :</strong> {{surveyYear}}
-        <<br />
-        Copie / Copy : {{copy}}
-      </div>
+      <div class="hdr-meta"><strong>Ann&eacute;e / Year :</strong> {{surveyYear}}<br />Copie / Copy : {{copy}}</div>
     </div>
 
-    <div class="sec">SECTION 0 — IDENTIFICATION DU RÉPONDANT / IDENTIFICATION OF RESPONDENT</div>
+    <div class="sec">SECTION 0 &mdash; IDENTIFICATION DU R&Eacute;PONDANT / IDENTIFICATION OF RESPONDENT</div>
 
-    <div class="qrow">
-      <span class="qcode">S0Q01</span>
-      <span class="qlabel">Noms et prénoms du répondant / Respondent's full name :</span>
-      <span class="qval">{{respondentName}}</span>
-    </div>
-    <div class="qrow">
-      <span class="qcode">S0Q02</span>
-      <span class="qlabel">Fonction du répondant / Respondent's function :</span>
-      <span class="qval">{{respondentFunction}}</span>
-    </div>
-    <div class="qrow">
-      <span class="qcode">S0Q03</span>
-      <span class="qlabel">Contacts répondant / Respondent's contacts :</span>
-    </div>
-    {{! respondentPhone1Digits & respondentPhone2Digits must each be exactly 9 items }}
+    <div class="qrow"><span class="qcode">S0Q01</span><span class="qlabel">Noms et pr&eacute;noms du r&eacute;pondant /
+        Respondent's full name :</span><span class="qval">{{respondentName}}</span></div>
+    <div class="qrow"><span class="qcode">S0Q02</span><span class="qlabel">Fonction du r&eacute;pondant / Respondent's
+        function :</span><span class="qval">{{respondentFunction}}</span></div>
+    <div class="qrow"><span class="qcode">S0Q03</span><span class="qlabel">Contacts r&eacute;pondant / Respondent's
+        contacts :</span></div>
     <div class="qrow" style="margin-left:13mm">
-      <span class="qlabel">Tél 1 :</span>
-      <span class="box-group">{{#each respondentPhone1Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
-      <span class="qlabel" style="margin-left:4mm">Tél 2 :</span>
-      <span class="box-group">{{#each respondentPhone2Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
+      <span class="qlabel">T&eacute;l 1 :</span><span class="qval-sm">{{respondentPhone1}}</span>
+      <span class="qlabel" style="margin-left:4mm">T&eacute;l 2 :</span><span
+        class="qval-sm">{{respondentPhone2}}</span>
     </div>
-    <div class="qrow" style="margin-left:13mm">
-      <span class="qlabel">E-mail :</span>
-      <span class="qval">{{respondentEmail}}</span>
-    </div>
+    <div class="qrow" style="margin-left:13mm"><span class="qlabel">E-mail :</span><span
+        class="qval">{{respondentEmail}}</span></div>
 
-    <div class="sec">SECTION 1 — IDENTIFICATION DE L'ENTREPRISE / COMPANY DETAILS</div>
+    <div class="sec">SECTION 1 &mdash; IDENTIFICATION DE L'ENTREPRISE / COMPANY DETAILS</div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q01</span>
-      <span class="qlabel">Quel est le régime/statut juridique de votre institution / What is the legal status of your
-        institution ?</span>
-    </div>
+    <div class="qrow"><span class="qcode">S1Q01</span><span class="qlabel">Quel est le r&eacute;gime/statut juridique de
+        votre institution / What is the legal status of your institution ?</span></div>
     <div class="cbg">
-      <span>{{#if (eq legalStatus 1)}}☑{{else}}☐{{/if}} (1) Société unipersonnelle / Single-member company</span>
-      <span>{{#if (eq legalStatus 2)}}☑{{else}}☐{{/if}} (2) SARL / LLC</span>
-      <span>{{#if (eq legalStatus 3)}}☑{{else}}☐{{/if}} (3) SA / PLC</span>
-      <span>{{#if (eq legalStatus 4)}}☑{{else}}☐{{/if}} (4) Autres / Others</span>
+      <span>{{#if (eq legalStatus 1)}}&#9745;{{else}}&#9744;{{/if}} (1) Soci&eacute;t&eacute; unipersonnelle /
+        Single-member company</span>
+      <span>{{#if (eq legalStatus 2)}}&#9745;{{else}}&#9744;{{/if}} (2) SARL / LLC</span>
+      <span>{{#if (eq legalStatus 3)}}&#9745;{{else}}&#9744;{{/if}} (3) SA / PLC</span>
+      <span>{{#if (eq legalStatus 4)}}&#9745;{{else}}&#9744;{{/if}} (4) Autres / Others</span>
       <span class="box">{{legalStatus}}</span>
     </div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q02</span>
-      <span class="qlabel">Nom de l'entreprise / Company name :</span>
-      <span class="qval">{{companyName}}</span>
-    </div>
+    <div class="qrow"><span class="qcode">S1Q02</span><span class="qlabel">Nom de l'entreprise / Company name
+        :</span><span class="qval">{{companyName}}</span></div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q03</span>
-      <span class="qlabel">Milieu de résidence / Area :</span>
-      <span style="margin-right:6mm">{{#if (eq area 1)}}☑{{else}}☐{{/if}} (1) Urbain / Urban</span>
-      <span>{{#if (eq area 2)}}☑{{else}}☐{{/if}} (2) Rural / Rural</span>
+    <div class="qrow"><span class="qcode">S1Q03</span><span class="qlabel">Milieu de r&eacute;sidence / Area :</span>
+      <span style="margin-right:6mm">{{#if (eq area 1)}}&#9745;{{else}}&#9744;{{/if}} (1) Urbain / Urban</span>
+      <span>{{#if (eq area 2)}}&#9745;{{else}}&#9744;{{/if}} (2) Rural / Rural</span>
       <span class="box" style="margin-left:3mm">{{area}}</span>
     </div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q04</span>
-      <span class="qlabel">Région / Region :</span>
-      <span class="qval-sm">{{region}}</span>
-      {{! regionCodeDigits must be exactly 2 items }}
-      <span class="box-group">{{#each regionCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
-      <span class="qlabel" style="margin-left:3mm">Département / Division :</span>
-      <span class="qval-sm">{{department}}</span>
-      {{! departmentCodeDigits must be exactly 2 items }}
-      <span class="box-group">{{#each departmentCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
+    <div class="qrow"><span class="qcode">S1Q04</span><span class="qlabel">R&eacute;gion / Region :</span><span
+        class="qval-sm">{{region}}</span>
+      <span class="qval-sm" style="min-width:12mm;text-align:center">{{region}}</span>
+      <span class="qlabel" style="margin-left:3mm">D&eacute;partement / Division :</span><span
+        class="qval-sm">{{department}}</span>
+      <span class="qval-sm" style="min-width:12mm;text-align:center">{{department}}</span>
     </div>
     <div class="qrow" style="margin-left:13mm">
-      <span class="qlabel">Arrondissement / Subdivision :</span>
-      <span class="qval-sm">{{subdivision}}</span>
-      {{! subdivisionCodeDigits must be exactly 3 items }}
-      <span class="box-group">{{#each subdivisionCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
-      <span class="qlabel" style="margin-left:3mm">Quartier/Village/Localité / Neighborhood/Village/Locality :</span>
-      <span class="qval">{{locality}}</span>
+      <span class="qlabel">Arrondissement / Subdivision :</span><span class="qval-sm">{{subdivision}}</span>
+      <span class="qval-sm" style="min-width:18mm;text-align:center">{{subdivision}}</span>
+      <span class="qlabel" style="margin-left:3mm">Quartier/Village/Localit&eacute; / Neighborhood/Village/Locality
+        :</span><span class="qval">{{locality}}</span>
     </div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q05</span>
-      <span class="qlabel">Tél 1 / Tel 1 :</span>
-      {{! phone1Digits must be exactly 9 items }}
-      <span class="box-group">{{#each phone1Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
-      <span class="qlabel" style="margin-left:4mm">Tél 2 / Tel 2 :</span>
-      {{! phone2Digits must be exactly 9 items }}
-      <span class="box-group">{{#each phone2Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
-      <span class="qlabel" style="margin-left:4mm">BP / PO Box :</span>
-      <span class="qval-sm">{{poBox}}</span>
+    <div class="qrow"><span class="qcode">S1Q05</span><span class="qlabel">T&eacute;l 1 / Tel 1 :</span><span
+        class="qval-sm">{{phone1}}</span>
+      <span class="qlabel" style="margin-left:4mm">T&eacute;l 2 / Tel 2 :</span><span class="qval-sm">{{phone2}}</span>
+      <span class="qlabel" style="margin-left:4mm">BP / PO Box :</span><span class="qval-sm">{{poBox}}</span>
     </div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q06</span>
-      <span class="qlabel">Secteur d'activité / Business sector :</span>
-      <span style="margin-right:6mm">{{#if (eq businessSector 1)}}☑{{else}}☐{{/if}} (1) Primaire / Primary</span>
-      <span style="margin-right:6mm">{{#if (eq businessSector 2)}}☑{{else}}☐{{/if}} (2) Secondaire / Secondary</span>
-      <span>{{#if (eq businessSector 3)}}☑{{else}}☐{{/if}} (3) Tertiaire / Tertiary</span>
+    <div class="qrow"><span class="qcode">S1Q06</span><span class="qlabel">Secteur d'activit&eacute; / Business sector
+        :</span>
+      <span style="margin-right:6mm">{{#if (eq businessSector 1)}}&#9745;{{else}}&#9744;{{/if}} (1) Primaire /
+        Primary</span>
+      <span style="margin-right:6mm">{{#if (eq businessSector 2)}}&#9745;{{else}}&#9744;{{/if}} (2) Secondaire /
+        Secondary</span>
+      <span>{{#if (eq businessSector 3)}}&#9745;{{else}}&#9744;{{/if}} (3) Tertiaire / Tertiary</span>
       <span class="box" style="margin-left:3mm">{{businessSector}}</span>
     </div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q07</span>
-      <span class="qlabel">Branche d'activité / Branch of activity :</span>
-      <span class="qval">{{branchActivity}}</span>
-      {{! branchActivityCodeDigits must be exactly 4 items }}
-      <span class="box-group">{{#each branchActivityCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
+    <div class="qrow"><span class="qcode">S1Q07</span><span class="qlabel">Branche d'activit&eacute; / Branch of
+        activity :</span><span class="qval">{{branchActivity}}</span></div>
+    <div class="qrow"><span class="qcode">S1Q08</span><span class="qlabel">Activit&eacute; principale / Main activity
+        :</span><span class="qval">{{mainActivity}}</span></div>
+    <div class="qrow"><span class="qcode">S1Q09</span><span class="qlabel">Si&egrave;ge social de l'entreprise /
+        Company's head office :</span><span class="qval">{{headOffice}}</span></div>
+    <div class="qrow"><span class="qcode">S1Q10</span><span class="qlabel">Nombre d'employ&eacute; permanent / Number of
+        permanent workers :</span><span class="qval-sm">{{permanentWorkers}}</span></div>
+    <div class="qrow"><span class="qcode">S1Q11</span><span class="qlabel">Nombre de poste vacant / Number of vacancies
+        :</span><span class="qval-sm">{{vacancies}}</span></div>
+    <div class="qrow"><span class="qcode">S1Q12</span><span class="qlabel">Taille de l'entreprise / Enterprise size
+        :</span>
+      <span style="margin-right:4mm">{{#if (eq enterpriseSize 1)}}&#9745;{{else}}&#9744;{{/if}} (1) TPE / Very small
+        enterprise</span>
+      <span style="margin-right:4mm">{{#if (eq enterpriseSize 2)}}&#9745;{{else}}&#9744;{{/if}} (2) PE / Small
+        enterprise</span>
+      <span style="margin-right:4mm">{{#if (eq enterpriseSize 3)}}&#9745;{{else}}&#9744;{{/if}} (3) ME / Medium-sized
+        enterprise</span>
+      <span>{{#if (eq enterpriseSize 4)}}&#9745;{{else}}&#9744;{{/if}} (4) GE / Large enterprise</span>
+      <span class="box" style="margin-left:3mm">{{enterpriseSize}}</span>
     </div>
+  </div>
 
-    <div class="qrow">
-      <span class="qcode">S1Q08</span>
-      <span class="qlabel">Activité principale / Main activity :</span>
-      <span class="qval">{{mainActivity}}</span>
-      {{! mainActivityCodeDigits must be exactly 4 items }}
-      <span class="box-group">{{#each mainActivityCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
-    </div>
-
-    <div class="qrow">
-      <span class="qcode">S1Q09</span>
-      <span class="qlabel">Siège social de l'entreprise / Company's head office :</span>
-      <span class="qval">{{headOffice}}</span>
-    </div>
-
-    <div class="qrow">
-      <span class="qcode">S1Q10</span>
-      <span class="qlabel">Nombre d'employé permanent / Number of permanent workers :</span>
-      {{! permanentWorkersDigits must be exactly 4 items }}
-      <span class="box-group">{{#each permanentWorkersDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
-    </div>
-
-    <div class="qrow">
-      <span class="qcode">S1Q11</span>
-      <span class="qlabel">Nombre de poste vacant / Number of vacancies :</span>
-      {{! vacanciesDigits must be exactly 3 items }}
-      <span class="box-group">{{#each vacanciesDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
-    </div>
-
-    <div class="qrow">
-      <span class="qcode">S1Q12</span>
-      <span class="qlabel">Taille de l'entreprise / Enterprise size :</span>
-      <span style="margin-right:4mm">{{#if (eq companySize 1)}}☑{{else}}☐{{/if}} (1) TPE / Very small enterprise</span>
-      <span style="margin-right:4mm">{{#if (eq companySize 2)}}☑{{else}}☐{{/if}} (2) PE / Small enterprise</span>
-      <span style="margin-right:4mm">{{#if (eq companySize 3)}}☑{{else}}☐{{/if}} (3) ME / Medium-sized enterprise</span>
-      <span>{{#if (eq companySize 4)}}☑{{else}}☐{{/if}} (4) GE / Large enterprise</span>
-      <span class="box" style="margin-left:3mm">{{companySize}}</span>
-    </div>
-
-  </div>{{! /page 1 }}
-
-
-  {{! ══════════ PAGE 2 — S2.1 Job Applications + S2.2 Permanent & Temporary Recruitments ══════════ }}
+  {{! ══════════ PAGE 2 — S2.1 + S2.2 ══════════ }}
   <div class="page">
-
-    <div class="sec">SECTION 2 — EMPLOI ET TRAVAIL / EMPLOYMENT AND LABOUR</div>
+    <div class="sec">SECTION 2 &mdash; EMPLOI ET TRAVAIL / EMPLOYMENT AND LABOUR</div>
     <div class="subsec">2.1 DEMANDE D'EMPLOIS / JOB APPLICATION</div>
-
-    <p class="qtitle">S21Q01 : Combien de demandes d'emplois avez-vous enregistré selon la catégorie
-      socioprofessionnelle, le sexe et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many job
-      applications per socio-professional category, gender and age group did you register from the 1st of January
-      {{surveyYear}} to the present day?</p>
-    {{> cspAgeTable rows=jobApplicationsRows}}
+    <p class="qtitle">S21Q01 : Combien de demandes d'emplois avez-vous enregistr&eacute; selon la cat&eacute;gorie
+      socioprofessionnelle, le sexe et la tranche d'&acirc;ge du 1er Janvier {{surveyYear}} &agrave; ce jour ?</p>
+    {{> cspAgeTable rows=jobApplicationsRows totals=jobApplicationsTotals}}
 
     <div class="subsec">2.2 RECRUTEMENTS / RECRUITMENTS</div>
-
-    <p class="qtitle">S22Q01 : Combien de permanents avez-vous recruté selon la catégorie socioprofessionnelle, le sexe
-      et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many permanent workers per socio-professional
-      category, gender and age group did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
-    {{> cspAgeTable rows=recruitmentsPermanentRows}}
-
-    <p class="qtitle">S22Q02 : Combien de temporaires avez-vous recruté selon la catégorie socioprofessionnelle, le sexe
-      et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many temporary workers per socio-professional
-      category, gender and age group did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
-    {{> cspAgeTable rows=recruitmentsTemporaryRows}}
-
-  </div>{{! /page 2 }}
-
+    <p class="qtitle">S22Q01 : Combien de permanents avez-vous recrut&eacute; selon la cat&eacute;gorie
+      socioprofessionnelle, le sexe et la tranche d'&acirc;ge du 1er Janvier {{surveyYear}} &agrave; ce jour ?</p>
+    {{> cspAgeTable rows=recruitmentsPermanentRows totals=recruitmentsPermanentTotals}}
+    <p class="qtitle">S22Q02 : Combien de temporaires avez-vous recrut&eacute; selon la cat&eacute;gorie
+      socioprofessionnelle, le sexe et la tranche d'&acirc;ge du 1er Janvier {{surveyYear}} &agrave; ce jour ?</p>
+    {{> cspAgeTable rows=recruitmentsTemporaryRows totals=recruitmentsTemporaryTotals}}
+  </div>
 
   {{! ══════════ PAGE 3 — S2.2 Diploma + Disabled + Vulnerable ══════════ }}
   <div class="page">
+    <p class="qtitle">S22Q03 : Combien de personnes avez-vous recrut&eacute; selon la cat&eacute;gorie
+      socioprofessionnelle, le sexe, le dipl&ocirc;me et la tranche d'&acirc;ge du 1er Janvier {{surveyYear}} &agrave;
+      ce jour ?</p>
+    {{> cspAgeTable rows=recruitmentsByDiplomaRows totals=recruitmentsByDiplomaTotals}}
 
-    <p class="qtitle">S22Q03 : Combien de personnes avez-vous recruté selon la catégorie socioprofessionnelle, le sexe,
-      le diplôme et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many workers per socio-professional
-      category, gender, and diploma did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
-    {{! Mapper must provide 13 rows: 12 diploma types + 1 TOTAL row (isTotal:true). }}
-    {{! PDF row order: CEP/CEPE/FSLC, BEPC/CAP/GCE-OL, PROBATOIRE/Lower sixth, BAC/GCE-AL, }}
-    {{! BTS/DUT/HND, Licence(Bac+3)/Bachelor, Maitrise(Bac+4)/Master1, Master(Bac+5)/Master2, }}
-    {{! DQP/PQD, CQP/CPQ, Autres/Others, Sans diplome/Without diploma, TOTAL }}
-    <table>
-      <thead>
-        <tr>
-          <th rowspan="2" style="width:24%">Diplôme / Diploma</th>
-          <th colspan="4" class="th2">Masculin / Male</th>
-          <th colspan="4" class="th2">Féminin / Female</th>
-          <th colspan="4" class="th3">Ensemble / Total</th>
-        </tr>
-        <tr>
-          <th class="th2">15-24</th>
-          <th class="th2">25-34</th>
-          <th class="th2">35+</th>
-          <th class="th2">Total</th>
-          <th class="th2">15-24</th>
-          <th class="th2">25-34</th>
-          <th class="th2">35+</th>
-          <th class="th2">Total</th>
-          <th class="th3">15-24</th>
-          <th class="th3">25-34</th>
-          <th class="th3">35+</th>
-          <th class="th3">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each recruitmentsByDiplomaRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell male.age15_24}}</td>
-          <td>{{formatCell male.age25_34}}</td>
-          <td>{{formatCell male.age35plus}}</td>
-          <td>{{formatCell male.total}}</td>
-          <td>{{formatCell female.age15_24}}</td>
-          <td>{{formatCell female.age25_34}}</td>
-          <td>{{formatCell female.age35plus}}</td>
-          <td>{{formatCell female.total}}</td>
-          <td>{{formatCell this.total.age15_24}}</td>
-          <td>{{formatCell this.total.age25_34}}</td>
-          <td>{{formatCell this.total.age35plus}}</td>
-          <td>{{formatCell this.total.total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
+    <p class="qtitle">S22Q04 : Combien de personnes en situation de handicap avez-vous recrut&eacute; selon la
+      cat&eacute;gorie socioprofessionnelle, le sexe et le statut du 1er Janvier {{surveyYear}} &agrave; ce jour ?</p>
+    {{> permTempTable rows=disabledRecruitmentsRows totals=disabledRecruitmentsTotals}}
 
-    <p class="qtitle">S22Q04 : Combien de personnes en situation de handicap avez-vous recruté selon la catégorie
-      socioprofessionnelle, le sexe et le statut du 1er Janvier {{surveyYear}} à ce jour ? / How many workers with a
-      disability per socio-professional category, gender, and status did you recruit from the 1st of January
-      {{surveyYear}} to the present day?</p>
-    {{! Mapper must provide 4 rows: Cadres, Agents de Maitrise, Agents d'execution, TOTAL }}
-    {{> permTempTable rows=disabledRecruitmentsRows}}
-
-    <p class="qtitle">S22Q05 : Combien de personnes vulnérables avez-vous recruté selon le statut et la nature de la
-      vulnérabilité du 1er Janvier {{surveyYear}} à ce jour ? / How many vulnerable workers per socio-professional
-      category, gender, and status did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
-    {{! Mapper must provide 4 rows: Deplaces internes, Refugies, Orphelins, TOTAL }}
-    <table>
-      <thead>
-        <tr>
-          <th rowspan="2" style="width:30%">Nature de vulnérabilité / Nature of vulnerability</th>
-          <th colspan="3" class="th2">Permanent / Permanent</th>
-          <th colspan="3" class="th2">Temporaire / Temporary</th>
-          <th colspan="3" class="th3">Total</th>
-        </tr>
-        <tr>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th3">M</th>
-          <th class="th3">F</th>
-          <th class="th3">T</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each vulnerableRecruitmentsRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell permanent.male}}</td>
-          <td>{{formatCell permanent.female}}</td>
-          <td>{{formatCell permanent.total}}</td>
-          <td>{{formatCell temporary.male}}</td>
-          <td>{{formatCell temporary.female}}</td>
-          <td>{{formatCell temporary.total}}</td>
-          <td>{{formatCell this.total.male}}</td>
-          <td>{{formatCell this.total.female}}</td>
-          <td>{{formatCell this.total.total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-  </div>{{! /page 3 }}
-
+    <p class="qtitle">S22Q05 : Combien de personnes vuln&eacute;rables avez-vous recrut&eacute; selon le statut et la
+      nature de la vuln&eacute;rabilit&eacute; du 1er Janvier {{surveyYear}} &agrave; ce jour ?</p>
+    {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals}}
+  </div>
 
   {{! ══════════ PAGE 4 — S2.3 First-time Job Seekers ══════════ }}
   <div class="page">
+    <div class="subsec">2.3 PRIMO DEMANDEUR (personne &agrave; la recherche de son premier emploi) / FIRST-TIME JOB
+      SEEKER</div>
+    <p class="qtitle">S23Q01 : Combien de personnes recherchant leur premier emploi avez-vous enregistr&eacute; selon la
+      cat&eacute;gorie socioprofessionnelle, le sexe et la tranche d'&acirc;ge du 1er Janvier {{surveyYear}} &agrave; ce
+      jour ?</p>
+    {{> cspAgeTable rows=firstTimeJobSeekerRows totals=firstTimeJobSeekerTotals}}
 
-    <div class="subsec">2.3 PRIMO DEMANDEUR (personne à la recherche de son premier emploi) / FIRST-TIME JOB SEEKER
-    </div>
-
-    <p class="qtitle">S23Q01 : Combien de personnes recherchant leur premier emploi avez-vous enregistré selon la
-      catégorie socioprofessionnelle, le sexe et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many
-      people looking for their first job per socio-professional category, gender and age group did you register from the
-      1st of January {{surveyYear}} to the present day?</p>
-    {{> cspAgeTable rows=firstTimeJobSeekerRegisteredRows}}
-
-    <p class="qtitle">S23Q02 : Combien de personnes travaillant pour la première fois avez-vous recrutées selon la
-      catégorie socioprofessionnelle et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many people
-      working for their first time per socio-professional category, gender and age group did you recruit from the 1st of
-      January {{surveyYear}} to the present day?</p>
-    {{! FIX 1: Replaced entire table to match PDF structure with 35+ column, Permanent/Temporary sub-sections, and grand
-    total }}
+    <p class="qtitle">S23Q02 : Combien de personnes travaillant pour la premi&egrave;re fois avez-vous recrut&eacute;es
+      selon la cat&eacute;gorie socioprofessionnelle et la tranche d'&acirc;ge du 1er Janvier {{surveyYear}} &agrave; ce
+      jour ?</p>
     <table>
       <thead>
         <tr>
           <th rowspan="2" style="width:18%">CSP / SPC</th>
           <th colspan="4" class="th2">Masculin / Male</th>
-          <th colspan="4" class="th2">Féminin / Female</th>
+          <th colspan="4" class="th2">F&eacute;minin / Female</th>
           <th colspan="4" class="th3">TOTAL</th>
         </tr>
         <tr>
@@ -618,29 +442,9 @@
         <tr>
           <td class="lh" colspan="13" style="background:#c8d9ea;font-style:italic">Permanent / Permanent</td>
         </tr>
-        {{#each firstTimeRecruitmentsPermanentRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell male.age15_24}}</td>
-          <td>{{formatCell male.age25_34}}</td>
-          <td>{{formatCell male.age35plus}}</td>
-          <td>{{formatCell male.total}}</td>
-          <td>{{formatCell female.age15_24}}</td>
-          <td>{{formatCell female.age25_34}}</td>
-          <td>{{formatCell female.age35plus}}</td>
-          <td>{{formatCell female.total}}</td>
-          <td>{{formatCell this.total.age15_24}}</td>
-          <td>{{formatCell this.total.age25_34}}</td>
-          <td>{{formatCell this.total.age35plus}}</td>
-          <td>{{formatCell this.total.total}}</td>
-        </tr>
-        {{/each}}
+        {{#each s23q02.permanent}}
         <tr>
-          <td class="lh" colspan="13" style="background:#c8d9ea;font-style:italic">Temporaire / Temporary</td>
-        </tr>
-        {{#each firstTimeRecruitmentsTemporaryRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
+          <td class="lh2">{{label}}</td>
           <td>{{formatCell male.age15_24}}</td>
           <td>{{formatCell male.age25_34}}</td>
           <td>{{formatCell male.age35plus}}</td>
@@ -649,95 +453,90 @@
           <td>{{formatCell female.age25_34}}</td>
           <td>{{formatCell female.age35plus}}</td>
           <td>{{formatCell female.total}}</td>
-          <td>{{formatCell this.total.age15_24}}</td>
-          <td>{{formatCell this.total.age25_34}}</td>
-          <td>{{formatCell this.total.age35plus}}</td>
-          <td>{{formatCell this.total.total}}</td>
+          <td>{{formatCell total.age15_24}}</td>
+          <td>{{formatCell total.age25_34}}</td>
+          <td>{{formatCell total.age35plus}}</td>
+          <td>{{formatCell total.total}}</td>
         </tr>
         {{/each}}
         <tr class="tr-total">
-          <td class="lh">TOTAL</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.age15_24}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.age25_34}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.age35plus}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.total}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.age15_24}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.age25_34}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.age35plus}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.total}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.age15_24}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.age25_34}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.age35plus}}</td>
-          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.total}}</td>
-        </tr>
-      </tbody>
-    </table>
-
-  </div>{{! /page 4 }}
-
-
-  {{! ══════════ PAGE 5 — S3 Departures (Q01 + Q02 only) ══════════ }}
-  <div class="page">
-
-    <div class="sec">SECTION 3 — DÉPARTS / DEPARTURES</div>
-
-    <p class="qtitle">S3Q01 : Combien de départs avez-vous enregistrés du 1er Janvier {{surveyYear}} à ce jour ? / How
-      many departures did you register from the 1st of January {{surveyYear}} to the present day?</p>
-    <table>
-      <thead>
-        <tr>
-          <th rowspan="2" style="width:14%">CSP / SPC</th>
-          <th colspan="3" class="th2">Licenciements / Dismissal</th>
-          <th colspan="3" class="th2">Démissions / Resignation</th>
-          <th colspan="3" class="th2">Départ à la retraite / Retirement</th>
-          <th colspan="3" class="th2">Autres départs / Other departure</th>
-          <th colspan="3" class="th3">Ensemble / Whole</th>
+          <td class="lh">{{s23q02.permanentTotals.label}}</td>
+          <td>{{formatCell s23q02.permanentTotals.male.age15_24}}</td>
+          <td>{{formatCell s23q02.permanentTotals.male.age25_34}}</td>
+          <td>{{formatCell s23q02.permanentTotals.male.age35plus}}</td>
+          <td>{{formatCell s23q02.permanentTotals.male.total}}</td>
+          <td>{{formatCell s23q02.permanentTotals.female.age15_24}}</td>
+          <td>{{formatCell s23q02.permanentTotals.female.age25_34}}</td>
+          <td>{{formatCell s23q02.permanentTotals.female.age35plus}}</td>
+          <td>{{formatCell s23q02.permanentTotals.female.total}}</td>
+          <td>{{formatCell s23q02.permanentTotals.total.age15_24}}</td>
+          <td>{{formatCell s23q02.permanentTotals.total.age25_34}}</td>
+          <td>{{formatCell s23q02.permanentTotals.total.age35plus}}</td>
+          <td>{{formatCell s23q02.permanentTotals.total.total}}</td>
         </tr>
         <tr>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th3">M</th>
-          <th class="th3">F</th>
-          <th class="th3">T</th>
+          <td class="lh" colspan="13" style="background:#c8d9ea;font-style:italic">Temporaire / Temporary</td>
         </tr>
-      </thead>
-      <tbody>
-        {{#each departuresRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell dismissals.male}}</td>
-          <td>{{formatCell dismissals.female}}</td>
-          <td>{{formatCell dismissals.total}}</td>
-          <td>{{formatCell resignations.male}}</td>
-          <td>{{formatCell resignations.female}}</td>
-          <td>{{formatCell resignations.total}}</td>
-          <td>{{formatCell retirements.male}}</td>
-          <td>{{formatCell retirements.female}}</td>
-          <td>{{formatCell retirements.total}}</td>
-          <td>{{formatCell others.male}}</td>
-          <td>{{formatCell others.female}}</td>
-          <td>{{formatCell others.total}}</td>
-          <td>{{formatCell ensemble.male}}</td>
-          <td>{{formatCell ensemble.female}}</td>
-          <td>{{formatCell ensemble.total}}</td>
+        {{#each s23q02.temporary}}
+        <tr>
+          <td class="lh2">{{label}}</td>
+          <td>{{formatCell male.age15_24}}</td>
+          <td>{{formatCell male.age25_34}}</td>
+          <td>{{formatCell male.age35plus}}</td>
+          <td>{{formatCell male.total}}</td>
+          <td>{{formatCell female.age15_24}}</td>
+          <td>{{formatCell female.age25_34}}</td>
+          <td>{{formatCell female.age35plus}}</td>
+          <td>{{formatCell female.total}}</td>
+          <td>{{formatCell total.age15_24}}</td>
+          <td>{{formatCell total.age25_34}}</td>
+          <td>{{formatCell total.age35plus}}</td>
+          <td>{{formatCell total.total}}</td>
         </tr>
         {{/each}}
+        <tr class="tr-total">
+          <td class="lh">{{s23q02.temporaryTotals.label}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.male.age15_24}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.male.age25_34}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.male.age35plus}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.male.total}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.female.age15_24}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.female.age25_34}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.female.age35plus}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.female.total}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.total.age15_24}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.total.age25_34}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.total.age35plus}}</td>
+          <td>{{formatCell s23q02.temporaryTotals.total.total}}</td>
+        </tr>
+        <tr class="tr-total">
+          <td class="lh">{{s23q02.grandTotals.label}}</td>
+          <td>{{formatCell s23q02.grandTotals.male.age15_24}}</td>
+          <td>{{formatCell s23q02.grandTotals.male.age25_34}}</td>
+          <td>{{formatCell s23q02.grandTotals.male.age35plus}}</td>
+          <td>{{formatCell s23q02.grandTotals.male.total}}</td>
+          <td>{{formatCell s23q02.grandTotals.female.age15_24}}</td>
+          <td>{{formatCell s23q02.grandTotals.female.age25_34}}</td>
+          <td>{{formatCell s23q02.grandTotals.female.age35plus}}</td>
+          <td>{{formatCell s23q02.grandTotals.female.total}}</td>
+          <td>{{formatCell s23q02.grandTotals.total.age15_24}}</td>
+          <td>{{formatCell s23q02.grandTotals.total.age25_34}}</td>
+          <td>{{formatCell s23q02.grandTotals.total.age35plus}}</td>
+          <td>{{formatCell s23q02.grandTotals.total.total}}</td>
+        </tr>
       </tbody>
     </table>
+  </div>
+
+  {{! ══════════ PAGE 5 — S3 Departures (Q01 + Q02) ══════════ }}
+  <div class="page">
+    <div class="sec">SECTION 3 &mdash; D&Eacute;PARTS / DEPARTURES</div>
+    <p class="qtitle">S3Q01 : Combien de d&eacute;parts avez-vous enregistr&eacute;s du 1er Janvier {{surveyYear}}
+      &agrave; ce jour ?</p>
+    {{> departuresTable rows=departuresRows totals=departuresTotals}}
 
     <p class="qtitle">S3Q02 : Quels sont les principaux motifs de licenciement ? / What are the main grounds for
       dismissal?</p>
-    {{! Mapper must provide exactly 3 items with index 1,2,3 }}
     <table class="list-table">
       <thead>
         <tr>
@@ -758,93 +557,61 @@
           <td>{{formatCell total}}</td>
         </tr>
         {{/each}}
-        {{! FIX 2: Added Total footer row for S3Q02 }}
         <tr class="tr-total">
           <td class="idx"></td>
           <td class="lh">Total</td>
-          <td>{{formatCell dismissalReasonsTotal.male}}</td>
-          <td>{{formatCell dismissalReasonsTotal.female}}</td>
-          <td>{{formatCell dismissalReasonsTotal.total}}</td>
+          <td>{{formatCell dismissalReasonsTotals.male}}</td>
+          <td>{{formatCell dismissalReasonsTotals.female}}</td>
+          <td>{{formatCell dismissalReasonsTotals.total}}</td>
         </tr>
       </tbody>
     </table>
+  </div>
 
-  </div>{{! /page 5 }}
-
-
-  {{! ══════════ PAGE 6 — S4 Training + S3Q03 (moved from page 5) ══════════ }}
+  {{! ══════════ PAGE 6 — S4 Training + S3Q03 ══════════ }}
   <div class="page">
+    <div class="sec">SECTION 4 &mdash; STAGE ET FORMATION / INTERNSHIP AND TRAINING</div>
+    <p class="qtitle">S4Q01 : Combien de stagiaires avez-vous recrut&eacute;s du 1er Janvier {{surveyYear}} &agrave; ce
+      jour ?</p>
+    {{> simpleTable rows=internshipsRows totals=internshipsTotals}}
 
-    <div class="sec">SECTION 4 — STAGE ET FORMATION / INTERNSHIP AND TRAINING</div>
-
-    <p class="qtitle">S4Q01 : Combien de stagiaires avez-vous recrutés du 1er Janvier {{surveyYear}} à ce jour ? / How
-      many interns did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
-    {{! Mapper must provide 5 rows: Stage de vacance, Stage academique, Stage professionnelle, Stage pre-emploi, Total
-    }}
-    <table>
-      <thead>
-        <tr>
-          <th style="width:50%">Nature du stage / Nature of internship</th>
-          <th class="th2">Masculin / M</th>
-          <th class="th2">Féminin / F</th>
-          <th class="th3">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each internshipsRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell male}}</td>
-          <td>{{formatCell female}}</td>
-          <td>{{formatCell total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-    <p class="qtitle">S4Q02 : Quels sont les besoins en compétence de votre entreprise ? (énumérer les 3 compétences
-      prioritaires) / What are the skills needs of your company? (list the 3 priority skills)</p>
-    {{! Mapper must provide exactly 3 items with index 1,2,3 }}
+    <p class="qtitle">S4Q02 : Quels sont les besoins en comp&eacute;tence de votre entreprise ? (3 priorit&eacute;s)</p>
     <table class="list-table">
       <thead>
         <tr>
           <th style="width:8mm">#</th>
-          <th style="text-align:left">Compétence / Skill</th>
+          <th style="text-align:left">Comp&eacute;tence / Skill</th>
           <th style="width:14mm">M</th>
           <th style="width:14mm">F</th>
           <th style="width:14mm">Total</th>
         </tr>
       </thead>
       <tbody>
-        {{#each skillsNeeds}}
+        {{#each skills}}
         <tr>
           <td class="idx">{{index}}</td>
-          <td class="desc">{{skill}}</td>
+          <td class="desc">{{description}}</td>
           <td>{{formatCell male}}</td>
           <td>{{formatCell female}}</td>
           <td>{{formatCell total}}</td>
         </tr>
         {{/each}}
-        {{! FIX 4: Added Total footer row for S4Q02 }}
         <tr class="tr-total">
           <td class="idx"></td>
           <td class="lh">Total</td>
-          <td>{{formatCell skillsNeedsTotal.male}}</td>
-          <td>{{formatCell skillsNeedsTotal.female}}</td>
-          <td>{{formatCell skillsNeedsTotal.total}}</td>
+          <td>{{formatCell skillsTotals.male}}</td>
+          <td>{{formatCell skillsTotals.female}}</td>
+          <td>{{formatCell skillsTotals.total}}</td>
         </tr>
       </tbody>
     </table>
 
-    <p class="qtitle">S4Q03 : Quels sont les besoins en formation des personnels de votre entreprise ? (énumérer les 3
-      domaines de formation prioritaires) / What are the training needs of your company's staff? (list the 3 priority
-      fields of training)</p>
-    {{! Mapper must provide exactly 3 items with index 1,2,3 }}
+    <p class="qtitle">S4Q03 : Quels sont les besoins en formation des personnels ? (3 priorit&eacute;s)</p>
     <table class="list-table">
       <thead>
         <tr>
           <th style="width:8mm">#</th>
-          <th style="text-align:left">Domaine de formation / Domain of training</th>
+          <th style="text-align:left">Domaine de formation</th>
           <th style="width:14mm">M</th>
           <th style="width:14mm">F</th>
           <th style="width:14mm">Total</th>
@@ -860,70 +627,32 @@
           <td>{{formatCell total}}</td>
         </tr>
         {{/each}}
-        {{! FIX 4: Added Total footer row for S4Q03 }}
         <tr class="tr-total">
           <td class="idx"></td>
           <td class="lh">Total</td>
-          <td>{{formatCell trainingNeedsTotal.male}}</td>
-          <td>{{formatCell trainingNeedsTotal.female}}</td>
-          <td>{{formatCell trainingNeedsTotal.total}}</td>
+          <td>{{formatCell trainingNeedsTotals.male}}</td>
+          <td>{{formatCell trainingNeedsTotals.female}}</td>
+          <td>{{formatCell trainingNeedsTotals.total}}</td>
         </tr>
       </tbody>
     </table>
 
-    {{! FIX 3: S3Q03 moved from page 5 to end of page 6 (after S4Q03) per PDF layout }}
-    <p class="qtitle">S3Q03 : Combien de personnes avez-vous licenciées ou mises en chômage technique du 1er Janvier
-      {{surveyYear}} à ce jour ? / How many people did you dismiss or put on technical unemployment from the 1st of
-      January {{surveyYear}} to the present day?</p>
-    <table>
-      <thead>
-        <tr>
-          <th rowspan="2" style="width:22%">CSP / SPC</th>
-          <th colspan="3" class="th2">Licenciement / Dismissal</th>
-          <th colspan="3" class="th2">Chômage technique / Technical unemployment</th>
-          <th colspan="3" class="th3">Total</th>
-        </tr>
-        <tr>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th2">M</th>
-          <th class="th2">F</th>
-          <th class="th2">T</th>
-          <th class="th3">M</th>
-          <th class="th3">F</th>
-          <th class="th3">T</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each dismissalTechUnemploymentRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell dismissal.male}}</td>
-          <td>{{formatCell dismissal.female}}</td>
-          <td>{{formatCell dismissal.total}}</td>
-          <td>{{formatCell technicalUnemployment.male}}</td>
-          <td>{{formatCell technicalUnemployment.female}}</td>
-          <td>{{formatCell technicalUnemployment.total}}</td>
-          <td>{{formatCell this.total.male}}</td>
-          <td>{{formatCell this.total.female}}</td>
-          <td>{{formatCell this.total.total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-  </div>{{! /page 6 }}
+    {{! S3Q03 moved to end of page 6 per PDF layout }}
+    <p class="qtitle">S3Q03 : Combien de personnes avez-vous licenci&eacute;es ou mises en ch&ocirc;mage technique du
+      1er Janvier {{surveyYear}} &agrave; ce jour ?</p>
+    {{> dismissalTechTable rows=dismissalTechUnemploymentRows totals=dismissalTechUnemploymentTotals}}
+  </div>
 
   {{! ══════════ REUSABLE MACROS ══════════ }}
 
+  {{! CSP &times; Age table (rows + separate totals object) }}
   {{#*inline "cspAgeTable"}}
   <table>
     <thead>
       <tr>
         <th rowspan="2" style="width:18%">CSP / SPC</th>
         <th colspan="4" class="th2">Masculin / Male</th>
-        <th colspan="4" class="th2">Féminin / Female</th>
+        <th colspan="4" class="th2">F&eacute;minin / Female</th>
         <th colspan="4" class="th3">Ensemble / Total</th>
       </tr>
       <tr>
@@ -943,8 +672,8 @@
     </thead>
     <tbody>
       {{#each rows}}
-      <tr class="{{#if isTotal}}tr-total{{/if}}">
-        <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
+      <tr>
+        <td class="lh2">{{label}}</td>
         <td>{{formatCell male.age15_24}}</td>
         <td>{{formatCell male.age25_34}}</td>
         <td>{{formatCell male.age35plus}}</td>
@@ -953,16 +682,32 @@
         <td>{{formatCell female.age25_34}}</td>
         <td>{{formatCell female.age35plus}}</td>
         <td>{{formatCell female.total}}</td>
-        <td>{{formatCell this.total.age15_24}}</td>
-        <td>{{formatCell this.total.age25_34}}</td>
-        <td>{{formatCell this.total.age35plus}}</td>
-        <td>{{formatCell this.total.total}}</td>
+        <td>{{formatCell total.age15_24}}</td>
+        <td>{{formatCell total.age25_34}}</td>
+        <td>{{formatCell total.age35plus}}</td>
+        <td>{{formatCell total.total}}</td>
       </tr>
       {{/each}}
+      <tr class="tr-total">
+        <td class="lh">{{totals.label}}</td>
+        <td>{{formatCell totals.male.age15_24}}</td>
+        <td>{{formatCell totals.male.age25_34}}</td>
+        <td>{{formatCell totals.male.age35plus}}</td>
+        <td>{{formatCell totals.male.total}}</td>
+        <td>{{formatCell totals.female.age15_24}}</td>
+        <td>{{formatCell totals.female.age25_34}}</td>
+        <td>{{formatCell totals.female.age35plus}}</td>
+        <td>{{formatCell totals.female.total}}</td>
+        <td>{{formatCell totals.total.age15_24}}</td>
+        <td>{{formatCell totals.total.age25_34}}</td>
+        <td>{{formatCell totals.total.age35plus}}</td>
+        <td>{{formatCell totals.total.total}}</td>
+      </tr>
     </tbody>
   </table>
   {{/inline}}
 
+  {{! Permanent / Temporary &times; CSP table }}
   {{#*inline "permTempTable"}}
   <table>
     <thead>
@@ -986,19 +731,187 @@
     </thead>
     <tbody>
       {{#each rows}}
-      <tr class="{{#if isTotal}}tr-total{{/if}}">
-        <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
+      <tr>
+        <td class="lh2">{{label}}</td>
         <td>{{formatCell permanent.male}}</td>
         <td>{{formatCell permanent.female}}</td>
         <td>{{formatCell permanent.total}}</td>
         <td>{{formatCell temporary.male}}</td>
         <td>{{formatCell temporary.female}}</td>
         <td>{{formatCell temporary.total}}</td>
-        <td>{{formatCell this.total.male}}</td>
-        <td>{{formatCell this.total.female}}</td>
-        <td>{{formatCell this.total.total}}</td>
+        <td>{{formatCell total.male}}</td>
+        <td>{{formatCell total.female}}</td>
+        <td>{{formatCell total.total}}</td>
       </tr>
       {{/each}}
+      <tr class="tr-total">
+        <td class="lh">{{totals.label}}</td>
+        <td>{{formatCell totals.permanent.male}}</td>
+        <td>{{formatCell totals.permanent.female}}</td>
+        <td>{{formatCell totals.permanent.total}}</td>
+        <td>{{formatCell totals.temporary.male}}</td>
+        <td>{{formatCell totals.temporary.female}}</td>
+        <td>{{formatCell totals.temporary.total}}</td>
+        <td>{{formatCell totals.total.male}}</td>
+        <td>{{formatCell totals.total.female}}</td>
+        <td>{{formatCell totals.total.total}}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{/inline}}
+
+  {{! Departures table (5 departure types) }}
+  {{#*inline "departuresTable"}}
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:14%">CSP / SPC</th>
+        <th colspan="3" class="th2">Licenciements / Dismissal</th>
+        <th colspan="3" class="th2">D&eacute;missions / Resignation</th>
+        <th colspan="3" class="th2">D&eacute;part &agrave; la retraite / Retirement</th>
+        <th colspan="3" class="th2">Autres d&eacute;parts / Other</th>
+        <th colspan="3" class="th3">Ensemble / Whole</th>
+      </tr>
+      <tr>
+        <th class="th2">M</th>
+        <th class="th2">F</th>
+        <th class="th2">T</th>
+        <th class="th2">M</th>
+        <th class="th2">F</th>
+        <th class="th2">T</th>
+        <th class="th2">M</th>
+        <th class="th2">F</th>
+        <th class="th2">T</th>
+        <th class="th2">M</th>
+        <th class="th2">F</th>
+        <th class="th2">T</th>
+        <th class="th3">M</th>
+        <th class="th3">F</th>
+        <th class="th3">T</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="lh2">{{label}}</td>
+        <td>{{formatCell dismissals.male}}</td>
+        <td>{{formatCell dismissals.female}}</td>
+        <td>{{formatCell dismissals.total}}</td>
+        <td>{{formatCell resignations.male}}</td>
+        <td>{{formatCell resignations.female}}</td>
+        <td>{{formatCell resignations.total}}</td>
+        <td>{{formatCell retirements.male}}</td>
+        <td>{{formatCell retirements.female}}</td>
+        <td>{{formatCell retirements.total}}</td>
+        <td>{{formatCell others.male}}</td>
+        <td>{{formatCell others.female}}</td>
+        <td>{{formatCell others.total}}</td>
+        <td>{{formatCell ensemble.male}}</td>
+        <td>{{formatCell ensemble.female}}</td>
+        <td>{{formatCell ensemble.total}}</td>
+      </tr>
+      {{/each}}
+      <tr class="tr-total">
+        <td class="lh">{{totals.label}}</td>
+        <td>{{formatCell totals.dismissals.male}}</td>
+        <td>{{formatCell totals.dismissals.female}}</td>
+        <td>{{formatCell totals.dismissals.total}}</td>
+        <td>{{formatCell totals.resignations.male}}</td>
+        <td>{{formatCell totals.resignations.female}}</td>
+        <td>{{formatCell totals.resignations.total}}</td>
+        <td>{{formatCell totals.retirements.male}}</td>
+        <td>{{formatCell totals.retirements.female}}</td>
+        <td>{{formatCell totals.retirements.total}}</td>
+        <td>{{formatCell totals.others.male}}</td>
+        <td>{{formatCell totals.others.female}}</td>
+        <td>{{formatCell totals.others.total}}</td>
+        <td>{{formatCell totals.ensemble.male}}</td>
+        <td>{{formatCell totals.ensemble.female}}</td>
+        <td>{{formatCell totals.ensemble.total}}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{/inline}}
+
+  {{! Dismissal + Tech unemployment table }}
+  {{#*inline "dismissalTechTable"}}
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:22%">CSP / SPC</th>
+        <th colspan="3" class="th2">Licenciement / Dismissal</th>
+        <th colspan="3" class="th2">Ch&ocirc;mage technique / Technical unemployment</th>
+        <th colspan="3" class="th3">Total</th>
+      </tr>
+      <tr>
+        <th class="th2">M</th>
+        <th class="th2">F</th>
+        <th class="th2">T</th>
+        <th class="th2">M</th>
+        <th class="th2">F</th>
+        <th class="th2">T</th>
+        <th class="th3">M</th>
+        <th class="th3">F</th>
+        <th class="th3">T</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="lh2">{{label}}</td>
+        <td>{{formatCell dismissal.male}}</td>
+        <td>{{formatCell dismissal.female}}</td>
+        <td>{{formatCell dismissal.total}}</td>
+        <td>{{formatCell technicalUnemployment.male}}</td>
+        <td>{{formatCell technicalUnemployment.female}}</td>
+        <td>{{formatCell technicalUnemployment.total}}</td>
+        <td>{{formatCell total.male}}</td>
+        <td>{{formatCell total.female}}</td>
+        <td>{{formatCell total.total}}</td>
+      </tr>
+      {{/each}}
+      <tr class="tr-total">
+        <td class="lh">{{totals.label}}</td>
+        <td>{{formatCell totals.dismissal.male}}</td>
+        <td>{{formatCell totals.dismissal.female}}</td>
+        <td>{{formatCell totals.dismissal.total}}</td>
+        <td>{{formatCell totals.technicalUnemployment.male}}</td>
+        <td>{{formatCell totals.technicalUnemployment.female}}</td>
+        <td>{{formatCell totals.technicalUnemployment.total}}</td>
+        <td>{{formatCell totals.total.male}}</td>
+        <td>{{formatCell totals.total.female}}</td>
+        <td>{{formatCell totals.total.total}}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{/inline}}
+
+  {{! Simple 3-column table (internships) }}
+  {{#*inline "simpleTable"}}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:50%">Nature / Nature</th>
+        <th class="th2">Masculin / M</th>
+        <th class="th2">F&eacute;minin / F</th>
+        <th class="th3">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="lh2">{{label}}</td>
+        <td>{{formatCell male}}</td>
+        <td>{{formatCell female}}</td>
+        <td>{{formatCell total}}</td>
+      </tr>
+      {{/each}}
+      <tr class="tr-total">
+        <td class="lh">{{totals.label}}</td>
+        <td>{{formatCell totals.male}}</td>
+        <td>{{formatCell totals.female}}</td>
+        <td>{{formatCell totals.total}}</td>
+      </tr>
     </tbody>
   </table>
   {{/inline}}
