@@ -9,6 +9,7 @@ import * as path from 'path';
 @Injectable()
 export class OnefopPuppeteerService {
     private browser: any = null;
+    private helpersRegistered = false;  // ← guard: prevents "Helper already registered" error
 
     async generate(data: any): Promise<Buffer> {
         try {
@@ -63,6 +64,9 @@ export class OnefopPuppeteerService {
     }
 
     private registerHelpers(): void {
+        if (this.helpersRegistered) return;  // ← skip if already registered on this instance
+        this.helpersRegistered = true;
+
         Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
         Handlebars.registerHelper('neq', (a: any, b: any) => a !== b);
         Handlebars.registerHelper('or', (a: any, b: any) => a || b);
