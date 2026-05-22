@@ -1,4 +1,11 @@
 {{! ONEFOP — Questionnaire Entreprise — carbon copy of PDF form }}
+{{! REQUIRED HANDLEBARS HELPERS: eq, formatCell (must be registered in NestJS service) }}
+{{! REQUIRED ARRAY LENGTHS (mapper must pad with empty strings to exact size): }}
+{{! respondentPhone1Digits: 9, respondentPhone2Digits: 9 }}
+{{! regionCodeDigits: 2, departmentCodeDigits: 2, subdivisionCodeDigits: 3 }}
+{{! phone1Digits: 9, phone2Digits: 9 }}
+{{! branchActivityCodeDigits: 4, mainActivityCodeDigits: 4 }}
+{{! permanentWorkersDigits: 4, vacanciesDigits: 3 }}
 {{#with this}}
 <!DOCTYPE html>
 <html lang="fr">
@@ -280,7 +287,8 @@
         <h2>Questionnaire — ENTREPRISE / ENTERPRISE</h2>
       </div>
       <div class="hdr-meta">
-        <strong>Année / Year :</strong> {{surveyYear}}<br />
+        <strong>Année / Year :</strong> {{surveyYear}}
+        <<br />
         Copie / Copy : {{copy}}
       </div>
     </div>
@@ -301,11 +309,12 @@
       <span class="qcode">S0Q03</span>
       <span class="qlabel">Contacts répondant / Respondent's contacts :</span>
     </div>
+    {{! respondentPhone1Digits & respondentPhone2Digits must each be exactly 9 items }}
     <div class="qrow" style="margin-left:13mm">
       <span class="qlabel">Tél 1 :</span>
-      <span class="box-group">{{#each respondentPhone1Digits}}<span class="box">{{this}}</span>{{/each}}</span>
+      <span class="box-group">{{#each respondentPhone1Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
       <span class="qlabel" style="margin-left:4mm">Tél 2 :</span>
-      <span class="box-group">{{#each respondentPhone2Digits}}<span class="box">{{this}}</span>{{/each}}</span>
+      <span class="box-group">{{#each respondentPhone2Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
     </div>
     <div class="qrow" style="margin-left:13mm">
       <span class="qlabel">E-mail :</span>
@@ -345,15 +354,18 @@
       <span class="qcode">S1Q04</span>
       <span class="qlabel">Région / Region :</span>
       <span class="qval-sm">{{region}}</span>
-      <span class="box-group">{{#each regionCodeDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! regionCodeDigits must be exactly 2 items }}
+      <span class="box-group">{{#each regionCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
       <span class="qlabel" style="margin-left:3mm">Département / Division :</span>
       <span class="qval-sm">{{department}}</span>
-      <span class="box-group">{{#each departmentCodeDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! departmentCodeDigits must be exactly 2 items }}
+      <span class="box-group">{{#each departmentCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
     </div>
     <div class="qrow" style="margin-left:13mm">
       <span class="qlabel">Arrondissement / Subdivision :</span>
       <span class="qval-sm">{{subdivision}}</span>
-      <span class="box-group">{{#each subdivisionCodeDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! subdivisionCodeDigits must be exactly 3 items }}
+      <span class="box-group">{{#each subdivisionCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
       <span class="qlabel" style="margin-left:3mm">Quartier/Village/Localité / Neighborhood/Village/Locality :</span>
       <span class="qval">{{locality}}</span>
     </div>
@@ -361,9 +373,11 @@
     <div class="qrow">
       <span class="qcode">S1Q05</span>
       <span class="qlabel">Tél 1 / Tel 1 :</span>
-      <span class="box-group">{{#each phone1Digits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! phone1Digits must be exactly 9 items }}
+      <span class="box-group">{{#each phone1Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
       <span class="qlabel" style="margin-left:4mm">Tél 2 / Tel 2 :</span>
-      <span class="box-group">{{#each phone2Digits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! phone2Digits must be exactly 9 items }}
+      <span class="box-group">{{#each phone2Digits}}<<span class="box">{{this}}</span>{{/each}}</span>
       <span class="qlabel" style="margin-left:4mm">BP / PO Box :</span>
       <span class="qval-sm">{{poBox}}</span>
     </div>
@@ -381,14 +395,16 @@
       <span class="qcode">S1Q07</span>
       <span class="qlabel">Branche d'activité / Branch of activity :</span>
       <span class="qval">{{branchActivity}}</span>
-      <span class="box-group">{{#each branchActivityCodeDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! branchActivityCodeDigits must be exactly 4 items }}
+      <span class="box-group">{{#each branchActivityCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
     </div>
 
     <div class="qrow">
       <span class="qcode">S1Q08</span>
       <span class="qlabel">Activité principale / Main activity :</span>
       <span class="qval">{{mainActivity}}</span>
-      <span class="box-group">{{#each mainActivityCodeDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! mainActivityCodeDigits must be exactly 4 items }}
+      <span class="box-group">{{#each mainActivityCodeDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
     </div>
 
     <div class="qrow">
@@ -400,13 +416,15 @@
     <div class="qrow">
       <span class="qcode">S1Q10</span>
       <span class="qlabel">Nombre d'employé permanent / Number of permanent workers :</span>
-      <span class="box-group">{{#each permanentWorkersDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! permanentWorkersDigits must be exactly 4 items }}
+      <span class="box-group">{{#each permanentWorkersDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
     </div>
 
     <div class="qrow">
       <span class="qcode">S1Q11</span>
       <span class="qlabel">Nombre de poste vacant / Number of vacancies :</span>
-      <span class="box-group">{{#each vacanciesDigits}}<span class="box">{{this}}</span>{{/each}}</span>
+      {{! vacanciesDigits must be exactly 3 items }}
+      <span class="box-group">{{#each vacanciesDigits}}<<span class="box">{{this}}</span>{{/each}}</span>
     </div>
 
     <div class="qrow">
@@ -455,6 +473,10 @@
     <p class="qtitle">S22Q03 : Combien de personnes avez-vous recruté selon la catégorie socioprofessionnelle, le sexe,
       le diplôme et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many workers per socio-professional
       category, gender, and diploma did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
+    {{! Mapper must provide 13 rows: 12 diploma types + 1 TOTAL row (isTotal:true). }}
+    {{! PDF row order: CEP/CEPE/FSLC, BEPC/CAP/GCE-OL, PROBATOIRE/Lower sixth, BAC/GCE-AL, }}
+    {{! BTS/DUT/HND, Licence(Bac+3)/Bachelor, Maitrise(Bac+4)/Master1, Master(Bac+5)/Master2, }}
+    {{! DQP/PQD, CQP/CPQ, Autres/Others, Sans diplome/Without diploma, TOTAL }}
     <table>
       <thead>
         <tr>
@@ -503,11 +525,13 @@
       socioprofessionnelle, le sexe et le statut du 1er Janvier {{surveyYear}} à ce jour ? / How many workers with a
       disability per socio-professional category, gender, and status did you recruit from the 1st of January
       {{surveyYear}} to the present day?</p>
+    {{! Mapper must provide 4 rows: Cadres, Agents de Maitrise, Agents d'execution, TOTAL }}
     {{> permTempTable rows=disabledRecruitmentsRows}}
 
     <p class="qtitle">S22Q05 : Combien de personnes vulnérables avez-vous recruté selon le statut et la nature de la
       vulnérabilité du 1er Janvier {{surveyYear}} à ce jour ? / How many vulnerable workers per socio-professional
       category, gender, and status did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
+    {{! Mapper must provide 4 rows: Deplaces internes, Refugies, Orphelins, TOTAL }}
     <table>
       <thead>
         <tr>
@@ -565,63 +589,94 @@
       catégorie socioprofessionnelle et la tranche d'âge du 1er Janvier {{surveyYear}} à ce jour ? / How many people
       working for their first time per socio-professional category, gender and age group did you recruit from the 1st of
       January {{surveyYear}} to the present day?</p>
+    {{! FIX 1: Replaced entire table to match PDF structure with 35+ column, Permanent/Temporary sub-sections, and grand
+    total }}
     <table>
       <thead>
         <tr>
-          <th rowspan="3" style="width:16%">CSP / SPC</th>
-          <th colspan="12" class="th2">Statut / Status</th>
+          <th rowspan="2" style="width:18%">CSP / SPC</th>
+          <th colspan="4" class="th2">Masculin / Male</th>
+          <th colspan="4" class="th2">Féminin / Female</th>
+          <th colspan="4" class="th3">TOTAL</th>
         </tr>
         <tr>
-          <th colspan="6" class="th2">Permanent / Permanent</th>
-          <th colspan="6" class="th2">Temporaire / Temporary</th>
-        </tr>
-        <tr>
-          <th class="th2" colspan="3">Masculin / Male</th>
-          <th class="th2" colspan="3">Féminin / Female</th>
-          <th class="th2" colspan="3">Masculin / Male</th>
-          <th class="th2" colspan="3">Féminin / Female</th>
-        </tr>
-        <tr>
-          <th>Tranche d'âge / Age group</th>
           <th class="th2">15-24</th>
           <th class="th2">25-34</th>
+          <th class="th2">35+</th>
           <th class="th2">Total</th>
           <th class="th2">15-24</th>
           <th class="th2">25-34</th>
+          <th class="th2">35+</th>
           <th class="th2">Total</th>
-          <th class="th2">15-24</th>
-          <th class="th2">25-34</th>
-          <th class="th2">Total</th>
-          <th class="th2">15-24</th>
-          <th class="th2">25-34</th>
-          <th class="th2">Total</th>
+          <th class="th3">15-24</th>
+          <th class="th3">25-34</th>
+          <th class="th3">35+</th>
+          <th class="th3">Total</th>
         </tr>
       </thead>
       <tbody>
-        {{#each firstTimeRecruitmentsRows}}
+        <tr>
+          <td class="lh" colspan="13" style="background:#c8d9ea;font-style:italic">Permanent / Permanent</td>
+        </tr>
+        {{#each firstTimeRecruitmentsPermanentRows}}
         <tr class="{{#if isTotal}}tr-total{{/if}}">
           <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell permanentMale.age15_24}}</td>
-          <td>{{formatCell permanentMale.age25_34}}</td>
-          <td>{{formatCell permanentMale.total}}</td>
-          <td>{{formatCell permanentFemale.age15_24}}</td>
-          <td>{{formatCell permanentFemale.age25_34}}</td>
-          <td>{{formatCell permanentFemale.total}}</td>
-          <td>{{formatCell temporaryMale.age15_24}}</td>
-          <td>{{formatCell temporaryMale.age25_34}}</td>
-          <td>{{formatCell temporaryMale.total}}</td>
-          <td>{{formatCell temporaryFemale.age15_24}}</td>
-          <td>{{formatCell temporaryFemale.age25_34}}</td>
-          <td>{{formatCell temporaryFemale.total}}</td>
+          <td>{{formatCell male.age15_24}}</td>
+          <td>{{formatCell male.age25_34}}</td>
+          <td>{{formatCell male.age35plus}}</td>
+          <td>{{formatCell male.total}}</td>
+          <td>{{formatCell female.age15_24}}</td>
+          <td>{{formatCell female.age25_34}}</td>
+          <td>{{formatCell female.age35plus}}</td>
+          <td>{{formatCell female.total}}</td>
+          <td>{{formatCell this.total.age15_24}}</td>
+          <td>{{formatCell this.total.age25_34}}</td>
+          <td>{{formatCell this.total.age35plus}}</td>
+          <td>{{formatCell this.total.total}}</td>
         </tr>
         {{/each}}
+        <tr>
+          <td class="lh" colspan="13" style="background:#c8d9ea;font-style:italic">Temporaire / Temporary</td>
+        </tr>
+        {{#each firstTimeRecruitmentsTemporaryRows}}
+        <tr class="{{#if isTotal}}tr-total{{/if}}">
+          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
+          <td>{{formatCell male.age15_24}}</td>
+          <td>{{formatCell male.age25_34}}</td>
+          <td>{{formatCell male.age35plus}}</td>
+          <td>{{formatCell male.total}}</td>
+          <td>{{formatCell female.age15_24}}</td>
+          <td>{{formatCell female.age25_34}}</td>
+          <td>{{formatCell female.age35plus}}</td>
+          <td>{{formatCell female.total}}</td>
+          <td>{{formatCell this.total.age15_24}}</td>
+          <td>{{formatCell this.total.age25_34}}</td>
+          <td>{{formatCell this.total.age35plus}}</td>
+          <td>{{formatCell this.total.total}}</td>
+        </tr>
+        {{/each}}
+        <tr class="tr-total">
+          <td class="lh">TOTAL</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.age15_24}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.age25_34}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.age35plus}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.male.total}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.age15_24}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.age25_34}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.age35plus}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.female.total}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.age15_24}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.age25_34}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.age35plus}}</td>
+          <td>{{formatCell firstTimeRecruitmentsGrandTotal.total.total}}</td>
+        </tr>
       </tbody>
     </table>
 
   </div>{{! /page 4 }}
 
 
-  {{! ══════════ PAGE 5 — S3 Departures ══════════ }}
+  {{! ══════════ PAGE 5 — S3 Departures (Q01 + Q02 only) ══════════ }}
   <div class="page">
 
     <div class="sec">SECTION 3 — DÉPARTS / DEPARTURES</div>
@@ -682,6 +737,7 @@
 
     <p class="qtitle">S3Q02 : Quels sont les principaux motifs de licenciement ? / What are the main grounds for
       dismissal?</p>
+    {{! Mapper must provide exactly 3 items with index 1,2,3 }}
     <table class="list-table">
       <thead>
         <tr>
@@ -702,9 +758,120 @@
           <td>{{formatCell total}}</td>
         </tr>
         {{/each}}
+        {{! FIX 2: Added Total footer row for S3Q02 }}
+        <tr class="tr-total">
+          <td class="idx"></td>
+          <td class="lh">Total</td>
+          <td>{{formatCell dismissalReasonsTotal.male}}</td>
+          <td>{{formatCell dismissalReasonsTotal.female}}</td>
+          <td>{{formatCell dismissalReasonsTotal.total}}</td>
+        </tr>
       </tbody>
     </table>
 
+  </div>{{! /page 5 }}
+
+
+  {{! ══════════ PAGE 6 — S4 Training + S3Q03 (moved from page 5) ══════════ }}
+  <div class="page">
+
+    <div class="sec">SECTION 4 — STAGE ET FORMATION / INTERNSHIP AND TRAINING</div>
+
+    <p class="qtitle">S4Q01 : Combien de stagiaires avez-vous recrutés du 1er Janvier {{surveyYear}} à ce jour ? / How
+      many interns did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
+    {{! Mapper must provide 5 rows: Stage de vacance, Stage academique, Stage professionnelle, Stage pre-emploi, Total
+    }}
+    <table>
+      <thead>
+        <tr>
+          <th style="width:50%">Nature du stage / Nature of internship</th>
+          <th class="th2">Masculin / M</th>
+          <th class="th2">Féminin / F</th>
+          <th class="th3">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each internshipsRows}}
+        <tr class="{{#if isTotal}}tr-total{{/if}}">
+          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
+          <td>{{formatCell male}}</td>
+          <td>{{formatCell female}}</td>
+          <td>{{formatCell total}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <p class="qtitle">S4Q02 : Quels sont les besoins en compétence de votre entreprise ? (énumérer les 3 compétences
+      prioritaires) / What are the skills needs of your company? (list the 3 priority skills)</p>
+    {{! Mapper must provide exactly 3 items with index 1,2,3 }}
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th style="width:8mm">#</th>
+          <th style="text-align:left">Compétence / Skill</th>
+          <th style="width:14mm">M</th>
+          <th style="width:14mm">F</th>
+          <th style="width:14mm">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each skillsNeeds}}
+        <tr>
+          <td class="idx">{{index}}</td>
+          <td class="desc">{{skill}}</td>
+          <td>{{formatCell male}}</td>
+          <td>{{formatCell female}}</td>
+          <td>{{formatCell total}}</td>
+        </tr>
+        {{/each}}
+        {{! FIX 4: Added Total footer row for S4Q02 }}
+        <tr class="tr-total">
+          <td class="idx"></td>
+          <td class="lh">Total</td>
+          <td>{{formatCell skillsNeedsTotal.male}}</td>
+          <td>{{formatCell skillsNeedsTotal.female}}</td>
+          <td>{{formatCell skillsNeedsTotal.total}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="qtitle">S4Q03 : Quels sont les besoins en formation des personnels de votre entreprise ? (énumérer les 3
+      domaines de formation prioritaires) / What are the training needs of your company's staff? (list the 3 priority
+      fields of training)</p>
+    {{! Mapper must provide exactly 3 items with index 1,2,3 }}
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th style="width:8mm">#</th>
+          <th style="text-align:left">Domaine de formation / Domain of training</th>
+          <th style="width:14mm">M</th>
+          <th style="width:14mm">F</th>
+          <th style="width:14mm">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each trainingNeeds}}
+        <tr>
+          <td class="idx">{{index}}</td>
+          <td class="desc">{{domain}}</td>
+          <td>{{formatCell male}}</td>
+          <td>{{formatCell female}}</td>
+          <td>{{formatCell total}}</td>
+        </tr>
+        {{/each}}
+        {{! FIX 4: Added Total footer row for S4Q03 }}
+        <tr class="tr-total">
+          <td class="idx"></td>
+          <td class="lh">Total</td>
+          <td>{{formatCell trainingNeedsTotal.male}}</td>
+          <td>{{formatCell trainingNeedsTotal.female}}</td>
+          <td>{{formatCell trainingNeedsTotal.total}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    {{! FIX 3: S3Q03 moved from page 5 to end of page 6 (after S4Q03) per PDF layout }}
     <p class="qtitle">S3Q03 : Combien de personnes avez-vous licenciées ou mises en chômage technique du 1er Janvier
       {{surveyYear}} à ce jour ? / How many people did you dismiss or put on technical unemployment from the 1st of
       January {{surveyYear}} to the present day?</p>
@@ -741,88 +908,6 @@
           <td>{{formatCell this.total.male}}</td>
           <td>{{formatCell this.total.female}}</td>
           <td>{{formatCell this.total.total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-  </div>{{! /page 5 }}
-
-
-  {{! ══════════ PAGE 6 — S4 Training ══════════ }}
-  <div class="page">
-
-    <div class="sec">SECTION 4 — STAGE ET FORMATION / INTERNSHIP AND TRAINING</div>
-
-    <p class="qtitle">S4Q01 : Combien de stagiaires avez-vous recrutés du 1er Janvier {{surveyYear}} à ce jour ? / How
-      many interns did you recruit from the 1st of January {{surveyYear}} to the present day?</p>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:50%">Nature du stage / Nature of internship</th>
-          <th class="th2">Masculin / M</th>
-          <th class="th2">Féminin / F</th>
-          <th class="th3">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each internshipsRows}}
-        <tr class="{{#if isTotal}}tr-total{{/if}}">
-          <td class="{{#if isTotal}}lh{{else}}lh2{{/if}}">{{label}}</td>
-          <td>{{formatCell male}}</td>
-          <td>{{formatCell female}}</td>
-          <td>{{formatCell total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-    <p class="qtitle">S4Q02 : Quels sont les besoins en compétence de votre entreprise ? (énumérer les 3 compétences
-      prioritaires) / What are the skills needs of your company? (list the 3 priority skills)</p>
-    <table class="list-table">
-      <thead>
-        <tr>
-          <th style="width:8mm">#</th>
-          <th style="text-align:left">Compétence / Skill</th>
-          <th style="width:14mm">M</th>
-          <th style="width:14mm">F</th>
-          <th style="width:14mm">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each skillsNeeds}}
-        <tr>
-          <td class="idx">{{index}}</td>
-          <td class="desc">{{skill}}</td>
-          <td>{{formatCell male}}</td>
-          <td>{{formatCell female}}</td>
-          <td>{{formatCell total}}</td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
-
-    <p class="qtitle">S4Q03 : Quels sont les besoins en formation des personnels de votre entreprise ? (énumérer les 3
-      domaines de formation prioritaires) / What are the training needs of your company's staff? (list the 3 priority
-      fields of training)</p>
-    <table class="list-table">
-      <thead>
-        <tr>
-          <th style="width:8mm">#</th>
-          <th style="text-align:left">Domaine de formation / Domain of training</th>
-          <th style="width:14mm">M</th>
-          <th style="width:14mm">F</th>
-          <th style="width:14mm">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each trainingNeeds}}
-        <tr>
-          <td class="idx">{{index}}</td>
-          <td class="desc">{{domain}}</td>
-          <td>{{formatCell male}}</td>
-          <td>{{formatCell female}}</td>
-          <td>{{formatCell total}}</td>
         </tr>
         {{/each}}
       </tbody>
