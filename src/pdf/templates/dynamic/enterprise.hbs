@@ -136,16 +136,6 @@
       text-transform: uppercase
     }
 
-    .sec-s1 {
-      background: #BDD7EE;
-      color: #000;
-      font-weight: bold;
-      font-style: italic;
-      font-size: 9.5pt;
-      padding: 2px 5px;
-      margin: 2.5mm 0 1.5mm
-    }
-
     .subsec {
       background: #BDD7EE;
       color: #000;
@@ -310,6 +300,7 @@
       }
     }
   </style>
+  <base target="_blank">
 </head>
 
 <body>
@@ -508,7 +499,7 @@
       </tr>
     </table>
 
-    <div class="sec-s1"><em>SECTION 1. &nbsp; IDENTIFICATION DE L&#8217;ENTREPRISE / <em>COMPANY DETAILS</em></em></div>
+    <div class="sec"><em>SECTION 1. &nbsp; IDENTIFICATION DE L&#8217;ENTREPRISE / <em>COMPANY DETAILS</em></em></div>
 
     <table class="ftable">
       <tr>
@@ -913,141 +904,7 @@
       </tbody>
     </table>
 
-    <div class="sec">SECTION 4. &nbsp; STAGE ET FORMATION/ <em>INTERNSHIP AND TRAINING</em></div>
 
-    <div class="qt"><strong>S4Q01 :</strong> Combien de stagiaires avez-vous recrut&#233;s du 1er Janvier
-      <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many interns did you recruit from the 1<sup>st</sup>
-        of January {{surveyYear}} to the present day?</em>
-    </div>
-    <table class="dt">
-      <thead>
-        <tr>
-          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Nature du stage/ <em>Nature of
-              internship</em></th>
-          <th colspan="2">Sexe/ <em>Sex</em></th>
-          <th>Total</th>
-        </tr>
-        <tr>
-          <th style="background:#BFBFBF;color:#000"></th>
-          <th class="g">M</th>
-          <th class="g">F</th>
-          <th class="g">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each internshipsRows}}
-        <tr>
-          <td class="lb">{{label}}</td>
-          <td>{{{formatCell male}}}</td>
-          <td>{{{formatCell female}}}</td>
-          <td class="tot-col">{{{formatCell total}}}</td>
-        </tr>
-        {{/each}}
-        <tr class="tot">
-          <td class="lb" style="text-align:center">Total</td>
-          <td>{{{formatCell internshipsTotals.male}}}</td>
-          <td>{{{formatCell internshipsTotals.female}}}</td>
-          <td class="tot-col">{{{formatCell internshipsTotals.total}}}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="qt"><strong>S4Q02 :</strong> Quels sont les besoins en comp&#233;tence de votre entreprise?
-      (&#233;num&#233;rer les 3 comp&#233;tences prioritaires)/ <em>What are the skills needs of your company? (list the
-        3 priority skills)</em></div>
-    <table class="dt">
-      <thead>
-        <tr>
-          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Comp&#233;tence/ <em>Skill</em></th>
-          <th colspan="2">Sexe/ <em>Sex</em></th>
-          <th>Total</th>
-        </tr>
-        <tr>
-          <th style="background:#BFBFBF;color:#000"></th>
-          <th class="g">M</th>
-          <th class="g">F</th>
-          <th class="g">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="lb">Comp&#233;tence 1/ <em>Skill 1</em> : {{#if
-            skills.[0].description}}{{skills.[0].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
-          <td>{{{formatCell skills.[0].male}}}</td>
-          <td>{{{formatCell skills.[0].female}}}</td>
-          <td class="tot-col">{{{formatCell skills.[0].total}}}</td>
-        </tr>
-        <tr>
-          <td class="lb">Comp&#233;tence 2/ <em>Skill 2</em> : {{#if
-            skills.[1].description}}{{skills.[1].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
-          <td>{{{formatCell skills.[1].male}}}</td>
-          <td>{{{formatCell skills.[1].female}}}</td>
-          <td class="tot-col">{{{formatCell skills.[1].total}}}</td>
-        </tr>
-        <tr>
-          <td class="lb">Comp&#233;tence 3/ <em>Skill 3</em> : {{#if
-            skills.[2].description}}{{skills.[2].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
-          <td>{{{formatCell skills.[2].male}}}</td>
-          <td>{{{formatCell skills.[2].female}}}</td>
-          <td class="tot-col">{{{formatCell skills.[2].total}}}</td>
-        </tr>
-        <tr class="tot">
-          <td class="lb" style="text-align:center">Total</td>
-          <td>{{{formatCell skillsTotals.male}}}</td>
-          <td>{{{formatCell skillsTotals.female}}}</td>
-          <td class="tot-col">{{{formatCell skillsTotals.total}}}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="qt"><strong>S4Q03 :</strong> Quels sont les besoins en formation des personnels de votre entreprise?
-      (&#233;num&#233;rer les 3 domaines de formation prioritaires)/ <em>What are the training needs of your
-        company&#8217;s staff? (list the 3 priority field of training)</em></div>
-    <table class="dt">
-      <thead>
-        <tr>
-          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Domaine de formation/ <em>Domain of
-              training</em></th>
-          <th colspan="2">Sexe/ <em>Sex</em></th>
-          <th>Total</th>
-        </tr>
-        <tr>
-          <th style="background:#BFBFBF;color:#000"></th>
-          <th class="g">M</th>
-          <th class="g">F</th>
-          <th class="g">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="lb">Domaine 1/ <em>Domain 1</em> : {{#if
-            trainingNeeds.[0].domain}}{{trainingNeeds.[0].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
-          <td>{{{formatCell trainingNeeds.[0].male}}}</td>
-          <td>{{{formatCell trainingNeeds.[0].female}}}</td>
-          <td class="tot-col">{{{formatCell trainingNeeds.[0].total}}}</td>
-        </tr>
-        <tr>
-          <td class="lb">Domaine 2/ <em>Domain 2</em> : {{#if
-            trainingNeeds.[1].domain}}{{trainingNeeds.[1].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
-          <td>{{{formatCell trainingNeeds.[1].male}}}</td>
-          <td>{{{formatCell trainingNeeds.[1].female}}}</td>
-          <td class="tot-col">{{{formatCell trainingNeeds.[1].total}}}</td>
-        </tr>
-        <tr>
-          <td class="lb">Domaine 3/ <em>Domain 3</em> : {{#if
-            trainingNeeds.[2].domain}}{{trainingNeeds.[2].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
-          <td>{{{formatCell trainingNeeds.[2].male}}}</td>
-          <td>{{{formatCell trainingNeeds.[2].female}}}</td>
-          <td class="tot-col">{{{formatCell trainingNeeds.[2].total}}}</td>
-        </tr>
-        <tr class="tot">
-          <td class="lb" style="text-align:center">Total</td>
-          <td>{{{formatCell trainingNeedsTotals.male}}}</td>
-          <td>{{{formatCell trainingNeedsTotals.female}}}</td>
-          <td class="tot-col">{{{formatCell trainingNeedsTotals.total}}}</td>
-        </tr>
-      </tbody>
-    </table>
 
     <div class="qt"><strong>S3Q03 :</strong> Combien de personnes avez-vous licenci&#233;es ou mises en ch&#244;mage
       technique du 1er Janvier <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many people did you
@@ -1098,6 +955,144 @@
     </table>
 
   </div>
+
+  <div class="sec">SECTION 4. &nbsp; STAGE ET FORMATION/ <em>INTERNSHIP AND TRAINING</em></div>
+
+  <div class="qt"><strong>S4Q01 :</strong> Combien de stagiaires avez-vous recrut&#233;s du 1er Janvier
+    <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many interns did you recruit from the 1<sup>st</sup>
+      of January {{surveyYear}} to the present day?</em>
+  </div>
+  <table class="dt">
+    <thead>
+      <tr>
+        <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Nature du stage/ <em>Nature of
+            internship</em></th>
+        <th colspan="2">Sexe/ <em>Sex</em></th>
+        <th>Total</th>
+      </tr>
+      <tr>
+        <th style="background:#BFBFBF;color:#000"></th>
+        <th class="g">M</th>
+        <th class="g">F</th>
+        <th class="g">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each internshipsRows}}
+      <tr>
+        <td class="lb">{{label}}</td>
+        <td>{{{formatCell male}}}</td>
+        <td>{{{formatCell female}}}</td>
+        <td class="tot-col">{{{formatCell total}}}</td>
+      </tr>
+      {{/each}}
+      <tr class="tot">
+        <td class="lb" style="text-align:center">Total</td>
+        <td>{{{formatCell internshipsTotals.male}}}</td>
+        <td>{{{formatCell internshipsTotals.female}}}</td>
+        <td class="tot-col">{{{formatCell internshipsTotals.total}}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="qt"><strong>S4Q02 :</strong> Quels sont les besoins en comp&#233;tence de votre entreprise?
+    (&#233;num&#233;rer les 3 comp&#233;tences prioritaires)/ <em>What are the skills needs of your company? (list the
+      3 priority skills)</em></div>
+  <table class="dt">
+    <thead>
+      <tr>
+        <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Comp&#233;tence/ <em>Skill</em></th>
+        <th colspan="2">Sexe/ <em>Sex</em></th>
+        <th>Total</th>
+      </tr>
+      <tr>
+        <th style="background:#BFBFBF;color:#000"></th>
+        <th class="g">M</th>
+        <th class="g">F</th>
+        <th class="g">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="lb">Comp&#233;tence 1/ <em>Skill 1</em> : {{#if
+          skills.[0].description}}{{skills.[0].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
+        <td>{{{formatCell skills.[0].male}}}</td>
+        <td>{{{formatCell skills.[0].female}}}</td>
+        <td class="tot-col">{{{formatCell skills.[0].total}}}</td>
+      </tr>
+      <tr>
+        <td class="lb">Comp&#233;tence 2/ <em>Skill 2</em> : {{#if
+          skills.[1].description}}{{skills.[1].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
+        <td>{{{formatCell skills.[1].male}}}</td>
+        <td>{{{formatCell skills.[1].female}}}</td>
+        <td class="tot-col">{{{formatCell skills.[1].total}}}</td>
+      </tr>
+      <tr>
+        <td class="lb">Comp&#233;tence 3/ <em>Skill 3</em> : {{#if
+          skills.[2].description}}{{skills.[2].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
+        <td>{{{formatCell skills.[2].male}}}</td>
+        <td>{{{formatCell skills.[2].female}}}</td>
+        <td class="tot-col">{{{formatCell skills.[2].total}}}</td>
+      </tr>
+      <tr class="tot">
+        <td class="lb" style="text-align:center">Total</td>
+        <td>{{{formatCell skillsTotals.male}}}</td>
+        <td>{{{formatCell skillsTotals.female}}}</td>
+        <td class="tot-col">{{{formatCell skillsTotals.total}}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="qt"><strong>S4Q03 :</strong> Quels sont les besoins en formation des personnels de votre entreprise?
+    (&#233;num&#233;rer les 3 domaines de formation prioritaires)/ <em>What are the training needs of your
+      company&#8217;s staff? (list the 3 priority field of training)</em></div>
+  <table class="dt">
+    <thead>
+      <tr>
+        <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Domaine de formation/ <em>Domain of
+            training</em></th>
+        <th colspan="2">Sexe/ <em>Sex</em></th>
+        <th>Total</th>
+      </tr>
+      <tr>
+        <th style="background:#BFBFBF;color:#000"></th>
+        <th class="g">M</th>
+        <th class="g">F</th>
+        <th class="g">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="lb">Domaine 1/ <em>Domain 1</em> : {{#if
+          trainingNeeds.[0].domain}}{{trainingNeeds.[0].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
+        <td>{{{formatCell trainingNeeds.[0].male}}}</td>
+        <td>{{{formatCell trainingNeeds.[0].female}}}</td>
+        <td class="tot-col">{{{formatCell trainingNeeds.[0].total}}}</td>
+      </tr>
+      <tr>
+        <td class="lb">Domaine 2/ <em>Domain 2</em> : {{#if
+          trainingNeeds.[1].domain}}{{trainingNeeds.[1].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
+        <td>{{{formatCell trainingNeeds.[1].male}}}</td>
+        <td>{{{formatCell trainingNeeds.[1].female}}}</td>
+        <td class="tot-col">{{{formatCell trainingNeeds.[1].total}}}</td>
+      </tr>
+      <tr>
+        <td class="lb">Domaine 3/ <em>Domain 3</em> : {{#if
+          trainingNeeds.[2].domain}}{{trainingNeeds.[2].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
+        <td>{{{formatCell trainingNeeds.[2].male}}}</td>
+        <td>{{{formatCell trainingNeeds.[2].female}}}</td>
+        <td class="tot-col">{{{formatCell trainingNeeds.[2].total}}}</td>
+      </tr>
+      <tr class="tot">
+        <td class="lb" style="text-align:center">Total</td>
+        <td>{{{formatCell trainingNeedsTotals.male}}}</td>
+        <td>{{{formatCell trainingNeedsTotals.female}}}</td>
+        <td class="tot-col">{{{formatCell trainingNeedsTotals.total}}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+
 
   <script>
     document.querySelectorAll('.ph-box[data-val]').forEach(function (row) {
