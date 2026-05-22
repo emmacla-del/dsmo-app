@@ -1,19 +1,4 @@
 ﻿// questionnaires.controller.ts
-//
-// CHANGE from previous version (one line added, one line changed):
-//
-//   BEFORE  mappedData = mapCooperativeData(rawData);   ← raw Flutter keys
-//   AFTER   const normalized = normalizeFlatKeys(rawData, entityType);
-//           mappedData = mapCooperativeData(normalized); ← registry keys
-//
-// That single normalization call is the only diff. The pdf-data-mapper already
-// reads registry keys (S0Q01, COOP_S1Q01, s21q01_*, …) so it needs no changes.
-//
-// WHY the service still calls normalizeFlatKeys() internally:
-//   questionnairesService.submitQuestionnaire() normalises independently because
-//   it receives the raw DTO directly (not the already-normalised object). The two
-//   calls are on different code paths and both are pure / idempotent — running
-//   normalizeFlatKeys() on already-normalised keys is a safe no-op.
 
 import {
   Controller,
@@ -34,7 +19,7 @@ import {
   mapOngData,
   diagnoseMappingKeys,
 } from '../services/pdf-data-mapper.service';
-import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer'; // ← NEW
+import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
 
 @Controller('onefop')
 export class QuestionnairesController {
@@ -43,7 +28,6 @@ export class QuestionnairesController {
     private readonly pdfService: OnefopPuppeteerService,
   ) { }
 
-  // ── PREVIEW ────────────────────────────────────────────────────────────────
   @Post('preview')
   @UsePipes(
     new ValidationPipe({
@@ -64,30 +48,31 @@ export class QuestionnairesController {
       console.log('   entityType:', entityType);
       console.log('   data keys:', Object.keys(rawData).length);
 
-      // ── STEP 1: Normalise Flutter camelCase → registry keys ────────────────
-      // This is the only change from the previous version. Everything downstream
-      // (mapCooperativeData, mapEnterpriseData, …) already reads registry keys,
-      // so no other code needs to change.
-      const normalized = normalizeFlatKeys(rawData, entityType); // ← NEW
+      const normalized = normalizeFlatKeys(rawData, entityType);
+
+      // DEBUG: Log keys for dismissal reasons, skills, and training needs
+      const relevantKeys = Object.keys(normalized)
+        .filter(k => k.startsWith('s3q02') || k.startsWith('s4q02') || k.startsWith('s4q03'));
+      console.log('🔑 Reasons/Skills/Training keys:', JSON.stringify(relevantKeys));
+      console.log('📦 Full normalized payload keys count:', Object.keys(normalized).length);
 
       if (process.env.NODE_ENV !== 'production') {
-        diagnoseMappingKeys(normalized); // ← was rawData, now normalized
+        diagnoseMappingKeys(normalized);
       }
 
-      // ── STEP 2: Map normalised data → template-ready structure ─────────────
       let mappedData: Record<string, unknown>;
       switch (entityType) {
         case 'enterprise':
-          mappedData = mapEnterpriseData(normalized);  // ← was rawData
+          mappedData = mapEnterpriseData(normalized);
           break;
         case 'cooperative':
-          mappedData = mapCooperativeData(normalized); // ← was rawData
+          mappedData = mapCooperativeData(normalized);
           break;
         case 'ctd':
-          mappedData = mapCtdData(normalized);         // ← was rawData
+          mappedData = mapCtdData(normalized);
           break;
         case 'ong':
-          mappedData = mapOngData(normalized);         // ← was rawData
+          mappedData = mapOngData(normalized);
           break;
         default:
           return res
@@ -102,7 +87,6 @@ export class QuestionnairesController {
         );
       }
 
-      // ── STEP 3: Generate PDF ───────────────────────────────────────────────
       console.log('📄 Generating PDF...');
       const pdfBuffer = await this.pdfService.generate({
         ...mappedData,
@@ -125,8 +109,6 @@ export class QuestionnairesController {
     }
   }
 
-  // ── SUBMIT ─────────────────────────────────────────────────────────────────
-  // Unchanged — the service calls normalizeFlatKeys() internally.
   @Post('submit')
   @UsePipes(
     new ValidationPipe({
