@@ -312,7 +312,8 @@ function buildDepartureTotals(f: FlatData, prefix: string): DepartureTotals {
 function buildDismissalReasons(f: FlatData, prefix: string): DismissalReason[] {
     return ([1, 2, 3] as const).map((i): DismissalReason => ({
         index: i,
-        text: str(f, `${prefix}_reason_${i}_text`),
+        // ← READ _label FIRST, fallback to _text for legacy
+        text: str(f, `${prefix}_reason_${i}_label`) || str(f, `${prefix}_reason_${i}_text`),
         male: int(f, `${prefix}_reason_${i}_male`),
         female: int(f, `${prefix}_reason_${i}_female`),
         total: int(f, `${prefix}_reason_${i}_total`),
@@ -379,7 +380,8 @@ function buildInternshipTotals(f: FlatData, prefix: string): ListTotals {
 function buildSkills(f: FlatData, prefix: string): SkillRow[] {
     return ([1, 2, 3] as const).map((i): SkillRow => ({
         index: i,
-        description: str(f, `${prefix}_skill_${i}_text`),
+        // ← READ _label FIRST, fallback to _description for legacy
+        description: str(f, `${prefix}_skill_${i}_label`) || str(f, `${prefix}_skill_${i}_text`),
         male: int(f, `${prefix}_skill_${i}_male`),
         female: int(f, `${prefix}_skill_${i}_female`),
         total: int(f, `${prefix}_skill_${i}_total`),
@@ -402,7 +404,8 @@ function buildSkillsTotals(f: FlatData, prefix: string): ListTotals {
 function buildTrainingNeeds(f: FlatData, prefix: string): TrainingRow[] {
     return ([1, 2, 3] as const).map((i): TrainingRow => ({
         index: i,
-        domain: str(f, `${prefix}_domain_${i}_text`),
+        // ← READ _label FIRST, fallback to _domain for legacy
+        domain: str(f, `${prefix}_domain_${i}_label`) || str(f, `${prefix}_domain_${i}_text`),
         male: int(f, `${prefix}_domain_${i}_male`),
         female: int(f, `${prefix}_domain_${i}_female`),
         total: int(f, `${prefix}_domain_${i}_total`),
@@ -438,7 +441,7 @@ function buildS23Q02(f: FlatData): S23Q02Result {
         male: ageBlock(f, `${prefix}_${contract}_subtotal_male`),
         female: ageBlock(f, `${prefix}_${contract}_subtotal_female`),
         total: ageBlock(f, `${prefix}_${contract}_subtotal_total`),
-    });
+    })
 
     return {
         permanent: buildContractRows('permanent'),
