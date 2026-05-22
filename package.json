@@ -9,7 +9,7 @@
     "seed": "node prisma/seed.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp -r src/pdf/templates dist/pdf/templates",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
     "start:dev": "nest start --watch",
