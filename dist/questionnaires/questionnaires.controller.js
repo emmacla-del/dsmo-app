@@ -31,6 +31,10 @@ let QuestionnairesController = class QuestionnairesController {
             console.log('   entityType:', entityType);
             console.log('   data keys:', Object.keys(rawData).length);
             const normalized = (0, flat_key_normalizer_1.normalizeFlatKeys)(rawData, entityType);
+            const relevantKeys = Object.keys(normalized)
+                .filter(k => k.startsWith('s3q02') || k.startsWith('s4q02') || k.startsWith('s4q03'));
+            console.log('🔑 Reasons/Skills/Training keys:', JSON.stringify(relevantKeys));
+            console.log('📦 Full normalized payload keys count:', Object.keys(normalized).length);
             if (process.env.NODE_ENV !== 'production') {
                 (0, pdf_data_mapper_service_1.diagnoseMappingKeys)(normalized);
             }

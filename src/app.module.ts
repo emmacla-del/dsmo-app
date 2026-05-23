@@ -17,7 +17,7 @@ import { AnalyticsModule } from './analytics/analytics.module'; // ← ADD THIS
     PrismaModule,
     LocationsModule,
     SectorsModule,
-    // MinefopServicesModule,  // keep commented if needed
+    MinefopServicesModule,
     QuestionnairesModule,
     OnefopAnalyticsModule,
     PdfModule,

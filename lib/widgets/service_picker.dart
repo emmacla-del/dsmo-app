@@ -2,15 +2,16 @@
 // ═══════════════════════════════════════════════════════════════
 // MINEFOP Service Picker — drill-down tree navigator.
 //
-// Fixes vs previous version:
-//   • _navigateToNode() actually works — builds breadcrumb path
-//     by walking the full flat list to reconstruct ancestors.
+// Features:
+//   • _navigateToNode() builds breadcrumb path by walking the
+//     full flat list to reconstruct ancestors.
 //   • Back button uses the breadcrumb stack, never reloads network.
 //   • Selected leaf node is visually highlighted and remembered.
 //   • Category picker uses UltraTheme styling consistently.
 //   • Loading, error, and empty states are all handled cleanly.
 //   • Parent-code map built once during load, not on every render.
 //   • AnimatedSwitcher between levels for smooth drill-down feel.
+//   • parentCode empty-string edge-case handled in fromJson.
 // ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
@@ -18,67 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/api_client.dart';
 import '../theme/ultra_theme.dart';
-
-// ── Model ────────────────────────────────────────────────────
-
-class MinefopServiceNode {
-  final String id;
-  final String code;
-  final String category;
-  final int level;
-  final String? parentCode;
-  final String name;
-  final String? nameEn;
-  final String? acronym;
-  final String roleMapping;
-  final bool requiresRegion;
-  final bool requiresDepartment;
-
-  const MinefopServiceNode({
-    required this.id,
-    required this.code,
-    required this.category,
-    required this.level,
-    this.parentCode,
-    required this.name,
-    this.nameEn,
-    this.acronym,
-    required this.roleMapping,
-    required this.requiresRegion,
-    required this.requiresDepartment,
-  });
-
-  factory MinefopServiceNode.fromJson(Map<String, dynamic> j) {
-    final rawParent = j['parentCode'];
-    return MinefopServiceNode(
-      id: j['id'] as String,
-      code: j['code'] as String,
-      category: j['category'] as String,
-      level: j['level'] as int,
-      parentCode: (rawParent is String && rawParent.isEmpty)
-          ? null
-          : rawParent as String?,
-      name: j['name'] as String,
-      nameEn: j['nameEn'] as String?,
-      acronym: j['acronym'] as String?,
-      roleMapping: j['roleMapping'] as String,
-      requiresRegion: j['requiresRegion'] as bool? ?? false,
-      requiresDepartment: j['requiresDepartment'] as bool? ?? false,
-    );
-  }
-
-  /// Display label shown in list tiles and breadcrumbs.
-  String get displayName => acronym != null ? '$acronym — $name' : name;
-
-  /// Short label used in breadcrumb chips (acronym preferred).
-  String get shortName => acronym ?? name;
-
-  @override
-  bool operator ==(Object other) =>
-      other is MinefopServiceNode && other.code == code;
-  @override
-  int get hashCode => code.hashCode;
-}
+import '../data/minefop_models.dart';
 
 // ── Category metadata ────────────────────────────────────────
 
@@ -196,6 +137,7 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
           _children.putIfAbsent(parent, () => []).add(node);
         }
       }
+
       // Sort everything alphabetically for consistent display.
       roots.sort((a, b) => a.displayName.compareTo(b.displayName));
       for (final list in _children.values) {
@@ -332,8 +274,8 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
   Widget _buildTreeArea() {
     // No category picked yet.
     if (_selectedCategory == null) {
-      return _EmptyState(
-        key: const ValueKey('no-cat'),
+      return const _EmptyState(
+        key: ValueKey('no-cat'),
         icon: Icons.account_tree_outlined,
         message: 'Sélectionnez un type de service ci-dessus.',
       );
@@ -355,8 +297,8 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
 
     // Empty result.
     if (_currentLevel.isEmpty) {
-      return _EmptyState(
-        key: const ValueKey('empty'),
+      return const _EmptyState(
+        key: ValueKey('empty'),
         icon: Icons.inbox_outlined,
         message: 'Aucun service trouvé.',
       );
@@ -384,7 +326,10 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (ctx, i) {
               final node = _currentLevel[i];
-              final hasKids = (_children[node.code] ?? []).isNotEmpty;
+              // A node has children if it appears as a key in _children
+              // OR if the backend flagged hasChildren on the node itself.
+              final hasKids = (_children[node.code]?.isNotEmpty ?? false) ||
+                  node.hasChildren;
               final selected = node == _selectedNode;
 
               return _NodeTile(
@@ -499,7 +444,8 @@ class _Breadcrumb extends StatelessWidget {
         ),
         // Path chips
         for (int i = 0; i < path.length; i++) ...[
-          Icon(Icons.chevron_right, size: 16, color: UltraTheme.textMuted),
+          const Icon(Icons.chevron_right,
+              size: 16, color: UltraTheme.textMuted),
           _BreadcrumbChip(
             label: path[i].shortName,
             isLast: i == path.length - 1,

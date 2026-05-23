@@ -1,12 +1,19 @@
+// lib/onefop_form_models.dart
 // ============================================================
-// onefop_form_models.dart
-// Data models for all 4 ONEFOP questionnaire types
+// Data models for all ONEFOP questionnaire types.
+//
+// EntityType is imported from lib/data/minefop_models.dart —
+// the single source of truth. The old local enum and its
+// extension have been removed.
 //
 // KEY CHANGE: All integer fields are now nullable (int?)
-// - null = user left blank (missing data)
-// - 0 = user explicitly entered zero
-// - positive number = user entered that value
+//   null  = user left blank (missing data)
+//   0     = user explicitly entered zero
+//   n > 0 = user entered that value
 // ============================================================
+
+import 'data/minefop_models.dart';
+import 'models/user.dart'; // ← add this (adjust path to wherever User lives)// EntityType, single source of truth
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -23,15 +30,9 @@ AgeBreakdown _ageFromJson(dynamic m) {
 GenderAgeBreakdown _genderAgeFromJson(dynamic m) {
   final g = GenderAgeBreakdown();
   if (m == null) return g;
-  if (m['male'] != null) {
-    g.male = _ageFromJson(m['male']);
-  }
-  if (m['female'] != null) {
-    g.female = _ageFromJson(m['female']);
-  }
-  if (m['total'] != null) {
-    g.total = _ageFromJson(m['total']);
-  }
+  if (m['male'] != null) g.male = _ageFromJson(m['male']);
+  if (m['female'] != null) g.female = _ageFromJson(m['female']);
+  if (m['total'] != null) g.total = _ageFromJson(m['total']);
   return g;
 }
 
@@ -68,11 +69,9 @@ class AgeBreakdown {
         'total': total,
       };
 
-  /// Returns true if any age band has a non-null value
   bool get hasAnyData =>
       (age15_24 ?? 0) + (age25_34 ?? 0) + (age35plus ?? 0) > 0;
 
-  /// Calculates total from non-null values (treats null as 0 for calculation)
   int get calculatedTotal =>
       (age15_24 ?? 0) + (age25_34 ?? 0) + (age35plus ?? 0);
 }
@@ -97,14 +96,12 @@ class GenderAgeBreakdown {
         'total': total.toJson(),
       };
 
-  /// Recalculates totals from the age band values
   void recalcTotals() {
     male.total = male.calculatedTotal;
     female.total = female.calculatedTotal;
     total.total = (male.total ?? 0) + (female.total ?? 0);
   }
 
-  /// Returns true if any cell has data
   bool get hasAnyData => male.hasAnyData || female.hasAnyData;
 }
 
@@ -144,13 +141,11 @@ class CspGenderAgeTable {
         'total': total.toJson(),
       };
 
-  /// Recalculates all totals in the table
   void recalcAllTotals() {
     executives.recalcTotals();
     foremen.recalcTotals();
     fieldWorkers.recalcTotals();
 
-    // Aggregate totals across CSP categories - USE ?? 0 for null safety
     total.male.age15_24 = (executives.male.age15_24 ?? 0) +
         (foremen.male.age15_24 ?? 0) +
         (fieldWorkers.male.age15_24 ?? 0);
@@ -176,12 +171,8 @@ class CspGenderAgeTable {
 
   int grandTotal() => total.total.total ?? 0;
 
-  /// Returns true if the entire table has no data
-  bool isEmpty() {
-    return !executives.hasAnyData &&
-        !foremen.hasAnyData &&
-        !fieldWorkers.hasAnyData;
-  }
+  bool isEmpty() =>
+      !executives.hasAnyData && !foremen.hasAnyData && !fieldWorkers.hasAnyData;
 }
 
 class MFTCount {
@@ -199,10 +190,8 @@ class MFTCount {
         'total': total,
       };
 
-  /// Returns true if any field has data
   bool get hasAnyData => (male ?? 0) + (female ?? 0) > 0;
 
-  /// Recalculates total from male + female
   void recalcTotal() {
     total = (male ?? 0) + (female ?? 0);
   }
@@ -220,15 +209,9 @@ class PermTempRow {
   }
 
   void fromJson(Map<String, dynamic> m) {
-    if (m['permanent'] != null) {
-      permanent = MFTCount.fromJson(m['permanent']);
-    }
-    if (m['temporary'] != null) {
-      temporary = MFTCount.fromJson(m['temporary']);
-    }
-    if (m['total'] != null) {
-      total = MFTCount.fromJson(m['total']);
-    }
+    if (m['permanent'] != null) permanent = MFTCount.fromJson(m['permanent']);
+    if (m['temporary'] != null) temporary = MFTCount.fromJson(m['temporary']);
+    if (m['total'] != null) total = MFTCount.fromJson(m['total']);
     recalcAllTotals();
   }
 
@@ -276,7 +259,7 @@ class DismissalReason {
   }
 }
 
-/// Thin adapter so DismissalReason can be passed where MFTCount is expected
+/// Thin adapter so DismissalReason can be passed where MFTCount is expected.
 class DismissalReasonMFT extends MFTCount {
   final DismissalReason _reason;
 
@@ -401,15 +384,9 @@ class DiplomaGenderAgeRow {
   }
 
   void fromJson(Map<String, dynamic> m) {
-    if (m['male'] != null) {
-      male = AgeBreakdown.fromJson(m['male']);
-    }
-    if (m['female'] != null) {
-      female = AgeBreakdown.fromJson(m['female']);
-    }
-    if (m['total'] != null) {
-      total = AgeBreakdown.fromJson(m['total']);
-    }
+    if (m['male'] != null) male = AgeBreakdown.fromJson(m['male']);
+    if (m['female'] != null) female = AgeBreakdown.fromJson(m['female']);
+    if (m['total'] != null) total = AgeBreakdown.fromJson(m['total']);
   }
 
   Map<String, dynamic> toJson() => {
@@ -473,9 +450,7 @@ class DiplomaBreakdown {
     final m = raw as Map<String, dynamic>;
 
     void restoreRow(String key, DiplomaGenderAgeRow row) {
-      if (m[key] != null) {
-        row.fromJson(m[key] as Map<String, dynamic>);
-      }
+      if (m[key] != null) row.fromJson(m[key] as Map<String, dynamic>);
     }
 
     restoreRow('cepCepe', cepCepe);
@@ -526,9 +501,7 @@ class DiplomaBreakdown {
     }
   }
 
-  GenderAgeBreakdown rowFor(String key) {
-    return _rowByKey(key).toGenderAge();
-  }
+  GenderAgeBreakdown rowFor(String key) => _rowByKey(key).toGenderAge();
 
   List<DiplomaGenderAgeRow> get _dataRows => [
         cepCepe,
@@ -549,8 +522,6 @@ class DiplomaBreakdown {
     for (final row in _dataRows) {
       row.recalcTotals();
     }
-
-    // Recalculate grand total with null safety
     total.male.age15_24 =
         _dataRows.fold<int>(0, (s, r) => s + (r.male.age15_24 ?? 0));
     total.male.age25_34 =
@@ -641,7 +612,6 @@ class FirstTimeEmployedStatus {
     foremen.recalcTotals();
     fieldWorkers.recalcTotals();
 
-    // Aggregate subtotal with null safety
     subtotal.male.age15_24 = (executives.male.age15_24 ?? 0) +
         (foremen.male.age15_24 ?? 0) +
         (fieldWorkers.male.age15_24 ?? 0);
@@ -685,15 +655,9 @@ class FirstTimeEmployed {
   void fromJson(dynamic raw) {
     if (raw == null) return;
     final m = raw as Map<String, dynamic>;
-    if (m['permanent'] != null) {
-      permanent.fromJson(m['permanent']);
-    }
-    if (m['temporary'] != null) {
-      temporary.fromJson(m['temporary']);
-    }
-    if (m['total'] != null) {
-      total = GenderAgeBreakdown.fromJson(m['total']);
-    }
+    if (m['permanent'] != null) permanent.fromJson(m['permanent']);
+    if (m['temporary'] != null) temporary.fromJson(m['temporary']);
+    if (m['total'] != null) total = GenderAgeBreakdown.fromJson(m['total']);
     recalcAllTotals();
   }
 
@@ -701,7 +665,6 @@ class FirstTimeEmployed {
     permanent.recalcTotals();
     temporary.recalcTotals();
 
-    // Aggregate grand total with null safety
     total.male.age15_24 = (permanent.subtotal.male.age15_24 ?? 0) +
         (temporary.subtotal.male.age15_24 ?? 0);
     total.male.age25_34 = (permanent.subtotal.male.age25_34 ?? 0) +
@@ -722,38 +685,6 @@ class FirstTimeEmployed {
         'temporary': temporary.toJson(),
         'total': total.toJson(),
       };
-}
-
-// ─── Entity type enum ─────────────────────────────────────────
-
-enum EntityType { entreprise, cooperative, ctd, ong }
-
-extension EntityTypeLabel on EntityType {
-  String get frLabel {
-    switch (this) {
-      case EntityType.entreprise:
-        return 'Entreprise';
-      case EntityType.cooperative:
-        return 'Coopérative';
-      case EntityType.ctd:
-        return 'CTD';
-      case EntityType.ong:
-        return 'ONG';
-    }
-  }
-
-  String get formTitle {
-    switch (this) {
-      case EntityType.entreprise:
-        return 'Questionnaire Entreprises';
-      case EntityType.cooperative:
-        return 'Questionnaire Coopératives';
-      case EntityType.ctd:
-        return 'Questionnaire CTD';
-      case EntityType.ong:
-        return 'Questionnaire ONG';
-    }
-  }
 }
 
 // ─── Section 0 — Respondent ───────────────────────────────────
@@ -936,7 +867,7 @@ class OngSection1 {
       };
 }
 
-// ─── Sections 2-4 (shared across all 4 forms) ─────────────────
+// ─── Sections 2–4 (shared across all form types) ──────────────
 
 class EmploymentSection {
   late Map<String, PermTempRow> disabledRecruitments;
@@ -960,7 +891,6 @@ class EmploymentSection {
   void fromJson(Map<String, dynamic> m) {
     final dis = m['disabledRecruitments'] as Map<String, dynamic>?;
     final vuln = m['vulnerableRecruitments'] as Map<String, dynamic>?;
-
     if (dis != null) {
       for (final k in disabledRecruitments.keys) {
         if (dis[k] != null) {
@@ -1035,7 +965,7 @@ class DeparturesSection {
     dismissalReasons = [
       DismissalReason(),
       DismissalReason(),
-      DismissalReason()
+      DismissalReason(),
     ];
 
     dismissalTechUnemp = {};
@@ -1247,10 +1177,14 @@ class TrainingSection {
 class OnefopFormState {
   final EntityType entityType;
   RespondentSection section0 = RespondentSection();
+
+  // Exactly one of these is non-null, determined by entityType.
+  // vocational has no ONEFOP Section 1 model — it is DSMO-only.
   EntrepriseSection1? entrepriseS1;
   CooperativeSection1? cooperativeS1;
   CtdSection1? ctdS1;
   OngSection1? ongS1;
+
   CspGenderAgeTable jobApplications = CspGenderAgeTable();
   CspGenderAgeTable recruitmentsPermanent = CspGenderAgeTable();
   CspGenderAgeTable recruitmentsTemporary = CspGenderAgeTable();
@@ -1264,18 +1198,16 @@ class OnefopFormState {
 
   OnefopFormState(this.entityType) {
     switch (entityType) {
-      case EntityType.entreprise:
+      case EntityType.enterprise:
         entrepriseS1 = EntrepriseSection1();
-        break;
       case EntityType.cooperative:
         cooperativeS1 = CooperativeSection1();
-        break;
       case EntityType.ctd:
         ctdS1 = CtdSection1();
-        break;
       case EntityType.ong:
         ongS1 = OngSection1();
-        break;
+      case EntityType.vocational:
+        break; // DSMO-only path — no ONEFOP Section 1 variant
     }
   }
 
@@ -1293,11 +1225,13 @@ class OnefopFormState {
   }
 
   Map<String, dynamic> toJson() {
+    // vocational entities have no ONEFOP Section 1 payload
     final s1 = switch (entityType) {
-      EntityType.entreprise => entrepriseS1!.toJson(),
+      EntityType.enterprise => entrepriseS1!.toJson(),
       EntityType.cooperative => cooperativeS1!.toJson(),
       EntityType.ctd => ctdS1!.toJson(),
       EntityType.ong => ongS1!.toJson(),
+      EntityType.vocational => <String, dynamic>{},
     };
     return {
       ...section0.toJson(),
@@ -1315,5 +1249,120 @@ class OnefopFormState {
       ...sectionDepartures.toJson(),
       ...sectionTraining.toJson(),
     };
+  }
+}
+
+// ─── Pre-fill extensions ──────────────────────────────────────
+//
+// These bridge the registration flow → ONEFOP form automatically.
+// Call OnefopFormState.prefillFromUser(user) immediately after
+// construction, then prefillFromCompanyData(data) once the
+// company-profile API response arrives.
+//
+// NOTE: The User type is referenced here but not imported — add
+//   import 'path/to/your/user_model.dart';
+// at the top of this file (kept separate to avoid coupling to
+// auth internals from a pure-models file).
+
+extension RespondentSectionPrefill on RespondentSection {
+  /// Pre-fills Section 0 from the logged-in user's account data.
+  void prefillFromUser(User user) {
+    name = [user.firstName, user.lastName]
+        .where((s) => s != null && s.isNotEmpty)
+        .join(' ');
+    email = user.email;
+    // phone1 / phone2 / function_ are not stored on User — require
+    // manual entry or a separate profile fetch.
+  }
+}
+
+extension EntrepriseSection1Prefill on EntrepriseSection1 {
+  /// Pre-fills geographic location from the user account.
+  void prefillFromUser(User user) {
+    region = user.region ?? region;
+    department = user.department ?? department;
+    subdivision = user.subdivision ?? subdivision;
+  }
+
+  /// Pre-fills company-specific fields from a company-profile API response.
+  void prefillFromCompanyData(Map<String, dynamic> data) {
+    companyName = data['companyName'] as String? ?? companyName;
+    mainActivity = data['mainActivity'] as String? ?? mainActivity;
+    branchActivity = data['branch'] as String? ?? branchActivity;
+    headOffice = data['address'] as String? ?? headOffice;
+    phone1 = data['phone'] as String? ?? phone1;
+    phone2 = data['phone2'] as String? ?? phone2;
+    poBox = data['poBox'] as String? ?? poBox;
+    permanentWorkers =
+        (data['permanentWorkers'] as num?)?.toInt() ?? permanentWorkers;
+  }
+}
+
+extension CooperativeSection1Prefill on CooperativeSection1 {
+  void prefillFromUser(User user) {
+    region = user.region ?? region;
+    department = user.department ?? department;
+    subdivision = user.subdivision ?? subdivision;
+  }
+
+  void prefillFromCompanyData(Map<String, dynamic> data) {
+    cooperativeName = data['cooperativeName'] as String? ?? cooperativeName;
+    headOffice = data['cooperativeHeadOffice'] as String? ?? headOffice;
+    mainActivity = data['mainActivity'] as String? ?? mainActivity;
+    phone1 = data['phone'] as String? ?? phone1;
+    phone2 = data['phone2'] as String? ?? phone2;
+    poBox = data['poBox'] as String? ?? poBox;
+  }
+}
+
+extension CtdSection1Prefill on CtdSection1 {
+  void prefillFromUser(User user) {
+    region = user.region ?? region;
+    department = user.department ?? department;
+    subdivision = user.subdivision ?? subdivision;
+  }
+
+  void prefillFromCompanyData(Map<String, dynamic> data) {
+    phone1 = data['phone'] as String? ?? phone1;
+    phone2 = data['phone2'] as String? ?? phone2;
+    poBox = data['poBox'] as String? ?? poBox;
+  }
+}
+
+extension OngSection1Prefill on OngSection1 {
+  void prefillFromUser(User user) {
+    region = user.region ?? region;
+    department = user.department ?? department;
+    subdivision = user.subdivision ?? subdivision;
+  }
+
+  void prefillFromCompanyData(Map<String, dynamic> data) {
+    ongName = data['ngoName'] as String? ?? ongName;
+    headOffice = data['address'] as String? ?? headOffice;
+    mainMission = data['mainMission'] as String? ?? mainMission;
+    phone1 = data['phone'] as String? ?? phone1;
+    phone2 = data['phone2'] as String? ?? phone2;
+    poBox = data['poBox'] as String? ?? poBox;
+  }
+}
+
+/// Convenience methods on [OnefopFormState] — delegates to whichever
+/// Section 1 variant is active.
+extension OnefopFormStatePrefill on OnefopFormState {
+  void prefillFromUser(User user) {
+    section0.prefillFromUser(user);
+    entrepriseS1?.prefillFromUser(user);
+    cooperativeS1?.prefillFromUser(user);
+    ctdS1?.prefillFromUser(user);
+    ongS1?.prefillFromUser(user);
+    // vocational has no Section 1 — nothing to prefill
+  }
+
+  void prefillFromCompanyData(Map<String, dynamic> data) {
+    entrepriseS1?.prefillFromCompanyData(data);
+    cooperativeS1?.prefillFromCompanyData(data);
+    ctdS1?.prefillFromCompanyData(data);
+    ongS1?.prefillFromCompanyData(data);
+    // vocational has no Section 1 — nothing to prefill
   }
 }

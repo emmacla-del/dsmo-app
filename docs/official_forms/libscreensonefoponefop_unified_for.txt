@@ -1,45 +1,22 @@
 // lib/screens/onefop/onefop_unified_form_screen_v3.dart
 //
 // ══════════════════════════════════════════════════════════════
-// PIXEL-PERFECT UNIFIED FORM RENDERER  (v7)
+// PIXEL-PERFECT UNIFIED FORM RENDERER  (v8.1 — responsive fix)
 //
-// CHANGES vs v6:
-//   • CRITICAL BUG FIX — OnefopSectionContainer (onefop_section_renderer.dart
-//     line ~290) was receiving unconstrained width from a SingleChildScrollView
-//     (horizontal).  Fixed by wrapping the horizontal scroll child in an
-//     IntrinsicWidth + explicit SizedBox(_kScrollChildW) so every widget in
-//     the subtree sees a finite max-width.
-//
-//   • LAYOUT: _kDocW increased 940 → 980 px.  The 2-column paired-field
-//     gap is computed from the live _kDocW so the 1 px overflow is gone.
-//
-//   • MERGED STEP: Section 0 (Répondant) + Section 1 (entity-specific)
-//     are now rendered on the SAME page/step.  They are stacked vertically
-//     inside one scrollable viewport, separated by a visual divider.  The
-//     sidebar still shows them as two separate items (with their own
-//     completion badges) so the user always knows what's still missing.
-//     Navigation jumps over section 1 automatically since it is always
-//     rendered together with section 0.
-//
-//   • VERTICAL SCROLL + HIGHLIGHT: every question block and every table
-//     is wrapped in a _HighlightBlock that, when the block contains the
-//     currently-focused field, animates a soft blue left-border highlight
-//     and scrolls itself into view.  Works for all field types including
-//     nested table cells.
-//
-//   • SIDEBAR: now has three widths — 240 px (expanded), 56 px (icons-only
-//     collapsed), 0 px (fully hidden, toggled by AppBar button).  InkWell
-//     ripples and AnimatedContainer transitions throughout.  Missing-field
-//     count shown in orange pill badge.
-//
-//   • OVERFLOW FIX: the paired 2-column Row now uses
-//     colW = (_kDocW - _kColGap) / 2  where _kColGap = 16, so neither
-//     column can exceed the available width even at 980 px.
+// CRITICAL FIXES vs v8:
+//   • _kDocW 960 → 920 (fits inside 958px containers without overflow)
+//   • All fields use ConstrainedBox(maxWidth: _kDocW) instead of
+//     SizedBox(width: _kDocW) — fields shrink on narrow screens
+//   • Paired columns use Expanded() — never overflow, always fit
+//   • Hybrid table text column is responsive via LayoutBuilder
+//   • Section body uses LayoutBuilder — respects actual container width
+//   • Tables stretch proportionally via GenericSpreadsheetTable fix
 // ══════════════════════════════════════════════════════════════
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -58,68 +35,35 @@ import '../../core/focus/renderers/onefop_section_renderer.dart';
 import '../../core/focus/renderers/grid_theme.dart';
 import '../../widgets/pdf_viewer_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../widgets/pdf_viewer_screen_web.dart' show PdfCache;
 
-// ─────────────────────────────────────────────────────────────
-// BASE URL
-// ─────────────────────────────────────────────────────────────
-const String _kBaseUrl = 'http://localhost:3000/api';
+const String _kBaseUrl = 'https://dsmo-app-2.onrender.com/api';
 
-// ─────────────────────────────────────────────────────────────
-// Document-width constants  (single source of truth)
-// Increased from 940 → 980 px to reduce overflow risk.
-// ─────────────────────────────────────────────────────────────
-const double _kDocW = 980.0; // was GridTheme.tableTargetWidth = 940
-const double _kHybridNumW = GridTheme.colWidth; //  52 px
-const double _kHybridTextW = _kDocW - 3 * _kHybridNumW; // 824 px
-const double _kColGap = 16.0; // gap between paired columns
-const double _kColW = (_kDocW - _kColGap) / 2; // each paired-column width
+// ── Document width ────────────────────────────────────────────
+// 920 px is the target max width. On smaller screens, fields shrink
+// via ConstrainedBox. On larger screens, they cap at 920 px.
+const double _kDocW = 920.0;
+const double _kHybridNumW = GridTheme.colWidth; // 60 px
+const double _kColGap = 20.0;
 
-// total horizontal-scroll child width = document + side padding
+// Scroll child width = doc width + horizontal padding on both sides
 const double _kScrollChildW = _kDocW + OL.sectionBodyPaddingH * 2;
 
-// ─────────────────────────────────────────────────────────────
-// Sidebar widths
-// ─────────────────────────────────────────────────────────────
+// ── Sidebar widths ────────────────────────────────────────────
 const double _kSidebarFull = 240.0;
 const double _kSidebarCollapsed = 56.0;
 
-// ─────────────────────────────────────────────────────────────
-// Harmonised table typography
-// Aligns all table text (headers, data cells, totals, numeric
-// input cells) with the 12–13 px scale used in Section 2 fields.
-// These override the smaller values baked into OL.thStyle /
-// OL.tdStyle so every table looks consistent regardless of section.
-// ─────────────────────────────────────────────────────────────
+// ── Harmonised table typography ───────────────────────────────
 const TextStyle _kThStyle = TextStyle(
-  // column/row header
-  fontSize: 11,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF2C3E50),
-);
+    fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B));
 const TextStyle _kTdStyle = TextStyle(
-  // data-cell label text
-  fontSize: 12,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF212121),
-);
+    fontSize: 13, fontWeight: FontWeight.w400, color: Color(0xFF334155));
 const TextStyle _kTotStyle = TextStyle(
-  // calculated total cells
-  fontSize: 12,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF1F3864),
-);
+    fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2563EB));
 const TextStyle _kGrandTotStyle = TextStyle(
-  // grand-total row
-  fontSize: 12,
-  fontWeight: FontWeight.w700,
-  color: Color(0xFF1F3864),
-);
-const double _kNumCellFontSize = 12.0; // numeric input cells (_HNC)
+    fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B));
+const double _kNumCellFontSize = 14.0;
 
-// ─────────────────────────────────────────────────────────────
-// BACKEND MAPPERS
-// ─────────────────────────────────────────────────────────────
+// ── Backend mappers ───────────────────────────────────────────
 class _Map {
   static int area(String? v) {
     if (v == null) return 0;
@@ -177,23 +121,42 @@ class _Map {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// ENTITY TYPE
-// ─────────────────────────────────────────────────────────────
 enum EntityType { enterprise, cooperative, ctd, ong }
 
-// ─────────────────────────────────────────────────────────────
-// HYBRID TABLE DEFINITION
-// ─────────────────────────────────────────────────────────────
+// ── Phone validation helpers ────────────────────────────────
+// Cameroon format: 9 digits, must start with 2 (landline) or 6 (mobile)
+
+bool _isPhoneField(String fieldId) {
+  return fieldId.endsWith('_TEL1') || fieldId.endsWith('_TEL2');
+}
+
+bool _isValidCameroonPhone(String? value) {
+  if (value == null || value.isEmpty) return false;
+  // Must be exactly 9 digits
+  if (value.length != 9) return false;
+  // Must start with 2 or 6
+  final first = value[0];
+  return first == '2' || first == '6';
+}
+
+String? _phoneError(String? value) {
+  if (value == null || value.isEmpty) return 'Champ obligatoire';
+  if (value.length != 9) return 'Le numéro doit contenir exactement 9 chiffres';
+  final first = value[0];
+  if (first != '2' && first != '6') {
+    return 'Le numéro doit commencer par 2 (fixe) ou 6 (mobile)';
+  }
+  return null;
+}
+
 class _HTDef {
   final List<String> rowKeys;
   final String textSuffix;
   final List<String> rowLabels;
-  const _HTDef({
-    required this.rowKeys,
-    required this.textSuffix,
-    required this.rowLabels,
-  });
+  const _HTDef(
+      {required this.rowKeys,
+      required this.textSuffix,
+      required this.rowLabels});
 }
 
 class _FG {
@@ -214,7 +177,13 @@ const Set<String> _hybridAstIds = {
   'S4Q03_DOMAIN_3_TEXT',
 };
 
-const Set<String> _optionalOverrides = {'S0Q03_TEL2', 'S0Q03_EMAIL'};
+const Set<String> _optionalOverrides = {
+  'S0Q03_TEL2',
+  'S1Q05_TEL2',
+  'COOP_S1Q06_TEL2',
+  'CTD_S1Q06_TEL2',
+  'ONG_S1Q06_TEL2'
+};
 
 class _SM {
   final String lbl;
@@ -242,9 +211,6 @@ const Map<String, String> _div = {
   'S1Q10': 'Structure',
 };
 
-// ─────────────────────────────────────────────────────────────
-// DATA SANITISER
-// ─────────────────────────────────────────────────────────────
 Map<String, dynamic> _sanitiseInitialData(Map<String, dynamic> raw) {
   return Map.fromEntries(raw.entries.where((e) {
     final v = e.value;
@@ -254,15 +220,13 @@ Map<String, dynamic> _sanitiseInitialData(Map<String, dynamic> raw) {
   }));
 }
 
-// ══════════════════════════════════════════════════════════════
-// SCREEN
-// ══════════════════════════════════════════════════════════════
 class OnefopUnifiedFormScreenV2 extends StatefulWidget {
   final EntityType entityType;
   final Map<String, dynamic> initialData;
   final void Function(Map<String, dynamic>) onSave;
   final VoidCallback? onCancel;
   final String? userId;
+  final VoidCallback? onSubmitSuccess; // ← ADD THIS
 
   const OnefopUnifiedFormScreenV2({
     super.key,
@@ -271,10 +235,141 @@ class OnefopUnifiedFormScreenV2 extends StatefulWidget {
     required this.onSave,
     this.onCancel,
     this.userId,
+    this.onSubmitSuccess, // ← ADD THIS
   });
 
   @override
   State<OnefopUnifiedFormScreenV2> createState() => _State();
+}
+
+// ══════════════════════════════════════════════════════════════
+// STICKY SECTION HEADER DELEGATE  (NEW)
+// ══════════════════════════════════════════════════════════════
+class _StickySectionHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final String sectionId;
+  final String title;
+  final IconData? icon;
+  final bool isComplete;
+
+  _StickySectionHeaderDelegate({
+    required this.sectionId,
+    required this.title,
+    this.icon,
+    required this.isComplete,
+  });
+
+  @override
+  double get minExtent => 52.0;
+  @override
+  double get maxExtent => 52.0;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Center(
+      // ← FIX: centre the bar
+      child: ConstrainedBox(
+        // ← FIX: cap its width
+        constraints: const BoxConstraints(maxWidth: _kScrollChildW),
+        child: Container(
+          decoration: BoxDecoration(
+            color: OL.sectionHeaderBg(sectionId),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+            ),
+            border: const Border(
+              top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+              left: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+              right: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+            ),
+            boxShadow: overlapsContent
+                ? [
+                    const BoxShadow(
+                      color: Color(0x1A000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: OL.sectionHeaderPaddingH,
+            vertical: OL.sectionHeaderPaddingV,
+          ),
+          child: Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: Text(title, style: OL.shStyle),
+              ),
+              if (isComplete)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF70AD47),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check, color: Colors.white, size: 12),
+                      SizedBox(width: 4),
+                      Text(
+                        'Complet',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: const Color(0xFFF59E0B), width: 0.5),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pending, color: Color(0xFFD97706), size: 12),
+                      SizedBox(width: 4),
+                      Text(
+                        'En cours',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickySectionHeaderDelegate old) {
+    return old.sectionId != sectionId ||
+        old.title != title ||
+        old.icon != icon ||
+        old.isComplete != isComplete;
+  }
 }
 
 class _State extends State<OnefopUnifiedFormScreenV2> {
@@ -283,7 +378,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   FormSchemaV2? _schema;
 
   late final Map<String, dynamic> _data;
-
   final Map<String, TextEditingController> _ctrl = {};
   final Map<String, int> _uGrid = {};
   Map<String, int> _aGrid = {};
@@ -295,30 +389,22 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   bool _dirty = false;
   bool _saving = false;
   Timer? _asTimer;
-
   final Set<String> _dirtyT = {};
   Timer? _rTimer;
-
   bool _loading = true;
   String? _err;
-
-  // _si is the "virtual" page index shown in the nav-bar / sidebar.
-  // Because section 0 and section 1 are merged onto page 0, the mapping
-  // from virtual index → schema section index is _sectionIndexForPage().
   int _si = 0;
-
   final Map<String, bool> _valid = {};
-
   Map<String, dynamic>? _submissionSnapshot;
-
-  // Sidebar: 0 = hidden, 1 = icons-only, 2 = full
   int _sidebarMode = 2;
-
-  // Vertical scroll controller for the main content area
   final ScrollController _mainScroll = ScrollController();
-
-  // GlobalKeys for each "question block" — used for scroll-into-view
   final Map<String, GlobalKey> _blockKeys = {};
+
+  static const Map<String, String> _htColumnHeaders = {
+    's3q02': 'Motif / Reason',
+    's4q02': 'Compétence / Skill',
+    's4q03': 'Domaine / Domain',
+  };
 
   static const Map<String, _HTDef> _ht = {
     's3q02': _HTDef(
@@ -332,7 +418,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
       rowLabels: [
         'Compétence 1/Skill 1',
         'Compétence 2/Skill 2',
-        'Compétence 3/Skill 3',
+        'Compétence 3/Skill 3'
       ],
     ),
     's4q03': _HTDef(
@@ -341,38 +427,16 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
       rowLabels: [
         'Domaine 1/Domain 1',
         'Domaine 2/Domain 2',
-        'Domaine 3/Domain 3',
+        'Domaine 3/Domain 3'
       ],
     ),
   };
 
-  // ── Merged page logic ────────────────────────────────────────
-  // "Page 0" renders section0 + section1_* together.
-  // All other pages are 1:1 with the remaining schema sections.
+  int get _pageCount => _schema?.sections.length ?? 1;
 
-  bool _isMergedPage(int page) => page == 0;
-
-  /// Returns how many "virtual pages" we show in the nav.
-  /// If schema has sections [s0, s1_coop, s2, s3, s4] → 4 pages
-  /// (s0+s1 merged → page 0, s2 → page 1, s3 → page 2, s4 → page 3).
-  int get _pageCount {
-    if (_schema == null) return 1;
-    final n = _schema!.sections.length;
-    // Always merge first two sections (section0 + section1_*) into one page
-    return n <= 2 ? 1 : n - 1;
-  }
-
-  /// Returns the schema section indices that belong to virtual page [page].
   List<int> _sectionIndicesForPage(int page) {
     if (_schema == null) return [];
-    final n = _schema!.sections.length;
-    if (page == 0) {
-      // Page 0: section0 (index 0) + section1_* (index 1, if present)
-      return n >= 2 ? [0, 1] : [0];
-    }
-    // Pages 1+ map to schema indices 2, 3, 4…
-    final schemaIdx = page + 1;
-    if (schemaIdx < n) return [schemaIdx];
+    if (page >= 0 && page < _schema!.sections.length) return [page];
     return [];
   }
 
@@ -382,7 +446,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     return _schema!.sections[idxs.first];
   }
 
-  // ── lifecycle ────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -395,34 +458,58 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     _rTimer?.cancel();
     _asTimer?.cancel();
     _fm.dispose();
-    for (final c in _ctrl.values) c.dispose();
-    for (final c in _hctrl.values) c.dispose();
+    for (final c in _ctrl.values) {
+      c.dispose();
+    }
+    for (final c in _hctrl.values) {
+      c.dispose();
+    }
     _mainScroll.dispose();
     super.dispose();
   }
 
-  // ── schema loading ───────────────────────────────────────────
   Future<void> _loadSchema() async {
     try {
       final s = await OnefopFormLoader.loadForEntity(_eStr(widget.entityType));
       _schema = s;
       _engine = NavigationEngine(s);
       _fm = UnifiedFocusManagerV2(_engine);
+
+      // ═══════════════════════════════════════════════════════════
+      // DEBUG: Log incoming initialData before any processing
+      // ═══════════════════════════════════════════════════════════
+      debugPrint('🔍 [ONEFOP DEBUG] ===== widget.initialData received =====');
+      debugPrint('🔍 [ONEFOP DEBUG] Entity type: ${widget.entityType}');
+      debugPrint('🔍 [ONEFOP DEBUG] Total keys: ${widget.initialData.length}');
+      for (final entry in widget.initialData.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key))) {
+        debugPrint('🔍 [ONEFOP DEBUG]   ${entry.key} = ${entry.value}');
+      }
+      debugPrint(
+          '🔍 [ONEFOP DEBUG] =================================================');
+
       _initCtrl();
       _initTV();
       _initGrid();
       _initHybrid();
       _initFN();
       _initKeyH();
+
+      // DEBUG: Log what got into controllers after _initCtrl/_initTV
+      debugPrint('🔍 [ONEFOP DEBUG] ===== After _initCtrl/_initTV =====');
+      for (final entry in _tv.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key))) {
+        debugPrint('🔍 [ONEFOP DEBUG]   _tv[${entry.key}] = "${entry.value}"');
+      }
+      debugPrint(
+          '🔍 [ONEFOP DEBUG] =================================================');
+
       for (final sec in s.sections) {
         _valid[sec.id] = false;
       }
-      // Pre-create block keys for every field
       for (final f in s.fields) {
         _blockKeys[f.id] = GlobalKey();
       }
-      // Focus the first visible field on page 0 after schema loads.
-      // Use a post-frame callback so the widget tree is ready.
       WidgetsBinding.instance.addPostFrameCallback((_) => _focusFirst());
       if (mounted) setState(() => _loading = false);
     } catch (e, st) {
@@ -449,7 +536,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     }
   }
 
-  // ── init helpers ─────────────────────────────────────────────
   void _initCtrl() {
     for (final f in _schema!.fields) {
       if (f.type == 'table' || _hybridAstIds.contains(f.id)) continue;
@@ -501,7 +587,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     }
   }
 
-  // ── cell IDs ─────────────────────────────────────────────────
   List<String> _cellIds(FieldSchema f) {
     final spec = f.tableSpec;
     if (spec == null) return [];
@@ -646,8 +731,11 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     return id.split('_').first;
   }
 
-  // ── grid cell change ─────────────────────────────────────────
   void _onGC(String id, int v) {
+    // ENFORCEMENT D: Clamp table cell values to reasonable bounds
+    if (v < 0) v = 0;
+    if (v > 10000) v = 10000;
+
     if (v != 0) {
       _uGrid[id] = v;
     } else {
@@ -657,8 +745,11 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     _data[id] = v;
     _schedAS();
     _dirtyT.add(_pfx(id));
+
+    // 🔥 FIX: Immediate rebuild so totals recalc right away
     _rTimer?.cancel();
-    _rTimer = Timer(const Duration(milliseconds: 400), () {
+    _rTimer = Timer(Duration.zero, () {
+      // ← was 40ms, now 0ms
       if (mounted) _recalcDirty();
     });
   }
@@ -677,7 +768,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     });
   }
 
-  // ── auto-save ─────────────────────────────────────────────────
   void _schedAS() {
     if (!_dirty && mounted) setState(() => _dirty = true);
     _asTimer?.cancel();
@@ -696,7 +786,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     });
   }
 
-  // ── recalculation ─────────────────────────────────────────────
   void _recalcAll() {
     if (_schema == null) return;
     for (final f in _schema!.fields) {
@@ -725,20 +814,18 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
   Map<String, int> _dispatch(Map<String, int> c, String p) {
     Map<String, int> ga(String x) => TableCalculator.recalculateCspGenderAge(
-          current: c,
-          prefix: x,
-          rows: ['cadres', 'foremen', 'workers'],
-          genders: ['male', 'female', 'total'],
-          ageBands: ['15_24', '25_34', '35_plus'],
-        );
+        current: c,
+        prefix: x,
+        rows: ['cadres', 'foremen', 'workers'],
+        genders: ['male', 'female', 'total'],
+        ageBands: ['15_24', '25_34', '35_plus']);
     Map<String, int> sg(String x, List<String> r) =>
         TableCalculator.recalculateCspStatusGender(
-          current: c,
-          prefix: x,
-          rows: r,
-          statuses: ['permanent', 'temporary'],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: x,
+            rows: r,
+            statuses: ['permanent', 'temporary'],
+            genders: ['male', 'female', 'total']);
     switch (p) {
       case 's21q01':
       case 's22q01':
@@ -747,25 +834,32 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         return ga(p);
       case 's22q03':
         return TableCalculator.recalculateCspGenderAge(
-          current: c,
-          prefix: p,
-          rows: [
-            'cep',
-            'bepc',
-            'probatoire',
-            'bac',
-            'bts',
-            'licence',
-            'maitrise',
-            'master',
-            'dqp',
-            'cqp',
-            'autres',
-            'sans_diplome'
-          ],
-          genders: ['male', 'female', 'total'],
-          ageBands: ['15_24', '25_34', '35_plus'],
-        );
+            current: c,
+            prefix: p,
+            rows: [
+              'cep',
+              'bepc',
+              'probatoire',
+              'bac',
+              'bts',
+              'licence',
+              'maitrise',
+              'master',
+              'dqp',
+              'cqp',
+              'autres',
+              'sans_diplome'
+            ],
+            genders: [
+              'male',
+              'female',
+              'total'
+            ],
+            ageBands: [
+              '15_24',
+              '25_34',
+              '35_plus'
+            ]);
       case 's22q04':
         return sg(p, ['cadres', 'foremen', 'workers']);
       case 's22q05_ent':
@@ -774,79 +868,97 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         return sg(p, ['cadres', 'foremen', 'workers']);
       case 's23q02':
         return TableCalculator.recalculateFirstTimeWorkers(
-          current: c,
-          prefix: p,
-          contractTypes: ['permanent', 'temporary'],
-          rows: ['cadres', 'foremen', 'workers'],
-          genders: ['male', 'female', 'total'],
-          ageBands: ['15_24', '25_34', '35_plus'],
-        );
+            current: c,
+            prefix: p,
+            contractTypes: ['permanent', 'temporary'],
+            rows: ['cadres', 'foremen', 'workers'],
+            genders: ['male', 'female', 'total'],
+            ageBands: ['15_24', '25_34', '35_plus']);
       case 's3q01':
         return TableCalculator.recalculateDeparture(
-          current: c,
-          prefix: p,
-          rows: ['cadres', 'foremen', 'workers'],
-          departureTypes: [
-            'dismissal',
-            'resignation',
-            'retirement',
-            'other',
-            'ensemble'
-          ],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: p,
+            rows: [
+              'cadres',
+              'foremen',
+              'workers'
+            ],
+            departureTypes: [
+              'dismissal',
+              'resignation',
+              'retirement',
+              'other',
+              'ensemble'
+            ],
+            genders: [
+              'male',
+              'female',
+              'total'
+            ]);
       case 's3q02':
         return TableCalculator.recalculateReasons(
-          current: c,
-          prefix: p,
-          reasons: ['reason_1', 'reason_2', 'reason_3'],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: p,
+            reasons: ['reason_1', 'reason_2', 'reason_3'],
+            genders: ['male', 'female', 'total']);
       case 's3q03':
         return TableCalculator.recalculateDismissalUnemployment(
-          current: c,
-          prefix: p,
-          rows: ['cadres', 'foremen', 'workers'],
-          types: ['dismissal', 'technical_unemployment', 'total'],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: p,
+            rows: ['cadres', 'foremen', 'workers'],
+            types: ['dismissal', 'technical_unemployment', 'total'],
+            genders: ['male', 'female', 'total']);
       case 's4q01':
         return TableCalculator.recalculateInternship(
-          current: c,
-          prefix: p,
-          rows: ['vacation', 'academic', 'professional', 'pre_employment'],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: p,
+            rows: ['vacation', 'academic', 'professional', 'pre_employment'],
+            genders: ['male', 'female', 'total']);
       case 's4q02':
         return TableCalculator.recalculateSkillsOrTraining(
-          current: c,
-          prefix: p,
-          rows: ['skill_1', 'skill_2', 'skill_3'],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: p,
+            rows: ['skill_1', 'skill_2', 'skill_3'],
+            genders: ['male', 'female', 'total']);
       case 's4q03':
         return TableCalculator.recalculateSkillsOrTraining(
-          current: c,
-          prefix: p,
-          rows: ['domain_1', 'domain_2', 'domain_3'],
-          genders: ['male', 'female', 'total'],
-        );
+            current: c,
+            prefix: p,
+            rows: ['domain_1', 'domain_2', 'domain_3'],
+            genders: ['male', 'female', 'total']);
       default:
         return c;
     }
   }
 
-  // ── field change / blur / error ──────────────────────────────
   void _onFC(String id, String v) {
     if (_schema == null) return;
     final f = _schema!.getField(id);
     if (f == null) return;
-    _data[id] = f.type == 'number' ? (int.tryParse(v) ?? 0) : v;
-    _tv[id] = v;
+    // Phone enforcement: strip non-digits, enforce max 9
+    String cleanValue = v;
+    if (f.type == 'tel') {
+      cleanValue = v.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanValue.length > 9) cleanValue = cleanValue.substring(0, 9);
+      // Auto-correct first digit to valid Cameroon prefix if user types wrong start
+      if (cleanValue.isNotEmpty &&
+          cleanValue[0] != '2' &&
+          cleanValue[0] != '6') {
+        // Don't auto-correct, let validation catch it
+      }
+    }
+    _data[id] =
+        f.type == 'number' ? (int.tryParse(cleanValue) ?? 0) : cleanValue;
+    _tv[id] = cleanValue;
+    // Update controller text if we cleaned it (so UI stays in sync)
+    if (cleanValue != v && _ctrl.containsKey(id)) {
+      final c = _ctrl[id]!;
+      c.text = cleanValue;
+      c.selection = TextSelection.collapsed(offset: cleanValue.length);
+    }
     _schedAS();
     _revalidateCurrentPage();
     setState(() {});
-    // Scroll the focused block into view
     _scrollToBlock(id);
   }
 
@@ -861,14 +973,84 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     if (!_touched.contains(id)) setState(() => _touched.add(id));
   }
 
+// ── Email validation helper ────────────────────────────────
+
+  bool _isValidEmail(String? value) {
+    if (value == null || value.isEmpty) return false;
+    final emailRegex =
+        RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    return emailRegex.hasMatch(value);
+  }
+
+// ── Year validation helper ──────────────────────────────────
+
+  bool _isValidYear(String? value) {
+    if (value == null || value.isEmpty) return false;
+    final year = int.tryParse(value);
+    if (year == null) return false;
+    final currentYear = DateTime.now().year;
+    return year >= 1900 && year <= currentYear;
+  }
+
+  // ← ADD THIS RIGHT HERE
+  bool _isYearField(FieldSchema f) {
+    return f.type == 'number' &&
+        (f.id.toLowerCase().contains('year') ||
+            f.id == 'COOP_S1Q03' ||
+            f.id == 'CTD_S1Q03' ||
+            f.id == 'ONG_S1Q03');
+  }
+
   bool _hasErr(FieldSchema f) {
     if (_optionalOverrides.contains(f.id)) return false;
     if (!f.required || !_touched.contains(f.id)) return false;
     final v = _data[f.id];
-    return v == null || v.toString().isEmpty;
+    if (v == null || v.toString().isEmpty) return true;
+    // Phone validation: Cameroon = 9 digits, starts with 2 or 6
+    if (f.type == 'tel' && !_isValidCameroonPhone(v.toString())) return true;
+    // Email validation
+    if (f.type == 'email' && !_isValidEmail(v.toString())) return true;
+    // Year validation for creation year fields
+    if (_isYearField(f) && !_isValidYear(v.toString())) return true;
+    // Conditional validation: if field depends on another and is visible, it must be filled
+    if (f.dependsOn != null && f.dependsValue != null) {
+      if (_data[f.dependsOn] == f.dependsValue &&
+          (v == null || v.toString().isEmpty)) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  // ── scroll to block ──────────────────────────────────────────
+  String _errorText(FieldSchema f) {
+    final v = _data[f.id]?.toString();
+    if (f.type == 'tel') {
+      final err = _phoneError(v);
+      if (err != null) return err;
+    }
+    if (f.type == 'email') {
+      if (v == null || v.isEmpty) return 'Champ obligatoire';
+      return 'Veuillez entrer une adresse e-mail valide (ex: contact@entreprise.com)';
+    }
+    // AFTER
+    if (_isYearField(f)) {
+      if (v == null || v.isEmpty) return 'Champ obligatoire';
+      if (int.tryParse(v) == null) {
+        return 'Veuillez entrer une année valide (ex: 1998)';
+      }
+      final year = int.parse(v);
+      final currentYear = DateTime.now().year;
+      if (year < 1900) return "L'année doit être ≥ 1900";
+      if (year > currentYear) return "L'année doit être ≤ $currentYear";
+    }
+    if (f.dependsOn != null && f.dependsValue != null) {
+      if (_data[f.dependsOn] == f.dependsValue && (v == null || v.isEmpty)) {
+        return 'Champ obligatoire (conditionnel)';
+      }
+    }
+    return 'Champ obligatoire';
+  }
+
   void _scrollToBlock(String fieldId) {
     final key = _blockKeys[fieldId];
     if (key == null) return;
@@ -884,31 +1066,29 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     });
   }
 
-  // ── validation ───────────────────────────────────────────────
-  // CRITICAL FIX: also skip fields that are currently hidden by a
-  // dependsOn condition — otherwise choosing any option other than
-  // the one that reveals a dependent field permanently blocks the
-  // "Suivant" button even though all visible fields are filled.
   bool _vSec(SectionSchema s) {
     if (_schema == null) return true;
     for (final id in s.fieldIds) {
       final f = _schema!.getField(id);
       if (f == null ||
           !f.required ||
-          !_vis(f) || // ← skip hidden conditional fields
+          !_vis(f) ||
           f.type == 'table' ||
           _hybridAstIds.contains(f.id) ||
-          _optionalOverrides.contains(f.id)) continue;
+          _optionalOverrides.contains(f.id)) {
+        continue;
+      }
       final v = _data[id];
       if (v == null || v.toString().isEmpty) return false;
+      if (f.type == 'tel' && !_isValidCameroonPhone(v.toString())) return false;
+      if (_isYearField(f) && !_isValidYear(v.toString())) return false;
     }
     return true;
   }
 
   bool _vPage(int page) {
-    return _sectionIndicesForPage(page).every(
-      (i) => _vSec(_schema!.sections[i]),
-    );
+    return _sectionIndicesForPage(page)
+        .every((i) => _vSec(_schema!.sections[i]));
   }
 
   List<String> _missing(SectionSchema s) {
@@ -918,10 +1098,12 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
       final f = _schema!.getField(id);
       if (f == null ||
           !f.required ||
-          !_vis(f) || // skip hidden conditional fields
+          !_vis(f) ||
           f.type == 'table' ||
           _hybridAstIds.contains(f.id) ||
-          _optionalOverrides.contains(f.id)) continue;
+          _optionalOverrides.contains(f.id)) {
+        continue;
+      }
       final v = _data[id];
       if (v == null || v.toString().isEmpty) out.add(_lbl(f));
     }
@@ -943,14 +1125,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     return -1;
   }
 
-  // ── keyboard navigation ──────────────────────────────────────
-
-  /// Returns the ordered list of field IDs that are currently VISIBLE
-  /// on the active page, excluding hidden conditional fields and the
-  /// internal hybrid-AST satellite IDs.  This is the single source of
-  /// truth for all keyboard navigation so that arrow keys never land on
-  /// a field the user cannot see (e.g. a dependsOn field whose condition
-  /// is not met, or the text-column ghost IDs of a hybrid table).
   List<String> _visiblePageFieldIds() {
     if (_schema == null) return [];
     final result = <String>[];
@@ -959,25 +1133,18 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         if (_hybridAstIds.contains(id)) continue;
         final f = _schema!.getField(id);
         if (f == null) continue;
-        if (!_vis(f)) continue; // skip hidden conditional fields
+        if (!_vis(f)) continue;
         result.add(id);
       }
     }
     return result;
   }
 
-  /// Focuses the field [delta] positions away from the current field in
-  /// the visible-field list.  Correctly handles table fields (jumps to
-  /// their first/last cell) and wraps to the previous/next page when
-  /// the list is exhausted.
   void _focusFieldOffset(int delta) {
     if (_schema == null) return;
     final fieldIds = _visiblePageFieldIds();
-
     final activeId = _fm.activeId;
     if (activeId == null) return;
-
-    // If the active id is a table CELL, map it back to its parent field id
     String currentFieldId = activeId;
     for (final fid in fieldIds) {
       final field = _schema!.getField(fid);
@@ -988,10 +1155,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         }
       }
     }
-
     final idx = fieldIds.indexOf(currentFieldId);
     if (idx < 0) return;
-
     final targetIdx = idx + delta;
     if (targetIdx >= 0 && targetIdx < fieldIds.length) {
       _focusFieldId(fieldIds[targetIdx], preferFirst: delta > 0);
@@ -1002,8 +1167,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     }
   }
 
-  /// Focuses a specific field by id.  For table fields, focuses the
-  /// first cell (preferFirst=true) or last cell (preferFirst=false).
   void _focusFieldId(String fieldId, {bool preferFirst = true}) {
     final field = _schema?.getField(fieldId);
     if (field != null && field.type == 'table') {
@@ -1019,8 +1182,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     _scrollToBlock(fieldId);
   }
 
-  /// Called when Tab/Enter exits a table forwards — focuses the next
-  /// VISIBLE field after [fieldId], or advances to the next page.
   void _exitTable(String fieldId) {
     final fieldIds = _visiblePageFieldIds();
     final idx = fieldIds.indexOf(fieldId);
@@ -1031,8 +1192,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     }
   }
 
-  /// Called when Shift-Tab/backwards arrow exits a table — focuses the
-  /// previous VISIBLE field before [fieldId], or goes to the previous page.
   void _exitTablePrevious(String fieldId) {
     final fieldIds = _visiblePageFieldIds();
     final idx = fieldIds.indexOf(fieldId);
@@ -1046,7 +1205,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   KeyEventResult _handleFieldKey(FocusNode n, KeyEvent e, FieldSchema f) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final kb = HardwareKeyboard.instance;
-
     if (f.type == 'radio') {
       final opts = f.options ?? [];
       if (opts.isNotEmpty) {
@@ -1064,7 +1222,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         }
       }
     }
-
     if (kb.isLogicalKeyPressed(LogicalKeyboardKey.arrowUp)) {
       _focusFieldOffset(-1);
       return KeyEventResult.handled;
@@ -1098,11 +1255,9 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     setState(() {});
   }
 
-  // ── navigation ───────────────────────────────────────────────
   void _next() {
     if (_schema == null) return;
     if (!_vPage(_si)) {
-      // Touch all visible required fields on this page
       for (final idx in _sectionIndicesForPage(_si)) {
         for (final id in _schema!.sections[idx].fieldIds) {
           final f = _schema!.getField(id);
@@ -1121,7 +1276,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     if (_si < _pageCount - 1) {
       setState(() => _si++);
       _focusFirst();
-      // Scroll back to top of content
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_mainScroll.hasClients) {
           _mainScroll.animateTo(0,
@@ -1169,16 +1323,15 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
   void _snack(String m) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(m, style: const TextStyle(fontSize: 13)),
+      content: Text(m, style: const TextStyle(fontSize: 14)),
       backgroundColor: const Color(0xFFCC0000),
       behavior: SnackBarBehavior.floating,
       margin: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       duration: const Duration(seconds: 2),
     ));
   }
 
-  // ── visibility ───────────────────────────────────────────────
   bool _vis(FieldSchema f) {
     if (f.dependsOn != null && f.dependsOn!.isNotEmpty) {
       if (_data[f.dependsOn] != f.dependsValue) return false;
@@ -1187,13 +1340,9 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   }
 
   bool _isDesktop() => MediaQuery.of(context).size.width >= OL.pageWidth;
-
   bool _isSimpleSection(String sectionId) =>
       sectionId == 'section0' || sectionId.startsWith('section1_');
 
-  // ── Highlight block key ──────────────────────────────────────
-  /// Returns true if any field in [fieldIds] (or their table cells)
-  /// is currently focused.
   bool _isBlockFocused(List<String> fieldIds) {
     final activeId = _fm.activeId;
     if (activeId == null) return false;
@@ -1208,7 +1357,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // FIELD RENDERERS
+  // FIELD RENDERERS — MODERN UI (responsive width fixes)
   // ══════════════════════════════════════════════════════════════
 
   Widget _lw(FieldSchema f) {
@@ -1222,26 +1371,26 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
       label = '${f.paperCode} - $label';
     }
     return OnefopFieldLabel(
-      label: label,
-      required: f.required,
-      optional: _optionalOverrides.contains(f.id),
-    );
+        label: label,
+        required: f.required,
+        optional: _optionalOverrides.contains(f.id));
   }
 
   Widget _errRow(String m) => Padding(
-        padding: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.only(top: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 12, color: Color(0xFFE24B4A)),
-            const SizedBox(width: 4),
+            const Icon(Icons.error_outline, size: 14, color: Color(0xFFE24B4A)),
+            const SizedBox(width: 6),
             Text(m,
-                style: const TextStyle(fontSize: 10, color: Color(0xFFA32D2D))),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFA32D2D))),
           ],
         ),
       );
 
-  // ── Simple text / number field ────────────────────────────────
+  // ── CRITICAL FIX: ConstrainedBox instead of SizedBox ─────────
+  // This lets fields shrink on narrow screens instead of overflowing.
   Widget _simpleF(FieldSchema f) {
     final c = _ctrl[f.id]!;
     final fn = _fm.getNode(f.id);
@@ -1249,13 +1398,14 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
-      child: SizedBox(
-        width: _kDocW,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _kDocW),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _lw(f),
+            const SizedBox(height: OL.labelGapV),
             ListenableBuilder(
               listenable: fn,
               builder: (ctx, _) => TextFormField(
@@ -1263,15 +1413,20 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                 focusNode: fn,
                 keyboardType: _kt(f.type),
                 textInputAction: TextInputAction.next,
-                inputFormatters: f.type == 'number'
-                    ? [FilteringTextInputFormatter.digitsOnly]
-                    : null,
-                style: OL.lblStyle.copyWith(fontSize: 13),
-                decoration: OnefopInputDecoration.standard(
-                  focused: fn.hasFocus,
-                  hasError: e,
-                  hint: f.type == 'number' ? '0' : null,
-                ),
+                inputFormatters: [
+                  if (f.type == 'number')
+                    FilteringTextInputFormatter.digitsOnly,
+                  if (_isYearField(f)) LengthLimitingTextInputFormatter(4),
+                  if (f.type == 'tel') ...[
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(9),
+                  ],
+                ],
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                decoration: _modernInputDeco(
+                    focused: fn.hasFocus,
+                    hasError: e,
+                    hint: f.type == 'number' ? '0' : null),
                 onTapOutside: (_) => _onBlur(f.id),
                 onFieldSubmitted: (_) {
                   _onBlur(f.id);
@@ -1279,7 +1434,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                 },
               ),
             ),
-            if (e) _errRow('Champ obligatoire'),
+            if (e) _errRow(_errorText(f)),
           ],
         ),
       ),
@@ -1291,13 +1446,14 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     final fn = _fm.getNode(f.id);
     final e = _hasErr(f);
 
-    return SizedBox(
-      width: w,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           _lw(f),
+          const SizedBox(height: OL.labelGapV),
           ListenableBuilder(
             listenable: fn,
             builder: (ctx, _) => TextFormField(
@@ -1305,15 +1461,18 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               focusNode: fn,
               keyboardType: _kt(f.type),
               textInputAction: TextInputAction.next,
-              inputFormatters: f.type == 'number'
-                  ? [FilteringTextInputFormatter.digitsOnly]
-                  : null,
-              style: OL.lblStyle.copyWith(fontSize: 13),
-              decoration: OnefopInputDecoration.standard(
-                focused: fn.hasFocus,
-                hasError: e,
-                hint: f.type == 'number' ? '0' : null,
-              ),
+              inputFormatters: [
+                if (f.type == 'number') FilteringTextInputFormatter.digitsOnly,
+                if (f.type == 'tel') ...[
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(9),
+                ],
+              ],
+              style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+              decoration: _modernInputDeco(
+                  focused: fn.hasFocus,
+                  hasError: e,
+                  hint: f.type == 'number' ? '0' : null),
               onTapOutside: (_) => _onBlur(f.id),
               onFieldSubmitted: (_) {
                 _onBlur(f.id);
@@ -1321,16 +1480,12 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               },
             ),
           ),
-          if (e) _errRow('Champ obligatoire'),
+          if (e) _errRow(_errorText(f)),
         ],
       ),
     );
   }
 
-  // ── Radio field ───────────────────────────────────────────────
-  // • No enclosing focus-border frame (removed — visually noisy).
-  // • 2 options  → side-by-side equal-width pill row.
-  // • 3+ options → vertical spaced list (6 px gap between pills).
   Widget _radioF(FieldSchema f) {
     final opts = f.options ?? [];
     final cur = _data[f.id] as String?;
@@ -1339,14 +1494,14 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
-      child: SizedBox(
-        width: _kDocW,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _kDocW),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _lw(f),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Focus(
               focusNode: _fm.getNode(f.id),
               child: ListenableBuilder(
@@ -1369,7 +1524,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                           optWidgets.map((w) => Expanded(child: w)).toList(),
                     );
                   }
-                  // 3+ options: vertical, no surrounding box
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -1377,7 +1531,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                       for (int i = 0; i < optWidgets.length; i++) ...[
                         optWidgets[i],
                         if (i < optWidgets.length - 1)
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                       ],
                     ],
                   );
@@ -1385,7 +1539,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               ),
             ),
             if (e) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               _errRow('Veuillez sélectionner une option'),
             ],
           ],
@@ -1394,7 +1548,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     );
   }
 
-  // ── Select field ──────────────────────────────────────────────
   Widget _selectF(FieldSchema f) {
     final opts = f.options ?? [];
     final cur = _data[f.id] as String?;
@@ -1402,26 +1555,28 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
-      child: SizedBox(
-        width: _kDocW,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _kDocW),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _lw(f),
+            const SizedBox(height: OL.labelGapV),
             Focus(
               focusNode: _fm.getNode(f.id),
               child: DropdownButtonFormField<String>(
                 initialValue: cur,
                 hint: const Text('Sélectionner',
-                    style: TextStyle(fontSize: 13, color: Color(0xFFBDBDBD))),
+                    style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
                 isExpanded: true,
-                style: OL.lblStyle.copyWith(fontSize: 13),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
                 items: opts
                     .map((o) => DropdownMenuItem(
                           value: o,
                           child: Text(o,
-                              style: OL.lblStyle.copyWith(fontSize: 13)),
+                              style: const TextStyle(
+                                  fontSize: 14, color: Color(0xFF1E293B))),
                         ))
                     .toList(),
                 onChanged: (v) {
@@ -1432,7 +1587,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                   setState(() {});
                   _fm.focusNext();
                 },
-                decoration: _dropdownDeco(e),
+                decoration: _modernDropdownDeco(e),
               ),
             ),
             if (e && (cur == null || cur.isEmpty))
@@ -1448,26 +1603,28 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     final cur = _data[f.id] as String?;
     final e = _hasErr(f);
 
-    return SizedBox(
-      width: w,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           _lw(f),
+          const SizedBox(height: OL.labelGapV),
           Focus(
             focusNode: _fm.getNode(f.id),
             child: DropdownButtonFormField<String>(
               initialValue: cur,
               hint: const Text('Sélectionner',
-                  style: TextStyle(fontSize: 13, color: Color(0xFFBDBDBD))),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
               isExpanded: true,
-              style: OL.lblStyle.copyWith(fontSize: 13),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
               items: opts
                   .map((o) => DropdownMenuItem(
                         value: o,
-                        child:
-                            Text(o, style: OL.lblStyle.copyWith(fontSize: 13)),
+                        child: Text(o,
+                            style: const TextStyle(
+                                fontSize: 14, color: Color(0xFF1E293B))),
                       ))
                   .toList(),
               onChanged: (v) {
@@ -1478,7 +1635,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                 setState(() {});
                 _fm.focusNext();
               },
-              decoration: _dropdownDeco(e),
+              decoration: _modernDropdownDeco(e),
             ),
           ),
           if (e && (cur == null || cur.isEmpty))
@@ -1488,31 +1645,56 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     );
   }
 
-  InputDecoration _dropdownDeco(bool hasError) => InputDecoration(
+  InputDecoration _modernInputDeco(
+      {required bool focused, required bool hasError, String? hint}) {
+    return InputDecoration(
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      filled: true,
+      fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+      hintText: hint,
+      hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+              color:
+                  hasError ? const Color(0xFFE24B4A) : const Color(0xFFE2E8F0),
+              width: 1)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF4472C4), width: 2)),
+      errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE24B4A), width: 1)),
+    );
+  }
+
+  InputDecoration _modernDropdownDeco(bool hasError) => InputDecoration(
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         filled: true,
-        fillColor: hasError ? const Color(0xFFFCEBEB) : OL.inputCellBg,
+        fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFFCFD8DC), width: 0.5),
-        ),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1)),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide(
-            color: hasError ? const Color(0xFFE24B4A) : const Color(0xFFCFD8DC),
-            width: 0.5,
-          ),
-        ),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+                color: hasError
+                    ? const Color(0xFFE24B4A)
+                    : const Color(0xFFE2E8F0),
+                width: 1)),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFF4472C4), width: 2),
-        ),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFF4472C4), width: 2)),
       );
 
   // ══════════════════════════════════════════════════════════════
-  // HYBRID TABLE  (S3Q02 / S4Q02 / S4Q03)
+  // HYBRID TABLE — responsive text column
   // ══════════════════════════════════════════════════════════════
 
   Widget _hybridT(FieldSchema f) {
@@ -1538,9 +1720,18 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: OL.questionGapV),
-          child: SizedBox(
-            width: _kDocW,
-            child: _buildHybridTable(pfx, def, f.label ?? '', allCells, f.id),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final availableW = constraints.maxWidth;
+              return _buildHybridTable(
+                pfx,
+                def,
+                _htColumnHeaders[pfx] ?? '', // short column header
+                allCells,
+                f.id,
+                availableW,
+              );
+            },
           ),
         ),
       ],
@@ -1553,26 +1744,35 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     String tableLabel,
     List<String> allCells,
     String fieldId,
+    double availableWidth,
   ) {
-    const tc = _kHybridTextW;
-    const nc = _kHybridNumW;
+    const nc = _kHybridNumW; // 60
+    const double outerBorder =
+        1.0; // ClipRRect Container border (hardcoded below)
+
+    // Reserve space for BOTH border layers: outer container (2px) + row borders (2px)
+    final effectiveWidth =
+        availableWidth - 2 * outerBorder - 2 * OL.borderWidth;
+    final tc = max(200.0, effectiveWidth - 3 * nc);
+
+    // Scroll detection must include the outer border too
+    final totalTableWidth = tc + 3 * nc + 2 * OL.borderWidth + 2 * outerBorder;
 
     Widget headerRow = Container(
       height: OL.headerRowHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: OL.tableHdrBg,
-        border: Border(
-          top: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-          left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-          right: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-          bottom: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
         ),
+        border: Border.all(color: OL.borderColor, width: OL.borderWidth),
       ),
       child: Row(children: [
         SizedBox(
           width: tc,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(tableLabel,
                 style: _kThStyle, overflow: TextOverflow.ellipsis),
           ),
@@ -1584,8 +1784,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
             alignment: Alignment.center,
             decoration: const BoxDecoration(
               border: Border(
-                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-              ),
+                  left:
+                      BorderSide(color: OL.borderColor, width: OL.borderWidth)),
             ),
             child: Text(col, style: _kThStyle),
           ),
@@ -1623,19 +1823,19 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     Widget grandTotalRow = Container(
       height: OL.rowHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: OL.grandTotalBg,
-        border: Border(
-          left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-          right: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-          bottom: BorderSide(color: OL.borderColor, width: OL.borderWidth),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
         ),
+        border: Border.all(color: OL.borderColor, width: OL.borderWidth),
       ),
       child: Row(children: [
         SizedBox(
           width: tc,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text('TOTAL', style: _kGrandTotStyle),
           ),
         ),
@@ -1646,18 +1846,38 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
             alignment: Alignment.center,
             decoration: const BoxDecoration(
               border: Border(
-                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-              ),
+                  left:
+                      BorderSide(color: OL.borderColor, width: OL.borderWidth)),
             ),
             child: Text(v == 0 ? '—' : '$v', style: _kGrandTotStyle),
           ),
       ]),
     );
 
-    return Column(
+    final needsScroll = totalTableWidth > availableWidth;
+
+    final tableContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [headerRow, ...dataRows, grandTotalRow],
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+          ],
+        ),
+        child: needsScroll
+            ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal, child: tableContent)
+            : tableContent,
+      ),
     );
   }
 
@@ -1675,7 +1895,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     required String fieldId,
   }) {
     final rowBg = isEven ? OL.tableRowEven : OL.tableRowOdd;
-
     return Container(
       height: OL.rowHeight,
       decoration: BoxDecoration(
@@ -1698,10 +1917,10 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               decoration: InputDecoration(
                 hintText: rowLabel,
                 hintStyle:
-                    const TextStyle(fontSize: 12, color: Color(0xFFBDBDBD)),
+                    const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: OL.cellPadH, vertical: 0),
+                    horizontal: OL.cellPadH + 4, vertical: 0),
                 isDense: true,
               ),
             ),
@@ -1711,8 +1930,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
             decoration: const BoxDecoration(
               color: OL.inputCellBg,
               border: Border(
-                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-              ),
+                  left:
+                      BorderSide(color: OL.borderColor, width: OL.borderWidth)),
             ),
             child: _HNC(
               cellId: mid,
@@ -1731,8 +1950,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
             decoration: const BoxDecoration(
               color: OL.inputCellBg,
               border: Border(
-                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-              ),
+                  left:
+                      BorderSide(color: OL.borderColor, width: OL.borderWidth)),
             ),
             child: _HNC(
               cellId: fid,
@@ -1752,14 +1971,14 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
             decoration: BoxDecoration(
               color: tot > 0 ? OL.totalCellBg : OL.inputCellBgTotal,
               border: const Border(
-                left: BorderSide(color: OL.borderColor, width: OL.borderWidth),
-              ),
+                  left:
+                      BorderSide(color: OL.borderColor, width: OL.borderWidth)),
             ),
             child: Text(
               tot == 0 ? '—' : '$tot',
               style: tot > 0
                   ? _kTotStyle
-                  : _kTdStyle.copyWith(color: const Color(0xFFBDBDBD)),
+                  : _kTdStyle.copyWith(color: const Color(0xFF94A3B8)),
               textAlign: TextAlign.center,
             ),
           ),
@@ -1768,7 +1987,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     );
   }
 
-  // ── Table dispatcher ──────────────────────────────────────────
   Widget _tableF(FieldSchema f) {
     final tpl = (f.tableSpec?['template'] as String?) ?? '';
     if (tpl == 'reasons_table' ||
@@ -1800,15 +2018,12 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     }
   }
 
-  // ── Field dispatcher ──────────────────────────────────────────
   Widget _buildF(FieldSchema f) {
     if (!_vis(f) || _hybridAstIds.contains(f.id)) {
       return const SizedBox.shrink();
     }
-
     final currentSectionId = _primarySection(_si)?.id ?? '';
     final isSimple = _isSimpleSection(currentSectionId);
-
     final Widget? qh = (f.type != 'table' && !isSimple)
         ? OnefopQuestionHeader(
             paperCode: f.paperCode,
@@ -1840,10 +2055,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         : Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: [qh, field],
-          );
+            children: [qh, field]);
 
-    // Wrap in highlight block for scroll-into-view + focus highlight
     return _HighlightBlock(
       key: _blockKeys[f.id],
       fieldId: f.id,
@@ -1869,10 +2082,12 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
   String _lbl(FieldSchema f) {
     if (f.label != null && f.label!.isNotEmpty) return f.label!;
-    if (f.instruction != null && f.instruction!.isNotEmpty)
+    if (f.instruction != null && f.instruction!.isNotEmpty) {
       return f.instruction!;
-    if (f.questionText != null && f.questionText!.isNotEmpty)
+    }
+    if (f.questionText != null && f.questionText!.isNotEmpty) {
       return f.questionText!;
+    }
     return f.id;
   }
 
@@ -1883,10 +2098,10 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // SECTION / PAGE BUILDER
+  // SECTION BUILDER — CRITICAL FIX: Expanded paired columns
   // ══════════════════════════════════════════════════════════════
 
-  Widget _buildSec(SectionSchema sec, {bool isSecondary = false}) {
+  Widget _buildSec(SectionSchema sec) {
     if (_schema == null) return const SizedBox.shrink();
     final title = SectionTitleLookup.getTitle(sec.id);
     final fields = sec.fieldIds
@@ -1919,7 +2134,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     Widget buildGroupContent(_FG g) {
       final children = <Widget>[];
-
       if (g.sub != null && g.sub!.isNotEmpty) {
         children.add(OnefopSubsectionHeader(title: g.sub!));
       }
@@ -1942,16 +2156,16 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               !_hybridAstIds.contains(next.id);
 
           if (canPair && nextCanPair) {
-            // BUG FIX: use _kColW (pre-computed with _kColGap) to avoid overflow
+            // CRITICAL FIX: Expanded children with gap — never overflows
             children.add(
               Padding(
                 padding: const EdgeInsets.only(bottom: OL.questionGapV),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFW(f, _kColW),
-                    SizedBox(width: _kColGap),
-                    _buildFW(next, _kColW),
+                    Expanded(child: _buildFW(f, double.infinity)),
+                    const SizedBox(width: _kColGap),
+                    Expanded(child: _buildFW(next, double.infinity)),
                   ],
                 ),
               ),
@@ -1976,8 +2190,9 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
       );
     }
 
+    // CRITICAL FIX: body fills available width, never exceeds container
     final body = SizedBox(
-      width: _kDocW,
+      width: double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1994,51 +2209,175 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     );
   }
 
-  /// Builds the merged page 0 = section0 + section1 stacked.
-  Widget _buildMergedPage() {
-    if (_schema == null) return const SizedBox.shrink();
-    final idxs = _sectionIndicesForPage(0);
-    final widgets = <Widget>[];
-    for (int i = 0; i < idxs.length; i++) {
-      if (i > 0) {
-        // Visual separator between the two sections on the merged page
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(children: [
-              const Expanded(
-                  child: Divider(color: Color(0xFFDDE3EC), thickness: 1)),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  SectionTitleLookup.getTitle(_schema!.sections[idxs[i]].id),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF4472C4),
-                  ),
-                ),
-              ),
-              const Expanded(
-                  child: Divider(color: Color(0xFFDDE3EC), thickness: 1)),
-            ]),
-          ),
-        );
-      }
-      widgets.add(_buildSec(_schema!.sections[idxs[i]], isSecondary: i > 0));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: widgets,
-    );
-  }
-
   Widget _buildPage(int page) {
-    if (page == 0) return _buildMergedPage();
+    if (_schema == null) return const SizedBox.shrink();
     final idxs = _sectionIndicesForPage(page);
     if (idxs.isEmpty) return const SizedBox.shrink();
     return _buildSec(_schema!.sections[idxs.first]);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // STICKY SECTION SLIVERS  (NEW — extracted body + sliver builder)
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _buildSectionBody(SectionSchema sec) {
+    if (_schema == null) return const SizedBox.shrink();
+    final fields = sec.fieldIds
+        .map((id) => _schema!.getField(id))
+        .whereType<FieldSchema>()
+        .toList();
+    final isSimple = _isSimpleSection(sec.id);
+
+    final groups = <_FG>[];
+    String? cSub;
+    final cF = <FieldSchema>[];
+    for (final f in fields) {
+      final sub = (f.type == 'table' &&
+              f.subsection != null &&
+              f.subsection!.isNotEmpty)
+          ? f.subsection
+          : null;
+      if (sub != cSub) {
+        if (cF.isNotEmpty) {
+          groups.add(_FG(sub: cSub, fields: List.from(cF)));
+          cF.clear();
+        }
+        cSub = sub;
+      }
+      cF.add(f);
+    }
+    if (cF.isNotEmpty) groups.add(_FG(sub: cSub, fields: List.from(cF)));
+
+    Widget buildGroupContent(_FG g) {
+      final children = <Widget>[];
+      if (g.sub != null && g.sub!.isNotEmpty) {
+        children.add(OnefopSubsectionHeader(title: g.sub!));
+      }
+
+      if (isSimple) {
+        final visible = g.fields.where(_vis).toList();
+        int i = 0;
+        while (i < visible.length) {
+          final f = visible[i];
+          if (_divBefore(f) != null) children.add(_divBefore(f)!);
+
+          final canPair = f.type != 'table' &&
+              f.type != 'radio' &&
+              !_hybridAstIds.contains(f.id);
+          final hasNext = i + 1 < visible.length;
+          final next = hasNext ? visible[i + 1] : null;
+          final nextCanPair = next != null &&
+              next.type != 'table' &&
+              next.type != 'radio' &&
+              !_hybridAstIds.contains(next.id);
+
+          if (canPair && nextCanPair) {
+            children.add(
+              Padding(
+                padding: const EdgeInsets.only(bottom: OL.questionGapV),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildFW(f, double.infinity)),
+                    const SizedBox(width: _kColGap),
+                    Expanded(child: _buildFW(next, double.infinity)),
+                  ],
+                ),
+              ),
+            );
+            i += 2;
+          } else {
+            children.add(_buildF(f));
+            i++;
+          }
+        }
+      } else {
+        for (final f in g.fields) {
+          if (_divBefore(f) != null) children.add(_divBefore(f)!);
+          children.add(_buildF(f));
+        }
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: groups.map(buildGroupContent).toList(),
+      ),
+    );
+  }
+
+  List<Widget> _buildSectionSlivers(SectionSchema sec) {
+    final title = SectionTitleLookup.getTitle(sec.id);
+    final isV = _valid[sec.id] ?? false;
+    final meta = _sm[sec.id];
+    final body = _buildSectionBody(sec);
+
+    return [
+      SliverPersistentHeader(
+        pinned: true,
+        delegate: _StickySectionHeaderDelegate(
+          sectionId: sec.id,
+          title: title,
+          icon: meta?.icon,
+          isComplete: isV,
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.only(
+          bottom: OL.sectionBodyPaddingH,
+        ),
+        sliver: SliverToBoxAdapter(
+          child: Center(
+            // ← FIX: centre the card
+            child: ConstrainedBox(
+              // ← FIX: cap card width
+              constraints: const BoxConstraints(maxWidth: _kScrollChildW),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border(
+                    left: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    right: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x0D000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                // No horizontal scroll wrapper needed — the body already
+                // constrains itself to _kDocW via ConstrainedBox on each field.
+                // If individual tables are wider than the card, they scroll
+                // internally via their own SingleChildScrollView.
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: OL.sectionBodyPaddingH,
+                    vertical: OL.sectionBodyPaddingV,
+                  ),
+                  child: body,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -2056,112 +2395,146 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   }
 
   Widget _sidebar() {
-    if (_schema == null || _sidebarMode == 0) return const SizedBox.shrink();
+    if (_schema == null) return const SizedBox(width: 0);
+
     final secs = _schema!.sections;
     final done = _valid.values.where((v) => v).length;
     final ratio = done / secs.length.clamp(1, 999);
+
+    // Determine icon based on current mode
+    IconData toggleIcon;
+    String toggleTooltip;
+    switch (_sidebarMode) {
+      case 2:
+        toggleIcon = Icons.chevron_left;
+        toggleTooltip = 'Réduire la barre';
+        break;
+      case 1:
+        toggleIcon = Icons.last_page;
+        toggleTooltip = 'Masquer la barre';
+        break;
+      default:
+        toggleIcon = Icons.menu;
+        toggleTooltip = 'Afficher la barre';
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       width: _sidebarWidth,
-      color: const Color(0xFFF0F4FA),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Progress header — only in full mode
-          if (_sidebarMode == 2) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-              child: Row(children: [
-                Text('$done/${secs.length}',
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0xFF757575))),
-                const Spacer(),
-                Text('${(ratio * 100).round()}%',
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF4472C4))),
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: ratio,
-                  backgroundColor: const Color(0xFFDDE3EC),
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(Color(0xFF70AD47)),
-                  minHeight: 4,
+      color: const Color(0xFFF8FAFC),
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          maxWidth: _kSidebarFull,
+          child: SizedBox(
+            width: _kSidebarFull,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Toggle button row pinned to top-right of sidebar ──
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6, right: 6),
+                    child: Tooltip(
+                      message: toggleTooltip,
+                      child: InkWell(
+                        onTap: () => setState(() {
+                          _sidebarMode = (_sidebarMode + 1) % 3;
+                        }),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(toggleIcon,
+                              size: 18, color: const Color(0xFF475569)),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const Divider(height: 1, color: Color(0xFFDDE3EC)),
-            const SizedBox(height: 4),
-          ],
-
-          // Section list — virtual pages
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.symmetric(
-                  horizontal: _sidebarMode == 2 ? 6 : 4, vertical: 2),
-              itemCount: _pageCount,
-              itemBuilder: (ctx, page) => _sidebarPageItem(page),
+                if (_sidebarMode == 2) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Row(children: [
+                      Text('$done/${secs.length}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF64748B))),
+                      const Spacer(),
+                      Text('${(ratio * 100).round()}%',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4472C4))),
+                    ]),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: ratio,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF70AD47)),
+                        minHeight: 6,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 8),
+                ],
+                Expanded(
+                  child: ListView.builder(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: _sidebarMode == 2 ? 8 : 4, vertical: 4),
+                    itemCount: _pageCount,
+                    itemBuilder: (ctx, page) => _sidebarPageItem(page),
+                  ),
+                ),
+                if (_sidebarMode == 2) _asIndicator(),
+              ],
             ),
           ),
-          if (_sidebarMode == 2) _asIndicator(),
-        ],
+        ),
       ),
     );
   }
 
   Widget _sidebarPageItem(int page) {
-    // A "page" may cover multiple schema sections.
-    // The badge shows total missing across all sections on that page.
     final idxs = _sectionIndicesForPage(page);
     final allDone = idxs.every((i) => _valid[_schema!.sections[i].id] ?? false);
     final isActive = page == _si;
-
-    // Aggregate missing count
     int missingCount = 0;
     for (final i in idxs) {
       missingCount += _missing(_schema!.sections[i]).length;
     }
-
-    // Use the FIRST section's meta for icon/label
     final firstSec = idxs.isNotEmpty ? _schema!.sections[idxs.first] : null;
     final meta = firstSec != null ? _sm[firstSec.id] : null;
-
-    // For merged page show compound label
-    String label;
-    if (page == 0 && idxs.length >= 2) {
-      final m0 = _sm[_schema!.sections[idxs[0]].id];
-      final m1 = _sm[_schema!.sections[idxs[1]].id];
-      label = '${m0?.lbl ?? 'Sec.1'} + ${m1?.lbl ?? 'Sec.2'}';
-    } else {
-      label = meta?.lbl ?? 'Page ${page + 1}';
-    }
-
+    final label = meta?.lbl ?? 'Section ${page + 1}';
     final subtitle = idxs.isNotEmpty
         ? SectionTitleLookup.getTitle(_schema!.sections[idxs.first].id)
         : '';
 
     return InkWell(
       onTap: () => _goto(page),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+        margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
         padding: EdgeInsets.symmetric(
-          horizontal: _sidebarMode == 2 ? 10 : 7,
-          vertical: _sidebarMode == 2 ? 10 : 7,
-        ),
+            horizontal: _sidebarMode == 2 ? 12 : 8,
+            vertical: _sidebarMode == 2 ? 12 : 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFD6E4F7) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isActive ? const Color(0xFFEEF2FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
           border: isActive
               ? Border.all(
                   color: const Color(0xFF4472C4).withValues(alpha: 0.3),
@@ -2169,86 +2542,75 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               : null,
         ),
         child: Row(children: [
-          // Circle badge
           Container(
-            width: 22,
-            height: 22,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: allDone
                   ? const Color(0xFF70AD47)
                   : isActive
                       ? const Color(0xFF4472C4)
-                      : const Color(0xFFCFD8DC),
+                      : const Color(0xFFE2E8F0),
             ),
             alignment: Alignment.center,
             child: allDone
-                ? const Icon(Icons.check, color: Colors.white, size: 13)
+                ? const Icon(Icons.check, color: Colors.white, size: 14)
                 : (isActive && meta != null)
-                    ? Icon(meta.icon, color: Colors.white, size: 12)
-                    : Text(
-                        '${page + 1}',
+                    ? Icon(meta.icon, color: Colors.white, size: 14)
+                    : Text('${page + 1}',
                         style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color:
-                              isActive ? Colors.white : const Color(0xFF9E9E9E),
-                        ),
-                      ),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isActive
+                                ? Colors.white
+                                : const Color(0xFF94A3B8))),
           ),
           if (_sidebarMode == 2) ...[
-            const SizedBox(width: 9),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                      color: isActive
-                          ? const Color(0xFF1F3864)
-                          : const Color(0xFF424242),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                          fontSize: 10, color: Color(0xFF9E9E9E)),
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w500,
+                          color: isActive
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFF475569)),
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  // Orange missing badge
+                      overflow: TextOverflow.ellipsis),
+                  if (subtitle.isNotEmpty)
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF94A3B8)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   if (!allDone && missingCount > 0)
                     Container(
-                      margin: const EdgeInsets.only(top: 3),
+                      margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 1),
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3E0),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: const Color(0xFFFFB74D), width: 0.5),
-                      ),
+                          color: const Color(0xFFFFF7ED),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: const Color(0xFFFDBA74), width: 0.5)),
                       child: Text(
-                        '$missingCount manquant${missingCount > 1 ? 's' : ''}',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Color(0xFFE65100),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                          '$missingCount manquant${missingCount > 1 ? 's' : ''}',
+                          style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFFEA580C),
+                              fontWeight: FontWeight.w600)),
                     ),
                 ],
               ),
             ),
             if (allDone)
               const Icon(Icons.check_circle,
-                  size: 15, color: Color(0xFF70AD47)),
+                  size: 16, color: Color(0xFF70AD47)),
           ],
         ]),
       ),
@@ -2256,10 +2618,10 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
   }
 
   Widget _asIndicator() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFDDE3EC), width: 1)),
-        ),
+            border:
+                Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1))),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           transitionBuilder: (child, anim) =>
@@ -2269,79 +2631,60 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                   key: ValueKey('s'),
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 1.5, color: Color(0xFF9E9E9E)),
-                    ),
-                    SizedBox(width: 6),
-                    Text('Sauvegarde…',
-                        style:
-                            TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
-                  ],
-                )
+                      SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Color(0xFF94A3B8))),
+                      SizedBox(width: 8),
+                      Text('Sauvegarde…',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF94A3B8))),
+                    ])
               : _dirty
                   ? const Row(
                       key: ValueKey('d'),
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.circle, size: 7, color: Color(0xFFF57C00)),
-                        SizedBox(width: 6),
-                        Text('Non sauvegardé',
-                            style: TextStyle(
-                                fontSize: 10, color: Color(0xFFF57C00))),
-                      ],
-                    )
+                          Icon(Icons.circle, size: 8, color: Color(0xFFF97316)),
+                          SizedBox(width: 8),
+                          Text('Non sauvegardé',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFFF97316))),
+                        ])
                   : const Row(
                       key: ValueKey('ok'),
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle_outline,
-                            size: 12, color: Color(0xFF70AD47)),
-                        SizedBox(width: 6),
-                        Text('Sauvegardé',
-                            style: TextStyle(
-                                fontSize: 10, color: Color(0xFF70AD47))),
-                      ],
-                    ),
+                          Icon(Icons.check_circle_outline,
+                              size: 14, color: Color(0xFF70AD47)),
+                          SizedBox(width: 8),
+                          Text('Sauvegardé',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFF70AD47))),
+                        ]),
         ),
       );
 
-  // ══════════════════════════════════════════════════════════════
-  // NAV BAR
-  // ══════════════════════════════════════════════════════════════
   Widget _navBar() {
     if (_schema == null) return const SizedBox.shrink();
     final isLast = _si == _pageCount - 1;
     final pageValid = _vPage(_si);
     final allValid = _vAllPages();
     final canProceed = isLast ? allValid : pageValid;
-
-    // Current page label
     final idxs = _sectionIndicesForPage(_si);
-    String pageLabel;
-    if (_si == 0 && idxs.length >= 2) {
-      final m0 = _sm[_schema!.sections[idxs[0]].id];
-      final m1 = _sm[_schema!.sections[idxs[1]].id];
-      pageLabel = '${m0?.lbl ?? ''} · ${m1?.lbl ?? ''}';
-    } else {
-      final meta =
-          idxs.isNotEmpty ? _sm[_schema!.sections[idxs.first].id] : null;
-      pageLabel = meta?.lbl ?? '';
-    }
+    final pageMeta =
+        idxs.isNotEmpty ? _sm[_schema!.sections[idxs.first].id] : null;
+    final pageLabel = pageMeta?.lbl ?? '';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0), width: 1)),
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
+              color: Color(0x0A000000), blurRadius: 12, offset: Offset(0, -2))
         ],
       ),
       child: SafeArea(
@@ -2354,27 +2697,23 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '${_si + 1} / $_pageCount  —  $pageLabel',
-                style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF4472C4)),
-              ),
-              const SizedBox(height: 5),
+              Text('${_si + 1} / $_pageCount  —  $pageLabel',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4472C4))),
+              const SizedBox(height: 6),
               SizedBox(
-                width: 140,
-                height: 3,
+                width: 160,
+                height: 4,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: (_si + 1) / _pageCount,
-                    backgroundColor: const Color(0xFFE0E0E0),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      allValid
-                          ? const Color(0xFF70AD47)
-                          : const Color(0xFF4472C4),
-                    ),
+                    backgroundColor: const Color(0xFFE2E8F0),
+                    valueColor: AlwaysStoppedAnimation<Color>(allValid
+                        ? const Color(0xFF70AD47)
+                        : const Color(0xFF4472C4)),
                   ),
                 ),
               ),
@@ -2391,10 +2730,37 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     );
   }
 
-  // ── Data collection & mappers ─────────────────────────────────
   void _collect() {
+    var w = Map<String, int>.from(_aGrid);
+    for (final p in [
+      's21q01',
+      's22q01',
+      's22q02',
+      's22q03',
+      's22q04',
+      's22q05_ent',
+      's22q05_oth',
+      's23q01',
+      's23q02',
+      's3q01',
+      's3q02',
+      's3q03',
+      's4q01',
+      's4q02',
+      's4q03'
+    ]) {
+      w = _dispatch(w, p);
+    }
+    _aGrid = w;
+
+    // DEBUG
+    print('\n🔍 s21q01 keys in _aGrid after redispatch:');
+    _aGrid.keys.where((k) => k.startsWith('s21q01')).toList()
+      ..sort()
+      ..forEach((k) => print('   $k = ${_aGrid[k]}'));
+
     for (final e in _aGrid.entries) {
-      if (e.value != 0) _data[e.key] = e.value;
+      _data[e.key] = e.value;
     }
     for (final e in _htv.entries) {
       if (e.value.isNotEmpty) _data[e.key] = e.value;
@@ -2410,27 +2776,36 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     for (final e in _ctrl.entries) {
       if (e.value.text.isNotEmpty) _data[e.key] = e.value.text;
     }
+
+    for (final e in _ctrl.entries) {
+      if (e.value.text.isNotEmpty) _data[e.key] = e.value.text;
+    }
   }
 
   Map<String, dynamic> _mapped(Map<String, dynamic> d) {
     final m = Map<String, dynamic>.from(d);
     if (m['area'] is String) m['area'] = _Map.area(m['area'] as String?);
-    if (m['businessSector'] is String)
+    if (m['businessSector'] is String) {
       m['businessSector'] = _Map.sector(m['businessSector'] as String?);
-    if (m['cooperativeType'] is String)
+    }
+    if (m['cooperativeType'] is String) {
       m['cooperativeType'] = _Map.coopType(m['cooperativeType'] as String?);
-    if (m['legalStatus'] is String)
+    }
+    if (m['legalStatus'] is String) {
       m['legalStatus'] = _Map.legalStatus(m['legalStatus'] as String?);
-    if (m['enterpriseSize'] is String)
+    }
+    if (m['enterpriseSize'] is String) {
       m['enterpriseSize'] = _Map.size(m['enterpriseSize'] as String?);
-    if (m['ctdType'] is String)
+    }
+    if (m['ctdType'] is String) {
       m['ctdType'] = _Map.ctdType(m['ctdType'] as String?);
-    if (m['councilType'] is String)
+    }
+    if (m['councilType'] is String) {
       m['councilType'] = _Map.councilType(m['councilType'] as String?);
+    }
     return m;
   }
 
-  // ── Preview & submit ──────────────────────────────────────────
   Future<void> _previewSubmit() async {
     if (!_vAllPages()) {
       if (_schema != null) {
@@ -2453,7 +2828,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
           'Veuillez remplir tous les champs obligatoires avant de soumettre');
       return;
     }
-
     _collect();
     final snapshot = _mapped(Map.from(_data));
     _submissionSnapshot = snapshot;
@@ -2542,7 +2916,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
       if (r.statusCode == 200 || r.statusCode == 201) {
         _submissionSnapshot = null;
-        widget.onSave({});
+        widget.onSave({}); // clear in-memory state
+        widget.onSubmitSuccess?.call(); // ← CLEAR PERSISTED DRAFT
         if (mounted) _successDialog();
       } else {
         final body = r.body.isNotEmpty ? r.body : '(pas de détail)';
@@ -2565,15 +2940,16 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
         builder: (_) => Center(
           child: Card(
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 4,
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const CircularProgressIndicator(color: Color(0xFF4472C4)),
-                  const SizedBox(height: 14),
-                  Text(msg, style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 16),
+                  Text(msg, style: const TextStyle(fontSize: 14)),
                 ],
               ),
             ),
@@ -2586,8 +2962,8 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.all(28),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2598,32 +2974,27 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
               builder: (context, value, child) => Transform.scale(
                 scale: value,
                 child: Container(
-                  width: 56,
-                  height: 56,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF70AD47).withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
+                      color: const Color(0xFF70AD47).withValues(alpha: 0.1),
+                      shape: BoxShape.circle),
                   child: const Icon(Icons.check_circle,
-                      color: Color(0xFF70AD47), size: 36),
+                      color: Color(0xFF70AD47), size: 40),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Soumission réussie !',
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF212121)),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Votre formulaire ONEFOP a été soumis avec succès.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Color(0xFF616161)),
-            ),
             const SizedBox(height: 20),
+            const Text('Soumission réussie !',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B))),
+            const SizedBox(height: 8),
+            const Text('Votre formulaire ONEFOP a été soumis avec succès.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -2635,13 +3006,13 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
                   backgroundColor: const Color(0xFF4472C4),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: const Text('Terminer',
                     style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -2660,7 +3031,7 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: _appBar(title),
         body: _skeletonScreen(),
       );
@@ -2668,32 +3039,34 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
     if (_err != null || _schema == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: _appBar(title),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.error_outline,
-                  size: 48, color: Color(0xFFCC0000)),
-              const SizedBox(height: 12),
+                  size: 56, color: Color(0xFFCC0000)),
+              const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Text('Erreur : $_err',
                     style:
-                        const TextStyle(color: Color(0xFFCC0000), fontSize: 12),
+                        const TextStyle(color: Color(0xFFCC0000), fontSize: 14),
                     textAlign: TextAlign.center),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _loadSchema,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4472C4),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 child: const Text('Réessayer',
-                    style: TextStyle(color: Colors.white)),
+                    style: TextStyle(color: Colors.white, fontSize: 14)),
               ),
             ],
           ),
@@ -2702,49 +3075,80 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: _appBar(title),
       body: desktop ? _desktopLayout() : _mobileLayout(),
     );
   }
 
-  // ── Desktop layout ────────────────────────────────────────────
-  // BUG FIX: Wrap the horizontal scroll's Column in a SizedBox with
-  // explicit finite width (_kScrollChildW) — prevents the
-  // "BoxConstraints forces an infinite width" crash in every
-  // descendant that uses double.infinity or relies on parent width.
+  // ══════════════════════════════════════════════════════════════
+  // DESKTOP LAYOUT  (FIXED — SliverPadding instead of padding:)
+  // ══════════════════════════════════════════════════════════════
+
   Widget _desktopLayout() => Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sidebar(),
-          if (_sidebarMode > 0)
-            const VerticalDivider(
-                width: 1, thickness: 1, color: Color(0xFFDDE3EC)),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            width: _sidebarMode > 0 ? 1 : 0,
+            child: const VerticalDivider(
+                width: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+          ),
           Expanded(
             child: Column(children: [
               Expanded(
-                child: SingleChildScrollView(
-                  controller: _mainScroll,
-                  scrollDirection: Axis.vertical,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: OL.sectionBodyPaddingH,
-                    vertical: OL.sectionBodyPaddingH,
-                  ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    // ✅ BUG FIX: explicit finite width
-                    child: SizedBox(
-                      width: _kScrollChildW,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildPage(_si),
-                          const SizedBox(height: 32),
-                        ],
-                      ),
+                child: Stack(
+                  children: [
+                    CustomScrollView(
+                      controller: _mainScroll,
+                      slivers: [
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: OL.sectionBodyPaddingH),
+                        ),
+                        ...() {
+                          final idxs = _sectionIndicesForPage(_si);
+                          if (idxs.isEmpty) return const <Widget>[];
+                          return _buildSectionSlivers(
+                              _schema!.sections[idxs.first]);
+                        }(),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: 40),
+                        ),
+                      ],
                     ),
-                  ),
+                    if (_sidebarMode == 0)
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        child: Tooltip(
+                          message: 'Afficher la barre',
+                          child: InkWell(
+                            onTap: () => setState(() => _sidebarMode = 2),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: const Color(0xFFE2E8F0), width: 1),
+                                boxShadow: const [
+                                  BoxShadow(
+                                      color: Color(0x1A000000),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2)),
+                                ],
+                              ),
+                              child: const Icon(Icons.menu,
+                                  size: 16, color: Color(0xFF475569)),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               _navBar(),
@@ -2752,50 +3156,44 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
           ),
         ],
       );
+// ══════════════════════════════════════════════════════════════
+  // MOBILE LAYOUT  (FIXED — SliverPadding instead of padding:)
+  // ══════════════════════════════════════════════════════════════
+  Widget _mobileLayout() {
+    final idxs = _sectionIndicesForPage(_si);
+    final sectionSlivers = idxs.isNotEmpty
+        ? _buildSectionSlivers(_schema!.sections[idxs.first])
+        : const <Widget>[];
 
-  // ── Mobile layout ─────────────────────────────────────────────
-  Widget _mobileLayout() => Column(children: [
-        Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border:
-                Border(bottom: BorderSide(color: Color(0xFFE0E0E0), width: 1)),
-          ),
-          child: _stepperStrip(),
+    return Column(children: [
+      Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border:
+              Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _mainScroll,
-            scrollDirection: Axis.vertical,
-            padding: const EdgeInsets.symmetric(
-              horizontal: OL.sectionBodyPaddingH,
-              vertical: OL.sectionBodyPaddingH,
+        child: _stepperStrip(),
+      ),
+      Expanded(
+        child: CustomScrollView(
+          controller: _mainScroll,
+          slivers: [
+            const SliverToBoxAdapter(
+              child: SizedBox(height: OL.sectionBodyPaddingH),
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              // ✅ BUG FIX: explicit finite width
-              child: SizedBox(
-                width: _kScrollChildW,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildPage(_si),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            ),
-          ),
+            ...sectionSlivers,
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
+          ],
         ),
-        _navBar(),
-      ]);
+      ),
+      _navBar(),
+    ]);
+  }
 
-  // ── Stepper strip (mobile) ────────────────────────────────────
   Widget _stepperStrip() {
     if (_schema == null) return const SizedBox.shrink();
     return Container(
-      height: 60,
+      height: 68,
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -2819,7 +3217,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
   String _pageLabel(int page) {
     final idxs = _sectionIndicesForPage(page);
-    if (page == 0 && idxs.length >= 2) return 'Identité';
     if (idxs.isNotEmpty) {
       return _sm[_schema!.sections[idxs.first].id]?.lbl ?? 'Pg ${page + 1}';
     }
@@ -2828,37 +3225,34 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
   AppBar _appBar(String title) => AppBar(
         title: Text(title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         backgroundColor: const Color(0xFF4472C4),
         foregroundColor: Colors.white,
         elevation: 0,
-        leading: _sidebarModeButton(),
-        leadingWidth: 48,
         actions: [
           if (!_loading)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 12),
               child: Center(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: _saving
                       ? const SizedBox(
                           key: ValueKey('s'),
-                          width: 12,
-                          height: 12,
+                          width: 14,
+                          height: 14,
                           child: CircularProgressIndicator(
-                              strokeWidth: 1.5, color: Colors.white70),
-                        )
+                              strokeWidth: 2, color: Colors.white70))
                       : _dirty
                           ? Icon(
                               key: const ValueKey('d'),
                               Icons.circle,
-                              size: 7,
+                              size: 8,
                               color: Colors.orange.shade300)
                           : const Icon(
                               key: ValueKey('ok'),
                               Icons.cloud_done_outlined,
-                              size: 16,
+                              size: 18,
                               color: Colors.white70),
                 ),
               ),
@@ -2867,28 +3261,32 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
             TextButton(
               onPressed: widget.onCancel,
               child: const Text('ANNULER',
-                  style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
             ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
         ],
       );
 
-  /// Cycles sidebar through modes: 2 (full) → 1 (icons) → 0 (hidden) → 2
   Widget _sidebarModeButton() {
-    final icons = [
-      Icons.menu_open, // from hidden → show full  (mode 0)
-      Icons.last_page, // from full   → icons-only (mode 2)
-      Icons.first_page, // from icons  → hidden     (mode 1)
-    ];
-    // Show icon that represents the NEXT action
-    final iconIdx = _sidebarMode;
+    IconData icon;
+    String tooltip;
+    switch (_sidebarMode) {
+      case 2:
+        icon = Icons.chevron_left;
+        tooltip = 'Réduire la barre';
+        break;
+      case 1:
+        icon = Icons.last_page;
+        tooltip = 'Masquer la barre';
+        break;
+      default:
+        icon = Icons.menu;
+        tooltip = 'Afficher la barre';
+    }
     return IconButton(
-      icon: Icon(icons[iconIdx], size: 20),
-      tooltip: _sidebarMode == 2
-          ? 'Réduire la barre'
-          : _sidebarMode == 1
-              ? 'Masquer la barre'
-              : 'Afficher la barre',
+      icon: Icon(icon, size: 20),
+      tooltip: tooltip,
+      color: Colors.white,
       onPressed: () => setState(() {
         _sidebarMode = (_sidebarMode + 1) % 3;
       }),
@@ -2910,36 +3308,38 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
   Widget _skeletonScreen() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         children: [
           Row(
             children: [
               for (int i = 0; i < 4; i++) ...[
-                Expanded(
+                const Expanded(
                   child: Column(children: [
-                    _SkeletonCircle(size: 24),
-                    const SizedBox(height: 3),
-                    _SkeletonLine(width: 40, height: 8),
+                    _SkeletonCircle(size: 28),
+                    SizedBox(height: 4),
+                    _SkeletonLine(width: 48, height: 10),
                   ]),
                 ),
-                if (i < 3) Expanded(child: _SkeletonLine(width: 20, height: 2)),
+                if (i < 3)
+                  const Expanded(child: _SkeletonLine(width: 24, height: 2)),
               ],
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Expanded(
             child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SkeletonLine(width: 130, height: 16),
-                  const SizedBox(height: 12),
+                  const _SkeletonLine(width: 160, height: 20),
+                  const SizedBox(height: 16),
                   for (int i = 0; i < 6; i++) ...[
-                    _SkeletonLine(width: 400, height: 36),
-                    const SizedBox(height: 10),
+                    const _SkeletonLine(width: double.infinity, height: 48),
+                    const SizedBox(height: 12),
                   ],
                 ],
               ),
@@ -2953,10 +3353,6 @@ class _State extends State<OnefopUnifiedFormScreenV2> {
 
 // ══════════════════════════════════════════════════════════════
 // _HighlightBlock
-//
-// Wraps a question / table widget.  When the focused field id
-// matches this block's fieldId, it shows a subtle animated
-// left-border highlight and scrolls itself into view.
 // ══════════════════════════════════════════════════════════════
 class _HighlightBlock extends StatefulWidget {
   final String fieldId;
@@ -3025,9 +3421,15 @@ class _HighlightBlockState extends State<_HighlightBlock> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      margin: const EdgeInsets.only(bottom: 2),
+      margin: EdgeInsets.only(bottom: widget.isTable ? 0 : 4),
+      padding: EdgeInsets.only(
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: widget.isTable ? 0 : 8,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(10),
         color: _focused
             ? (widget.isTable
                 ? const Color(0xFFF0F6FF)
@@ -3036,10 +3438,8 @@ class _HighlightBlockState extends State<_HighlightBlock> {
         border: _focused
             ? Border(
                 left: BorderSide(
-                  color: const Color(0xFF4472C4).withValues(alpha: 0.7),
-                  width: 3,
-                ),
-              )
+                    color: const Color(0xFF4472C4).withValues(alpha: 0.7),
+                    width: 3))
             : null,
       ),
       child: widget.child,
@@ -3055,11 +3455,8 @@ class _RadioOpt extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _RadioOpt({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _RadioOpt(
+      {required this.label, required this.isSelected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -3067,59 +3464,62 @@ class _RadioOpt extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFDCE6F1) : Colors.transparent,
+            color: isSelected ? const Color(0xFFEEF2FF) : Colors.transparent,
             border: Border.all(
               color: isSelected
                   ? const Color(0xFF4472C4)
-                  : const Color(0xFFCFD8DC),
-              width: isSelected ? 1.5 : 0.5,
+                  : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.5 : 1,
             ),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                        color: const Color(0xFF4472C4).withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2)),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 16,
-                height: 16,
+                width: 20,
+                height: 20,
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF4472C4)
-                          : const Color(0xFF9E9E9E),
-                      width: 1.5,
-                    ),
+                        color: isSelected
+                            ? const Color(0xFF4472C4)
+                            : const Color(0xFF94A3B8),
+                        width: 2),
                   ),
-                  padding: const EdgeInsets.all(3),
+                  padding: const EdgeInsets.all(4),
                   child: isSelected
                       ? Container(
                           decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF4472C4),
-                          ),
-                        )
+                              shape: BoxShape.circle, color: Color(0xFF4472C4)))
                       : const SizedBox.shrink(),
                 ),
               ),
-              const SizedBox(width: 7),
+              const SizedBox(width: 10),
               Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? const Color(0xFF1F3864)
-                        : const Color(0xFF424242),
-                  ),
-                ),
+                child: Text(label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFF475569),
+                    )),
               ),
             ],
           ),
@@ -3140,13 +3540,12 @@ class _StepperItem extends StatelessWidget {
   final bool isCompleted;
   final VoidCallback onTap;
 
-  const _StepperItem({
-    required this.index,
-    required this.label,
-    required this.isActive,
-    required this.isCompleted,
-    required this.onTap,
-  });
+  const _StepperItem(
+      {required this.index,
+      required this.label,
+      required this.isActive,
+      required this.isCompleted,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -3158,40 +3557,37 @@ class _StepperItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 26,
-            height: 26,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isCompleted
                   ? const Color(0xFF70AD47)
                   : isActive
                       ? const Color(0xFF4472C4)
-                      : const Color(0xFFE0E0E0),
+                      : const Color(0xFFE2E8F0),
             ),
             alignment: Alignment.center,
             child: isCompleted
-                ? const Icon(Icons.check, color: Colors.white, size: 13)
-                : Text(
-                    '${index + 1}',
+                ? const Icon(Icons.check, color: Colors.white, size: 14)
+                : Text('${index + 1}',
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: isActive ? Colors.white : const Color(0xFF9E9E9E),
-                    ),
-                  ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color:
+                            isActive ? Colors.white : const Color(0xFF94A3B8))),
           ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color:
-                  isActive ? const Color(0xFF4472C4) : const Color(0xFF757575),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          const SizedBox(height: 4),
+          Text(label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive
+                    ? const Color(0xFF4472C4)
+                    : const Color(0xFF64748B),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -3204,11 +3600,11 @@ class _StepConnector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 20,
+        width: 24,
         height: 2,
         decoration: BoxDecoration(
           color:
-              isCompleted ? const Color(0xFF70AD47) : const Color(0xFFDDE3EC),
+              isCompleted ? const Color(0xFF70AD47) : const Color(0xFFE2E8F0),
           borderRadius: BorderRadius.circular(1),
         ),
       );
@@ -3219,11 +3615,7 @@ class _NavBtn extends StatelessWidget {
   final bool primary;
   final VoidCallback? onPressed;
 
-  const _NavBtn({
-    required this.label,
-    required this.primary,
-    this.onPressed,
-  });
+  const _NavBtn({required this.label, required this.primary, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -3231,17 +3623,17 @@ class _NavBtn extends StatelessWidget {
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor:
-            primary ? const Color(0xFF4472C4) : const Color(0xFFEEEEEE),
-        foregroundColor: primary ? Colors.white : const Color(0xFF424242),
+            primary ? const Color(0xFF4472C4) : const Color(0xFFF1F5F9),
+        foregroundColor: primary ? Colors.white : const Color(0xFF475569),
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       ),
       child: Text(label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: primary ? Colors.white : const Color(0xFF424242),
+            color: primary ? Colors.white : const Color(0xFF475569),
           )),
     );
   }
@@ -3257,9 +3649,8 @@ class _SkeletonLine extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: const Color(0xFFE0E0E0),
-          borderRadius: BorderRadius.circular(3),
-        ),
+            color: const Color(0xFFE2E8F0),
+            borderRadius: BorderRadius.circular(6)),
       );
 }
 
@@ -3272,9 +3663,7 @@ class _SkeletonCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: const BoxDecoration(
-          color: Color(0xFFE0E0E0),
-          shape: BoxShape.circle,
-        ),
+            color: Color(0xFFE2E8F0), shape: BoxShape.circle),
       );
 }
 
@@ -3323,7 +3712,6 @@ class _HNCSt extends State<_HNC> {
   KeyEventResult _key(FocusNode n, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final kb = HardwareKeyboard.instance;
-
     final idx = widget.allCells.indexOf(widget.cellId);
     if (idx < 0) return widget.fm.handleKey(n, e, gridId: widget.tableId);
 
@@ -3423,10 +3811,9 @@ class _HNCSt extends State<_HNC> {
               textAlignVertical: TextAlignVertical.center,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: const TextStyle(
-                fontSize: _kNumCellFontSize,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF000000),
-              ),
+                  fontSize: _kNumCellFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF000000)),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -3435,20 +3822,17 @@ class _HNCSt extends State<_HNC> {
                 contentPadding: EdgeInsets.zero,
                 hintText: focused ? '0' : null,
                 hintStyle: const TextStyle(
-                  fontSize: _kNumCellFontSize,
-                  color: Color(0xFFCCCCCC),
-                ),
+                    fontSize: _kNumCellFontSize, color: Color(0xFFCBD5E1)),
               ),
               onChanged: (v) =>
                   widget.onChanged(widget.cellId, int.tryParse(v) ?? 0),
               onSubmitted: (_) => _key(
-                _n,
-                const KeyDownEvent(
-                  physicalKey: PhysicalKeyboardKey.enter,
-                  logicalKey: LogicalKeyboardKey.enter,
-                  timeStamp: Duration.zero,
-                ),
-              ),
+                  _n,
+                  const KeyDownEvent(
+                    physicalKey: PhysicalKeyboardKey.enter,
+                    logicalKey: LogicalKeyboardKey.enter,
+                    timeStamp: Duration.zero,
+                  )),
             ),
           );
         },

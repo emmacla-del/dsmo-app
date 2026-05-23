@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/providers.dart';
@@ -42,11 +41,12 @@ import 'dsmo/declarations_list_screen.dart';
 import 'dsmo/send_notification_screen.dart';
 
 // ── ONEFOP ───────────────────────────────────────────────────
-import 'onefop/onefop_unified_form_screen_v2.dart';
+import 'onefop/onefop_unified_form_screen_v4.dart';
 import 'onefop/onefop_legal_acknowledgment_screen.dart';
 import 'onefop/pending_list_screen.dart';
 import 'onefop/onefop_dashboard_screen.dart';
 import 'onefop/onefop_analytics_screen.dart';
+import 'onefop/onefop_form_constants.dart' show EntityType;
 
 // ── Admin ────────────────────────────────────────────────────
 import 'admin/pending_users_screen.dart';
@@ -578,7 +578,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (!context.mounted) return;
               Navigator.pushReplacement(
                 context,
-                _route(OnefopUnifiedFormScreenV2(
+                _route(OnefopUnifiedFormScreenV4(
                   entityType: parsedType,
                   initialData: merged,
                   userId: user?.id,
@@ -1235,7 +1235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _navigateToBlankForm() {
     final userId = ref.read(authProvider).value?.id ?? 'guest';
-    _push(OnefopUnifiedFormScreenV2(
+    _push(OnefopUnifiedFormScreenV4(
       entityType: EntityType.enterprise,
       initialData: const {},
       userId: userId,
@@ -1279,9 +1279,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Resolve effective role once — used everywhere below.
     final role = _resolveRole(user);
-    final onViewAll = () {
+    void onViewAll() {
       if (mounted) setState(() => _selectedIndex = 1);
-    };
+    }
+
     final tabs =
         _buildTabs(role, () => _openNewSubmissionDialog(context), onViewAll);
     final safeIndex = _selectedIndex.clamp(0, tabs.length - 1);

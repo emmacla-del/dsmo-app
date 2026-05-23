@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart'; // ✅ ADDED
+import 'package:go_router/go_router.dart';
 import 'models/employee_adapter.dart';
-import 'screens/login_screen.dart';
+import 'screens/minefop_portal_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/dsmo/declaration_wizard_screen.dart';
 
-// ✅ Global navigator key – can be used from anywhere
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-// ✅ GoRouter configuration
 final GoRouter router = GoRouter(
   navigatorKey: rootNavigatorKey,
-  initialLocation: '/login',
+  initialLocation: '/',
   routes: [
     GoRoute(
-      path: '/login',
-      name: 'login',
-      builder: (context, state) => const LoginScreen(),
+      path: '/',
+      name: 'portal',
+      builder: (context, state) => const MinefopPortalScreen(),
     ),
     GoRoute(
       path: '/register',
@@ -42,7 +40,6 @@ final GoRouter router = GoRouter(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive
   await Hive.initFlutter();
   Hive.registerAdapter(EmployeeAdapter());
   await Hive.openBox('tokenBox');
@@ -56,7 +53,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      routerConfig: router, // ✅ use GoRouter
+      routerConfig: router,
       title: 'DSMO Cameroon',
       theme: ThemeData(
         primarySwatch: Colors.teal,

@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'onefop_unified_form_screen_v2.dart' show EntityType;
+import 'onefop_form_constants.dart' show EntityType;
 
 enum _FlowState {
   logoLoading, // pulsing logo while form schema loads
@@ -144,17 +144,14 @@ class _OnefopLegalAcknowledgmentScreenState
     super.dispose();
   }
 
+  // FIX: return switch (Dart 3) — exhaustiveness guaranteed, no analyzer warning
   String get _entityShortLabel {
-    switch (widget.entityType) {
-      case EntityType.ong:
-        return 'ONG / NGO';
-      case EntityType.enterprise:
-        return 'ENTREPRISE / ENTERPRISE';
-      case EntityType.cooperative:
-        return 'COOPÉRATIVE / COOPERATIVE';
-      case EntityType.ctd:
-        return 'CTD / TCC';
-    }
+    return switch (widget.entityType) {
+      EntityType.ong => 'ONG / NGO',
+      EntityType.enterprise => 'ENTREPRISE / ENTERPRISE',
+      EntityType.cooperative => 'COOPÉRATIVE / COOPERATIVE',
+      EntityType.ctd => 'CTD / TCC',
+    };
   }
 
   @override
@@ -219,7 +216,9 @@ class _OnefopLegalAcknowledgmentScreenState
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4472C4).withOpacity(_pulseGlow.value),
+                // FIX: withOpacity → withValues(alpha: ...)
+                color:
+                    const Color(0xFF4472C4).withValues(alpha: _pulseGlow.value),
                 blurRadius: 48,
                 spreadRadius: 12,
               ),
@@ -257,7 +256,8 @@ class _OnefopLegalAcknowledgmentScreenState
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            // FIX: withOpacity → withValues(alpha: ...)
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 32,
             offset: const Offset(0, 8),
           ),
@@ -428,8 +428,9 @@ class _OnefopLegalAcknowledgmentScreenState
                           disabledBackgroundColor: const Color(0xFFE2E8F0),
                           disabledForegroundColor: const Color(0xFF94A3B8),
                           elevation: _isAcknowledged ? 3 : 0,
+                          // FIX: withOpacity → withValues(alpha: ...)
                           shadowColor:
-                              const Color(0xFF4472C4).withOpacity(0.35),
+                              const Color(0xFF4472C4).withValues(alpha: 0.35),
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -585,5 +586,4 @@ class _LegalFooter extends StatelessWidget {
       ],
     );
   }
-}// Sub-widgets unchanged — keep _EntityBadge, _ConfidentialityCard, _LegalFooter
-// exactly as they are in your current file.
+}

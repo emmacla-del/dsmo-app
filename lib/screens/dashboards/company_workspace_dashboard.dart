@@ -49,9 +49,9 @@ final companyWorkspaceProvider =
     }
   }
 
-  final onefopStatus = user?.features?.onefopSubmissionStatus;
-  final onefopSurveyYear = user?.features?.onefopSurveyYear;
-  final hasDraft = user?.features?.onefopHasDraft ?? false;
+  final onefopStatus = user?.features.onefopSubmissionStatus;
+  final onefopSurveyYear = user?.features.onefopSurveyYear;
+  final hasDraft = user?.features.onefopHasDraft ?? false;
 
   return {
     'company': company,
@@ -180,7 +180,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: UltraTheme.primary),
+              const Icon(Icons.chevron_right, color: UltraTheme.primary),
             ],
           ),
         ),
@@ -756,7 +756,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: UltraTheme.error),
+            const Icon(Icons.error_outline, size: 48, color: UltraTheme.error),
             const SizedBox(height: 16),
             Text('Erreur de chargement', style: UltraTheme.titleLarge),
             const SizedBox(height: 8),

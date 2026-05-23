@@ -41,7 +41,7 @@ class NationalOverviewDashboard extends StatelessWidget {
   }
 
   Widget _buildKpiRow() {
-    return Row(
+    return const Row(
       children: [
         Expanded(
           child: _KpiCard(
@@ -53,7 +53,7 @@ class NationalOverviewDashboard extends StatelessWidget {
             progressValue: 0.7,
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         Expanded(
           child: _KpiCard(
             title: 'Companies reporting',
@@ -64,7 +64,7 @@ class NationalOverviewDashboard extends StatelessWidget {
             progressValue: 0.6,
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         Expanded(
           child: _KpiCard(
             title: 'Regional coverage',
@@ -75,7 +75,7 @@ class NationalOverviewDashboard extends StatelessWidget {
             progressValue: 0.8,
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         Expanded(
           child: _KpiCard(
             title: 'Agents pending',
@@ -101,7 +101,7 @@ class NationalOverviewDashboard extends StatelessWidget {
       _RegionData('Adamaoua', 109, UltraTheme.warning),
       _RegionData('North', 0, UltraTheme.textMuted),
     ];
-    final maxValue = 512.0;
+    const maxValue = 512.0;
 
     return GlassCard(
       child: Column(

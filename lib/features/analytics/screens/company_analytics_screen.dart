@@ -131,7 +131,6 @@ class BenchmarkData {
 // ═══════════════════════════════════════════════════════════
 
 /// v1 — company overview aggregated from DSMO
-
 final companySummaryProvider =
     FutureProvider.family<CompanySummary?, int>((ref, year) async {
   final api = ref.read(apiClientProvider);
@@ -159,11 +158,13 @@ final companyBenchmarksProvider =
     );
     return BenchmarkData.fromJson(response.data as Map<String, dynamic>);
   } on DioException catch (e) {
-    if (e.response?.statusCode == 403 || e.response?.statusCode == 404)
+    if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
       return null;
+    }
     rethrow;
   }
 });
+
 // bilanRhProvider is defined in ../data/bilan_rh.dart (v2)
 
 // ═══════════════════════════════════════════════════════════
@@ -313,23 +314,27 @@ class _BilanTabContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // If both are still loading, show unified shimmer
-    if (bilanAsync.isLoading && summaryAsync.isLoading) {
+    // ── Gate on bilan only — summary is secondary/optional ──
+
+    // Still loading the primary data source
+    if (bilanAsync.isLoading) {
       return const _ShimmerBilan();
     }
 
-    // If BilanRh returned null (not unlocked yet), show locked state
-    final bilan = bilanAsync.valueOrNull;
-    final summary = summaryAsync.valueOrNull;
-
+    // Hard error on bilan (network failure, 5xx, etc.)
     if (bilanAsync.hasError) {
       return _ErrorView(message: bilanAsync.error.toString());
     }
 
-    if (bilan == null && summary == null) {
+    final bilan = bilanAsync.valueOrNull;
+
+    // Bilan came back null → not yet approved / not submitted
+    // A 404 on company-summary alone must NOT trigger this path.
+    if (bilan == null) {
       return _LockedBilanView(status: submissionStatus);
     }
 
+    // ── Bilan is available — render everything ──
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -345,7 +350,7 @@ class _BilanTabContent extends StatelessWidget {
         ),
         const SizedBox(height: 24),
 
-        // ── v1 CompanySummary section ─────────────────────
+        // ── v1 CompanySummary section (optional — 404 → locked card) ──
         const _SectionTitle('Ma Situation'),
         summaryAsync.when(
           data: (s) {
@@ -359,13 +364,10 @@ class _BilanTabContent extends StatelessWidget {
         ),
         const SizedBox(height: 32),
 
-        // ── v2 BilanRh section ────────────────────────────
-        if (bilan != null) ...[
-          const _SectionTitle('Bilan RH Détaillé'),
-          _BilanRhView(bilan: bilan, year: currentYear),
-        ] else if (bilanAsync.isLoading) ...[
-          const _ShimmerBenchmark(),
-        ],
+        // ── v2 BilanRh section (guaranteed non-null here) ──
+        const _SectionTitle('Bilan RH Détaillé'),
+        _BilanRhView(bilan: bilan, year: currentYear),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -1871,7 +1873,7 @@ class _ShimmerBilan extends StatelessWidget {
   }
 }
 
-/// v1 animated shimmer card
+/// Animated shimmer card
 class _ShimmerCard extends StatelessWidget {
   final double height;
   final double borderRadius;

@@ -76,10 +76,10 @@ class FormCell extends StatelessWidget {
 
       // ── Text input ─────────────────────────────────────────
       case FormCellType.text:
-        return TextFieldCell(
+        return FormTextField(
           fieldId: id,
           value: value is String ? value as String : '',
-          onChanged: onTextChanged ?? (_, __) {},
+          onChanged: (v) => onTextChanged?.call(id, v),
           focusManager: focusManager,
           tableId: tableId,
           width: width,

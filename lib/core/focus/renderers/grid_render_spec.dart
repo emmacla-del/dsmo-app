@@ -12,6 +12,9 @@
 //     column (defaults to OL.firstColWidthNarrow = 130).
 //     Keeping the leading column narrow avoids the "too wide"
 //     problem reported for S23Q02.
+//   • rowLabelCellIds: optional list of editable cell IDs for
+//     the first (label) column — used by reasons/skills/training
+//     tables so users can type their own row labels.
 //   • copyWith updated to include all new fields.
 // ══════════════════════════════════════════════════════════════
 
@@ -151,6 +154,21 @@ class GridRenderSpec {
   // ── First-column (row-label) width override ────────────────
   final double? firstColWidthOverride;
 
+  // ── Editable label column cell IDs ────────────────────────
+  /// Optional list of cell IDs for the first (label) column,
+  /// one per row in [rowLabels] order.
+  ///
+  /// When an entry is non-empty and its [cellSpec] marks it as
+  /// editable, the renderer replaces the static row-label text
+  /// with an interactive [TextFieldCell] so users can type their
+  /// own label (e.g. reason, skill, or training domain names).
+  ///
+  /// Use an empty string `''` for rows that should remain
+  /// static (e.g. total rows).
+  ///
+  /// Used by: reasons_table, skills_table, training_table.
+  final List<String>? rowLabelCellIds;
+
   // ── Cell spec resolver ─────────────────────────────────────
   final CellSpec Function(String fieldId)? cellSpec;
 
@@ -183,6 +201,7 @@ class GridRenderSpec {
     this.leadingGroupRowCounts,
     this.leadingGroupColWidth,
     this.firstColWidthOverride,
+    this.rowLabelCellIds,
     this.cellSpec,
     this.isTotalCell,
     this.cellColor,
@@ -252,6 +271,7 @@ class GridRenderSpec {
     List<int>? leadingGroupRowCounts,
     double? leadingGroupColWidth,
     double? firstColWidthOverride,
+    List<String>? rowLabelCellIds,
     CellSpec Function(String)? cellSpec,
     bool Function(String)? isTotalCell,
     Color? Function(String)? cellColor,
@@ -277,6 +297,7 @@ class GridRenderSpec {
       leadingGroupColWidth: leadingGroupColWidth ?? this.leadingGroupColWidth,
       firstColWidthOverride:
           firstColWidthOverride ?? this.firstColWidthOverride,
+      rowLabelCellIds: rowLabelCellIds ?? this.rowLabelCellIds,
       cellSpec: cellSpec ?? this.cellSpec,
       isTotalCell: isTotalCell ?? this.isTotalCell,
       cellColor: cellColor ?? this.cellColor,

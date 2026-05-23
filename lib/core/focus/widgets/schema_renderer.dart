@@ -879,11 +879,12 @@ class _SchemaRendererState extends State<SchemaRenderer> {
       case 'text':
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: TextFieldCell(
+          child: FormTextField(
             fieldId: field.id,
             value: _textValues[field.id] ?? '',
-            onChanged: (fid, value) {
-              setState(() => _textValues[fid] = value);
+            // After
+            onChanged: (value) {
+              setState(() => _textValues[field.id] = value);
               widget.onChanged();
               _hasUnsavedChanges = true;
             },

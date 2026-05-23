@@ -15,6 +15,7 @@ const path = require("path");
 let OnefopPuppeteerService = class OnefopPuppeteerService {
     constructor() {
         this.browser = null;
+        this.helpersRegistered = false;
     }
     async generate(data) {
         try {
@@ -36,6 +37,9 @@ let OnefopPuppeteerService = class OnefopPuppeteerService {
                 jobApplicationsRows: templateData.jobApplicationsRows?.length,
                 recruitmentsByDiplomaRows: templateData.recruitmentsByDiplomaRows?.length,
                 internshipsRows: templateData.internshipsRows?.length,
+                dismissalReasons: templateData.dismissalReasons,
+                skills: templateData.skills,
+                trainingNeeds: templateData.trainingNeeds,
             }, null, 2));
             const html = template(templateData);
             const pdf = await this.htmlToPdf(html);
@@ -60,6 +64,9 @@ let OnefopPuppeteerService = class OnefopPuppeteerService {
         };
     }
     registerHelpers() {
+        if (this.helpersRegistered)
+            return;
+        this.helpersRegistered = true;
         Handlebars.registerHelper('eq', (a, b) => a === b);
         Handlebars.registerHelper('neq', (a, b) => a !== b);
         Handlebars.registerHelper('or', (a, b) => a || b);

@@ -58,7 +58,7 @@ class RegionalAgentDashboard extends StatelessWidget {
               color: UltraTheme.warning.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
             ),
-            child: Icon(Icons.warning_amber_rounded,
+            child: const Icon(Icons.warning_amber_rounded,
                 color: UltraTheme.warning, size: 24),
           ),
           const SizedBox(width: 16),
@@ -94,7 +94,7 @@ class RegionalAgentDashboard extends StatelessWidget {
   }
 
   Widget _buildKpiRow() {
-    return Row(
+    return const Row(
       children: [
         Expanded(
           child: _KpiCard(
@@ -106,7 +106,7 @@ class RegionalAgentDashboard extends StatelessWidget {
             progressValue: 0.65,
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         Expanded(
           child: _KpiCard(
             title: 'Approval rate',
@@ -117,7 +117,7 @@ class RegionalAgentDashboard extends StatelessWidget {
             progressValue: 0.88,
           ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: 16),
         Expanded(
           child: _KpiCard(
             title: 'Companies active',

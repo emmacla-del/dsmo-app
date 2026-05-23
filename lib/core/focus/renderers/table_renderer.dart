@@ -1,3 +1,5 @@
+// lib/core/focus/renderers/table_renderer.dart
+
 import 'package:flutter/material.dart';
 import '../schema/field_schema.dart';
 import '../unified_focus_manager_v2.dart';
@@ -16,6 +18,8 @@ class TableRenderer {
     required String entityType,
     VoidCallback? onExitTable,
     VoidCallback? onExitPrevious,
+    // ← ADD: hybrid controller for text/label cells (reasons, skills, training)
+    TextEditingController Function(String)? hybridController,
   }) {
     final spec = field.tableSpec;
     if (spec == null) {
@@ -33,16 +37,37 @@ class TableRenderer {
       entityType: entityType,
     );
 
+    // ← BUILD textValues from hybrid controllers for row label cells
+    final Map<String, String> textValues = {};
+    if (hybridController != null && renderSpec.rowLabelCellIds != null) {
+      for (final cellId in renderSpec.rowLabelCellIds!) {
+        if (cellId.isNotEmpty) {
+          final c = hybridController(cellId);
+          textValues[cellId] = c.text;
+        }
+      }
+    }
+
     final table = GenericSpreadsheetTable(
       spec: renderSpec,
       numberValues: gridValues,
-      textValues: const {},
+      textValues: textValues, // ← NOW POPULATED
       onNumberChanged: onCellChanged,
-      onTextChanged: (_, __) {},
+      onTextChanged: (id, value) {
+        // ← NOW FUNCTIONAL
+        if (hybridController != null) {
+          final c = hybridController(id);
+          // Only update if different to avoid cursor jumps
+          if (c.text != value) {
+            c.text = value;
+          }
+        }
+      },
       focusManager: focusManager,
       tableId: prefix,
       onExitTable: onExitTable,
       onExitPrevious: onExitPrevious,
+      hybridController: hybridController, // ← PASS THROUGH
     );
 
     final paperCode = field.paperCode;
@@ -51,14 +76,13 @@ class TableRenderer {
         (questionText != null && questionText.isNotEmpty);
 
     if (!hasHeader) {
-      // Tables without header still need some bottom spacing
       return Padding(
         padding: const EdgeInsets.only(bottom: OL.questionGapV),
         child: table,
       );
     }
 
-    // Tables with header: spacing is handled by the header, so no extra bottom padding
+    // FIX: paperCode and questionText rendered inline on the same line
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -71,21 +95,22 @@ class TableRenderer {
             vertical: 8,
           ),
           decoration: OL.qtDecoration,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (paperCode != null && paperCode.isNotEmpty)
-                Text(paperCode, style: OL.qcStyle),
-              if (questionText != null && questionText.isNotEmpty) ...[
+          child: RichText(
+            text: TextSpan(
+              style: OL.qtStyle,
+              children: [
                 if (paperCode != null && paperCode.isNotEmpty)
-                  const SizedBox(height: 4),
-                Text(questionText, style: OL.qtStyle),
+                  TextSpan(
+                    text: '$paperCode ',
+                    style: OL.qcStyle,
+                  ),
+                if (questionText != null && questionText.isNotEmpty)
+                  TextSpan(text: questionText),
               ],
-            ],
+            ),
           ),
         ),
-        table, // ← REMOVED the extra Padding here
+        table,
       ],
     );
   }

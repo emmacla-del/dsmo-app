@@ -1,5 +1,6 @@
 export declare class OnefopPuppeteerService {
     private browser;
+    private helpersRegistered;
     generate(data: any): Promise<Buffer>;
     private prepareDynamicData;
     private registerHelpers;

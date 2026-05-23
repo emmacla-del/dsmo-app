@@ -223,6 +223,7 @@ class OnefopFieldLabel extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────
 // QUESTION HEADER (.qt box)
+// FIX: paperCode and questionText rendered inline on the same line
 // ─────────────────────────────────────────────────────────────
 
 class OnefopQuestionHeader extends StatelessWidget {
@@ -255,13 +256,21 @@ class OnefopQuestionHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (paperCode != null && paperCode!.isNotEmpty)
-            Text(paperCode!, style: OL.qcStyle),
-          if (questionText != null && questionText!.isNotEmpty) ...[
-            if (paperCode != null && paperCode!.isNotEmpty)
-              const SizedBox(height: 4),
-            Text(questionText!, style: OL.qtStyle),
-          ],
+          // paperCode and questionText on the same line
+          RichText(
+            text: TextSpan(
+              style: OL.qtStyle,
+              children: [
+                if (paperCode != null && paperCode!.isNotEmpty)
+                  TextSpan(
+                    text: '${paperCode!} ',
+                    style: OL.qcStyle,
+                  ),
+                if (questionText != null && questionText!.isNotEmpty)
+                  TextSpan(text: questionText!),
+              ],
+            ),
+          ),
           if (subLabel != null && subLabel!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(

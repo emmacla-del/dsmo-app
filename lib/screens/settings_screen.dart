@@ -449,7 +449,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
             decoration: BoxDecoration(
               color: UltraTheme.error.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.only(
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(UltraTheme.radiusLarge),
                 topRight: Radius.circular(UltraTheme.radiusLarge),
               ),

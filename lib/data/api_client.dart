@@ -20,7 +20,7 @@ class ApiClient {
       : dio = Dio(BaseOptions(
           baseUrl: kIsWeb
               ? 'https://dsmo-app-2.onrender.com/api'
-              : 'https://dsmo-app-2.onrender.com/api', // ✅ Android emulator with /api
+              : 'https://dsmo-app-2.onrender.com/api',
           connectTimeout: const Duration(seconds: 60),
           receiveTimeout: const Duration(seconds: 60),
           headers: {'Content-Type': 'application/json'},
@@ -108,8 +108,6 @@ class ApiClient {
 
   // ==================== AUTH METHODS ====================
 
-  /// Register a MINEFOP user (DIVISIONAL, REGIONAL, CENTRAL) - creates User only
-  /// These users require admin approval before they can log in.
   Future<Map<String, dynamic>> registerMinefopUser({
     required String email,
     required String password,
@@ -121,6 +119,7 @@ class ApiClient {
     String? matricule,
     String? poste,
     String? serviceCode,
+    String? positionType,
   }) async {
     try {
       final response = await dio.post('/auth/register', data: {
@@ -134,6 +133,7 @@ class ApiClient {
         if (matricule != null) 'matricule': matricule,
         if (poste != null) 'poste': poste,
         if (serviceCode != null) 'serviceCode': serviceCode,
+        if (positionType != null) 'positionType': positionType,
       });
       return response.data;
     } on DioException catch (e) {
@@ -155,7 +155,6 @@ class ApiClient {
     String? matricule,
     String? poste,
     String? serviceCode,
-    // Company-specific fields
     required String companyName,
     required String taxNumber,
     required String mainActivity,
@@ -167,7 +166,6 @@ class ApiClient {
     int? socialCapital,
     String? subdivision,
     String? entityType,
-    // ── NEW FIELDS ──────────────────────────────────────────
     String? area,
     String? sectorId,
     String? phone,
@@ -187,7 +185,6 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.post('/auth/register-company', data: {
-        // User fields
         'email': email,
         'password': password,
         'firstName': firstName,
@@ -198,7 +195,6 @@ class ApiClient {
         if (matricule != null) 'matricule': matricule,
         if (poste != null) 'poste': poste,
         if (serviceCode != null) 'serviceCode': serviceCode,
-        // Company fields
         'companyName': companyName,
         'taxNumber': taxNumber,
         'mainActivity': mainActivity,
@@ -210,7 +206,6 @@ class ApiClient {
         if (socialCapital != null) 'socialCapital': socialCapital,
         if (subdivision != null) 'subdivision': subdivision,
         if (entityType != null) 'entityType': entityType,
-        // ── NEW FIELDS ──────────────────────────────────────
         if (area != null) 'area': area,
         if (sectorId != null) 'sectorId': sectorId,
         if (phone != null) 'phone': phone,
@@ -245,8 +240,6 @@ class ApiClient {
     }
   }
 
-  /// Generic register method - kept for backward compatibility
-  /// For COMPANY users, use registerCompany() instead
   @Deprecated(
       'Use registerCompany() for COMPANY users or registerMinefopUser() for MINEFOP users')
   Future<Map<String, dynamic>> register({
@@ -261,8 +254,6 @@ class ApiClient {
     String? poste,
     String? serviceCode,
   }) async {
-    // For COMPANY users, this will create User only (no Company)p
-    // Use registerCompany() instead for COMPANY users
     return registerMinefopUser(
       email: email,
       password: password,
@@ -390,6 +381,61 @@ class ApiClient {
   Future<List<dynamic>> getSectors() async {
     try {
       final response = await dio.get('/sectors');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // ==================== MINEFOP SERVICE METHODS ====================
+  // ✅ Updated to match NestJS controller routes
+
+  Future<List<dynamic>> getMinefopServices({
+    required String category,
+    required int level,
+  }) async {
+    try {
+      if (level == 1) {
+        // Use /minefop-services/roots?category=...
+        final response = await dio.get('/minefop-services/roots',
+            queryParameters: {'category': category});
+        return response.data;
+      } else {
+        // Use /minefop-services?category=...
+        final response = await dio
+            .get('/minefop-services', queryParameters: {'category': category});
+        return response.data;
+      }
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<List<dynamic>> getMinefopServiceChildren(String parentCode) async {
+    try {
+      // Use /minefop-services/children?parentCode=...
+      final response = await dio.get('/minefop-services/children',
+          queryParameters: {'parentCode': parentCode});
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<List<dynamic>> getMinefopServicePositions(String serviceCode) async {
+    try {
+      // Use /minefop-services/:code/positions
+      final response =
+          await dio.get('/minefop-services/$serviceCode/positions');
       return response.data;
     } on DioException catch (e) {
       throw ApiException(
@@ -545,7 +591,6 @@ class ApiClient {
 
   // ==================== ONEFOP QUESTIONNAIRE METHODS ====================
 
-  /// Submit a new questionnaire (entreprise, cooperative, ctd, ong)
   Future<Map<String, dynamic>> submitQuestionnaire(
       Map<String, dynamic> data) async {
     try {
@@ -559,7 +604,6 @@ class ApiClient {
     }
   }
 
-  /// Get all pending questionnaires (admin only)
   Future<List<dynamic>> getPendingQuestionnaires() async {
     try {
       final response = await dio.get('/admin/questionnaires/pending');
@@ -572,7 +616,6 @@ class ApiClient {
     }
   }
 
-  /// Approve a questionnaire by ID
   Future<Map<String, dynamic>> approveQuestionnaire(String id) async {
     try {
       final response = await dio.patch('/admin/questionnaires/$id/approve');
@@ -585,7 +628,6 @@ class ApiClient {
     }
   }
 
-  /// Reject a questionnaire with a reason
   Future<Map<String, dynamic>> rejectQuestionnaire(
       String id, String reason) async {
     try {
@@ -600,7 +642,6 @@ class ApiClient {
     }
   }
 
-  /// Request correction for a questionnaire
   Future<Map<String, dynamic>> requestCorrection(
       String id, String comments) async {
     try {
@@ -618,7 +659,6 @@ class ApiClient {
 
   // ==================== ONEFOP ANALYTICS METHODS ====================
 
-  /// Get the main ONEFOP dashboard summary (employment, skills, etc.)
   Future<Map<String, dynamic>> getOnefopDashboard({
     int? year,
     String? region,
@@ -642,7 +682,6 @@ class ApiClient {
     }
   }
 
-  /// Get employment by location (region, department, subdivision)
   Future<List<dynamic>> getOnefopEmployment({
     int? year,
     String? region,
@@ -669,7 +708,6 @@ class ApiClient {
     }
   }
 
-  /// Get recruitment trends with time granularity
   Future<List<dynamic>> getOnefopRecruitmentTrends({
     required int startYear,
     required int endYear,
@@ -698,7 +736,6 @@ class ApiClient {
     }
   }
 
-  /// Get hires by demographics (CSP, gender, age group)
   Future<Map<String, dynamic>> getOnefopHires({
     int? year,
     String? region,
@@ -728,7 +765,6 @@ class ApiClient {
     }
   }
 
-  /// Get hires by diploma
   Future<dynamic> getOnefopHiresByDiploma({
     int? year,
     String? region,
@@ -756,7 +792,6 @@ class ApiClient {
     }
   }
 
-  /// Get vacancies by segment (company size or business sector)
   Future<List<dynamic>> getOnefopVacancies({
     int? year,
     String? region,
@@ -783,7 +818,6 @@ class ApiClient {
     }
   }
 
-  /// Get top skill demands
   Future<List<dynamic>> getOnefopSkills({
     int? year,
     String? region,
@@ -809,7 +843,6 @@ class ApiClient {
     }
   }
 
-  /// Get training gap (demand vs supply)
   Future<Map<String, dynamic>> getOnefopTrainingGap({
     int? year,
     String? region,
@@ -833,7 +866,6 @@ class ApiClient {
     }
   }
 
-  /// Get gender parity metrics
   Future<Map<String, dynamic>> getOnefopGenderParity({
     int? year,
     String? region,
@@ -857,7 +889,6 @@ class ApiClient {
     }
   }
 
-  /// Get youth employment metrics
   Future<Map<String, dynamic>> getOnefopYouthEmployment({
     int? year,
     String? region,
@@ -881,7 +912,6 @@ class ApiClient {
     }
   }
 
-  /// Get inclusion metrics (disabled + vulnerable hires)
   Future<Map<String, dynamic>> getOnefopInclusion({
     int? year,
     String? region,
@@ -909,8 +939,6 @@ class ApiClient {
 
   // ==================== ERROR HANDLER ====================
 
-  /// Handles Dio errors and returns a user-friendly error message.
-  /// Supports NestJS validation errors where 'message' can be a List or String.
   String _handleError(DioException error) {
     if (error.response != null) {
       final response = error.response!;
@@ -990,5 +1018,4 @@ class ApiClient {
   }
 }
 
-// Provider
 final apiClientProvider = Provider((ref) => ApiClient());
