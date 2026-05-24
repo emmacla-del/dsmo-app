@@ -29,35 +29,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final GlobalKey<FormState> _minefopKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _securityKey = GlobalKey<FormState>();
 
-  // ── Draft state ───────────────────────────────────────────
   bool _draftLoaded = false;
-
-  // ── Role / entity type ────────────────────────────────────
   String _role = '';
   EntityType? _selectedEntityType;
 
-  // ── Respondent / personal info (Section 0 of ONEFOP) ─────
+  // Respondent fields
   String _respondentFirstName = '';
   String _respondentLastName = '';
-  String _respondentFunction = ''; // Only for company users
+  String _respondentFunction = '';
   String _respondentEmail = '';
   String _respondentPhone1 = '';
   String _respondentPhone2 = '';
   bool _emailIsAvailable = true;
 
-  // ── Entity-specific data (Section 1 of ONEFOP / DSMO Part A)
+  // Entity data (company)
   final Map<String, dynamic> _entityData = {};
   final Map<String, TextEditingController> _entityControllers = {};
 
-  // ── MINEFOP-specific fields ───────────────────────────────
+  // MINEFOP fields
   String _minefopMatricule = '';
   String _minefopPoste = '';
   String _minefopServiceCode = '';
   String _minefopPositionType = '';
   String? _minefopRegionName;
   String? _minefopDepartmentName;
+  String _minefopServicePath = '';
+  // _minefopTargetLevel removed – no longer needed
 
-  // ── Location fields (COMPANY flow; MINEFOP uses StepMinefopInfo) ──
+  // Location (company flow)
   Map<String, dynamic>? _selectedRegion;
   Map<String, dynamic>? _selectedDepartment;
   Map<String, dynamic>? _selectedSubdivision;
@@ -69,20 +68,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _loadingDepartments = false;
   bool _loadingSubdivisions = false;
 
-  // ── Sector (ONEFOP / DSMO pre-fill) ─────────────────────
+  // Sector (company)
   List<dynamic> _sectors = [];
   Map<String, dynamic>? _selectedSector;
   bool _loadingSectors = false;
 
-  // ── Security ──────────────────────────────────────────────
   String _password = '';
-
-  // ── Navigation state ─────────────────────────────────────
   int _step = kStepRole;
   bool _isSubmitting = false;
   Timer? _debounce;
 
-  // ── Computed helpers ──────────────────────────────────────
   bool get _isCompany => _role == 'COMPANY';
   bool get _isMinefop =>
       _role == 'DIVISIONAL' || _role == 'REGIONAL' || _role == 'CENTRAL';
@@ -100,17 +95,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         kStepReview,
       ];
     }
-    // CENTRAL agents have no location step (national scope)
-    if (_role == 'CENTRAL') {
-      return [
-        kStepRole,
-        kStepRespondent,
-        kStepMinefopInfo,
-        kStepSecurity,
-        kStepReview,
-      ];
-    }
-    // REGIONAL / DIVISIONAL — location embedded in StepMinefopInfo
+    // MINEFOP flow: skip entity type step
     return [
       kStepRole,
       kStepRespondent,
@@ -180,11 +165,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         'password': _password,
         'step': _step,
         'minefopMatricule': _minefopMatricule,
-        'minefopPoste': _minefopPoste,
         'minefopServiceCode': _minefopServiceCode,
         'minefopPositionType': _minefopPositionType,
         'minefopRegionName': _minefopRegionName,
         'minefopDepartmentName': _minefopDepartmentName,
+        'minefopServicePath': _minefopServicePath,
+        // 'minefopTargetLevel' removed
       });
     } catch (e) {
       debugPrint('Draft save failed: $e');
@@ -235,11 +221,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         _password = data['password'] as String? ?? '';
         _step = data['step'] as int? ?? kStepRole;
         _minefopMatricule = data['minefopMatricule'] as String? ?? '';
-        _minefopPoste = data['minefopPoste'] as String? ?? '';
         _minefopServiceCode = data['minefopServiceCode'] as String? ?? '';
         _minefopPositionType = data['minefopPositionType'] as String? ?? '';
         _minefopRegionName = data['minefopRegionName'] as String?;
         _minefopDepartmentName = data['minefopDepartmentName'] as String?;
+        _minefopServicePath = data['minefopServicePath'] as String? ?? '';
+        // _minefopTargetLevel removed
         _draftLoaded = true;
       });
 
@@ -320,7 +307,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     if (idx > 0) {
       _goToStep(_visibleSteps[idx - 1]);
     } else {
-      Navigator.pop(context);
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
     }
   }
 
@@ -332,6 +323,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           return;
         }
         _next();
+        break;
 
       case kStepEntityType:
         if (_selectedEntityType == null) {
@@ -340,6 +332,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         }
         _initEntityControllers();
         _next();
+        break;
 
       case kStepRespondent:
         if (!_respondentKey.currentState!.validate()) return;
@@ -349,16 +342,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         }
         _respondentKey.currentState!.save();
         _next();
+        break;
 
       case kStepEntityInfo:
         if (!_entityKey.currentState!.validate()) return;
         _entityKey.currentState!.save();
         _next();
+        break;
 
       case kStepMinefopInfo:
         if (!_minefopKey.currentState!.validate()) return;
         _minefopKey.currentState!.save();
         _next();
+        break;
 
       case kStepLocation:
         if (_selectedRegion == null) {
@@ -370,18 +366,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           return;
         }
         _next();
+        break;
 
       case kStepSecurity:
         if (!_securityKey.currentState!.validate()) return;
         _securityKey.currentState!.save();
         _next();
+        break;
 
       case kStepReview:
         await _submit();
+        break;
     }
   }
 
-  // ── Location data loaders ─────────────────────────────────
+  // Location data loaders (unchanged)
   Future<void> _loadRegions() async {
     if (_regions.isNotEmpty) return;
     setState(() => _loadingRegions = true);
@@ -689,9 +688,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 _minefopServiceCode = '';
                 _minefopRegionName = null;
                 _minefopDepartmentName = null;
+                _minefopServicePath = '';
+                // _minefopTargetLevel removed
               });
               _saveDraft(immediate: true);
-              if (role == 'COMPANY') _next();
+              if (role.isNotEmpty) {
+                _next();
+              }
             },
           );
 
@@ -723,6 +726,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             initialPhone1: _respondentPhone1,
             initialPhone2: _respondentPhone2,
             isMinefop: _isMinefop,
+            // removed initialTargetLevel
             onChanged: (fn, ln, func, email, p1, p2) {
               setState(() {
                 _respondentFirstName = fn;
@@ -737,6 +741,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             onEmailAvailabilityChanged: (isAvailable) {
               setState(() => _emailIsAvailable = isAvailable);
             },
+            // removed onTargetLevelChanged
           );
 
         case kStepEntityInfo:
@@ -755,11 +760,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           );
 
         case kStepMinefopInfo:
-          // ✅ Advanced MINEFOP widget (service tree, position dropdown, location)
           return StepMinefopInfo(
             key: ValueKey(_role),
             formKey: _minefopKey,
             role: _role,
+            // removed targetLevel parameter
             initialMatricule: _minefopMatricule,
             initialPoste: _minefopPoste,
             initialServiceCode: _minefopServiceCode,
@@ -771,6 +776,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               required poste,
               required serviceCode,
               required positionType,
+              required servicePath,
               region,
               department,
             }) {
@@ -779,6 +785,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 _minefopPoste = poste;
                 _minefopServiceCode = serviceCode;
                 _minefopPositionType = positionType;
+                _minefopServicePath = servicePath;
                 if (region != null) _minefopRegionName = region;
                 if (department != null) _minefopDepartmentName = department;
               });
@@ -841,7 +848,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           );
 
         case kStepSecurity:
-          // ✅ Password strength meter + confirmation
           return StepSecurity(
             formKey: _securityKey,
             initialPassword: _password,
@@ -880,6 +886,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             minefopPoste: _minefopPoste,
             minefopServiceCode: _minefopServiceCode,
             minefopPositionType: _minefopPositionType,
+            minefopServicePath: _minefopServicePath,
           );
 
         default:

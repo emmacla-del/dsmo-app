@@ -15,23 +15,17 @@ import '../data/minefop_models.dart';
 class StepRole extends StatefulWidget {
   final String role;
   final ValueChanged<String> onSelect;
-
   const StepRole({super.key, required this.role, required this.onSelect});
-
   @override
   State<StepRole> createState() => _StepRoleState();
 }
 
 class _StepRoleState extends State<StepRole> {
-  // null  → default view (two role cards)
-  // ''    → MINEFOP drill-down open, nothing selected yet
-  // 'CENTRAL' | 'REGIONAL' | 'DIVISIONAL' → user chose a level
   String? _pendingMinefopRole;
 
   @override
   void initState() {
     super.initState();
-    // Restore a previously chosen level when the user navigates back.
     if (widget.role == 'CENTRAL' ||
         widget.role == 'REGIONAL' ||
         widget.role == 'DIVISIONAL') {
@@ -44,92 +38,72 @@ class _StepRoleState extends State<StepRole> {
 
   @override
   Widget build(BuildContext context) {
-    // ── MINEFOP drill-down: show ONLY the level picker ────────
     if (_isMinefopPanelOpen) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Back arrow to return to role cards
-          GestureDetector(
-            onTap: () => setState(() {
-              _pendingMinefopRole = null;
-              widget.onSelect('');
-            }),
-            child: const Row(children: [
-              Icon(Icons.arrow_back_ios, size: 16, color: Color(0xFF666666)),
-              SizedBox(width: 4),
-              Text('Retour',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
-            ]),
-          ),
-          const SizedBox(height: 24),
-          const Text('Agent MINEFOP',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          const Text('Précisez votre niveau hiérarchique.',
-              style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
-          const SizedBox(height: 32),
-
-          ...kMinefopRoleOptions.map((roleKey) {
-            final isSelected = _pendingMinefopRole == roleKey;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  setState(() => _pendingMinefopRole = roleKey);
-                  widget.onSelect(roleKey);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.indigo.shade50 : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? Colors.indigo : Colors.grey.shade300,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(children: [
-                    Icon(
-                      isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: isSelected ? Colors.indigo : Colors.grey.shade400,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      kMinefopRoleLabels[roleKey] ?? roleKey,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected
-                            ? Colors.indigo.shade800
-                            : Colors.black87,
-                      ),
-                    ),
-                  ]),
+      return SizedBox(
+        height: double.infinity,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => setState(() => _pendingMinefopRole = null),
                 ),
+                const SizedBox(width: 4),
+                const Text('Niveau de service',
+                    style:
+                        TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              ]),
+              const SizedBox(height: 6),
+              const Text('Sélectionnez votre niveau hiérarchique.',
+                  style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+              const SizedBox(height: 32),
+              _MinefopLevelCard(
+                value: 'CENTRAL',
+                selected: _pendingMinefopRole,
+                title: 'Administration centrale',
+                subtitle:
+                    'Direction centrale, sous-direction ou service central à Yaoundé.',
+                icon: Icons.account_balance_outlined,
+                onTap: (v) {
+                  setState(() => _pendingMinefopRole = v);
+                  widget.onSelect(v);
+                },
               ),
-            );
-          }),
-
-          const SizedBox(height: 8),
-          const InfoBox(
-            icon: Icons.info_outline,
-            color: Colors.indigo,
-            text:
-                'Votre compte sera activé après validation par un administrateur.',
+              const SizedBox(height: 12),
+              _MinefopLevelCard(
+                value: 'REGIONAL',
+                selected: _pendingMinefopRole,
+                title: 'Service régional',
+                subtitle:
+                    "Délégation régionale de l'emploi et de la formation professionnelle.",
+                icon: Icons.map_outlined,
+                onTap: (v) {
+                  setState(() => _pendingMinefopRole = v);
+                  widget.onSelect(v);
+                },
+              ),
+              const SizedBox(height: 12),
+              _MinefopLevelCard(
+                value: 'DIVISIONAL',
+                selected: _pendingMinefopRole,
+                title: 'Service départemental',
+                subtitle:
+                    "Délégation départementale de l'emploi et de la formation professionnelle.",
+                icon: Icons.location_city_outlined,
+                onTap: (v) {
+                  setState(() => _pendingMinefopRole = v);
+                  widget.onSelect(v);
+                },
+              ),
+            ],
           ),
-        ]),
+        ),
       );
     }
 
-    // ── Default view: show the two role cards ─────────────────
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -139,8 +113,6 @@ class _StepRoleState extends State<StepRole> {
         const Text('Sélectionnez votre profil pour commencer.',
             style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
         const SizedBox(height: 32),
-
-        // ── COMPANY card ──────────────────────────────────
         RoleCard(
           value: 'COMPANY',
           selected: _isCompanySelected ? 'COMPANY' : '',
@@ -156,21 +128,82 @@ class _StepRoleState extends State<StepRole> {
           },
         ),
         const SizedBox(height: 12),
-
-        // ── MINEFOP card ──────────────────────────────────
         RoleCard(
           value: 'MINEFOP',
           selected: '',
           icon: Icons.account_balance_outlined,
           color: Colors.indigo,
           title: 'Agent MINEFOP',
-          subtitle: "Inspecteur ou agent du Ministère de l'Emploi et de la "
-              'Formation Professionnelle.',
-          onTap: (_) => setState(() {
-            _pendingMinefopRole ??= '';
-          }),
+          subtitle:
+              "Inspecteur ou agent du Ministère de l'Emploi et de la Formation Professionnelle.",
+          onTap: (_) => setState(() => _pendingMinefopRole = ''),
         ),
       ]),
+    );
+  }
+}
+
+class _MinefopLevelCard extends StatelessWidget {
+  final String value;
+  final String? selected;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final void Function(String) onTap;
+
+  const _MinefopLevelCard({
+    required this.value,
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSelected = selected == value;
+    return GestureDetector(
+      onTap: () => onTap(value),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.indigo.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? Colors.indigo : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.indigo.withAlpha(25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: Colors.indigo, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: isSelected
+                          ? Colors.indigo.shade700
+                          : const Color(0xFF1E293B))),
+              const SizedBox(height: 3),
+              Text(subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            ]),
+          ),
+          if (isSelected)
+            const Icon(Icons.check_circle, color: Colors.indigo, size: 20),
+        ]),
+      ),
     );
   }
 }
@@ -182,7 +215,6 @@ class _StepRoleState extends State<StepRole> {
 class StepEntityType extends StatelessWidget {
   final EntityType? selected;
   final ValueChanged<EntityType> onSelect;
-
   const StepEntityType(
       {super.key, required this.selected, required this.onSelect});
 
@@ -194,28 +226,35 @@ class StepEntityType extends StatelessWidget {
         const Text("Type d'entité",
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        const Text(
-          "Sélectionnez la catégorie juridique de votre organisation. "
-          "Cela déterminera quels champs sont demandés et pré-remplis dans "
-          "vos formulaires ONEFOP / DSMO.",
-          style: TextStyle(color: Color(0xFF666666), fontSize: 14),
-        ),
-        const SizedBox(height: 24),
-        ...EntityType.values.map((type) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: EntityTypeCard(
-                  type: type, selected: selected, onTap: onSelect),
-            )),
+        const Text("Sélectionnez le type d'entité que vous représentez.",
+            style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+        const SizedBox(height: 32),
+        ...EntityType.values.map((type) {
+          final config = entityConfigs[type];
+          if (config == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: RoleCard(
+              value: type.toString(),
+              selected: selected?.toString() ?? '',
+              icon: config.icon,
+              color: config.color,
+              title: config.title,
+              subtitle: type.formSectionLabel,
+              onTap: (_) => onSelect(type),
+            ),
+          );
+        }),
       ]),
     );
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// STEP 2 — Respondent / personal info  (Section 0 of ONEFOP)
+// STEP 2 — Respondent / personal info
 // ════════════════════════════════════════════════════════════════
 
-class StepRespondent extends StatefulWidget {
+class StepRespondent extends ConsumerStatefulWidget {
   final GlobalKey<FormState> formKey;
   final String initialFirstName,
       initialLastName,
@@ -244,10 +283,10 @@ class StepRespondent extends StatefulWidget {
   });
 
   @override
-  State<StepRespondent> createState() => _StepRespondentState();
+  ConsumerState<StepRespondent> createState() => _StepRespondentState();
 }
 
-class _StepRespondentState extends State<StepRespondent> {
+class _StepRespondentState extends ConsumerState<StepRespondent> {
   late final TextEditingController _firstNameCtrl,
       _lastNameCtrl,
       _emailCtrl,
@@ -322,7 +361,6 @@ class _StepRespondentState extends State<StepRespondent> {
             style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
           ),
           const SizedBox(height: 28),
-
           Row(children: [
             Expanded(
                 child: Field(
@@ -341,8 +379,6 @@ class _StepRespondentState extends State<StepRespondent> {
                         (v == null || v.trim().isEmpty) ? 'Requis' : null)),
           ]),
           const SizedBox(height: 14),
-
-          // Function dropdown (company only — ONEFOP Section 0 Q4)
           if (!widget.isMinefop) ...[
             const FieldLabel(label: 'Fonction *'),
             const SizedBox(height: 6),
@@ -353,11 +389,7 @@ class _StepRespondentState extends State<StepRespondent> {
               hint: const Text('Sélectionner votre fonction',
                   style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
               items: kRespondentFunctionOptions
-                  .map((o) => DropdownMenuItem(
-                      value: o,
-                      child: Text(o,
-                          style: const TextStyle(
-                              fontSize: 14, color: Color(0xFF1E293B)))))
+                  .map((o) => DropdownMenuItem(value: o, child: Text(o)))
                   .toList(),
               onChanged: (v) {
                 setState(() => _function = v ?? '');
@@ -365,9 +397,8 @@ class _StepRespondentState extends State<StepRespondent> {
               },
               validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
             ),
-            const SizedBox(height: 14),
           ],
-
+          const SizedBox(height: 14),
           EmailFieldWithAvailability(
             controller: _emailCtrl,
             label: 'E-mail professionnel *',
@@ -376,7 +407,6 @@ class _StepRespondentState extends State<StepRespondent> {
             onEmailAvailabilityChanged: widget.onEmailAvailabilityChanged,
           ),
           const SizedBox(height: 14),
-
           Row(children: [
             Expanded(
                 child: PhoneField(
@@ -391,7 +421,6 @@ class _StepRespondentState extends State<StepRespondent> {
                     isRequired: false)),
           ]),
           const SizedBox(height: 16),
-
           if (!widget.isMinefop)
             const InfoBox(
               icon: Icons.auto_fix_high_outlined,
@@ -407,7 +436,7 @@ class _StepRespondentState extends State<StepRespondent> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STEP 3 — Entity info  (Section 1 of ONEFOP / Part A of DSMO)
+// STEP 3 — Entity info (COMPANY only)
 // ════════════════════════════════════════════════════════════════
 
 class StepEntityInfo extends StatefulWidget {
@@ -451,10 +480,8 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
               style:
                   const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          Text(
-            widget.entityType!.formSectionLabel,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
-          ),
+          Text(widget.entityType!.formSectionLabel,
+              style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
           const SizedBox(height: 28),
           ...config.fields.map(_buildField),
           const SizedBox(height: 16),
@@ -471,7 +498,6 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
   }
 
   Widget _buildField(EntityField field) {
-    // ── Dropdown field ──────────────────────────────────────
     if (field.options != null) {
       final cur = widget.entityData[field.key] as String?;
       return Padding(
@@ -504,8 +530,6 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
         ]),
       );
     }
-
-    // ── Phone field ─────────────────────────────────────────
     if (field.isPhone) {
       final ctrl = widget.controllers[field.key] ??
           TextEditingController(text: widget.entityData[field.key]?.toString());
@@ -518,11 +542,8 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
         ),
       );
     }
-
-    // ── Text field ──────────────────────────────────────────
     final controller = widget.controllers[field.key];
     if (controller == null) return const SizedBox.shrink();
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
@@ -594,7 +615,12 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STEP 4 (MINEFOP) — Service, position, location
+// STEP 4 — MINEFOP info
+// 3-step cascade:
+//   Step 1: pick position type (e.g. CHEF_SERVICE)
+//   Step 2: pick immediate parent unit (e.g. the Sous-Direction)
+//   Step 3: pick exact service unit (e.g. the Service itself)
+//   → job title resolved from ServicePosition.title in database
 // ════════════════════════════════════════════════════════════════
 
 class StepMinefopInfo extends ConsumerStatefulWidget {
@@ -606,11 +632,13 @@ class StepMinefopInfo extends ConsumerStatefulWidget {
   final String initialPositionType;
   final String? initialRegion;
   final String? initialDepartment;
+
   final void Function({
     required String matricule,
     required String poste,
     required String serviceCode,
     required String positionType,
+    required String servicePath,
     String? region,
     String? department,
   }) onChanged;
@@ -634,28 +662,27 @@ class StepMinefopInfo extends ConsumerStatefulWidget {
 
 class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
   late final TextEditingController _matriculeCtrl;
-  late final TextEditingController _posteCtrl;
 
-  // Cascading service tree
-  MinefopServiceNode? _selectedL1;
-  MinefopServiceNode? _selectedL2;
-  MinefopServiceNode? _selectedL3;
-  MinefopServiceNode? _selectedL4;
-  ServicePosition? _selectedPosition;
+  // ── Step 1: position types ──
+  List<Map<String, dynamic>> _availablePositionTypes = [];
+  String? _selectedPositionType;
+  bool _loadingPositionTypes = false;
+  String? _positionTypesError;
 
-  List<MinefopServiceNode> _servicesL1 = [];
-  List<MinefopServiceNode> _servicesL2 = [];
-  List<MinefopServiceNode> _servicesL3 = [];
-  List<MinefopServiceNode> _servicesL4 = [];
-  List<ServicePosition> _positions = [];
+  // ── Step 2: immediate parent units ──
+  List<Map<String, dynamic>> _parentUnits = [];
+  Map<String, dynamic>? _selectedParentUnit;
+  bool _loadingParentUnits = false;
 
-  bool _loadingL1 = false;
-  bool _loadingL2 = false;
-  bool _loadingL3 = false;
-  bool _loadingL4 = false;
-  bool _loadingPositions = false;
+  // ── Step 3: exact service units under selected parent ──
+  List<Map<String, dynamic>> _serviceUnits = [];
+  Map<String, dynamic>? _selectedServiceUnit;
+  bool _loadingServiceUnits = false;
 
-  // Location (for REGIONAL / DIVISIONAL)
+  // Resolved job title from ServicePosition.title in the database
+  String _resolvedJobTitle = '';
+
+  // ── Location fields (REGIONAL / DIVISIONAL only) ──
   String? _selectedRegion;
   String? _selectedDepartment;
   List<Map<String, dynamic>> _regions = [];
@@ -663,113 +690,247 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
   bool _loadingRegions = false;
   bool _loadingDepartments = false;
 
-  bool get _isCentral => widget.role == 'CENTRAL';
-  bool get _isRegional => widget.role == 'REGIONAL';
-  bool get _isDivisional => widget.role == 'DIVISIONAL';
-  bool get _needsLocation => _isRegional || _isDivisional;
-  bool get _needsDepartment => _isDivisional;
-
+  bool get _needsLocation =>
+      widget.role == 'REGIONAL' || widget.role == 'DIVISIONAL';
+  bool get _needsDepartment => widget.role == 'DIVISIONAL';
   String get _roleLabel => kMinefopRoleLabels[widget.role] ?? widget.role;
 
   @override
   void initState() {
     super.initState();
     _matriculeCtrl = TextEditingController(text: widget.initialMatricule);
-    _posteCtrl = TextEditingController(text: widget.initialPoste);
     _matriculeCtrl.addListener(_notify);
-    _posteCtrl.addListener(_notify);
     _selectedRegion = widget.initialRegion;
     _selectedDepartment = widget.initialDepartment;
-    _loadServicesL1();
+    _loadPositionTypes();
     if (_needsLocation) _loadRegions();
   }
 
   @override
   void dispose() {
     _matriculeCtrl.dispose();
-    _posteCtrl.dispose();
     super.dispose();
   }
 
-  // ── API calls ───────────────────────────────────────────
-  Future<void> _loadServicesL1() async {
-    setState(() => _loadingL1 = true);
-    try {
-      final category = _isCentral ? 'CENTRALE' : 'DECONCENTRE';
-      final data = await ref
-          .read(apiClientProvider)
-          .getMinefopServices(category: category, level: 1);
-      if (mounted) {
-        setState(() => _servicesL1 = data
-            .map((e) => MinefopServiceNode.fromJson(e as Map<String, dynamic>))
-            .toList());
-      }
-    } catch (e) {
-      debugPrint('L1 services error: $e');
-    } finally {
-      if (mounted) setState(() => _loadingL1 = false);
-    }
-  }
-
-  Future<void> _loadChildren(MinefopServiceNode parent, int level) async {
-    void setLoading(bool v) => setState(() {
-          if (level == 2) _loadingL2 = v;
-          if (level == 3) _loadingL3 = v;
-          if (level == 4) _loadingL4 = v;
-        });
-
-    void setList(List<MinefopServiceNode> list) => setState(() {
-          if (level == 2) _servicesL2 = list;
-          if (level == 3) _servicesL3 = list;
-          if (level == 4) _servicesL4 = list;
-        });
-
-    setLoading(true);
-    try {
-      final data = await ref
-          .read(apiClientProvider)
-          .getMinefopServiceChildren(parent.code);
-      if (mounted) {
-        setList(data
-            .map((e) => MinefopServiceNode.fromJson(e as Map<String, dynamic>))
-            .toList());
-      }
-    } catch (e) {
-      debugPrint('L$level children error: $e');
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  }
-
-  Future<void> _loadPositions(String serviceCode) async {
+  // ─────────────────────────────────────────────────────────────
+  // STEP 1 — load position types for this role
+  // ─────────────────────────────────────────────────────────────
+  Future<void> _loadPositionTypes() async {
     setState(() {
-      _loadingPositions = true;
-      _positions = [];
-      _selectedPosition = null;
+      _loadingPositionTypes = true;
+      _positionTypesError = null;
+      _availablePositionTypes = [];
     });
     try {
-      final data = await ref
-          .read(apiClientProvider)
-          .getMinefopServicePositions(serviceCode);
+      final response = await ref.read(apiClientProvider).get(
+        '/minefop-services/positions/by-role',
+        queryParameters: {'role': widget.role},
+      );
+      final List<dynamic> data = response.data is List ? response.data : [];
       if (mounted) {
-        setState(() => _positions = data
-            .map((e) => ServicePosition.fromJson(e as Map<String, dynamic>))
-            .toList());
+        setState(() {
+          _availablePositionTypes = data
+              .map((e) => {
+                    'positionType': e['positionType'] as String,
+                    'label': e['label'] as String,
+                  })
+              .toList();
+          _loadingPositionTypes = false;
+        });
+        // Restore draft
+        if (widget.initialPositionType.isNotEmpty) {
+          final match = _availablePositionTypes.firstWhere(
+              (t) => t['positionType'] == widget.initialPositionType,
+              orElse: () => {});
+          if (match.isNotEmpty) {
+            _selectedPositionType = match['positionType'] as String;
+            await _loadParentUnits();
+          }
+        }
       }
     } catch (e) {
-      debugPrint('Positions error: $e');
-    } finally {
-      if (mounted) setState(() => _loadingPositions = false);
+      debugPrint('Error loading position types: $e');
+      if (mounted) {
+        setState(() {
+          _loadingPositionTypes = false;
+          _positionTypesError = 'Impossible de charger les fonctions.';
+        });
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // STEP 2 — load immediate parent units for the chosen position
+  // ─────────────────────────────────────────────────────────────
+  Future<void> _loadParentUnits() async {
+    if (_selectedPositionType == null) return;
+    setState(() {
+      _loadingParentUnits = true;
+      _parentUnits = [];
+      _selectedParentUnit = null;
+      _serviceUnits = [];
+      _selectedServiceUnit = null;
+      _resolvedJobTitle = '';
+    });
+    try {
+      final response = await ref.read(apiClientProvider).get(
+        '/minefop-services/parents-for-position',
+        queryParameters: {
+          'positionType': _selectedPositionType!,
+          'role': widget.role,
+        },
+      );
+      final List<dynamic> data = response.data is List ? response.data : [];
+
+      final List<Map<String, dynamic>> parents = [];
+
+      void collectParents(List<dynamic> items) {
+        for (final item in items) {
+          final children =
+              item['children'] is List ? item['children'] as List : <dynamic>[];
+          final acronym = item['acronym'] as String? ?? '';
+          final name = item['name'] as String? ?? '';
+          final level = item['level'] as int? ?? 1;
+          parents.add({
+            'code': item['code'] as String,
+            'name': name,
+            'acronym': acronym,
+            'displayName': acronym.isNotEmpty ? '$acronym — $name' : name,
+            'level': level,
+          });
+          if (children.isNotEmpty) {
+            collectParents(children);
+          }
+        }
+      }
+
+      collectParents(data);
+
+      if (mounted) {
+        setState(() {
+          _parentUnits = parents;
+          _loadingParentUnits = false;
+        });
+        if (widget.initialServiceCode.isNotEmpty && parents.isNotEmpty) {
+          await _restoreSelectionFromDraft();
+        }
+      }
+    } catch (e, st) {
+      debugPrint('Error loading parent units: $e\n$st');
+      if (mounted) setState(() => _loadingParentUnits = false);
+    }
+  }
+
+  Future<void> _loadServiceUnits() async {
+    if (_selectedParentUnit == null || _selectedPositionType == null) return;
+    setState(() {
+      _loadingServiceUnits = true;
+      _serviceUnits = [];
+      _selectedServiceUnit = null;
+      _resolvedJobTitle = '';
+    });
+    try {
+      final response = await ref.read(apiClientProvider).get(
+        '/minefop-services/children-for-position',
+        queryParameters: {
+          'parentCode': _selectedParentUnit!['code'] as String,
+          'positionType': _selectedPositionType!,
+        },
+      );
+      final List<dynamic> data = response.data is List ? response.data : [];
+      if (mounted) {
+        setState(() {
+          _serviceUnits = data
+              .map((e) => {
+                    'code': e['code'] as String,
+                    'name': e['name'] as String? ?? '',
+                    'acronym': e['acronym'] as String? ?? '',
+                    'displayName': e['displayName'] as String? ??
+                        ((e['acronym'] != null &&
+                                (e['acronym'] as String).isNotEmpty)
+                            ? '${e['acronym']} — ${e['name']}'
+                            : e['name'] as String? ?? ''),
+                    'positionTitle': e['positionTitle'] as String? ?? '',
+                  })
+              .toList();
+          _loadingServiceUnits = false;
+        });
+        // Restore draft
+        if (widget.initialServiceCode.isNotEmpty) {
+          final match = _serviceUnits.firstWhere(
+              (s) => s['code'] == widget.initialServiceCode,
+              orElse: () => {});
+          if (match.isNotEmpty) {
+            _selectedServiceUnit = match;
+            _resolvedJobTitle = match['positionTitle'] as String? ?? '';
+            _notify();
+          }
+        }
+      }
+    } catch (e, st) {
+      debugPrint('Error loading service units: $e\n$st');
+      if (mounted) setState(() => _loadingServiceUnits = false);
+    }
+  }
+
+  Future<void> _restoreSelectionFromDraft() async {
+    for (final parent in _parentUnits) {
+      try {
+        final response = await ref.read(apiClientProvider).get(
+          '/minefop-services/children-for-position',
+          queryParameters: {
+            'parentCode': parent['code'] as String,
+            'positionType': _selectedPositionType!,
+          },
+        );
+        final List<dynamic> data = response.data is List ? response.data : [];
+        final match = data.firstWhere(
+            (e) => e['code'] == widget.initialServiceCode,
+            orElse: () => null);
+        if (match != null && mounted) {
+          setState(() {
+            _selectedParentUnit = parent;
+            _serviceUnits = data
+                .map((e) => {
+                      'code': e['code'] as String,
+                      'name': e['name'] as String? ?? '',
+                      'acronym': e['acronym'] as String? ?? '',
+                      'displayName': e['displayName'] as String? ??
+                          ((e['acronym'] != null &&
+                                  (e['acronym'] as String).isNotEmpty)
+                              ? '${e['acronym']} — ${e['name']}'
+                              : e['name'] as String? ?? ''),
+                      'positionTitle': e['positionTitle'] as String? ?? '',
+                    })
+                .toList();
+            _selectedServiceUnit = _serviceUnits.firstWhere(
+                (s) => s['code'] == widget.initialServiceCode,
+                orElse: () => {});
+            if (_selectedServiceUnit != null &&
+                (_selectedServiceUnit as Map).isNotEmpty) {
+              _resolvedJobTitle =
+                  _selectedServiceUnit!['positionTitle'] as String? ?? '';
+            }
+          });
+          _notify();
+          return;
+        }
+      } catch (e, st) {
+        debugPrint(
+            'Draft restore scan error for parent ${parent['code']}: $e\n$st');
+        continue;
+      }
     }
   }
 
   Future<void> _loadRegions() async {
-    setState(() => _loadingRegions = true);
+    setState(() {
+      _loadingRegions = true;
+      _regions = [];
+    });
     try {
       final data = await ref.read(apiClientProvider).getRegions();
-      if (mounted) {
-        setState(() => _regions = data.cast<Map<String, dynamic>>());
-      }
+      if (mounted) setState(() => _regions = data.cast<Map<String, dynamic>>());
     } catch (e) {
       debugPrint('Regions error: $e');
     } finally {
@@ -795,91 +956,62 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     }
   }
 
-  // ── Selection handlers ──────────────────────────────────
-  void _onL1Changed(MinefopServiceNode? v) {
+  // ─────────────────────────────────────────────────────────────
+  // EVENT HANDLERS
+  // ─────────────────────────────────────────────────────────────
+  void _onPositionTypeChanged(String? type) {
     setState(() {
-      _selectedL1 = v;
-      _selectedL2 = null;
-      _selectedL3 = null;
-      _selectedL4 = null;
-      _selectedPosition = null;
-      _servicesL2 = [];
-      _servicesL3 = [];
-      _servicesL4 = [];
-      _positions = [];
+      _selectedPositionType = type;
+      _parentUnits = [];
+      _selectedParentUnit = null;
+      _serviceUnits = [];
+      _selectedServiceUnit = null;
+      _resolvedJobTitle = '';
     });
-    if (v != null) {
-      if (v.hasChildren) {
-        _loadChildren(v, 2);
-      } else {
-        _loadPositions(v.code);
-      }
+    if (type != null) {
+      _loadParentUnits();
+    } else {
+      _notify();
     }
-    _notify();
   }
 
-  void _onL2Changed(MinefopServiceNode? v) {
+  void _onParentUnitChanged(String? parentCode) {
+    final parent = parentCode != null
+        ? _parentUnits.firstWhere((u) => u['code'] == parentCode,
+            orElse: () => {})
+        : null;
     setState(() {
-      _selectedL2 = v;
-      _selectedL3 = null;
-      _selectedL4 = null;
-      _selectedPosition = null;
-      _servicesL3 = [];
-      _servicesL4 = [];
-      _positions = [];
+      _selectedParentUnit =
+          parent != null && (parent as Map).isNotEmpty ? parent : null;
+      _serviceUnits = [];
+      _selectedServiceUnit = null;
+      _resolvedJobTitle = '';
     });
-    if (v != null) {
-      if (v.hasChildren) {
-        _loadChildren(v, 3);
-      } else {
-        _loadPositions(v.code);
-      }
+    if (parent != null && (parent as Map).isNotEmpty) {
+      _loadServiceUnits();
+    } else {
+      _notify();
     }
-    _notify();
   }
 
-  void _onL3Changed(MinefopServiceNode? v) {
+  void _onServiceUnitChanged(String? unitCode) {
+    final unit = unitCode != null
+        ? _serviceUnits.firstWhere((s) => s['code'] == unitCode,
+            orElse: () => {})
+        : null;
     setState(() {
-      _selectedL3 = v;
-      _selectedL4 = null;
-      _selectedPosition = null;
-      _servicesL4 = [];
-      _positions = [];
+      _selectedServiceUnit =
+          unit != null && (unit as Map).isNotEmpty ? unit : null;
+      _resolvedJobTitle = unit != null && (unit as Map).isNotEmpty
+          ? unit['positionTitle'] as String? ?? ''
+          : '';
     });
-    if (v != null) {
-      if (v.hasChildren) {
-        _loadChildren(v, 4);
-      } else {
-        _loadPositions(v.code);
-      }
-    }
-    _notify();
-  }
-
-  void _onL4Changed(MinefopServiceNode? v) {
-    setState(() {
-      _selectedL4 = v;
-      _selectedPosition = null;
-      _positions = [];
-    });
-    if (v != null) _loadPositions(v.code);
-    _notify();
-  }
-
-  void _onPositionChanged(ServicePosition? v) {
-    setState(() => _selectedPosition = v);
     _notify();
   }
 
   void _onRegionChanged(Map<String, dynamic>? v) {
-    setState(() {
-      _selectedRegion = v?['name'] as String?;
-      _selectedDepartment = null;
-      _departments = [];
-    });
-    if (v != null && _needsDepartment) {
-      _loadDepartments(v['id'] as String);
-    }
+    setState(() => _selectedRegion = v?['name'] as String?);
+    if (v != null) _loadDepartments(v['id'] as String);
     _notify();
   }
 
@@ -888,24 +1020,36 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     _notify();
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // NOTIFY — sends final resolved values upward
+  // ─────────────────────────────────────────────────────────────
   void _notify() {
-    final serviceCode = _selectedL4?.code ??
-        _selectedL3?.code ??
-        _selectedL2?.code ??
-        _selectedL1?.code ??
-        '';
-
     widget.onChanged(
       matricule: _matriculeCtrl.text.trim(),
-      poste: _posteCtrl.text.trim(),
-      serviceCode: serviceCode,
-      positionType: _selectedPosition?.positionType ?? '',
+      poste: _resolvedJobTitle,
+      serviceCode: _selectedServiceUnit?['code'] as String? ?? '',
+      positionType: _selectedPositionType ?? '',
+      servicePath: _buildServicePath(),
       region: _selectedRegion,
       department: _selectedDepartment,
     );
   }
 
-  // ── Build ────────────────────────────────────────────────
+  String _buildServicePath() {
+    final parts = <String>[];
+    if (_selectedParentUnit != null) {
+      parts.add(_selectedParentUnit!['displayName'] as String);
+    }
+    if (_selectedServiceUnit != null &&
+        (_selectedServiceUnit as Map).isNotEmpty) {
+      parts.add(_selectedServiceUnit!['displayName'] as String);
+    }
+    return parts.join(' › ');
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // UI
+  // ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -918,103 +1062,58 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
             const Text('Informations MINEFOP',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text(
-              'Renseignez vos informations en tant que $_roleLabel.',
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
-            ),
+            Text('Renseignez vos informations en tant que $_roleLabel.',
+                style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
             const SizedBox(height: 28),
-
-            // Role badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.indigo.shade200),
-              ),
-              child: Row(children: [
-                const Icon(Icons.account_balance_outlined,
-                    color: Colors.indigo, size: 18),
-                const SizedBox(width: 8),
-                Text(_roleLabel,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.indigo)),
-              ]),
+            _roleBadge(),
+            const SizedBox(height: 24),
+            // Matricule
+            Field(
+              controller: _matriculeCtrl,
+              label: 'Matricule *',
+              icon: Icons.badge_outlined,
+              hint: 'Votre matricule de fonctionnaire',
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Matricule requis' : null,
             ),
             const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 24),
 
-            // ── Cascading service tree ────────────────────
-            _ServiceDropdown(
-              label: 'Direction / Service principal *',
-              hint: 'Sélectionnez votre direction',
-              value: _selectedL1,
-              items: _servicesL1,
-              loading: _loadingL1,
-              onChanged: _onL1Changed,
-              validator: (v) => v == null ? 'Requis' : null,
-            ),
-            const SizedBox(height: 16),
+            // STEP 1 — position type
+            _buildPositionTypeDropdown(),
 
-            if (_selectedL1 != null && _selectedL1!.hasChildren) ...[
-              _ServiceDropdown(
-                label: 'Sous-direction / Cellule *',
-                hint: 'Sélectionnez la sous-direction',
-                value: _selectedL2,
-                items: _servicesL2,
-                loading: _loadingL2,
-                onChanged: _onL2Changed,
-                validator: (v) => v == null ? 'Requis' : null,
-              ),
-              const SizedBox(height: 16),
+            // STEP 2 — immediate parent unit
+            if (_selectedPositionType != null) ...[
+              const SizedBox(height: 20),
+              _buildParentUnitDropdown(),
             ],
 
-            if (_selectedL2 != null && _selectedL2!.hasChildren) ...[
-              _ServiceDropdown(
-                label: 'Service *',
-                hint: 'Sélectionnez le service',
-                value: _selectedL3,
-                items: _servicesL3,
-                loading: _loadingL3,
-                onChanged: _onL3Changed,
-                validator: (v) => v == null ? 'Requis' : null,
-              ),
-              const SizedBox(height: 16),
+            // STEP 3 — exact service unit
+            if (_selectedParentUnit != null) ...[
+              const SizedBox(height: 20),
+              _buildServiceUnitDropdown(),
             ],
 
-            if (_selectedL3 != null && _selectedL3!.hasChildren) ...[
-              _ServiceDropdown(
-                label: 'Bureau *',
-                hint: 'Sélectionnez le bureau',
-                value: _selectedL4,
-                items: _servicesL4,
-                loading: _loadingL4,
-                onChanged: _onL4Changed,
-                validator: (v) => v == null ? 'Requis' : null,
-              ),
-              const SizedBox(height: 16),
+            // Resolved job title preview
+            if (_resolvedJobTitle.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _buildJobTitlePreview(),
             ],
 
-            // Position dropdown — shown when leaf node reached
-            if (_leafReached()) ...[
-              _PositionDropdown(
-                positions: _positions,
-                loading: _loadingPositions,
-                selected: _selectedPosition,
-                onChanged: _onPositionChanged,
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // ── Location (REGIONAL / DIVISIONAL) ──────────
+            // Location fields (REGIONAL / DIVISIONAL)
             if (_needsLocation) ...[
-              const Divider(height: 32),
+              const SizedBox(height: 24),
+              const Divider(height: 1),
+              const SizedBox(height: 24),
               Text('Localisation',
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: Colors.indigo.shade700)),
+              const SizedBox(height: 4),
+              Text('Indiquez la région et le département de votre affectation.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               const SizedBox(height: 16),
               _LocationFormDropdown(
                 label: 'Région *',
@@ -1026,8 +1125,8 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
                 onChanged: _onRegionChanged,
                 validator: (v) => v == null ? 'Requis' : null,
               ),
-              const SizedBox(height: 16),
               if (_needsDepartment) ...[
+                const SizedBox(height: 16),
                 _LocationFormDropdown(
                   label: 'Département *',
                   hint: _selectedRegion == null
@@ -1041,30 +1140,10 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
                       _selectedRegion != null ? _onDepartmentChanged : null,
                   validator: (v) => v == null ? 'Requis' : null,
                 ),
-                const SizedBox(height: 16),
               ],
             ],
 
-            // ── Matricule & Poste ──────────────────────────
-            const Divider(height: 32),
-            Field(
-              controller: _matriculeCtrl,
-              label: 'Matricule *',
-              icon: Icons.badge_outlined,
-              hint: 'Votre matricule de fonctionnaire',
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Matricule requis' : null,
-            ),
-            Field(
-              controller: _posteCtrl,
-              label: 'Poste occupé *',
-              icon: Icons.work_outline,
-              hint: 'Ex: Inspecteur du travail',
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Poste requis' : null,
-            ),
-            const SizedBox(height: 16),
-
+            const SizedBox(height: 24),
             const InfoBox(
               icon: Icons.info_outline,
               color: Colors.indigo,
@@ -1077,140 +1156,245 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     );
   }
 
-  bool _leafReached() {
-    if (_selectedL4 != null) return true;
-    if (_selectedL3 != null && !_selectedL3!.hasChildren) return true;
-    if (_selectedL2 != null && !_selectedL2!.hasChildren) return true;
-    if (_selectedL1 != null && !_selectedL1!.hasChildren) return true;
-    return false;
+  Widget _roleBadge() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.indigo.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.indigo.shade200),
+      ),
+      child: Row(children: [
+        const Icon(Icons.account_balance_outlined,
+            color: Colors.indigo, size: 18),
+        const SizedBox(width: 8),
+        Text(_roleLabel,
+            style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: Colors.indigo)),
+      ]),
+    );
   }
-}
 
-// ── Private sub-widgets for StepMinefopInfo ───────────────────
-
-class _ServiceDropdown extends StatelessWidget {
-  final String label, hint;
-  final MinefopServiceNode? value;
-  final List<MinefopServiceNode> items;
-  final bool loading;
-  final void Function(MinefopServiceNode?) onChanged;
-  final String? Function(MinefopServiceNode?)? validator;
-
-  const _ServiceDropdown({
-    required this.label,
-    required this.hint,
-    required this.value,
-    required this.items,
-    required this.loading,
-    required this.onChanged,
-    this.validator,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      FieldLabel(label: label),
-      const SizedBox(height: 6),
-      if (loading)
-        _buildLoadingField()
-      else
-        DropdownButtonFormField<MinefopServiceNode>(
-          initialValue: value,
+  // ── Step 1 widget ──
+  Widget _buildPositionTypeDropdown() {
+    if (_loadingPositionTypes) {
+      return const LoadingField(label: 'Chargement des fonctions...');
+    }
+    if (_positionTypesError != null) {
+      return _errorBox(_positionTypesError!);
+    }
+    if (_availablePositionTypes.isEmpty) {
+      return _infoBox('Aucune fonction disponible pour votre niveau.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel(label: 'Fonction / Poste *'),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: _selectedPositionType,
           isExpanded: true,
-          decoration: modernDropdown().copyWith(
-              prefixIcon: const Icon(Icons.account_balance_outlined, size: 20)),
-          hint: Text(hint,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: items
-              .map((s) => DropdownMenuItem(
-                    value: s,
-                    child: Text(s.displayName,
-                        overflow: TextOverflow.ellipsis,
+          decoration: modernDropdown(),
+          hint: const Text('Sélectionnez votre fonction',
+              style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          items: _availablePositionTypes
+              .map((e) => DropdownMenuItem<String>(
+                    value: e['positionType'] as String,
+                    child: Text(e['label'] as String,
                         style: const TextStyle(
                             fontSize: 14, color: Color(0xFF1E293B))),
                   ))
               .toList(),
-          onChanged: onChanged,
-          validator: validator,
+          onChanged: _onPositionTypeChanged,
+          validator: (v) =>
+              v == null ? 'Veuillez sélectionner une fonction' : null,
         ),
-    ]);
+      ],
+    );
   }
 
-  Widget _buildLoadingField() => Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+  // ── Step 2 widget ──
+  Widget _buildParentUnitDropdown() {
+    if (_loadingParentUnits) {
+      return const LoadingField(label: 'Chargement des unités parentes...');
+    }
+    if (_parentUnits.isEmpty) {
+      return _infoBox('Aucune unité parente disponible pour cette fonction.');
+    }
+    // Auto-select root-level parent (level 1) when it's the only option
+    if (_parentUnits.length == 1 &&
+        _parentUnits[0]['level'] == 1 &&
+        _selectedParentUnit == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onParentUnitChanged(_parentUnits[0]['code'] as String);
+      });
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel(label: 'Unité parente *'),
+        const SizedBox(height: 4),
+        Text(
+          _parentUnits.length == 1 && _parentUnits[0]['level'] == 1
+              ? 'Cette fonction est directement rattachée à cette unité.'
+              : 'Sélectionnez le service supérieur hiérarchique direct.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
         ),
-        child: const Center(
-            child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2))),
-      );
-}
-
-class _PositionDropdown extends StatelessWidget {
-  final List<ServicePosition> positions;
-  final bool loading;
-  final ServicePosition? selected;
-  final void Function(ServicePosition?) onChanged;
-
-  const _PositionDropdown({
-    required this.positions,
-    required this.loading,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const FieldLabel(label: 'Fonction / Poste *'),
-      const SizedBox(height: 6),
-      if (loading)
-        Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: const Center(
-              child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))),
-        )
-      else
-        DropdownButtonFormField<ServicePosition>(
-          initialValue: selected,
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedParentUnit != null &&
+                  (_selectedParentUnit as Map).isNotEmpty
+              ? _selectedParentUnit!['code'] as String?
+              : null,
           isExpanded: true,
-          decoration: modernDropdown()
-              .copyWith(prefixIcon: const Icon(Icons.work_outline, size: 20)),
-          hint: const Text('Sélectionnez votre fonction',
+          decoration: modernDropdown(),
+          hint: const Text("Sélectionnez l'unité supérieure",
               style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: positions
-              .map((p) => DropdownMenuItem(
-                    value: p,
+          items: _parentUnits
+              .map((e) => DropdownMenuItem<String>(
+                    value: e['code'] as String,
                     child: Text(
-                      p.titleEn != null ? '${p.title} / ${p.titleEn}' : p.title,
+                      e['displayName'] as String,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14, color: Color(0xFF1E293B)),
                     ),
                   ))
               .toList(),
-          onChanged: onChanged,
-          validator: (v) => v == null ? 'Fonction requise' : null,
+          onChanged: _onParentUnitChanged,
+          validator: (v) => v == null ? 'Requis' : null,
         ),
-    ]);
+      ],
+    );
+  }
+
+  // ── Step 3 widget ──
+  Widget _buildServiceUnitDropdown() {
+    if (_loadingServiceUnits) {
+      return const LoadingField(label: 'Chargement de vos services...');
+    }
+    if (_serviceUnits.isEmpty) {
+      return _infoBox('Aucun service trouvé sous cette unité parente.');
+    }
+    // Auto-select when only one service unit is available
+    if (_serviceUnits.length == 1 && _selectedServiceUnit == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onServiceUnitChanged(_serviceUnits[0]['code'] as String);
+      });
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel(label: 'Votre service *'),
+        const SizedBox(height: 4),
+        Text(
+          "Sélectionnez l'unité dans laquelle vous exercez.",
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedServiceUnit != null &&
+                  (_selectedServiceUnit as Map).isNotEmpty
+              ? _selectedServiceUnit!['code'] as String?
+              : null,
+          isExpanded: true,
+          decoration: modernDropdown(),
+          hint: const Text('Sélectionnez votre service',
+              style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          items: _serviceUnits
+              .map((e) => DropdownMenuItem<String>(
+                    value: e['code'] as String,
+                    child: Text(
+                      e['displayName'] as String,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14, color: Color(0xFF1E293B)),
+                    ),
+                  ))
+              .toList(),
+          onChanged: _onServiceUnitChanged,
+          validator: (v) => v == null ? 'Requis' : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJobTitlePreview() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.teal.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.teal.shade200),
+      ),
+      child: Row(children: [
+        const Icon(Icons.work_outline, color: Colors.teal, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Intitulé du poste',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.teal,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              Text(
+                _resolvedJobTitle,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFF1E293B)),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.check_circle, color: Colors.teal, size: 18),
+      ]),
+    );
+  }
+
+  Widget _errorBox(String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(children: [
+        const Icon(Icons.error_outline, color: Colors.red, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(message, style: const TextStyle(color: Colors.red))),
+      ]),
+    );
+  }
+
+  Widget _infoBox(String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Text(message, style: const TextStyle(fontSize: 13)),
+    );
   }
 }
 
+// ════════════════════════════════════════════════════════════════
+// Location form dropdown (MINEFOP regional/divisional)
+// ════════════════════════════════════════════════════════════════
+
 class _LocationFormDropdown extends StatelessWidget {
-  final String label, hint;
+  final String label;
+  final String hint;
   final IconData icon;
   final List<Map<String, dynamic>> items;
   final String? selectedName;
@@ -1231,51 +1415,74 @@ class _LocationFormDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = items.isNotEmpty && selectedName != null
+    final match = items.isNotEmpty && selectedName != null
         ? items.firstWhere((r) => r['name'] == selectedName,
             orElse: () => <String, dynamic>{})
         : null;
-    final resolvedSelected =
-        (selected != null && selected.isNotEmpty) ? selected : null;
+    final resolved = (match != null && match.isNotEmpty) ? match : null;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       FieldLabel(label: label),
       const SizedBox(height: 6),
       if (loading)
-        Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: const Center(
-              child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))),
-        )
+        const _LoadingBox()
       else
-        DropdownButtonFormField<Map<String, dynamic>>(
-          initialValue: resolvedSelected,
+        DropdownButtonFormField<String>(
+          value: resolved != null
+              ? resolved['id'] as String? ?? resolved['name'] as String?
+              : null,
           isExpanded: true,
           decoration:
               modernDropdown().copyWith(prefixIcon: Icon(icon, size: 20)),
           hint: Text(hint,
               style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
           items: items
-              .map((item) => DropdownMenuItem<Map<String, dynamic>>(
-                    value: item,
+              .map((item) => DropdownMenuItem<String>(
+                    value:
+                        item['id'] as String? ?? item['name'] as String? ?? '',
                     child: Text(item['name'] as String? ?? '',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 14, color: Color(0xFF1E293B))),
                   ))
               .toList(),
-          onChanged: onChanged,
-          validator: validator,
+          onChanged: (code) {
+            final selected = code != null
+                ? items.firstWhere((i) => (i['id'] ?? i['name']) == code,
+                    orElse: () => {})
+                : null;
+            onChanged?.call(selected != null && (selected as Map).isNotEmpty
+                ? selected
+                : null);
+          },
+          validator: (v) => validator?.call(v != null
+              ? items.firstWhere((i) => (i['id'] ?? i['name']) == v,
+                  orElse: () => {})
+              : null),
         ),
     ]);
+  }
+}
+
+class _LoadingBox extends StatelessWidget {
+  const _LoadingBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: const Center(
+        child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+    );
   }
 }
 
@@ -1351,8 +1558,6 @@ class _StepLocationState extends State<StepLocation> {
           style: TextStyle(color: Color(0xFF666666), fontSize: 14),
         ),
         const SizedBox(height: 28),
-
-        // Région
         widget.loadingRegions
             ? const LoadingField(label: 'Région *')
             : LocationDropdown(
@@ -1364,8 +1569,6 @@ class _StepLocationState extends State<StepLocation> {
                 onChanged: widget.onRegionChanged,
               ),
         const SizedBox(height: 16),
-
-        // Département
         widget.loadingDepartments
             ? const LoadingField(label: 'Département *')
             : LocationDropdown(
@@ -1381,8 +1584,6 @@ class _StepLocationState extends State<StepLocation> {
                     : widget.onDepartmentChanged,
               ),
         const SizedBox(height: 16),
-
-        // Arrondissement
         widget.loadingSubdivisions
             ? const LoadingField(label: 'Arrondissement')
             : LocationDropdown(
@@ -1401,8 +1602,6 @@ class _StepLocationState extends State<StepLocation> {
                 required: false,
               ),
         const SizedBox(height: 16),
-
-        // Milieu de résidence
         const FieldLabel(label: 'Milieu'),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
@@ -1421,8 +1620,6 @@ class _StepLocationState extends State<StepLocation> {
           onChanged: widget.onAreaChanged,
         ),
         const SizedBox(height: 16),
-
-        // Secteur d'activité
         widget.loadingSectors
             ? const LoadingField(label: "Secteur d'activité")
             : Column(
@@ -1441,17 +1638,18 @@ class _StepLocationState extends State<StepLocation> {
                     items: widget.sectors
                         .map((s) => DropdownMenuItem<Map<String, dynamic>>(
                               value: s as Map<String, dynamic>,
-                              child: Text(s['name'] as String? ?? '',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: Color(0xFF1E293B))),
+                              child: Text(
+                                s['name'] as String? ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 13, color: Color(0xFF1E293B)),
+                              ),
                             ))
                         .toList(),
                     onChanged: widget.onSectorChanged,
                   ),
                 ],
               ),
-
         const SizedBox(height: 20),
         const InfoBox(
           icon: Icons.auto_fix_high_outlined,
@@ -1521,18 +1719,19 @@ class _StepSecurityState extends State<StepSecurity> {
     return s.clamp(0, 1);
   }
 
-  Color _strengthColor(double s) {
-    if (s < 0.35) return Colors.red;
-    if (s < 0.65) return Colors.orange;
-    return Colors.green;
-  }
+  Color _strengthColor(double s) => s < 0.35
+      ? Colors.red
+      : s < 0.65
+          ? Colors.orange
+          : Colors.green;
 
-  String _strengthLabel(double s) {
-    if (s < 0.35) return 'Faible';
-    if (s < 0.65) return 'Moyen';
-    if (s < 0.9) return 'Fort';
-    return 'Très fort';
-  }
+  String _strengthLabel(double s) => s < 0.35
+      ? 'Faible'
+      : s < 0.65
+          ? 'Moyen'
+          : s < 0.9
+              ? 'Fort'
+              : 'Très fort';
 
   @override
   Widget build(BuildContext context) {
@@ -1576,17 +1775,22 @@ class _StepSecurityState extends State<StepSecurity> {
           const SizedBox(height: 10),
           Row(children: [
             Expanded(
-                child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                        value: _strength,
-                        minHeight: 5,
-                        backgroundColor: Colors.grey.shade200,
-                        color: sc))),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _strength,
+                  minHeight: 5,
+                  backgroundColor: Colors.grey.shade200,
+                  color: sc,
+                ),
+              ),
+            ),
             const SizedBox(width: 10),
-            Text(_pwCtrl.text.isEmpty ? '' : _strengthLabel(_strength),
-                style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: sc)),
+            Text(
+              _pwCtrl.text.isEmpty ? '' : _strengthLabel(_strength),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: sc),
+            ),
           ]),
           const SizedBox(height: 8),
           _PasswordTips(password: _pwCtrl.text),
@@ -1640,8 +1844,11 @@ class _PasswordTips extends StatelessWidget {
       children: tips.map((t) {
         final (label, ok) = t;
         return Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(ok ? Icons.check_circle : Icons.radio_button_unchecked,
-              size: 14, color: ok ? Colors.green : Colors.grey.shade400),
+          Icon(
+            ok ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 14,
+            color: ok ? Colors.green : Colors.grey.shade400,
+          ),
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
@@ -1677,6 +1884,7 @@ class StepReview extends StatelessWidget {
       minefopPoste,
       minefopServiceCode,
       minefopPositionType;
+  final String minefopServicePath;
 
   const StepReview({
     super.key,
@@ -1699,6 +1907,7 @@ class StepReview extends StatelessWidget {
     required this.minefopPoste,
     required this.minefopServiceCode,
     required this.minefopPositionType,
+    this.minefopServicePath = '',
   });
 
   EntityConfig? get _entityConfig =>
@@ -1741,15 +1950,11 @@ class StepReview extends StatelessWidget {
         ],
         if (isMinefop) ...[
           const SizedBox(height: 12),
-          ReviewCard(
-            title: 'Informations MINEFOP',
-            icon: Icons.badge_outlined,
-            rows: [
-              if (minefopMatricule.isNotEmpty) ('Matricule', minefopMatricule),
-              if (minefopPoste.isNotEmpty) ('Poste', minefopPoste),
-              if (minefopServiceCode.isNotEmpty)
-                ('Code service', minefopServiceCode),
-            ],
+          _MinefopReviewCard(
+            matricule: minefopMatricule,
+            poste: minefopPoste,
+            servicePath: minefopServicePath,
+            serviceCode: minefopServiceCode,
           ),
         ],
         if (selectedRegion != null || selectedDepartment != null) ...[
@@ -1780,11 +1985,9 @@ class StepReview extends StatelessWidget {
               : Icons.check_circle_outline,
           color: isMinefop ? Colors.orange : Colors.green,
           text: isMinefop
-              ? 'Votre compte sera activé après validation par un '
-                  'administrateur MINEFOP.'
-              : 'Ces informations pré-rempliront automatiquement les '
-                  'Sections 0 et 1 de vos formulaires ONEFOP et la '
-                  'Partie A de vos déclarations DSMO.',
+              ? 'Votre compte sera activé après validation par un administrateur MINEFOP.'
+              : 'Ces informations pré-rempliront automatiquement les Sections 0 et 1 '
+                  'de vos formulaires ONEFOP et la Partie A de vos déclarations DSMO.',
         ),
       ]),
     );
@@ -1796,9 +1999,10 @@ class StepReview extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-            color: _entityConfig!.color.withAlpha(20),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _entityConfig!.color.withAlpha(80))),
+          color: _entityConfig!.color.withAlpha(20),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _entityConfig!.color.withAlpha(80)),
+        ),
         child: Row(children: [
           Icon(_entityConfig!.icon, color: _entityConfig!.color),
           const SizedBox(width: 10),
@@ -1815,9 +2019,10 @@ class StepReview extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-            color: Colors.indigo.withAlpha(20),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.indigo.withAlpha(80))),
+          color: Colors.indigo.withAlpha(20),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.indigo.withAlpha(80)),
+        ),
         child: Row(children: [
           const Icon(Icons.account_balance_outlined, color: Colors.indigo),
           const SizedBox(width: 10),
@@ -1844,5 +2049,125 @@ class StepReview extends StatelessWidget {
       rows.add((field.label, value));
     }
     return rows;
+  }
+}
+
+class _MinefopReviewCard extends StatelessWidget {
+  final String matricule;
+  final String poste;
+  final String servicePath;
+  final String serviceCode;
+
+  const _MinefopReviewCard({
+    required this.matricule,
+    required this.poste,
+    required this.servicePath,
+    required this.serviceCode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: Row(children: [
+            Icon(Icons.badge_outlined, size: 18, color: Colors.indigo.shade400),
+            const SizedBox(width: 8),
+            Text('Informations MINEFOP',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700)),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        const Divider(height: 1, indent: 16, endIndent: 16),
+        const SizedBox(height: 12),
+        if (matricule.isNotEmpty)
+          _ReviewRow(label: 'Matricule', value: matricule),
+        if (poste.isNotEmpty)
+          _ReviewRow(label: 'Intitulé du poste', value: poste),
+        if (servicePath.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+            child: Text('Chemin hiérarchique',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade500)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  for (final (i, part) in servicePath.split(' › ').indexed) ...[
+                    if (i > 0)
+                      Icon(Icons.chevron_right,
+                          size: 13, color: Colors.indigo.shade300),
+                    Text(
+                      part,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: i == servicePath.split(' › ').length - 1
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        color: i == servicePath.split(' › ').length - 1
+                            ? Colors.indigo.shade700
+                            : Colors.indigo.shade400,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ] else if (serviceCode.isNotEmpty)
+          _ReviewRow(label: 'Code service', value: serviceCode),
+        const SizedBox(height: 4),
+      ]),
+    );
+  }
+}
+
+class _ReviewRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _ReviewRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 130,
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade500)),
+        ),
+        Expanded(
+          child: Text(value,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
+        ),
+      ]),
+    );
   }
 }

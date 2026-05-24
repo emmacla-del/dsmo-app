@@ -541,7 +541,10 @@ export class MinefopServicesService {
 
     const filterTree = (node: any): any | null => {
       const filteredChildren = node.children.map(filterTree).filter(Boolean);
-      if (filteredChildren.length > 0 || node.positions?.some(p => p.positionType === positionType)) {
+      // Keep node if it has the position directly, OR if any descendant has it
+      const hasPositionDirectly = node.positions?.some(p => p.positionType === positionType);
+      const hasPositionInDescendants = filteredChildren.length > 0;
+      if (hasPositionDirectly || hasPositionInDescendants) {
         return {
           id: node.code,
           code: node.code,
@@ -572,6 +575,9 @@ export class MinefopServicesService {
     const parent = await this.prisma.minefopService.findUnique({
       where: { code: parentCode, isActive: true },
       include: {
+        positions: {
+          where: { isActive: true, positionType },
+        },
         children: {
           where: { isActive: true },
           include: {
@@ -621,6 +627,11 @@ export class MinefopServicesService {
         }
       }
     };
+
+    // Include parent itself if it directly holds the position (root-level positions)
+    if (parent.positions && parent.positions.length > 0) {
+      collect(parent);
+    }
 
     for (const child of parent.children) {
       collect(child);
