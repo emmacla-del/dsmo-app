@@ -20,7 +20,7 @@ import {
 } from '@nestjs/common';
 import { MinefopServicesService } from './minefop-services.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { $Enums } from '@prisma/client';
+import { $Enums, UserRole } from '@prisma/client';
 import { CreateServiceDto, UpdateServiceDto, CreatePositionDto, UpdatePositionDto } from './dto';
 
 @Controller('minefop-services')
@@ -64,7 +64,7 @@ export class MinefopServicesController {
     }
 
     /** GET /minefop-services/children
-     *  Returns direct children of a given service code.
+     *  Returns direct children of a given service code (without position filter).
      */
     @Get('children')
     async getChildren(@Query('parentCode') parentCode: string) {
@@ -76,7 +76,6 @@ export class MinefopServicesController {
 
     /** GET /minefop-services/stats/summary
      *  Get statistics about services (counts by category, level, etc.)
-     *  ✅ Must be before :id and :code/* to avoid being caught as a param
      */
     @Get('stats/summary')
     async getStats() {
@@ -85,11 +84,53 @@ export class MinefopServicesController {
 
     /** GET /minefop-services/region-required/list
      *  Get services that require region selection
-     *  ✅ Must be before :id and :code/* to avoid being caught as a param
      */
     @Get('region-required/list')
     async getRegionRequiredServices() {
         return this.svc.getServicesByRegion();
+    }
+
+    // ========== NEW CASCADE ENDPOINTS (for MINEFOP registration) ==========
+
+    /** GET /minefop-services/positions/by-role
+     *  Returns all position types (job titles) available for a given MINEFOP role
+     *  (CENTRAL, REGIONAL, DIVISIONAL). This drives the first dropdown.
+     */
+    @Get('positions/by-role')
+    async getPositionTypesByRole(
+        @Query('role', new ParseEnumPipe(UserRole)) role: UserRole
+    ) {
+        return this.svc.getAvailablePositionTypesByRole(role);
+    }
+
+    /** GET /minefop-services/parents-for-position
+     *  Returns a tree (or flat list) of parent services that have at least one child
+     *  with the given positionType, and whose roleMapping matches the user's role.
+     */
+    @Get('parents-for-position')
+    async getParentServicesForPosition(
+        @Query('positionType') positionType: string,
+        @Query('role', new ParseEnumPipe(UserRole)) role: UserRole
+    ) {
+        if (!positionType) {
+            throw new BadRequestException('positionType query parameter is required');
+        }
+        return this.svc.getParentServicesForPosition(positionType, role);
+    }
+
+    /** GET /minefop-services/children-for-position
+     *  Returns child services under a given parent code that actually have the
+     *  specified positionType (e.g. for CHEF_CELLULE under a Division).
+     */
+    @Get('children-for-position')
+    async getChildServicesForPosition(
+        @Query('parentCode') parentCode: string,
+        @Query('positionType') positionType: string
+    ) {
+        if (!parentCode || !positionType) {
+            throw new BadRequestException('parentCode and positionType are required');
+        }
+        return this.svc.getChildServicesForPosition(parentCode, positionType);
     }
 
     // ==================== MUTATION ENDPOINTS (require JWT) ====================
@@ -106,7 +147,6 @@ export class MinefopServicesController {
 
     /** POST /minefop-services/positions
      *  Create a new position for a service
-     *  ✅ Must be before :code/positions (GET) to avoid route confusion
      */
     @Post('positions')
     @UseGuards(JwtAuthGuard)
@@ -141,7 +181,6 @@ export class MinefopServicesController {
 
     /** GET /minefop-services/code/:code
      *  Get a single service by its unique code with its children and positions
-     *  ✅ Prefix 'code/' makes this unambiguous — can stay anywhere
      */
     @Get('code/:code')
     async getByCode(@Param('code') code: string) {
@@ -150,7 +189,6 @@ export class MinefopServicesController {
 
     /** GET /minefop-services/role/:role
      *  Get services by role mapping
-     *  ✅ Prefix 'role/' makes this unambiguous
      */
     @Get('role/:role')
     async getByRole(
@@ -161,8 +199,7 @@ export class MinefopServicesController {
     }
 
     /** GET /minefop-services/:code/positions
-     *  Get all positions for a specific service (public — used during registration)
-     *  ✅ MUST come before @Get(':id') — two-segment path takes priority
+     *  Get all positions for a specific service
      */
     @Get(':code/positions')
     async getPositions(@Param('code') code: string) {
@@ -171,7 +208,6 @@ export class MinefopServicesController {
 
     /** GET /minefop-services/:code/hierarchy-path
      *  Get the full breadcrumb path from root to the specified service
-     *  ✅ MUST come before @Get(':id') — two-segment path takes priority
      */
     @Get(':code/hierarchy-path')
     async getHierarchyPath(@Param('code') code: string) {
@@ -180,7 +216,6 @@ export class MinefopServicesController {
 
     /** PATCH /minefop-services/:code
      *  Update an existing service
-     *  ✅ Before @Get(':id') / @Delete(':code') for clarity
      */
     @Patch(':code')
     @UseGuards(JwtAuthGuard)
@@ -193,7 +228,6 @@ export class MinefopServicesController {
 
     /** DELETE /minefop-services/:code/hard
      *  Permanently delete a service
-     *  ✅ MUST come before @Delete(':code') — more specific path
      */
     @Delete(':code/hard')
     @UseGuards(JwtAuthGuard)
@@ -214,7 +248,6 @@ export class MinefopServicesController {
 
     /** GET /minefop-services/:id
      *  Get a single service by its UUID
-     *  ✅ MUST be LAST among single-segment GET routes — most generic pattern
      */
     @Get(':id')
     async getById(@Param('id', ParseUUIDPipe) id: string) {
