@@ -90,7 +90,7 @@ export class MinefopServicesController {
         return this.svc.getServicesByRegion();
     }
 
-    // ========== NEW CASCADE ENDPOINTS (for MINEFOP registration) ==========
+    // ==================== CASCADE ENDPOINTS (for MINEFOP registration) ====================
 
     /** GET /minefop-services/positions/by-role
      *  Returns all position types (job titles) available for a given MINEFOP role
@@ -131,6 +131,34 @@ export class MinefopServicesController {
             throw new BadRequestException('parentCode and positionType are required');
         }
         return this.svc.getChildServicesForPosition(parentCode, positionType);
+    }
+
+    /**
+     * GET /minefop-services/resolve-position?serviceCode=X
+     *
+     * Single-call draft restoration endpoint.
+     * Given a serviceCode (the exact unit where the user serves), returns:
+     *   - parentCode   → the direct parent's code (for fast-path A in the Flutter widget)
+     *   - serviceUnit  → full service unit details including positionTitle
+     *
+     * The Flutter widget uses this on back-navigation to restore a previously
+     * saved selection in ONE network call instead of scanning all parent units.
+     *
+     * Response shape:
+     * {
+     *   parentCode: string,
+     *   serviceUnit: {
+     *     code, name, nameEn, acronym, level, category,
+     *     displayName, positionTitle
+     *   }
+     * }
+     */
+    @Get('resolve-position')
+    async resolvePosition(@Query('serviceCode') serviceCode: string) {
+        if (!serviceCode) {
+            throw new BadRequestException('serviceCode query parameter is required');
+        }
+        return this.svc.resolvePosition(serviceCode);
     }
 
     // ==================== MUTATION ENDPOINTS (require JWT) ====================

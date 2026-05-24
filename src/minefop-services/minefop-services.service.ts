@@ -1,3 +1,4 @@
+// src/minefop-services/minefop-services.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { $Enums } from '@prisma/client';
@@ -128,9 +129,6 @@ export class MinefopServicesService {
   }
 
   async getServiceById(id: string) {
-    // FIX: Use 'code' as the unique identifier since MinefopService only has 'code' as @id
-    // Since id is a UUID, we need to find by id - but the model doesn't have an 'id' field
-    // Let's find by code instead or use a different approach
     const service = await this.prisma.minefopService.findFirst({
       where: { code: id },
       include: {
@@ -432,7 +430,7 @@ export class MinefopServicesService {
     };
   }
 
-  // ==================== NEW CASCADE METHODS FOR REGISTRATION ====================
+  // ==================== CASCADE METHODS FOR REGISTRATION ====================
 
   /**
    * Get all distinct position types (job titles) available for a given MINEFOP role.
@@ -483,17 +481,18 @@ export class MinefopServicesService {
 
     return positions.map(pos => ({
       positionType: pos.positionType,
-      label: labelMap[pos.positionType] || pos.title || pos.positionType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
+      label: labelMap[pos.positionType] || pos.title || pos.positionType
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, l => l.toUpperCase()),
     }));
   }
 
   /**
-   * Returns a tree of parent services that have at least one descendant service (any depth)
-   * with the given positionType, and whose roleMapping matches the user's role.
-   * The result is a filtered tree (like getTree but only including branches that lead to a service with the target position).
+   * Returns a filtered tree of parent services that contain at least one descendant
+   * with the given positionType and whose roleMapping matches the user's role.
    */
   async getParentServicesForPosition(positionType: string, role: $Enums.UserRole): Promise<ServiceNode[]> {
-    // Load all active services of the given role, with children and positions (recursively up to depth 3)
     const allServices = await this.prisma.minefopService.findMany({
       where: {
         isActive: true,
@@ -525,13 +524,9 @@ export class MinefopServicesService {
       orderBy: { orderIndex: 'asc' },
     });
 
-    // Build map and tree
     const map = new Map<string, any>();
     for (const s of allServices) {
-      map.set(s.code, {
-        ...s,
-        children: [],
-      });
+      map.set(s.code, { ...s, children: [] });
     }
 
     const roots: any[] = [];
@@ -544,16 +539,6 @@ export class MinefopServicesService {
       }
     }
 
-    // Helper: does this node or any descendant have the target positionType?
-    const hasPositionInSubtree = (node: any): boolean => {
-      if (node.positions?.some(p => p.positionType === positionType)) return true;
-      for (const child of node.children) {
-        if (hasPositionInSubtree(child)) return true;
-      }
-      return false;
-    };
-
-    // Filter tree: keep only nodes that have the target position somewhere below them
     const filterTree = (node: any): any | null => {
       const filteredChildren = node.children.map(filterTree).filter(Boolean);
       if (filteredChildren.length > 0 || node.positions?.some(p => p.positionType === positionType)) {
@@ -576,13 +561,12 @@ export class MinefopServicesService {
       return null;
     };
 
-    const filteredRoots = roots.map(filterTree).filter(Boolean) as ServiceNode[];
-    return filteredRoots;
+    return roots.map(filterTree).filter(Boolean) as ServiceNode[];
   }
 
   /**
-   * Returns child services (flat list) under a given parent code that actually have the specified positionType.
-   * This is used in the second cascade step: after selecting a parent, the user picks a child service that holds the job.
+   * Returns child services (flat list) under a given parent code that have the
+   * specified positionType. Includes positionTitle from ServicePosition.title.
    */
   async getChildServicesForPosition(parentCode: string, positionType: string) {
     const parent = await this.prisma.minefopService.findUnique({
@@ -624,7 +608,11 @@ export class MinefopServicesService {
           acronym: service.acronym,
           level: service.level,
           category: service.category,
-          displayName: service.acronym ? `${service.acronym} - ${service.name}` : service.name,
+          displayName: service.acronym
+            ? `${service.acronym} — ${service.name}`
+            : service.name,
+          // Job title from ServicePosition.title in the database
+          positionTitle: service.positions[0].title as string,
         });
       }
       if (service.children) {
@@ -639,5 +627,79 @@ export class MinefopServicesService {
     }
 
     return results;
+  }
+
+  // ==================== NEW: RESOLVE POSITION ====================
+
+  /**
+   * Resolves a serviceCode back to its parent and full service unit details
+   * in a SINGLE database query. Used by the Flutter widget to restore a
+   * previously saved draft selection without scanning all parent units.
+   *
+   * Query cost: 1 Prisma call (findUnique + include parent + include positions).
+   *
+   * Response:
+   * {
+   *   parentCode: string,            // direct parent's code
+   *   serviceUnit: {
+   *     code, name, nameEn, acronym,
+   *     level, category, displayName,
+   *     positionTitle               // from ServicePosition.title
+   *   }
+   * }
+   */
+  async resolvePosition(serviceCode: string) {
+    const service = await this.prisma.minefopService.findUnique({
+      where: { code: serviceCode, isActive: true },
+      include: {
+        // Fetch the direct parent so we can return its code
+        parent: {
+          select: {
+            code: true,
+            name: true,
+            acronym: true,
+          },
+        },
+        // Fetch all active positions on this service so we can return positionTitle
+        positions: {
+          where: { isActive: true },
+          orderBy: { orderIndex: 'asc' },
+          select: {
+            positionType: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service with code ${serviceCode} not found`);
+    }
+
+    if (!service.parentCode) {
+      throw new BadRequestException(
+        `Service ${serviceCode} has no parent — it cannot be a valid position holder in the cascade`
+      );
+    }
+
+    // Use the first active position's title as the resolved job title.
+    // In practice a service has exactly one position in registration context.
+    const positionTitle = service.positions[0]?.title ?? '';
+
+    return {
+      parentCode: service.parentCode,
+      serviceUnit: {
+        code: service.code,
+        name: service.name,
+        nameEn: service.nameEn,
+        acronym: service.acronym,
+        level: service.level,
+        category: service.category,
+        displayName: service.acronym
+          ? `${service.acronym} — ${service.name}`
+          : service.name,
+        positionTitle,
+      },
+    };
   }
 }
