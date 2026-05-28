@@ -9,6 +9,12 @@ import { Roles } from './roles.decorator';
 export class AuthController {
   constructor(private authService: AuthService) { }
 
+  // ── Health check — wakes Render server on app startup ──
+  @Get('health')
+  health() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Request() req: any) {

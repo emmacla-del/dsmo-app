@@ -11,7 +11,29 @@ final authProvider =
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final ApiClient _api;
-  AuthNotifier(this._api) : super(const AsyncValue.data(null));
+
+  AuthNotifier(this._api) : super(const AsyncValue.loading()) {
+    _tryRestore();
+  }
+
+  Future<void> _tryRestore() async {
+    // Wake Render server immediately — fire and forget so it's warm by login time
+    _api.get('/health').catchError((_) {});
+
+    try {
+      final token = await _api.getStoredToken();
+      if (token == null || token.isEmpty) {
+        state = const AsyncValue.data(null);
+        return;
+      }
+      final response = await _api.get('/auth/me');
+      final user = User.fromJson(response.data as Map<String, dynamic>);
+      state = AsyncValue.data(user);
+    } catch (_) {
+      await _api.logout();
+      state = const AsyncValue.data(null);
+    }
+  }
 
   Future<void> login(String email, String password) async {
     if (state is AsyncLoading) return;
@@ -35,7 +57,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> logout() async {
-    await _api.setToken('');
+    await _api.logout();
     state = const AsyncValue.data(null);
   }
 
@@ -67,13 +89,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         if (serviceCode != null) 'serviceCode': serviceCode,
       });
 
-      // For MINEFOP users, do NOT auto-login
       if (role != 'COMPANY') {
         state = const AsyncValue.data(null);
         return;
       }
 
-      // For companies, auto-login
       final token = response.data['access_token'] as String?;
       if (token == null) throw 'Aucun token reçu après inscription.';
       await _api.setToken(token);
@@ -84,7 +104,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }
   }
 
-  // Register COMPANY user with ALL entity-specific fields
   Future<void> registerCompany({
     required String email,
     required String password,
@@ -104,13 +123,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     int? socialCapital,
     String? subdivision,
     String? entityType,
-    // Location & contact
     String? area,
     String? sectorId,
     String? phone,
     String? phone2,
     String? poBox,
-    // Entity-specific
     String? legalStatus,
     String? cooperativeType,
     String? ctdType,
@@ -118,11 +135,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     String? mainMission,
     String? registrationNumber,
     String? trainingDomains,
-    // Respondent
     String? respondentPhone,
     String? respondentPhone2,
     String? respondentFunction,
-    // ADDED: split names + branch
     String? respondentFirstName,
     String? respondentLastName,
     String? branch,
@@ -131,7 +146,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     state = const AsyncValue.loading();
     try {
       final response = await _api.post('/auth/register-company', data: {
-        // User fields
         'email': email,
         'password': password,
         'firstName': firstName,
@@ -139,7 +153,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         'role': role,
         if (region != null) 'region': region,
         if (department != null) 'department': department,
-        // Company fields
         'companyName': companyName,
         'taxNumber': taxNumber,
         'mainActivity': mainActivity,
@@ -151,13 +164,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         if (socialCapital != null) 'socialCapital': socialCapital,
         if (subdivision != null) 'subdivision': subdivision,
         if (entityType != null) 'entityType': entityType,
-        // Location & contact
         if (area != null) 'area': area,
         if (sectorId != null) 'sectorId': sectorId,
         if (phone != null) 'phone': phone,
         if (phone2 != null) 'phone2': phone2,
         if (poBox != null) 'poBox': poBox,
-        // Entity-specific
         if (legalStatus != null) 'legalStatus': legalStatus,
         if (cooperativeType != null) 'cooperativeType': cooperativeType,
         if (ctdType != null) 'ctdType': ctdType,
@@ -166,12 +177,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         if (registrationNumber != null)
           'registrationNumber': registrationNumber,
         if (trainingDomains != null) 'trainingDomains': trainingDomains,
-        // Respondent
         if (respondentPhone != null) 'respondentPhone': respondentPhone,
         if (respondentPhone2 != null) 'respondentPhone2': respondentPhone2,
         if (respondentFunction != null)
           'respondentFunction': respondentFunction,
-        // ADDED
         if (respondentFirstName != null)
           'respondentFirstName': respondentFirstName,
         if (respondentLastName != null)
@@ -179,7 +188,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         if (branch != null) 'branch': branch,
       });
 
-      // Auto-login for COMPANY users
       final token = response.data['access_token'] as String?;
       if (token == null) throw 'Aucun token reçu après inscription.';
       await _api.setToken(token);
