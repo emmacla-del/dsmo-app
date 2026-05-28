@@ -95,6 +95,23 @@ export class AuthService {
     };
   }
 
+  // ── Session restoration — returns the current user from DB using
+  //    the id decoded from the JWT by JwtAuthGuard (req.user.sub).
+  //    Called by GET /auth/me on every app startup.
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
+    if (user.status === 'REJECTED' || !user.isActive) {
+      throw new UnauthorizedException(
+        'Votre compte a été désactivé. Contactez un administrateur.',
+      );
+    }
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
+  }
+
   async register(
     email: string,
     password: string,

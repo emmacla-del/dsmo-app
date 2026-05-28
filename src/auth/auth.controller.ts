@@ -15,6 +15,13 @@ export class AuthController {
     return this.authService.login(req.user);
   }
 
+  // ── Session restoration — called by Flutter on app startup ──
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Request() req: any) {
+    return this.authService.getMe(req.user.sub);
+  }
+
   @Post('register')
   async register(@Body() body: {
     email: string;
@@ -82,11 +89,11 @@ export class AuthController {
     respondentPhone?: string;
     respondentPhone2?: string;
     respondentFunction?: string;
-    respondentFirstName?: string;   // ← ADD THIS
-    respondentLastName?: string;    // ← ADD THIS
-    firstName?: string;             // ← ADD THIS (Flutter also sends this)
-    lastName?: string;              // ← ADD THIS (Flutter also sends this)
-    branch?: string;                // ← ADD THIS (was also missing)
+    respondentFirstName?: string;
+    respondentLastName?: string;
+    firstName?: string;
+    lastName?: string;
+    branch?: string;
   }) {
     return this.authService.registerCompany(
       body.email,
@@ -120,9 +127,9 @@ export class AuthController {
         respondentPhone: body.respondentPhone,
         respondentPhone2: body.respondentPhone2,
         respondentFunction: body.respondentFunction,
-        respondentFirstName: body.respondentFirstName ?? body.firstName,  // ← ADD
-        respondentLastName: body.respondentLastName ?? body.lastName,     // ← ADD
-        branch: body.branch,                                               // ← ADD
+        respondentFirstName: body.respondentFirstName ?? body.firstName,
+        respondentLastName: body.respondentLastName ?? body.lastName,
+        branch: body.branch,
       }
     );
   }
