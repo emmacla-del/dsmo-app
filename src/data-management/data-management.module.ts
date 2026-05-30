@@ -9,4 +9,4 @@ import { DataManagementService } from './data-management.service';
   providers: [DataManagementService],
   exports: [DataManagementService],
 })
-export class DataManagementModule {}
+export class DataManagementModule { }

@@ -8,7 +8,7 @@ import { UserRole } from '../types/prisma.types';
 @Controller('api/data-management')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DataManagementController {
-  constructor(private dataManagementService: DataManagementService) {}
+  constructor(private dataManagementService: DataManagementService) { }
 
   @Get('regions')
   @Roles(UserRole.SUPER_ADMIN, UserRole.REGIONAL)

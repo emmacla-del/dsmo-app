@@ -1,3 +1,4 @@
+// src/campaign/campaign.controller.ts
 import {
     Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req,
 } from '@nestjs/common';
@@ -7,7 +8,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../types/prisma.types';
 
-@Controller('api/campaigns')
+@Controller('campaigns')          // FIX 1: was 'api/campaigns' — caused /api/api/campaigns double prefix
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CampaignController {
     constructor(private campaignService: CampaignService) { }
@@ -20,8 +21,19 @@ export class CampaignController {
 
     @Get()
     @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL, UserRole.REGIONAL)
-    async listCampaigns(@Query('status') status?: string, @Query('type') type?: string, @Req() req?: any) {
+    async listCampaigns(
+        @Query('status') status?: string,
+        @Query('type') type?: string,
+        @Req() req?: any,
+    ) {
         return this.campaignService.listCampaigns(status, type, req?.user);
+    }
+
+    // FIX 2: static routes must come BEFORE param routes (:id)
+    // otherwise GET /campaigns/active/current matches :id with id='active'
+    @Get('active/current')
+    async getActiveCampaignsForCompany(@Req() req: any) {
+        return this.campaignService.getActiveCampaignsForCompany(req.user.id);
     }
 
     @Get(':id')
@@ -82,10 +94,5 @@ export class CampaignController {
     @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL)
     async sendReminders(@Param('id') id: string, @Body('type') type: string) {
         return this.campaignService.sendReminders(id, type);
-    }
-
-    @Get('active/current')
-    async getActiveCampaignsForCompany(@Req() req: any) {
-        return this.campaignService.getActiveCampaignsForCompany(req.user.id);
     }
 }

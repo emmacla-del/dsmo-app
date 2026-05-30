@@ -1,3 +1,15 @@
+// prisma/schema.prisma
+// FINAL COMPLETE SCHEMA — ALL MISMATCHES FIXED
+// Fixes applied:
+//   1. CampaignStatus          — added PAUSED
+//   2. SubmissionStatus        — added IN_PROGRESS, VALIDATED
+//   3. ReminderType            — replaced with string values matching campaign.service.ts
+//   4. DataCampaign            — added type, reminderDays; renamed relation to 'creator'
+//   5. CampaignSubmission      — companyId now optional; added @@unique([campaignId,establishmentId])
+//   6. CampaignReminder        — reminderType changed to String (matches service string literals)
+//   7. Report                  — added type alias field, isScheduled, schedule, expiresAt
+//   8. ScheduledReport         — added recipients, frequency
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,757 +20,9 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model MinefopService {
-  code               String            @id
-  name               String
-  nameEn             String?
-  acronym            String?
-  category           ServiceCategory
-  level              Int
-  parentCode         String?
-  roleMapping        UserRole
-  requiresRegion     Boolean           @default(false)
-  requiresDepartment Boolean           @default(false)
-  orderIndex         Int
-  isActive           Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  parent             MinefopService?   @relation("ServiceHierarchy", fields: [parentCode], references: [code])
-  children           MinefopService[]  @relation("ServiceHierarchy")
-  positions          ServicePosition[]
-  users              User[]
-
-  @@map("minefop_services")
-}
-
-model ServicePosition {
-  id           String         @id @default(uuid())
-  serviceCode  String
-  positionType String
-  title        String
-  titleEn      String?
-  level        Int
-  orderIndex   Int
-  isActive     Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  service      MinefopService @relation(fields: [serviceCode], references: [code])
-
-  @@unique([serviceCode, positionType])
-  @@map("service_positions")
-}
-
-model Region {
-  id                String             @id @default(uuid())
-  name              String             @unique
-  code              String?            @unique
-  nameEn            String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  companies         Company[]
-  departments       Department[]
-  onefopSubmissions OnefopSubmission[]
-
-  @@map("regions")
-}
-
-model Department {
-  id                String             @id @default(uuid())
-  name              String
-  code              String?            @unique
-  nameEn            String?
-  regionId          String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  companies         Company[]
-  region            Region             @relation(fields: [regionId], references: [id])
-  onefopSubmissions OnefopSubmission[]
-  subdivisions      Subdivision[]
-
-  @@unique([regionId, name])
-  @@map("departments")
-}
-
-model Subdivision {
-  id                String             @id @default(uuid())
-  name              String
-  code              String?            @unique
-  nameEn            String?
-  departmentId      String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  companies         Company[]
-  onefopSubmissions OnefopSubmission[]
-  department        Department         @relation(fields: [departmentId], references: [id])
-
-  @@unique([departmentId, name])
-  @@map("subdivisions")
-}
-
-model Sector {
-  id                String                   @id @default(uuid())
-  name              String                   @unique
-  code              String?                  @unique
-  category          String?
-  nameEn            String?
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
-  companies         Company[]
-  onefopEnterprises OnefopEnterpriseDetail[]
-
-  @@map("sectors")
-}
-
-model User {
-  id                String             @id @default(uuid())
-  email             String             @unique
-  passwordHash      String
-  firstName         String?
-  lastName          String?
-  role              UserRole           @default(COMPANY)
-  region            String?
-  department        String?
-  subdivision       String?
-  matricule         String?
-  poste             String?
-  serviceCode       String?
-  positionType      String?
-  positionTitle     String?
-  isActive          Boolean            @default(true)
-  rejectionReason   String?
-  rejectedAt        DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  status            UserStatus         @default(PENDING_APPROVAL)
-  auditLogs         AuditLog[]
-  company           Company?
-  notifications     Notification[]
-  onefopSubmissions OnefopSubmission[]
-  minefopService    MinefopService?    @relation(fields: [serviceCode], references: [code])
-
-  @@index([role])
-  @@index([serviceCode])
-  @@map("users")
-}
-
-model Company {
-  id                         String                  @id @default(uuid())
-  userId                     String                  @unique
-  name                       String
-  parentCompany              String?
-  mainActivity               String
-  secondaryActivity          String?
-  region                     String
-  department                 String
-  subdivision                String
-  address                    String
-  taxNumber                  String                  @unique
-  cnpsNumber                 String?
-  socialCapital              Float?
-  totalEmployees             Int
-  menCount                   Int?
-  womenCount                 Int?
-  lastYearTotal              Int?
-  createdAt                  DateTime                @default(now())
-  updatedAt                  DateTime                @updatedAt
-  fax                        String?
-  lastYearMenCount           Int?
-  lastYearWomenCount         Int?
-  entityType                 OnefopEntityType?
-  sectorId                   String?
-  regionId                   String?
-  departmentId               String?
-  subdivisionId              String?
-  area                       String?
-  cooperativeType            String?
-  ctdType                    String?
-  legalStatus                String?
-  mainMission                String?
-  phone                      String?
-  phone2                     String?
-  poBox                      String?
-  registrationNumber         String?
-  respondentFunction         String?
-  respondentPhone            String?
-  respondentPhone2           String?
-  trainingDomains            String?
-  yearOfCreation             String?
-  branch                     String?
-  respondentFirstName        String?
-  respondentLastName         String?
-  enterpriseSize             String?
-  establishmentId            String?
-  establishmentIdGeneratedAt DateTime?               @db.Timestamp(6)
-  departmentRef              Department?             @relation(fields: [departmentId], references: [id])
-  regionRef                  Region?                 @relation(fields: [regionId], references: [id])
-  sector                     Sector?                 @relation(fields: [sectorId], references: [id])
-  subdivisionRef             Subdivision?            @relation(fields: [subdivisionId], references: [id])
-  user                       User                    @relation(fields: [userId], references: [id])
-  declarations               Declaration[]
-  notificationRecipients     NotificationRecipient[]
-  onefopSubmissions          OnefopSubmission[]
-
-  @@index([establishmentId], map: "idx_companies_establishmentId")
-  @@map("companies")
-}
-
-model Declaration {
-  id                   String                @id @default(uuid())
-  year                 Int
-  companyId            String
-  region               String
-  division             String
-  status               DeclarationStatus     @default(DRAFT)
-  submittedAt          DateTime?
-  validatedBy          String?
-  validatedAt          DateTime?
-  rejectionReason      String?
-  pdfUrl               String?
-  receiptUrl           String?
-  qrCode               String?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  fillingDate          DateTime?
-  auditLogs            AuditLog[]
-  movements            DeclarationMovement[]
-  company              Company               @relation(fields: [companyId], references: [id])
-  employees            Employee[]
-  qualitativeQuestions QualitativeQuestion[]
-  validationSteps      ValidationStep[]
-
-  @@map("declarations")
-}
-
-model Employee {
-  id             String      @id @default(uuid())
-  declarationId  String
-  fullName       String
-  gender         String
-  age            Int
-  nationality    String
-  diploma        String?
-  function       String
-  seniority      Int
-  salaryCategory String?
-  createdAt      DateTime    @default(now())
-  salary         Int?
-  declaration    Declaration @relation(fields: [declarationId], references: [id])
-
-  @@map("employees")
-}
-
-model DeclarationMovement {
-  id             String       @id @default(uuid())
-  declarationId  String
-  movementType   MovementType
-  cat1_3         Int          @default(0)
-  cat4_6         Int          @default(0)
-  cat7_9         Int          @default(0)
-  cat10_12       Int          @default(0)
-  catNonDeclared Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  declaration    Declaration  @relation(fields: [declarationId], references: [id])
-
-  @@map("declaration_movements")
-}
-
-model ValidationStep {
-  id            String             @id @default(uuid())
-  declarationId String
-  stepType      ValidationStepType
-  isValid       Boolean            @default(true)
-  errors        String[]           @default([])
-  message       String?
-  checkedBy     String?
-  checkedAt     DateTime?
-  createdAt     DateTime           @default(now())
-  declaration   Declaration        @relation(fields: [declarationId], references: [id])
-
-  @@map("validation_steps")
-}
-
-model QualitativeQuestion {
-  id                    String      @id @default(uuid())
-  declarationId         String
-  questionType          String
-  section               String
-  questionText          String
-  answerText            String?
-  answerOptions         Json?
-  hasTrainingCenter     Boolean?
-  trainingCenterDetails String?
-  recruitmentPlansNext  Boolean?
-  recruitmentPlanCount  Int?
-  camerounisationPlan   Boolean?
-  usesTempAgencies      Boolean?
-  temporaryWorkerCount  Int?
-  version               Int         @default(1)
-  orderIndex            Int         @default(0)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  tempAgencyDetails     String?
-  declaration           Declaration @relation(fields: [declarationId], references: [id])
-
-  @@map("qualitative_questions")
-}
-
-model Notification {
-  id               String                  @id @default(uuid())
-  sentBy           String
-  regionFilter     String?
-  departmentFilter String?
-  submissionStatus DeclarationStatus?
-  subject          String
-  message          String
-  recipientCount   Int                     @default(0)
-  sentAt           DateTime                @default(now())
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  recipients       NotificationRecipient[]
-  senderUser       User                    @relation(fields: [sentBy], references: [id])
-
-  @@map("notifications")
-}
-
-model NotificationRecipient {
-  id             String             @id @default(uuid())
-  notificationId String
-  companyId      String
-  email          String
-  status         NotificationStatus @default(SENT)
-  sentAt         DateTime           @default(now())
-  openedAt       DateTime?
-  clickedAt      DateTime?
-  createdAt      DateTime           @default(now())
-  company        Company            @relation(fields: [companyId], references: [id])
-  notification   Notification       @relation(fields: [notificationId], references: [id])
-
-  @@map("notification_recipients")
-}
-
-model AuditLog {
-  id            String       @id @default(uuid())
-  userId        String
-  declarationId String?
-  action        String
-  resourceType  String
-  resourceId    String
-  details       String?
-  previousValue String?
-  newValue      String?
-  timestamp     DateTime     @default(now())
-  createdAt     DateTime     @default(now())
-  declaration   Declaration? @relation(fields: [declarationId], references: [id])
-  user          User         @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([declarationId])
-  @@index([timestamp])
-  @@map("audit_logs")
-}
-
-model OnefopSubmission {
-  id                    String                        @id @default(uuid())
-  submissionId          String                        @unique @default(uuid())
-  formType              OnefopEntityType
-  status                OnefopStatus                  @default(PENDING_REVIEW)
-  rawData               Json
-  flags                 Json?
-  rejectionReason       String?
-  reviewedBy            String?
-  reviewedAt            DateTime?
-  pdfUrl                String?
-  surveyYear            Int
-  region                String?
-  department            String?
-  subdivision           String?
-  submittedBy           String?
-  createdAt             DateTime                      @default(now())
-  updatedAt             DateTime                      @updatedAt
-  companyId             String?
-  regionId              String?
-  departmentId          String?
-  subdivisionId         String?
-  establishmentId       String?
-  quarterCode           String?                       @default("2025-T1")
-  taxNumber             String?
-  cnpsNumber            String?
-  registrationNumber    String?
-  metaJson              Json?
-  cooperativeDetail     OnefopCooperativeDetail?
-  cspGenderAge          OnefopCspGenderAge[]
-  ctdDetail             OnefopCtdDetail?
-  departureData         OnefopDepartureData[]
-  diplomaData           OnefopDiplomaData[]
-  disabilityData        OnefopDisabilityData[]
-  dismissalReasons      OnefopDismissalReason[]
-  dismissalUnemployment OnefopDismissalUnemployment[]
-  enterpriseDetail      OnefopEnterpriseDetail?
-  factRecruitments      OnefopFactRecruitment[]
-  factSkillNeeds        OnefopFactSkillNeed[]
-  firstTimeWorkers      OnefopFirstTimeWorker[]
-  internshipData        OnefopInternshipData[]
-  ongDetail             OnefopOngDetail?
-  respondent            OnefopRespondent?
-  skillNeeds            OnefopSkillNeed[]
-  company               Company?                      @relation(fields: [companyId], references: [id])
-  departmentRef         Department?                   @relation(fields: [departmentId], references: [id])
-  regionRef             Region?                       @relation(fields: [regionId], references: [id])
-  subdivisionRef        Subdivision?                  @relation(fields: [subdivisionId], references: [id])
-  user                  User?                         @relation(fields: [submittedBy], references: [id])
-  trainingNeeds         OnefopTrainingNeed[]
-  vulnerableData        OnefopVulnerableData[]
-
-  @@index([status])
-  @@index([formType])
-  @@index([surveyYear])
-  @@index([region])
-  @@index([submittedBy])
-  @@index([establishmentId], map: "idx_onefop_submissions_establishmentId")
-  @@index([quarterCode], map: "idx_onefop_submissions_quarterCode")
-  @@map("onefop_submissions")
-}
-
-model OnefopRespondent {
-  id                 String           @id @default(uuid())
-  submissionId       String           @unique
-  respondentName     String
-  respondentFunction String
-  phone1             String
-  phone2             String?
-  email              String?
-  createdAt          DateTime         @default(now())
-  submission         OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("onefop_respondents")
-}
-
-model OnefopEnterpriseDetail {
-  id               String           @id @default(uuid())
-  submissionId     String           @unique
-  legalStatus      String
-  companyName      String
-  area             String
-  region           String
-  department       String
-  subdivision      String
-  locality         String?
-  phone1           String
-  phone2           String?
-  poBox            String?
-  sector           String
-  branch           String?
-  mainActivity     String
-  headOffice       String?
-  permanentWorkers Int
-  vacancies        Int?
-  enterpriseSize   String?
-  createdAt        DateTime         @default(now())
-  sectorId         String?
-  sectorRef        Sector?          @relation(fields: [sectorId], references: [id])
-  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("onefop_enterprise_details")
-}
-
-model OnefopCooperativeDetail {
-  id                   String           @id @default(uuid())
-  submissionId         String           @unique
-  cooperativeName      String
-  headOffice           String?
-  yearCreated          Int?
-  area                 String?
-  region               String?
-  department           String?
-  subdivision          String?
-  locality             String?
-  phone1               String?
-  phone2               String?
-  poBox                String?
-  sector               String?
-  branch               String?
-  mainActivity         String?
-  cooperativeType      String?
-  cooperativeTypeOther String?
-  permanentWorkers     Int?
-  vacancies            Int?
-  createdAt            DateTime         @default(now())
-  submission           OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("onefop_cooperative_details")
-}
-
-model OnefopCtdDetail {
-  id               String           @id @default(uuid())
-  submissionId     String           @unique
-  ctdType          String
-  councilType      String?
-  yearCreated      Int?
-  area             String?
-  region           String?
-  department       String?
-  subdivision      String?
-  locality         String?
-  phone1           String?
-  phone2           String?
-  poBox            String?
-  sector           String?
-  branch           String?
-  permanentWorkers Int?
-  vacancies        Int?
-  createdAt        DateTime         @default(now())
-  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("onefop_ctd_details")
-}
-
-model OnefopOngDetail {
-  id               String           @id @default(uuid())
-  submissionId     String           @unique
-  ongName          String
-  headOffice       String?
-  yearCreated      Int?
-  area             String?
-  region           String?
-  department       String?
-  subdivision      String?
-  locality         String?
-  phone1           String?
-  phone2           String?
-  poBox            String?
-  sector           String?
-  branch           String?
-  mainMission      String?
-  permanentWorkers Int?
-  vacancies        Int?
-  createdAt        DateTime         @default(now())
-  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("onefop_ong_details")
-}
-
-model OnefopCspGenderAge {
-  id           String           @id @default(uuid())
-  submissionId String
-  tableName    String
-  cspCategory  CspCategory
-  gender       Gender
-  ageBand      AgeBand?
-  value        Int              @default(0)
-  createdAt    DateTime         @default(now())
-  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, tableName, cspCategory, gender, ageBand])
-  @@index([submissionId, tableName])
-  @@map("onefop_csp_gender_age")
-}
-
-model OnefopDiplomaData {
-  id           String           @id @default(uuid())
-  submissionId String
-  diploma      DiplomaType
-  gender       Gender
-  ageBand      AgeBand?
-  value        Int              @default(0)
-  createdAt    DateTime         @default(now())
-  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, diploma, gender, ageBand])
-  @@index([submissionId])
-  @@map("onefop_diploma_data")
-}
-
-model OnefopDisabilityData {
-  id           String           @id @default(uuid())
-  submissionId String
-  cspCategory  CspCategory
-  status       DisabilityStatus
-  gender       Gender
-  value        Int              @default(0)
-  createdAt    DateTime         @default(now())
-  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, cspCategory, status, gender])
-  @@map("onefop_disability_data")
-}
-
-model OnefopVulnerableData {
-  id             String           @id @default(uuid())
-  submissionId   String
-  vulnerableType VulnerableType
-  status         DisabilityStatus
-  gender         Gender
-  value          Int              @default(0)
-  createdAt      DateTime         @default(now())
-  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, vulnerableType, status, gender])
-  @@map("onefop_vulnerable_data")
-}
-
-model OnefopFirstTimeWorker {
-  id           String           @id @default(uuid())
-  submissionId String
-  contractType ContractType
-  cspCategory  CspCategory
-  gender       Gender
-  ageBand      AgeBand?
-  value        Int              @default(0)
-  createdAt    DateTime         @default(now())
-  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, contractType, cspCategory, gender, ageBand])
-  @@index([submissionId])
-  @@map("onefop_first_time_workers")
-}
-
-model OnefopDepartureData {
-  id            String           @id @default(uuid())
-  submissionId  String
-  cspCategory   CspCategory
-  departureType DepartureType
-  gender        Gender
-  value         Int              @default(0)
-  createdAt     DateTime         @default(now())
-  submission    OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, cspCategory, departureType, gender])
-  @@map("onefop_departure_data")
-}
-
-model OnefopDismissalReason {
-  id           String           @id @default(uuid())
-  submissionId String
-  reasonIndex  Int
-  reasonText   String?
-  maleCount    Int              @default(0)
-  femaleCount  Int              @default(0)
-  totalCount   Int              @default(0)
-  createdAt    DateTime         @default(now())
-  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, reasonIndex])
-  @@map("onefop_dismissal_reasons")
-}
-
-model OnefopDismissalUnemployment {
-  id           String                    @id @default(uuid())
-  submissionId String
-  cspCategory  CspCategory
-  type         DismissalUnemploymentType
-  gender       Gender
-  value        Int                       @default(0)
-  createdAt    DateTime                  @default(now())
-  submission   OnefopSubmission          @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, cspCategory, type, gender])
-  @@map("onefop_dismissal_unemployment")
-}
-
-model OnefopInternshipData {
-  id             String           @id @default(uuid())
-  submissionId   String
-  internshipType InternshipType
-  gender         Gender
-  value          Int              @default(0)
-  createdAt      DateTime         @default(now())
-  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, internshipType, gender])
-  @@map("onefop_internship_data")
-}
-
-model OnefopSkillNeed {
-  id               String           @id @default(uuid())
-  submissionId     String
-  skillIndex       Int
-  skillDescription String?
-  maleCount        Int              @default(0)
-  femaleCount      Int              @default(0)
-  totalCount       Int              @default(0)
-  createdAt        DateTime         @default(now())
-  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, skillIndex])
-  @@map("onefop_skill_needs")
-}
-
-model OnefopTrainingNeed {
-  id             String           @id @default(uuid())
-  submissionId   String
-  domainIndex    Int
-  trainingDomain String?
-  maleCount      Int              @default(0)
-  femaleCount    Int              @default(0)
-  totalCount     Int              @default(0)
-  createdAt      DateTime         @default(now())
-  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@unique([submissionId, domainIndex])
-  @@map("onefop_training_needs")
-}
-
-model OnefopFactRecruitment {
-  id              String           @id @default(uuid())
-  submissionId    String
-  year            Int
-  region          String?
-  department      String?
-  subdivision     String?
-  businessSector  Int?
-  companySize     Int?
-  csp             String
-  gender          String
-  ageGroup        String
-  count           Int
-  recruitmentType String
-  createdAt       DateTime         @default(now())
-  submission      OnefopSubmission @relation(fields: [submissionId], references: [id])
-
-  @@index([submissionId])
-  @@index([year, region])
-  @@map("onefop_fact_recruitments")
-}
-
-model OnefopFactSkillNeed {
-  id               String           @id @default(uuid())
-  submissionId     String
-  year             Int
-  region           String?
-  department       String?
-  subdivision      String?
-  businessSector   Int?
-  companySize      Int?
-  skillDescription String
-  count            Int
-  createdAt        DateTime         @default(now())
-  submission       OnefopSubmission @relation(fields: [submissionId], references: [id])
-
-  @@index([submissionId])
-  @@index([year, region])
-  @@map("onefop_fact_skill_needs")
-}
-
-model AnalyticsSnapshot {
-  id                 String   @id @default(uuid())
-  year               Int
-  region             String?
-  department         String?
-  totalEmployment    Int
-  maleEmployment     Int
-  femaleEmployment   Int
-  totalRecruitment   Int
-  totalDismissals    Int
-  avgSalaryCategory  Float?
-  companiesSubmitted Int
-  companiesApproved  Int
-  companiesPending   Int
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@map("analytics_snapshots")
-}
+// ============================================================
+// ENUMS
+// ============================================================
 
 enum UserRole {
   COMPANY
@@ -766,6 +30,12 @@ enum UserRole {
   REGIONAL
   CENTRAL
   SUPER_ADMIN
+  SUPER_ADMIN_DSMO
+  SUPER_ADMIN_ONEFOP
+  DATA_MANAGER
+  CAMPAIGN_MANAGER
+  ANALYST
+  AUDITOR
 }
 
 enum UserStatus {
@@ -938,4 +208,1053 @@ enum PositionType {
   INSPECTEUR_REGIONAL_FORMATIONS
   CONSEILLER_REGIONAL_FORMATIONS
   STAFF
+}
+
+enum RoundStatus {
+  DRAFT
+  OPEN
+  EXTENDED
+  CLOSED
+  ARCHIVED
+}
+
+enum ReportType {
+  EMPLOYMENT_SUMMARY
+  RECRUITMENT_ANALYSIS
+  DEPARTURE_ANALYSIS
+  SKILLS_NEEDS
+  TRAINING_NEEDS
+  SECTOR_BREAKDOWN
+  REGIONAL_SUMMARY
+  COMPLETION_RATE
+}
+
+enum ReportFormat {
+  PDF
+  EXCEL
+  CSV
+  JSON
+}
+
+// FIX 1: Added PAUSED (campaign.service.ts lines 93, 112)
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+// FIX 2: Added IN_PROGRESS and VALIDATED (campaign.service.ts lines 142, 183)
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  IN_PROGRESS
+  VALIDATED
+  LATE
+  EXEMPT
+  NOT_STARTED
+}
+
+// ============================================================
+// MINEFOP SERVICE HIERARCHY
+// ============================================================
+
+model MinefopService {
+  code               String            @id
+  name               String
+  nameEn             String?
+  acronym            String?
+  category           ServiceCategory
+  level              Int
+  parentCode         String?
+  roleMapping        UserRole
+  requiresRegion     Boolean           @default(false)
+  requiresDepartment Boolean           @default(false)
+  orderIndex         Int
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  parent             MinefopService?   @relation("ServiceHierarchy", fields: [parentCode], references: [code])
+  children           MinefopService[]  @relation("ServiceHierarchy")
+  positions          ServicePosition[]
+  users              User[]
+
+  @@map("minefop_services")
+}
+
+model ServicePosition {
+  id           String         @id @default(uuid())
+  serviceCode  String
+  positionType String
+  title        String
+  titleEn      String?
+  level        Int
+  orderIndex   Int
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  service      MinefopService @relation(fields: [serviceCode], references: [code])
+
+  @@unique([serviceCode, positionType])
+  @@map("service_positions")
+}
+
+// ============================================================
+// LOCATION TABLES
+// ============================================================
+
+model Region {
+  id                String             @id @default(uuid())
+  name              String             @unique
+  code              String?            @unique
+  nameEn            String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  companies         Company[]
+  departments       Department[]
+  onefopSubmissions OnefopSubmission[]
+
+  @@map("regions")
+}
+
+model Department {
+  id                String             @id @default(uuid())
+  name              String
+  code              String?            @unique
+  nameEn            String?
+  regionId          String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  companies         Company[]
+  region            Region             @relation(fields: [regionId], references: [id])
+  onefopSubmissions OnefopSubmission[]
+  subdivisions      Subdivision[]
+
+  @@unique([regionId, name])
+  @@map("departments")
+}
+
+model Subdivision {
+  id                String             @id @default(uuid())
+  name              String
+  code              String?            @unique
+  nameEn            String?
+  departmentId      String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  companies         Company[]
+  onefopSubmissions OnefopSubmission[]
+  department        Department         @relation(fields: [departmentId], references: [id])
+
+  @@unique([departmentId, name])
+  @@map("subdivisions")
+}
+
+model Sector {
+  id                String                   @id @default(uuid())
+  name              String                   @unique
+  code              String?                  @unique
+  category          String?
+  nameEn            String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  companies         Company[]
+  onefopEnterprises OnefopEnterpriseDetail[]
+
+  @@map("sectors")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  role            UserRole   @default(COMPANY)
+  region          String?
+  department      String?
+  subdivision     String?
+  matricule       String?
+  poste           String?
+  serviceCode     String?
+  positionType    String?
+  positionTitle   String?
+  isActive        Boolean    @default(true)
+  rejectionReason String?
+  rejectedAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  status          UserStatus @default(PENDING_APPROVAL)
+
+  auditLogs         AuditLog[]
+  company           Company?
+  notifications     Notification[]
+  onefopSubmissions OnefopSubmission[]
+  minefopService    MinefopService?    @relation(fields: [serviceCode], references: [code])
+
+  submissionDrafts SubmissionDraft[]
+  openedRounds     SubmissionRound[] @relation("RoundOpenedBy")
+  closedRounds     SubmissionRound[] @relation("RoundClosedBy")
+  createdCampaigns DataCampaign[]    @relation("CampaignCreatedBy")
+  generatedReports Report[]
+  scheduledReports ScheduledReport[]
+
+  @@index([role])
+  @@index([serviceCode])
+  @@map("users")
+}
+
+// ============================================================
+// COMPANY & DECLARATIONS
+// ============================================================
+
+model Company {
+  id                         String                  @id @default(uuid())
+  userId                     String                  @unique
+  name                       String
+  parentCompany              String?
+  mainActivity               String
+  secondaryActivity          String?
+  region                     String
+  department                 String
+  subdivision                String
+  address                    String
+  taxNumber                  String                  @unique
+  cnpsNumber                 String?
+  socialCapital              Float?
+  totalEmployees             Int
+  menCount                   Int?
+  womenCount                 Int?
+  lastYearTotal              Int?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+  fax                        String?
+  lastYearMenCount           Int?
+  lastYearWomenCount         Int?
+  entityType                 OnefopEntityType?
+  sectorId                   String?
+  regionId                   String?
+  departmentId               String?
+  subdivisionId              String?
+  area                       String?
+  cooperativeType            String?
+  ctdType                    String?
+  legalStatus                String?
+  mainMission                String?
+  phone                      String?
+  phone2                     String?
+  poBox                      String?
+  registrationNumber         String?
+  respondentFunction         String?
+  respondentPhone            String?
+  respondentPhone2           String?
+  trainingDomains            String?
+  yearOfCreation             String?
+  branch                     String?
+  respondentFirstName        String?
+  respondentLastName         String?
+  enterpriseSize             String?
+  establishmentId            String?
+  establishmentIdGeneratedAt DateTime?               @db.Timestamp(6)
+
+  departmentRef          Department?             @relation(fields: [departmentId], references: [id])
+  regionRef              Region?                 @relation(fields: [regionId], references: [id])
+  sector                 Sector?                 @relation(fields: [sectorId], references: [id])
+  subdivisionRef         Subdivision?            @relation(fields: [subdivisionId], references: [id])
+  user                   User                    @relation(fields: [userId], references: [id])
+  declarations           Declaration[]
+  notificationRecipients NotificationRecipient[]
+  onefopSubmissions      OnefopSubmission[]
+  campaignSubmissions    CampaignSubmission[]
+
+  @@index([establishmentId], map: "idx_companies_establishmentId")
+  @@map("companies")
+}
+
+model Declaration {
+  id                   String                @id @default(uuid())
+  year                 Int
+  companyId            String
+  region               String
+  division             String
+  status               DeclarationStatus     @default(DRAFT)
+  submittedAt          DateTime?
+  validatedBy          String?
+  validatedAt          DateTime?
+  rejectionReason      String?
+  pdfUrl               String?
+  receiptUrl           String?
+  qrCode               String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  fillingDate          DateTime?
+  auditLogs            AuditLog[]
+  movements            DeclarationMovement[]
+  company              Company               @relation(fields: [companyId], references: [id])
+  employees            Employee[]
+  qualitativeQuestions QualitativeQuestion[]
+  validationSteps      ValidationStep[]
+
+  @@map("declarations")
+}
+
+model Employee {
+  id             String      @id @default(uuid())
+  declarationId  String
+  fullName       String
+  gender         String
+  age            Int
+  nationality    String
+  diploma        String?
+  function       String
+  seniority      Int
+  salaryCategory String?
+  createdAt      DateTime    @default(now())
+  salary         Int?
+  declaration    Declaration @relation(fields: [declarationId], references: [id])
+
+  @@map("employees")
+}
+
+model DeclarationMovement {
+  id             String       @id @default(uuid())
+  declarationId  String
+  movementType   MovementType
+  cat1_3         Int          @default(0)
+  cat4_6         Int          @default(0)
+  cat7_9         Int          @default(0)
+  cat10_12       Int          @default(0)
+  catNonDeclared Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  declaration    Declaration  @relation(fields: [declarationId], references: [id])
+
+  @@map("declaration_movements")
+}
+
+model ValidationStep {
+  id            String             @id @default(uuid())
+  declarationId String
+  stepType      ValidationStepType
+  isValid       Boolean            @default(true)
+  errors        String[]           @default([])
+  message       String?
+  checkedBy     String?
+  checkedAt     DateTime?
+  createdAt     DateTime           @default(now())
+  declaration   Declaration        @relation(fields: [declarationId], references: [id])
+
+  @@map("validation_steps")
+}
+
+model QualitativeQuestion {
+  id                    String      @id @default(uuid())
+  declarationId         String
+  questionType          String
+  section               String
+  questionText          String
+  answerText            String?
+  answerOptions         Json?
+  hasTrainingCenter     Boolean?
+  trainingCenterDetails String?
+  recruitmentPlansNext  Boolean?
+  recruitmentPlanCount  Int?
+  camerounisationPlan   Boolean?
+  usesTempAgencies      Boolean?
+  temporaryWorkerCount  Int?
+  version               Int         @default(1)
+  orderIndex            Int         @default(0)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  tempAgencyDetails     String?
+  declaration           Declaration @relation(fields: [declarationId], references: [id])
+
+  @@map("qualitative_questions")
+}
+
+// ============================================================
+// NOTIFICATIONS & AUDIT
+// ============================================================
+
+model Notification {
+  id               String                  @id @default(uuid())
+  sentBy           String
+  regionFilter     String?
+  departmentFilter String?
+  submissionStatus DeclarationStatus?
+  subject          String
+  message          String
+  recipientCount   Int                     @default(0)
+  sentAt           DateTime                @default(now())
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  recipients       NotificationRecipient[]
+  senderUser       User                    @relation(fields: [sentBy], references: [id])
+
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             String             @id @default(uuid())
+  notificationId String
+  companyId      String
+  email          String
+  status         NotificationStatus @default(SENT)
+  sentAt         DateTime           @default(now())
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  company        Company            @relation(fields: [companyId], references: [id])
+  notification   Notification       @relation(fields: [notificationId], references: [id])
+
+  @@map("notification_recipients")
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  userId        String
+  declarationId String?
+  action        String
+  resourceType  String
+  resourceId    String
+  details       String?
+  previousValue String?
+  newValue      String?
+  timestamp     DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  declaration   Declaration? @relation(fields: [declarationId], references: [id])
+  user          User         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([declarationId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// CAMPAIGN SYSTEM
+// ============================================================
+
+// FIX 3: Added 'type' and 'reminderDays' fields
+// FIX 4: Renamed relation from 'createdByUser' to 'creator'
+model DataCampaign {
+  id                String         @id @default(uuid())
+  code              String         @unique
+  name              String
+  description       String?
+  type              String?                          // campaign.service.ts line 17 (createCampaign data.type)
+  status            CampaignStatus @default(DRAFT)
+  startDate         DateTime?
+  endDate           DateTime?
+  deadline          DateTime?
+  extendedDeadline  DateTime?
+  closedAt          DateTime?
+  autoReminders     Boolean        @default(false)
+  reminderDays      Int[]          @default([])      // campaign.service.ts line 22 (data.reminderDays)
+  targetRegions     String[]       @default([])
+  targetDepartments String[]       @default([])
+  targetEntityTypes String[]       @default([])
+  createdBy         String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // FIX 4: was 'createdByUser', service includes 'creator'
+  creator     User?                @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
+  submissions CampaignSubmission[]
+  reminders   CampaignReminder[]
+
+  @@index([status])
+  @@map("data_campaigns")
+}
+
+// FIX 5a: companyId now optional (service creates records without it)
+// FIX 5b: added @@unique([campaignId, establishmentId]) for upsert key
+model CampaignSubmission {
+  id              String           @id @default(uuid())
+  campaignId      String
+  companyId       String?                            // was String (non-nullable) — service omits it on create
+  establishmentId String?
+  status          SubmissionStatus @default(PENDING)
+  submittedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  campaign DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  company  Company?     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([campaignId, companyId])
+  @@unique([campaignId, establishmentId])            // campaign.service.ts line 252
+  @@index([campaignId])
+  @@index([companyId])
+  @@index([establishmentId])
+  @@map("campaign_submissions")
+}
+
+// FIX 6: reminderType changed from ReminderType enum to String
+//         service passes: 'CAMPAIGN_ANNOUNCEMENT', 'DEADLINE_APPROACHING',
+//                         'FINAL_REMINDER', 'DEADLINE_EXTENDED'
+//         none of which existed in the old ReminderType enum
+model CampaignReminder {
+  id             String   @id @default(uuid())
+  campaignId     String
+  reminderType   String   @default("INITIAL")       // was ReminderType enum
+  subject        String?
+  message        String?
+  recipientCount Int      @default(0)
+  sentAt         DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  campaign DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("campaign_reminders")
+}
+
+// ============================================================
+// REPORT SYSTEM
+// ============================================================
+
+// FIX 7: Added type (service uses 'type', schema had 'reportType'),
+//         isScheduled, schedule, expiresAt
+model Report {
+  id          String       @id @default(uuid())
+  name        String
+  type        ReportType?                            // report.service.ts line 77 uses 'type'
+  reportType  ReportType?                            // kept for backward compat / analytics queries
+  format      ReportFormat
+  parameters  Json?
+  isScheduled Boolean      @default(false)           // report.service.ts line 80
+  schedule    String?                                // report.service.ts line 81
+  expiresAt   DateTime?                              // report.service.ts line 82
+  fileUrl     String?
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  createdByUser    User?             @relation(fields: [createdBy], references: [id])
+  scheduledReports ScheduledReport[]
+
+  @@index([reportType])
+  @@map("reports")
+}
+
+// FIX 8: Added recipients and frequency fields
+model ScheduledReport {
+  id         String       @id @default(uuid())
+  reportId   String?
+  reportType ReportType
+  format     ReportFormat
+  parameters Json?
+  schedule   String
+  recipients String[]     @default([])               // report.service.ts line 91
+  frequency  String?                                 // report.service.ts line 92
+  isActive   Boolean      @default(true)
+  lastRunAt  DateTime?
+  createdBy  String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  report        Report? @relation(fields: [reportId], references: [id])
+  createdByUser User?   @relation(fields: [createdBy], references: [id])
+
+  @@index([reportType])
+  @@map("scheduled_reports")
+}
+
+// ============================================================
+// SUBMISSION ROUNDS & DRAFTS
+// ============================================================
+
+model SubmissionRound {
+  id          String      @id @default(uuid())
+  quarterCode String      @unique
+  labelFr     String
+  labelEn     String
+  periodStart DateTime
+  periodEnd   DateTime
+  deadline    DateTime
+  status      RoundStatus @default(DRAFT)
+
+  targetRegions     String[]
+  targetEntityTypes OnefopEntityType[]
+
+  openedBy String?
+  openedAt DateTime?
+  closedBy String?
+  closedAt DateTime?
+
+  openedByUser User? @relation("RoundOpenedBy", fields: [openedBy], references: [id])
+  closedByUser User? @relation("RoundClosedBy", fields: [closedBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([deadline])
+  @@index([quarterCode])
+  @@map("submission_rounds")
+}
+
+model SubmissionDraft {
+  id              String           @id @default(uuid())
+  establishmentId String
+  quarterCode     String
+  entityType      OnefopEntityType
+  draftData       Json
+  lastSavedAt     DateTime         @default(now())
+  savedByUserId   String?
+  completionScore Float?
+  missingFields   String[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  savedByUser User? @relation(fields: [savedByUserId], references: [id])
+
+  @@unique([establishmentId, quarterCode])
+  @@index([establishmentId])
+  @@map("submission_drafts")
+}
+
+// ============================================================
+// ONEFOP SUBMISSION — MAIN TABLE
+// ============================================================
+
+model OnefopSubmission {
+  id                 String       @id @default(uuid())
+  submissionId       String       @unique @default(uuid())
+  formType           OnefopEntityType
+  status             OnefopStatus @default(PENDING_REVIEW)
+  rawData            Json
+  flags              Json?
+  rejectionReason    String?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  pdfUrl             String?
+  surveyYear         Int
+  region             String?
+  department         String?
+  subdivision        String?
+  submittedBy        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  companyId          String?
+  regionId           String?
+  departmentId       String?
+  subdivisionId      String?
+  establishmentId    String?
+  quarterCode        String?      @default("2025-T1")
+  taxNumber          String?
+  cnpsNumber         String?
+  registrationNumber String?
+  metaJson           Json?
+
+  cooperativeDetail     OnefopCooperativeDetail?
+  cspGenderAge          OnefopCspGenderAge[]
+  ctdDetail             OnefopCtdDetail?
+  departureData         OnefopDepartureData[]
+  diplomaData           OnefopDiplomaData[]
+  disabilityData        OnefopDisabilityData[]
+  dismissalReasons      OnefopDismissalReason[]
+  dismissalUnemployment OnefopDismissalUnemployment[]
+  enterpriseDetail      OnefopEnterpriseDetail?
+  factRecruitments      OnefopFactRecruitment[]
+  factSkillNeeds        OnefopFactSkillNeed[]
+  firstTimeWorkers      OnefopFirstTimeWorker[]
+  internshipData        OnefopInternshipData[]
+  ongDetail             OnefopOngDetail?
+  respondent            OnefopRespondent?
+  skillNeeds            OnefopSkillNeed[]
+  trainingNeeds         OnefopTrainingNeed[]
+  vulnerableData        OnefopVulnerableData[]
+
+  company        Company?     @relation(fields: [companyId], references: [id])
+  departmentRef  Department?  @relation(fields: [departmentId], references: [id])
+  regionRef      Region?      @relation(fields: [regionId], references: [id])
+  subdivisionRef Subdivision? @relation(fields: [subdivisionId], references: [id])
+  user           User?        @relation(fields: [submittedBy], references: [id])
+
+  @@index([status])
+  @@index([formType])
+  @@index([surveyYear])
+  @@index([region])
+  @@index([submittedBy])
+  @@index([establishmentId], map: "idx_onefop_submissions_establishmentId")
+  @@index([quarterCode], map: "idx_onefop_submissions_quarterCode")
+  @@index([taxNumber])
+  @@index([cnpsNumber])
+  @@map("onefop_submissions")
+}
+
+// ============================================================
+// ONEFOP SECTION 0: RESPONDENT
+// ============================================================
+
+model OnefopRespondent {
+  id                 String           @id @default(uuid())
+  submissionId       String           @unique
+  respondentName     String
+  respondentFunction String
+  phone1             String
+  phone2             String?
+  email              String?
+  createdAt          DateTime         @default(now())
+  submission         OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_respondents")
+}
+
+// ============================================================
+// ONEFOP SECTION 1: ENTITY DETAILS
+// ============================================================
+
+model OnefopEnterpriseDetail {
+  id               String           @id @default(uuid())
+  submissionId     String           @unique
+  legalStatus      String
+  companyName      String
+  area             String
+  region           String
+  department       String
+  subdivision      String
+  locality         String?
+  phone1           String
+  phone2           String?
+  poBox            String?
+  sector           String
+  branch           String?
+  mainActivity     String
+  headOffice       String?
+  permanentWorkers Int
+  vacancies        Int?
+  enterpriseSize   String?
+  createdAt        DateTime         @default(now())
+  sectorId         String?
+  sectorRef        Sector?          @relation(fields: [sectorId], references: [id])
+  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_enterprise_details")
+}
+
+model OnefopCooperativeDetail {
+  id                   String           @id @default(uuid())
+  submissionId         String           @unique
+  cooperativeName      String
+  headOffice           String?
+  yearCreated          Int?
+  area                 String?
+  region               String?
+  department           String?
+  subdivision          String?
+  locality             String?
+  phone1               String?
+  phone2               String?
+  poBox                String?
+  sector               String?
+  branch               String?
+  mainActivity         String?
+  cooperativeType      String?
+  cooperativeTypeOther String?
+  permanentWorkers     Int?
+  vacancies            Int?
+  createdAt            DateTime         @default(now())
+  submission           OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_cooperative_details")
+}
+
+model OnefopCtdDetail {
+  id               String           @id @default(uuid())
+  submissionId     String           @unique
+  ctdType          String
+  councilType      String?
+  yearCreated      Int?
+  area             String?
+  region           String?
+  department       String?
+  subdivision      String?
+  locality         String?
+  phone1           String?
+  phone2           String?
+  poBox            String?
+  sector           String?
+  branch           String?
+  permanentWorkers Int?
+  vacancies        Int?
+  createdAt        DateTime         @default(now())
+  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_ctd_details")
+}
+
+model OnefopOngDetail {
+  id               String           @id @default(uuid())
+  submissionId     String           @unique
+  ongName          String
+  headOffice       String?
+  yearCreated      Int?
+  area             String?
+  region           String?
+  department       String?
+  subdivision      String?
+  locality         String?
+  phone1           String?
+  phone2           String?
+  poBox            String?
+  sector           String?
+  branch           String?
+  mainMission      String?
+  permanentWorkers Int?
+  vacancies        Int?
+  createdAt        DateTime         @default(now())
+  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_ong_details")
+}
+
+// ============================================================
+// ONEFOP SECTION 2: EMPLOYMENT TABLES
+// ============================================================
+
+model OnefopCspGenderAge {
+  id           String           @id @default(uuid())
+  submissionId String
+  tableName    String
+  cspCategory  CspCategory
+  gender       Gender
+  ageBand      AgeBand?
+  value        Int              @default(0)
+  createdAt    DateTime         @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, tableName, cspCategory, gender, ageBand])
+  @@index([submissionId, tableName])
+  @@map("onefop_csp_gender_age")
+}
+
+model OnefopDiplomaData {
+  id           String           @id @default(uuid())
+  submissionId String
+  diploma      DiplomaType
+  gender       Gender
+  ageBand      AgeBand?
+  value        Int              @default(0)
+  createdAt    DateTime         @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, diploma, gender, ageBand])
+  @@index([submissionId])
+  @@map("onefop_diploma_data")
+}
+
+model OnefopDisabilityData {
+  id           String           @id @default(uuid())
+  submissionId String
+  cspCategory  CspCategory
+  status       DisabilityStatus
+  gender       Gender
+  value        Int              @default(0)
+  createdAt    DateTime         @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, cspCategory, status, gender])
+  @@map("onefop_disability_data")
+}
+
+model OnefopVulnerableData {
+  id             String           @id @default(uuid())
+  submissionId   String
+  vulnerableType VulnerableType
+  status         DisabilityStatus
+  gender         Gender
+  value          Int              @default(0)
+  createdAt      DateTime         @default(now())
+  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, vulnerableType, status, gender])
+  @@map("onefop_vulnerable_data")
+}
+
+model OnefopFirstTimeWorker {
+  id           String           @id @default(uuid())
+  submissionId String
+  contractType ContractType
+  cspCategory  CspCategory
+  gender       Gender
+  ageBand      AgeBand?
+  value        Int              @default(0)
+  createdAt    DateTime         @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, contractType, cspCategory, gender, ageBand])
+  @@index([submissionId])
+  @@map("onefop_first_time_workers")
+}
+
+// ============================================================
+// ONEFOP SECTION 3: DEPARTURES
+// ============================================================
+
+model OnefopDepartureData {
+  id            String           @id @default(uuid())
+  submissionId  String
+  cspCategory   CspCategory
+  departureType DepartureType
+  gender        Gender
+  value         Int              @default(0)
+  createdAt     DateTime         @default(now())
+  submission    OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, cspCategory, departureType, gender])
+  @@map("onefop_departure_data")
+}
+
+model OnefopDismissalReason {
+  id           String           @id @default(uuid())
+  submissionId String
+  reasonIndex  Int
+  reasonText   String?
+  maleCount    Int              @default(0)
+  femaleCount  Int              @default(0)
+  totalCount   Int              @default(0)
+  createdAt    DateTime         @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, reasonIndex])
+  @@map("onefop_dismissal_reasons")
+}
+
+model OnefopDismissalUnemployment {
+  id           String                    @id @default(uuid())
+  submissionId String
+  cspCategory  CspCategory
+  type         DismissalUnemploymentType
+  gender       Gender
+  value        Int                       @default(0)
+  createdAt    DateTime                  @default(now())
+  submission   OnefopSubmission          @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, cspCategory, type, gender])
+  @@map("onefop_dismissal_unemployment")
+}
+
+// ============================================================
+// ONEFOP SECTION 4: INTERNSHIPS, SKILLS & TRAINING
+// ============================================================
+
+model OnefopInternshipData {
+  id             String           @id @default(uuid())
+  submissionId   String
+  internshipType InternshipType
+  gender         Gender
+  value          Int              @default(0)
+  createdAt      DateTime         @default(now())
+  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, internshipType, gender])
+  @@map("onefop_internship_data")
+}
+
+model OnefopSkillNeed {
+  id               String           @id @default(uuid())
+  submissionId     String
+  skillIndex       Int
+  skillDescription String?
+  maleCount        Int              @default(0)
+  femaleCount      Int              @default(0)
+  totalCount       Int              @default(0)
+  createdAt        DateTime         @default(now())
+  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, skillIndex])
+  @@map("onefop_skill_needs")
+}
+
+model OnefopTrainingNeed {
+  id             String           @id @default(uuid())
+  submissionId   String
+  domainIndex    Int
+  trainingDomain String?
+  maleCount      Int              @default(0)
+  femaleCount    Int              @default(0)
+  totalCount     Int              @default(0)
+  createdAt      DateTime         @default(now())
+  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, domainIndex])
+  @@map("onefop_training_needs")
+}
+
+// ============================================================
+// ONEFOP FACT TABLES
+// ============================================================
+
+model OnefopFactRecruitment {
+  id              String           @id @default(uuid())
+  submissionId    String
+  year            Int
+  region          String?
+  department      String?
+  subdivision     String?
+  businessSector  Int?
+  companySize     Int?
+  csp             String
+  gender          String
+  ageGroup        String
+  count           Int
+  recruitmentType String
+  createdAt       DateTime         @default(now())
+  submission      OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([year, region])
+  @@map("onefop_fact_recruitments")
+}
+
+model OnefopFactSkillNeed {
+  id               String           @id @default(uuid())
+  submissionId     String
+  year             Int
+  region           String?
+  department       String?
+  subdivision      String?
+  businessSector   Int?
+  companySize      Int?
+  skillDescription String
+  count            Int
+  createdAt        DateTime         @default(now())
+  submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([year, region])
+  @@map("onefop_fact_skill_needs")
+}
+
+// ============================================================
+// ANALYTICS SNAPSHOTS
+// ============================================================
+
+model AnalyticsSnapshot {
+  id                 String   @id @default(uuid())
+  year               Int
+  region             String?
+  department         String?
+  totalEmployment    Int
+  maleEmployment     Int
+  femaleEmployment   Int
+  totalRecruitment   Int
+  totalDismissals    Int
+  avgSalaryCategory  Float?
+  companiesSubmitted Int
+  companiesApproved  Int
+  companiesPending   Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([year, region, department])
+  @@map("analytics_snapshots")
 }
