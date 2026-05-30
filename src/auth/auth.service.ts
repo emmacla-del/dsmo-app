@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
+import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 
 @Injectable()
 export class AuthService {
@@ -95,9 +96,6 @@ export class AuthService {
     };
   }
 
-  // ── Session restoration — returns the current user from DB using
-  //    the id decoded from the JWT by JwtAuthGuard (req.user.sub).
-  //    Called by GET /auth/me on every app startup.
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -225,6 +223,22 @@ export class AuthService {
       );
     }
 
+    // ✅ GENERATE ESTABLISHMENT ID
+    let establishmentId: string | undefined;
+    if (companyData.entityType && companyData.subdivision) {
+      // Get subdivision code from name
+      const subdivision = await this.prisma.subdivision.findFirst({
+        where: { name: companyData.subdivision }
+      });
+      const subdivisionCode = subdivision?.code?.slice(-2) || '00';
+
+      establishmentId = await EstablishmentIdGenerator.generate(
+        this.prisma,
+        companyData.entityType,
+        subdivisionCode,
+      );
+    }
+
     const hashed = await bcrypt.hash(password, 10);
 
     try {
@@ -241,7 +255,8 @@ export class AuthService {
           isActive: true,
         },
       });
-      await this.prisma.company.create({
+
+      const company = await this.prisma.company.create({
         data: {
           userId: user.id,
           name: companyData.name,
@@ -281,10 +296,24 @@ export class AuthService {
           respondentPhone: companyData.respondentPhone,
           respondentPhone2: companyData.respondentPhone2,
           respondentFunction: companyData.respondentFunction,
+          establishmentId: establishmentId,
+          establishmentIdGeneratedAt: establishmentId ? new Date() : undefined,
         },
       });
 
-      return this.login(user);
+      // ✅ Return the login response WITH company data including establishmentId
+      const loginResult = await this.login(user);
+
+      return {
+        ...loginResult,
+        company: {
+          id: company.id,
+          name: company.name,
+          establishmentId: company.establishmentId,
+          taxNumber: company.taxNumber,
+          entityType: company.entityType,
+        },
+      };
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Email ou numéro contribuable déjà utilisé');
