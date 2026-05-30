@@ -1,5 +1,5 @@
 // src/dto/onefop-submission.dto.ts
-import { IsString, IsIn, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsBoolean, IsObject } from 'class-validator';
 
 export class OnefopSubmissionDto {
     @IsString()
@@ -8,16 +8,19 @@ export class OnefopSubmissionDto {
     @IsString()
     userId: string;
 
-    @IsIn(['enterprise', 'cooperative', 'ctd', 'ong'])
-    entityType: 'enterprise' | 'cooperative' | 'ctd' | 'ong';
+    @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'])
+    entityType: 'ENTREPRISE' | 'COOPERATIVE' | 'CTD' | 'ONG';
 
-    // No decorators on data — the global ValidationPipe will not inspect
-    // the contents of this field. Validation of the nested structure happens
-    // in the service AFTER FlatToNestedTransformer runs.
+    @IsOptional()
+    @IsString()
+    establishmentId?: string;
+
+    @IsOptional()
+    @IsString()
+    quarterCode?: string;
+
     data: Record<string, any>;
 
-    // When true: save partial data, skip required-field checks
-    // When false/absent: enforce required fields before saving
     @IsOptional()
     @IsBoolean()
     isDraft?: boolean;
@@ -25,4 +28,13 @@ export class OnefopSubmissionDto {
     @IsOptional()
     @IsString()
     companyId?: string;
+
+    @IsOptional()
+    @IsObject()
+    __meta?: {
+        establishmentId?: string;
+        taxNumber?: string;
+        cnpsNumber?: string;
+        registrationNumber?: string;
+    };
 }

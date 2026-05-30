@@ -13,6 +13,7 @@ import { UserRole, DeclarationStatus, MovementType } from '../types/prisma.types
 import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { PdfService, PdfData } from './pdf.service';
+import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 
 @Injectable()
 export class DsmoService {
@@ -61,13 +62,76 @@ export class DsmoService {
     return `DSMO-${year}-${seq}`;
   }
 
+  // ✅ UPDATED: getMyCompany with establishmentId fields
   async getMyCompany(userId: string) {
-    return this.prisma.company.findUnique({ where: { userId } });
+    const company = await this.prisma.company.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+        taxNumber: true,
+        cnpsNumber: true,
+        registrationNumber: true,
+        establishmentId: true,
+        establishmentIdGeneratedAt: true,
+        entityType: true,
+        region: true,
+        department: true,
+        subdivision: true,
+        address: true,
+        phone: true,
+        phone2: true,
+        poBox: true,
+        mainActivity: true,
+        secondaryActivity: true,
+        parentCompany: true,
+        legalStatus: true,
+        enterpriseSize: true,
+        area: true,
+        branch: true,
+        respondentFirstName: true,
+        respondentLastName: true,
+        respondentFunction: true,
+        respondentPhone: true,
+        respondentPhone2: true,
+      }
+    });
+    return company;
   }
 
-  // ✅ FIXED: saveCompanyProfile - ensures subdivision is never undefined
+  // ✅ UPDATED: saveCompanyProfile with establishmentId generation
   async saveCompanyProfile(userId: string, dto: any) {
     const subdivisionValue = dto.subdivision ?? dto.department ?? 'Non spécifié';
+
+    // Check if company already exists
+    const existing = await this.prisma.company.findUnique({
+      where: { userId }
+    });
+
+    let establishmentId = dto.establishmentId;
+
+    // Generate establishmentId if not provided and we have entityType
+    if (!establishmentId && dto.entityType && !existing?.establishmentId) {
+      // Get subdivision code
+      let subdivisionCode = '00';
+      if (dto.subdivision) {
+        const subdivision = await this.prisma.subdivision.findFirst({
+          where: { name: dto.subdivision }
+        });
+        subdivisionCode = subdivision?.code?.slice(-2) || '00';
+      } else if (dto.department) {
+        const department = await this.prisma.department.findFirst({
+          where: { name: dto.department }
+        });
+        subdivisionCode = department?.code?.slice(-2) || '00';
+      }
+
+      establishmentId = await EstablishmentIdGenerator.generate(
+        this.prisma,
+        dto.entityType,
+        subdivisionCode,
+      );
+    }
 
     const data = {
       name: dto.name,
@@ -84,12 +148,19 @@ export class DsmoService {
       socialCapital: dto.socialCapital,
       ...(dto.entityType ? { entityType: dto.entityType as any } : {}),
       totalEmployees: 0,
+      ...(establishmentId ? {
+        establishmentId,
+        establishmentIdGeneratedAt: new Date()
+      } : {}),
     };
 
     try {
       const company = await this.prisma.company.upsert({
         where: { userId },
-        update: data,
+        update: {
+          ...data,
+          establishmentId: existing?.establishmentId || establishmentId,
+        },
         create: { userId, ...data },
       });
       await this.auditService.log(userId, 'CREATE_COMPANY_PROFILE', 'Company', company.id, dto.name);
@@ -102,9 +173,38 @@ export class DsmoService {
     }
   }
 
-  // ✅ FIXED: createOrUpdateCompany - ensures subdivision is never undefined
+  // ✅ UPDATED: createOrUpdateCompany with establishmentId generation
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
     const subdivisionValue = dto.subdivision ?? 'Non spécifié';
+
+    // Check if company already exists
+    const existing = await this.prisma.company.findUnique({
+      where: { userId }
+    });
+
+    let establishmentId = (dto as any).establishmentId;
+
+    // Generate establishmentId if not provided and we have entityType
+    if (!establishmentId && (dto as any).entityType && !existing?.establishmentId) {
+      let subdivisionCode = '00';
+      if (dto.subdivision) {
+        const subdivision = await this.prisma.subdivision.findFirst({
+          where: { name: dto.subdivision }
+        });
+        subdivisionCode = subdivision?.code?.slice(-2) || '00';
+      } else if (dto.department) {
+        const department = await this.prisma.department.findFirst({
+          where: { name: dto.department }
+        });
+        subdivisionCode = department?.code?.slice(-2) || '00';
+      }
+
+      establishmentId = await EstablishmentIdGenerator.generate(
+        this.prisma,
+        (dto as any).entityType,
+        subdivisionCode,
+      );
+    }
 
     const companyData = {
       name: dto.name,
@@ -124,12 +224,19 @@ export class DsmoService {
       lastYearTotal: dto.lastYearTotal,
       lastYearMenCount: dto.lastYearMenCount,
       lastYearWomenCount: dto.lastYearWomenCount,
+      ...(establishmentId ? {
+        establishmentId,
+        establishmentIdGeneratedAt: new Date()
+      } : {}),
     };
 
     try {
       const company = await this.prisma.company.upsert({
         where: { userId },
-        update: companyData,
+        update: {
+          ...companyData,
+          establishmentId: existing?.establishmentId || establishmentId,
+        },
         create: { userId, ...companyData },
       });
       await this.auditService.log(userId, 'UPDATE_COMPANY', 'Company', company.id, 'Mise à jour du profil entreprise');
@@ -193,8 +300,8 @@ export class DsmoService {
       this.prisma.qualitativeQuestion.create({
         data: {
           declarationId: declaration.id,
-          questionType: 'QUALITATIVE',   // ✅ FIXED: required field added
-          section: 'GENERAL',            // ✅ FIXED: required field added
+          questionType: 'QUALITATIVE',
+          section: 'GENERAL',
           questionText: 'Informations qualitatives DSMO',
           ...dto.qualitative,
         },
@@ -338,14 +445,6 @@ export class DsmoService {
 
   /**
    * Returns declarations for the authenticated user.
-   *
-   * ✅ WIRED FOR DASHBOARD: the response now always includes `submittedAt`,
-   * `updatedAt`, `year`, and `status` at the root level (Prisma model fields),
-   * plus the `company` relation so the dashboard's Recent Activity widget can
-   * display declaration year, status, and date without extra fetches.
-   *
-   * For COMPANY role: guards against a missing company profile by returning []
-   * instead of throwing, keeping the dashboard's empty-state path intact.
    */
   async getDeclarationsForUser(userId: string, filters: any) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
@@ -353,8 +452,6 @@ export class DsmoService {
 
     if (user.role === UserRole.COMPANY) {
       const comp = await this.prisma.company.findUnique({ where: { userId } });
-      // ✅ FIX: return empty array instead of querying with undefined companyId,
-      // which would return all declarations or throw a Prisma type error.
       if (!comp) return [];
       where.companyId = comp.id;
     } else if (user.role === UserRole.DIVISIONAL) {
@@ -368,9 +465,6 @@ export class DsmoService {
 
     return this.prisma.declaration.findMany({
       where,
-      // ✅ WIRED: include company so dashboard has company name if needed,
-      // and the root fields (status, year, submittedAt, updatedAt) come
-      // automatically from the Declaration model.
       include: { company: true },
       orderBy: { createdAt: 'desc' },
     });

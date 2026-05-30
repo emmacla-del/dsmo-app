@@ -33,6 +33,18 @@ const FINAL_REQUIRED_FIELDS: Record<string, string[]> = {
   ong: ['name'],
 };
 
+// ============================================================
+// NORMALIZATION HELPER - Converts any entity type to uppercase
+// ============================================================
+function normalizeEntityType(type: string): string {
+  const upper = type?.toUpperCase() || '';
+  if (upper === 'ENTERPRISE' || upper === 'ENTREPRISE') return 'ENTREPRISE';
+  if (upper === 'COOPERATIVE') return 'COOPERATIVE';
+  if (upper === 'CTD') return 'CTD';
+  if (upper === 'ONG') return 'ONG';
+  return 'ENTREPRISE';
+}
+
 function debugLog(label: string, value: any, maxChars = 2000): void {
   try {
     if (value === undefined || value === null) {
@@ -61,18 +73,21 @@ export class QuestionnairesService {
 
   async submitQuestionnaire(dto: OnefopSubmissionDto): Promise<OnefopResponseDto> {
     const isDraft = dto.isDraft ?? false;
+    // Normalize entityType to uppercase
+    const normalizedEntityType = normalizeEntityType(dto.entityType);
 
     console.log('\n╔══════════════════════════════════════════════════╗');
     console.log('║         ONEFOP SUBMIT — DEBUG                    ║');
     console.log('╚══════════════════════════════════════════════════╝');
-    console.log('entityType :', dto.entityType);
+    console.log('entityType (original) :', dto.entityType);
+    console.log('entityType (normalized):', normalizedEntityType);
     console.log('isDraft    :', isDraft);
     console.log('userId     :', dto.userId);
     console.log('formId     :', dto.formId);
     console.log('data keys  :', Object.keys(dto.data).length);
     debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
 
-    const normalized = normalizeFlatKeys(dto.data, dto.entityType);
+    const normalized = normalizeFlatKeys(dto.data, normalizedEntityType.toLowerCase());
 
     debugLog('🔄 Normalized keys sample (S0/S1):', {
       S0Q01: normalized['S0Q01'],
@@ -83,7 +98,7 @@ export class QuestionnairesService {
       COOP_S1Q12: normalized['COOP_S1Q12'],
     });
 
-    const nestedData = buildNestedDto(normalized, dto.entityType);
+    const nestedData = buildNestedDto(normalized, normalizedEntityType.toLowerCase());
 
     debugLog('🔄 respondent :', nestedData['respondent']);
     debugLog('🔄 cooperative:', nestedData['cooperative']);
@@ -92,17 +107,17 @@ export class QuestionnairesService {
     debugLog('🔄 ong        :', nestedData['ong']);
 
     let questionnaireData: AnyQuestionnaireDto;
-    switch (dto.entityType) {
-      case 'enterprise':
+    switch (normalizedEntityType) {
+      case 'ENTREPRISE':
         questionnaireData = plainToClass(EnterpriseQuestionnaireDto, nestedData);
         break;
-      case 'cooperative':
+      case 'COOPERATIVE':
         questionnaireData = plainToClass(CooperativeQuestionnaireDto, nestedData);
         break;
-      case 'ctd':
+      case 'CTD':
         questionnaireData = plainToClass(CtdQuestionnaireDto, nestedData);
         break;
-      case 'ong':
+      case 'ONG':
         questionnaireData = plainToClass(OngQuestionnaireDto, nestedData);
         break;
       default:
@@ -130,7 +145,7 @@ export class QuestionnairesService {
     }
 
     if (!isDraft) {
-      this.enforceFinalRequiredFields(questionnaireData, dto.entityType);
+      this.enforceFinalRequiredFields(questionnaireData, normalizedEntityType.toLowerCase());
     }
 
     const flat = normalized as unknown as FlatFormData;
@@ -163,7 +178,7 @@ export class QuestionnairesService {
       const submission = await tx.onefopSubmission.create({
         data: {
           submissionId: randomUUID(),
-          formType: dto.entityType.toUpperCase(),
+          formType: normalizedEntityType,
           rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
           submittedBy: dto.userId,
@@ -189,7 +204,7 @@ export class QuestionnairesService {
         });
       }
 
-      if (dto.entityType === 'enterprise' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
+      if (normalizedEntityType === 'ENTREPRISE' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
         const e = questionnaireData.enterprise;
         await tx.onefopEnterpriseDetail.create({
           data: {
@@ -215,7 +230,7 @@ export class QuestionnairesService {
         });
       }
 
-      if (dto.entityType === 'cooperative' && 'cooperative' in questionnaireData && questionnaireData.cooperative) {
+      if (normalizedEntityType === 'COOPERATIVE' && 'cooperative' in questionnaireData && questionnaireData.cooperative) {
         const c = questionnaireData.cooperative;
         await tx.onefopCooperativeDetail.create({
           data: {
@@ -242,7 +257,7 @@ export class QuestionnairesService {
         });
       }
 
-      if (dto.entityType === 'ctd' && 'ctd' in questionnaireData && questionnaireData.ctd) {
+      if (normalizedEntityType === 'CTD' && 'ctd' in questionnaireData && questionnaireData.ctd) {
         const ct = questionnaireData.ctd;
         await tx.onefopCtdDetail.create({
           data: {
@@ -266,7 +281,7 @@ export class QuestionnairesService {
         });
       }
 
-      if (dto.entityType === 'ong' && 'ong' in questionnaireData && questionnaireData.ong) {
+      if (normalizedEntityType === 'ONG' && 'ong' in questionnaireData && questionnaireData.ong) {
         const o = questionnaireData.ong;
         await tx.onefopOngDetail.create({
           data: {
@@ -303,7 +318,7 @@ export class QuestionnairesService {
       await this.saveDiplomaFlat(tx, sid, flat);
       await this.saveDisabilityFlat(tx, sid, flat, 's22q04');
 
-      if (dto.entityType === 'enterprise') {
+      if (normalizedEntityType === 'ENTREPRISE') {
         await this.saveVulnerableEnterpriseFlat(tx, sid, flat);
       } else {
         await this.saveVulnerableOtherFlat(tx, sid, flat);
