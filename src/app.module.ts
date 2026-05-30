@@ -8,7 +8,8 @@ import { MinefopServicesModule } from './minefop-services/minefop-services.modul
 import { QuestionnairesModule } from './questionnaires/questionnaires.module';
 import { OnefopAnalyticsModule } from './analytics/onefop-analytics.module';
 import { PdfModule } from './pdf/pdf.module';
-import { AnalyticsModule } from './analytics/analytics.module'; // ← ADD THIS
+import { AnalyticsModule } from './analytics/analytics.module';
+import { OnefopModule } from './onefop/onefop.module'; // ← ADD THIS
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { AnalyticsModule } from './analytics/analytics.module'; // ← ADD THIS
     QuestionnairesModule,
     OnefopAnalyticsModule,
     PdfModule,
-    AnalyticsModule, // ← ADD THIS
+    AnalyticsModule,
+    OnefopModule, // ← ADD THIS
   ],
 })
 export class AppModule { }
