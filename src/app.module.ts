@@ -9,7 +9,10 @@ import { QuestionnairesModule } from './questionnaires/questionnaires.module';
 import { OnefopAnalyticsModule } from './analytics/onefop-analytics.module';
 import { PdfModule } from './pdf/pdf.module';
 import { AnalyticsModule } from './analytics/analytics.module';
-import { OnefopModule } from './onefop/onefop.module'; // ← ADD THIS
+import { OnefopModule } from './onefop/onefop.module';
+import { CampaignModule } from './campaign/campaign.module';
+import { ReportModule } from './report/report.module';
+import { DataManagementModule } from './data-management/data-management.module';
 
 @Module({
   imports: [
@@ -23,7 +26,10 @@ import { OnefopModule } from './onefop/onefop.module'; // ← ADD THIS
     OnefopAnalyticsModule,
     PdfModule,
     AnalyticsModule,
-    OnefopModule, // ← ADD THIS
+    OnefopModule,
+    CampaignModule,
+    ReportModule,
+    DataManagementModule,
   ],
 })
 export class AppModule { }
