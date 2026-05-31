@@ -54,14 +54,50 @@ export class ReportService {
         region?: string;
         department?: string;
         format: ReportFormat;
+        createdBy?: string | null;
     }) {
         const data = await this.getCompletionRateData(params);
 
-        switch (params.format) {
-            case 'PDF': return this.generatePDF(data);
-            case 'EXCEL': return this.generateExcel(data);
-            case 'CSV': return this.generateCSV(data);
-            default: return data;
+        // Persist in PENDING state so history tracks who triggered it
+        const report = await this.prisma.report.create({
+            data: {
+                name: `Completion Rate · ${new Date().getFullYear()}`,
+                type: 'COMPLETION_RATE',
+                format: params.format,
+                parameters: params,
+                isScheduled: false,
+                status: 'PENDING',
+                createdBy: params.createdBy ?? null,
+            },
+        });
+
+        try {
+            let result: any;
+            switch (params.format) {
+                case 'PDF': result = await this.generatePDF(data); break;
+                case 'EXCEL': result = await this.generateExcel(data); break;
+                case 'CSV': result = await this.generateCSV(data); break;
+                default: result = data;
+            }
+
+            await this.prisma.report.update({
+                where: { id: report.id },
+                data: {
+                    status: 'READY',
+                    ...(result?.url && { fileUrl: result.url }),
+                    ...(result?.storagePath && { filePath: result.storagePath }),
+                    ...(result?.hash && { fileHash: result.hash }),
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                },
+            });
+
+            return result;
+        } catch (err) {
+            await this.prisma.report.update({
+                where: { id: report.id },
+                data: { status: 'FAILED' },
+            });
+            throw err;
         }
     }
 
@@ -106,6 +142,7 @@ export class ReportService {
         schedule: string;
         recipients: string[];
         format: ReportFormat;
+        createdBy?: string | null;
     }) {
         const report = await this.prisma.report.create({
             data: {
@@ -117,7 +154,7 @@ export class ReportService {
                 schedule: reportConfig.schedule,
                 status: 'READY',
                 expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-                createdBy: 'system',
+                createdBy: reportConfig.createdBy ?? null,
             },
         });
 
@@ -159,6 +196,7 @@ export class ReportService {
                 generatedAt: r.createdAt,
                 status: r.status ?? 'READY',
                 downloadUrls,
+                createdBy: r.createdBy ?? null,
             };
         });
     }
@@ -188,6 +226,7 @@ export class ReportService {
         sections: string[];
         scope: any;
         formats: string[];
+        createdBy?: string | null;
     }) {
         const year = params.scope?.year ?? new Date().getFullYear();
 
@@ -195,7 +234,7 @@ export class ReportService {
         const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
         const format = (params.formats?.[0] ?? 'PDF') as ReportFormat;
 
-        // ② persist in PENDING state so Flutter history shows it immediately
+        // ② Persist in PENDING state so Flutter history shows it immediately
         const report = await this.prisma.report.create({
             data: {
                 name: `${params.baseType} · ${year}`,
@@ -204,11 +243,11 @@ export class ReportService {
                 parameters: params,
                 isScheduled: false,
                 status: 'PENDING',
-                createdBy: 'system',
+                createdBy: params.createdBy ?? null,
             },
         });
 
-        // ③ fetch data for the requested type (non-fatal if it fails)
+        // ③ Fetch data for the requested type (non-fatal if it fails)
         let reportData: any = null;
         try {
             // Use the original baseType for data building (SECTIONS_BY_TYPE uses SNAKE_CASE keys)
@@ -218,7 +257,7 @@ export class ReportService {
             reportData = await this.buildDataForType(dataType, params.scope);
         } catch { /* sections render empty-state gracefully */ }
 
-        // ④ generate PDF and upload to Supabase
+        // ④ Generate PDF and upload to Supabase
         try {
             const sections = params.sections.length > 0
                 ? params.sections
@@ -234,7 +273,7 @@ export class ReportService {
                 generatedAt: new Date(),
             });
 
-            // ⑤ mark READY and persist the signed URL
+            // ⑤ Mark READY and persist the signed URL
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: {
@@ -249,7 +288,7 @@ export class ReportService {
             return { id: report.id, name: report.name, status: 'READY', url };
 
         } catch (err) {
-            // ⑥ mark FAILED so Flutter shows the error badge
+            // ⑥ Mark FAILED so Flutter shows the error badge
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: { status: 'FAILED' },
@@ -265,7 +304,7 @@ export class ReportService {
     /**
      * Fetches real DB data for each report type so PDF sections
      * have content when the report is generated.
-     * 
+     *
      * NOTE: type is passed as string to avoid Prisma enum comparison issues.
      * The frontend sends baseType like 'employmentTrends' which we uppercase
      * to 'EMPLOYMENT_TRENDS' for matching, but Prisma's ReportType enum

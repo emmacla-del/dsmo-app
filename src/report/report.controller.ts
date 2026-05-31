@@ -15,8 +15,6 @@ export class ReportController {
     @Post('completion-rate')
     @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
     async generateCompletionRateReport(@Body() params: any, @Req() req: any) {
-        // Pass the authenticated user so the service can set createdBy
-        // instead of hardcoding 'system'
         return this.reportService.generateCompletionRateReport({
             ...params,
             createdBy: req.user?.id ?? req.user?.userId ?? 'system',
