@@ -8,21 +8,22 @@ export class CampaignService {
     constructor(private prisma: PrismaService) { }
 
     async createCampaign(data: any) {
-        const code = this.generateCampaignCode(data.type);
+        // FIX: pass startDate so the code encodes the actual quarter/semester
+        const code = this.generateCampaignCode(data.type, new Date(data.startDate));
 
         return this.prisma.dataCampaign.create({
             data: {
                 code,
                 name: data.name,
                 description: data.description,
-                type: data.type,                                    // FIX: field now exists in schema
+                type: data.type,
                 startDate: new Date(data.startDate),
                 deadline: new Date(data.deadline),
                 targetRegions: data.targetRegions || [],
                 targetDepartments: data.targetDepartments || [],
                 targetEntityTypes: data.targetEntityTypes,
                 autoReminders: data.autoReminders ?? true,
-                reminderDays: data.reminderDays || [7, 3, 1],      // FIX: field now exists in schema
+                reminderDays: data.reminderDays || [7, 3, 1],
                 createdBy: data.createdBy,
             },
         });
@@ -41,7 +42,7 @@ export class CampaignService {
             where,
             include: {
                 _count: { select: { submissions: true } },
-                creator: { select: { firstName: true, lastName: true, email: true } }, // FIX: relation renamed to 'creator'
+                creator: { select: { firstName: true, lastName: true, email: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -58,7 +59,7 @@ export class CampaignService {
         const campaign = await this.prisma.dataCampaign.findUnique({
             where: { id },
             include: {
-                creator: { select: { firstName: true, lastName: true, email: true } }, // FIX: relation renamed to 'creator'
+                creator: { select: { firstName: true, lastName: true, email: true } },
                 submissions: { take: 20, orderBy: { submittedAt: 'desc' } },
                 reminders: { orderBy: { sentAt: 'desc' }, take: 10 },
             },
@@ -78,7 +79,7 @@ export class CampaignService {
                 targetRegions: data.targetRegions,
                 targetDepartments: data.targetDepartments,
                 targetEntityTypes: data.targetEntityTypes,
-                reminderDays: data.reminderDays,                    // FIX: field now exists in schema
+                reminderDays: data.reminderDays,
             },
         });
     }
@@ -91,7 +92,6 @@ export class CampaignService {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id } });
         if (!campaign) throw new NotFoundException('Campaign not found');
 
-        // FIX: 'PAUSED' is now a valid CampaignStatus enum value
         if (campaign.status !== 'DRAFT' && campaign.status !== 'PAUSED') {
             throw new BadRequestException('Only DRAFT or PAUSED campaigns can be activated');
         }
@@ -109,7 +109,6 @@ export class CampaignService {
     }
 
     async pauseCampaign(id: string) {
-        // FIX: 'PAUSED' is now a valid CampaignStatus enum value
         return this.prisma.dataCampaign.update({
             where: { id },
             data: { status: 'PAUSED' },
@@ -142,7 +141,6 @@ export class CampaignService {
         const total = submissions.reduce((acc, s) => acc + s._count, 0);
         const submitted = submissions.find(s => s.status === 'SUBMITTED')?._count || 0;
         const notStarted = submissions.find(s => s.status === 'NOT_STARTED')?._count || 0;
-        // FIX: 'IN_PROGRESS' is now a valid SubmissionStatus enum value
         const inProgress = submissions.find(s => s.status === 'IN_PROGRESS')?._count || 0;
 
         return {
@@ -188,7 +186,6 @@ export class CampaignService {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id: campaignId } });
         if (!campaign) throw new NotFoundException('Campaign not found');
 
-        // FIX: 'VALIDATED' is now a valid SubmissionStatus enum value
         const pendingSubmissions = await this.prisma.campaignSubmission.findMany({
             where: { campaignId, status: { notIn: ['SUBMITTED', 'VALIDATED'] } },
         });
@@ -202,7 +199,6 @@ export class CampaignService {
             })
         );
 
-        // FIX: reminderType is now String in schema — no enum cast needed
         const reminder = await this.prisma.campaignReminder.create({
             data: {
                 campaignId,
@@ -260,7 +256,6 @@ export class CampaignService {
         if (campaign.targetRegions?.length) where.region = { in: campaign.targetRegions };
         if (campaign.targetDepartments?.length) where.department = { in: campaign.targetDepartments };
 
-        // FIX: select both id and establishmentId so companyId can be supplied on create
         const establishments = await this.prisma.company.findMany({
             where,
             select: { id: true, establishmentId: true },
@@ -269,7 +264,6 @@ export class CampaignService {
         for (const est of establishments) {
             if (!est.establishmentId) continue;
 
-            // FIX: use campaignId_establishmentId unique key (now exists in schema)
             await this.prisma.campaignSubmission.upsert({
                 where: {
                     campaignId_establishmentId: {
@@ -280,7 +274,7 @@ export class CampaignService {
                 update: {},
                 create: {
                     campaignId,
-                    companyId: est.id,                              // FIX: provide companyId from company.id
+                    companyId: est.id,
                     establishmentId: est.establishmentId,
                     status: 'NOT_STARTED',
                 },
@@ -288,10 +282,25 @@ export class CampaignService {
         }
     }
 
-    private generateCampaignCode(type: string): string {
-        const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 10000);
-        return `${type}_${year}_${random}`;
+    // ── FIX: encodes the actual quarter/semester into the code so it's
+    //         always traceable — e.g. QUARTERLY_2024_T3_042
+    private generateCampaignCode(type: string, startDate?: Date): string {
+        const d = startDate ?? new Date();
+        const year = d.getFullYear();
+        const quarter = Math.ceil((d.getMonth() + 1) / 3);
+        const seq = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+        const suffix =
+            type === 'QUARTERLY' ? `T${quarter}` :
+                type === 'SEMESTER' ? `S${quarter <= 2 ? 1 : 2}` :
+                    type === 'ANNUAL' ? 'AN' :
+                        `T${quarter}`;
+
+        return `${type}_${year}_${suffix}_${seq}`;
+        // Examples:
+        //   QUARTERLY_2024_T3_042
+        //   SEMESTER_2024_S1_117
+        //   ANNUAL_2024_AN_009
     }
 
     private getReminderSubject(type: string, campaignName: string): string {
@@ -306,10 +315,10 @@ export class CampaignService {
 
     private getReminderMessage(type: string, campaign: any): string {
         const messages: Record<string, string> = {
-            CAMPAIGN_ANNOUNCEMENT: `La campagne "${campaign.name}" est active. Veuillez soumettre vos données avant le ${campaign.deadline?.toLocaleDateString()}.`,
-            DEADLINE_APPROACHING: `La campagne "${campaign.name}" se termine le ${campaign.deadline?.toLocaleDateString()}. Finalisez votre soumission.`,
+            CAMPAIGN_ANNOUNCEMENT: `La campagne "${campaign.name}" est active. Veuillez soumettre vos données avant le ${campaign.deadline?.toLocaleDateString('fr-FR')}.`,
+            DEADLINE_APPROACHING: `La campagne "${campaign.name}" se termine le ${campaign.deadline?.toLocaleDateString('fr-FR')}. Finalisez votre soumission.`,
             FINAL_REMINDER: `DERNIER RAPPEL: La campagne "${campaign.name}" se termine dans 24 heures.`,
-            DEADLINE_EXTENDED: `La date limite de "${campaign.name}" a été prolongée au ${campaign.deadline?.toLocaleDateString()}.`,
+            DEADLINE_EXTENDED: `La date limite de "${campaign.name}" a été prolongée au ${campaign.deadline?.toLocaleDateString('fr-FR')}.`,
         };
         return messages[type] ?? `Veuillez prendre connaissance de la campagne "${campaign.name}".`;
     }

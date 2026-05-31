@@ -1,3 +1,4 @@
+// src/report/report-pdf.service.ts
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -10,8 +11,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export interface AnalyticsReportInput {
     reportId: string;
+    /** Full dynamic title, e.g. "Taux de Complétion · T3 2024 — Littoral" */
     title: string;
-    /** 'completionRate' | 'employmentTrends' | 'employmentSummary' | 'genderParity' | etc. */
+    /** 'completionRate' | 'employmentTrends' | 'employmentSummary' | etc. */
     type: string;
     sections: string[];
     scope: Record<string, any>;
@@ -40,7 +42,7 @@ const A_C_W = A4_W - A_ML - A_MR; // 515.28
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const CLR_PRIMARY = '#0F6E56';
-const CLR_PRIMARY_L = '#E1F5EE';
+const CLR_PRIMARY_L = '#E1F5EEF';
 const CLR_ACCENT = '#1D9E75';
 const CLR_DARK = '#1A2B22';
 const CLR_MID = '#4A6358';
@@ -98,23 +100,20 @@ function sectionLabel(section: string): string {
     return map[section] ?? section;
 }
 
-/**
- * Human-readable labels for KPI summary keys used in the generic fallback.
- * Covers all summary shapes returned by buildDataForType().
- */
 function kpiLabel(key: string): string {
     const map: Record<string, string> = {
-        // completionRate
         completionRate: 'Taux de compl\u00E9tion (%)',
         total: 'Total \u00E9tablissements',
         submitted: 'Soumis',
         validated: 'Valid\u00E9s',
         inProgress: 'En cours',
         notStarted: 'Non d\u00E9marr\u00E9s',
-        // employmentTrends / employmentSummary
         totalEstablishments: '\u00C9tablissements',
         totalObservations: 'Observations',
         quartersRange: 'P\u00E9riode',
+        totalMen: 'Hommes (total)',
+        totalWomen: 'Femmes (total)',
+        year: 'Ann\u00E9e',
     };
     return map[key] ?? key;
 }
@@ -153,13 +152,8 @@ export class ReportPdfService {
     }
 
     // ── Coat of arms loader ───────────────────────────────────────────────────
-    // Tries local asset first (fast in dev), then falls back to Supabase storage.
-    // Copy the PNG from your Flutter project:
-    //   FROM: C:\Users\win\dsmo_app\assets\images\coat_of_arms.png
-    //   TO:   <nestjs-root>/assets/images/coat_of_arms.png
 
     private async loadCoatOfArms(): Promise<void> {
-        // 1 — local file (works without Supabase in dev)
         try {
             const localPath = path.join(process.cwd(), 'assets', 'images', 'coat_of_arms.png');
             if (fs.existsSync(localPath)) {
@@ -168,14 +162,13 @@ export class ReportPdfService {
             }
         } catch { /* fall through */ }
 
-        // 2 — Supabase storage (production)
         try {
             const { data, error } = await this.supabase.storage
                 .from(this.bucketName)
                 .download('assets/coat_of_arms.png');
             if (error || !data) return;
             this.coatOfArmsBuffer = Buffer.from(await data.arrayBuffer());
-        } catch { /* non-fatal — placeholder circle used instead */ }
+        } catch { /* non-fatal — placeholder circle used */ }
     }
 
     // ── Coat-of-arms watermark ────────────────────────────────────────────────
@@ -254,7 +247,7 @@ export class ReportPdfService {
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
 
-            // Cover page — letterhead + title
+            // Cover page
             let y = this._drawReportCover(doc, input);
 
             // Body sections
@@ -276,6 +269,9 @@ export class ReportPdfService {
                 y += 16;
             }
 
+            // Signature block on the last page
+            this._drawSignatureBlock(doc, y);
+
             // Post-process: watermark + page numbers on all pages
             this._drawPageNumbers(doc);
             doc.end();
@@ -283,9 +279,12 @@ export class ReportPdfService {
     }
 
     // ── Cover page ────────────────────────────────────────────────────────────
+    // FIX: uses input.title for the main heading instead of typeLabel(type),
+    //      so the cover shows e.g. "TAUX DE COMPLÉTION · T3 2024 — LITTORAL"
+    //      rather than just "TAUX DE COMPLÉTION".
 
     private _drawReportCover(doc: any, input: AnalyticsReportInput): number {
-        const { scope, type, generatedAt, sections } = input;
+        const { scope, type, generatedAt, sections, title } = input;
 
         const colFrW = Math.round(A_C_W * 0.37);
         const colLoW = Math.round(A_C_W * 0.26);
@@ -385,15 +384,20 @@ export class ReportPdfService {
             { width: A_C_W - 6, lineBreak: true },
         );
 
-        // Report title block
+        // ── FIX: Report title block now uses input.title (full dynamic title)
+        //         instead of typeLabel(type), so the cover shows the period and region.
+        //         Font size is 15 (down from 18) to accommodate longer strings.
         const titleY = confY + confH + 14;
-        doc.fillColor(CLR_DARK).font('Helvetica-Bold').fontSize(18);
-        doc.text(typeLabel(type).toUpperCase(), A_ML, titleY, { width: A_C_W, align: 'center' });
+        doc.fillColor(CLR_DARK).font('Helvetica-Bold').fontSize(15);
+        doc.text(title.toUpperCase(), A_ML, titleY, { width: A_C_W, align: 'center' });
 
-        // ✅ Build scope line with plain ASCII hyphen for the range separator —
-        //    PDFKit's built-in font (Helvetica) does not include the Unicode arrow
-        //    U+2192 (→), which causes it to render as a replacement glyph ('!').
-        //    Use ' - ' (hyphen) instead, which is always safe in Helvetica.
+        // Reference number — required for official Cameroonian government documents
+        const refYear = scope?.year ?? new Date().getFullYear();
+        const refNumber = `MINEFOP/ONEFP/${refYear}/${input.reportId.slice(0, 8).toUpperCase()}`;
+        doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(7.5);
+        doc.text(`R\u00E9f. : ${refNumber}`, A_ML, titleY + 22, { width: A_C_W, align: 'center' });
+
+        // Scope line (region · period · date)
         const scopeParts: string[] = [];
         if (scope?.year) scopeParts.push(`Ann\u00E9e ${scope.year}`);
         scopeParts.push(scope?.region ?? 'Nationale');
@@ -402,13 +406,13 @@ export class ReportPdfService {
         }
         const scopeLine = scopeParts.join('   \u00B7   ');
 
-        doc.fillColor(CLR_MID).font('Helvetica').fontSize(10);
-        doc.text(scopeLine, A_ML, titleY + 26, { width: A_C_W, align: 'center' });
+        doc.fillColor(CLR_MID).font('Helvetica').fontSize(9);
+        doc.text(scopeLine, A_ML, titleY + 34, { width: A_C_W, align: 'center' });
         doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(8);
-        doc.text(`G\u00E9n\u00E9r\u00E9 le ${fmtDate(generatedAt)}`, A_ML, titleY + 42, { width: A_C_W, align: 'center' });
+        doc.text(`G\u00E9n\u00E9r\u00E9 le ${fmtDate(generatedAt)}`, A_ML, titleY + 48, { width: A_C_W, align: 'center' });
 
         // Sections index strip
-        const stripY = titleY + 58;
+        const stripY = titleY + 62;
         const stripH = 18;
         doc.rect(0, stripY, A4_W, stripH).fill('#1F3864');
         doc.fillColor(CLR_WHITE).font('Helvetica').fontSize(7);
@@ -463,10 +467,47 @@ export class ReportPdfService {
 
             doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(7);
             doc.text(
-                `MINEFOP  \u00B7  Confidentiel  \u00B7  Page ${i + 1} / ${range.count}`,
+                `MINEFOP  \u00B7  Confidentiel  \u00B7  Loi N\u00B0 2020/010  \u00B7  Page ${i + 1} / ${range.count}`,
                 A_ML, A4_H - A_MB + 14,
                 { width: A_C_W, align: 'center', lineBreak: false },
             );
+        }
+    }
+
+    // ── Signature / validation block ─────────────────────────────────────────
+    // Required for official Cameroonian administrative documents.
+    // Drawn at the end of the last content page (or a new page if insufficient space).
+
+    private _drawSignatureBlock(doc: any, y: number): void {
+        const blockH = 110;
+        y = this._ensureSpace(doc, y, blockH + 20);
+        y += 16;
+
+        // Section rule
+        doc.moveTo(A_ML, y).lineTo(A_ML + A_C_W, y)
+            .strokeColor(CLR_BORDER).lineWidth(0.5).stroke();
+        doc.strokeColor('#000000').lineWidth(1);
+        y += 10;
+
+        doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(7.5);
+        doc.text('VISA ET APPROBATION', A_ML, y, { lineBreak: false });
+        y += 14;
+
+        const colW = (A_C_W - 20) / 2;
+        const boxH = 70;
+        const boxes = [
+            { label: 'Le Directeur des Études et de la Planification', x: A_ML },
+            { label: 'Le Secrétaire Général / MINEFOP', x: A_ML + colW + 20 },
+        ];
+
+        for (const box of boxes) {
+            doc.rect(box.x, y, colW, boxH).stroke(CLR_BORDER);
+            doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(7);
+            doc.text(box.label, box.x + 6, y + 6, { width: colW - 12, lineBreak: true });
+            doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(7);
+            doc.text('Nom & Prénom :', box.x + 6, y + 28, { lineBreak: false });
+            doc.text('Date         :', box.x + 6, y + 40, { lineBreak: false });
+            doc.text('Signature    :', box.x + 6, y + 52, { lineBreak: false });
         }
     }
 
@@ -488,32 +529,27 @@ export class ReportPdfService {
                 { label: 'Non d\u00E9marr\u00E9s', value: String(summary.notStarted ?? '\u2013'), color: CLR_ERROR },
             );
         } else if (type === 'employmentTrends' || type === 'employmentSummary') {
-            // ✅ Both types share the same summary shape; type-specific label applied
             cards.push(
                 { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
                 { label: 'P\u00E9riode couverte', value: String(summary.quartersRange ?? '\u2013') },
                 { label: 'Observations totales', value: String(summary.totalObservations ?? '\u2013') },
             );
-        } else if (type === 'recruitmentAnalysis') {
-            cards.push(
-                { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
-                { label: 'P\u00E9riode', value: String(summary.quartersRange ?? '\u2013') },
-                { label: 'Observations', value: String(summary.totalObservations ?? '\u2013') },
-            );
-        } else if (type === 'departureAnalysis') {
+        } else if (type === 'recruitmentAnalysis' || type === 'departureAnalysis') {
             cards.push(
                 { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
                 { label: 'P\u00E9riode', value: String(summary.quartersRange ?? '\u2013') },
                 { label: 'Observations', value: String(summary.totalObservations ?? '\u2013') },
             );
         } else if (type === 'genderParity') {
+            // FIX: genderParity now has a proper summary shape from buildDataForType
             cards.push(
                 { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
                 { label: 'Ann\u00E9e', value: String(summary.year ?? '\u2013') },
+                { label: 'Total Hommes', value: String(summary.totalMen ?? '\u2013'), color: '#3B82C4' },
+                { label: 'Total Femmes', value: String(summary.totalWomen ?? '\u2013'), color: '#E95F8A' },
             );
         } else {
-            // ✅ Generic fallback: use kpiLabel() for human-readable labels
-            //    instead of dumping raw camelCase keys
+            // Generic fallback: use kpiLabel() for human-readable labels
             for (const [k, v] of Object.entries(summary)) {
                 cards.push({ label: kpiLabel(k), value: String(v) });
             }
@@ -569,9 +605,7 @@ export class ReportPdfService {
 
         const rows = Object.entries(byRegion).sort((a, b) => b[1].total - a[1].total);
         if (rows.length === 0) {
-            doc.fillColor(CLR_MUTED).font('Helvetica-Oblique').fontSize(9);
-            doc.text('Aucune donn\u00E9e r\u00E9gionale disponible.', A_ML, y);
-            return y + 20;
+            return this._drawEmptyState(doc, y, 'D\u00E9tail par r\u00E9gion', input.scope);
         }
 
         const colW = [180, 80, 80, A_C_W - 340];
@@ -636,9 +670,7 @@ export class ReportPdfService {
 
         const quarters = Object.keys(quarterTotals).sort();
         if (quarters.length === 0) {
-            doc.fillColor(CLR_MUTED).font('Helvetica-Oblique').fontSize(9);
-            doc.text('Aucune donn\u00E9e de tendance disponible.', A_ML, y);
-            return y + 20;
+            return this._drawEmptyState(doc, y, 'Tendances temporelles', input.scope);
         }
 
         const chartH = 80;
@@ -650,13 +682,30 @@ export class ReportPdfService {
         doc.text('Soumissions approuv\u00E9es par trimestre', A_ML, y);
         y += 14;
 
-        doc.moveTo(A_ML + 40, y).lineTo(A_ML + 40 + barArea, y + chartH)
+        // Y-axis
+        const axisX = A_ML + 40;
+        doc.moveTo(axisX, y).lineTo(axisX, y + chartH)
             .strokeColor(CLR_BORDER).lineWidth(0.5).stroke();
-        doc.moveTo(A_ML + 40, y).lineTo(A_ML + 40, y + chartH)
+        doc.moveTo(axisX, y + chartH).lineTo(axisX + barArea, y + chartH)
             .strokeColor(CLR_BORDER).lineWidth(0.5).stroke();
+
+        // Y-axis scale labels (0, max/2, max)
+        const scaleValues = [0, Math.round(maxVal / 2), maxVal];
+        for (const sv of scaleValues) {
+            const sy = sv === 0
+                ? y + chartH
+                : sv === maxVal
+                    ? y
+                    : y + chartH - Math.round((sv / maxVal) * (chartH - 10));
+            doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(6);
+            doc.text(String(sv), A_ML, sy - 3, { width: 36, align: 'right', lineBreak: false });
+            doc.moveTo(axisX - 3, sy).lineTo(axisX, sy)
+                .strokeColor(CLR_BORDER).lineWidth(0.5).stroke();
+        }
+
         doc.strokeColor('black').lineWidth(1);
 
-        let bx = A_ML + 44;
+        let bx = axisX + 4;
         for (const q of quarters) {
             const val = quarterTotals[q];
             const bH = maxVal > 0 ? Math.round((val / maxVal) * (chartH - 10)) : 0;
@@ -692,9 +741,7 @@ export class ReportPdfService {
         const total = entries.reduce((s, [, v]) => s + v, 0);
 
         if (entries.length === 0) {
-            doc.fillColor(CLR_MUTED).font('Helvetica-Oblique').fontSize(9);
-            doc.text('Aucune donn\u00E9e sectorielle disponible.', A_ML, y);
-            return y + 20;
+            return this._drawEmptyState(doc, y, 'Analyse sectorielle', input.scope);
         }
 
         const rowH = 20;
@@ -726,9 +773,7 @@ export class ReportPdfService {
             : (Array.isArray(input.data?.data) ? input.data.data : []);
 
         if (panel.length === 0) {
-            doc.fillColor(CLR_MUTED).font('Helvetica-Oblique').fontSize(9);
-            doc.text('Aucune donn\u00E9e de panel disponible.', A_ML, y);
-            return y + 20;
+            return this._drawEmptyState(doc, y, 'Panel \u00E9tablissements', input.scope);
         }
 
         const allQuarters = Array.from(
@@ -830,9 +875,7 @@ export class ReportPdfService {
         const wPct = 100 - menPct;
 
         if (total === 0) {
-            doc.fillColor(CLR_MUTED).font('Helvetica-Oblique').fontSize(9);
-            doc.text('Aucune donn\u00E9e d\u00E9mographique disponible.', A_ML, y);
-            return y + 20;
+            return this._drawEmptyState(doc, y, 'Parit\u00E9 & inclusion', input.scope);
         }
 
         const barH2 = 24;
@@ -901,7 +944,21 @@ export class ReportPdfService {
         }
 
         if (type === 'genderParity') {
-            insights.push({ icon: 'i', text: `Analyse de la parit\u00E9 hommes/femmes dans les \u00E9tablissements d\u00E9clarants.`, level: 'info' });
+            const men = summary.totalMen ?? 0;
+            const women = summary.totalWomen ?? 0;
+            const total = men + women;
+            if (total > 0) {
+                const wPct = Math.round((women / total) * 100);
+                if (wPct < 30) {
+                    insights.push({ icon: '!', text: `Pr\u00E9sence f\u00E9minine de ${wPct}% \u2014 en dessous du seuil de parit\u00E9 de 30%. Des mesures incitatives sont recommand\u00E9es.`, level: 'warn' });
+                } else if (wPct >= 40 && wPct <= 60) {
+                    insights.push({ icon: '\u2713', text: `Parit\u00E9 H/F satisfaisante (${100 - wPct}% / ${wPct}%) \u2014 dans la fourchette d\u2019\u00E9quilibre recommand\u00E9e.`, level: 'ok' });
+                } else {
+                    insights.push({ icon: 'i', text: `R\u00E9partition H/F : ${100 - wPct}% hommes, ${wPct}% femmes.`, level: 'info' });
+                }
+            } else {
+                insights.push({ icon: 'i', text: `Analyse de la parit\u00E9 hommes/femmes dans les \u00E9tablissements d\u00E9clarants.`, level: 'info' });
+            }
         }
 
         if (type === 'recruitmentAnalysis') {
@@ -940,5 +997,38 @@ export class ReportPdfService {
             y += lineH + 6;
         }
         return y + 8;
+    }
+
+    // ── Empty state ───────────────────────────────────────────────────────────
+    // FIX: replaces the bare italic grey line with a formal government-style
+    //      notice box that explicitly states the period that had no data.
+
+    private _drawEmptyState(doc: any, y: number, sectionName: string, scope: any): number {
+        const boxH = 44;
+        y = this._ensureSpace(doc, y, boxH + 8);
+
+        const period = scope?.periodLabel
+            ?? (scope?.fromQuarter && scope?.toQuarter
+                ? `${scope.fromQuarter} \u2013 ${scope.toQuarter}`
+                : scope?.year ? String(scope.year) : 'la p\u00E9riode s\u00E9lectionn\u00E9e');
+
+        doc.rect(A_ML, y, A_C_W, boxH).fill('#F8F9FA');
+        doc.rect(A_ML, y, 3, boxH).fill(CLR_MUTED);
+
+        doc.fillColor(CLR_MID).font('Helvetica-Bold').fontSize(8.5);
+        doc.text(
+            `Donn\u00E9es non disponibles \u2014 ${sectionName}`,
+            A_ML + 14, y + 8,
+            { width: A_C_W - 20, lineBreak: false },
+        );
+        doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(8);
+        doc.text(
+            `Aucune donn\u00E9e approuv\u00E9e n\u2019a \u00E9t\u00E9 trouv\u00E9e pour ${period}. ` +
+            `V\u00E9rifiez les filtres appliqu\u00E9s ou contactez l\u2019ONEFP pour assistance.`,
+            A_ML + 14, y + 22,
+            { width: A_C_W - 20, lineBreak: true },
+        );
+
+        return y + boxH + 10;
     }
 }

@@ -1,5 +1,6 @@
 // src/report/report.service.ts
 import { Injectable } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportType, ReportFormat } from '../types/prisma.types';
 import { ReportPdfService } from './report-pdf.service';
@@ -10,7 +11,6 @@ function toCamel(s: string): string {
 }
 
 // ── Section map: keyed by frontend baseType (camelCase) ─────────────────────
-// Use baseType as the key so employmentTrends ≠ employmentSummary
 const SECTIONS_BY_TYPE: Record<string, string[]> = {
     completionRate: ['kpi', 'regionalBreakdown', 'insights'],
     employmentTrends: ['kpi', 'trends', 'sectorAnalysis', 'establishmentPanel', 'insights'],
@@ -19,24 +19,46 @@ const SECTIONS_BY_TYPE: Record<string, string[]> = {
     departureAnalysis: ['kpi', 'trends', 'insights'],
     genderParity: ['kpi', 'demographics', 'regionalBreakdown', 'insights'],
     regionalSummary: ['kpi', 'regionalBreakdown', 'sectorAnalysis', 'insights'],
+    regionalComparison: ['kpi', 'regionalBreakdown', 'sectorAnalysis', 'insights'],
     skillsNeeds: ['kpi', 'sectorAnalysis', 'insights'],
+    skillsGap: ['kpi', 'sectorAnalysis', 'insights'],
     trainingNeeds: ['kpi', 'sectorAnalysis', 'insights'],
     sectorBreakdown: ['kpi', 'sectorAnalysis', 'insights'],
+    customMix: ['kpi', 'insights'],
 };
 
 // ── Frontend baseType → Prisma ReportType mapping ───────────────────────────
-// Prisma enum only has these 8 values; map unsupported frontend types to valid ones.
 const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
     completionRate: 'COMPLETION_RATE',
     employmentSummary: 'EMPLOYMENT_SUMMARY',
-    employmentTrends: 'EMPLOYMENT_SUMMARY',      // not in Prisma enum → closest match
+    employmentTrends: 'EMPLOYMENT_SUMMARY',
     recruitmentAnalysis: 'RECRUITMENT_ANALYSIS',
     departureAnalysis: 'DEPARTURE_ANALYSIS',
-    genderParity: 'EMPLOYMENT_SUMMARY',       // not in Prisma enum → closest match
+    genderParity: 'EMPLOYMENT_SUMMARY',
     regionalSummary: 'REGIONAL_SUMMARY',
+    regionalComparison: 'REGIONAL_SUMMARY',
     sectorBreakdown: 'SECTOR_BREAKDOWN',
     skillsNeeds: 'SKILLS_NEEDS',
+    skillsGap: 'SKILLS_NEEDS',
     trainingNeeds: 'TRAINING_NEEDS',
+    customMix: 'COMPLETION_RATE',
+};
+
+// ── Human-readable type labels (mirrors report-pdf.service.ts typeLabel) ────
+const TYPE_LABELS: Record<string, string> = {
+    completionRate: 'Taux de Complétion',
+    employmentTrends: "Tendances de l'Emploi",
+    employmentSummary: 'Synthèse Emploi',
+    recruitmentAnalysis: 'Analyse des Recrutements',
+    departureAnalysis: 'Analyse des Départs',
+    genderParity: 'Parité & Inclusion',
+    regionalSummary: 'Synthèse Régionale',
+    regionalComparison: 'Comparaison Régionale',
+    sectorBreakdown: 'Répartition Sectorielle',
+    skillsNeeds: 'Besoins en Compétences',
+    skillsGap: 'Analyse des Compétences',
+    trainingNeeds: 'Besoins en Formation',
+    customMix: 'Rapport sur Mesure',
 };
 
 @Injectable()
@@ -57,15 +79,31 @@ export class ReportService {
         format: ReportFormat;
         createdBy?: string | null;
     }) {
-        const data = await this.getCompletionRateData(params);
+        // ① Resolve the actual collection period from the campaign if one is given.
+        //    Without this, the report title defaults to the current year regardless
+        //    of which campaign period is being reported on.
+        let resolvedScope: Record<string, any> = {
+            region: params.region ?? null,
+            department: params.department ?? null,
+            campaignId: params.campaignId ?? null,
+        };
 
-        // Persist in PENDING state so history tracks who triggered it
+        if (params.campaignId) {
+            resolvedScope = await this.resolveScopeFromCampaign(
+                params.campaignId,
+                resolvedScope,
+            );
+        }
+
+        const data = await this.getCompletionRateData(params);
+        const reportName = this.buildReportTitle('completionRate', resolvedScope);
+
         const report = await this.prisma.report.create({
             data: {
-                name: `Completion Rate · ${new Date().getFullYear()}`,
+                name: reportName,
                 type: 'COMPLETION_RATE',
                 format: params.format,
-                parameters: params,
+                parameters: { ...params, resolvedScope },
                 isScheduled: false,
                 status: 'PENDING',
                 createdBy: params.createdBy ?? null,
@@ -75,7 +113,9 @@ export class ReportService {
         try {
             let result: any;
             switch (params.format) {
-                case 'PDF': result = await this.generatePDF(data, 'completionRate'); break;
+                case 'PDF':
+                    result = await this._generatePDF(data, 'completionRate', resolvedScope);
+                    break;
                 case 'EXCEL': result = await this.generateExcel(data); break;
                 case 'CSV': result = await this.generateCSV(data); break;
                 default: result = data;
@@ -184,6 +224,7 @@ export class ReportService {
 
         return reports.map(r => {
             const params = (r.parameters as any) ?? {};
+            const resolvedScope = params.resolvedScope ?? {};
             const downloadUrls: Record<string, string | null> = {};
             if (r.fileUrl) downloadUrls['PDF'] = r.fileUrl;
 
@@ -191,8 +232,9 @@ export class ReportService {
                 id: r.id,
                 name: r.name,
                 type: r.type ?? r.reportType ?? 'UNKNOWN',
-                year: params.scope?.year ?? new Date(r.createdAt).getFullYear(),
-                region: params.scope?.region ?? params.region ?? null,
+                year: resolvedScope?.year ?? params.scope?.year ?? new Date(r.createdAt).getFullYear(),
+                region: resolvedScope?.region ?? params.scope?.region ?? params.region ?? null,
+                periodLabel: resolvedScope?.periodLabel ?? null,
                 formats: r.format ? [r.format] : ['PDF'],
                 generatedAt: r.createdAt,
                 status: r.status ?? 'READY',
@@ -229,57 +271,79 @@ export class ReportService {
         formats: string[];
         createdBy?: string | null;
     }) {
-        const year = params.scope?.year ?? new Date().getFullYear();
+        // ① Resolve the actual collection period.
+        //    Priority order:
+        //      a) Flutter sent explicit fromQuarter + toQuarter → use them as-is
+        //      b) Flutter sent campaignId but no quarter range  → derive from campaign
+        //      c) Neither                                       → fall back to year
+        let resolvedScope: Record<string, any> = { ...params.scope };
 
-        // ① Map frontend camelCase to a valid Prisma enum value (DB storage only)
-        const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
+        if (
+            params.scope?.campaignId &&
+            (!params.scope.fromQuarter || !params.scope.toQuarter)
+        ) {
+            resolvedScope = await this.resolveScopeFromCampaign(
+                params.scope.campaignId,
+                params.scope,   // Flutter values win over derived ones
+            );
+        } else if (params.scope?.fromQuarter && params.scope?.toQuarter) {
+            // Flutter sent explicit quarters; still compute periodLabel for the title
+            resolvedScope = {
+                ...resolvedScope,
+                periodLabel: this.derivePeriodLabel(
+                    params.scope.fromQuarter,
+                    params.scope.toQuarter,
+                ),
+            };
+        }
+
+        const year = resolvedScope?.year ?? new Date().getFullYear();
         const format = (params.formats?.[0] ?? 'PDF') as ReportFormat;
+        const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
 
-        // ② Persist in PENDING state so Flutter history shows it immediately
+        // ② Title now always carries a meaningful period + optional region
+        const reportName = this.buildReportTitle(params.baseType, resolvedScope);
+
+        // ③ Persist in PENDING state immediately so Flutter history shows it
         const report = await this.prisma.report.create({
             data: {
-                name: `${params.baseType} · ${year}`,
+                name: reportName,
                 type: reportType,
                 format,
-                parameters: params,
+                // Store both raw params and resolved scope for auditability
+                parameters: { ...params, resolvedScope },
                 isScheduled: false,
                 status: 'PENDING',
                 createdBy: params.createdBy ?? null,
             },
         });
 
-        // ③ Fetch data for the requested type (non-fatal if it fails)
+        // ④ Fetch real data for the report type
         let reportData: any = null;
         try {
-            // Convert camelCase baseType → SNAKE_CASE for the data builder switch
             const dataType = params.baseType
                 .replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
                 .toUpperCase();
-            reportData = await this.buildDataForType(dataType, params.scope);
-        } catch { /* sections render empty-state gracefully */ }
+            reportData = await this.buildDataForType(dataType, resolvedScope);
+        } catch { /* each section renders its own empty-state gracefully */ }
 
-        // ④ Generate PDF and upload to Supabase
+        // ⑤ Generate the PDF and upload to Supabase
         try {
-            // Use baseType for sections lookup — keeps employmentTrends ≠ employmentSummary
             const sections = params.sections.length > 0
                 ? params.sections
                 : (SECTIONS_BY_TYPE[params.baseType] ?? ['kpi', 'insights']);
 
             const { url, storagePath, hash } = await this.reportPdfService.generateAnalyticsReport({
                 reportId: report.id,
-                title: report.name,
-                // ✅ Pass the original baseType (e.g. 'employmentTrends'), NOT the
-                //    Prisma-mapped enum value. The PDF service uses this for section
-                //    rendering, KPI labels, title and recommendations — it must match
-                //    the typeLabel() / _drawKpiSection() keys in report-pdf.service.ts.
-                type: params.baseType,
+                title: reportName,       // ← full dynamic title on the PDF cover
+                type: params.baseType,  // ← camelCase baseType for PDF section rendering
                 sections,
-                scope: params.scope,
+                scope: resolvedScope,    // ← resolved scope with period info
                 data: reportData,
                 generatedAt: new Date(),
             });
 
-            // ⑤ Mark READY and persist the signed URL
+            // ⑥ Mark READY and persist the signed URL
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: {
@@ -291,10 +355,9 @@ export class ReportService {
                 },
             });
 
-            return { id: report.id, name: report.name, status: 'READY', url };
+            return { id: report.id, name: reportName, status: 'READY', url };
 
         } catch (err) {
-            // ⑥ Mark FAILED so Flutter shows the error badge
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: { status: 'FAILED' },
@@ -304,16 +367,136 @@ export class ReportService {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // PERIOD RESOLUTION
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Reads a campaign's startDate, deadline and type from the DB
+     * and derives fromQuarter, toQuarter, year and a human-readable
+     * periodLabel. Flutter-supplied values in `overrides` always win.
+     *
+     * Examples:
+     *   QUARTERLY  T3 2024      → "T3 2024"
+     *   SEMESTER   T1–T2 2024   → "1er Semestre 2024"
+     *   ANNUAL     T1–T4 2024   → "Annuel 2024"
+     *   Multi-year T4 2024–T1 2025 → "2024-T4 – 2025-T1"
+     */
+    private async resolveScopeFromCampaign(
+        campaignId: string,
+        overrides: Record<string, any> = {},
+    ): Promise<Record<string, any>> {
+        const campaign = await this.prisma.dataCampaign.findUnique({
+            where: { id: campaignId },
+            select: {
+                startDate: true,
+                deadline: true,
+                type: true,
+                name: true,
+            },
+        });
+
+        if (!campaign) return overrides;
+
+        const start = new Date(campaign.startDate);
+        const end = new Date(campaign.deadline);
+        const year = start.getFullYear();
+        const endYear = end.getFullYear();
+
+        const toQ = (d: Date) => Math.ceil((d.getMonth() + 1) / 3);
+        const fromQ = toQ(start);
+        const endQ = toQ(end);
+
+        const fromQuarter = `${year}-T${fromQ}`;
+        const toQuarter = `${endYear}-T${endQ}`;
+
+        const periodLabel = this.derivePeriodLabel(fromQuarter, toQuarter, campaign.type);
+
+        return {
+            year,
+            fromQuarter,
+            toQuarter,
+            periodLabel,
+            campaignName: campaign.name,
+            // Flutter overrides always win if explicitly provided
+            ...overrides,
+        };
+    }
+
+    /**
+     * Derives a human-readable period label from a quarter range string pair.
+     * Can be called independently when Flutter supplies explicit quarters.
+     *
+     * @param campaignType  optional campaign type for ANNUAL shortcut
+     */
+    private derivePeriodLabel(
+        fromQuarter: string,
+        toQuarter: string,
+        campaignType?: string,
+    ): string {
+        const [fromYear, fromQStr] = fromQuarter.split('-T');
+        const [toYear, toQStr] = toQuarter.split('-T');
+        const fromQ = parseInt(fromQStr, 10);
+        const endQ = parseInt(toQStr, 10);
+        const sameYear = fromYear === toYear;
+
+        if (campaignType === 'ANNUAL' || (sameYear && fromQ === 1 && endQ === 4)) {
+            return `Annuel ${fromYear}`;
+        }
+        if (sameYear && fromQ === 1 && endQ === 2) return `1er Semestre ${fromYear}`;
+        if (sameYear && fromQ === 3 && endQ === 4) return `2e Semestre ${fromYear}`;
+        if (sameYear && fromQ === endQ) return `T${fromQ} ${fromYear}`;
+
+        // Multi-year or non-standard range
+        return `${fromQuarter} \u2013 ${toQuarter}`;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // TITLE BUILDER
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Builds the full report title used on the PDF cover and in the DB.
+     *
+     * Priority for period:
+     *   1. scope.periodLabel  (set by resolveScopeFromCampaign or derivePeriodLabel)
+     *   2. scope.fromQuarter + scope.toQuarter  (Flutter explicit)
+     *   3. scope.year  (last resort)
+     *
+     * Examples:
+     *   "Taux de Complétion · T3 2024"
+     *   "Tendances de l'Emploi · 1er Semestre 2024 — Littoral"
+     *   "Parité & Inclusion · Annuel 2024"
+     */
+    private buildReportTitle(baseType: string, scope: any): string {
+        const label = TYPE_LABELS[baseType] ?? baseType;
+        const region = scope?.region ? ` \u2014 ${scope.region}` : '';
+
+        // ① Best case: period already resolved to a clean label
+        if (scope?.periodLabel) {
+            return `${label} \u00B7 ${scope.periodLabel}${region}`;
+        }
+
+        // ② Flutter sent explicit quarter range — compute label inline
+        const from: string = scope?.fromQuarter ?? '';
+        const to: string = scope?.toQuarter ?? '';
+
+        if (from && to) {
+            const periodLabel = this.derivePeriodLabel(from, to);
+            return `${label} \u00B7 ${periodLabel}${region}`;
+        }
+
+        // ③ Last resort: year only
+        const year = scope?.year ?? new Date().getFullYear();
+        return `${label} \u00B7 ${year}${region}`;
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // PRIVATE — data builders
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Fetches real DB data for each report type so PDF sections
-     * have content when the report is generated.
-     *
-     * NOTE: `type` is the SNAKE_CASE version of the frontend baseType,
-     * e.g. 'EMPLOYMENT_TRENDS'. We use string comparison to avoid Prisma
-     * enum issues — the Prisma enum may not contain all of these values.
+     * Fetches real DB data for each report type so PDF sections have content.
+     * `type` is the SNAKE_CASE version of the frontend baseType.
      */
     private async buildDataForType(type: string, scope: any): Promise<any> {
         switch (type) {
@@ -331,6 +514,7 @@ export class ReportService {
                 const year = scope?.year ?? new Date().getFullYear();
                 const fromQuarter = scope?.fromQuarter ?? `${year - 1}-T1`;
                 const toQuarter = scope?.toQuarter ?? `${year}-T4`;
+
                 const submissions = await this.prisma.onefopSubmission.findMany({
                     where: {
                         quarterCode: { gte: fromQuarter, lte: toQuarter },
@@ -341,6 +525,7 @@ export class ReportService {
                     include: { company: true },
                     orderBy: [{ establishmentId: 'asc' }, { quarterCode: 'asc' }],
                 });
+
                 return {
                     data: this.transformToPanelData(submissions),
                     summary: {
@@ -362,11 +547,29 @@ export class ReportService {
                     },
                     include: { company: true },
                 });
-                return { data: submissions };
+
+                // FIX: include summary so KPI cards are not blank for gender parity reports
+                let men = 0;
+                let women = 0;
+                for (const sub of submissions) {
+                    men += (sub as any).company?.menCount ?? (sub as any).menCount ?? 0;
+                    women += (sub as any).company?.womenCount ?? (sub as any).womenCount ?? 0;
+                }
+
+                return {
+                    data: submissions,
+                    summary: {
+                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
+                        year,
+                        totalMen: men,
+                        totalWomen: women,
+                    },
+                };
             }
 
             case 'SECTOR_BREAKDOWN':
             case 'SKILLS_NEEDS':
+            case 'SKILLS_GAP':
             case 'TRAINING_NEEDS': {
                 const year = scope?.year ?? new Date().getFullYear();
                 const submissions = await this.prisma.onefopSubmission.findMany({
@@ -377,16 +580,32 @@ export class ReportService {
                     },
                     include: { company: { include: { sector: true } } },
                 });
-                return { data: submissions };
+
+                return {
+                    data: submissions,
+                    summary: {
+                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
+                        year,
+                        totalObservations: submissions.length,
+                    },
+                };
             }
 
-            case 'REGIONAL_SUMMARY': {
+            case 'REGIONAL_SUMMARY':
+            case 'REGIONAL_COMPARISON': {
                 const submissions = await this.prisma.campaignSubmission.findMany({
                     include: {
                         campaign: { select: { name: true, code: true } },
                     },
                 });
-                return { data: submissions };
+
+                return {
+                    data: submissions,
+                    summary: {
+                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
+                        totalObservations: submissions.length,
+                    },
+                };
             }
 
             default:
@@ -433,20 +652,22 @@ export class ReportService {
 
     // ── Format generators ────────────────────────────────────────────────────
 
-    private async generatePDF(
+    private async _generatePDF(
         data: { type: string; generatedAt: Date; parameters: any; data: any; summary: any },
         baseType?: string,
+        resolvedScope?: Record<string, any>,
     ): Promise<{ url: string; storagePath: string; hash: string }> {
-        // Prefer the explicit baseType; fall back to toCamel of the data type string
         const type = baseType ?? toCamel(String(data.type));
         const sections = SECTIONS_BY_TYPE[type] ?? ['kpi', 'insights'];
+        const scope = resolvedScope ?? data.parameters;
+        const title = this.buildReportTitle(type, scope);
 
         return this.reportPdfService.generateAnalyticsReport({
             reportId: crypto.randomUUID(),
-            title: type.replace(/_/g, ' '),
+            title,
             type,
             sections,
-            scope: data.parameters,
+            scope,
             data,
             generatedAt: data.generatedAt,
         });
