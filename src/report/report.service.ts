@@ -23,6 +23,21 @@ const SECTIONS_BY_TYPE: Record<string, string[]> = {
     SECTOR_BREAKDOWN: ['kpi', 'sectorAnalysis', 'insights'],
 };
 
+// ── Frontend baseType → Prisma ReportType mapping ───────────────────────────
+// Prisma enum only has these 8 values; map unsupported frontend types to valid ones.
+const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
+    completionRate: 'COMPLETION_RATE',
+    employmentSummary: 'EMPLOYMENT_SUMMARY',
+    employmentTrends: 'EMPLOYMENT_SUMMARY',      // not in Prisma enum → closest match
+    recruitmentAnalysis: 'RECRUITMENT_ANALYSIS',
+    departureAnalysis: 'DEPARTURE_ANALYSIS',
+    genderParity: 'EMPLOYMENT_SUMMARY',           // not in Prisma enum → closest match
+    regionalSummary: 'REGIONAL_SUMMARY',
+    sectorBreakdown: 'SECTOR_BREAKDOWN',
+    skillsNeeds: 'SKILLS_NEEDS',
+    trainingNeeds: 'TRAINING_NEEDS',
+};
+
 @Injectable()
 export class ReportService {
     constructor(
@@ -175,14 +190,16 @@ export class ReportService {
         formats: string[];
     }) {
         const year = params.scope?.year ?? new Date().getFullYear();
-        const reportType = params.baseType.toUpperCase();
+
+        // ① Map frontend camelCase to a valid Prisma enum value
+        const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
         const format = (params.formats?.[0] ?? 'PDF') as ReportFormat;
 
-        // 1 — persist in PENDING state so Flutter history shows it immediately
+        // ② persist in PENDING state so Flutter history shows it immediately
         const report = await this.prisma.report.create({
             data: {
                 name: `${params.baseType} · ${year}`,
-                type: reportType as ReportType,
+                type: reportType,
                 format,
                 parameters: params,
                 isScheduled: false,
@@ -191,13 +208,17 @@ export class ReportService {
             },
         });
 
-        // 2 — fetch data for the requested type (non-fatal if it fails)
+        // ③ fetch data for the requested type (non-fatal if it fails)
         let reportData: any = null;
         try {
-            reportData = await this.buildDataForType(reportType, params.scope);
+            // Use the original baseType for data building (SECTIONS_BY_TYPE uses SNAKE_CASE keys)
+            const dataType = params.baseType
+                .replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
+                .toUpperCase();
+            reportData = await this.buildDataForType(dataType, params.scope);
         } catch { /* sections render empty-state gracefully */ }
 
-        // 3 — generate PDF and upload to Supabase
+        // ④ generate PDF and upload to Supabase
         try {
             const sections = params.sections.length > 0
                 ? params.sections
@@ -206,14 +227,14 @@ export class ReportService {
             const { url, storagePath, hash } = await this.reportPdfService.generateAnalyticsReport({
                 reportId: report.id,
                 title: report.name,
-                type: toCamel(params.baseType),
+                type: toCamel(reportType),           // converts COMPLETION_RATE → completionRate
                 sections,
                 scope: params.scope,
                 data: reportData,
                 generatedAt: new Date(),
             });
 
-            // 4 — mark READY and persist the signed URL
+            // ⑤ mark READY and persist the signed URL
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: {
@@ -228,7 +249,7 @@ export class ReportService {
             return { id: report.id, name: report.name, status: 'READY', url };
 
         } catch (err) {
-            // 5 — mark FAILED so Flutter shows the error badge
+            // ⑥ mark FAILED so Flutter shows the error badge
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: { status: 'FAILED' },
