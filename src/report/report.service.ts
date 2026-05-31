@@ -4,6 +4,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ReportType, ReportFormat } from '../types/prisma.types';
 import { ReportPdfService } from './report-pdf.service';
 
+// ── Camel-case helper (COMPLETION_RATE → completionRate) ────────────────────
+function toCamel(s: string): string {
+    return s.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+// ── Section map: ReportType → default sections ──────────────────────────────
+const SECTIONS_BY_TYPE: Record<string, string[]> = {
+    COMPLETION_RATE: ['kpi', 'regionalBreakdown', 'insights'],
+    EMPLOYMENT_TRENDS: ['kpi', 'trends', 'sectorAnalysis', 'establishmentPanel', 'insights'],
+    EMPLOYMENT_SUMMARY: ['kpi', 'regionalBreakdown', 'demographics', 'insights'],
+    RECRUITMENT_ANALYSIS: ['kpi', 'trends', 'sectorAnalysis', 'insights'],
+    DEPARTURE_ANALYSIS: ['kpi', 'trends', 'insights'],
+    GENDER_PARITY: ['kpi', 'demographics', 'regionalBreakdown', 'insights'],
+    REGIONAL_SUMMARY: ['kpi', 'regionalBreakdown', 'sectorAnalysis', 'insights'],
+    SKILLS_NEEDS: ['kpi', 'sectorAnalysis', 'insights'],
+    TRAINING_NEEDS: ['kpi', 'sectorAnalysis', 'insights'],
+    SECTOR_BREAKDOWN: ['kpi', 'sectorAnalysis', 'insights'],
+};
+
 @Injectable()
 export class ReportService {
     constructor(
@@ -24,14 +43,10 @@ export class ReportService {
         const data = await this.getCompletionRateData(params);
 
         switch (params.format) {
-            case 'PDF':
-                return this.generatePDF(data);
-            case 'EXCEL':
-                return this.generateExcel(data);
-            case 'CSV':
-                return this.generateCSV(data);
-            default:
-                return data;
+            case 'PDF': return this.generatePDF(data);
+            case 'EXCEL': return this.generateExcel(data);
+            case 'CSV': return this.generateCSV(data);
+            default: return data;
         }
     }
 
@@ -107,25 +122,33 @@ export class ReportService {
         return report;
     }
 
+    // ── GET /reports/history ─────────────────────────────────────────────────
     async getReportHistory() {
         const reports = await this.prisma.report.findMany({
             orderBy: { createdAt: 'desc' },
             take: 50,
         });
 
-        return reports.map(r => ({
-            id: r.id,
-            name: r.name,
-            type: r.type,
-            year: new Date(r.createdAt).getFullYear(),
-            region: (r.parameters as any)?.region ?? null,
-            formats: r.format ? [r.format] : ['PDF'],
-            generatedAt: r.createdAt,
-            status: r.status ?? 'READY',
-            downloadUrls: {},
-        }));
+        return reports.map(r => {
+            const params = (r.parameters as any) ?? {};
+            const downloadUrls: Record<string, string | null> = {};
+            if (r.fileUrl) downloadUrls['PDF'] = r.fileUrl;
+
+            return {
+                id: r.id,
+                name: r.name,
+                type: r.type ?? r.reportType ?? 'UNKNOWN',
+                year: params.scope?.year ?? new Date(r.createdAt).getFullYear(),
+                region: params.scope?.region ?? params.region ?? null,
+                formats: r.format ? [r.format] : ['PDF'],
+                generatedAt: r.createdAt,
+                status: r.status ?? 'READY',
+                downloadUrls,
+            };
+        });
     }
 
+    // ── GET /reports/scheduled ───────────────────────────────────────────────
     async getScheduledReports() {
         const rows = await this.prisma.scheduledReport.findMany({
             where: { isActive: true },
@@ -137,17 +160,14 @@ export class ReportService {
             name: `${s.reportType} (auto)`,
             reportType: s.reportType,
             schedule: s.schedule,
-            frequency: s.frequency,
+            frequency: s.frequency ?? 'monthly',
             recipients: s.recipients ?? [],
             nextRun: null,
             isActive: s.isActive,
         }));
     }
 
-    /**
-     * Creates a report record, generates the PDF via ReportPdfService,
-     * then updates the record with the signed URL and marks it READY.
-     */
+    // ── POST /reports/dynamic ────────────────────────────────────────────────
     async generateDynamicReport(params: {
         baseType: string;
         sections: string[];
@@ -155,13 +175,15 @@ export class ReportService {
         formats: string[];
     }) {
         const year = params.scope?.year ?? new Date().getFullYear();
+        const reportType = params.baseType.toUpperCase();
+        const format = (params.formats?.[0] ?? 'PDF') as ReportFormat;
 
-        // 1 — create DB record in PENDING state
+        // 1 — persist in PENDING state so Flutter history shows it immediately
         const report = await this.prisma.report.create({
             data: {
                 name: `${params.baseType} · ${year}`,
-                type: params.baseType.toUpperCase() as ReportType,
-                format: (params.formats?.[0] ?? 'PDF') as ReportFormat,
+                type: reportType as ReportType,
+                format,
                 parameters: params,
                 isScheduled: false,
                 status: 'PENDING',
@@ -169,19 +191,29 @@ export class ReportService {
             },
         });
 
-        // 2 — generate PDF and upload to Supabase
+        // 2 — fetch data for the requested type (non-fatal if it fails)
+        let reportData: any = null;
         try {
+            reportData = await this.buildDataForType(reportType, params.scope);
+        } catch { /* sections render empty-state gracefully */ }
+
+        // 3 — generate PDF and upload to Supabase
+        try {
+            const sections = params.sections.length > 0
+                ? params.sections
+                : (SECTIONS_BY_TYPE[reportType] ?? ['kpi', 'insights']);
+
             const { url, storagePath, hash } = await this.reportPdfService.generateAnalyticsReport({
                 reportId: report.id,
                 title: report.name,
-                type: params.baseType,
-                sections: params.sections,
+                type: toCamel(params.baseType),
+                sections,
                 scope: params.scope,
-                data: null, // no pre-fetched data for dynamic reports; sections handle empty states gracefully
+                data: reportData,
                 generatedAt: new Date(),
             });
 
-            // 3 — persist URL and mark READY
+            // 4 — mark READY and persist the signed URL
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: {
@@ -189,14 +221,14 @@ export class ReportService {
                     fileUrl: url,
                     fileHash: hash,
                     filePath: storagePath,
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days (matches signed URL TTL)
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 },
             });
 
             return { id: report.id, name: report.name, status: 'READY', url };
 
         } catch (err) {
-            // 4 — mark FAILED so the caller knows something went wrong
+            // 5 — mark FAILED so Flutter shows the error badge
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: { status: 'FAILED' },
@@ -206,8 +238,96 @@ export class ReportService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // PRIVATE — internal helpers
+    // PRIVATE — data builders
     // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Fetches real DB data for each report type so PDF sections
+     * have content when the report is generated.
+     * 
+     * NOTE: type is passed as string to avoid Prisma enum comparison issues.
+     * The frontend sends baseType like 'employmentTrends' which we uppercase
+     * to 'EMPLOYMENT_TRENDS' for matching, but Prisma's ReportType enum
+     * may not contain all these values. We use string comparison here.
+     */
+    private async buildDataForType(type: string, scope: any): Promise<any> {
+        switch (type) {
+            case 'COMPLETION_RATE':
+                return this.getCompletionRateData({
+                    campaignId: scope?.campaignId,
+                    region: scope?.region,
+                    department: scope?.department,
+                });
+
+            case 'EMPLOYMENT_TRENDS':
+            case 'EMPLOYMENT_SUMMARY':
+            case 'RECRUITMENT_ANALYSIS':
+            case 'DEPARTURE_ANALYSIS': {
+                const year = scope?.year ?? new Date().getFullYear();
+                const fromQuarter = scope?.fromQuarter ?? `${year - 1}-T1`;
+                const toQuarter = scope?.toQuarter ?? `${year}-T4`;
+                const submissions = await this.prisma.onefopSubmission.findMany({
+                    where: {
+                        quarterCode: { gte: fromQuarter, lte: toQuarter },
+                        status: 'APPROVED',
+                        ...(scope?.region && { region: scope.region }),
+                        ...(scope?.department && { department: scope.department }),
+                    },
+                    include: { company: true },
+                    orderBy: [{ establishmentId: 'asc' }, { quarterCode: 'asc' }],
+                });
+                return {
+                    data: this.transformToPanelData(submissions),
+                    summary: {
+                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
+                        quartersRange: `${fromQuarter} - ${toQuarter}`,
+                        totalObservations: submissions.length,
+                    },
+                };
+            }
+
+            case 'GENDER_PARITY': {
+                const year = scope?.year ?? new Date().getFullYear();
+                const submissions = await this.prisma.onefopSubmission.findMany({
+                    where: {
+                        surveyYear: year,
+                        status: 'APPROVED',
+                        ...(scope?.region && { region: scope.region }),
+                        ...(scope?.department && { department: scope.department }),
+                    },
+                    include: { company: true },
+                });
+                return { data: submissions };
+            }
+
+            case 'SECTOR_BREAKDOWN':
+            case 'SKILLS_NEEDS':
+            case 'TRAINING_NEEDS': {
+                const year = scope?.year ?? new Date().getFullYear();
+                const submissions = await this.prisma.onefopSubmission.findMany({
+                    where: {
+                        surveyYear: year,
+                        status: 'APPROVED',
+                        ...(scope?.region && { region: scope.region }),
+                    },
+                    include: { company: { include: { sector: true } } },
+                });
+                return { data: submissions };
+            }
+
+            case 'REGIONAL_SUMMARY': {
+                const submissions = await this.prisma.campaignSubmission.findMany({
+                    include: {
+                        campaign: { select: { name: true, code: true } },
+                    },
+                });
+                return { data: submissions };
+            }
+
+            default:
+                return null;
+        }
+    }
 
     private async getCompletionRateData(params: {
         campaignId?: string;
@@ -231,7 +351,7 @@ export class ReportService {
         const inProgress = submissions.filter(s => s.status === 'IN_PROGRESS').length;
 
         return {
-            type: 'COMPLETION_RATE' as ReportType,
+            type: 'COMPLETION_RATE',
             generatedAt: new Date(),
             parameters: params,
             data: submissions,
@@ -245,6 +365,41 @@ export class ReportService {
             },
         };
     }
+
+    // ── Format generators ────────────────────────────────────────────────────
+
+    private async generatePDF(data: {
+        type: string;
+        generatedAt: Date;
+        parameters: any;
+        data: any;
+        summary: any;
+    }): Promise<{ url: string; storagePath: string; hash: string }> {
+        const type = String(data.type);
+        const sections = SECTIONS_BY_TYPE[type] ?? ['kpi', 'insights'];
+
+        return this.reportPdfService.generateAnalyticsReport({
+            reportId: crypto.randomUUID(),
+            title: type.replace(/_/g, ' '),
+            type: toCamel(type),
+            sections,
+            scope: data.parameters,
+            data,
+            generatedAt: data.generatedAt,
+        });
+    }
+
+    private async generateExcel(_data: any): Promise<Buffer> {
+        // TODO: implement with exceljs or xlsx
+        return Buffer.from('Excel content');
+    }
+
+    private async generateCSV(_data: any): Promise<string> {
+        // TODO: implement CSV serialization
+        return 'CSV content';
+    }
+
+    // ── Misc helpers ─────────────────────────────────────────────────────────
 
     private parseScheduleToFrequency(schedule: string): string {
         if (schedule.includes('0 0 * * 0')) return 'weekly';
@@ -266,7 +421,6 @@ export class ReportService {
                     quarters: {},
                 };
             }
-
             panel[sub.establishmentId].quarters[sub.quarterCode] = {
                 submittedAt: sub.createdAt,
                 status: sub.status,
@@ -275,48 +429,5 @@ export class ReportService {
         }
 
         return Object.values(panel);
-    }
-
-    /**
-     * Generates a PDF for a completion-rate report and returns a signed URL.
-     * Called by generateCompletionRateReport() when format === 'PDF'.
-     */
-    private async generatePDF(data: {
-        type: ReportType;
-        generatedAt: Date;
-        parameters: any;
-        data: any;
-        summary: any;
-    }): Promise<{ url: string; storagePath: string; hash: string }> {
-        // Derive sections from the report type — extend this map as needed
-        const sectionsByType: Record<string, string[]> = {
-            COMPLETION_RATE: ['kpi', 'regionalBreakdown', 'insights'],
-            EMPLOYMENT_TRENDS: ['kpi', 'trends', 'establishmentPanel', 'insights'],
-            GENDER_PARITY: ['kpi', 'demographics', 'insights'],
-            SECTOR_ANALYSIS: ['kpi', 'sectorAnalysis', 'insights'],
-        };
-
-        const type = String(data.type);
-        const sections = sectionsByType[type] ?? ['kpi', 'insights'];
-
-        return this.reportPdfService.generateAnalyticsReport({
-            reportId: crypto.randomUUID(),
-            title: type.replace(/_/g, ' '),
-            type: type.toLowerCase().replace(/_([a-z])/g, (_, c) => c.toUpperCase()), // COMPLETION_RATE → completionRate
-            sections,
-            scope: data.parameters,
-            data,
-            generatedAt: data.generatedAt,
-        });
-    }
-
-    private async generateExcel(_data: any): Promise<Buffer> {
-        // TODO: implement with exceljs or xlsx
-        return Buffer.from('Excel content');
-    }
-
-    private async generateCSV(_data: any): Promise<string> {
-        // TODO: implement CSV serialization
-        return 'CSV content';
     }
 }
