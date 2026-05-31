@@ -1,12 +1,15 @@
 // src/report/report.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-// FIX: ReportType and ReportFormat are now exported from prisma.types
 import { ReportType, ReportFormat } from '../types/prisma.types';
 
 @Injectable()
 export class ReportService {
     constructor(private prisma: PrismaService) { }
+
+    // ═══════════════════════════════════════════════════════════
+    // PUBLIC — called by ReportController
+    // ═══════════════════════════════════════════════════════════
 
     async generateCompletionRateReport(params: {
         campaignId?: string;
@@ -14,7 +17,6 @@ export class ReportService {
         department?: string;
         format: ReportFormat;
     }) {
-        // FIX: method now implemented below
         const data = await this.getCompletionRateData(params);
 
         switch (params.format) {
@@ -71,21 +73,20 @@ export class ReportService {
         recipients: string[];
         format: ReportFormat;
     }) {
-        // FIX: Report model now has 'type', 'isScheduled', 'schedule', 'expiresAt' fields
         const report = await this.prisma.report.create({
             data: {
                 name: reportConfig.name,
-                type: reportConfig.type,                            // FIX: was mismatched with 'reportType'
+                type: reportConfig.type,
                 format: reportConfig.format,
                 parameters: reportConfig.parameters,
-                isScheduled: true,                                  // FIX: field now exists in schema
-                schedule: reportConfig.schedule,                    // FIX: field now exists in schema
-                expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // FIX: field now exists
+                isScheduled: true,
+                schedule: reportConfig.schedule,
+                status: 'READY',
+                expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
                 createdBy: 'system',
             },
         });
 
-        // FIX: ScheduledReport now has 'recipients' and 'frequency' fields
         await this.prisma.scheduledReport.create({
             data: {
                 reportId: report.id,
@@ -102,7 +103,69 @@ export class ReportService {
         return report;
     }
 
-    // FIX: method was referenced but never implemented — now implemented
+    async getReportHistory() {
+        const reports = await this.prisma.report.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+        });
+
+        return reports.map(r => ({
+            id: r.id,
+            name: r.name,
+            type: r.type,
+            year: new Date(r.createdAt).getFullYear(),
+            region: (r.parameters as any)?.region ?? null,
+            formats: r.format ? [r.format] : ['PDF'],
+            generatedAt: r.createdAt,
+            status: r.status ?? 'READY',
+            downloadUrls: {},
+        }));
+    }
+
+    async getScheduledReports() {
+        const rows = await this.prisma.scheduledReport.findMany({
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return rows.map(s => ({
+            id: s.id,
+            name: `${s.reportType} (auto)`,
+            reportType: s.reportType,
+            schedule: s.schedule,
+            frequency: s.frequency,
+            recipients: s.recipients ?? [],
+            nextRun: null,
+            isActive: s.isActive,
+        }));
+    }
+
+    async generateDynamicReport(params: {
+        baseType: string;
+        sections: string[];
+        scope: any;
+        formats: string[];
+    }) {
+        const report = await this.prisma.report.create({
+            data: {
+                name: `${params.baseType} · ${params.scope?.year ?? new Date().getFullYear()}`,
+                type: params.baseType.toUpperCase() as ReportType,
+                format: (params.formats?.[0] ?? 'PDF') as ReportFormat,
+                parameters: params,
+                isScheduled: false,
+                status: 'PENDING',
+                createdBy: 'system',
+            },
+        });
+
+        // TODO: enqueue to a background job queue for actual generation
+        return { id: report.id, name: report.name, status: 'PENDING' };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PRIVATE — internal helpers
+    // ═══════════════════════════════════════════════════════════
+
     private async getCompletionRateData(params: {
         campaignId?: string;
         region?: string;
@@ -147,11 +210,6 @@ export class ReportService {
         return 'daily';
     }
 
-    private calculateNextRun(schedule: string): Date {
-        // Stub — replace with a cron-parser library (e.g. 'cron-parser') for production
-        return new Date();
-    }
-
     private transformToPanelData(submissions: any[]) {
         const panel: Record<string, any> = {};
 
@@ -177,7 +235,7 @@ export class ReportService {
     }
 
     private async generatePDF(data: any): Promise<Buffer> {
-        // TODO: implement with a PDF library (e.g. pdfkit, puppeteer)
+        // TODO: implement with pdfkit or puppeteer
         return Buffer.from('PDF content');
     }
 

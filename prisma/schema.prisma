@@ -724,13 +724,14 @@ model CampaignReminder {
 model Report {
   id          String       @id @default(uuid())
   name        String
-  type        ReportType?                            // report.service.ts line 77 uses 'type'
-  reportType  ReportType?                            // kept for backward compat / analytics queries
+  type        ReportType?
+  reportType  ReportType?
   format      ReportFormat
   parameters  Json?
-  isScheduled Boolean      @default(false)           // report.service.ts line 80
-  schedule    String?                                // report.service.ts line 81
-  expiresAt   DateTime?                              // report.service.ts line 82
+  status      String       @default("READY")   // ← add this line
+  isScheduled Boolean      @default(false)
+  schedule    String?
+  expiresAt   DateTime?
   fileUrl     String?
   createdBy   String?
   createdAt   DateTime     @default(now())
