@@ -11,7 +11,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export interface AnalyticsReportInput {
     reportId: string;
     title: string;
-    /** 'completionRate' | 'employmentTrends' | 'genderParity' | etc. */
+    /** 'completionRate' | 'employmentTrends' | 'employmentSummary' | 'genderParity' | etc. */
     type: string;
     sections: string[];
     scope: Record<string, any>;
@@ -69,9 +69,16 @@ function trunc(s: string, max: number): string {
 function typeLabel(type: string): string {
     const map: Record<string, string> = {
         completionRate: 'Taux de compl\u00E9tion',
-        employmentTrends: 'Tendances emploi',
+        employmentTrends: 'Tendances de l\u2019emploi',
+        employmentSummary: 'Synth\u00E8se emploi',
+        recruitmentAnalysis: 'Analyse des recrutements',
+        departureAnalysis: 'Analyse des d\u00E9parts',
         genderParity: 'Parit\u00E9 & inclusion',
+        regionalSummary: 'Synth\u00E8se r\u00E9gionale',
         regionalComparison: 'Comparaison r\u00E9gionale',
+        sectorBreakdown: 'R\u00E9partition sectorielle',
+        skillsNeeds: 'Besoins en comp\u00E9tences',
+        trainingNeeds: 'Besoins en formation',
         skillsGap: 'Analyse comp\u00E9tences',
         customMix: 'Rapport sur mesure',
     };
@@ -89,6 +96,27 @@ function sectionLabel(section: string): string {
         insights: 'Recommandations',
     };
     return map[section] ?? section;
+}
+
+/**
+ * Human-readable labels for KPI summary keys used in the generic fallback.
+ * Covers all summary shapes returned by buildDataForType().
+ */
+function kpiLabel(key: string): string {
+    const map: Record<string, string> = {
+        // completionRate
+        completionRate: 'Taux de compl\u00E9tion (%)',
+        total: 'Total \u00E9tablissements',
+        submitted: 'Soumis',
+        validated: 'Valid\u00E9s',
+        inProgress: 'En cours',
+        notStarted: 'Non d\u00E9marr\u00E9s',
+        // employmentTrends / employmentSummary
+        totalEstablishments: '\u00C9tablissements',
+        totalObservations: 'Observations',
+        quartersRange: 'P\u00E9riode',
+    };
+    return map[key] ?? key;
 }
 
 function rateColor(rate: number): string {
@@ -124,7 +152,7 @@ export class ReportPdfService {
         this.loadCoatOfArms();
     }
 
-    // ── Coat of arms loader ──────────────────────────────────────────────────────
+    // ── Coat of arms loader ───────────────────────────────────────────────────
     // Tries local asset first (fast in dev), then falls back to Supabase storage.
     // Copy the PNG from your Flutter project:
     //   FROM: C:\Users\win\dsmo_app\assets\images\coat_of_arms.png
@@ -150,7 +178,7 @@ export class ReportPdfService {
         } catch { /* non-fatal — placeholder circle used instead */ }
     }
 
-    // ── Coat-of-arms watermark ───────────────────────────────────────────────────
+    // ── Coat-of-arms watermark ────────────────────────────────────────────────
 
     private drawCoatOfArmsWatermark(
         doc: any,
@@ -175,25 +203,6 @@ export class ReportPdfService {
     // PUBLIC API
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Generate a dynamic analytics report PDF and upload it to Supabase.
-     *
-     * Usage in report.service.ts:
-     *
-     *   const { url } = await this.reportPdfService.generateAnalyticsReport({
-     *     reportId:    report.id,
-     *     title:       report.name,
-     *     type:        params.baseType,
-     *     sections:    params.sections,
-     *     scope:       params.scope,
-     *     data:        completionRateOrPanelData,
-     *     generatedAt: new Date(),
-     *   });
-     *   await this.prisma.report.update({
-     *     where: { id: report.id },
-     *     data:  { status: 'READY', fileUrl: url },
-     *   });
-     */
     async generateAnalyticsReport(input: AnalyticsReportInput): Promise<AnalyticsReportResult> {
         const buffer = await this.buildAnalyticsReport(input);
         const hash = crypto.createHash('sha256').update(buffer).digest('hex');
@@ -245,8 +254,7 @@ export class ReportPdfService {
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
 
-            // Cover page — letterhead + title (NO background watermark on page 1;
-            // the coat-of-arms already appears prominently in the letterhead itself)
+            // Cover page — letterhead + title
             let y = this._drawReportCover(doc, input);
 
             // Body sections
@@ -268,13 +276,13 @@ export class ReportPdfService {
                 y += 16;
             }
 
-            // Post-process: add watermark + page numbers to all pages
+            // Post-process: watermark + page numbers on all pages
             this._drawPageNumbers(doc);
             doc.end();
         });
     }
 
-    // ── Cover page ───────────────────────────────────────────────────────────────
+    // ── Cover page ────────────────────────────────────────────────────────────
 
     private _drawReportCover(doc: any, input: AnalyticsReportInput): number {
         const { scope, type, generatedAt, sections } = input;
@@ -330,7 +338,7 @@ export class ReportPdfService {
             ey += l.size * 1.45;
         }
 
-        // Centre coat-of-arms (visible / not watermark — part of the letterhead)
+        // Centre coat-of-arms
         const logoSize = 28;
         const logoX = colLoX + (colLoW - logoSize) / 2;
         const logoY = y + 2;
@@ -382,12 +390,17 @@ export class ReportPdfService {
         doc.fillColor(CLR_DARK).font('Helvetica-Bold').fontSize(18);
         doc.text(typeLabel(type).toUpperCase(), A_ML, titleY, { width: A_C_W, align: 'center' });
 
-        const scopeLine = [
-            scope?.year ? `Ann\u00E9e ${scope.year}` : null,
-            scope?.region ? scope.region : 'Nationale',
-            scope?.fromQuarter && scope?.toQuarter
-                ? `${scope.fromQuarter} \u2192 ${scope.toQuarter}` : null,
-        ].filter(Boolean).join('   \u00B7   ');
+        // ✅ Build scope line with plain ASCII hyphen for the range separator —
+        //    PDFKit's built-in font (Helvetica) does not include the Unicode arrow
+        //    U+2192 (→), which causes it to render as a replacement glyph ('!').
+        //    Use ' - ' (hyphen) instead, which is always safe in Helvetica.
+        const scopeParts: string[] = [];
+        if (scope?.year) scopeParts.push(`Ann\u00E9e ${scope.year}`);
+        scopeParts.push(scope?.region ?? 'Nationale');
+        if (scope?.fromQuarter && scope?.toQuarter) {
+            scopeParts.push(`${scope.fromQuarter} - ${scope.toQuarter}`);
+        }
+        const scopeLine = scopeParts.join('   \u00B7   ');
 
         doc.fillColor(CLR_MID).font('Helvetica').fontSize(10);
         doc.text(scopeLine, A_ML, titleY + 26, { width: A_C_W, align: 'center' });
@@ -415,7 +428,7 @@ export class ReportPdfService {
         return ruleY + 14;
     }
 
-    // ── Layout helpers ────────────────────────────────────────────────────────────
+    // ── Layout helpers ────────────────────────────────────────────────────────
 
     private _ensureSpace(doc: any, y: number, needed: number): number {
         if (y + needed > A4_H - A_MB) {
@@ -435,27 +448,19 @@ export class ReportPdfService {
         return y + 30;
     }
 
-    /**
-     * Post-process: called after all content is written.
-     * Adds coat-of-arms watermark (pages 2+) and footer page numbers to every page.
-     */
     private _drawPageNumbers(doc: any): void {
         const range = doc.bufferedPageRange();
         for (let i = 0; i < range.count; i++) {
             doc.switchToPage(range.start + i);
 
-            // Coat-of-arms background watermark on every body page (skip cover —
-            // coat-of-arms already in the letterhead there)
             if (i > 0) {
                 this.drawCoatOfArmsWatermark(doc, A4_W, A4_H, 0.06, 220);
             }
 
-            // Footer rule
             doc.moveTo(A_ML, A4_H - A_MB + 10).lineTo(A_ML + A_C_W, A4_H - A_MB + 10)
                 .strokeColor(CLR_BORDER).lineWidth(0.5).stroke();
             doc.strokeColor('#000000').lineWidth(1);
 
-            // Page number
             doc.fillColor(CLR_MUTED).font('Helvetica').fontSize(7);
             doc.text(
                 `MINEFOP  \u00B7  Confidentiel  \u00B7  Page ${i + 1} / ${range.count}`,
@@ -465,7 +470,7 @@ export class ReportPdfService {
         }
     }
 
-    // ── KPI cards ─────────────────────────────────────────────────────────────────
+    // ── KPI cards ─────────────────────────────────────────────────────────────
 
     private _drawKpiSection(doc: any, y: number, input: AnalyticsReportInput): number {
         const { data, type } = input;
@@ -482,15 +487,35 @@ export class ReportPdfService {
                 { label: 'En cours', value: String(summary.inProgress ?? '\u2013'), color: CLR_WARNING },
                 { label: 'Non d\u00E9marr\u00E9s', value: String(summary.notStarted ?? '\u2013'), color: CLR_ERROR },
             );
-        } else if (type === 'employmentTrends') {
+        } else if (type === 'employmentTrends' || type === 'employmentSummary') {
+            // ✅ Both types share the same summary shape; type-specific label applied
             cards.push(
                 { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
+                { label: 'P\u00E9riode couverte', value: String(summary.quartersRange ?? '\u2013') },
+                { label: 'Observations totales', value: String(summary.totalObservations ?? '\u2013') },
+            );
+        } else if (type === 'recruitmentAnalysis') {
+            cards.push(
+                { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
+                { label: 'P\u00E9riode', value: String(summary.quartersRange ?? '\u2013') },
                 { label: 'Observations', value: String(summary.totalObservations ?? '\u2013') },
-                { label: 'P\u00E9riode', value: summary.quartersRange ?? '\u2013' },
+            );
+        } else if (type === 'departureAnalysis') {
+            cards.push(
+                { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
+                { label: 'P\u00E9riode', value: String(summary.quartersRange ?? '\u2013') },
+                { label: 'Observations', value: String(summary.totalObservations ?? '\u2013') },
+            );
+        } else if (type === 'genderParity') {
+            cards.push(
+                { label: '\u00C9tablissements', value: String(summary.totalEstablishments ?? '\u2013') },
+                { label: 'Ann\u00E9e', value: String(summary.year ?? '\u2013') },
             );
         } else {
+            // ✅ Generic fallback: use kpiLabel() for human-readable labels
+            //    instead of dumping raw camelCase keys
             for (const [k, v] of Object.entries(summary)) {
-                cards.push({ label: k, value: String(v) });
+                cards.push({ label: kpiLabel(k), value: String(v) });
             }
         }
 
@@ -527,7 +552,7 @@ export class ReportPdfService {
         return y + rows * (cardH + 10) + 8;
     }
 
-    // ── Regional breakdown ────────────────────────────────────────────────────────
+    // ── Regional breakdown ────────────────────────────────────────────────────
 
     private _drawRegionalBreakdown(doc: any, y: number, input: AnalyticsReportInput): number {
         const rawData: any[] = Array.isArray(input.data?.data) ? input.data.data : [];
@@ -597,7 +622,7 @@ export class ReportPdfService {
         return y + 10;
     }
 
-    // ── Trends bar chart ──────────────────────────────────────────────────────────
+    // ── Trends bar chart ──────────────────────────────────────────────────────
 
     private _drawTrendsSection(doc: any, y: number, input: AnalyticsReportInput): number {
         const panelData: any[] = Array.isArray(input.data) ? input.data : (input.data?.data ?? []);
@@ -651,7 +676,7 @@ export class ReportPdfService {
         return y + chartH + 28;
     }
 
-    // ── Sector analysis ───────────────────────────────────────────────────────────
+    // ── Sector analysis ───────────────────────────────────────────────────────
 
     private _drawSectorAnalysis(doc: any, y: number, input: AnalyticsReportInput): number {
         const rawData: any[] = Array.isArray(input.data?.data) ? input.data.data
@@ -694,7 +719,7 @@ export class ReportPdfService {
         return y + 8;
     }
 
-    // ── Establishment panel ───────────────────────────────────────────────────────
+    // ── Establishment panel ───────────────────────────────────────────────────
 
     private _drawEstablishmentPanel(doc: any, y: number, input: AnalyticsReportInput): number {
         const panel: any[] = Array.isArray(input.data) ? input.data
@@ -787,7 +812,7 @@ export class ReportPdfService {
         return y + 16;
     }
 
-    // ── Demographics ──────────────────────────────────────────────────────────────
+    // ── Demographics ──────────────────────────────────────────────────────────
 
     private _drawDemographics(doc: any, y: number, input: AnalyticsReportInput): number {
         const rawData: any[] = Array.isArray(input.data?.data) ? input.data.data
@@ -840,7 +865,7 @@ export class ReportPdfService {
         return y + 56;
     }
 
-    // ── Insights ──────────────────────────────────────────────────────────────────
+    // ── Insights ──────────────────────────────────────────────────────────────
 
     private _drawInsights(doc: any, y: number, input: AnalyticsReportInput): number {
         const { data, type, scope } = input;
@@ -862,8 +887,29 @@ export class ReportPdfService {
         }
 
         if (type === 'employmentTrends') {
-            insights.push({ icon: 'i', text: `Analyse couvrant ${summary.totalEstablishments ?? '\u2013'} \u00E9tablissements sur la p\u00E9riode ${summary.quartersRange ?? '\u2013'}.`, level: 'info' });
+            const n = summary.totalEstablishments ?? '\u2013';
+            const p = summary.quartersRange ?? '\u2013';
+            insights.push({ icon: 'i', text: `Analyse couvrant ${n} \u00E9tablissements sur la p\u00E9riode ${p}.`, level: 'info' });
             insights.push({ icon: 'i', text: `Croiser ces donn\u00E9es avec les indicateurs sectoriels permet d\u2019identifier les besoins en formation.`, level: 'info' });
+            if ((summary.totalObservations ?? 0) < 10) {
+                insights.push({ icon: '!', text: `Nombre d\u2019observations limit\u00E9 (${summary.totalObservations ?? 0}) \u2014 les tendances peuvent \u00EAtre peu repr\u00E9sentatives.`, level: 'warn' });
+            }
+        }
+
+        if (type === 'employmentSummary') {
+            insights.push({ icon: 'i', text: `Synth\u00E8se couvrant ${summary.totalEstablishments ?? '\u2013'} \u00E9tablissements.`, level: 'info' });
+        }
+
+        if (type === 'genderParity') {
+            insights.push({ icon: 'i', text: `Analyse de la parit\u00E9 hommes/femmes dans les \u00E9tablissements d\u00E9clarants.`, level: 'info' });
+        }
+
+        if (type === 'recruitmentAnalysis') {
+            insights.push({ icon: 'i', text: `Analyse des recrutements sur la p\u00E9riode ${summary.quartersRange ?? '\u2013'}.`, level: 'info' });
+        }
+
+        if (type === 'departureAnalysis') {
+            insights.push({ icon: 'i', text: `Analyse des d\u00E9parts sur la p\u00E9riode ${summary.quartersRange ?? '\u2013'}.`, level: 'info' });
         }
 
         if (scope?.region) {

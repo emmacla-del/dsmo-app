@@ -9,18 +9,19 @@ function toCamel(s: string): string {
     return s.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 }
 
-// ── Section map: ReportType → default sections ──────────────────────────────
+// ── Section map: keyed by frontend baseType (camelCase) ─────────────────────
+// Use baseType as the key so employmentTrends ≠ employmentSummary
 const SECTIONS_BY_TYPE: Record<string, string[]> = {
-    COMPLETION_RATE: ['kpi', 'regionalBreakdown', 'insights'],
-    EMPLOYMENT_TRENDS: ['kpi', 'trends', 'sectorAnalysis', 'establishmentPanel', 'insights'],
-    EMPLOYMENT_SUMMARY: ['kpi', 'regionalBreakdown', 'demographics', 'insights'],
-    RECRUITMENT_ANALYSIS: ['kpi', 'trends', 'sectorAnalysis', 'insights'],
-    DEPARTURE_ANALYSIS: ['kpi', 'trends', 'insights'],
-    GENDER_PARITY: ['kpi', 'demographics', 'regionalBreakdown', 'insights'],
-    REGIONAL_SUMMARY: ['kpi', 'regionalBreakdown', 'sectorAnalysis', 'insights'],
-    SKILLS_NEEDS: ['kpi', 'sectorAnalysis', 'insights'],
-    TRAINING_NEEDS: ['kpi', 'sectorAnalysis', 'insights'],
-    SECTOR_BREAKDOWN: ['kpi', 'sectorAnalysis', 'insights'],
+    completionRate: ['kpi', 'regionalBreakdown', 'insights'],
+    employmentTrends: ['kpi', 'trends', 'sectorAnalysis', 'establishmentPanel', 'insights'],
+    employmentSummary: ['kpi', 'regionalBreakdown', 'demographics', 'insights'],
+    recruitmentAnalysis: ['kpi', 'trends', 'sectorAnalysis', 'insights'],
+    departureAnalysis: ['kpi', 'trends', 'insights'],
+    genderParity: ['kpi', 'demographics', 'regionalBreakdown', 'insights'],
+    regionalSummary: ['kpi', 'regionalBreakdown', 'sectorAnalysis', 'insights'],
+    skillsNeeds: ['kpi', 'sectorAnalysis', 'insights'],
+    trainingNeeds: ['kpi', 'sectorAnalysis', 'insights'],
+    sectorBreakdown: ['kpi', 'sectorAnalysis', 'insights'],
 };
 
 // ── Frontend baseType → Prisma ReportType mapping ───────────────────────────
@@ -31,7 +32,7 @@ const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
     employmentTrends: 'EMPLOYMENT_SUMMARY',      // not in Prisma enum → closest match
     recruitmentAnalysis: 'RECRUITMENT_ANALYSIS',
     departureAnalysis: 'DEPARTURE_ANALYSIS',
-    genderParity: 'EMPLOYMENT_SUMMARY',           // not in Prisma enum → closest match
+    genderParity: 'EMPLOYMENT_SUMMARY',       // not in Prisma enum → closest match
     regionalSummary: 'REGIONAL_SUMMARY',
     sectorBreakdown: 'SECTOR_BREAKDOWN',
     skillsNeeds: 'SKILLS_NEEDS',
@@ -74,7 +75,7 @@ export class ReportService {
         try {
             let result: any;
             switch (params.format) {
-                case 'PDF': result = await this.generatePDF(data); break;
+                case 'PDF': result = await this.generatePDF(data, 'completionRate'); break;
                 case 'EXCEL': result = await this.generateExcel(data); break;
                 case 'CSV': result = await this.generateCSV(data); break;
                 default: result = data;
@@ -230,7 +231,7 @@ export class ReportService {
     }) {
         const year = params.scope?.year ?? new Date().getFullYear();
 
-        // ① Map frontend camelCase to a valid Prisma enum value
+        // ① Map frontend camelCase to a valid Prisma enum value (DB storage only)
         const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
         const format = (params.formats?.[0] ?? 'PDF') as ReportFormat;
 
@@ -250,7 +251,7 @@ export class ReportService {
         // ③ Fetch data for the requested type (non-fatal if it fails)
         let reportData: any = null;
         try {
-            // Use the original baseType for data building (SECTIONS_BY_TYPE uses SNAKE_CASE keys)
+            // Convert camelCase baseType → SNAKE_CASE for the data builder switch
             const dataType = params.baseType
                 .replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
                 .toUpperCase();
@@ -259,14 +260,19 @@ export class ReportService {
 
         // ④ Generate PDF and upload to Supabase
         try {
+            // Use baseType for sections lookup — keeps employmentTrends ≠ employmentSummary
             const sections = params.sections.length > 0
                 ? params.sections
-                : (SECTIONS_BY_TYPE[reportType] ?? ['kpi', 'insights']);
+                : (SECTIONS_BY_TYPE[params.baseType] ?? ['kpi', 'insights']);
 
             const { url, storagePath, hash } = await this.reportPdfService.generateAnalyticsReport({
                 reportId: report.id,
                 title: report.name,
-                type: toCamel(reportType),           // converts COMPLETION_RATE → completionRate
+                // ✅ Pass the original baseType (e.g. 'employmentTrends'), NOT the
+                //    Prisma-mapped enum value. The PDF service uses this for section
+                //    rendering, KPI labels, title and recommendations — it must match
+                //    the typeLabel() / _drawKpiSection() keys in report-pdf.service.ts.
+                type: params.baseType,
                 sections,
                 scope: params.scope,
                 data: reportData,
@@ -305,10 +311,9 @@ export class ReportService {
      * Fetches real DB data for each report type so PDF sections
      * have content when the report is generated.
      *
-     * NOTE: type is passed as string to avoid Prisma enum comparison issues.
-     * The frontend sends baseType like 'employmentTrends' which we uppercase
-     * to 'EMPLOYMENT_TRENDS' for matching, but Prisma's ReportType enum
-     * may not contain all these values. We use string comparison here.
+     * NOTE: `type` is the SNAKE_CASE version of the frontend baseType,
+     * e.g. 'EMPLOYMENT_TRENDS'. We use string comparison to avoid Prisma
+     * enum issues — the Prisma enum may not contain all of these values.
      */
     private async buildDataForType(type: string, scope: any): Promise<any> {
         switch (type) {
@@ -428,20 +433,18 @@ export class ReportService {
 
     // ── Format generators ────────────────────────────────────────────────────
 
-    private async generatePDF(data: {
-        type: string;
-        generatedAt: Date;
-        parameters: any;
-        data: any;
-        summary: any;
-    }): Promise<{ url: string; storagePath: string; hash: string }> {
-        const type = String(data.type);
+    private async generatePDF(
+        data: { type: string; generatedAt: Date; parameters: any; data: any; summary: any },
+        baseType?: string,
+    ): Promise<{ url: string; storagePath: string; hash: string }> {
+        // Prefer the explicit baseType; fall back to toCamel of the data type string
+        const type = baseType ?? toCamel(String(data.type));
         const sections = SECTIONS_BY_TYPE[type] ?? ['kpi', 'insights'];
 
         return this.reportPdfService.generateAnalyticsReport({
             reportId: crypto.randomUUID(),
             title: type.replace(/_/g, ' '),
-            type: toCamel(type),
+            type,
             sections,
             scope: data.parameters,
             data,
