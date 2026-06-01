@@ -445,12 +445,25 @@ model Report {
   status           String            @default("READY")
   filePath         String?
   fileHash         String?
+  snapshot         ReportSnapshot?
   createdByUser    User?             @relation(fields: [createdBy], references: [id])
   scheduledReports ScheduledReport[]
 
   @@index([reportType])
   @@index([fileHash], map: "idx_reports_fileHash")
   @@map("reports")
+}
+
+model ReportSnapshot {
+  id            String   @id @default(cuid())
+  reportId      String   @unique
+  computedAt    DateTime @default(now()) @db.Timestamptz(6)
+  snapshotData  Json
+  sourceHash    String
+  submissionIds String[] @default([])
+  report        Report   @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "report_snapshots_reportid_fkey")
+
+  @@map("report_snapshots")
 }
 
 model ScheduledReport {

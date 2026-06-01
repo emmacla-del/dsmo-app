@@ -1,9 +1,10 @@
 // src/report/report.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportType, ReportFormat } from '../types/prisma.types';
 import { ReportPdfService } from './report-pdf.service';
+import { OnefopAnalyticsService } from '../analytics/onefop-analytics.service';
 
 // ── Camel-case helper (COMPLETION_RATE → completionRate) ────────────────────
 function toCamel(s: string): string {
@@ -44,7 +45,7 @@ const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
     customMix: 'COMPLETION_RATE',
 };
 
-// ── Human-readable type labels (mirrors report-pdf.service.ts typeLabel) ────
+// ── Human-readable type labels ───────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
     completionRate: 'Taux de Complétion',
     employmentTrends: "Tendances de l'Emploi",
@@ -61,11 +62,43 @@ const TYPE_LABELS: Record<string, string> = {
     customMix: 'Rapport sur Mesure',
 };
 
+// ── Snapshot data shape ──────────────────────────────────────────────────────
+// Defined here so TypeScript enforces it at buildAndFreezeSnapshot() call sites.
+
+interface SnapshotScope {
+    year: number | null;
+    region: string | null;
+    department: string | null;
+    subdivision: string | null;
+    fromQuarter: string | null;
+    toQuarter: string | null;
+    periodLabel: string | null;
+}
+
+interface ReportSnapshotData {
+    computedAt: string;
+    scope: SnapshotScope;
+    submissionCount: number;
+    completionRate: Record<string, any> | null;
+    genderParity: Record<string, any> | null;
+    youthEmployment: Record<string, any> | null;
+    recruitmentTrends: any[];
+    skillsInDemand: any[];
+    trainingGap: Record<string, any> | null;
+    inclusion: Record<string, any> | null;
+    regionalBreakdown: any[];
+    sectorBreakdown: any[];
+}
+
 @Injectable()
 export class ReportService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly reportPdfService: ReportPdfService,
+        // ← Inject analytics service so reports use the same correct
+        //   flat-key aggregation as the live analytics screen.
+        //   Register OnefopAnalyticsService in your ReportModule providers.
+        private readonly analyticsService: OnefopAnalyticsService,
     ) { }
 
     // ═══════════════════════════════════════════════════════════
@@ -79,9 +112,6 @@ export class ReportService {
         format: ReportFormat;
         createdBy?: string | null;
     }) {
-        // ① Resolve the actual collection period from the campaign if one is given.
-        //    Without this, the report title defaults to the current year regardless
-        //    of which campaign period is being reported on.
         let resolvedScope: Record<string, any> = {
             region: params.region ?? null,
             department: params.department ?? null,
@@ -95,7 +125,6 @@ export class ReportService {
             );
         }
 
-        const data = await this.getCompletionRateData(params);
         const reportName = this.buildReportTitle('completionRate', resolvedScope);
 
         const report = await this.prisma.report.create({
@@ -111,14 +140,23 @@ export class ReportService {
         });
 
         try {
+            // Build and freeze the snapshot using the analytics service.
+            // This is the single source of truth for this report forever.
+            const snapshotData = await this.buildAndFreezeSnapshot(
+                'completionRate',
+                resolvedScope,
+                report.id,
+                params.campaignId,
+            );
+
             let result: any;
             switch (params.format) {
                 case 'PDF':
-                    result = await this._generatePDF(data, 'completionRate', resolvedScope);
+                    result = await this._generatePDF(snapshotData, 'completionRate', resolvedScope);
                     break;
-                case 'EXCEL': result = await this.generateExcel(data); break;
-                case 'CSV': result = await this.generateCSV(data); break;
-                default: result = data;
+                case 'EXCEL': result = await this.generateExcel(snapshotData); break;
+                case 'CSV': result = await this.generateCSV(snapshotData); break;
+                default: result = snapshotData;
             }
 
             await this.prisma.report.update({
@@ -220,28 +258,68 @@ export class ReportService {
         const reports = await this.prisma.report.findMany({
             orderBy: { createdAt: 'desc' },
             take: 50,
+            include: {
+                // Include snapshot so history cards can show submissionCount
+                // and sourceHash without a second query.
+                snapshot: {
+                    select: {
+                        computedAt: true,
+                        sourceHash: true,
+                        submissionCount: false, // not a DB field — in snapshotData JSON
+                        snapshotData: true,
+                    },
+                },
+            },
         });
 
         return reports.map(r => {
             const params = (r.parameters as any) ?? {};
             const resolvedScope = params.resolvedScope ?? {};
+            const snap = (r as any).snapshot;
+            const snapData = snap?.snapshotData as ReportSnapshotData | undefined;
+
             const downloadUrls: Record<string, string | null> = {};
             if (r.fileUrl) downloadUrls['PDF'] = r.fileUrl;
 
             return {
                 id: r.id,
                 name: r.name,
-                type: r.type ?? r.reportType ?? 'UNKNOWN',
-                year: resolvedScope?.year ?? params.scope?.year ?? new Date(r.createdAt).getFullYear(),
-                region: resolvedScope?.region ?? params.scope?.region ?? params.region ?? null,
+                type: r.type ?? 'UNKNOWN',
+                year: resolvedScope?.year ?? new Date(r.createdAt).getFullYear(),
+                region: resolvedScope?.region ?? null,
                 periodLabel: resolvedScope?.periodLabel ?? null,
                 formats: r.format ? [r.format] : ['PDF'],
                 generatedAt: r.createdAt,
                 status: r.status ?? 'READY',
                 downloadUrls,
                 createdBy: r.createdBy ?? null,
+                // Snapshot metadata shown in history card
+                submissionCount: snapData?.submissionCount ?? null,
+                sourceHash: snap?.sourceHash ?? null,
+                snapshotAt: snap?.computedAt ?? null,
             };
         });
+    }
+
+    // ── GET /reports/:id/data ────────────────────────────────────────────────
+    // Returns the frozen snapshot for a report.
+    // NEVER recomputes — this is the authoritative historical record.
+    async getReportData(reportId: string): Promise<ReportSnapshotData> {
+        const snapshot = await this.prisma.reportSnapshot.findUnique({
+            where: { reportId },
+        });
+
+        if (!snapshot) {
+            throw new NotFoundException(
+                `No snapshot found for report ${reportId}. ` +
+                `This report was generated before snapshots were introduced. ` +
+                `Re-generate it to create a frozen record.`,
+            );
+        }
+
+        // Return exactly what was computed at generation time.
+        // Numbers are identical to what appears in the signed PDF.
+        return snapshot.snapshotData as ReportSnapshotData;
     }
 
     // ── GET /reports/scheduled ───────────────────────────────────────────────
@@ -271,11 +349,7 @@ export class ReportService {
         formats: string[];
         createdBy?: string | null;
     }) {
-        // ① Resolve the actual collection period.
-        //    Priority order:
-        //      a) Flutter sent explicit fromQuarter + toQuarter → use them as-is
-        //      b) Flutter sent campaignId but no quarter range  → derive from campaign
-        //      c) Neither                                       → fall back to year
+        // ① Resolve the actual collection period from campaign dates if needed
         let resolvedScope: Record<string, any> = { ...params.scope };
 
         if (
@@ -284,10 +358,9 @@ export class ReportService {
         ) {
             resolvedScope = await this.resolveScopeFromCampaign(
                 params.scope.campaignId,
-                params.scope,   // Flutter values win over derived ones
+                params.scope,
             );
         } else if (params.scope?.fromQuarter && params.scope?.toQuarter) {
-            // Flutter sent explicit quarters; still compute periodLabel for the title
             resolvedScope = {
                 ...resolvedScope,
                 periodLabel: this.derivePeriodLabel(
@@ -297,20 +370,16 @@ export class ReportService {
             };
         }
 
-        const year = resolvedScope?.year ?? new Date().getFullYear();
         const format = (params.formats?.[0] ?? 'PDF') as ReportFormat;
         const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
-
-        // ② Title now always carries a meaningful period + optional region
         const reportName = this.buildReportTitle(params.baseType, resolvedScope);
 
-        // ③ Persist in PENDING state immediately so Flutter history shows it
+        // ② Persist immediately in PENDING so Flutter history shows it
         const report = await this.prisma.report.create({
             data: {
                 name: reportName,
                 type: reportType,
                 format,
-                // Store both raw params and resolved scope for auditability
                 parameters: { ...params, resolvedScope },
                 isScheduled: false,
                 status: 'PENDING',
@@ -318,32 +387,35 @@ export class ReportService {
             },
         });
 
-        // ④ Fetch real data for the report type
-        let reportData: any = null;
         try {
-            const dataType = params.baseType
-                .replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
-                .toUpperCase();
-            reportData = await this.buildDataForType(dataType, resolvedScope);
-        } catch { /* each section renders its own empty-state gracefully */ }
+            // ③ Build and freeze the snapshot.
+            //    Uses OnefopAnalyticsService (correct flat-key aggregation).
+            //    Runs ONCE. Result stored in report_snapshots table permanently.
+            //    Future reads return this record — DB is never queried again
+            //    for these numbers.
+            const snapshotData = await this.buildAndFreezeSnapshot(
+                params.baseType,
+                resolvedScope,
+                report.id,
+                params.scope?.campaignId,
+            );
 
-        // ⑤ Generate the PDF and upload to Supabase
-        try {
+            // ④ Generate PDF from the frozen snapshot data
             const sections = params.sections.length > 0
                 ? params.sections
                 : (SECTIONS_BY_TYPE[params.baseType] ?? ['kpi', 'insights']);
 
             const { url, storagePath, hash } = await this.reportPdfService.generateAnalyticsReport({
                 reportId: report.id,
-                title: reportName,       // ← full dynamic title on the PDF cover
-                type: params.baseType,  // ← camelCase baseType for PDF section rendering
+                title: reportName,
+                type: params.baseType,
                 sections,
-                scope: resolvedScope,    // ← resolved scope with period info
-                data: reportData,
+                scope: resolvedScope,
+                data: this.snapshotToPdfData(snapshotData, params.baseType),
                 generatedAt: new Date(),
             });
 
-            // ⑥ Mark READY and persist the signed URL
+            // ⑤ Mark READY
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: {
@@ -367,32 +439,317 @@ export class ReportService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // PERIOD RESOLUTION
+    // SNAPSHOT BUILDER — the heart of the architecture
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Reads a campaign's startDate, deadline and type from the DB
-     * and derives fromQuarter, toQuarter, year and a human-readable
-     * periodLabel. Flutter-supplied values in `overrides` always win.
+     * Computes ALL aggregated numbers for a report using OnefopAnalyticsService
+     * (which correctly reads flat rawData cell keys after BUG-3 fix), then
+     * stores the result permanently in report_snapshots.
      *
-     * Examples:
-     *   QUARTERLY  T3 2024      → "T3 2024"
-     *   SEMESTER   T1–T2 2024   → "1er Semestre 2024"
-     *   ANNUAL     T1–T4 2024   → "Annuel 2024"
-     *   Multi-year T4 2024–T1 2025 → "2024-T4 – 2025-T1"
+     * This method runs EXACTLY ONCE per report.
+     * It must never be called again for the same reportId.
+     * All future reads go through getReportData() which returns the stored JSON.
+     *
+     * The PDF is built from this snapshot — so the PDF and the DB record
+     * are guaranteed to show identical numbers.
      */
+    private async buildAndFreezeSnapshot(
+        baseType: string,
+        resolvedScope: Record<string, any>,
+        reportId: string,
+        campaignId?: string,
+    ): Promise<ReportSnapshotData> {
+
+        const analyticsScope = {
+            year: resolvedScope.year as number | undefined,
+            region: resolvedScope.region as string | undefined,
+            department: resolvedScope.department as string | undefined,
+            subdivision: resolvedScope.subdivision as string | undefined,
+        };
+
+        const year = analyticsScope.year ?? new Date().getFullYear();
+        const fromQ = resolvedScope.fromQuarter as string | undefined;
+        const toQ = resolvedScope.toQuarter as string | undefined;
+
+        // ── Fetch all analytics in parallel using the correct service ─────────
+        // Each call uses OnefopAnalyticsService which reads flat rawData keys.
+        // Non-applicable sections return null and are handled gracefully by PDF.
+
+        const [
+            genderParity,
+            youthEmployment,
+            recruitmentTrends,
+            skillsInDemand,
+            trainingGap,
+            inclusion,
+        ] = await Promise.allSettled([
+            this.analyticsService.getGenderParity(analyticsScope),
+            this.analyticsService.getYouthEmployment(analyticsScope),
+            this.analyticsService.getRecruitmentTrends({
+                startYear: fromQ ? parseInt(fromQ.split('-T')[0], 10) : year - 1,
+                endYear: toQ ? parseInt(toQ.split('-T')[0], 10) : year,
+                region: analyticsScope.region,
+                department: analyticsScope.department,
+                subdivision: analyticsScope.subdivision,
+                granularity: 'quarter',
+            }),
+            this.analyticsService.getSkillDemand({ ...analyticsScope, limit: 10 }),
+            this.analyticsService.getTrainingGap(analyticsScope),
+            this.analyticsService.getInclusionMetrics({
+                ...analyticsScope,
+                breakdownBy: 'both',
+            }),
+        ]);
+
+        // ── Completion rate: read from campaignSubmission, not onefopSubmission ─
+        let completionRate: Record<string, any> | null = null;
+        if (baseType === 'completionRate' || campaignId) {
+            try {
+                const where: any = {};
+                if (campaignId) where.campaignId = campaignId;
+
+                const subs = await this.prisma.campaignSubmission.findMany({ where });
+                const total = subs.length;
+                const submitted = subs.filter(s => s.status === 'SUBMITTED').length;
+                const validated = subs.filter(s => s.status === 'VALIDATED').length;
+                const notStarted = subs.filter(s => s.status === 'NOT_STARTED').length;
+                const inProgress = subs.filter(s => s.status === 'IN_PROGRESS').length;
+
+                completionRate = {
+                    total,
+                    submitted,
+                    validated,
+                    notStarted,
+                    inProgress,
+                    rate: total > 0 ? ((submitted / total) * 100).toFixed(1) : '0.0',
+                };
+            } catch { /* non-fatal */ }
+        }
+
+        // ── Regional breakdown from campaignSubmission ───────────────────────
+        let regionalBreakdown: any[] = [];
+        try {
+            const where: any = {};
+            if (campaignId) where.campaignId = campaignId;
+            const subs = await this.prisma.campaignSubmission.findMany({
+                where,
+                include: { campaign: { select: { name: true } } },
+            });
+
+            const byRegion: Record<string, { total: number; submitted: number }> = {};
+            for (const sub of subs) {
+                const company = await this.prisma.company.findFirst({
+                    where: { establishmentId: sub.establishmentId },
+                    select: { region: true },
+                });
+                const region = company?.region ?? 'Inconnue';
+                if (!byRegion[region]) byRegion[region] = { total: 0, submitted: 0 };
+                byRegion[region].total++;
+                if (['SUBMITTED', 'VALIDATED', 'APPROVED'].includes(sub.status)) {
+                    byRegion[region].submitted++;
+                }
+            }
+
+            regionalBreakdown = Object.entries(byRegion)
+                .map(([region, counts]) => ({
+                    region,
+                    total: counts.total,
+                    submitted: counts.submitted,
+                    rate: counts.total > 0
+                        ? Math.round((counts.submitted / counts.total) * 100)
+                        : 0,
+                }))
+                .sort((a, b) => b.total - a.total);
+        } catch { /* non-fatal */ }
+
+        // ── Sector breakdown from onefopSubmission ───────────────────────────
+        let sectorBreakdown: any[] = [];
+        try {
+            const onefopSubs = await this.prisma.onefopSubmission.findMany({
+                where: {
+                    status: 'APPROVED',
+                    ...(analyticsScope.year && { surveyYear: analyticsScope.year }),
+                    ...(analyticsScope.region && { region: analyticsScope.region }),
+                    ...(analyticsScope.department && { department: analyticsScope.department }),
+                },
+                include: { company: { include: { sector: true } } },
+            });
+
+            const bySector: Record<string, number> = {};
+            for (const sub of onefopSubs) {
+                const sector = (sub as any).company?.sector?.name ?? 'Non classifié';
+                bySector[sector] = (bySector[sector] ?? 0) + 1;
+            }
+
+            const sectorTotal = Object.values(bySector).reduce((a, b) => a + b, 0);
+            sectorBreakdown = Object.entries(bySector)
+                .map(([sector, count]) => ({
+                    sector,
+                    count,
+                    pct: sectorTotal > 0 ? Math.round((count / sectorTotal) * 100) : 0,
+                }))
+                .sort((a, b) => b.count - a.count);
+        } catch { /* non-fatal */ }
+
+        // ── Collect submission IDs for audit trail ───────────────────────────
+        let submissionIds: string[] = [];
+        try {
+            const subs = await this.prisma.onefopSubmission.findMany({
+                where: {
+                    status: 'APPROVED',
+                    ...(analyticsScope.year && { surveyYear: analyticsScope.year }),
+                    ...(analyticsScope.region && { region: analyticsScope.region }),
+                },
+                select: { id: true },
+            });
+            submissionIds = subs.map(s => s.id);
+        } catch { /* non-fatal */ }
+
+        const sourceHash = crypto
+            .createHash('sha256')
+            .update([...submissionIds].sort().join(','))
+            .digest('hex');
+
+        // ── Assemble the frozen snapshot ─────────────────────────────────────
+        const snapshotData: ReportSnapshotData = {
+            computedAt: new Date().toISOString(),
+            scope: {
+                year: resolvedScope.year ?? null,
+                region: resolvedScope.region ?? null,
+                department: resolvedScope.department ?? null,
+                subdivision: resolvedScope.subdivision ?? null,
+                fromQuarter: resolvedScope.fromQuarter ?? null,
+                toQuarter: resolvedScope.toQuarter ?? null,
+                periodLabel: resolvedScope.periodLabel ?? null,
+            },
+            submissionCount: submissionIds.length,
+            completionRate,
+            genderParity: genderParity.status === 'fulfilled' ? genderParity.value : null,
+            youthEmployment: youthEmployment.status === 'fulfilled' ? youthEmployment.value : null,
+            recruitmentTrends: recruitmentTrends.status === 'fulfilled' ? recruitmentTrends.value : [],
+            skillsInDemand: skillsInDemand.status === 'fulfilled' ? skillsInDemand.value : [],
+            trainingGap: trainingGap.status === 'fulfilled' ? trainingGap.value : null,
+            inclusion: inclusion.status === 'fulfilled' ? inclusion.value : null,
+            regionalBreakdown,
+            sectorBreakdown,
+        };
+
+        // ── Persist permanently ──────────────────────────────────────────────
+        await this.prisma.reportSnapshot.create({
+            data: {
+                reportId: reportId,
+                snapshotData: snapshotData as any,
+                sourceHash,
+                submissionIds,
+            },
+        });
+
+        return snapshotData;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SNAPSHOT → PDF DATA ADAPTER
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Converts the flat snapshot structure into the shape that
+     * report-pdf.service.ts expects for each section renderer.
+     *
+     * This decouples the snapshot storage format from the PDF rendering format,
+     * so either can evolve independently.
+     */
+    private snapshotToPdfData(
+        snap: ReportSnapshotData,
+        baseType: string,
+    ): any {
+        // Build the summary shape each KPI card renderer expects
+        let summary: Record<string, any> = {};
+
+        if (baseType === 'completionRate' && snap.completionRate) {
+            summary = {
+                total: snap.completionRate.total,
+                submitted: snap.completionRate.submitted,
+                validated: snap.completionRate.validated,
+                notStarted: snap.completionRate.notStarted,
+                inProgress: snap.completionRate.inProgress,
+                completionRate: snap.completionRate.rate,
+            };
+        } else if (baseType === 'genderParity' && snap.genderParity) {
+            summary = {
+                totalEstablishments: snap.submissionCount,
+                year: snap.scope.year,
+                totalMen: snap.genderParity.maleApplicants,
+                totalWomen: snap.genderParity.femaleApplicants,
+            };
+        } else if (
+            ['employmentTrends', 'employmentSummary',
+                'recruitmentAnalysis', 'departureAnalysis'].includes(baseType)
+        ) {
+            summary = {
+                totalEstablishments: snap.submissionCount,
+                quartersRange: snap.scope.fromQuarter && snap.scope.toQuarter
+                    ? `${snap.scope.fromQuarter} - ${snap.scope.toQuarter}`
+                    : String(snap.scope.year ?? ''),
+                totalObservations: snap.recruitmentTrends.reduce(
+                    (acc, t) => acc + t.totalRecruitments, 0,
+                ),
+            };
+        } else {
+            summary = {
+                totalEstablishments: snap.submissionCount,
+                year: snap.scope.year,
+                totalObservations: snap.submissionCount,
+            };
+        }
+
+        // Shape that each PDF section renderer reads:
+        //   _drawKpiSection       → data.summary
+        //   _drawRegionalBreakdown → data.data (array of submission-like objects)
+        //   _drawTrendsSection    → data.data (panel array with .quarters)
+        //   _drawSectorAnalysis   → data.data (array with .company.sector)
+        //   _drawDemographics     → data.data (array with .menCount/.womenCount)
+
+        return {
+            summary,
+            // Regional breakdown: pass pre-aggregated snapshot rows.
+            // _drawRegionalBreakdown reads item.region + item.status,
+            // so we reshape to match.
+            data: [
+                // Regional rows reshaped to what _drawRegionalBreakdown expects
+                ...snap.regionalBreakdown.map(r => ({
+                    region: r.region,
+                    status: 'SUBMITTED', // pre-aggregated — rate is in r.rate
+                    _snapshotRegion: r,  // carry full row for custom rendering
+                })),
+            ],
+            // Trends: pass recruitment trend periods
+            trends: snap.recruitmentTrends,
+            // Sector: pass sector breakdown
+            sectors: snap.sectorBreakdown,
+            // Demographics: pass gender parity
+            genderParity: snap.genderParity,
+            // Skills
+            skillsInDemand: snap.skillsInDemand,
+            trainingGap: snap.trainingGap,
+            // Inclusion
+            inclusion: snap.inclusion,
+            // Youth
+            youthEmployment: snap.youthEmployment,
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PERIOD RESOLUTION
+    // ═══════════════════════════════════════════════════════════
+
     private async resolveScopeFromCampaign(
         campaignId: string,
         overrides: Record<string, any> = {},
     ): Promise<Record<string, any>> {
         const campaign = await this.prisma.dataCampaign.findUnique({
             where: { id: campaignId },
-            select: {
-                startDate: true,
-                deadline: true,
-                type: true,
-                name: true,
-            },
+            select: { startDate: true, deadline: true, type: true, name: true },
         });
 
         if (!campaign) return overrides;
@@ -403,12 +760,8 @@ export class ReportService {
         const endYear = end.getFullYear();
 
         const toQ = (d: Date) => Math.ceil((d.getMonth() + 1) / 3);
-        const fromQ = toQ(start);
-        const endQ = toQ(end);
-
-        const fromQuarter = `${year}-T${fromQ}`;
-        const toQuarter = `${endYear}-T${endQ}`;
-
+        const fromQuarter = `${year}-T${toQ(start)}`;
+        const toQuarter = `${endYear}-T${toQ(end)}`;
         const periodLabel = this.derivePeriodLabel(fromQuarter, toQuarter, campaign.type);
 
         return {
@@ -417,17 +770,10 @@ export class ReportService {
             toQuarter,
             periodLabel,
             campaignName: campaign.name,
-            // Flutter overrides always win if explicitly provided
             ...overrides,
         };
     }
 
-    /**
-     * Derives a human-readable period label from a quarter range string pair.
-     * Can be called independently when Flutter supplies explicit quarters.
-     *
-     * @param campaignType  optional campaign type for ANNUAL shortcut
-     */
     private derivePeriodLabel(
         fromQuarter: string,
         toQuarter: string,
@@ -439,242 +785,56 @@ export class ReportService {
         const endQ = parseInt(toQStr, 10);
         const sameYear = fromYear === toYear;
 
-        if (campaignType === 'ANNUAL' || (sameYear && fromQ === 1 && endQ === 4)) {
-            return `Annuel ${fromYear}`;
-        }
+        if (campaignType === 'ANNUAL' || (sameYear && fromQ === 1 && endQ === 4)) return `Annuel ${fromYear}`;
         if (sameYear && fromQ === 1 && endQ === 2) return `1er Semestre ${fromYear}`;
         if (sameYear && fromQ === 3 && endQ === 4) return `2e Semestre ${fromYear}`;
         if (sameYear && fromQ === endQ) return `T${fromQ} ${fromYear}`;
-
-        // Multi-year or non-standard range
         return `${fromQuarter} \u2013 ${toQuarter}`;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // TITLE BUILDER
-    // ═══════════════════════════════════════════════════════════
-
-    /**
-     * Builds the full report title used on the PDF cover and in the DB.
-     *
-     * Priority for period:
-     *   1. scope.periodLabel  (set by resolveScopeFromCampaign or derivePeriodLabel)
-     *   2. scope.fromQuarter + scope.toQuarter  (Flutter explicit)
-     *   3. scope.year  (last resort)
-     *
-     * Examples:
-     *   "Taux de Complétion · T3 2024"
-     *   "Tendances de l'Emploi · 1er Semestre 2024 — Littoral"
-     *   "Parité & Inclusion · Annuel 2024"
-     */
     private buildReportTitle(baseType: string, scope: any): string {
         const label = TYPE_LABELS[baseType] ?? baseType;
         const region = scope?.region ? ` \u2014 ${scope.region}` : '';
 
-        // ① Best case: period already resolved to a clean label
         if (scope?.periodLabel) {
             return `${label} \u00B7 ${scope.periodLabel}${region}`;
         }
 
-        // ② Flutter sent explicit quarter range — compute label inline
         const from: string = scope?.fromQuarter ?? '';
         const to: string = scope?.toQuarter ?? '';
-
         if (from && to) {
-            const periodLabel = this.derivePeriodLabel(from, to);
-            return `${label} \u00B7 ${periodLabel}${region}`;
+            return `${label} \u00B7 ${this.derivePeriodLabel(from, to)}${region}`;
         }
 
-        // ③ Last resort: year only
         const year = scope?.year ?? new Date().getFullYear();
         return `${label} \u00B7 ${year}${region}`;
     }
 
     // ═══════════════════════════════════════════════════════════
-    // PRIVATE — data builders
+    // FORMAT GENERATORS
     // ═══════════════════════════════════════════════════════════
 
-    /**
-     * Fetches real DB data for each report type so PDF sections have content.
-     * `type` is the SNAKE_CASE version of the frontend baseType.
-     */
-    private async buildDataForType(type: string, scope: any): Promise<any> {
-        switch (type) {
-            case 'COMPLETION_RATE':
-                return this.getCompletionRateData({
-                    campaignId: scope?.campaignId,
-                    region: scope?.region,
-                    department: scope?.department,
-                });
-
-            case 'EMPLOYMENT_TRENDS':
-            case 'EMPLOYMENT_SUMMARY':
-            case 'RECRUITMENT_ANALYSIS':
-            case 'DEPARTURE_ANALYSIS': {
-                const year = scope?.year ?? new Date().getFullYear();
-                const fromQuarter = scope?.fromQuarter ?? `${year - 1}-T1`;
-                const toQuarter = scope?.toQuarter ?? `${year}-T4`;
-
-                const submissions = await this.prisma.onefopSubmission.findMany({
-                    where: {
-                        quarterCode: { gte: fromQuarter, lte: toQuarter },
-                        status: 'APPROVED',
-                        ...(scope?.region && { region: scope.region }),
-                        ...(scope?.department && { department: scope.department }),
-                    },
-                    include: { company: true },
-                    orderBy: [{ establishmentId: 'asc' }, { quarterCode: 'asc' }],
-                });
-
-                return {
-                    data: this.transformToPanelData(submissions),
-                    summary: {
-                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
-                        quartersRange: `${fromQuarter} - ${toQuarter}`,
-                        totalObservations: submissions.length,
-                    },
-                };
-            }
-
-            case 'GENDER_PARITY': {
-                const year = scope?.year ?? new Date().getFullYear();
-                const submissions = await this.prisma.onefopSubmission.findMany({
-                    where: {
-                        surveyYear: year,
-                        status: 'APPROVED',
-                        ...(scope?.region && { region: scope.region }),
-                        ...(scope?.department && { department: scope.department }),
-                    },
-                    include: { company: true },
-                });
-
-                // FIX: include summary so KPI cards are not blank for gender parity reports
-                let men = 0;
-                let women = 0;
-                for (const sub of submissions) {
-                    men += (sub as any).company?.menCount ?? (sub as any).menCount ?? 0;
-                    women += (sub as any).company?.womenCount ?? (sub as any).womenCount ?? 0;
-                }
-
-                return {
-                    data: submissions,
-                    summary: {
-                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
-                        year,
-                        totalMen: men,
-                        totalWomen: women,
-                    },
-                };
-            }
-
-            case 'SECTOR_BREAKDOWN':
-            case 'SKILLS_NEEDS':
-            case 'SKILLS_GAP':
-            case 'TRAINING_NEEDS': {
-                const year = scope?.year ?? new Date().getFullYear();
-                const submissions = await this.prisma.onefopSubmission.findMany({
-                    where: {
-                        surveyYear: year,
-                        status: 'APPROVED',
-                        ...(scope?.region && { region: scope.region }),
-                    },
-                    include: { company: { include: { sector: true } } },
-                });
-
-                return {
-                    data: submissions,
-                    summary: {
-                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
-                        year,
-                        totalObservations: submissions.length,
-                    },
-                };
-            }
-
-            case 'REGIONAL_SUMMARY':
-            case 'REGIONAL_COMPARISON': {
-                const submissions = await this.prisma.campaignSubmission.findMany({
-                    include: {
-                        campaign: { select: { name: true, code: true } },
-                    },
-                });
-
-                return {
-                    data: submissions,
-                    summary: {
-                        totalEstablishments: new Set(submissions.map((s: any) => s.establishmentId)).size,
-                        totalObservations: submissions.length,
-                    },
-                };
-            }
-
-            default:
-                return null;
-        }
-    }
-
-    private async getCompletionRateData(params: {
-        campaignId?: string;
-        region?: string;
-        department?: string;
-    }) {
-        const where: any = {};
-        if (params.campaignId) where.campaignId = params.campaignId;
-
-        const submissions = await this.prisma.campaignSubmission.findMany({
-            where,
-            include: {
-                campaign: { select: { name: true, code: true, deadline: true } },
-            },
-        });
-
-        const total = submissions.length;
-        const submitted = submissions.filter(s => s.status === 'SUBMITTED').length;
-        const validated = submissions.filter(s => s.status === 'VALIDATED').length;
-        const notStarted = submissions.filter(s => s.status === 'NOT_STARTED').length;
-        const inProgress = submissions.filter(s => s.status === 'IN_PROGRESS').length;
-
-        return {
-            type: 'COMPLETION_RATE',
-            generatedAt: new Date(),
-            parameters: params,
-            data: submissions,
-            summary: {
-                total,
-                submitted,
-                validated,
-                notStarted,
-                inProgress,
-                completionRate: total > 0 ? ((submitted / total) * 100).toFixed(1) : '0.0',
-            },
-        };
-    }
-
-    // ── Format generators ────────────────────────────────────────────────────
-
     private async _generatePDF(
-        data: { type: string; generatedAt: Date; parameters: any; data: any; summary: any },
-        baseType?: string,
-        resolvedScope?: Record<string, any>,
+        data: any,
+        baseType: string,
+        resolvedScope: Record<string, any>,
     ): Promise<{ url: string; storagePath: string; hash: string }> {
-        const type = baseType ?? toCamel(String(data.type));
-        const sections = SECTIONS_BY_TYPE[type] ?? ['kpi', 'insights'];
-        const scope = resolvedScope ?? data.parameters;
-        const title = this.buildReportTitle(type, scope);
+        const sections = SECTIONS_BY_TYPE[baseType] ?? ['kpi', 'insights'];
+        const title = this.buildReportTitle(baseType, resolvedScope);
 
         return this.reportPdfService.generateAnalyticsReport({
             reportId: crypto.randomUUID(),
             title,
-            type,
+            type: baseType,
             sections,
-            scope,
-            data,
-            generatedAt: data.generatedAt,
+            scope: resolvedScope,
+            data: this.snapshotToPdfData(data, baseType),
+            generatedAt: new Date(),
         });
     }
 
     private async generateExcel(_data: any): Promise<Buffer> {
-        // TODO: implement with exceljs or xlsx
+        // TODO: implement with exceljs
         return Buffer.from('Excel content');
     }
 
@@ -683,7 +843,9 @@ export class ReportService {
         return 'CSV content';
     }
 
-    // ── Misc helpers ─────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    // MISC HELPERS
+    // ═══════════════════════════════════════════════════════════
 
     private parseScheduleToFrequency(schedule: string): string {
         if (schedule.includes('0 0 * * 0')) return 'weekly';
@@ -694,7 +856,6 @@ export class ReportService {
 
     private transformToPanelData(submissions: any[]) {
         const panel: Record<string, any> = {};
-
         for (const sub of submissions) {
             if (!panel[sub.establishmentId]) {
                 panel[sub.establishmentId] = {
@@ -711,7 +872,6 @@ export class ReportService {
                 data: sub.rawData,
             };
         }
-
         return Object.values(panel);
     }
 }

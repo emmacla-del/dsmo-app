@@ -1,5 +1,5 @@
 // src/report/report.controller.ts
-import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -28,7 +28,7 @@ export class ReportController {
         return this.reportService.generateEmploymentTrendsReport(params);
     }
 
-    // ── POST /reports/schedule ──────────────────────────────────────────────
+    // ── POST /reports/schedule ────────────────────────────────────────────────
     @Post('schedule')
     @Roles(UserRole.SUPER_ADMIN)
     async scheduleReport(@Body() config: any, @Req() req: any) {
@@ -38,21 +38,7 @@ export class ReportController {
         });
     }
 
-    // ── GET /reports/history ────────────────────────────────────────────────
-    @Get('history')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
-    async getHistory() {
-        return this.reportService.getReportHistory();
-    }
-
-    // ── GET /reports/scheduled ──────────────────────────────────────────────
-    @Get('scheduled')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
-    async getScheduled() {
-        return this.reportService.getScheduledReports();
-    }
-
-    // ── POST /reports/dynamic ───────────────────────────────────────────────
+    // ── POST /reports/dynamic ─────────────────────────────────────────────────
     @Post('dynamic')
     @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
     async generateDynamic(@Body() body: any, @Req() req: any) {
@@ -60,5 +46,32 @@ export class ReportController {
             ...body,
             createdBy: req.user?.id ?? req.user?.userId ?? 'system',
         });
+    }
+
+    // ── GET /reports/history ──────────────────────────────────────────────────
+    // IMPORTANT: all static GET routes (/history, /scheduled) MUST be declared
+    // before the parameterised route GET /reports/:id/data — otherwise NestJS
+    // matches "history" and "scheduled" as the :id param and calls getReportData.
+    @Get('history')
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    async getHistory() {
+        return this.reportService.getReportHistory();
+    }
+
+    // ── GET /reports/scheduled ────────────────────────────────────────────────
+    @Get('scheduled')
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    async getScheduled() {
+        return this.reportService.getScheduledReports();
+    }
+
+    // ── GET /reports/:id/data ─────────────────────────────────────────────────
+    // Returns the frozen snapshot for a specific report.
+    // Numbers are exactly as they were at generation time — never recomputed.
+    // Throws 404 if the report predates the snapshot system.
+    @Get(':id/data')
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    async getReportData(@Param('id') id: string) {
+        return this.reportService.getReportData(id);
     }
 }

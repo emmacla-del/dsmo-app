@@ -27,7 +27,6 @@ export class OnefopAnalyticsService {
       .split('.')
       .reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), obj);
   }
-
   // BUG-3 FIX: Read a flat cell key from rawData.
   // Returns 0 for missing or non-numeric values.
   private flatGet(raw: FlatRaw, key: string): number {
