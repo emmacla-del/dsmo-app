@@ -3,7 +3,7 @@ import { LocationsService } from './locations.service';
 
 @Controller('locations')
 export class LocationsController {
-  constructor(private readonly locationsService: LocationsService) {}
+  constructor(private readonly locationsService: LocationsService) { }
 
   @Get('regions')
   @HttpCode(HttpStatus.OK)
@@ -21,6 +21,12 @@ export class LocationsController {
   @HttpCode(HttpStatus.OK)
   async getSubdivisionsByDepartment(@Param('departmentId') departmentId: string) {
     return this.locationsService.getSubdivisionsByDepartment(departmentId);
+  }
+
+  @Get('structure')
+  @HttpCode(HttpStatus.OK)
+  async getFullStructure() {
+    return this.locationsService.getFullStructure();
   }
 
   @Get('regions/:id')
