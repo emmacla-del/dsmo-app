@@ -63,7 +63,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 // ── Snapshot data shape ──────────────────────────────────────────────────────
-// Defined here so TypeScript enforces it at buildAndFreezeSnapshot() call sites.
+// FIX 3: exported so ReportController can reference it in its return type annotation.
 
 interface SnapshotScope {
     year: number | null;
@@ -75,7 +75,7 @@ interface SnapshotScope {
     periodLabel: string | null;
 }
 
-interface ReportSnapshotData {
+export interface ReportSnapshotData {
     computedAt: string;
     scope: SnapshotScope;
     submissionCount: number;
@@ -263,9 +263,10 @@ export class ReportService {
                 // and sourceHash without a second query.
                 snapshot: {
                     select: {
+                        // FIX 1: removed `submissionCount: false` — not a DB column;
+                        // submissionCount lives inside snapshotData JSON and is read below.
                         computedAt: true,
                         sourceHash: true,
-                        submissionCount: false, // not a DB field — in snapshotData JSON
                         snapshotData: true,
                     },
                 },
@@ -317,9 +318,10 @@ export class ReportService {
             );
         }
 
-        // Return exactly what was computed at generation time.
-        // Numbers are identical to what appears in the signed PDF.
-        return snapshot.snapshotData as ReportSnapshotData;
+        // FIX 2: cast through `unknown` first because Prisma types snapshotData
+        // as JsonValue (which doesn't structurally overlap with ReportSnapshotData).
+        // The runtime value is already the correct shape — this is TypeScript-only.
+        return snapshot.snapshotData as unknown as ReportSnapshotData;
     }
 
     // ── GET /reports/scheduled ───────────────────────────────────────────────
