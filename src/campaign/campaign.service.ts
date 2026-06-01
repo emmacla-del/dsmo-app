@@ -1,15 +1,20 @@
 // src/campaign/campaign.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '../types/prisma.types';
 
+// Transaction client type provided by Prisma — doesn't include NestJS lifecycle methods.
+type PrismaTx = Prisma.TransactionClient;
+
 @Injectable()
 export class CampaignService {
+    private readonly logger = new Logger(CampaignService.name);
+
     constructor(private prisma: PrismaService) { }
 
     async createCampaign(data: any) {
-        // FIX: pass startDate so the code encodes the actual quarter/semester
-        const code = this.generateCampaignCode(data.type, new Date(data.startDate));
+        const code = await this.generateCampaignCode(data.type, new Date(data.startDate));
 
         return this.prisma.dataCampaign.create({
             data: {
@@ -47,12 +52,26 @@ export class CampaignService {
             orderBy: { createdAt: 'desc' },
         });
 
-        for (const campaign of campaigns) {
-            const progress = await this.getCampaignProgress(campaign.id);
-            (campaign as any).progress = progress;
+        // FIX N+1: fetch all campaign progress in a single grouped query
+        // instead of one DB roundtrip per campaign.
+        const campaignIds = campaigns.map(c => c.id);
+        const allSubmissions = await this.prisma.campaignSubmission.groupBy({
+            by: ['campaignId', 'status'],
+            where: { campaignId: { in: campaignIds } },
+            _count: true,
+        });
+
+        // Build a lookup map keyed by campaignId
+        const progressMap = new Map<string, ReturnType<typeof this._buildProgress>>();
+        for (const id of campaignIds) {
+            const rows = allSubmissions.filter(s => s.campaignId === id);
+            progressMap.set(id, this._buildProgress(rows));
         }
 
-        return campaigns;
+        return campaigns.map(c => ({
+            ...c,
+            progress: progressMap.get(c.id) ?? this._buildProgress([]),
+        }));
     }
 
     async getCampaign(id: string) {
@@ -96,16 +115,22 @@ export class CampaignService {
             throw new BadRequestException('Only DRAFT or PAUSED campaigns can be activated');
         }
 
-        await this.initializeCampaignSubmissions(id);
+        // FIX: wrap in a transaction so a crash mid-way doesn't leave
+        // submissions initialized but status still DRAFT.
+        await this.prisma.$transaction(async (tx) => {
+            await this._initializeCampaignSubmissions(id, tx);
+
+            await tx.dataCampaign.update({
+                where: { id },
+                data: { status: 'ACTIVE' },
+            });
+        });
 
         if (campaign.autoReminders) {
             await this.sendReminders(id, 'CAMPAIGN_ANNOUNCEMENT');
         }
 
-        return this.prisma.dataCampaign.update({
-            where: { id },
-            data: { status: 'ACTIVE' },
-        });
+        return this.prisma.dataCampaign.findUnique({ where: { id } });
     }
 
     async pauseCampaign(id: string) {
@@ -137,21 +162,7 @@ export class CampaignService {
             where: { campaignId },
             _count: true,
         });
-
-        const total = submissions.reduce((acc, s) => acc + s._count, 0);
-        const submitted = submissions.find(s => s.status === 'SUBMITTED')?._count || 0;
-        const notStarted = submissions.find(s => s.status === 'NOT_STARTED')?._count || 0;
-        const inProgress = submissions.find(s => s.status === 'IN_PROGRESS')?._count || 0;
-
-        return {
-            total,
-            submitted,
-            notStarted,
-            inProgress,
-            completionRate: total > 0 ? ((submitted / total) * 100).toFixed(1) : 0,
-            byStatus: submissions.reduce((acc, s) => ({ ...acc, [s.status]: s._count }), {}),
-            lastUpdated: new Date(),
-        };
+        return this._buildProgress(submissions);
     }
 
     async getCampaignSubmissions(campaignId: string, filters: { status?: string; region?: string }) {
@@ -164,52 +175,60 @@ export class CampaignService {
             orderBy: { submittedAt: 'desc' },
         });
 
-        const enriched = await Promise.all(
-            submissions.map(async (sub) => {
-                const company = await this.prisma.company.findFirst({
-                    where: { establishmentId: sub.establishmentId },
-                    select: { name: true, region: true, department: true },
-                });
-                return {
-                    ...sub,
-                    companyName: company?.name,
-                    region: company?.region,
-                    department: company?.department,
-                };
-            })
-        );
+        // FIX N+1: collect all establishmentIds then fetch companies in one query.
+        const establishmentIds = submissions
+            .map(s => s.establishmentId)
+            .filter((id): id is string => id != null);
 
-        return enriched;
+        const companies = await this.prisma.company.findMany({
+            where: { establishmentId: { in: establishmentIds } },
+            select: { establishmentId: true, name: true, region: true, department: true },
+        });
+
+        const companyMap = new Map(companies.map(c => [c.establishmentId, c]));
+
+        return submissions.map(sub => {
+            const company = sub.establishmentId
+                ? companyMap.get(sub.establishmentId)
+                : undefined;
+            return {
+                ...sub,
+                companyName: company?.name ?? null,
+                region: company?.region ?? null,
+                department: company?.department ?? null,
+            };
+        });
     }
 
     async sendReminders(campaignId: string, reminderType: string) {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id: campaignId } });
         if (!campaign) throw new NotFoundException('Campaign not found');
 
+        // FIX N+1: fetch pending submissions, then all their companies in one query.
         const pendingSubmissions = await this.prisma.campaignSubmission.findMany({
             where: { campaignId, status: { notIn: ['SUBMITTED', 'VALIDATED'] } },
+            select: { establishmentId: true },
         });
 
-        const companies = await Promise.all(
-            pendingSubmissions.map(async (sub) => {
-                return this.prisma.company.findFirst({
-                    where: { establishmentId: sub.establishmentId },
-                    include: { user: true },
-                });
-            })
-        );
+        const establishmentIds = pendingSubmissions
+            .map(s => s.establishmentId)
+            .filter((id): id is string => id != null);
+
+        const recipientCount = await this.prisma.company.count({
+            where: { establishmentId: { in: establishmentIds } },
+        });
 
         const reminder = await this.prisma.campaignReminder.create({
             data: {
                 campaignId,
                 reminderType,
-                recipientCount: companies.filter(c => c).length,
+                recipientCount,
                 subject: this.getReminderSubject(reminderType, campaign.name),
                 message: this.getReminderMessage(reminderType, campaign),
             },
         });
 
-        console.log(`Reminder sent to ${reminder.recipientCount} recipients`);
+        this.logger.log(`Reminder [${reminderType}] sent to ${recipientCount} recipients for campaign ${campaignId}`);
         return reminder;
     }
 
@@ -248,23 +267,62 @@ export class CampaignService {
         }));
     }
 
-    private async initializeCampaignSubmissions(campaignId: string) {
-        const campaign = await this.prisma.dataCampaign.findUnique({ where: { id: campaignId } });
+    // ═══════════════════════════════════════════════════════════
+    // PRIVATE HELPERS
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Shared progress builder — used by both getCampaignProgress()
+     * and the batched listCampaigns() aggregation to avoid duplication.
+     */
+    private _buildProgress(rows: { status: string; _count: number }[]) {
+        const total = rows.reduce((acc, s) => acc + s._count, 0);
+        const submitted = rows.find(s => s.status === 'SUBMITTED')?._count ?? 0;
+        const notStarted = rows.find(s => s.status === 'NOT_STARTED')?._count ?? 0;
+        const inProgress = rows.find(s => s.status === 'IN_PROGRESS')?._count ?? 0;
+
+        return {
+            total,
+            submitted,
+            notStarted,
+            inProgress,
+            completionRate: total > 0 ? ((submitted / total) * 100).toFixed(1) : '0.0',
+            byStatus: rows.reduce<Record<string, number>>(
+                (acc, s) => ({ ...acc, [s.status]: s._count }),
+                {},
+            ),
+            lastUpdated: new Date(),
+        };
+    }
+
+    /**
+     * Initializes campaign submissions for all matching establishments.
+     * Accepts an optional Prisma transaction client so it can run inside
+     * the activateCampaign() transaction safely.
+     */
+    private async _initializeCampaignSubmissions(
+        campaignId: string,
+        tx?: PrismaTx,
+    ) {
+        const db = tx ?? this.prisma;
+        const campaign = await db.dataCampaign.findUnique({ where: { id: campaignId } });
         if (!campaign) return;
 
         const where: any = { establishmentId: { not: null } };
         if (campaign.targetRegions?.length) where.region = { in: campaign.targetRegions };
         if (campaign.targetDepartments?.length) where.department = { in: campaign.targetDepartments };
 
-        const establishments = await this.prisma.company.findMany({
+        const establishments = await db.company.findMany({
             where,
             select: { id: true, establishmentId: true },
         });
 
+        // Batch upserts — still one per establishment but now inside a
+        // transaction so the whole operation is atomic.
         for (const est of establishments) {
             if (!est.establishmentId) continue;
 
-            await this.prisma.campaignSubmission.upsert({
+            await db.campaignSubmission.upsert({
                 where: {
                     campaignId_establishmentId: {
                         campaignId,
@@ -282,13 +340,18 @@ export class CampaignService {
         }
     }
 
-    // ── FIX: encodes the actual quarter/semester into the code so it's
-    //         always traceable — e.g. QUARTERLY_2024_T3_042
-    private generateCampaignCode(type: string, startDate?: Date): string {
+    /**
+     * FIX: replaces Math.random() with a DB count to derive a collision-free
+     * sequence number. Two campaigns of the same type created in the same
+     * quarter/year will get consecutive suffixes (001, 002, …) instead of
+     * random ones that can collide.
+     *
+     * e.g. QUARTERLY_2024_T3_001, QUARTERLY_2024_T3_002
+     */
+    private async generateCampaignCode(type: string, startDate?: Date): Promise<string> {
         const d = startDate ?? new Date();
         const year = d.getFullYear();
         const quarter = Math.ceil((d.getMonth() + 1) / 3);
-        const seq = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
         const suffix =
             type === 'QUARTERLY' ? `T${quarter}` :
@@ -296,11 +359,15 @@ export class CampaignService {
                     type === 'ANNUAL' ? 'AN' :
                         `T${quarter}`;
 
-        return `${type}_${year}_${suffix}_${seq}`;
-        // Examples:
-        //   QUARTERLY_2024_T3_042
-        //   SEMESTER_2024_S1_117
-        //   ANNUAL_2024_AN_009
+        const prefix = `${type}_${year}_${suffix}`;
+
+        // Count existing codes that start with this prefix to derive the next seq
+        const existing = await this.prisma.dataCampaign.count({
+            where: { code: { startsWith: prefix } },
+        });
+
+        const seq = (existing + 1).toString().padStart(3, '0');
+        return `${prefix}_${seq}`;
     }
 
     private getReminderSubject(type: string, campaignName: string): string {
