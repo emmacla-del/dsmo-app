@@ -79,7 +79,7 @@ export function normalizeFlatKeys(
     // ── S1: Entity identification ─────────────────────────────────────────────
     switch (entityType) {
         case 'cooperative': normalizeCooperativeS1(raw, out); break;
-        case 'enterprise': normalizeEnterpriseS1(raw, out); break;
+        case 'entreprise': normalizeEnterpriseS1(raw, out); break;
         case 'ctd': normalizeCtdS1(raw, out); break;
         case 'ong': normalizeOngS1(raw, out); break;
     }
@@ -214,7 +214,7 @@ export function buildNestedDto(
     // S1 — entity identification (nested DTO shape)
     switch (entityType) {
         case 'cooperative': out['cooperative'] = buildCooperativeDto(normalized); break;
-        case 'enterprise': out['enterprise'] = buildEnterpriseDto(normalized); break;
+        case 'entreprise': out['enterprise'] = buildEnterpriseDto(normalized); break;
         case 'ctd': out['ctd'] = buildCtdDto(normalized); break;
         case 'ong': out['ong'] = buildOngDto(normalized); break;
     }
