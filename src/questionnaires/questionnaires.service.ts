@@ -562,14 +562,31 @@ export class QuestionnairesService {
           }
         }
       }
+      // TODO: uncomment when SUBTOTAL is added to CspCategory enum
+      // for (const gender of genders) {
+      //   for (const ageKey of ageBandKeys) {
+      //     const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${ageKey}`);
+      //     if (value !== 0) {
+      //       records.push({
+      //         submissionId,
+      //         contractType: this.up(contract),
+      //         cspCategory: 'SUBTOTAL',
+      //         gender: this.up(gender),
+      //         ageBand: this.mapAgeBand(ageKey),
+      //         value
+      //       });
+      //     }
+      //   }
+      // }
+
       for (const gender of genders) {
         for (const ageKey of ageBandKeys) {
-          const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${ageKey}`);
+          const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
           if (value !== 0) {
             records.push({
               submissionId,
-              contractType: this.up(contract),
-              cspCategory: 'SUBTOTAL',
+              contractType: 'TOTAL',
+              cspCategory: 'TOTAL',
               gender: this.up(gender),
               ageBand: this.mapAgeBand(ageKey),
               value
@@ -577,26 +594,10 @@ export class QuestionnairesService {
           }
         }
       }
-    }
 
-    for (const gender of genders) {
-      for (const ageKey of ageBandKeys) {
-        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
-        if (value !== 0) {
-          records.push({
-            submissionId,
-            contractType: 'TOTAL',
-            cspCategory: 'TOTAL',
-            gender: this.up(gender),
-            ageBand: this.mapAgeBand(ageKey),
-            value
-          });
-        }
+      if (records.length > 0) {
+        await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
       }
-    }
-
-    if (records.length > 0) {
-      await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
     }
   }
 

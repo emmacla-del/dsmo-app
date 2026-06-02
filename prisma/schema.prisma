@@ -1160,6 +1160,7 @@ enum DiplomaType {
   AUTRES
   SANS_DIPLOME
   TOTAL
+  BEPC
 }
 
 enum DisabilityStatus {
