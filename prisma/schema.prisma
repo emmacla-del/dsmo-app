@@ -131,10 +131,14 @@ model User {
   updatedAt         DateTime           @updatedAt
   status            UserStatus         @default(PENDING_APPROVAL)
   auditLogs         AuditLog[]
+  batchJobs         BatchJob[]
   company           Company?
   createdCampaigns  DataCampaign[]     @relation("CampaignCreatedBy")
+  distributionLists DistributionList[]
+  distributionLogs  DistributionLog[]
   notifications     Notification[]
   onefopSubmissions OnefopSubmission[]
+  approvedReports   Report[]           @relation("ReportApprovedBy")
   generatedReports  Report[]
   scheduledReports  ScheduledReport[]
   submissionDrafts  SubmissionDraft[]
@@ -351,17 +355,22 @@ model AuditLog {
   action        String
   resourceType  String
   resourceId    String
-  details       String?
+  details       Json?
   previousValue String?
   newValue      String?
   timestamp     DateTime     @default(now())
   createdAt     DateTime     @default(now())
+  reportId      String?
+  ipAddress     String?
+  userAgent     String?
   declaration   Declaration? @relation(fields: [declarationId], references: [id])
   user          User         @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([declarationId])
   @@index([timestamp])
+  @@index([action])
+  @@index([reportId])
   @@map("audit_logs")
 }
 
@@ -445,23 +454,34 @@ model Report {
   status           String            @default("READY")
   filePath         String?
   fileHash         String?
+  approvalStatus   String?           @default("PENDING")
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectionReason  String?
+  distributionLogs DistributionLog[]
   snapshot         ReportSnapshot?
+  approvedByUser   User?             @relation("ReportApprovedBy", fields: [approvedBy], references: [id], onUpdate: NoAction)
   createdByUser    User?             @relation(fields: [createdBy], references: [id])
   scheduledReports ScheduledReport[]
 
   @@index([reportType])
   @@index([fileHash], map: "idx_reports_fileHash")
+  @@index([approvalStatus])
+  @@index([approvedBy])
   @@map("reports")
 }
 
 model ReportSnapshot {
-  id            String   @id @default(cuid())
-  reportId      String   @unique
-  computedAt    DateTime @default(now()) @db.Timestamptz(6)
+  id            String    @id @default(cuid())
+  reportId      String    @unique
+  computedAt    DateTime  @default(now()) @db.Timestamptz(6)
   snapshotData  Json
   sourceHash    String
-  submissionIds String[] @default([])
-  report        Report   @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "report_snapshots_reportid_fkey")
+  submissionIds String[]  @default([])
+  approvedBy    String?
+  approvedAt    DateTime?
+  approvalHash  String?
+  report        Report    @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "report_snapshots_reportid_fkey")
 
   @@map("report_snapshots")
 }
@@ -935,6 +955,71 @@ model AnalyticsSnapshot {
 
   @@unique([year, region, department])
   @@map("analytics_snapshots")
+}
+
+model BatchJob {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  regions          String[]  @default([])
+  dateRange        Json
+  sections         String[]  @default([])
+  status           String    @default("PENDING")
+  totalReports     Int
+  completedReports Int       @default(0)
+  failedReports    Int       @default(0)
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  createdBy        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdByUser    User?     @relation(fields: [createdBy], references: [id], onUpdate: NoAction)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("batch_jobs")
+}
+
+model DistributionList {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  description   String?
+  emails        String[] @default([])
+  isActive      Boolean  @default(true)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdByUser User?    @relation(fields: [createdBy], references: [id], onUpdate: NoAction)
+
+  @@index([isActive])
+  @@map("distribution_lists")
+}
+
+model DistributionLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId   String
+  recipients String[] @default([])
+  comment    String?
+  sentAt     DateTime @default(now())
+  sentBy     String
+  report     Report   @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sentByUser User     @relation(fields: [sentBy], references: [id], onUpdate: NoAction)
+
+  @@index([reportId])
+  @@index([sentAt])
+  @@map("distribution_logs")
+}
+
+enum BatchStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum UserRole {

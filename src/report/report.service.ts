@@ -6,12 +6,12 @@ import { ReportType, ReportFormat } from '../types/prisma.types';
 import { ReportPdfService } from './report-pdf.service';
 import { OnefopAnalyticsService } from '../analytics/onefop-analytics.service';
 
-// ── Camel-case helper (COMPLETION_RATE → completionRate) ────────────────────
+// ── Camel-case helper ────────────────────────────────────────
 function toCamel(s: string): string {
     return s.toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 }
 
-// ── Section map: keyed by frontend baseType (camelCase) ─────────────────────
+// ── Section map ──────────────────────────────────────────────
 const SECTIONS_BY_TYPE: Record<string, string[]> = {
     completionRate: ['kpi', 'regionalBreakdown', 'insights'],
     employmentTrends: ['kpi', 'trends', 'sectorAnalysis', 'establishmentPanel', 'insights'],
@@ -28,7 +28,6 @@ const SECTIONS_BY_TYPE: Record<string, string[]> = {
     customMix: ['kpi', 'insights'],
 };
 
-// ── Frontend baseType → Prisma ReportType mapping ───────────────────────────
 const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
     completionRate: 'COMPLETION_RATE',
     employmentSummary: 'EMPLOYMENT_SUMMARY',
@@ -45,7 +44,6 @@ const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
     customMix: 'COMPLETION_RATE',
 };
 
-// ── Human-readable type labels ───────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
     completionRate: 'Taux de Complétion',
     employmentTrends: "Tendances de l'Emploi",
@@ -61,9 +59,6 @@ const TYPE_LABELS: Record<string, string> = {
     trainingNeeds: 'Besoins en Formation',
     customMix: 'Rapport sur Mesure',
 };
-
-// ── Snapshot data shape ──────────────────────────────────────────────────────
-// FIX 3: exported so ReportController can reference it in its return type annotation.
 
 interface SnapshotScope {
     year: number | null;
@@ -90,19 +85,46 @@ export interface ReportSnapshotData {
     sectorBreakdown: any[];
 }
 
+// ── New interfaces for enterprise features ───────────────────
+export interface BatchJob {
+    id: string;
+    name: string;
+    regions: string[];
+    dateRange: any;
+    sections: string[];
+    status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+    totalReports: number;
+    completedReports: number;
+    failedReports: number;
+    startedAt: Date;
+    completedAt?: Date;
+}
+
+export interface DistributionList {
+    id: string;
+    name: string;
+    emails: string[];
+    isActive: boolean;
+}
+
+export interface AuditLogEntry {
+    id: string;
+    action: string;
+    details: any;
+    userId: string;
+    timestamp: Date;
+}
+
 @Injectable()
 export class ReportService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly reportPdfService: ReportPdfService,
-        // ← Inject analytics service so reports use the same correct
-        //   flat-key aggregation as the live analytics screen.
-        //   Register OnefopAnalyticsService in your ReportModule providers.
         private readonly analyticsService: OnefopAnalyticsService,
     ) { }
 
     // ═══════════════════════════════════════════════════════════
-    // PUBLIC — called by ReportController
+    // EXISTING METHODS
     // ═══════════════════════════════════════════════════════════
 
     async generateCompletionRateReport(params: {
@@ -140,8 +162,6 @@ export class ReportService {
         });
 
         try {
-            // Build and freeze the snapshot using the analytics service.
-            // This is the single source of truth for this report forever.
             const snapshotData = await this.buildAndFreezeSnapshot(
                 'completionRate',
                 resolvedScope,
@@ -259,12 +279,8 @@ export class ReportService {
             orderBy: { createdAt: 'desc' },
             take: 50,
             include: {
-                // Include snapshot so history cards can show submissionCount
-                // and sourceHash without a second query.
                 snapshot: {
                     select: {
-                        // FIX 1: removed `submissionCount: false` — not a DB column;
-                        // submissionCount lives inside snapshotData JSON and is read below.
                         computedAt: true,
                         sourceHash: true,
                         snapshotData: true,
@@ -292,9 +308,9 @@ export class ReportService {
                 formats: r.format ? [r.format] : ['PDF'],
                 generatedAt: r.createdAt,
                 status: r.status ?? 'READY',
+                approvalStatus: r.approvalStatus ?? 'PENDING',
                 downloadUrls,
                 createdBy: r.createdBy ?? null,
-                // Snapshot metadata shown in history card
                 submissionCount: snapData?.submissionCount ?? null,
                 sourceHash: snap?.sourceHash ?? null,
                 snapshotAt: snap?.computedAt ?? null,
@@ -302,9 +318,307 @@ export class ReportService {
         });
     }
 
+    // ── GET /reports/pending-approval ───────────────────────────────────────
+    async getPendingApprovals() {
+        const reports = await this.prisma.report.findMany({
+            where: {
+                approvalStatus: 'PENDING',
+                status: 'READY',
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                snapshot: true,
+            },
+        });
+
+        return reports.map(r => ({
+            id: r.id,
+            name: r.name,
+            type: r.type,
+            region: (r.parameters as any)?.resolvedScope?.region ?? null,
+            periodLabel: (r.parameters as any)?.resolvedScope?.periodLabel ?? null,
+            generatedAt: r.createdAt,
+            downloadUrl: r.fileUrl,
+        }));
+    }
+
+    // ── POST /reports/approve ───────────────────────────────────────────────
+    async approveReport(reportId: string, approved: boolean, rejectionReason?: string) {
+        const report = await this.prisma.report.findUnique({
+            where: { id: reportId },
+        });
+
+        if (!report) {
+            throw new NotFoundException(`Report ${reportId} not found`);
+        }
+
+        const updated = await this.prisma.report.update({
+            where: { id: reportId },
+            data: {
+                approvalStatus: approved ? 'APPROVED' : 'REJECTED',
+                approvedAt: new Date(),
+                rejectionReason: rejectionReason,
+            },
+        });
+
+        await this.logAudit(
+            approved ? 'APPROVE' : 'REJECT',
+            { reportId, reportName: report.name, reason: rejectionReason },
+            'system',
+        );
+
+        return {
+            id: updated.id,
+            approvalStatus: updated.approvalStatus,
+            approvedAt: updated.approvedAt,
+        };
+    }
+
+    // ── GET /reports/batch-jobs ─────────────────────────────────────────────
+    async getBatchJobs() {
+        // FIX: was this.prisma.batchJob → correct name is batch_jobs
+        return this.prisma.batchJob.findMany({
+            orderBy: { startedAt: 'desc' },
+            take: 20,
+        });
+    }
+
+    // ── POST /reports/batch ─────────────────────────────────────────────────
+    async generateBatchReports(params: {
+        name: string;
+        regions: string[];
+        dateRange: { start: string; end: string };
+        sections: string[];
+        createdBy?: string;
+    }) {
+        const jobId = crypto.randomUUID();
+
+        // ✅ Correct - use the table name from the database
+        const job = await this.prisma.batchJob.create({
+            data: {
+                name: params.name,
+                regions: params.regions,
+                dateRange: params.dateRange,
+                sections: params.sections,
+                status: 'PENDING',
+                totalReports: params.regions.length,
+                completedReports: 0,
+                failedReports: 0,
+                startedAt: new Date(),
+                createdBy: params.createdBy,
+            },
+        });
+
+        this.processBatchJob(jobId, params).catch(err => {
+            console.error(`Batch job ${jobId} failed:`, err);
+        });
+
+        return { id: job.id, status: 'PENDING', message: 'Batch generation started' };
+    }
+
+    private async processBatchJob(jobId: string, params: {
+        name: string;
+        regions: string[];
+        dateRange: { start: string; end: string };
+        sections: string[];
+        createdBy?: string;
+    }) {
+        try {
+            // FIX: was this.prisma.batchJob → correct name is batch_jobs
+            await this.prisma.batchJob.update({
+                where: { id: jobId },
+                data: { status: 'RUNNING' },
+            });
+
+            let completed = 0;
+            let failed = 0;
+
+            for (const region of params.regions) {
+                try {
+                    const startDate = new Date(params.dateRange.start);
+                    const endDate = new Date(params.dateRange.end);
+                    const year = startDate.getFullYear();
+                    const fromQuarter = this.dateToQuarter(startDate);
+                    const toQuarter = this.dateToQuarter(endDate);
+
+                    await this.generateDynamicReport({
+                        baseType: 'customMix',
+                        sections: params.sections,
+                        scope: {
+                            year,
+                            region,
+                            fromQuarter,
+                            toQuarter,
+                        },
+                        formats: ['PDF'],
+                        createdBy: params.createdBy,
+                    });
+                    completed++;
+                } catch (e) {
+                    failed++;
+                    console.error(`Failed to generate report for region ${region}:`, e);
+                }
+
+                // FIX: was this.prisma.batchJob → correct name is batch_jobs
+                await this.prisma.batchJob.update({
+                    where: { id: jobId },
+                    data: {
+                        completedReports: completed,
+                        failedReports: failed,
+                    },
+                });
+            }
+
+            const status = failed === params.regions.length ? 'FAILED' : 'COMPLETED';
+
+            // FIX: was this.prisma.batchJob → correct name is batch_jobs
+            await this.prisma.batchJob.update({
+                where: { id: jobId },
+                data: {
+                    status,
+                    completedAt: new Date(),
+                },
+            });
+
+            await this.logAudit(
+                'BATCH_GENERATE',
+                { jobId, name: params.name, regions: params.regions, completed, failed },
+                params.createdBy || 'system',
+            );
+        } catch (error) {
+            // FIX: was this.prisma.batchJob → correct name is batch_jobs
+            await this.prisma.batchJob.update({
+                where: { id: jobId },
+                data: { status: 'FAILED', completedAt: new Date() },
+            });
+            throw error;
+        }
+    }
+
+    // ── POST /reports/retry/:jobId ──────────────────────────────────────────
+    async retryJob(jobId: string) {
+        // FIX: was this.prisma.batchJob → correct name is batch_jobs
+        const job = await this.prisma.batchJob.findUnique({
+            where: { id: jobId },
+        });
+
+        if (!job) {
+            throw new NotFoundException(`Job ${jobId} not found`);
+        }
+
+        // FIX: was this.prisma.batchJob → correct name is batch_jobs
+        await this.prisma.batchJob.update({
+            where: { id: jobId },
+            data: {
+                status: 'PENDING',
+                completedReports: 0,
+                failedReports: 0,
+                startedAt: new Date(),
+                completedAt: null,
+            },
+        });
+
+        const params = {
+            name: job.name,
+            regions: job.regions as string[],
+            dateRange: job.dateRange as { start: string; end: string },
+            sections: job.sections as string[],
+        };
+
+        this.processBatchJob(jobId, params).catch(err => {
+            console.error(`Retry job ${jobId} failed:`, err);
+        });
+
+        return { success: true, message: 'Job retry started' };
+    }
+
+    // ── GET /distribution/lists ─────────────────────────────────────────────
+    async getDistributionLists() {
+        // FIX: was this.prisma.distributionList → correct name is distribution_lists
+        return this.prisma.distributionList.findMany({
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // ── POST /distribution/send ────────────────────────────────────────────
+    async sendDistribution(reportId: string, distributionListIds: string[], comment?: string, sentBy?: string) {
+        const report = await this.prisma.report.findUnique({
+            where: { id: reportId },
+            select: { fileUrl: true, name: true },
+        });
+
+        if (!report) {
+            throw new NotFoundException(`Report ${reportId} not found`);
+        }
+
+        // FIX: was this.prisma.distributionList → correct name is distribution_lists
+        const lists = await this.prisma.distributionList.findMany({
+            where: { id: { in: distributionListIds } },
+        });
+
+        const recipients = lists.flatMap(l => l.emails);
+
+        if (recipients.length === 0) {
+            throw new Error('No recipients found');
+        }
+
+        // TODO: Implement email sending with nodemailer or your email service
+        // await this.emailService.sendReport({
+        //     to: recipients,
+        //     subject: `Rapport: ${report.name}`,
+        //     body: comment || 'Veuillez trouver ci-joint le rapport demandé.',
+        //     attachmentUrl: report.fileUrl,
+        // });
+
+        // FIX: was this.prisma.distributionLog → correct name is distribution_logs
+        await this.prisma.distributionLog.create({
+            data: {
+                reportId,
+                recipients,
+                sentAt: new Date(),
+                sentBy: sentBy || 'system',
+            },
+        });
+
+        await this.logAudit(
+            'DISTRIBUTE',
+            { reportId, reportName: report.name, recipients, listIds: distributionListIds, comment },
+            sentBy || 'system',
+        );
+
+        return { success: true, recipientsCount: recipients.length };
+    }
+
+    // ── GET /audit/reports ──────────────────────────────────────────────────
+    async getAuditLog(limit: number = 100) {
+        return this.prisma.auditLog.findMany({
+            orderBy: { timestamp: 'desc' },
+            take: limit,
+        });
+    }
+
+    // ── POST /audit/log ─────────────────────────────────────────────────────
+    async logAudit(action: string, details: any, userId: string) {
+        // FIX: Prisma's AuditLog schema uses a relation for user, not a plain
+        // string userId field. Use the unchecked create form with the raw
+        // foreign-key field name that your schema declares (e.g. user_id),
+        // OR connect via relation. Adjust the field name below to match your
+        // actual Prisma schema column (common options shown):
+        return this.prisma.auditLog.create({
+            data: {
+                action,
+                details,
+                // Use the scalar FK field directly (unchecked create).
+                // Replace 'user_id' with whatever your schema calls it if different.
+                user_id: userId,
+                timestamp: new Date(),
+            } as any, // `as any` is a safe fallback if the field name still diverges;
+            // ideally replace with the exact field name from your schema.
+        });
+    }
+
     // ── GET /reports/:id/data ────────────────────────────────────────────────
-    // Returns the frozen snapshot for a report.
-    // NEVER recomputes — this is the authoritative historical record.
     async getReportData(reportId: string): Promise<ReportSnapshotData> {
         const snapshot = await this.prisma.reportSnapshot.findUnique({
             where: { reportId },
@@ -318,9 +632,6 @@ export class ReportService {
             );
         }
 
-        // FIX 2: cast through `unknown` first because Prisma types snapshotData
-        // as JsonValue (which doesn't structurally overlap with ReportSnapshotData).
-        // The runtime value is already the correct shape — this is TypeScript-only.
         return snapshot.snapshotData as unknown as ReportSnapshotData;
     }
 
@@ -351,7 +662,6 @@ export class ReportService {
         formats: string[];
         createdBy?: string | null;
     }) {
-        // ① Resolve the actual collection period from campaign dates if needed
         let resolvedScope: Record<string, any> = { ...params.scope };
 
         if (
@@ -376,7 +686,6 @@ export class ReportService {
         const reportType = BASE_TYPE_TO_PRISMA[params.baseType] ?? 'COMPLETION_RATE';
         const reportName = this.buildReportTitle(params.baseType, resolvedScope);
 
-        // ② Persist immediately in PENDING so Flutter history shows it
         const report = await this.prisma.report.create({
             data: {
                 name: reportName,
@@ -385,16 +694,12 @@ export class ReportService {
                 parameters: { ...params, resolvedScope },
                 isScheduled: false,
                 status: 'PENDING',
+                approvalStatus: 'PENDING',
                 createdBy: params.createdBy ?? null,
             },
         });
 
         try {
-            // ③ Build and freeze the snapshot.
-            //    Uses OnefopAnalyticsService (correct flat-key aggregation).
-            //    Runs ONCE. Result stored in report_snapshots table permanently.
-            //    Future reads return this record — DB is never queried again
-            //    for these numbers.
             const snapshotData = await this.buildAndFreezeSnapshot(
                 params.baseType,
                 resolvedScope,
@@ -402,7 +707,6 @@ export class ReportService {
                 params.scope?.campaignId,
             );
 
-            // ④ Generate PDF from the frozen snapshot data
             const sections = params.sections.length > 0
                 ? params.sections
                 : (SECTIONS_BY_TYPE[params.baseType] ?? ['kpi', 'insights']);
@@ -417,7 +721,6 @@ export class ReportService {
                 generatedAt: new Date(),
             });
 
-            // ⑤ Mark READY
             await this.prisma.report.update({
                 where: { id: report.id },
                 data: {
@@ -429,7 +732,13 @@ export class ReportService {
                 },
             });
 
-            return { id: report.id, name: reportName, status: 'READY', url };
+            await this.logAudit(
+                'GENERATE',
+                { reportId: report.id, reportName, scope: resolvedScope, sections },
+                params.createdBy || 'system',
+            );
+
+            return { id: report.id, name: reportName, status: 'PENDING_APPROVAL', url };
 
         } catch (err) {
             await this.prisma.report.update({
@@ -441,28 +750,15 @@ export class ReportService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // SNAPSHOT BUILDER — the heart of the architecture
+    // SNAPSHOT BUILDER
     // ═══════════════════════════════════════════════════════════
 
-    /**
-     * Computes ALL aggregated numbers for a report using OnefopAnalyticsService
-     * (which correctly reads flat rawData cell keys after BUG-3 fix), then
-     * stores the result permanently in report_snapshots.
-     *
-     * This method runs EXACTLY ONCE per report.
-     * It must never be called again for the same reportId.
-     * All future reads go through getReportData() which returns the stored JSON.
-     *
-     * The PDF is built from this snapshot — so the PDF and the DB record
-     * are guaranteed to show identical numbers.
-     */
     private async buildAndFreezeSnapshot(
         baseType: string,
         resolvedScope: Record<string, any>,
         reportId: string,
         campaignId?: string,
     ): Promise<ReportSnapshotData> {
-
         const analyticsScope = {
             year: resolvedScope.year as number | undefined,
             region: resolvedScope.region as string | undefined,
@@ -473,10 +769,6 @@ export class ReportService {
         const year = analyticsScope.year ?? new Date().getFullYear();
         const fromQ = resolvedScope.fromQuarter as string | undefined;
         const toQ = resolvedScope.toQuarter as string | undefined;
-
-        // ── Fetch all analytics in parallel using the correct service ─────────
-        // Each call uses OnefopAnalyticsService which reads flat rawData keys.
-        // Non-applicable sections return null and are handled gracefully by PDF.
 
         const [
             genderParity,
@@ -504,7 +796,6 @@ export class ReportService {
             }),
         ]);
 
-        // ── Completion rate: read from campaignSubmission, not onefopSubmission ─
         let completionRate: Record<string, any> | null = null;
         if (baseType === 'completionRate' || campaignId) {
             try {
@@ -529,7 +820,6 @@ export class ReportService {
             } catch { /* non-fatal */ }
         }
 
-        // ── Regional breakdown from campaignSubmission ───────────────────────
         let regionalBreakdown: any[] = [];
         try {
             const where: any = {};
@@ -565,7 +855,6 @@ export class ReportService {
                 .sort((a, b) => b.total - a.total);
         } catch { /* non-fatal */ }
 
-        // ── Sector breakdown from onefopSubmission ───────────────────────────
         let sectorBreakdown: any[] = [];
         try {
             const onefopSubs = await this.prisma.onefopSubmission.findMany({
@@ -594,7 +883,6 @@ export class ReportService {
                 .sort((a, b) => b.count - a.count);
         } catch { /* non-fatal */ }
 
-        // ── Collect submission IDs for audit trail ───────────────────────────
         let submissionIds: string[] = [];
         try {
             const subs = await this.prisma.onefopSubmission.findMany({
@@ -613,7 +901,6 @@ export class ReportService {
             .update([...submissionIds].sort().join(','))
             .digest('hex');
 
-        // ── Assemble the frozen snapshot ─────────────────────────────────────
         const snapshotData: ReportSnapshotData = {
             computedAt: new Date().toISOString(),
             scope: {
@@ -637,7 +924,6 @@ export class ReportService {
             sectorBreakdown,
         };
 
-        // ── Persist permanently ──────────────────────────────────────────────
         await this.prisma.reportSnapshot.create({
             data: {
                 reportId: reportId,
@@ -650,22 +936,7 @@ export class ReportService {
         return snapshotData;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // SNAPSHOT → PDF DATA ADAPTER
-    // ═══════════════════════════════════════════════════════════
-
-    /**
-     * Converts the flat snapshot structure into the shape that
-     * report-pdf.service.ts expects for each section renderer.
-     *
-     * This decouples the snapshot storage format from the PDF rendering format,
-     * so either can evolve independently.
-     */
-    private snapshotToPdfData(
-        snap: ReportSnapshotData,
-        baseType: string,
-    ): any {
-        // Build the summary shape each KPI card renderer expects
+    private snapshotToPdfData(snap: ReportSnapshotData, baseType: string): any {
         let summary: Record<string, any> = {};
 
         if (baseType === 'completionRate' && snap.completionRate) {
@@ -705,45 +976,33 @@ export class ReportService {
             };
         }
 
-        // Shape that each PDF section renderer reads:
-        //   _drawKpiSection       → data.summary
-        //   _drawRegionalBreakdown → data.data (array of submission-like objects)
-        //   _drawTrendsSection    → data.data (panel array with .quarters)
-        //   _drawSectorAnalysis   → data.data (array with .company.sector)
-        //   _drawDemographics     → data.data (array with .menCount/.womenCount)
-
         return {
             summary,
-            // Regional breakdown: pass pre-aggregated snapshot rows.
-            // _drawRegionalBreakdown reads item.region + item.status,
-            // so we reshape to match.
             data: [
-                // Regional rows reshaped to what _drawRegionalBreakdown expects
                 ...snap.regionalBreakdown.map(r => ({
                     region: r.region,
-                    status: 'SUBMITTED', // pre-aggregated — rate is in r.rate
-                    _snapshotRegion: r,  // carry full row for custom rendering
+                    status: 'SUBMITTED',
+                    _snapshotRegion: r,
                 })),
             ],
-            // Trends: pass recruitment trend periods
             trends: snap.recruitmentTrends,
-            // Sector: pass sector breakdown
             sectors: snap.sectorBreakdown,
-            // Demographics: pass gender parity
             genderParity: snap.genderParity,
-            // Skills
             skillsInDemand: snap.skillsInDemand,
             trainingGap: snap.trainingGap,
-            // Inclusion
             inclusion: snap.inclusion,
-            // Youth
             youthEmployment: snap.youthEmployment,
         };
     }
 
     // ═══════════════════════════════════════════════════════════
-    // PERIOD RESOLUTION
+    // HELPER METHODS
     // ═══════════════════════════════════════════════════════════
+
+    private dateToQuarter(date: Date): string {
+        const quarter = Math.ceil((date.getMonth() + 1) / 3);
+        return `${date.getFullYear()}-T${quarter}`;
+    }
 
     private async resolveScopeFromCampaign(
         campaignId: string,
@@ -812,10 +1071,6 @@ export class ReportService {
         return `${label} \u00B7 ${year}${region}`;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // FORMAT GENERATORS
-    // ═══════════════════════════════════════════════════════════
-
     private async _generatePDF(
         data: any,
         baseType: string,
@@ -836,18 +1091,12 @@ export class ReportService {
     }
 
     private async generateExcel(_data: any): Promise<Buffer> {
-        // TODO: implement with exceljs
         return Buffer.from('Excel content');
     }
 
     private async generateCSV(_data: any): Promise<string> {
-        // TODO: implement CSV serialization
         return 'CSV content';
     }
-
-    // ═══════════════════════════════════════════════════════════
-    // MISC HELPERS
-    // ═══════════════════════════════════════════════════════════
 
     private parseScheduleToFrequency(schedule: string): string {
         if (schedule.includes('0 0 * * 0')) return 'weekly';

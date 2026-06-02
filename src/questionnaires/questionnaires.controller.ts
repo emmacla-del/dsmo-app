@@ -1,5 +1,4 @@
 ﻿// questionnaires.controller.ts
-
 import {
   Controller,
   Post,
@@ -8,6 +7,8 @@ import {
   HttpStatus,
   UsePipes,
   ValidationPipe,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { QuestionnairesService } from './questionnaires.service';
@@ -20,7 +21,7 @@ import {
   diagnoseMappingKeys,
 } from '../services/pdf-data-mapper.service';
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
-
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @Controller('onefop')
 export class QuestionnairesController {
   constructor(
@@ -110,6 +111,7 @@ export class QuestionnairesController {
   }
 
   @Post('submit')
+  @UseGuards(JwtAuthGuard)
   @UsePipes(
     new ValidationPipe({
       transform: false,
@@ -120,7 +122,8 @@ export class QuestionnairesController {
       forbidNonWhitelisted: false,
     }),
   )
-  async submit(@Body() dto: any) {
-    return this.service.submitQuestionnaire(dto);
+  async submit(@Body() dto: any, @Req() req: any) {
+    // Inject userId from token instead of relying on dto.userId
+    return this.service.submitQuestionnaire({ ...dto, userId: req.user.id });
   }
 }
