@@ -18,6 +18,10 @@ const questionnaires_module_1 = require("./questionnaires/questionnaires.module"
 const onefop_analytics_module_1 = require("./analytics/onefop-analytics.module");
 const pdf_module_1 = require("./pdf/pdf.module");
 const analytics_module_1 = require("./analytics/analytics.module");
+const onefop_module_1 = require("./onefop/onefop.module");
+const campaign_module_1 = require("./campaign/campaign.module");
+const report_module_1 = require("./report/report.module");
+const data_management_module_1 = require("./data-management/data-management.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -34,6 +38,10 @@ exports.AppModule = AppModule = __decorate([
             onefop_analytics_module_1.OnefopAnalyticsModule,
             pdf_module_1.PdfModule,
             analytics_module_1.AnalyticsModule,
+            onefop_module_1.OnefopModule,
+            campaign_module_1.CampaignModule,
+            report_module_1.ReportModule,
+            data_management_module_1.DataManagementModule,
         ],
     })
 ], AppModule);

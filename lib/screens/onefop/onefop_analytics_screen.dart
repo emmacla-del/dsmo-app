@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../data/api_client.dart';
 import '../../features/analytics/widgets/common_cards.dart';
 
@@ -189,6 +188,8 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      // Live data disclaimer + archive shortcut
+                      _buildLiveBanner(),
                       // Summary KPIs
                       _buildKpiRow(),
                       const SizedBox(height: 16),
@@ -211,7 +212,11 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                       _buildSkillsSection(),
                       const SizedBox(height: 24),
                       // Gender, youth, inclusion
+                      // Gender, youth, inclusion
                       _buildSocialMetricsSection(),
+                      const SizedBox(height: 16),
+                      // Shortcut to freeze current view as an official report
+                      _buildArchiveShortcut(),
                     ],
                   ),
                 ),
@@ -308,9 +313,15 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
       children: [
         Text(label, style: textMono(11, color: TextColor.muted)),
         const SizedBox(height: 4),
-        Text(value,
-            style: GoogleFonts.dmMono(
-                fontSize: 22, fontWeight: FontWeight.w700, color: accent)),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: accent,
+          ),
+        ),
       ],
     );
   }
@@ -338,8 +349,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const Icon(Icons.wifi_off_rounded,
                 size: 56, color: TextColor.muted),
             const SizedBox(height: 16),
-            Text('Connexion impossible',
-                style: GoogleFonts.dmSans(
+            const Text('Connexion impossible',
+                style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: TextColor.primary)),
@@ -779,6 +791,70 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                       style: textMono(11, color: TextColor.primary))),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF5E7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE67E22), width: 0.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline_rounded,
+              size: 16, color: Color(0xFF854F0B)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Données en temps réel — $_selectedYear'
+              '${_selectedRegion != null ? ' · $_selectedRegion' : ''}. '
+              'Les chiffres reflètent l\'état actuel de la base et peuvent '
+              'différer des rapports officiels archivés.',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                color: Color(0xFF854F0B),
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArchiveShortcut() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: OutlinedButton.icon(
+        onPressed: () {
+          // Pre-fill ReportScreen wizard with current filters.
+          // Adjust the route name to match your Navigator setup.
+          Navigator.pushNamed(context, '/reports', arguments: {
+            'year': _selectedYear,
+            'region': _selectedRegion,
+            'department': _selectedDepartment,
+            'subdivision': _selectedSubdivision,
+          });
+        },
+        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+        label: const Text(
+          'Archiver ces données en rapport officiel',
+          style: TextStyle(fontFamily: 'Inter', fontSize: 12),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF0F6E56),
+          side: const BorderSide(color: Color(0xFF1D9E75), width: 0.5),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );

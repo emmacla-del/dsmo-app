@@ -46,6 +46,9 @@ class SubmitResult {
 class OnefopFormController extends ChangeNotifier {
   // ── Constructor params ────────────────────────────────────
   final EntityType entityType;
+  final String? establishmentId;
+  final String? companyId; // ← ADD THIS
+  final String? quarterCode;
   final void Function(Map<String, dynamic>) onSave;
   final VoidCallback? onCancel;
   final String? userId;
@@ -54,11 +57,23 @@ class OnefopFormController extends ChangeNotifier {
   OnefopFormController({
     required this.entityType,
     required Map<String, dynamic> initialData,
+    this.establishmentId,
+    this.companyId, // ← ADD THIS
+    this.quarterCode,
     required this.onSave,
     this.onCancel,
     this.userId,
     this.onSubmitSuccess,
   }) : _data = sanitiseInitialData(Map.from(initialData));
+  // ── NEW: Extract __meta fields from initialData ───────────
+  String? get _metaEstablishmentId =>
+      establishmentId ?? _data['__meta_establishment_id'] as String?;
+  String? get _metaTaxNumber => _data['__meta_tax_number'] as String?;
+  String? get _metaCnpsNumber => _data['__meta_cnps_number'] as String?;
+  String? get _metaRegistrationNumber =>
+      _data['__meta_registration_number'] as String?;
+  String? get _metaQuarterCode =>
+      quarterCode ?? _data['__meta_quarter_code'] as String?;
 
   // ── Schema / Engine ─────────────────────────────────────────
   NavigationEngine? _engine;
@@ -154,7 +169,7 @@ class OnefopFormController extends ChangeNotifier {
   Future<void> _loadSchema() async {
     try {
       final s =
-          await OnefopFormLoader.loadForEntity(entityTypeString(entityType));
+          await OnefopFormLoader.loadForEntity(entityTypeForSchema(entityType));
       _schema = s;
       _engine = NavigationEngine(s);
       _fm = UnifiedFocusManagerV2(_engine!);
@@ -813,7 +828,17 @@ class OnefopFormController extends ChangeNotifier {
               'data': snapshot,
               'entityType': entityTypeString(entityType),
               'userId': userId ?? 'unknown',
-              'formId': 'PREVIEW_${DateTime.now().millisecondsSinceEpoch}',
+              'companyId': companyId,
+              'establishmentId': _metaEstablishmentId,
+              'quarterCode': _metaQuarterCode,
+              'formId':
+                  'PREVIEW_${_metaEstablishmentId}_${DateTime.now().millisecondsSinceEpoch}',
+              '__meta': {
+                'establishmentId': _metaEstablishmentId,
+                'taxNumber': _metaTaxNumber,
+                'cnpsNumber': _metaCnpsNumber,
+                'registrationNumber': _metaRegistrationNumber,
+              },
               'isDraft': true,
             }),
           )
@@ -848,8 +873,18 @@ class OnefopFormController extends ChangeNotifier {
               'data': snapshot,
               'entityType': entityTypeString(entityType),
               'userId': userId ?? 'unknown',
-              'formId': 'ONEFOP_${DateTime.now().millisecondsSinceEpoch}',
-              'isDraft': true,
+              'companyId': companyId,
+              'establishmentId': _metaEstablishmentId,
+              'quarterCode': _metaQuarterCode,
+              'formId':
+                  'ONEFOP_${_metaEstablishmentId}_${_metaQuarterCode}_${DateTime.now().millisecondsSinceEpoch}',
+              '__meta': {
+                'establishmentId': _metaEstablishmentId,
+                'taxNumber': _metaTaxNumber,
+                'cnpsNumber': _metaCnpsNumber,
+                'registrationNumber': _metaRegistrationNumber,
+              },
+              'isDraft': false,
             }),
           )
           .timeout(const Duration(seconds: 60));

@@ -821,6 +821,9 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // STEP 3 — load exact service units under selected parent
+  // ─────────────────────────────────────────────────────────────
   Future<void> _loadServiceUnits() async {
     if (_selectedParentUnit == null || _selectedPositionType == null) return;
     setState(() {
@@ -840,22 +843,10 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
       final List<dynamic> data = response.data is List ? response.data : [];
       if (mounted) {
         setState(() {
-          _serviceUnits = data
-              .map((e) => {
-                    'code': e['code'] as String,
-                    'name': e['name'] as String? ?? '',
-                    'acronym': e['acronym'] as String? ?? '',
-                    'displayName': e['displayName'] as String? ??
-                        ((e['acronym'] != null &&
-                                (e['acronym'] as String).isNotEmpty)
-                            ? '${e['acronym']} — ${e['name']}'
-                            : e['name'] as String? ?? ''),
-                    'positionTitle': e['positionTitle'] as String? ?? '',
-                  })
-              .toList();
+          _serviceUnits = data.map((e) => _parseServiceUnit(e)).toList();
           _loadingServiceUnits = false;
         });
-        // Restore draft
+        // Restore draft after loading service units (if not already restored)
         if (widget.initialServiceCode.isNotEmpty) {
           final match = _serviceUnits.firstWhere(
               (s) => s['code'] == widget.initialServiceCode,
@@ -873,7 +864,34 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // DRAFT RESTORATION – fast path + fallback
+  // ─────────────────────────────────────────────────────────────
   Future<void> _restoreSelectionFromDraft() async {
+    // Fast path: resolve-position endpoint (1 call)
+    final (parentCode, serviceUnit) =
+        await _resolvePositionFast(widget.initialServiceCode);
+    if (parentCode != null && serviceUnit != null) {
+      final parent = _parentUnits.firstWhere(
+        (p) => p['code'] == parentCode,
+        orElse: () => {},
+      );
+      if (parent.isNotEmpty) {
+        setState(() {
+          _selectedParentUnit = parent;
+          final unit = _parseServiceUnit(serviceUnit);
+          _serviceUnits = [unit];
+          _selectedServiceUnit = unit;
+          _resolvedJobTitle = unit['positionTitle'] as String? ?? '';
+        });
+        _notify();
+        // Optionally load full sibling list in background
+        _loadServiceUnits();
+        return;
+      }
+    }
+
+    // Fallback: linear scan over parents
     for (final parent in _parentUnits) {
       try {
         final response = await ref.read(apiClientProvider).get(
@@ -890,19 +908,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
         if (match != null && mounted) {
           setState(() {
             _selectedParentUnit = parent;
-            _serviceUnits = data
-                .map((e) => {
-                      'code': e['code'] as String,
-                      'name': e['name'] as String? ?? '',
-                      'acronym': e['acronym'] as String? ?? '',
-                      'displayName': e['displayName'] as String? ??
-                          ((e['acronym'] != null &&
-                                  (e['acronym'] as String).isNotEmpty)
-                              ? '${e['acronym']} — ${e['name']}'
-                              : e['name'] as String? ?? ''),
-                      'positionTitle': e['positionTitle'] as String? ?? '',
-                    })
-                .toList();
+            _serviceUnits = data.map((e) => _parseServiceUnit(e)).toList();
             _selectedServiceUnit = _serviceUnits.firstWhere(
                 (s) => s['code'] == widget.initialServiceCode,
                 orElse: () => {});
@@ -923,6 +929,50 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     }
   }
 
+  /// Try to resolve the saved service code via the dedicated endpoint.
+  /// Returns (parentCode, serviceUnit) if successful, else (null, null).
+  Future<(String?, Map<String, dynamic>?)> _resolvePositionFast(
+      String serviceCode) async {
+    try {
+      final response = await ref.read(apiClientProvider).get(
+        '/minefop-services/resolve-position',
+        queryParameters: {'serviceCode': serviceCode},
+      );
+      final data = response.data as Map<String, dynamic>?;
+      if (data != null &&
+          data['parentCode'] != null &&
+          data['serviceUnit'] != null) {
+        final parentCode = data['parentCode'] as String;
+        final serviceUnit = data['serviceUnit'] as Map<String, dynamic>;
+        return (parentCode, serviceUnit);
+      }
+      return (null, null);
+    } catch (e) {
+      debugPrint('resolve-position failed, will fallback to scan: $e');
+      return (null, null);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // HELPERS – parse service unit from backend response
+  // ─────────────────────────────────────────────────────────────
+  Map<String, dynamic> _parseServiceUnit(dynamic e) {
+    final map = e as Map<String, dynamic>;
+    final acronym = map['acronym'] as String? ?? '';
+    final name = map['name'] as String? ?? '';
+    return {
+      'code': map['code'] as String,
+      'name': name,
+      'acronym': acronym,
+      'displayName': map['displayName'] as String? ??
+          (acronym.isNotEmpty ? '$acronym — $name' : name),
+      'positionTitle': map['positionTitle'] as String? ?? '',
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // LOCATION
+  // ─────────────────────────────────────────────────────────────
   Future<void> _loadRegions() async {
     setState(() {
       _loadingRegions = true;
@@ -1195,7 +1245,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
         const FieldLabel(label: 'Fonction / Poste *'),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _selectedPositionType,
+          initialValue: _selectedPositionType,
           isExpanded: true,
           decoration: modernDropdown(),
           hint: const Text('Sélectionnez votre fonction',
@@ -1245,7 +1295,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedParentUnit != null &&
+          initialValue: _selectedParentUnit != null &&
                   (_selectedParentUnit as Map).isNotEmpty
               ? _selectedParentUnit!['code'] as String?
               : null,
@@ -1296,7 +1346,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _selectedServiceUnit != null &&
+          initialValue: _selectedServiceUnit != null &&
                   (_selectedServiceUnit as Map).isNotEmpty
               ? _selectedServiceUnit!['code'] as String?
               : null,
@@ -1428,7 +1478,7 @@ class _LocationFormDropdown extends StatelessWidget {
         const _LoadingBox()
       else
         DropdownButtonFormField<String>(
-          value: resolved != null
+          initialValue: resolved != null
               ? resolved['id'] as String? ?? resolved['name'] as String?
               : null,
           isExpanded: true,

@@ -1,482 +1,730 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/api_client.dart';
-import '../../../providers/auth_provider.dart';
-import '../../../theme/app_colors.dart';
-import 'declaration_approval_screen.dart';
+import '../../../theme/ultra_theme.dart';
+
+// ══════════════════════════════════════════════════════════════
+// DeclarationsListScreen — no redundant gradient banner,
+// compact stat strip, consistent with app-bar context.
+// ══════════════════════════════════════════════════════════════
 
 class DeclarationsListScreen extends ConsumerStatefulWidget {
-  final VoidCallback? onNewSubmission;
-
   const DeclarationsListScreen({super.key, this.onNewSubmission});
+  final VoidCallback? onNewSubmission;
 
   @override
   ConsumerState<DeclarationsListScreen> createState() =>
       _DeclarationsListScreenState();
 }
 
-class _DeclarationsListScreenState
-    extends ConsumerState<DeclarationsListScreen> {
+class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
+    with SingleTickerProviderStateMixin {
   List<dynamic> _declarations = [];
-  bool _isLoading = true;
+  List<dynamic> _filtered = [];
+  bool _loading = true;
   String? _error;
+  String _searchQuery = '';
+  String? _statusFilter;
+  late AnimationController _animCtrl;
+  final _searchCtrl = TextEditingController();
+
+  static const _statusMeta = {
+    'SUBMITTED': (label: 'Soumis', color: Color(0xFF3B82F6)),
+    'DIVISION_APPROVED': (label: 'Div. Approuvé', color: Color(0xFF8B5CF6)),
+    'REGION_APPROVED': (label: 'Rég. Approuvé', color: Color(0xFFF59E0B)),
+    'FINAL_APPROVED': (label: 'Approuvé', color: Color(0xFF10B981)),
+    'REJECTED': (label: 'Rejeté', color: Color(0xFFEF4444)),
+  };
+
+  // ── stat helpers ──────────────────────────────────────────
+  int get _total => _declarations.length;
+  int get _pending =>
+      _declarations.where((d) => d['status'] == 'SUBMITTED').length;
+  int get _approved =>
+      _declarations.where((d) => d['status'] == 'FINAL_APPROVED').length;
+  int get _rejected =>
+      _declarations.where((d) => d['status'] == 'REJECTED').length;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _animCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 450));
+    _loadDeclarations();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDeclarations() async {
     setState(() {
-      _isLoading = true;
+      _loading = true;
       _error = null;
     });
     try {
       final api = ref.read(apiClientProvider);
-      final user = ref.read(authProvider).valueOrNull;
-      final isCompany = user?.role == 'COMPANY';
-      final path =
-          isCompany ? '/dsmo/declarations' : '/dsmo/declarations/pending';
-      final resp = await api.get(path);
-      if (!mounted) return;
+      final resp = await api.get('/dsmo/declarations');
       setState(() {
-        _declarations = resp.data is List ? resp.data as List : [];
-        _isLoading = false;
+        _declarations = resp.data as List? ?? [];
+        _loading = false;
+        _applyFilters();
       });
+      _animCtrl.forward(from: 0);
     } catch (e) {
-      if (!mounted) return;
       setState(() {
         _error = e.toString();
-        _isLoading = false;
+        _loading = false;
       });
     }
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'SUBMITTED':
-        return Colors.orange;
-      case 'DIVISION_APPROVED':
-        return Colors.blue;
-      case 'REGION_APPROVED':
-        return Colors.indigo;
-      case 'FINAL_APPROVED':
-        return Colors.green;
-      case 'REJECTED':
-        return Colors.red;
-      default:
-        return Colors.grey;
+  void _applyFilters() {
+    setState(() {
+      _filtered = _declarations.where((d) {
+        final name =
+            ((d['companyName'] ?? d['name'] ?? '') as String).toLowerCase();
+        final matchSearch =
+            _searchQuery.isEmpty || name.contains(_searchQuery.toLowerCase());
+        final matchStatus =
+            _statusFilter == null || (d['status'] as String?) == _statusFilter;
+        return matchSearch && matchStatus;
+      }).toList();
+    });
+  }
+
+  Future<void> _updateStatus(String id, String status) async {
+    try {
+      final api = ref.read(apiClientProvider);
+      await api
+          .patch('/dsmo/declarations/$id/status', data: {'status': status});
+      if (!mounted) return;
+      _loadDeclarations();
+      _toast(
+        status == 'FINAL_APPROVED'
+            ? 'Déclaration approuvée'
+            : 'Déclaration rejetée',
+        status == 'FINAL_APPROVED' ? UltraTheme.success : UltraTheme.error,
+        status == 'FINAL_APPROVED'
+            ? Icons.check_circle_rounded
+            : Icons.cancel_rounded,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _toast('Erreur: $e', UltraTheme.error, Icons.error_rounded);
     }
   }
 
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'SUBMITTED':
-        return 'Soumise';
-      case 'DIVISION_APPROVED':
-        return 'Approuvée — Division';
-      case 'REGION_APPROVED':
-        return 'Approuvée — Région';
-      case 'FINAL_APPROVED':
-        return 'Approuvée — Finale';
-      case 'REJECTED':
-        return 'Rejetée';
-      case 'DRAFT':
-        return 'Brouillon';
-      default:
-        return status;
-    }
+  void _toast(String msg, Color color, IconData icon) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Text(msg,
+                style: const TextStyle(
+                    fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+      ]),
+      backgroundColor: const Color(0xFF1E293B),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(16),
+    ));
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).valueOrNull;
-    final isCompany = user?.role == 'COMPANY';
+    return Scaffold(
+      backgroundColor: UltraTheme.background,
+      body: Column(children: [
+        // ── Compact stat strip (replaces gradient banner) ────
+        if (!_loading && _error == null) _buildStatStrip(),
+        // ── Filters ─────────────────────────────────────────
+        if (!_loading && _error == null) ...[
+          _buildSearchBar(),
+          _buildStatusChips(),
+        ],
+        // ── Content ─────────────────────────────────────────
+        Expanded(child: _buildBody()),
+      ]),
+      floatingActionButton: widget.onNewSubmission != null
+          ? FloatingActionButton.extended(
+              onPressed: widget.onNewSubmission,
+              backgroundColor: UltraTheme.primary,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Nouvelle',
+                  style: TextStyle(
+                      fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            )
+          : null,
+    );
+  }
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  // ── Stat strip ────────────────────────────────────────────
+  Widget _buildStatStrip() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Row(children: [
+        _StatPill(value: _total, label: 'Total', color: UltraTheme.primary),
+        const SizedBox(width: 8),
+        _StatPill(
+            value: _pending,
+            label: 'En attente',
+            color: const Color(0xFF3B82F6)),
+        const SizedBox(width: 8),
+        _StatPill(
+            value: _approved,
+            label: 'Approuvées',
+            color: const Color(0xFF10B981)),
+        const SizedBox(width: 8),
+        _StatPill(
+            value: _rejected,
+            label: 'Rejetées',
+            color: const Color(0xFFEF4444)),
+        const Spacer(),
+        _RefreshButton(onTap: _loadDeclarations),
+      ]),
+    );
+  }
 
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 56),
-              const SizedBox(height: 16),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Réessayer'),
-              ),
-            ],
+  // ── Search bar ────────────────────────────────────────────
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: TextField(
+        controller: _searchCtrl,
+        onChanged: (v) {
+          _searchQuery = v;
+          _applyFilters();
+        },
+        style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Rechercher une entreprise...',
+          hintStyle: const TextStyle(
+              fontFamily: 'Inter', fontSize: 14, color: UltraTheme.textMuted),
+          prefixIcon: const Icon(Icons.search_rounded,
+              size: 20, color: UltraTheme.textMuted),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: UltraTheme.textMuted),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    _searchQuery = '';
+                    _applyFilters();
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: UltraTheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
           ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: UltraTheme.primary, width: 1.5),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    if (_declarations.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.inbox_outlined, size: 72, color: AppColors.ghost),
-            const SizedBox(height: 16),
-            Text(
-              isCompany
-                  ? 'Aucune déclaration soumise'
-                  : 'Aucune déclaration en attente',
-              style: const TextStyle(fontSize: 16, color: AppColors.slate),
-            ),
-            const SizedBox(height: 8),
-            if (isCompany && widget.onNewSubmission != null)
-              ElevatedButton.icon(
-                onPressed: widget.onNewSubmission,
-                icon: const Icon(Icons.add),
-                label: const Text('Nouvelle soumission'),
-              ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
+  // ── Status chips ──────────────────────────────────────────
+  Widget _buildStatusChips() {
+    final all = [null, ..._statusMeta.keys];
+    return SizedBox(
+      height: 52,
       child: ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: _declarations.length +
-            (isCompany && widget.onNewSubmission != null ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          // Header button for new submission (first item, company only)
-          if (isCompany && widget.onNewSubmission != null && index == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: widget.onNewSubmission,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Nouvelle soumission'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.deepEmerald,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
-                  ),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+        scrollDirection: Axis.horizontal,
+        itemCount: all.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final s = all[i];
+          final isActive = _statusFilter == s;
+          final meta = s != null ? _statusMeta[s] : null;
+          final color = meta?.color ?? UltraTheme.primary;
+          final label = meta?.label ?? 'Tous';
+          return GestureDetector(
+            onTap: () {
+              setState(() => _statusFilter = s);
+              _applyFilters();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: isActive ? color : UltraTheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isActive
+                      ? color
+                      : UltraTheme.textMuted.withValues(alpha: 0.2),
                 ),
               ),
-            );
-          }
-
-          final actualIndex =
-              isCompany && widget.onNewSubmission != null ? index - 1 : index;
-          final d = _declarations[actualIndex] as Map<String, dynamic>;
-          final company = (d['company'] as Map<String, dynamic>?) ?? {};
-          final status = d['status'] as String? ?? '';
-          final employees = (d['employees'] as List?) ?? [];
-          final rejectionReason = d['rejectionReason'] as String?;
-
-          final isDraft = isCompany && status == 'DRAFT';
-          final showTimeline = isCompany && status != 'DRAFT';
-
-          return Card(
-            elevation: isDraft ? 3 : 2,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: isDraft
-                    ? const BorderSide(color: Colors.orange, width: 1.5)
-                    : status == 'REJECTED'
-                        ? const BorderSide(color: Colors.red, width: 1.5)
-                        : BorderSide.none),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () async {
-                final result = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DeclarationApprovalScreen(
-                      declarationId: d['id'] as String,
-                      isReadOnly: isCompany,
-                    ),
-                  ),
-                );
-                if (result == true) _load();
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: isDraft
-                                ? Colors.orange.withAlpha(25)
-                                : status == 'REJECTED'
-                                    ? Colors.red.withAlpha(25)
-                                    : AppColors.deepEmerald.withAlpha(25),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                              isDraft
-                                  ? Icons.edit_note
-                                  : status == 'REJECTED'
-                                      ? Icons.cancel_outlined
-                                      : Icons.business,
-                              color: isDraft
-                                  ? Colors.orange
-                                  : status == 'REJECTED'
-                                      ? Colors.red
-                                      : AppColors.deepEmerald),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                company['name'] as String? ??
-                                    'Entreprise inconnue',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 15),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                [
-                                  'Année ${d['year']}',
-                                  if ((company['region'] ?? d['region']) !=
-                                      null)
-                                    company['region'] ?? d['region'],
-                                  if ((company['subdivision'] as String?)
-                                          ?.isNotEmpty ==
-                                      true)
-                                    company['subdivision'],
-                                ].join('  •  '),
-                                style: const TextStyle(
-                                    color: AppColors.slate, fontSize: 12),
-                              ),
-                              if ((company['taxNumber'] as String?)
-                                      ?.isNotEmpty ==
-                                  true) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  'NIU: ${company['taxNumber']}'
-                                  '${company['totalEmployees'] != null ? '  •  ${company['totalEmployees']} employé(s)' : employees.isNotEmpty ? '  •  ${employees.length} employé(s)' : ''}',
-                                  style: const TextStyle(
-                                      color: AppColors.silver, fontSize: 11),
-                                ),
-                              ],
-                              const SizedBox(height: 6),
-                              _StatusBadge(
-                                label: _statusLabel(status),
-                                color: _statusColor(status),
-                              ),
-                              if (isDraft) ...[
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Appuyez pour reprendre et soumettre',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.orange,
-                                      fontStyle: FontStyle.italic),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Icon(
-                            isDraft ? Icons.arrow_forward : Icons.chevron_right,
-                            color: isDraft ? Colors.orange : AppColors.silver),
-                      ],
-                    ),
-
-                    // ── Approval chain timeline (companies only, non-draft) ──
-                    if (showTimeline) ...[
-                      const SizedBox(height: 14),
-                      const Divider(height: 1),
-                      const SizedBox(height: 12),
-                      _ApprovalTimeline(status: status),
-                    ],
-
-                    // ── Rejection reason ────────────────────────────────────
-                    if (status == 'REJECTED' &&
-                        rejectionReason != null &&
-                        rejectionReason.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.info_outline,
-                                color: Colors.red, size: 16),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Motif : $rejectionReason',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.red.shade700),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              child: Text(label,
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isActive ? Colors.white : UltraTheme.textMuted)),
             ),
           );
         },
       ),
     );
   }
-}
 
-// ── Approval chain timeline ─────────────────────────────────────────────────
-
-class _ApprovalTimeline extends StatelessWidget {
-  final String status;
-
-  const _ApprovalTimeline({required this.status});
-
-  // Returns 0-based index of the last completed step.
-  // -1 means none completed yet (SUBMITTED = step 0 in progress).
-  int get _completedUpTo {
-    switch (status) {
-      case 'SUBMITTED':
-        return 0; // step 0 done (submitted)
-      case 'DIVISION_APPROVED':
-        return 1;
-      case 'REGION_APPROVED':
-        return 2;
-      case 'FINAL_APPROVED':
-        return 3;
-      case 'REJECTED':
-        return -1; // will be handled separately
-      default:
-        return -1;
+  // ── Body ─────────────────────────────────────────────────
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation(UltraTheme.primary)));
     }
+    if (_error != null) return _buildError();
+    if (_filtered.isEmpty) return _buildEmpty();
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+      itemCount: _filtered.length,
+      itemBuilder: (_, i) {
+        return AnimatedBuilder(
+          animation: _animCtrl,
+          builder: (_, child) {
+            final delay = (i * 0.06).clamp(0.0, 0.5);
+            final t = ((_animCtrl.value - delay) / (1 - delay)).clamp(0.0, 1.0);
+            final curve = Curves.easeOutCubic.transform(t);
+            return Opacity(
+              opacity: curve,
+              child: Transform.translate(
+                  offset: Offset(0, 16 * (1 - curve)), child: child),
+            );
+          },
+          child: _buildDeclarationCard(_filtered[i]),
+        );
+      },
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const steps = ['Soumise', 'Division', 'Région', 'Central'];
-    final done = _completedUpTo;
-    final isRejected = status == 'REJECTED';
+  // ── Declaration card ──────────────────────────────────────
+  Widget _buildDeclarationCard(Map<String, dynamic> d) {
+    final name = (d['companyName'] ?? d['name'] ?? 'Entreprise') as String;
+    final status = (d['status'] as String?) ?? 'SUBMITTED';
+    final meta =
+        _statusMeta[status] ?? (label: status, color: UltraTheme.textMuted);
+    final region = d['region'] as String?;
+    final dept = d['department'] as String?;
+    final year = d['year']?.toString() ?? d['declarationYear']?.toString();
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    return Row(
-      children: List.generate(steps.length * 2 - 1, (i) {
-        // Odd indices are connectors
-        if (i.isOdd) {
-          final stepIndex = i ~/ 2;
-          final lineComplete = done >= stepIndex + 1;
-          return Expanded(
-            child: Container(
-              height: 2,
-              color: isRejected
-                  ? Colors.red.shade200
-                  : lineComplete
-                      ? Colors.green
-                      : Colors.grey.shade300,
-            ),
-          );
-        }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: UltraTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showDeclarationSheet(d),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              // Initial avatar
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: meta.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Center(
+                  child: Text(initial,
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          color: meta.color,
+                          fontSize: 17)),
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: UltraTheme.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        if (region != null) ...[
+                          const Icon(Icons.location_on_outlined,
+                              size: 12, color: UltraTheme.textMuted),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                                [region, if (dept != null) dept].join(' · '),
+                                style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    color: UltraTheme.textMuted),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                        if (year != null) ...[
+                          if (region != null) const SizedBox(width: 8),
+                          const Icon(Icons.calendar_today_outlined,
+                              size: 12, color: UltraTheme.textMuted),
+                          const SizedBox(width: 3),
+                          Text(year,
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: UltraTheme.textMuted)),
+                        ],
+                      ]),
+                    ]),
+              ),
+              const SizedBox(width: 10),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: meta.color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(meta.label,
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: meta.color)),
+                ),
+                const SizedBox(height: 6),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 18, color: UltraTheme.textMuted),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 
-        final stepIndex = i ~/ 2;
-        final isComplete = !isRejected && done >= stepIndex;
-        final isActive = !isRejected && done == stepIndex - 1 + 1;
+  // ── Detail sheet ──────────────────────────────────────────
+  void _showDeclarationSheet(Map<String, dynamic> d) {
+    final name = (d['companyName'] ?? d['name'] ?? 'Entreprise') as String;
+    final status = (d['status'] as String?) ?? 'SUBMITTED';
+    final id = d['id'] as String? ?? '';
+    final isPending = status == 'SUBMITTED' || status == 'REGION_APPROVED';
 
-        Color nodeColor;
-        Widget nodeIcon;
-
-        if (isRejected) {
-          nodeColor = Colors.red.shade100;
-          nodeIcon = Icon(Icons.close, size: 12, color: Colors.red.shade400);
-        } else if (isComplete) {
-          nodeColor = Colors.green;
-          nodeIcon = const Icon(Icons.check, size: 12, color: Colors.white);
-        } else if (isActive) {
-          nodeColor = Colors.orange;
-          nodeIcon = const Icon(Icons.schedule, size: 12, color: Colors.white);
-        } else {
-          nodeColor = Colors.grey.shade300;
-          nodeIcon = Icon(Icons.circle, size: 6, color: Colors.grey.shade400);
-        }
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        maxChildSize: 0.85,
+        minChildSize: 0.4,
+        builder: (_, ctrl) => Container(
+          decoration: const BoxDecoration(
+            color: UltraTheme.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(children: [
             Container(
-              width: 22,
-              height: 22,
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
               decoration: BoxDecoration(
-                color: nodeColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(child: nodeIcon),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              steps[stepIndex],
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: isComplete ? FontWeight.w600 : FontWeight.normal,
-                color: isRejected
-                    ? Colors.red.shade400
-                    : isComplete
-                        ? Colors.green.shade700
-                        : Colors.grey.shade500,
+                color: UltraTheme.textMuted.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ],
-        );
-      }),
+            Expanded(
+              child: ListView(
+                controller: ctrl,
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                children: [
+                  Text(name,
+                      style: UltraTheme.displayMedium.copyWith(fontSize: 20)),
+                  const SizedBox(height: 16),
+                  ...d.entries
+                      .where((e) =>
+                          e.value != null &&
+                          e.value.toString().isNotEmpty &&
+                          !['id', '__v'].contains(e.key))
+                      .map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 120,
+                                    child: Text(e.key,
+                                        style: const TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 12,
+                                            color: UltraTheme.textMuted)),
+                                  ),
+                                  Expanded(
+                                    child: Text(e.value.toString(),
+                                        style: const TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: UltraTheme.textPrimary)),
+                                  ),
+                                ]),
+                          )),
+                  if (isPending) ...[
+                    const SizedBox(height: 24),
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _updateStatus(id, 'REJECTED');
+                          },
+                          icon: const Icon(Icons.close_rounded, size: 16),
+                          label: const Text('Rejeter'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: UltraTheme.error,
+                            side: BorderSide(
+                                color: UltraTheme.error.withValues(alpha: 0.4)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _updateStatus(id, 'FINAL_APPROVED');
+                          },
+                          icon: const Icon(Icons.check_rounded, size: 16),
+                          label: const Text('Approuver'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: UltraTheme.success,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ],
+                ],
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ── Empty / Error states ──────────────────────────────────
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: UltraTheme.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Icon(Icons.inbox_rounded,
+              size: 40, color: UltraTheme.primary.withValues(alpha: 0.6)),
+        ),
+        const SizedBox(height: 20),
+        Text(
+            _searchQuery.isNotEmpty || _statusFilter != null
+                ? 'Aucun résultat'
+                : 'Aucune déclaration en attente',
+            style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: UltraTheme.textPrimary)),
+        const SizedBox(height: 8),
+        Text(
+            _searchQuery.isNotEmpty || _statusFilter != null
+                ? "Essayez d'autres critères de recherche"
+                : 'Les déclarations soumises apparaîtront ici',
+            style: const TextStyle(
+                fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
+            textAlign: TextAlign.center),
+        if (_searchQuery.isNotEmpty || _statusFilter != null) ...[
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () {
+              _searchCtrl.clear();
+              _searchQuery = '';
+              _statusFilter = null;
+              _applyFilters();
+            },
+            child: const Text('Effacer les filtres'),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: UltraTheme.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Icon(Icons.cloud_off_rounded,
+              size: 36, color: UltraTheme.error),
+        ),
+        const SizedBox(height: 16),
+        const Text('Erreur de chargement',
+            style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: UltraTheme.textPrimary)),
+        const SizedBox(height: 8),
+        Text(_error ?? '',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: UltraTheme.textMuted)),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: _loadDeclarations,
+          icon: const Icon(Icons.refresh_rounded, size: 16),
+          label: const Text('Réessayer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: UltraTheme.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ]),
     );
   }
 }
 
-// ── Status badge ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// Private helper widgets (shared pattern with pending_list_screen)
+// ══════════════════════════════════════════════════════════════
 
-class _StatusBadge extends StatelessWidget {
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+  final int value;
   final String label;
   final Color color;
-
-  const _StatusBadge({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(150)),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: color.withValues(alpha: 0.75),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _RefreshButton extends StatelessWidget {
+  const _RefreshButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: UltraTheme.surface,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            border:
+                Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.refresh_rounded,
+              size: 18, color: UltraTheme.textSecondary),
         ),
       ),
     );

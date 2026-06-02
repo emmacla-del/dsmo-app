@@ -1213,6 +1213,7 @@ const s3q02 = FormQuestionAst(
 
 // FIX-2: 3 text fields only — matches the 3 PDF rows exactly.
 //         s3q02_reason_4_text has been removed.
+// ignore: constant_identifier_names
 const s3q02_reason_1_text = FormQuestionAst(
   id: "S3Q02_REASON_1_TEXT",
   paperCode: "S3Q02",

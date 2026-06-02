@@ -177,7 +177,7 @@ class EntityConfig {
       data['centerName'],
     ];
     for (final c in candidates) {
-      if (c != null && (c as String).trim().isNotEmpty) return c as String;
+      if (c != null && (c as String).trim().isNotEmpty) return c;
     }
     return fallback;
   }
@@ -189,7 +189,7 @@ class EntityConfig {
       data['cooperativeHeadOffice'],
     ];
     for (final c in candidates) {
-      if (c != null && (c as String).trim().isNotEmpty) return c as String;
+      if (c != null && (c as String).trim().isNotEmpty) return c;
     }
     return '';
   }
@@ -202,7 +202,7 @@ class EntityConfig {
       data['trainingDomains'],
     ];
     for (final c in candidates) {
-      if (c != null && (c as String).trim().isNotEmpty) return c as String;
+      if (c != null && (c as String).trim().isNotEmpty) return c;
     }
     return '';
   }

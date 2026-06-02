@@ -31,8 +31,9 @@ class ApiClient {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
-        if (kDebugMode) {
-          print('🌐 ${options.method} ${options.uri}');
+        if (kDebugMode &&
+            const bool.fromEnvironment('VERBOSE_API', defaultValue: false)) {
+          debugPrint('🌐 ${options.method} ${options.uri}');
         }
         return handler.next(options);
       },
@@ -40,8 +41,10 @@ class ApiClient {
         if (error.response?.statusCode == 401) {
           _clearToken();
         }
-        if (kDebugMode && error.response?.statusCode != 403) {
-          print('❌ Error: ${error.message}');
+        if (kDebugMode &&
+            const bool.fromEnvironment('VERBOSE_API', defaultValue: false) &&
+            error.response?.statusCode != 403) {
+          debugPrint('❌ Error: ${error.message}');
         }
         return handler.next(error);
       },
@@ -56,6 +59,10 @@ class ApiClient {
       return null;
     }
   }
+
+  /// Public getter used by AuthNotifier._tryRestore() to check
+  /// for a stored token on app startup without exposing Hive directly.
+  Future<String?> getStoredToken() => _getToken();
 
   Future<void> setToken(String token) async {
     final box = await Hive.openBox('tokenBox');
@@ -376,6 +383,20 @@ class ApiClient {
     }
   }
 
+// Returns the full region → department → subdivision tree in one call.
+// Used by the report wizard to drive all three dropdowns locally
+// without cascading network requests on each selection change.
+  Future<List<dynamic>> getLocationStructure() async {
+    try {
+      final response = await dio.get('/locations/structure');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
   // ==================== SECTOR METHODS ====================
 
   Future<List<dynamic>> getSectors() async {
@@ -391,7 +412,6 @@ class ApiClient {
   }
 
   // ==================== MINEFOP SERVICE METHODS ====================
-  // ✅ Updated to match NestJS controller routes
 
   Future<List<dynamic>> getMinefopServices({
     required String category,
@@ -399,12 +419,10 @@ class ApiClient {
   }) async {
     try {
       if (level == 1) {
-        // Use /minefop-services/roots?category=...
         final response = await dio.get('/minefop-services/roots',
             queryParameters: {'category': category});
         return response.data;
       } else {
-        // Use /minefop-services?category=...
         final response = await dio
             .get('/minefop-services', queryParameters: {'category': category});
         return response.data;
@@ -419,7 +437,6 @@ class ApiClient {
 
   Future<List<dynamic>> getMinefopServiceChildren(String parentCode) async {
     try {
-      // Use /minefop-services/children?parentCode=...
       final response = await dio.get('/minefop-services/children',
           queryParameters: {'parentCode': parentCode});
       return response.data;
@@ -433,10 +450,107 @@ class ApiClient {
 
   Future<List<dynamic>> getMinefopServicePositions(String serviceCode) async {
     try {
-      // Use /minefop-services/:code/positions
       final response =
           await dio.get('/minefop-services/$serviceCode/positions');
       return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // ==================== CASCADE METHODS FOR MINEFOP REGISTRATION ====================
+
+  /// Step 1 — position types available for a given MINEFOP role.
+  /// Returns List<{ positionType: string, label: string }>.
+  Future<List<dynamic>> getPositionTypesByRole(String role) async {
+    try {
+      final response = await dio.get(
+        '/minefop-services/positions/by-role',
+        queryParameters: {'role': role},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Step 2 — parent units that contain at least one service with [positionType].
+  /// Returns a filtered tree of ServiceNode objects.
+  Future<List<dynamic>> getParentServicesForPosition(
+      String positionType, String role) async {
+    try {
+      final response = await dio.get(
+        '/minefop-services/parents-for-position',
+        queryParameters: {'positionType': positionType, 'role': role},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Step 3 — child services under [parentCode] that hold [positionType].
+  /// Each item includes positionTitle from ServicePosition.title.
+  Future<List<dynamic>> getChildServicesForPosition(
+      String parentCode, String positionType) async {
+    try {
+      final response = await dio.get(
+        '/minefop-services/children-for-position',
+        queryParameters: {
+          'parentCode': parentCode,
+          'positionType': positionType,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Draft restoration — resolves a [serviceCode] back to its parent and full
+  /// service unit details in a single backend call.
+  ///
+  /// Used by [StepMinefopInfo] on back-navigation to restore a previously saved
+  /// selection without scanning all parent units (fast path B).
+  ///
+  /// Returns:
+  /// ```json
+  /// {
+  ///   "parentCode": "SOUS_DIR_PERS",
+  ///   "serviceUnit": {
+  ///     "code": "SERV_PAIE",
+  ///     "name": "Service de la Paie",
+  ///     "nameEn": null,
+  ///     "acronym": "SP",
+  ///     "level": 4,
+  ///     "category": "CENTRAL",
+  ///     "displayName": "SP — Service de la Paie",
+  ///     "positionTitle": "Chef du Service de la Paie"
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// Throws [ApiException] with statusCode 404 if the service is not found,
+  /// or 400 if the service has no parent (not a valid position-holder in the cascade).
+  Future<Map<String, dynamic>> resolvePosition(String serviceCode) async {
+    try {
+      final response = await dio.get(
+        '/minefop-services/resolve-position',
+        queryParameters: {'serviceCode': serviceCode},
+      );
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw ApiException(
         statusCode: e.response?.statusCode,
@@ -595,6 +709,92 @@ class ApiClient {
       Map<String, dynamic> data) async {
     try {
       final response = await dio.post('/onefop/submit', data: data);
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // ==================== ONEFOP SUBMISSIONS VIEWER (NEW) ====================
+
+  /// Get all ONEFOP submissions with optional filters
+  /// Used by SubmissionsViewerScreen for admin users
+  Future<List<dynamic>> getOnefopSubmissions({
+    String? status,
+    String? entityType,
+    String? region,
+    String? establishmentId,
+    String? quarterCode,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (status != null && status != 'Tous') query['status'] = status;
+      if (entityType != null && entityType != 'Tous')
+        query['entityType'] = entityType;
+      if (region != null && region != 'Toutes') query['region'] = region;
+      if (establishmentId != null) query['establishmentId'] = establishmentId;
+      if (quarterCode != null) query['quarterCode'] = quarterCode;
+
+      final response =
+          await dio.get('/onefop/submissions', queryParameters: query);
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Get detailed information for a single submission
+  Future<Map<String, dynamic>> getOnefopSubmissionDetail(
+      String submissionId) async {
+    try {
+      final response = await dio.get('/onefop/submissions/$submissionId');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Get the currently active quarter for ONEFOP submissions
+  Future<Map<String, dynamic>> getActiveQuarter() async {
+    try {
+      final response = await dio.get('/onefop/active-quarter');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // ==================== ONEFOP FORM SUBMIT (NEW VERSION) ====================
+
+  Future<Map<String, dynamic>> submitOnefopForm(
+      Map<String, dynamic> data) async {
+    try {
+      final response = await dio.post('/onefop/submit-form', data: data);
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> previewOnefopForm(
+      Map<String, dynamic> data) async {
+    try {
+      final response = await dio.post('/onefop/preview-form', data: data);
       return response.data;
     } on DioException catch (e) {
       throw ApiException(

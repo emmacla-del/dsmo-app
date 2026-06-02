@@ -17,8 +17,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> _tryRestore() async {
-    // Wake Render server immediately — fire and forget so it's warm by login time
-    _api.get('/health').catchError((_) {});
+    // Wake Render server immediately — fire and forget so it's warm by login time.
+    // Use a proper try/catch instead of .catchError() to avoid the
+    // "handler must return Future's type" DartError on web/DDC.
+    _warmServer();
 
     try {
       final token = await _api.getStoredToken();
@@ -32,6 +34,16 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     } catch (_) {
       await _api.logout();
       state = const AsyncValue.data(null);
+    }
+  }
+
+  /// Fire-and-forget ping to wake the Render free-tier server.
+  /// Errors are silently swallowed — this is best-effort only.
+  Future<void> _warmServer() async {
+    try {
+      await _api.get('/health');
+    } catch (_) {
+      // Intentionally ignored — server may still be cold-starting.
     }
   }
 

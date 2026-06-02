@@ -1,6 +1,5 @@
 // lib/theme/ultra_theme.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class UltraTheme {
   UltraTheme._();
@@ -57,39 +56,49 @@ class UltraTheme {
       );
 
   // ── Text styles (unchanged) ────────────────────────────────
-  static TextStyle get displayLarge => GoogleFonts.inter(
+  static TextStyle get displayLarge => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 32,
       fontWeight: FontWeight.w800,
       color: textPrimary,
       letterSpacing: -0.5);
-  static TextStyle get displayMedium => GoogleFonts.inter(
+  static TextStyle get displayMedium => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 24,
       fontWeight: FontWeight.w700,
       color: textPrimary,
       letterSpacing: -0.3);
-  static TextStyle get titleLarge => GoogleFonts.inter(
+  static TextStyle get titleLarge => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 20,
       fontWeight: FontWeight.w600,
       color: textPrimary,
       letterSpacing: -0.2);
-  static TextStyle get titleMedium => GoogleFonts.inter(
-      fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary);
-  static TextStyle get bodyLarge => GoogleFonts.inter(
+  static TextStyle get titleMedium => const TextStyle(
+      fontFamily: 'Inter',
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: textPrimary);
+  static TextStyle get bodyLarge => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 15,
       fontWeight: FontWeight.w400,
       color: textSecondary,
       height: 1.5);
-  static TextStyle get bodyMedium => GoogleFonts.inter(
+  static TextStyle get bodyMedium => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 14,
       fontWeight: FontWeight.w400,
       color: textSecondary,
       height: 1.4);
-  static TextStyle get labelLarge => GoogleFonts.inter(
+  static TextStyle get labelLarge => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: textSecondary,
       letterSpacing: 0.3);
-  static TextStyle get labelMedium => GoogleFonts.inter(
+  static TextStyle get labelMedium => const TextStyle(
+      fontFamily: 'Inter',
       fontSize: 12,
       fontWeight: FontWeight.w500,
       color: textMuted,

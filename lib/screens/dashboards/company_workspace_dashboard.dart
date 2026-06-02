@@ -1,7 +1,6 @@
 // lib/screens/dashboards/company_workspace_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' show pi;
 import '../../theme/ultra_theme.dart';
 import '../../widgets/common_widgets.dart';
@@ -163,9 +162,10 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Nouvelle soumission',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: UltraTheme.textPrimary,
@@ -528,7 +528,8 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                 onPressed: onViewAll, // ✅ Always enabled
                 child: Text(
                   'View all →',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: onViewAll != null

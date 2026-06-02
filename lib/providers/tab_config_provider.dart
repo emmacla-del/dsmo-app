@@ -3,13 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../screens/dashboards/company_workspace_dashboard.dart';
 import '../screens/dashboards/regional_agent_dashboard.dart';
-import '../screens/dashboards/national_overview_dashboard.dart';
 import '../screens/dsmo/declarations_list_screen.dart';
 import '../screens/dsmo/send_notification_screen.dart';
 import '../screens/admin/pending_users_screen.dart';
-import '../features/analytics/screens/analytics_dashboard_screen.dart';
+import '../features/analytics/screens/onefop_dashboard_screen.dart';
 import '../features/analytics/screens/company_analytics_screen.dart';
-import '../screens/onefop/onefop_dashboard_screen.dart';
 import '../screens/onefop/pending_list_screen.dart';
 import '../screens/onefop/onefop_analytics_screen.dart';
 
@@ -48,8 +46,7 @@ List<HomeTab> _companyTabs(User user) {
 List<HomeTab> _divisionalTabs() => const [
       HomeTab('File d\'attente', Icons.pending_actions_outlined,
           RegionalAgentDashboard()),
-      HomeTab(
-          'Analytique', Icons.bar_chart_outlined, AnalyticsDashboardScreen()),
+      HomeTab('Analytique', Icons.bar_chart_outlined, OnefopDashboardScreen()),
       HomeTab('Notifications', Icons.notifications_outlined,
           SendNotificationScreen()),
     ];
@@ -57,40 +54,30 @@ List<HomeTab> _divisionalTabs() => const [
 List<HomeTab> _regionalTabs() => const [
       HomeTab('File d\'attente', Icons.pending_actions_outlined,
           RegionalAgentDashboard()),
-      HomeTab('Analytique DSMO', Icons.bar_chart_outlined,
-          AnalyticsDashboardScreen()),
-      HomeTab(
-          'LMIS · Région', Icons.analytics_outlined, OnefopDashboardScreen()),
+      HomeTab('Analytique', Icons.bar_chart_outlined, OnefopDashboardScreen()),
       HomeTab('Notifications', Icons.notifications_outlined,
           SendNotificationScreen()),
     ];
 
 List<HomeTab> _centralTabs() => const [
-      HomeTab('Vue nationale', Icons.dashboard_outlined,
-          NationalOverviewDashboard()),
-      HomeTab('Analytique DSMO', Icons.bar_chart_outlined,
-          AnalyticsDashboardScreen()),
-      HomeTab(
-          'LMIS · ONEFOP', Icons.analytics_outlined, OnefopDashboardScreen()),
+      HomeTab('Analytique', Icons.bar_chart_outlined, OnefopDashboardScreen()),
       HomeTab('Notifications', Icons.notifications_outlined,
           SendNotificationScreen()),
     ];
 
 List<HomeTab> _superAdminDsmoTabs() => const [
-      HomeTab('Vue nationale', Icons.dashboard_outlined,
-          NationalOverviewDashboard()),
       HomeTab('Déclarations', Icons.pending_actions_outlined,
           DeclarationsListScreen()),
-      HomeTab('Analytique DSMO', Icons.bar_chart_outlined,
-          AnalyticsDashboardScreen()),
+      HomeTab(
+          'Analytique DSMO', Icons.bar_chart_outlined, OnefopDashboardScreen()),
       HomeTab('Agents', Icons.manage_accounts_outlined, PendingUsersScreen()),
       HomeTab('Notifications', Icons.notifications_outlined,
           SendNotificationScreen()),
     ];
 
 List<HomeTab> _superAdminOnefopTabs() => const [
-      HomeTab('LMIS · Tableau de bord', Icons.dashboard_outlined,
-          OnefopDashboardScreen()),
+      HomeTab(
+          'Tableau de bord', Icons.dashboard_outlined, OnefopDashboardScreen()),
       HomeTab('Questionnaires', Icons.pending_actions_outlined,
           PendingListScreen()),
       HomeTab('Analytique ONEFOP', Icons.analytics_outlined,
@@ -100,8 +87,6 @@ List<HomeTab> _superAdminOnefopTabs() => const [
     ];
 
 List<HomeTab> _fallbackTabs() => const [
-      HomeTab('Vue nationale', Icons.dashboard_outlined,
-          NationalOverviewDashboard()),
       HomeTab('Notifications', Icons.notifications_outlined,
           SendNotificationScreen()),
     ];

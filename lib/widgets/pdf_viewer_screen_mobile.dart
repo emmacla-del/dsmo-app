@@ -7,7 +7,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
@@ -107,7 +106,8 @@ class _State extends State<PdfViewerScreen> {
                   Platform.isAndroid
                       ? 'PDF enregistré dans Téléchargements'
                       : 'PDF enregistré dans Documents',
-                  style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+                  style: const TextStyle(
+                      fontFamily: 'Inter', fontSize: 13, color: Colors.white),
                 ),
               ),
             ]),
@@ -126,7 +126,8 @@ class _State extends State<PdfViewerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Téléchargement échoué : $e',
-                style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+                style: const TextStyle(
+                    fontFamily: 'Inter', fontSize: 13, color: Colors.white)),
             backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.all(16),
@@ -163,8 +164,9 @@ class _State extends State<PdfViewerScreen> {
   }
 
   AppBar _appBar() => AppBar(
-        title: Text('Aperçu du formulaire',
-            style: GoogleFonts.inter(
+        title: const Text('Aperçu du formulaire',
+            style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Colors.white)),
@@ -204,9 +206,11 @@ class _State extends State<PdfViewerScreen> {
                 : ElevatedButton.icon(
                     onPressed: _ready ? _handleConfirm : null,
                     icon: const Icon(Icons.send_rounded, size: 18),
-                    label: Text('Soumettre',
-                        style: GoogleFonts.inter(
-                            fontSize: 13, fontWeight: FontWeight.w700)),
+                    label: const Text('Soumettre',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
@@ -225,14 +229,16 @@ class _State extends State<PdfViewerScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         color: const Color(0xFFFFF7ED),
-        child: Row(children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-          const SizedBox(width: 10),
+        child: const Row(children: [
+          Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               'Vérifiez les informations ci-dessous avant de soumettre définitivement.',
-              style: GoogleFonts.inter(
-                  fontSize: 13, color: const Color(0xFF92400E)),
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: Color(0xFF92400E)),
             ),
           ),
         ]),
@@ -250,11 +256,13 @@ class _State extends State<PdfViewerScreen> {
       );
     }
     if (_tempPath == null) {
-      return Center(
+      return const Center(
         child: Text(
           'Impossible de charger le PDF.',
-          style:
-              GoogleFonts.inter(fontSize: 14, color: const Color(0xFFEF4444)),
+          style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: Color(0xFFEF4444)),
         ),
       );
     }
@@ -283,9 +291,11 @@ class _State extends State<PdfViewerScreen> {
             OutlinedButton.icon(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back, size: 16),
-              label: Text('Modifier',
-                  style: GoogleFonts.inter(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
+              label: const Text('Modifier',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF475569),
                 side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -306,11 +316,12 @@ class _State extends State<PdfViewerScreen> {
                           strokeWidth: 2, color: Color(0xFF0D7377)))
                   : const Icon(Icons.download_outlined,
                       size: 16, color: Color(0xFF0D7377)),
-              label: Text('Télécharger',
-                  style: GoogleFonts.inter(
+              label: const Text('Télécharger',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0D7377))),
+                      color: Color(0xFF0D7377))),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF0D7377),
                 side: const BorderSide(color: Color(0xFF0D7377)),
@@ -332,8 +343,10 @@ class _State extends State<PdfViewerScreen> {
                   : const Icon(Icons.send_rounded, size: 18),
               label: Text(
                   _confirming ? 'Soumission…' : 'Confirmer et soumettre',
-                  style: GoogleFonts.inter(
-                      fontSize: 13, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,

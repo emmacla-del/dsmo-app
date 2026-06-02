@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,9 +52,6 @@ final GoRouter router = GoRouter(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Disable Google Fonts runtime fetching — prevents font load errors on web
-  GoogleFonts.config.allowRuntimeFetching = false;
-
   await Hive.initFlutter();
   Hive.registerAdapter(EmployeeAdapter());
   await Hive.openBox('tokenBox');
@@ -71,7 +67,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp.router(
       routerConfig: router,
       title: 'DSMO Cameroon',
-      theme: AppTheme.lightTheme(context),
+      theme: AppTheme.lightTheme(context), // Just use the theme directly
       debugShowCheckedModeBanner: false,
     );
   }

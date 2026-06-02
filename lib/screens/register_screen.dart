@@ -9,6 +9,7 @@ import '../data/api_client.dart';
 import '../providers/auth_provider.dart';
 import 'register_constants.dart';
 import 'register_widgets.dart';
+import 'register_receipt.dart';
 import 'register_steps.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -438,118 +439,88 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     }
   }
 
-  Future<void> _showRegistrationSuccess({bool pendingApproval = false}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 32,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
+  Future<void> _showRegistrationSuccess({
+    bool pendingApproval = false,
+    String? establishmentId,
+    String? companyName,
+  }) async {
+    if (pendingApproval) {
+      // Simple pending approval dialog
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.elasticOut,
-                builder: (_, scale, child) =>
-                    Transform.scale(scale: scale, child: child),
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: pendingApproval
-                        ? Colors.orange.shade50
-                        : Colors.green.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    pendingApproval
-                        ? Icons.hourglass_top_rounded
-                        : Icons.check_circle_rounded,
-                    color: pendingApproval
-                        ? Colors.orange.shade600
-                        : Colors.green.shade600,
-                    size: 44,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                pendingApproval
-                    ? 'Demande soumise !'
-                    : 'Compte créé avec succès !',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B),
-                ),
+              const Icon(Icons.hourglass_top_rounded,
+                  size: 64, color: Colors.orange),
+              const SizedBox(height: 16),
+              const Text(
+                'Demande soumise !',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text(
-                pendingApproval
-                    ? "Votre demande d'accès MINEFOP est en attente d'approbation "
-                        'par un administrateur. Vous serez notifié(e) par e-mail.'
-                    : 'Bienvenue sur la plateforme ONEFOP / DSMO.\n'
-                        'Vos informations sont pré-remplies dans les formulaires.',
+              const Text(
+                "Votre demande d'accès MINEFOP est en attente d'approbation par un administrateur.",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                  height: 1.5,
-                ),
               ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: pendingApproval
-                        ? Colors.orange.shade600
-                        : const Color(0xFF006B5E),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    pendingApproval ? 'Compris' : 'Accéder à mon espace',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (mounted) context.go('/');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 ),
+                child: const Text('Compris'),
               ),
             ],
           ),
         ),
-      ),
-    );
-    if (mounted) {
-      if (pendingApproval) {
-        context.go('/');
-      } else {
-        context.go('/home');
-      }
+      );
+    } else if (establishmentId != null) {
+      // Show the beautiful receipt
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => RegistrationReceipt(
+          establishmentId: establishmentId,
+          companyName: companyName ?? '',
+          email: _respondentEmail,
+          registrationDate: DateTime.now(),
+        ),
+      );
+      // Receipt handles navigation internally
+    } else {
+      // Fallback simple dialog
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle, size: 64, color: Colors.green),
+              const SizedBox(height: 16),
+              const Text('Compte créé avec succès !'),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (mounted) context.go('/home');
+                },
+                child: const Text('Accéder'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
   }
 
@@ -597,7 +568,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final String address = config?.resolveAddress(_entityData) ?? '';
     final String mainActivity = config?.resolveMainActivity(_entityData) ?? '';
 
-    await ref.read(apiClientProvider).registerCompany(
+    final response = await ref.read(apiClientProvider).registerCompany(
           email: _respondentEmail,
           password: _password,
           firstName: _respondentFirstName,
@@ -637,8 +608,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               _respondentPhone2.isNotEmpty ? _respondentPhone2 : null,
         );
 
+    // Extract establishmentId and company name from response
+    final establishmentId = response['company']?['establishmentId'] as String?;
+    final registeredCompanyName =
+        response['company']?['name'] as String? ?? companyName;
+
     await _clearDraft();
-    if (mounted) await _showRegistrationSuccess(pendingApproval: false);
+
+    if (mounted) {
+      await _showRegistrationSuccess(
+        pendingApproval: false,
+        establishmentId: establishmentId,
+        companyName: registeredCompanyName,
+      );
+    }
   }
 
   Future<void> _submitMinefop() async {

@@ -8,7 +8,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/ultra_theme.dart';
 
@@ -198,7 +197,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                         const SizedBox(width: 6),
                         Text(
                           _tabs[i].label,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: isActive
@@ -369,11 +369,12 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           Icon(Icons.info_outline,
               size: 16, color: UltraTheme.primary.withValues(alpha: 0.8)),
           const SizedBox(width: 10),
-          Expanded(
+          const Expanded(
             child: Text(
               'Votre mot de passe doit contenir au moins 8 caracteres, '
               'une majuscule et un chiffre.',
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 12,
                   color: UltraTheme.primary,
                   fontWeight: FontWeight.w500),
@@ -474,8 +475,9 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Zone de danger',
-                        style: GoogleFonts.inter(
+                    const Text('Zone de danger',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: UltraTheme.error)),
@@ -496,8 +498,9 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Supprimer le compte',
-                          style: GoogleFonts.inter(
+                      const Text('Supprimer le compte',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: UltraTheme.textPrimary)),
@@ -523,8 +526,10 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                     shape: RoundedRectangleBorder(
                         borderRadius:
                             BorderRadius.circular(UltraTheme.radiusMedium)),
-                    textStyle: GoogleFonts.inter(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+                    textStyle: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -579,9 +584,11 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                           borderRadius:
                               BorderRadius.circular(UltraTheme.radiusMedium)),
                     ),
-                    child: Text('Annuler',
-                        style: GoogleFonts.inter(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: const Text('Annuler',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -597,9 +604,11 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                           borderRadius:
                               BorderRadius.circular(UltraTheme.radiusMedium)),
                     ),
-                    child: Text('Supprimer',
-                        style: GoogleFonts.inter(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: const Text('Supprimer',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ),
               ]),
@@ -657,7 +666,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: GoogleFonts.inter(
+            style: const TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: UltraTheme.textSecondary)),
@@ -666,11 +676,12 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           controller: controller,
           keyboardType: type,
           obscureText: obscure,
-          style: GoogleFonts.inter(fontSize: 14, color: UltraTheme.textPrimary),
+          style: const TextStyle(
+              fontFamily: 'Inter', fontSize: 14, color: UltraTheme.textPrimary),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle:
-                GoogleFonts.inter(fontSize: 14, color: UltraTheme.textMuted),
+            hintStyle: const TextStyle(
+                fontFamily: 'Inter', fontSize: 14, color: UltraTheme.textMuted),
             prefixIcon: prefix != null
                 ? Icon(prefix, size: 18, color: UltraTheme.textMuted)
                 : null,
@@ -736,7 +747,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: GoogleFonts.inter(
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.textPrimary)),
@@ -792,7 +804,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name,
-                    style: GoogleFonts.inter(
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.textPrimary)),
@@ -818,8 +831,9 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                       size: 7,
                       color: UltraTheme.success.withValues(alpha: 0.9)),
                   const SizedBox(width: 5),
-                  Text('Connecte',
-                      style: GoogleFonts.inter(
+                  const Text('Connecte',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: UltraTheme.success)),
@@ -838,8 +852,10 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                 shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(UltraTheme.radiusMedium)),
-                textStyle: GoogleFonts.inter(
-                    fontSize: 13, fontWeight: FontWeight.w500),
+                textStyle: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
               ),
               child: const Text('Connecter'),
             ),
@@ -861,8 +877,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
-            textStyle:
-                GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+            textStyle: const TextStyle(
+                fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
           ),
           child: const Text('Annuler'),
         ),
@@ -879,8 +895,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             shadowColor: UltraTheme.primary.withValues(alpha: 0.35),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
-            textStyle:
-                GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+            textStyle: const TextStyle(
+                fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -941,7 +957,8 @@ class _SettingsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: GoogleFonts.inter(
+                        style: const TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: UltraTheme.textPrimary)),

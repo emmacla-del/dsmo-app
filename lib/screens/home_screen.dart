@@ -4,15 +4,28 @@
 //
 // Role strings expected from backend:
 //   COMPANY | DIVISIONAL | REGIONAL | CENTRAL
-//   SUPER_ADMIN_DSMO | SUPER_ADMIN_ONEFOP
+//   SUPER_ADMIN_DSMO | SUPER_ADMIN_ONEFOP | SUPER_ADMIN
 //
-// If the backend still returns "SUPER_ADMIN" with a separate
-// "stream" field, _resolveRole() bridges the gap automatically.
+// VETTING WORKFLOW SUSPENDED (2026-05-29):
+//   - All approval/rejection UI removed
+//   - "Pending validation" tabs repurposed to "Submissions"
+//   - Read-only submission viewer replaces approval screens
+//   - Status filters limited to DRAFT/SUBMITTED only
+//
+// Resolution table:
+//   backend role    stream     resolved role        dashboards
+//   ─────────────── ────────── ──────────────────── ─────────────────────
+//   SUPER_ADMIN     DSMO       SUPER_ADMIN_DSMO      DSMO only  (4 tabs)
+//   SUPER_ADMIN     ONEFOP     SUPER_ADMIN_ONEFOP    ONEFOP only (3 tabs)
+//   SUPER_ADMIN     null       SUPER_ADMIN           BOTH        (5 tabs)
+//   CENTRAL         —          CENTRAL               BOTH        (3 tabs)
+//   REGIONAL        —          REGIONAL              BOTH        (3 tabs)
+//   DIVISIONAL      —          DIVISIONAL            DSMO only   (2 tabs)
+//   COMPANY         —          COMPANY               Workspace   (4 tabs)
 // ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/auth_provider.dart';
@@ -27,13 +40,17 @@ import '../widgets/responsive_helpers.dart';
 import '../main.dart';
 
 // ── Analytics (DSMO stream) ──────────────────────────────────
-import '../features/analytics/screens/analytics_dashboard_screen.dart';
+import '../features/analytics/screens/onefop_dashboard_screen.dart';
 import '../features/analytics/screens/company_analytics_screen.dart';
 
 // ── Dashboards ───────────────────────────────────────────────
-import 'dashboards/national_overview_dashboard.dart';
 import 'dashboards/regional_agent_dashboard.dart';
 import 'dashboards/company_workspace_dashboard.dart';
+
+// Add these imports with the other ONEFOP imports
+import 'campaign/campaign_management_screen.dart';
+import 'report/report_screen.dart';
+import 'data_management/data_management_screen.dart';
 
 // ── DSMO ─────────────────────────────────────────────────────
 import 'dsmo/declaration_wizard_screen.dart';
@@ -43,8 +60,7 @@ import 'dsmo/send_notification_screen.dart';
 // ── ONEFOP ───────────────────────────────────────────────────
 import 'onefop/onefop_unified_form_screen_v4.dart';
 import 'onefop/onefop_legal_acknowledgment_screen.dart';
-import 'onefop/pending_list_screen.dart';
-import 'onefop/onefop_dashboard_screen.dart';
+import 'onefop/submissions_viewer_screen.dart'; // NEW: read-only viewer
 import 'onefop/onefop_analytics_screen.dart';
 import 'onefop/onefop_form_constants.dart' show EntityType;
 
@@ -63,6 +79,7 @@ import '../screens/settings_screen.dart';
 /// their scope is set automatically via effectiveRegionProvider.
 const _nationalRoles = {
   'CENTRAL',
+  'SUPER_ADMIN',
   'SUPER_ADMIN_DSMO',
   'SUPER_ADMIN_ONEFOP',
 };
@@ -91,36 +108,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
   bool _railExpanded = true;
 
+  // Filter state variables
+  String? _filterRegion;
+  String? _filterDepartment;
+  String? _filterStatus; // NEW: for submission status filtering
+
   // ═══════════════════════════════════════════════════════════
-  // SECTION 1 — ROLE RESOLUTION
+  // SECTION 1 — ROLE RESOLUTION (FIXED)
   // ═══════════════════════════════════════════════════════════
 
   String _resolveRole(User user) {
     if (user.role != 'SUPER_ADMIN') return user.role;
-    switch (user.stream?.toUpperCase()) {
-      case 'DSMO':
-        return 'SUPER_ADMIN_DSMO';
-      case 'ONEFOP':
-        return 'SUPER_ADMIN_ONEFOP';
-      default:
-        debugPrint(
-          '⚠️ [HomeScreen] SUPER_ADMIN has no stream value — '
-          'defaulting to SUPER_ADMIN_DSMO. '
-          'Update backend to return SUPER_ADMIN_DSMO or SUPER_ADMIN_ONEFOP.',
-        );
-        return 'SUPER_ADMIN_DSMO';
+
+    // FIX: Proper stream handling
+    final stream = user.stream?.toUpperCase();
+    if (stream == 'DSMO') {
+      return 'SUPER_ADMIN_DSMO';
+    } else if (stream == 'ONEFOP') {
+      return 'SUPER_ADMIN_ONEFOP';
     }
+    return 'SUPER_ADMIN';
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SECTION 2 — TAB DEFINITIONS
+  // SECTION 2 — TAB DEFINITIONS (UPDATED - VETTING SUSPENDED)
   // ═══════════════════════════════════════════════════════════
 
   List<_Tab> _buildTabs(
       String role, VoidCallback onNewSubmission, VoidCallback onViewAll) {
     switch (role) {
-      // ── COMPANY ─────────────────────────────────────────────
-      // 4 tabs: workspace, declarations, analytics, settings
       case 'COMPANY':
         return [
           _Tab(
@@ -141,7 +157,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Icons.show_chart_outlined,
             CompanyAnalyticsScreen(),
           ),
-          // ✅ Replaced Placeholder() with ParametresScreen()
           const _Tab(
             'Parametres',
             Icons.settings_outlined,
@@ -149,79 +164,85 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ];
 
-      // ── DIVISIONAL ──────────────────────────────────────────
       case 'DIVISIONAL':
+        // VETTING SUSPENDED: Removed validation UI, keeping only view
         return const [
-          _Tab('File d\'attente', Icons.pending_actions_outlined,
-              RegionalAgentDashboard()),
-          _Tab('Analytique', Icons.bar_chart_outlined,
-              AnalyticsDashboardScreen()),
-          _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+          _Tab('Soumissions', Icons.list_alt_outlined,
+              SubmissionsViewerScreen()),
+          _Tab('Analytique', Icons.bar_chart_outlined, OnefopDashboardScreen()),
         ];
 
-      // ── REGIONAL ────────────────────────────────────────────
       case 'REGIONAL':
+        // VETTING SUSPENDED: Removed pending queue, using viewer
         return const [
-          _Tab('File d\'attente', Icons.pending_actions_outlined,
-              RegionalAgentDashboard()),
+          _Tab('Soumissions', Icons.list_alt_outlined,
+              SubmissionsViewerScreen()),
           _Tab('Analytique DSMO', Icons.bar_chart_outlined,
-              AnalyticsDashboardScreen()),
-          _Tab('LMIS · Region', Icons.analytics_outlined,
               OnefopDashboardScreen()),
           _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
 
-      // ── CENTRAL ─────────────────────────────────────────────
       case 'CENTRAL':
+        // VETTING SUSPENDED: Both DSMO and ONEFOP views
         return const [
-          _Tab('Vue nationale', Icons.dashboard_outlined,
-              NationalOverviewDashboard()),
           _Tab('Analytique DSMO', Icons.bar_chart_outlined,
-              AnalyticsDashboardScreen()),
-          _Tab('LMIS · ONEFOP', Icons.analytics_outlined,
               OnefopDashboardScreen()),
+          _Tab('Soumissions ONEFOP', Icons.assignment_outlined,
+              SubmissionsViewerScreen()),
           _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
 
-      // ── SUPER_ADMIN_DSMO ─────────────────────────────────────
+      case 'SUPER_ADMIN':
+        // Full access with all admin tabs
+        return [
+          const _Tab(
+              'Analytics', Icons.analytics_outlined, OnefopDashboardScreen()),
+          _Tab(
+              'Campaigns', Icons.campaign_outlined, CampaignManagementScreen()),
+          _Tab('Reports', Icons.description_outlined, ReportScreen()),
+          _Tab('Data Mgmt', Icons.storage_outlined, DataManagementScreen()),
+          _Tab('Déclarations DSMO', Icons.folder_open_outlined,
+              DeclarationsListScreen(onNewSubmission: onNewSubmission)),
+          const _Tab('Soumissions ONEFOP', Icons.assignment_outlined,
+              SubmissionsViewerScreen()),
+          const _Tab('Agents Minefop', Icons.manage_accounts_outlined,
+              PendingUsersScreen()),
+          const _Tab('Notifications', Icons.notifications_outlined,
+              SendNotificationScreen()),
+        ];
       case 'SUPER_ADMIN_DSMO':
-        return const [
-          _Tab('Vue nationale', Icons.dashboard_outlined,
-              NationalOverviewDashboard()),
-          _Tab('Declarations', Icons.pending_actions_outlined,
-              DeclarationsListScreen()),
-          _Tab('Analytique DSMO', Icons.bar_chart_outlined,
-              AnalyticsDashboardScreen()),
-          _Tab('Agents', Icons.manage_accounts_outlined, PendingUsersScreen()),
-          _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
-        ];
-
-      // ── SUPER_ADMIN_ONEFOP ───────────────────────────────────
-      case 'SUPER_ADMIN_ONEFOP':
-        return const [
-          _Tab('LMIS · Tableau de bord', Icons.dashboard_outlined,
+        // DSMO-only admin without vetting
+        return [
+          _Tab('Déclarations', Icons.folder_open_outlined,
+              DeclarationsListScreen(onNewSubmission: onNewSubmission)),
+          const _Tab('Analytique DSMO', Icons.bar_chart_outlined,
               OnefopDashboardScreen()),
-          _Tab('Questionnaires', Icons.pending_actions_outlined,
-              PendingListScreen()),
-          _Tab('Analytique ONEFOP', Icons.analytics_outlined,
-              OnefopAnalyticsScreen()),
+          const _Tab(
+              'Agents', Icons.manage_accounts_outlined, PendingUsersScreen()),
+          const _Tab('Notifications', Icons.notifications_outlined,
+              SendNotificationScreen()),
+        ];
+
+      case 'SUPER_ADMIN_ONEFOP':
+        // ONEFOP-only admin without vetting
+        return const [
+          _Tab('Tableau de bord', Icons.dashboard_outlined,
+              OnefopDashboardScreen()),
+          _Tab('Soumissions', Icons.list_alt_outlined,
+              SubmissionsViewerScreen()),
+          _Tab('Analytique', Icons.analytics_outlined, OnefopAnalyticsScreen()),
           _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
 
-      // ── FALLBACK ─────────────────────────────────────────────
       default:
         debugPrint(
           '⚠️ [HomeScreen] Unrecognised role: "$role" — '
           'showing fallback tabs. Check backend role strings.',
         );
         return const [
-          _Tab('Vue nationale', Icons.dashboard_outlined,
-              NationalOverviewDashboard()),
           _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
@@ -238,9 +259,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'DIVISIONAL': 'Division du Travail',
       'REGIONAL': 'Delegation Regionale',
       'CENTRAL': 'Direction Nationale',
+      'SUPER_ADMIN': 'Super Admin · DSMO + ONEFOP',
       'SUPER_ADMIN_DSMO': 'Admin · Regulation MO',
       'SUPER_ADMIN_ONEFOP': 'Admin · ONEFOP',
-      'SUPER_ADMIN': 'Super Administrateur', // legacy fallback
     };
     return labels[role] ?? role;
   }
@@ -260,6 +281,221 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
 
   void _push(Widget screen) => Navigator.push(context, _route(screen));
+
+  void _selectTab(int i, List<_Tab> tabs) {
+    setState(() {
+      _selectedIndex = i;
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // SECTION 4b — FILTER SHEET (UPDATED with status filter)
+  // ═══════════════════════════════════════════════════════════
+
+  void _openFilterSheet(List<_Tab> tabs) {
+    String? tempRegion = _filterRegion;
+    String? tempDept = _filterDepartment;
+    String? tempStatus = _filterStatus;
+
+    const regions = [
+      'Adamaoua',
+      'Centre',
+      'Est',
+      'Extrême-Nord',
+      'Littoral',
+      'Nord',
+      'Nord-Ouest',
+      'Ouest',
+      'Sud',
+      'Sud-Ouest',
+    ];
+    const departments = [
+      'Bamboutos',
+      'Djerem',
+      'Fako',
+      'Haut-Nkam',
+      'Haute-Sanaga',
+      'Lékié',
+      'Mbam-et-Inoubou',
+      'Mbam-et-Kim',
+      'Mfoundi',
+      'Mungo',
+      'Nyong-et-Kellé',
+      'Nyong-et-Mfoumou',
+      "Nyong-et-So'o",
+      'Vina',
+      'Wouri',
+    ];
+    const statuses = ['Tous', 'Brouillon', 'Soumis', 'Approuvé (historique)'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+            decoration: const BoxDecoration(
+              color: UltraTheme.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: UltraTheme.textMuted.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Title row
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: UltraTheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.tune_rounded,
+                        color: UltraTheme.primary, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Filtrer par zone',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: UltraTheme.textPrimary)),
+                  const Spacer(),
+                  if (tempRegion != null ||
+                      tempDept != null ||
+                      tempStatus != null)
+                    TextButton(
+                      onPressed: () {
+                        setSheet(() {
+                          tempRegion = null;
+                          tempDept = null;
+                          tempStatus = null;
+                        });
+                      },
+                      child: const Text('Effacer',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              color: UltraTheme.textMuted)),
+                    ),
+                ]),
+                const SizedBox(height: 20),
+                // Region
+                const Text('Région',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: UltraTheme.textMuted)),
+                const SizedBox(height: 8),
+                _FilterDropdown(
+                  hint: 'Toutes les régions',
+                  value: tempRegion,
+                  items: regions,
+                  onChanged: (v) => setSheet(() => tempRegion = v),
+                ),
+                const SizedBox(height: 16),
+                // Department
+                const Text('Département / Division',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: UltraTheme.textMuted)),
+                const SizedBox(height: 8),
+                _FilterDropdown(
+                  hint: 'Tous les départements',
+                  value: tempDept,
+                  items: departments,
+                  onChanged: (v) => setSheet(() => tempDept = v),
+                ),
+                const SizedBox(height: 16),
+                // Status filter (NEW)
+                const Text('Statut',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: UltraTheme.textMuted)),
+                const SizedBox(height: 8),
+                _FilterDropdown(
+                  hint: 'Tous les statuts',
+                  value: tempStatus,
+                  items: statuses,
+                  onChanged: (v) => setSheet(() => tempStatus = v),
+                ),
+                const SizedBox(height: 24),
+                // Active filter chips
+                if (tempRegion != null ||
+                    tempDept != null ||
+                    tempStatus != null) ...[
+                  Wrap(spacing: 8, children: [
+                    if (tempRegion != null)
+                      _ActiveFilterChip(
+                          label: tempRegion!,
+                          onRemove: () => setSheet(() => tempRegion = null)),
+                    if (tempDept != null)
+                      _ActiveFilterChip(
+                          label: tempDept!,
+                          onRemove: () => setSheet(() => tempDept = null)),
+                    if (tempStatus != null && tempStatus != 'Tous')
+                      _ActiveFilterChip(
+                          label: tempStatus!,
+                          onRemove: () => setSheet(() => tempStatus = null)),
+                  ]),
+                  const SizedBox(height: 16),
+                ],
+                // Apply button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _filterRegion = tempRegion;
+                        _filterDepartment = tempDept;
+                        _filterStatus =
+                            tempStatus == 'Tous' ? null : tempStatus;
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: UltraTheme.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Appliquer le filtre',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════
   // SECTION 5 — ENTITY TYPE HELPERS
@@ -497,7 +733,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SECTION 6 — ONEFOP FORM FLOW
+  // SECTION 6 — ONEFOP FORM FLOW (LINKAGE INTEGRATED)
   // ═══════════════════════════════════════════════════════════
 
   Future<void> _openOnefopFormForCompany() async {
@@ -515,6 +751,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             type: SnackBarType.error);
         return;
       }
+
+      // ═══════════════════════════════════════════════════════════
+      // NEW: Extract linkage identifiers from company profile
+      // ═══════════════════════════════════════════════════════════
+      final establishmentId = company['establishmentId'] as String?;
+      final taxNumber = company['taxNumber'] as String?;
+      final cnpsNumber = company['cnpsNumber'] as String?;
+      final registrationNumber = company['registrationNumber'] as String?;
+      final companyId = company['id'] as String?;
+      if (establishmentId == null || establishmentId.isEmpty) {
+        if (!context.mounted) return;
+        _snack(context,
+            message:
+                "ID établissement manquant. Veuillez contacter l'administrateur.",
+            type: SnackBarType.error);
+        return;
+      }
+
+      // TODO: fetch active quarter from round service
+      const activeQuarterCode = '2025-T1';
 
       String? entityType = company['entityType'] as String?;
       if (entityType == null) {
@@ -542,17 +798,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final userId = user?.id ?? 'guest';
       final entityTypeStr = _entityTypeString(parsedType);
 
+      // ═══════════════════════════════════════════════════════════
+      // UPDATED: Draft keys now use establishmentId + quarterCode
+      // ═══════════════════════════════════════════════════════════
       final hasDraft = await DraftService.hasDraft(
-          userId: userId, entityType: entityTypeStr);
+          establishmentId: establishmentId, quarterCode: activeQuarterCode);
       if (hasDraft && mounted) {
-        final resume =
-            await _showDraftDialog(userId: userId, entityType: entityTypeStr);
+        final resume = await _showDraftDialog(
+            establishmentId: establishmentId, quarterCode: activeQuarterCode);
         if (resume == null) return;
       }
 
-      final initialData = _companyToInitialData(company, parsedType, user);
+      var initialData = _companyToInitialData(company, parsedType, user);
+
+      // Inject hidden metadata — flows to backend but never renders as form fields
+      initialData['__meta_establishment_id'] = establishmentId;
+      initialData['__meta_tax_number'] = taxNumber;
+      initialData['__meta_cnps_number'] = cnpsNumber;
+      initialData['__meta_registration_number'] = registrationNumber;
+      initialData['__meta_entity_type'] = entityTypeStr;
+      initialData['__meta_quarter_code'] = activeQuarterCode;
+
       final existingDraft = await DraftService.loadDraft(
-          userId: userId, entityType: entityTypeStr);
+          establishmentId: establishmentId, quarterCode: activeQuarterCode);
       final merged = {...?existingDraft, ...initialData};
 
       final prefs = await SharedPreferences.getInstance();
@@ -575,23 +843,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (!hasAcknowledged && user != null) {
                 await prefs.setBool('onefop_ack_${user.id}', true);
               }
+              // ignore: use_build_context_synchronously
               if (!context.mounted) return;
               Navigator.pushReplacement(
                 context,
                 _route(OnefopUnifiedFormScreenV4(
                   entityType: parsedType,
                   initialData: merged,
+                  establishmentId: establishmentId,
+                  companyId: companyId,
+                  quarterCode: activeQuarterCode,
                   userId: user?.id,
                   onSave: (data) async {
                     await DraftService.saveDraft(
-                        userId: userId, entityType: entityTypeStr, data: data);
+                        establishmentId: establishmentId,
+                        quarterCode: activeQuarterCode,
+                        data: data);
                   },
                   onCancel: () {
                     if (context.mounted) Navigator.pop(context);
                   },
                   onSubmitSuccess: () async {
                     await DraftService.clearDraft(
-                        userId: userId, entityType: entityTypeStr);
+                        establishmentId: establishmentId,
+                        quarterCode: activeQuarterCode);
                   },
                 )),
               );
@@ -609,11 +884,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SECTION 7 — DIALOGS
+  // SECTION 7 — DIALOGS (UPDATED for new draft keys)
   // ═══════════════════════════════════════════════════════════
 
-  Future<bool?> _showDraftDialog(
-      {required String userId, required String entityType}) {
+  Future<bool?> _showDraftDialog({
+    required String establishmentId,
+    required String quarterCode,
+  }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -624,29 +901,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _dialogIcon(Icons.restore_page_outlined, UltraTheme.primary),
               const SizedBox(height: 20),
-              Text('Brouillon trouve',
+              Text('Brouillon trouvé',
                   style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
               const SizedBox(height: 8),
               Text(
                   'Vous avez un formulaire ONEFOP en cours de saisie. '
-                  'Voulez-vous reprendre ou vous vous etes arrete ?',
+                  'Voulez-vous reprendre ou vous vous êtes arrêté ?',
                   style: UltraTheme.bodyMedium),
               const SizedBox(height: 24),
               SubmissionOptionCard(
                   icon: Icons.restore,
                   title: 'Reprendre le brouillon',
-                  subtitle: 'Continuer avec vos donnees precedentes',
+                  subtitle: 'Continuer avec vos données précédentes',
                   color: UltraTheme.primary,
                   onTap: () => Navigator.pop(ctx, true)),
               const SizedBox(height: 12),
               SubmissionOptionCard(
                   icon: Icons.refresh,
                   title: 'Recommencer',
-                  subtitle: 'Effacer le brouillon et partir a zero',
+                  subtitle: 'Effacer le brouillon et partir à zéro',
                   color: UltraTheme.warning,
                   onTap: () async {
                     await DraftService.clearDraft(
-                        userId: userId, entityType: entityType);
+                        establishmentId: establishmentId,
+                        quarterCode: quarterCode);
                     if (!ctx.mounted) return;
                     Navigator.pop(ctx, false);
                   }),
@@ -666,12 +944,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Type d'entite",
+              Text("Type d'entité",
                   style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
               const SizedBox(height: 4),
               Text(
-                  "Selectionnez le type de votre entite pour "
-                  'acceder au formulaire ONEFOP.',
+                  "Sélectionnez le type de votre entité pour "
+                  'accéder au formulaire ONEFOP.',
                   style: UltraTheme.bodyMedium),
               const SizedBox(height: 24),
               EntityTypeCard(
@@ -682,7 +960,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 8),
               EntityTypeCard(
                   icon: Icons.groups,
-                  label: 'Cooperative',
+                  label: 'Coopérative',
                   value: 'COOPERATIVE',
                   onTap: () => Navigator.pop(ctx, 'COOPERATIVE')),
               const SizedBox(height: 8),
@@ -716,20 +994,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Text('Nouvelle soumission',
                   style: UltraTheme.displayMedium.copyWith(fontSize: 24)),
               const SizedBox(height: 4),
-              Text('Choisissez le type de document a creer',
+              Text('Choisissez le type de document à créer',
                   style: UltraTheme.bodyMedium),
               const SizedBox(height: 28),
               SubmissionOptionCard(
                   icon: Icons.assignment_outlined,
-                  title: 'Declaration DSMO',
-                  subtitle: "Declaration sociale des main-d'oeuvre",
+                  title: 'Déclaration DSMO',
+                  subtitle: "Déclaration sociale des main-d'œuvre",
                   color: UltraTheme.primary,
                   onTap: () => Navigator.pop(ctx, 'dsmo')),
               const SizedBox(height: 12),
               SubmissionOptionCard(
                   icon: Icons.bar_chart_outlined,
                   title: 'Questionnaire ONEFOP',
-                  subtitle: 'Information sur le marche du travail',
+                  subtitle: 'Information sur le marché du travail',
                   color: UltraTheme.accent,
                   onTap: () => Navigator.pop(ctx, 'onefop')),
               const SizedBox(height: 24),
@@ -765,8 +1043,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
           ),
-          child: Text('Annuler',
-              style: GoogleFonts.inter(
+          child: const Text('Annuler',
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: UltraTheme.textMuted,
@@ -787,10 +1066,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           _dialogIcon(Icons.logout_rounded, UltraTheme.error),
           const SizedBox(height: 20),
-          Text('Deconnexion',
+          Text('Déconnexion',
               style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
           const SizedBox(height: 8),
-          Text('Voulez-vous vraiment vous deconnecter ?',
+          Text('Voulez-vous vraiment vous déconnecter ?',
               textAlign: TextAlign.center, style: UltraTheme.bodyMedium),
           const SizedBox(height: 28),
           Row(children: [
@@ -808,9 +1087,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           BorderRadius.circular(UltraTheme.radiusMedium)),
                   elevation: 0,
                 ),
-                child: Text('Deconnecter',
-                    style: GoogleFonts.inter(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
+                child: const Text('Déconnecter',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
               ),
             ),
           ]),
@@ -819,7 +1100,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (confirm == true && mounted) {
       await ref.read(authProvider.notifier).logout();
-      // ✅ Use the router instance directly
       router.go('/login');
     }
   }
@@ -860,7 +1140,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(message,
-                  style: GoogleFonts.inter(
+                  style: const TextStyle(
+                      fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: Colors.white)),
@@ -880,13 +1161,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SECTION 10 — DRAWER  (mobile only)
+  // SECTION 10 — DRAWER (UPDATED - VETTING SUSPENDED)
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildDrawer(User user, String role) {
     final isCompany = role == 'COMPANY';
-    final isDsmoAdmin = role == 'SUPER_ADMIN_DSMO';
-    final isOnefopAdmin = role == 'SUPER_ADMIN_ONEFOP';
+    final isSuperAdmin = role == 'SUPER_ADMIN';
+    final isDsmoAdmin = role == 'SUPER_ADMIN_DSMO' || isSuperAdmin;
+    final isOnefopAdmin = role == 'SUPER_ADMIN_ONEFOP' || isSuperAdmin;
     final isFieldAgent = role == 'REGIONAL' || role == 'DIVISIONAL';
     final drawerW =
         (MediaQuery.of(context).size.width * 0.85).clamp(0.0, 300.0);
@@ -901,7 +1183,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               bottomRight: Radius.circular(UltraTheme.radiusXL))),
       child: SafeArea(
         child: Column(children: [
-          // ── Header ───────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(gradient: UltraTheme.heroGradient),
@@ -915,7 +1196,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(user.email,
-                            style: GoogleFonts.inter(
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white),
@@ -939,7 +1221,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         if (role == 'DIVISIONAL' && user.department != null)
                           user.department!,
                       ].join(' · '),
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                          fontFamily: 'Inter',
                           fontSize: 12,
                           color: Colors.white.withValues(alpha: 0.8)),
                     ),
@@ -948,21 +1231,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ]),
           ),
-
-          // ── Menu items ───────────────────────────────────
           Expanded(
             child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 children: [
                   if (isFieldAgent) ...[
-                    const DrawerSectionHeader('Revision'),
+                    const DrawerSectionHeader('Consultation'),
                     DrawerNavItem(
-                      icon: Icons.pending_actions_outlined,
-                      label: "File d'attente",
-                      subtitle: 'Valider ou rejeter',
+                      icon: Icons.list_alt_outlined,
+                      label: "Soumissions",
+                      subtitle: 'Consulter les questionnaires',
                       onTap: () {
                         Navigator.pop(context);
-                        _push(const PendingListScreen());
+                        _push(const SubmissionsViewerScreen());
                       },
                     ),
                     const Divider(height: 32, indent: 16, endIndent: 16),
@@ -970,9 +1251,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   if (isDsmoAdmin) ...[
                     const DrawerSectionHeader('Administration DSMO'),
                     DrawerNavItem(
-                      icon: Icons.pending_actions_outlined,
-                      label: 'Declarations',
-                      subtitle: 'Valider / rejeter',
+                      icon: Icons.folder_open_outlined,
+                      label: 'Déclarations DSMO',
+                      subtitle: 'Consulter les déclarations',
                       onTap: () {
                         Navigator.pop(context);
                         _push(const DeclarationsListScreen());
@@ -992,22 +1273,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   if (isOnefopAdmin) ...[
                     const DrawerSectionHeader('Administration ONEFOP'),
                     DrawerNavItem(
-                      icon: Icons.pending_actions_outlined,
-                      label: 'Questionnaires',
-                      subtitle: 'Valider / rejeter',
+                      icon: Icons.list_alt_outlined,
+                      label: 'Soumissions ONEFOP',
+                      subtitle: 'Consulter les questionnaires',
                       onTap: () {
                         Navigator.pop(context);
-                        _push(const PendingListScreen());
+                        _push(const SubmissionsViewerScreen());
                       },
                     ),
                     const Divider(height: 32, indent: 16, endIndent: 16),
                   ],
                   if (!isCompany) ...[
-                    const DrawerSectionHeader('ONEFOP'),
+                    const DrawerSectionHeader('Saisie ONEFOP'),
                     DrawerNavItem(
                       icon: Icons.add_business_outlined,
                       label: 'Nouveau questionnaire',
-                      subtitle: 'Saisie assistee',
+                      subtitle: 'Saisie assistée',
                       onTap: () {
                         Navigator.pop(context);
                         _navigateToBlankForm();
@@ -1026,7 +1307,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SECTION 11 — NAV RAIL  (tablet + desktop)
+  // SECTION 11 — NAV RAIL (tablet + desktop)
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildNavRail(User user, String role, List<_Tab> tabs) {
@@ -1054,7 +1335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: tabs[i].label,
               isSelected: _selectedIndex == i,
               isExpanded: expanded,
-              onTap: () => setState(() => _selectedIndex = i),
+              onTap: () => _selectTab(i, tabs),
             ),
           ),
         ),
@@ -1069,13 +1350,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // SECTION 12 — APP BAR
+  // SECTION 12 — APP BAR (with filter button)
   // ═══════════════════════════════════════════════════════════
 
   PreferredSizeWidget _buildAppBar(
       BuildContext context, User user, String role, List<_Tab> tabs) {
     final isMobile = context.isMobile;
     final canFilter = _nationalRoles.contains(role);
+    final filterActive = _filterRegion != null ||
+        _filterDepartment != null ||
+        _filterStatus != null;
 
     return AppBar(
       backgroundColor: isMobile ? UltraTheme.surface : UltraTheme.background,
@@ -1102,11 +1386,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               icon: Icon(_railExpanded ? Icons.menu_open : Icons.menu,
                   color: UltraTheme.textSecondary),
               onPressed: () => setState(() => _railExpanded = !_railExpanded),
-              tooltip: _railExpanded ? 'Reduire le rail' : 'Etendre le rail',
+              tooltip: _railExpanded ? 'Réduire le rail' : 'Étendre le rail',
             ),
       title: isMobile
-          ? Text('DSMO',
-              style: GoogleFonts.inter(
+          ? const Text('DSMO',
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: UltraTheme.textPrimary,
@@ -1131,20 +1416,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: UltraTheme.primary.withValues(alpha: 0.06),
+                color: filterActive
+                    ? UltraTheme.primary.withValues(alpha: 0.15)
+                    : UltraTheme.primary.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
               ),
-              child: const Icon(Icons.tune_rounded,
-                  color: UltraTheme.textSecondary, size: 20),
+              child: Icon(
+                Icons.tune_rounded,
+                color: filterActive
+                    ? UltraTheme.primary
+                    : UltraTheme.textSecondary,
+                size: 20,
+              ),
             ),
-            tooltip: 'Filtrer par region',
-            onPressed: () {
-              final analyticsTabIndex =
-                  tabs.indexWhere((t) => t.screen is AnalyticsDashboardScreen);
-              if (analyticsTabIndex >= 0) {
-                setState(() => _selectedIndex = analyticsTabIndex);
-              }
-            },
+            tooltip: 'Filtrer par région',
+            onPressed: () => _openFilterSheet(tabs),
           ),
         const NotificationBell(),
         Padding(
@@ -1176,7 +1462,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             UserAvatar(email: user.email, size: 48, fontSize: 18),
             const SizedBox(height: 12),
             Text(user.email,
-                style: GoogleFonts.inter(
+                style: const TextStyle(
+                    fontFamily: 'Inter',
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                     color: UltraTheme.textPrimary)),
@@ -1195,8 +1482,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       if (role == 'DIVISIONAL' && user.department != null)
                         user.department!,
                     ].join(' · '),
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: UltraTheme.textMuted),
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: UltraTheme.textMuted),
                   ),
                 ),
               ]),
@@ -1218,8 +1507,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: UltraTheme.error, size: 18),
             ),
             const SizedBox(width: 12),
-            Text('Deconnexion',
-                style: GoogleFonts.inter(
+            const Text('Déconnexion',
+                style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: UltraTheme.error)),
@@ -1266,7 +1556,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final user = authState.value;
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // ✅ Use the router instance directly
         router.go('/login');
       });
       return const Scaffold(
@@ -1277,10 +1566,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    // Resolve effective role once — used everywhere below.
     final role = _resolveRole(user);
     void onViewAll() {
-      if (mounted) setState(() => _selectedIndex = 1);
+      if (mounted) {
+        _selectTab(1,
+            _buildTabs(role, () => _openNewSubmissionDialog(context), () {}));
+      }
     }
 
     final tabs =
@@ -1288,7 +1579,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final safeIndex = _selectedIndex.clamp(0, tabs.length - 1);
     final isMobile = context.isMobile;
 
-    // Debug — remove in production.
     assert(() {
       debugPrint(
         '👤 role=$role  '
@@ -1307,7 +1597,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ? UltraBottomNavBar(
               tabs: tabs.map((t) => (icon: t.icon, label: t.label)).toList(),
               selectedIndex: safeIndex,
-              onTap: (i) => setState(() => _selectedIndex = i),
+              onTap: (i) => _selectTab(i, tabs),
             )
           : null,
       floatingActionButton: null,
@@ -1366,7 +1656,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
-                  // ✅ Use the router instance directly
                   router.go('/login');
                 },
                 style: ElevatedButton.styleFrom(
@@ -1379,12 +1668,111 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           BorderRadius.circular(UltraTheme.radiusMedium)),
                   elevation: 0,
                 ),
-                child: Text('Retour a la connexion',
-                    style: GoogleFonts.inter(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
+                child: const Text('Retour à la connexion',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
               ),
             ]),
           ),
         ),
       );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRIVATE HELPER WIDGETS
+// ═══════════════════════════════════════════════════════════════
+
+class _FilterDropdown extends StatelessWidget {
+  const _FilterDropdown({
+    required this.hint,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+  final String hint;
+  final String? value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: UltraTheme.background,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: value != null
+              ? UltraTheme.primary.withValues(alpha: 0.4)
+              : UltraTheme.textMuted.withValues(alpha: 0.2),
+        ),
+      ),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          isDense: true,
+        ),
+        hint: Text(hint,
+            style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: UltraTheme.textMuted)),
+        style: const TextStyle(
+            fontFamily: 'Inter', fontSize: 14, color: UltraTheme.textPrimary),
+        dropdownColor: UltraTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        items: [
+          DropdownMenuItem<String>(
+            value: null,
+            child: Text(hint,
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: UltraTheme.textMuted)),
+          ),
+          ...items.map((item) => DropdownMenuItem<String>(
+                value: item,
+                child: Text(item,
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 14)),
+              )),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _ActiveFilterChip extends StatelessWidget {
+  const _ActiveFilterChip({required this.label, required this.onRemove});
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: UltraTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: UltraTheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(label,
+            style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: UltraTheme.primary)),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: onRemove,
+          child: const Icon(Icons.close_rounded,
+              size: 14, color: UltraTheme.primary),
+        ),
+      ]),
+    );
+  }
 }

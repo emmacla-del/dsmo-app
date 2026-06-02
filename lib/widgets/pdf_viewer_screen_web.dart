@@ -11,7 +11,6 @@ import 'dart:typed_data';
 import 'dart:ui_web' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'pdf_cache.dart';
 
@@ -140,8 +139,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text('Aperçu du formulaire',
-            style: GoogleFonts.inter(
+        title: const Text('Aperçu du formulaire',
+            style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Colors.white)),
@@ -153,8 +153,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             onPressed: _download,
             icon: const Icon(Icons.download_outlined,
                 color: Colors.white70, size: 18),
-            label: Text('Télécharger',
-                style: GoogleFonts.inter(fontSize: 13, color: Colors.white70)),
+            label: const Text('Télécharger',
+                style: TextStyle(
+                    fontFamily: 'Inter', fontSize: 13, color: Colors.white70)),
           ),
           const SizedBox(width: 8),
           Padding(
@@ -171,9 +172,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 : ElevatedButton.icon(
                     onPressed: _blobUrl != null ? _handleConfirm : null,
                     icon: const Icon(Icons.send_rounded, size: 18),
-                    label: Text('Soumettre',
-                        style: GoogleFonts.inter(
-                            fontSize: 13, fontWeight: FontWeight.w700)),
+                    label: const Text('Soumettre',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
@@ -193,15 +196,16 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             color: const Color(0xFFFFF7ED),
-            child: Row(children: [
-              const Icon(Icons.info_outline,
-                  size: 16, color: Color(0xFFD97706)),
-              const SizedBox(width: 10),
+            child: const Row(children: [
+              Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Vérifiez les informations ci-dessous avant de soumettre définitivement.',
-                  style: GoogleFonts.inter(
-                      fontSize: 13, color: const Color(0xFF92400E)),
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: Color(0xFF92400E)),
                 ),
               ),
             ]),
@@ -244,8 +248,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           OutlinedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.arrow_back, size: 16),
-            label: Text('Modifier',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            label: const Text('Modifier',
+                style: TextStyle(
+                    fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF475569),
               side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -266,8 +271,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.send_rounded, size: 18),
             label: Text(_confirming ? 'Soumission…' : 'Confirmer et soumettre',
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w700)),
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,

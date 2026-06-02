@@ -1,6 +1,5 @@
 // lib/widgets/common_widgets.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/ultra_theme.dart';
 
 class GlassCard extends StatelessWidget {
@@ -118,7 +117,8 @@ class _AnimatedNavItemState extends State<AnimatedNavItem> {
                               size: 20)),
                       const SizedBox(width: 12),
                       Text(widget.label,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
+                              fontFamily: 'Inter',
                               fontSize: 13,
                               fontWeight: widget.isSelected
                                   ? FontWeight.w600
@@ -167,8 +167,11 @@ class StatusBadge extends StatelessWidget {
           const SizedBox(width: 4)
         ],
         Text(label,
-            style: GoogleFonts.inter(
-                fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+            style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color)),
       ]),
     );
   }
@@ -210,7 +213,8 @@ class EntityTypeCard extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
                 child: Text(label,
-                    style: GoogleFonts.inter(
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.textPrimary))),
@@ -267,14 +271,17 @@ class SubmissionOptionCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(title,
-                      style: GoogleFonts.inter(
+                      style: const TextStyle(
+                          fontFamily: 'Inter',
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: UltraTheme.textPrimary)),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: UltraTheme.textMuted)),
+                      style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: UltraTheme.textMuted)),
                 ])),
             Icon(Icons.arrow_forward_ios,
                 size: 14, color: color.withValues(alpha: 0.5)),

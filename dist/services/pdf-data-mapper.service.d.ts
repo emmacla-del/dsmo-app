@@ -98,7 +98,7 @@ interface S23Q02Result {
     grandTotals: CspAgeRow;
 }
 export declare function mapEnterpriseData(f: FlatData): {
-    surveyYear: {};
+    surveyYear: unknown;
     copy: string;
     jobApplicationsRows: CspAgeRow[];
     jobApplicationsTotals: CspAgeRow;
@@ -151,7 +151,7 @@ export declare function mapEnterpriseData(f: FlatData): {
     enterpriseSize: number;
 };
 export declare function mapCooperativeData(f: FlatData): {
-    surveyYear: {};
+    surveyYear: unknown;
     copy: string;
     jobApplicationsRows: CspAgeRow[];
     jobApplicationsTotals: CspAgeRow;
@@ -205,7 +205,7 @@ export declare function mapCooperativeData(f: FlatData): {
     vacancies: string;
 };
 export declare function mapCtdData(f: FlatData): {
-    surveyYear: {};
+    surveyYear: unknown;
     copy: string;
     jobApplicationsRows: CspAgeRow[];
     jobApplicationsTotals: CspAgeRow;
@@ -256,7 +256,7 @@ export declare function mapCtdData(f: FlatData): {
     vacancies: string;
 };
 export declare function mapOngData(f: FlatData): {
-    surveyYear: {};
+    surveyYear: unknown;
     copy: string;
     jobApplicationsRows: CspAgeRow[];
     jobApplicationsTotals: CspAgeRow;

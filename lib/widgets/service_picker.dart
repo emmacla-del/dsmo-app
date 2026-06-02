@@ -16,7 +16,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../data/api_client.dart';
 import '../theme/ultra_theme.dart';
 import '../data/minefop_models.dart';
@@ -366,8 +365,9 @@ class _CategoryPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Type de service *',
-            style: GoogleFonts.inter(
+        const Text('Type de service *',
+            style: TextStyle(
+              fontFamily: 'Inter',
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: UltraTheme.textSecondary,
@@ -385,9 +385,11 @@ class _CategoryPicker extends StatelessWidget {
             child: DropdownButton<String>(
               value: selected,
               isExpanded: true,
-              hint: Text('Sélectionner un type de service',
-                  style: GoogleFonts.inter(
-                      fontSize: 14, color: UltraTheme.textMuted)),
+              hint: const Text('Sélectionner un type de service',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: UltraTheme.textMuted)),
               items: _categories
                   .map((c) => DropdownMenuItem(
                         value: c.value,
@@ -395,8 +397,10 @@ class _CategoryPicker extends StatelessWidget {
                           Icon(c.icon, size: 16, color: c.color),
                           const SizedBox(width: 10),
                           Text(c.label,
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, color: UltraTheme.textPrimary)),
+                              style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 14,
+                                  color: UltraTheme.textPrimary)),
                         ]),
                       ))
                   .toList(),
@@ -491,7 +495,8 @@ class _BreadcrumbChip extends StatelessWidget {
             const SizedBox(width: 5),
           ],
           Text(label,
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 12,
                 fontWeight: isLast ? FontWeight.w600 : FontWeight.w500,
                 color: fg,
@@ -554,7 +559,8 @@ class _NodeTile extends StatelessWidget {
                 children: [
                   Text(
                     node.displayName,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
+                      fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -567,7 +573,8 @@ class _NodeTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       node.nameEn!,
-                      style: GoogleFonts.inter(
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 12,
                         color: UltraTheme.textMuted,
                       ),
@@ -614,15 +621,17 @@ class _SelectedChip extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Service sélectionné',
-                  style: GoogleFonts.inter(
+              const Text('Service sélectionné',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: UltraTheme.success,
                   )),
               const SizedBox(height: 2),
               Text(node.displayName,
-                  style: GoogleFonts.inter(
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: UltraTheme.textPrimary,
@@ -681,16 +690,19 @@ class _ErrorState extends StatelessWidget {
           const Icon(Icons.wifi_off_rounded,
               size: 40, color: UltraTheme.textMuted),
           const SizedBox(height: 12),
-          Text('Impossible de charger les services',
-              style: GoogleFonts.inter(
+          const Text('Impossible de charger les services',
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: UltraTheme.textPrimary,
               )),
           const SizedBox(height: 6),
           Text(message,
-              style:
-                  GoogleFonts.inter(fontSize: 12, color: UltraTheme.textMuted),
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: UltraTheme.textMuted),
               textAlign: TextAlign.center),
           const SizedBox(height: 16),
           TextButton.icon(
@@ -719,7 +731,8 @@ class _EmptyState extends StatelessWidget {
         Icon(icon, size: 40, color: UltraTheme.textMuted),
         const SizedBox(height: 12),
         Text(message,
-            style: GoogleFonts.inter(fontSize: 13, color: UltraTheme.textMuted),
+            style: const TextStyle(
+                fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
             textAlign: TextAlign.center),
       ]),
     );

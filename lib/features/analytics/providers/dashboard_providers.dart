@@ -180,6 +180,44 @@ final previousYearSummaryProvider =
   return DashboardSummary.fromJson(response.data);
 });
 
+// ── SECTION 4-B — EMPLOYMENT BALANCE ─────────────────────────
+
+/// Employment balance: jobs created vs lost.
+final employmentBalanceProvider =
+    FutureProvider.family<EmploymentBalance, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/employment-balance',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return EmploymentBalance.fromJson(response.data);
+});
+
+/// First-time employment (young entrants, S23Q02).
+final firstTimeEmploymentProvider =
+    FutureProvider.family<FirstTimeEmployment, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/first-time-employment',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return FirstTimeEmployment.fromJson(response.data);
+});
+
 // ═══════════════════════════════════════════════════════════════
 // SECTION 5 — TREND ANALYSIS PROVIDERS
 // ═══════════════════════════════════════════════════════════════
@@ -219,8 +257,8 @@ final filteredEmploymentTrendsProvider =
   final params = (
     startYear: ref.watch(startYearProvider),
     endYear: ref.watch(endYearProvider),
-    regionId: ref.watch(effectiveRegionProvider), // ← scoped
-    departmentId: ref.watch(effectiveDepartmentProvider), // ← scoped
+    regionId: ref.watch(effectiveRegionProvider),
+    departmentId: ref.watch(effectiveDepartmentProvider),
     granularity: ref.watch(granularityProvider),
   );
   return ref.watch(employmentTrendsProvider(params).future);
@@ -310,6 +348,180 @@ final sectorShortagesProvider =
   return (response.data as List).cast<Map<String, dynamic>>();
 });
 
+// ── SECTION 6-B — LABOUR MARKET & MOBILITY ───────────────────
+
+/// Labour-market gap (supply vs demand).
+final laborMarketProvider =
+    FutureProvider.family<LaborMarketGap, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/labor-market-gap',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return LaborMarketGap.fromJson(response.data);
+});
+
+/// Departures & mobility (dismissals, resignations, retirements, transfers).
+final departuresProvider =
+    FutureProvider.family<DeparturesMobility, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/departures',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return DeparturesMobility.fromJson(response.data);
+});
+
+// ── SECTION 6-C — CONTRACT & INCLUSION ───────────────────────
+
+/// Contract-type distribution (CDI, CDD, internship, etc.).
+final contractTypeProvider =
+    FutureProvider.family<ContractDistribution, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/contract-types',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return ContractDistribution.fromJson(response.data);
+});
+
+/// Vulnerable-population inclusion (PWD, youth NEET, etc.).
+final vulnerablePopProvider =
+    FutureProvider.family<VulnerableInclusion, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/vulnerable-populations',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return VulnerableInclusion.fromJson(response.data);
+});
+
+// ── SECTION 6-D — QUALIFICATIONS & TRAINING ──────────────────
+
+/// Diploma / qualification pyramid distribution.
+final diplomaDistributionProvider =
+    FutureProvider.family<DiplomaDistribution, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/diploma-distribution',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return DiplomaDistribution.fromJson(response.data);
+});
+
+/// Skills-training gap (demand vs supply by skill).
+final trainingProvider =
+    FutureProvider.family<List<SkillTraining>, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/training-skills',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return (response.data as List).map((e) => SkillTraining.fromJson(e)).toList();
+});
+
+// ── SECTION 6-E — INTERNSHIP PIPELINE ────────────────────────
+
+/// Internship pipeline (active interns, conversions to CDI).
+final internshipPipelineProvider =
+    FutureProvider.family<InternshipPipeline, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/internship-pipeline',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return InternshipPipeline.fromJson(response.data);
+});
+
+// ── SECTION 6-F — ENTITY STRUCTURE ───────────────────────────
+
+/// Entity breakdown by legal form (Enterprise, CTD, ONG, Cooperative).
+final entityBreakdownProvider =
+    FutureProvider.family<EntityBreakdown, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/entity-breakdown',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return EntityBreakdown.fromJson(response.data);
+});
+
+/// Entity size distribution (micro, small, medium, large).
+final entitySizeProvider =
+    FutureProvider.family<List<EntitySizeItem>, int>((ref, year) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+
+  final response = await api.get(
+    '/dsmo/analytics/entity-sizes',
+    queryParameters: {
+      'year': year,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+    },
+  );
+  return (response.data as List)
+      .map((e) => EntitySizeItem.fromJson(e))
+      .toList();
+});
+
 // ═══════════════════════════════════════════════════════════════
 // SECTION 7 — REFERENCE DATA
 // ═══════════════════════════════════════════════════════════════
@@ -341,8 +553,19 @@ final departmentsProvider =
 void refreshAll(WidgetRef ref, int year) {
   ref.invalidate(dashboardSummaryProvider(year));
   ref.invalidate(previousYearSummaryProvider(year));
+  ref.invalidate(employmentBalanceProvider(year));
+  ref.invalidate(firstTimeEmploymentProvider(year));
   ref.invalidate(sectorsProvider(year));
   ref.invalidate(genderDistributionProvider(year));
+  ref.invalidate(laborMarketProvider(year));
+  ref.invalidate(departuresProvider(year));
+  ref.invalidate(contractTypeProvider(year));
+  ref.invalidate(vulnerablePopProvider(year));
+  ref.invalidate(diplomaDistributionProvider(year));
+  ref.invalidate(trainingProvider(year));
+  ref.invalidate(internshipPipelineProvider(year));
+  ref.invalidate(entityBreakdownProvider(year));
+  ref.invalidate(entitySizeProvider(year));
   ref.invalidate(unemploymentRiskProvider(year));
   ref.invalidate(sectorShortagesProvider(year));
   // filteredEmploymentTrendsProvider auto-refreshes because it

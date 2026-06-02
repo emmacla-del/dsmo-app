@@ -36,6 +36,9 @@ import 'onefop_form_widgets.dart';
 class OnefopUnifiedFormScreenV4 extends StatefulWidget {
   final EntityType entityType;
   final Map<String, dynamic> initialData;
+  final String? establishmentId;
+  final String? companyId;
+  final String? quarterCode;
   final void Function(Map<String, dynamic>) onSave;
   final VoidCallback? onCancel;
   final String? userId;
@@ -45,6 +48,9 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
     super.key,
     required this.entityType,
     required this.initialData,
+    this.establishmentId,
+    this.companyId,
+    this.quarterCode,
     required this.onSave,
     this.onCancel,
     this.userId,
@@ -64,6 +70,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     _ctrl = OnefopFormController(
       entityType: widget.entityType,
       initialData: widget.initialData,
+      establishmentId: widget.establishmentId,
+      companyId: widget.companyId,
+      quarterCode: widget.quarterCode,
       onSave: widget.onSave,
       onCancel: widget.onCancel,
       userId: widget.userId,
@@ -268,11 +277,58 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     final idxs = _ctrl.sectionIndicesForPage(_ctrl.currentPage);
     if (idxs.isEmpty) return const <Widget>[];
     final sec = _ctrl.schema!.sections[idxs.first];
+    debugPrint(
+        'Page ${_ctrl.currentPage} → ${sec.id} → fields: ${sec.fieldIds.length} → visible: ${_ctrl.computeVisibleFieldIds().length}');
     final title = SectionTitleLookup.getTitle(sec.id);
     final isV = _ctrl.valid[sec.id] ?? false;
     final meta = kSidebarMeta[sec.id];
+    final isSection1 = sec.id.startsWith('section1_');
 
     return [
+      if (isSection1 && widget.establishmentId != null)
+        SliverToBoxAdapter(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: kScrollChildWidth),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F6FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFF4472C4).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_outlined,
+                        size: 16, color: Color(0xFF4472C4)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ID Établissement: ${widget.establishmentId}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4472C4),
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      entityTypeTitle(widget.entityType),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: const Color(0xFF4472C4).withValues(alpha: 0.7),
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       SliverPersistentHeader(
         pinned: true,
         delegate: StickySectionHeaderDelegate(

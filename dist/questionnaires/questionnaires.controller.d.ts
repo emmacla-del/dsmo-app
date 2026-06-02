@@ -5,6 +5,6 @@ export declare class QuestionnairesController {
     private readonly service;
     private readonly pdfService;
     constructor(service: QuestionnairesService, pdfService: OnefopPuppeteerService);
-    preview(body: any, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
-    submit(dto: any): Promise<import("../dto").OnefopResponseDto>;
+    preview(body: any, res: Response): Promise<Response<any, Record<string, any>>>;
+    submit(dto: any, req: any): Promise<import("../dto").OnefopResponseDto>;
 }

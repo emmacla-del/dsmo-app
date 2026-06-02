@@ -22,6 +22,7 @@ import {
 } from '../services/pdf-data-mapper.service';
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
 @Controller('onefop')
 export class QuestionnairesController {
   constructor(
@@ -49,59 +50,91 @@ export class QuestionnairesController {
       console.log('   entityType:', entityType);
       console.log('   data keys:', Object.keys(rawData).length);
 
-      const normalized = normalizeFlatKeys(rawData, entityType);
+      // ── STEP 1: Normalize ──────────────────────────────────────
+      console.log('🔄 Step 1: Normalizing keys...');
+      let normalized: Record<string, unknown>;
+      try {
+        normalized = normalizeFlatKeys(rawData, entityType);
+        console.log('✅ Step 1 done — normalized keys:', Object.keys(normalized).length);
+      } catch (e: any) {
+        console.error('❌ Step 1 FAILED — normalizeFlatKeys threw:', e.message);
+        console.error(e.stack);
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          error: 'Normalization failed', step: 1, message: e.message,
+        });
+      }
 
-      // DEBUG: Log keys for dismissal reasons, skills, and training needs
       const relevantKeys = Object.keys(normalized)
         .filter(k => k.startsWith('s3q02') || k.startsWith('s4q02') || k.startsWith('s4q03'));
       console.log('🔑 Reasons/Skills/Training keys:', JSON.stringify(relevantKeys));
-      console.log('📦 Full normalized payload keys count:', Object.keys(normalized).length);
 
       if (process.env.NODE_ENV !== 'production') {
         diagnoseMappingKeys(normalized);
       }
 
+      // ── STEP 2: Map to template data ───────────────────────────
+      console.log('🔄 Step 2: Mapping data for entityType:', entityType);
       let mappedData: Record<string, unknown>;
-      switch (entityType) {
-        case 'enterprise':
-          mappedData = mapEnterpriseData(normalized);
-          break;
-        case 'cooperative':
-          mappedData = mapCooperativeData(normalized);
-          break;
-        case 'ctd':
-          mappedData = mapCtdData(normalized);
-          break;
-        case 'ong':
-          mappedData = mapOngData(normalized);
-          break;
-        default:
-          return res
-            .status(HttpStatus.BAD_REQUEST)
-            .json({ error: `Invalid entity type: "${entityType}"` });
+      try {
+        switch (entityType) {
+          case 'enterprise':
+            mappedData = mapEnterpriseData(normalized);
+            break;
+          case 'cooperative':
+            mappedData = mapCooperativeData(normalized);
+            break;
+          case 'ctd':
+            mappedData = mapCtdData(normalized);
+            break;
+          case 'ong':
+            mappedData = mapOngData(normalized);
+            break;
+          default:
+            return res.status(HttpStatus.BAD_REQUEST).json({
+              error: `Invalid entity type: "${entityType}"`,
+            });
+        }
+        console.log('✅ Step 2 done — mapped keys:', Object.keys(mappedData).length);
+      } catch (e: any) {
+        console.error('❌ Step 2 FAILED — data mapping threw:', e.message);
+        console.error(e.stack);
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          error: 'Data mapping failed', step: 2, message: e.message,
+        });
       }
 
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(
-          '🔍 Mapped data sample:',
-          JSON.stringify(mappedData, null, 2).substring(0, 500),
-        );
+      // ── STEP 3: Launch browser / generate PDF ─────────────────
+      console.log('🔄 Step 3: Generating PDF...');
+      let pdfBuffer: Buffer;
+      try {
+        pdfBuffer = await this.pdfService.generate({
+          ...mappedData,
+          formType: entityType,
+        });
+        console.log(`✅ Step 3 done — PDF size: ${pdfBuffer.length} bytes`);
+      } catch (e: any) {
+        console.error('❌ Step 3 FAILED — PDF generation threw:', e.message);
+        console.error('   Full stack:', e.stack);
+        // Common Render/Chrome errors
+        if (e.message?.includes('Could not find Chrome')) {
+          console.error('💡 Hint: Chrome/Chromium not found — set PUPPETEER_EXECUTABLE_PATH');
+        }
+        if (e.message?.includes('Failed to launch')) {
+          console.error('💡 Hint: Browser failed to launch — check sandbox args');
+        }
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          error: 'PDF generation failed', step: 3, message: e.message,
+        });
       }
-
-      console.log('📄 Generating PDF...');
-      const pdfBuffer = await this.pdfService.generate({
-        ...mappedData,
-        formType: entityType,
-      });
-      console.log(`✅ PDF generated (${pdfBuffer.length} bytes)`);
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');
       res.setHeader('Content-Length', pdfBuffer.length);
       res.send(pdfBuffer);
+
     } catch (err) {
       const error = err as Error;
-      console.error('❌ Preview error:', error.message);
+      console.error('❌ Unhandled preview error:', error.message);
       console.error('   Stack:', error.stack);
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to generate preview',
@@ -123,7 +156,23 @@ export class QuestionnairesController {
     }),
   )
   async submit(@Body() dto: any, @Req() req: any) {
-    // Inject userId from token instead of relying on dto.userId
-    return this.service.submitQuestionnaire({ ...dto, userId: req.user.id });
+    console.log('📥 Submit request received');
+    console.log('   userId:', req.user?.id);
+    console.log('   entityType:', dto?.entityType);
+    console.log('   isDraft:', dto?.isDraft);
+    console.log('   data keys:', dto?.data ? Object.keys(dto.data).length : 0);
+
+    try {
+      const result = await this.service.submitQuestionnaire({
+        ...dto,
+        userId: req.user.id,
+      });
+      console.log('✅ Submit successful:', result);
+      return result;
+    } catch (e: any) {
+      console.error('❌ Submit FAILED:', e.message);
+      console.error('   Stack:', e.stack);
+      throw e; // re-throw so NestJS returns the correct HTTP error
+    }
   }
 }

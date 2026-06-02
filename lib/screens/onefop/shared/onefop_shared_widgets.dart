@@ -1,6 +1,5 @@
 ﻿// lib/screens/onefop/shared/onefop_shared_widgets.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/onefop_colors.dart';
 
 // ============================================================
@@ -10,14 +9,23 @@ import '../../../core/theme/onefop_colors.dart';
 TextStyle mono(double size,
         {Color color = OnefopColors.white70,
         FontWeight weight = FontWeight.normal}) =>
-    GoogleFonts.spaceMono(
-        fontSize: size, color: color, fontWeight: weight, letterSpacing: 0.2);
+    TextStyle(
+      fontFamily: 'monospace', // or 'Courier', 'RobotoMono'
+      fontSize: size,
+      color: color,
+      fontWeight: weight,
+      letterSpacing: 0.2,
+    );
 
 TextStyle sans(double size,
         {Color color = OnefopColors.white,
         FontWeight weight = FontWeight.normal}) =>
-    GoogleFonts.dmSans(fontSize: size, color: color, fontWeight: weight);
-
+    TextStyle(
+      fontFamily: 'Inter', // Use your Inter font
+      fontSize: size,
+      color: color,
+      fontWeight: weight,
+    );
 // ============================================================
 // FORMCARD
 // ============================================================

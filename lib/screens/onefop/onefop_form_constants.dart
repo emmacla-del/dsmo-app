@@ -185,7 +185,22 @@ Map<String, dynamic> sanitiseInitialData(Map<String, dynamic> raw) {
   }));
 }
 
+/// Returns the string value for API calls (UPPERCASE for database compatibility)
 String entityTypeString(EntityType t) {
+  switch (t) {
+    case EntityType.enterprise:
+      return 'ENTREPRISE';
+    case EntityType.cooperative:
+      return 'COOPERATIVE';
+    case EntityType.ctd:
+      return 'CTD';
+    case EntityType.ong:
+      return 'ONG';
+  }
+}
+
+/// Returns the string value for schema loading (lowercase to match AST)
+String entityTypeForSchema(EntityType t) {
   switch (t) {
     case EntityType.enterprise:
       return 'enterprise';
@@ -198,6 +213,7 @@ String entityTypeString(EntityType t) {
   }
 }
 
+/// Returns the display title for UI (human readable)
 String entityTypeTitle(EntityType t) {
   switch (t) {
     case EntityType.enterprise:

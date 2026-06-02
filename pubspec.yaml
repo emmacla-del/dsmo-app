@@ -43,7 +43,6 @@ dependencies:
   syncfusion_flutter_pdfviewer: ^23.2.7
 
   # --- UI / Fonts & Animations ---
-  google_fonts: ^6.1.0
   shimmer: ^3.0.0
 
 dev_dependencies:
@@ -57,5 +56,13 @@ flutter:
 
   assets:
     - assets/images/onefop_logo.png
-    - assets/images/coat_of_arms.png  
+    - assets/images/coat_of_arms.png
     - assets/images/minefop-logo.png
+    - assets/fonts/
+
+  fonts:
+  - family: Inter
+    fonts:
+      - asset: assets/fonts/Inter.ttf
+      - asset: assets/fonts/Inter-Italic.ttf
+        style: italic

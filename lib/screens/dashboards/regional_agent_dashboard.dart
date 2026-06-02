@@ -1,6 +1,5 @@
 // lib/screens/dashboards/regional_agent_dashboard.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -84,9 +83,7 @@ class RegionalAgentDashboard extends StatelessWidget {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
             ),
-            child: Text('Open queue →',
-                style: GoogleFonts.inter(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            child: Text('Open queue →', style: UltraTheme.bodyMedium),
           ),
         ],
       ),
@@ -156,8 +153,7 @@ class RegionalAgentDashboard extends StatelessWidget {
               TextButton(
                 onPressed: () {},
                 child: Text('Open all →',
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
+                    style: UltraTheme.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.primary)),
               ),
@@ -177,8 +173,9 @@ class RegionalAgentDashboard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text('+8',
-                    style: GoogleFonts.inter(
+                const Text('+8',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: UltraTheme.textMuted)),

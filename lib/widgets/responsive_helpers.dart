@@ -5,7 +5,6 @@
 // ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/ultra_theme.dart';
 
 // ── Breakpoints ───────────────────────────────────────────────
@@ -120,7 +119,8 @@ class RailNavItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       label,
-                      style: GoogleFonts.inter(
+                      style: TextStyle(
+                        fontFamily: 'Inter',
                         fontSize: 13,
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -180,7 +180,8 @@ class BottomNavItem extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(label,
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? Colors.white : UltraTheme.textMuted,
@@ -217,7 +218,8 @@ class UserAvatar extends StatelessWidget {
       child: Center(
         child: Text(
           email.isNotEmpty ? email[0].toUpperCase() : '?',
-          style: GoogleFonts.inter(
+          style: TextStyle(
+            fontFamily: 'Inter',
             fontSize: fontSize,
             fontWeight: FontWeight.w700,
             color: Colors.white,
@@ -244,7 +246,8 @@ class RoleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(UltraTheme.radiusFull),
       ),
       child: Text(label,
-          style: GoogleFonts.inter(
+          style: TextStyle(
+            fontFamily: 'Inter',
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.9),
@@ -264,7 +267,8 @@ class DrawerSectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Text(title,
-          style: GoogleFonts.inter(
+          style: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 11,
             fontWeight: FontWeight.w700,
             color: UltraTheme.textMuted,
@@ -318,7 +322,8 @@ class DrawerNavItem extends StatelessWidget {
                   children: [
                     Row(children: [
                       Text(label,
-                          style: GoogleFonts.inter(
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: UltraTheme.textPrimary,
@@ -330,7 +335,8 @@ class DrawerNavItem extends StatelessWidget {
                     ]),
                     const SizedBox(height: 2),
                     Text(subtitle,
-                        style: GoogleFonts.inter(
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
                           fontSize: 12,
                           color: UltraTheme.textMuted,
                         )),
@@ -358,7 +364,8 @@ class _BadgePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(UltraTheme.radiusFull),
       ),
       child: Text(text,
-          style: GoogleFonts.inter(
+          style: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 11,
             fontWeight: FontWeight.w700,
             color: UltraTheme.error,
@@ -390,8 +397,9 @@ class DrawerLogoutButton extends StatelessWidget {
           child: Row(children: [
             const Icon(Icons.logout_rounded, size: 20, color: UltraTheme.error),
             const SizedBox(width: 12),
-            Text('Déconnexion',
-                style: GoogleFonts.inter(
+            const Text('Déconnexion',
+                style: TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: UltraTheme.error,
@@ -429,11 +437,12 @@ class RailLogo extends StatelessWidget {
     return Row(children: [
       icon,
       const SizedBox(width: 12),
-      Expanded(
+      const Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('DSMO',
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: UltraTheme.textPrimary,
@@ -441,7 +450,8 @@ class RailLogo extends StatelessWidget {
               )),
           Text('Intelligence du travail',
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
+              style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 11,
                 color: UltraTheme.textMuted,
               )),
@@ -497,7 +507,8 @@ class RailUserFooter extends StatelessWidget {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(email,
-                style: GoogleFonts.inter(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: UltraTheme.textPrimary,
@@ -505,7 +516,8 @@ class RailUserFooter extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             Text(roleLabel,
-                style: GoogleFonts.inter(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
                   fontSize: 11,
                   color: UltraTheme.textMuted,
                 )),
@@ -662,7 +674,8 @@ class SubmissionFab extends StatelessWidget {
         icon: const Icon(Icons.add, color: Colors.white, size: 22),
         label: Text(
           compact ? 'Nouveau' : 'Nouvelle soumission',
-          style: GoogleFonts.inter(
+          style: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.white,
