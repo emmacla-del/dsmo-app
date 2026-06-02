@@ -5,15 +5,18 @@ export class OnefopSubmissionDto {
     @IsString()
     formId: string;
 
+    @IsOptional()  // ← CHANGE: make optional
     @IsString()
-    userId: string;
+    userId?: string;  // ← CHANGE: add ?
+
+    @IsString()  // ← ADD THIS - required field
+    companyId: string;  // ← ADD THIS
+
+    @IsString()  // ← ADD THIS - required field  
+    establishmentId: string;  // ← ADD THIS
 
     @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'])
     entityType: 'ENTREPRISE' | 'COOPERATIVE' | 'CTD' | 'ONG';
-
-    @IsOptional()
-    @IsString()
-    establishmentId?: string;
 
     @IsOptional()
     @IsString()
@@ -24,10 +27,6 @@ export class OnefopSubmissionDto {
     @IsOptional()
     @IsBoolean()
     isDraft?: boolean;
-
-    @IsOptional()
-    @IsString()
-    companyId?: string;
 
     @IsOptional()
     @IsObject()

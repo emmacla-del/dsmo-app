@@ -181,14 +181,15 @@ export class QuestionnairesService {
           formType: normalizedEntityType,
           rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
-          submittedBy: dto.userId,
+          submittedBy: dto.userId ?? null,
+          companyId: dto.companyId,           // ← ADD THIS
+          // establishmentId: dto.establishmentId, // ← Add if your schema has this field
           region: entityRegion,
           department: entityDepartment,
           subdivision: entitySubdivision,
           status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
         },
       });
-
       const sid: string = submission.id;
 
       if (respondent) {
