@@ -83,6 +83,8 @@ export class QuestionnairesService {
     console.log('entityType (normalized):', normalizedEntityType);
     console.log('isDraft    :', isDraft);
     console.log('userId     :', dto.userId);
+    console.log('companyId  :', dto.companyId);
+    console.log('establishmentId:', dto.establishmentId);
     console.log('formId     :', dto.formId);
     console.log('data keys  :', Object.keys(dto.data).length);
     debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
@@ -182,8 +184,8 @@ export class QuestionnairesService {
           rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
           submittedBy: dto.userId ?? null,
-          companyId: dto.companyId,           // ← ADD THIS
-          // establishmentId: dto.establishmentId, // ← Add if your schema has this field
+          companyId: dto.companyId,
+          establishmentId: dto.establishmentId,
           region: entityRegion,
           department: entityDepartment,
           subdivision: entitySubdivision,
@@ -384,49 +386,104 @@ export class QuestionnairesService {
     return v.toUpperCase();
   }
 
+  // Age band mapping helper - converts flat keys to enum values
+  private mapAgeBand(ageKey: string): string {
+    const ageBandMap: Record<string, string> = {
+      '15_24': 'AGE_15_24',
+      '25_34': 'AGE_25_34',
+      '35_plus': 'AGE_35_PLUS',
+      'total': 'AGE_TOTAL',
+    };
+    return ageBandMap[ageKey] || ageKey;
+  }
+
   private async saveCspGenderAgeFlat(tx: TxClient, submissionId: string, flat: FlatFormData, prefix: string, tableName: string): Promise<void> {
     const cspRows = ['cadres', 'foremen', 'workers'];
     const genders = ['male', 'female', 'total'];
-    const ageBands = ['15_24', '25_34', '35_plus', 'total'];
+    const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const rows: object[] = [];
+
     for (const csp of cspRows) {
       for (const gender of genders) {
-        for (const age of ageBands) {
-          const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${age}`);
-          if (value !== 0) rows.push({ submissionId, tableName, cspCategory: this.up(csp), gender: this.up(gender), ageBand: age, value });
+        for (const ageKey of ageBandKeys) {
+          const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${ageKey}`);
+          if (value !== 0) {
+            rows.push({
+              submissionId,
+              tableName,
+              cspCategory: this.up(csp),
+              gender: this.up(gender),
+              ageBand: this.mapAgeBand(ageKey),
+              value
+            });
+          }
         }
       }
     }
+
     for (const gender of genders) {
-      for (const age of ageBands) {
-        const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
-        if (value !== 0) rows.push({ submissionId, tableName, cspCategory: 'TOTAL', gender: this.up(gender), ageBand: age, value });
+      for (const ageKey of ageBandKeys) {
+        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
+        if (value !== 0) {
+          rows.push({
+            submissionId,
+            tableName,
+            cspCategory: 'TOTAL',
+            gender: this.up(gender),
+            ageBand: this.mapAgeBand(ageKey),
+            value
+          });
+        }
       }
     }
-    if (rows.length > 0) await tx.onefopCspGenderAge.createMany({ data: rows, skipDuplicates: true });
+
+    if (rows.length > 0) {
+      await tx.onefopCspGenderAge.createMany({ data: rows, skipDuplicates: true });
+    }
   }
 
   private async saveDiplomaFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const diplomas = ['cep', 'bepc', 'probatoire', 'bac', 'bts', 'licence', 'maitrise', 'master', 'dqp', 'cqp', 'autres', 'sans_diplome'];
     const genders = ['male', 'female', 'total'];
-    const ageBands = ['15_24', '25_34', '35_plus', 'total'];
+    const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const prefix = 's22q03';
     const rows: object[] = [];
+
     for (const diploma of diplomas) {
       for (const gender of genders) {
-        for (const age of ageBands) {
-          const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${age}`);
-          if (value !== 0) rows.push({ submissionId, diploma: this.up(diploma), gender: this.up(gender), ageBand: age, value });
+        for (const ageKey of ageBandKeys) {
+          const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${ageKey}`);
+          if (value !== 0) {
+            rows.push({
+              submissionId,
+              diploma: this.up(diploma),
+              gender: this.up(gender),
+              ageBand: this.mapAgeBand(ageKey),
+              value
+            });
+          }
         }
       }
     }
+
     for (const gender of genders) {
-      for (const age of ageBands) {
-        const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
-        if (value !== 0) rows.push({ submissionId, diploma: 'TOTAL', gender: this.up(gender), ageBand: age, value });
+      for (const ageKey of ageBandKeys) {
+        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
+        if (value !== 0) {
+          rows.push({
+            submissionId,
+            diploma: 'TOTAL',
+            gender: this.up(gender),
+            ageBand: this.mapAgeBand(ageKey),
+            value
+          });
+        }
       }
     }
-    if (rows.length > 0) await tx.onefopDiplomaData.createMany({ data: rows, skipDuplicates: true });
+
+    if (rows.length > 0) {
+      await tx.onefopDiplomaData.createMany({ data: rows, skipDuplicates: true });
+    }
   }
 
   private async saveDisabilityFlat(tx: TxClient, submissionId: string, flat: FlatFormData, prefix: string): Promise<void> {
@@ -484,31 +541,63 @@ export class QuestionnairesService {
     const contracts = ['permanent', 'temporary'];
     const cspRows = ['cadres', 'foremen', 'workers'];
     const genders = ['male', 'female', 'total'];
-    const ageBands = ['15_24', '25_34', '35_plus', 'total'];
+    const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const records: object[] = [];
+
     for (const contract of contracts) {
       for (const csp of cspRows) {
         for (const gender of genders) {
-          for (const age of ageBands) {
-            const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${age}`);
-            if (value !== 0) records.push({ submissionId, contractType: this.up(contract), cspCategory: this.up(csp), gender: this.up(gender), ageBand: age, value });
+          for (const ageKey of ageBandKeys) {
+            const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${ageKey}`);
+            if (value !== 0) {
+              records.push({
+                submissionId,
+                contractType: this.up(contract),
+                cspCategory: this.up(csp),
+                gender: this.up(gender),
+                ageBand: this.mapAgeBand(ageKey),
+                value
+              });
+            }
           }
         }
       }
       for (const gender of genders) {
-        for (const age of ageBands) {
-          const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${age}`);
-          if (value !== 0) records.push({ submissionId, contractType: this.up(contract), cspCategory: 'SUBTOTAL', gender: this.up(gender), ageBand: age, value });
+        for (const ageKey of ageBandKeys) {
+          const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${ageKey}`);
+          if (value !== 0) {
+            records.push({
+              submissionId,
+              contractType: this.up(contract),
+              cspCategory: 'SUBTOTAL',
+              gender: this.up(gender),
+              ageBand: this.mapAgeBand(ageKey),
+              value
+            });
+          }
         }
       }
     }
+
     for (const gender of genders) {
-      for (const age of ageBands) {
-        const value = this.flatInt(flat, `${prefix}_total_${gender}_${age}`);
-        if (value !== 0) records.push({ submissionId, contractType: 'TOTAL', cspCategory: 'TOTAL', gender: this.up(gender), ageBand: age, value });
+      for (const ageKey of ageBandKeys) {
+        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
+        if (value !== 0) {
+          records.push({
+            submissionId,
+            contractType: 'TOTAL',
+            cspCategory: 'TOTAL',
+            gender: this.up(gender),
+            ageBand: this.mapAgeBand(ageKey),
+            value
+          });
+        }
       }
     }
-    if (records.length > 0) await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
+
+    if (records.length > 0) {
+      await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
+    }
   }
 
   private async saveDepartureFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
