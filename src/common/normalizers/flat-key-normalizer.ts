@@ -103,7 +103,7 @@ export function normalizeFlatKeys(
 // ─── S1 Normalizers ───────────────────────────────────────────────────────────
 
 function normalizeCooperativeS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
-    set(out, 'COOP_S1Q01', pick(raw, 'cooperativeName', 'cooperative_name', 'COOP_S1Q01'));
+    set(out, 'COOP_S1Q01', pick(raw, 'cooperativeName', 'name', 'cooperative_name', 'COOP_S1Q01'));  // ← Add 'name'
     set(out, 'COOP_S1Q02', pick(raw, 'cooperativeHeadOffice', 'cooperative_head_office', 'COOP_S1Q02'));
     set(out, 'COOP_S1Q03', pick(raw, 'yearCreated', 'cooperativeYearCreated', 'COOP_S1Q03'));
     set(out, 'COOP_S1Q04', pick(raw, 'area', 'COOP_S1Q04'));
@@ -125,7 +125,7 @@ function normalizeCooperativeS1(raw: Record<string, unknown>, out: Record<string
 
 function normalizeEnterpriseS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
     set(out, 'S1Q01', pick(raw, 'legalStatus', 'S1Q01'));
-    set(out, 'S1Q02', pick(raw, 'enterpriseName', 'enterprise_name', 'S1Q02'));
+    set(out, 'S1Q02', pick(raw, 'companyName', 'enterpriseName', 'enterprise_name', 'S1Q02'));  // ← Add 'companyName'
     set(out, 'S1Q03', pick(raw, 'area', 'S1Q03'));
     set(out, 'S1Q04_REGION', pick(raw, 'region', 'S1Q04_REGION'));
     set(out, 'S1Q04_DEPT', pick(raw, 'department', 'S1Q04_DEPT'));
@@ -162,7 +162,7 @@ function normalizeCtdS1(raw: Record<string, unknown>, out: Record<string, unknow
 }
 
 function normalizeOngS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
-    set(out, 'ONG_S1Q01', pick(raw, 'ongName', 'ong_name', 'ONG_S1Q01'));
+    set(out, 'ONG_S1Q01', pick(raw, 'ongName', 'ngoName', 'name', 'ong_name', 'ONG_S1Q01'));  // ← Add 'ngoName' and 'name'
     set(out, 'ONG_S1Q02', pick(raw, 'ongHeadOffice', 'headOffice', 'ONG_S1Q02'));
     set(out, 'ONG_S1Q03', pick(raw, 'yearCreated', 'ongYearCreated', 'ONG_S1Q03'));
     set(out, 'ONG_S1Q04', pick(raw, 'area', 'ONG_S1Q04'));
@@ -179,7 +179,6 @@ function normalizeOngS1(raw: Record<string, unknown>, out: Record<string, unknow
     set(out, 'ONG_S1Q10', pick(raw, 'permanentWorkers', 'ONG_S1Q10'));
     set(out, 'ONG_S1Q11', pick(raw, 'vacancies', 'ONG_S1Q11'));
 }
-
 // ─── buildNestedDto ───────────────────────────────────────────────────────────
 //
 // Converts the normalized flat object into the nested shape that
@@ -744,11 +743,14 @@ const CAMEL_KEY_SET = new Set([
     'phone1', 'phone2', 'poBox', 'businessSector',
     'branchActivity', 'branch', 'area', 'yearCreated',
     'permanentWorkers', 'vacancies',
+
     // Enterprise
+    'companyName',
     'legalStatus', 'enterpriseName', 'enterprise_name',
     'mainActivity', 'enterpriseHeadOffice', 'headOffice',
     'enterpriseSize', 'size',
     // Cooperative
+    'cooperativeName', 'name',
     'cooperativeName', 'cooperative_name',
     'cooperativeHeadOffice', 'cooperative_head_office',
     'cooperativeMainActivity', 'cooperativeYearCreated',
@@ -757,8 +759,10 @@ const CAMEL_KEY_SET = new Set([
     'cooperative_region', 'cooperative_dept',
     'cooperative_subdiv', 'cooperative_locality',
     // CTD
+    'ctdName',  // ← ADD
     'ctdType', 'ctd_type', 'councilType', 'council_type', 'ctdYearCreated',
     // ONG
+    'ongName', 'ngoName', 'name',
     'ongName', 'ong_name', 'ongHeadOffice', 'ongMainMission',
     'mainMission', 'ongYearCreated',
     // Meta
