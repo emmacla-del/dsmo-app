@@ -23,6 +23,19 @@ import {
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Normalize any casing Flutter sends → lowercase key used internally
+function normalizeEntityTypeForPreview(raw: string): string {
+  const map: Record<string, string> = {
+    entreprise: 'enterprise',
+    enterprise: 'enterprise',
+    cooperative: 'cooperative',
+    coopérative: 'cooperative',
+    ctd: 'ctd',
+    ong: 'ong',
+  };
+  return map[raw?.toLowerCase()?.trim()] ?? raw?.toLowerCase()?.trim() ?? '';
+}
+
 @Controller('onefop')
 export class QuestionnairesController {
   constructor(
@@ -44,10 +57,11 @@ export class QuestionnairesController {
   async preview(@Body() body: any, @Res() res: Response) {
     try {
       const rawData: Record<string, unknown> = body?.data ?? {};
-      const entityType: string = body?.entityType ?? '';
+      const entityType: string = normalizeEntityTypeForPreview(body?.entityType);
 
       console.log('📥 Preview request received');
-      console.log('   entityType:', entityType);
+      console.log('   entityType (raw):', body?.entityType);
+      console.log('   entityType (normalized):', entityType);
       console.log('   data keys:', Object.keys(rawData).length);
 
       // ── STEP 1: Normalize ──────────────────────────────────────
@@ -90,8 +104,9 @@ export class QuestionnairesController {
             mappedData = mapOngData(normalized);
             break;
           default:
+            console.error(`❌ Unknown entityType after normalization: "${entityType}"`);
             return res.status(HttpStatus.BAD_REQUEST).json({
-              error: `Invalid entity type: "${entityType}"`,
+              error: `Invalid entity type: "${body?.entityType}" (normalized: "${entityType}")`,
             });
         }
         console.log('✅ Step 2 done — mapped keys:', Object.keys(mappedData).length);
@@ -115,7 +130,6 @@ export class QuestionnairesController {
       } catch (e: any) {
         console.error('❌ Step 3 FAILED — PDF generation threw:', e.message);
         console.error('   Full stack:', e.stack);
-        // Common Render/Chrome errors
         if (e.message?.includes('Could not find Chrome')) {
           console.error('💡 Hint: Chrome/Chromium not found — set PUPPETEER_EXECUTABLE_PATH');
         }
@@ -172,7 +186,7 @@ export class QuestionnairesController {
     } catch (e: any) {
       console.error('❌ Submit FAILED:', e.message);
       console.error('   Stack:', e.stack);
-      throw e; // re-throw so NestJS returns the correct HTTP error
+      throw e;
     }
   }
 }
