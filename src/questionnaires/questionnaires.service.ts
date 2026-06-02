@@ -501,22 +501,39 @@ export class QuestionnairesService {
     }
     if (records.length > 0) await tx.onefopDisabilityData.createMany({ data: records, skipDuplicates: true });
   }
-
   private async saveVulnerableEnterpriseFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const prefix = 's22q05_ent';
     const vulnerableRows = ['deplaces_internes', 'refugies', 'orphelins', 'total'];
     const statuses = ['permanent', 'temporary', 'total'];
     const genders = ['male', 'female', 'total'];
     const records: object[] = [];
+
     for (const vRow of vulnerableRows) {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${vRow}_${status}_${gender}`);
-          if (value !== 0) records.push({ submissionId, vulnerableType: this.up(vRow), status: this.up(status), gender: this.up(gender), value });
+          if (value !== 0) {
+            // Map 'total' to 'TOTAL_VULN' instead of 'TOTAL'
+            let vulnerableType = this.up(vRow);
+            if (vulnerableType === 'TOTAL') {
+              vulnerableType = 'TOTAL_VULN';
+            }
+
+            records.push({
+              submissionId,
+              vulnerableType: vulnerableType,
+              status: this.up(status),
+              gender: this.up(gender),
+              value
+            });
+          }
         }
       }
     }
-    if (records.length > 0) await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
+
+    if (records.length > 0) {
+      await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
+    }
   }
 
   private async saveVulnerableOtherFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
@@ -525,15 +542,46 @@ export class QuestionnairesService {
     const statuses = ['permanent', 'temporary', 'total'];
     const genders = ['male', 'female', 'total'];
     const records: object[] = [];
+
     for (const row of cspRows) {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
-          if (value !== 0) records.push({ submissionId, vulnerableType: this.up(row), status: this.up(status), gender: this.up(gender), value });
+          if (value !== 0) {
+            // Map to the correct enum values
+            let vulnerableType: string;
+            switch (this.up(row)) {
+              case 'CADRES':
+                vulnerableType = 'CADRES_VULN';
+                break;
+              case 'FOREMEN':
+                vulnerableType = 'FOREMEN_VULN';
+                break;
+              case 'WORKERS':
+                vulnerableType = 'WORKERS_VULN';
+                break;
+              case 'TOTAL':
+                vulnerableType = 'TOTAL_VULN';
+                break;
+              default:
+                vulnerableType = this.up(row);
+            }
+
+            records.push({
+              submissionId,
+              vulnerableType: vulnerableType,
+              status: this.up(status),
+              gender: this.up(gender),
+              value
+            });
+          }
         }
       }
     }
-    if (records.length > 0) await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
+
+    if (records.length > 0) {
+      await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
+    }
   }
 
   private async saveFirstTimeWorkersFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
