@@ -392,7 +392,7 @@ export class QuestionnairesService {
       '15_24': 'AGE_15_24',
       '25_34': 'AGE_25_34',
       '35_plus': 'AGE_35_PLUS',
-      'total': 'AGE_TOTAL',
+      'total': 'TOTAL',
     };
     return ageBandMap[ageKey] || ageKey;
   }
