@@ -122,9 +122,13 @@ function normalizeCooperativeS1(raw: Record<string, unknown>, out: Record<string
     set(out, 'COOP_S1Q11', pick(raw, 'permanentWorkers', 'COOP_S1Q11'));
     set(out, 'COOP_S1Q12', pick(raw, 'vacancies', 'COOP_S1Q12'));
 }
-
 function normalizeEnterpriseS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
+    console.log('🔍 normalizeEnterpriseS1 called');
+    console.log('  S1Q01:', raw['S1Q01']);
+    console.log('  S1Q02:', raw['S1Q02']);
+    console.log('  S1Q04_REGION:', raw['S1Q04_REGION']);
     set(out, 'S1Q01', pick(raw, 'legalStatus', 'S1Q01'));
+
     set(out, 'S1Q02', pick(raw, 'companyName', 'enterpriseName', 'enterprise_name', 'S1Q02'));  // ← Add 'companyName'
     set(out, 'S1Q03', pick(raw, 'area', 'S1Q03'));
     set(out, 'S1Q04_REGION', pick(raw, 'region', 'S1Q04_REGION'));
@@ -261,6 +265,10 @@ function buildCooperativeDto(n: Record<string, unknown>): Record<string, unknown
 }
 
 function buildEnterpriseDto(n: Record<string, unknown>): Record<string, unknown> {
+    console.log('🔍 buildEnterpriseDto called');
+    console.log('  S1Q01:', n['S1Q01']);
+    console.log('  S1Q02:', n['S1Q02']);
+    console.log('  S1Q04_REGION:', n['S1Q04_REGION']);
     const r: Record<string, unknown> = {};
     setNum(r, 'legalStatus', n['S1Q01'], mapLegalStatus);
     setIfPresent(r, 'name', n['S1Q02']);
