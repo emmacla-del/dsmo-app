@@ -495,7 +495,6 @@ export class SharedSectionsDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(3)
   @ArrayMaxSize(3)
   @ValidateNested({ each: true })
   @Type(() => DismissalReasonDto)
@@ -506,7 +505,6 @@ export class SharedSectionsDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(3)
   @ArrayMaxSize(3)
   @ValidateNested({ each: true })
   @Type(() => SkillNeedDto)
@@ -514,7 +512,6 @@ export class SharedSectionsDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(3)
   @ArrayMaxSize(3)
   @ValidateNested({ each: true })
   @Type(() => TrainingNeedDto)

@@ -19,6 +19,17 @@ const onefop_puppeteer_service_1 = require("../pdf/onefop-puppeteer.service");
 const pdf_data_mapper_service_1 = require("../services/pdf-data-mapper.service");
 const flat_key_normalizer_1 = require("../common/normalizers/flat-key-normalizer");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+function normalizeEntityTypeForPreview(raw) {
+    const map = {
+        entreprise: 'enterprise',
+        enterprise: 'enterprise',
+        cooperative: 'cooperative',
+        coopérative: 'cooperative',
+        ctd: 'ctd',
+        ong: 'ong',
+    };
+    return map[raw?.toLowerCase()?.trim()] ?? raw?.toLowerCase()?.trim() ?? '';
+}
 let QuestionnairesController = class QuestionnairesController {
     constructor(service, pdfService) {
         this.service = service;
@@ -27,9 +38,10 @@ let QuestionnairesController = class QuestionnairesController {
     async preview(body, res) {
         try {
             const rawData = body?.data ?? {};
-            const entityType = body?.entityType ?? '';
+            const entityType = normalizeEntityTypeForPreview(body?.entityType);
             console.log('📥 Preview request received');
-            console.log('   entityType:', entityType);
+            console.log('   entityType (raw):', body?.entityType);
+            console.log('   entityType (normalized):', entityType);
             console.log('   data keys:', Object.keys(rawData).length);
             console.log('🔄 Step 1: Normalizing keys...');
             let normalized;
@@ -67,8 +79,9 @@ let QuestionnairesController = class QuestionnairesController {
                         mappedData = (0, pdf_data_mapper_service_1.mapOngData)(normalized);
                         break;
                     default:
+                        console.error(`❌ Unknown entityType after normalization: "${entityType}"`);
                         return res.status(common_1.HttpStatus.BAD_REQUEST).json({
-                            error: `Invalid entity type: "${entityType}"`,
+                            error: `Invalid entity type: "${body?.entityType}" (normalized: "${entityType}")`,
                         });
                 }
                 console.log('✅ Step 2 done — mapped keys:', Object.keys(mappedData).length);

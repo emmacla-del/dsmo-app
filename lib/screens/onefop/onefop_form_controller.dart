@@ -18,6 +18,7 @@ import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
+import '../../data/api_client.dart';
 
 import 'onefop_form_constants.dart';
 import 'onefop_table_engine.dart';
@@ -815,48 +816,45 @@ class OnefopFormController extends ChangeNotifier {
   // REMOTE CALLS
   // ═══════════════════════════════════════════════════════════
 
+// ─────────────────────────────────────────────────────────────
+// REPLACE the preview() method with this:
+// ─────────────────────────────────────────────────────────────
   Future<PreviewResult> preview() async {
     final snapshot = collectAndMapData();
     _submissionSnapshot = snapshot;
 
     try {
-      final r = await http
-          .post(
-            Uri.parse('$kOnefopBaseUrl/onefop/preview'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'data': snapshot,
-              'entityType': entityTypeString(entityType),
-              'userId': userId ?? 'unknown',
-              'companyId': companyId,
-              'establishmentId': _metaEstablishmentId,
-              'quarterCode': _metaQuarterCode,
-              'formId':
-                  'PREVIEW_${_metaEstablishmentId}_${DateTime.now().millisecondsSinceEpoch}',
-              '__meta': {
-                'establishmentId': _metaEstablishmentId,
-                'taxNumber': _metaTaxNumber,
-                'cnpsNumber': _metaCnpsNumber,
-                'registrationNumber': _metaRegistrationNumber,
-              },
-              'isDraft': true,
-            }),
-          )
-          .timeout(const Duration(seconds: 60));
+      final apiClient = ApiClient();
+      final pdfBytes = await apiClient.previewQuestionnaire({
+        'data': snapshot,
+        'entityType': entityTypeString(entityType),
+        'userId': userId ?? 'unknown',
+        'companyId': companyId,
+        'establishmentId': _metaEstablishmentId,
+        'quarterCode': _metaQuarterCode,
+        'formId':
+            'PREVIEW_${_metaEstablishmentId}_${DateTime.now().millisecondsSinceEpoch}',
+        '__meta': {
+          'establishmentId': _metaEstablishmentId,
+          'taxNumber': _metaTaxNumber,
+          'cnpsNumber': _metaCnpsNumber,
+          'registrationNumber': _metaRegistrationNumber,
+        },
+        'isDraft': true,
+      });
 
-      if (r.statusCode == 200 || r.statusCode == 201) {
-        final fn =
-            'onefop_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        return PreviewResult(success: true, bytes: r.bodyBytes, fileName: fn);
-      } else {
-        return PreviewResult(
-            success: false, error: 'Erreur aperçu (${r.statusCode})');
-      }
+      final fn = 'onefop_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      return PreviewResult(
+          success: true, bytes: Uint8List.fromList(pdfBytes), fileName: fn);
     } catch (e) {
+      print('❌ Preview error: $e');
       return PreviewResult(success: false, error: 'Erreur réseau : $e');
     }
   }
 
+// ─────────────────────────────────────────────────────────────
+// REPLACE the submit() method with this:
+// ─────────────────────────────────────────────────────────────
   Future<SubmitResult> submit() async {
     final snapshot = _submissionSnapshot;
     if (snapshot == null) {
@@ -865,46 +863,36 @@ class OnefopFormController extends ChangeNotifier {
     }
 
     try {
-      final r = await http
-          .post(
-            Uri.parse('$kOnefopBaseUrl/onefop/submit'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'data': snapshot,
-              'entityType': entityTypeString(entityType),
-              'userId': userId ?? 'unknown',
-              'companyId': companyId,
-              'establishmentId': _metaEstablishmentId,
-              'quarterCode': _metaQuarterCode,
-              'formId':
-                  'ONEFOP_${_metaEstablishmentId}_${_metaQuarterCode}_${DateTime.now().millisecondsSinceEpoch}',
-              '__meta': {
-                'establishmentId': _metaEstablishmentId,
-                'taxNumber': _metaTaxNumber,
-                'cnpsNumber': _metaCnpsNumber,
-                'registrationNumber': _metaRegistrationNumber,
-              },
-              'isDraft': false,
-            }),
-          )
-          .timeout(const Duration(seconds: 60));
+      final apiClient = ApiClient();
 
-      if (r.statusCode == 200 || r.statusCode == 201) {
-        _submissionSnapshot = null;
-        onSave({});
-        onSubmitSuccess?.call();
-        return const SubmitResult(success: true);
-      } else {
-        final body = r.body.isNotEmpty ? r.body : '(pas de détail)';
-        return SubmitResult(
-            success: false,
-            error: 'Erreur soumission (${r.statusCode}) : $body');
-      }
-    } on TimeoutException {
-      return const SubmitResult(
-          success: false,
-          error: "Délai d'attente dépassé — veuillez réessayer");
+      // Debug: Check if token exists
+      final token = await apiClient.getStoredToken();
+      print('🔑 Submit - Token present: ${token != null}');
+
+      await apiClient.submitQuestionnaire({
+        'data': snapshot,
+        'entityType': entityTypeString(entityType),
+        'userId': userId ?? 'unknown',
+        'companyId': companyId,
+        'establishmentId': _metaEstablishmentId,
+        'quarterCode': _metaQuarterCode,
+        'formId':
+            'ONEFOP_${_metaEstablishmentId}_${_metaQuarterCode}_${DateTime.now().millisecondsSinceEpoch}',
+        '__meta': {
+          'establishmentId': _metaEstablishmentId,
+          'taxNumber': _metaTaxNumber,
+          'cnpsNumber': _metaCnpsNumber,
+          'registrationNumber': _metaRegistrationNumber,
+        },
+        'isDraft': false,
+      });
+
+      _submissionSnapshot = null;
+      onSave({});
+      onSubmitSuccess?.call();
+      return const SubmitResult(success: true);
     } catch (e) {
+      print('❌ Submit error: $e');
       return SubmitResult(success: false, error: 'Erreur réseau : $e');
     }
   }

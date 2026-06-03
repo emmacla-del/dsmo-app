@@ -718,6 +718,24 @@ class ApiClient {
     }
   }
 
+// ==================== ONEFOP PREVIEW ====================
+
+  Future<List<int>> previewQuestionnaire(Map<String, dynamic> data) async {
+    try {
+      final response = await dio.post(
+        '/onefop/preview',
+        data: data,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   // ==================== ONEFOP SUBMISSIONS VIEWER (NEW) ====================
 
   /// Get all ONEFOP submissions with optional filters
@@ -767,34 +785,6 @@ class ApiClient {
   Future<Map<String, dynamic>> getActiveQuarter() async {
     try {
       final response = await dio.get('/onefop/active-quarter');
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
-  }
-
-  // ==================== ONEFOP FORM SUBMIT (NEW VERSION) ====================
-
-  Future<Map<String, dynamic>> submitOnefopForm(
-      Map<String, dynamic> data) async {
-    try {
-      final response = await dio.post('/onefop/submit-form', data: data);
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
-  }
-
-  Future<Map<String, dynamic>> previewOnefopForm(
-      Map<String, dynamic> data) async {
-    try {
-      final response = await dio.post('/onefop/preview-form', data: data);
       return response.data;
     } on DioException catch (e) {
       throw ApiException(
