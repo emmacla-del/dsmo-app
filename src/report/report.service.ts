@@ -788,7 +788,7 @@ export class ReportService {
                 subdivision: analyticsScope.subdivision,
                 granularity: 'quarter',
             }),
-            this.analyticsService.getSkillDemand({ ...analyticsScope, limit: 10 }),
+            this.analyticsService.getSkillNeeds({ ...analyticsScope, limit: 10 }),
             this.analyticsService.getTrainingGap(analyticsScope),
             this.analyticsService.getInclusionMetrics({
                 ...analyticsScope,
