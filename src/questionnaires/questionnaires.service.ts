@@ -186,6 +186,8 @@ export class QuestionnairesService {
           submittedBy: dto.userId ?? null,
           companyId: dto.companyId,
           establishmentId: dto.establishmentId,
+          quarterCode: dto.quarterCode ?? this.getCurrentQuarter(), // ← ADD THIS
+          submissionDate: new Date(), // ← ADD THIS
           region: entityRegion,
           department: entityDepartment,
           subdivision: entitySubdivision,
@@ -765,6 +767,14 @@ export class QuestionnairesService {
   private mapCouncilType(value?: 1 | 2): string {
     const map: Record<number, string> = { 1: "Commune d'Arrondissement/ Local Council", 2: 'Communauté Urbaine/ Urban Council' };
     return value ? (map[value] ?? '') : '';
+  }
+
+  // Add this method here ↓↓↓
+  private getCurrentQuarter(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.ceil((now.getMonth() + 1) / 3);
+    return `${year}-T${quarter}`;
   }
 
   async getAllQuestionnaires() {
