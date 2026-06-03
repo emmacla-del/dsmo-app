@@ -685,6 +685,18 @@ export class OnefopAnalyticsService {
     };
   }
 
+
+  // Add these alias methods for frontend compatibility
+  async getHiresByDiploma(filter: AnalyticsFilter & { limit?: number }) {
+    return this.getDiplomaSummary(filter);
+  }
+
+  async getSkillDemand(filter: AnalyticsFilter & { limit?: number }) {
+    return this.getSkillNeeds(filter);
+  }
+
+
+
   // ─────────────────────────────────────────────────────────────
   // 20. VACANCIES BY SEGMENT
   // ─────────────────────────────────────────────────────────────
