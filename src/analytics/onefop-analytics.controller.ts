@@ -457,7 +457,7 @@ export class OnefopAnalyticsController {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // INTERNSHIPS
+    // INTERNSHIPS (ONLY ONE!)
     // ─────────────────────────────────────────────────────────────
 
     @Get('internships')
@@ -473,7 +473,201 @@ export class OnefopAnalyticsController {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // SUBMISSIONS
+    // JOB APPLICATIONS (S21Q01)
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('job-applications')
+    async getJobApplications(@Query() q: any) {
+        return this.analytics.getJobApplications({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
+    @Get('job-applications/conversion')
+    async getApplicationConversion(@Query() q: any) {
+        return this.analytics.getApplicationConversion({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
+    @Get('job-applications/trend')
+    async getApplicationTrend(@Query() q: any) {
+        return this.analytics.getApplicationTrend({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            granularity: q.granularity || 'quarter',
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // REGISTERED SEEKERS (S23Q01)
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('registered-seekers')
+    async getRegisteredSeekers(@Query() q: any) {
+        return this.analytics.getRegisteredSeekers({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
+    @Get('first-time-labor-gap')
+    async getFirstTimeLaborGap(@Query() q: any) {
+        return this.analytics.getFirstTimeLaborGap({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ENTERPRISE PROFILE
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('enterprise-profile')
+    async getEnterpriseProfile(@Query() q: any) {
+        return this.analytics.getEnterpriseProfile({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            dimension: q.dimension || 'sector',
+        });
+    }
+
+    @Get('gender-parity-by-csp')
+    async getGenderParityByCsp(@Query() q: any) {
+        return this.analytics.getGenderParityByCsp({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
+    @Get('recruitment-by-location')
+    async getRecruitmentByLocation(@Query() q: any) {
+        return this.analytics.getRecruitmentByLocation({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            groupBy: q.groupBy || 'region',
+        });
+    }
+
+    @Get('departures-by-location')
+    async getDeparturesByLocation(@Query() q: any) {
+        return this.analytics.getDeparturesByLocation({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            groupBy: q.groupBy || 'region',
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // YOUTH IN WORKFORCE (STOCK)
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('workforce-youth')
+    async getWorkforceYouth(@Query() q: any) {
+        return this.analytics.getWorkforceYouth({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SKILL TRENDS
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('skill-trends')
+    async getSkillTrends(@Query() q: any) {
+        return this.analytics.getSkillTrends({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            granularity: q.granularity || 'quarter',
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // INCLUSION TRENDS
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('inclusion-trends')
+    async getInclusionTrends(@Query() q: any) {
+        return this.analytics.getInclusionTrends({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            granularity: q.granularity || 'quarter',
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SUBMISSIONS (ONLY ONE!)
     // ─────────────────────────────────────────────────────────────
 
     @Get('submissions')

@@ -339,4 +339,62 @@ export class RecruitmentAnalyticsService {
     async getHiresByDiploma(filter: AnalyticsFilter & { limit?: number }): Promise<DiplomaSummaryRow[]> {
         return this.getDiplomaSummary(filter);
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // 6. Recruitment by location
+    // ─────────────────────────────────────────────────────────────
+    async getRecruitmentByLocation(
+        filter: AnalyticsFilter & { groupBy?: 'region' | 'department' | 'subdivision' },
+    ): Promise<{ location: string; totalRecruitments: number; permanentRecruitments: number; temporaryRecruitments: number }[]> {
+        const submissions = await this.query.resolveSubmissions(filter);
+        if (!submissions.length) return [];
+
+        const ids = submissions.map((s) => s.id);
+        const groupBy = filter.groupBy ?? 'region';
+
+        const [permanent, temporary] = await Promise.all([
+            (this.prisma as any).onefopCspGenderAge.findMany({
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.PERMANENT_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
+                select: { submissionId: true, value: true },
+            }) as Promise<RecruitmentDbRow[]>,
+            (this.prisma as any).onefopCspGenderAge.findMany({
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.TEMP_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
+                select: { submissionId: true, value: true },
+            }) as Promise<RecruitmentDbRow[]>,
+        ]);
+
+        const permMap = new Map(permanent.map((r) => [r.submissionId, r.value ?? 0]));
+        const tempMap = new Map(temporary.map((r) => [r.submissionId, r.value ?? 0]));
+
+        const locationMap = new Map<string, { permanent: number; temporary: number }>();
+
+        for (const s of submissions) {
+            const location: string = (s as any)[groupBy] ?? 'Inconnu';
+            if (!locationMap.has(location)) locationMap.set(location, { permanent: 0, temporary: 0 });
+            const stats = locationMap.get(location)!;
+            stats.permanent += permMap.get(s.id) ?? 0;
+            stats.temporary += tempMap.get(s.id) ?? 0;
+        }
+
+        return Array.from(locationMap.entries())
+            .map(([location, stats]) => ({
+                location,
+                permanentRecruitments: stats.permanent,
+                temporaryRecruitments: stats.temporary,
+                totalRecruitments: stats.permanent + stats.temporary,
+            }))
+            .sort((a, b) => b.totalRecruitments - a.totalRecruitments);
+    }
 }

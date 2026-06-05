@@ -9,7 +9,9 @@ import { RecruitmentAnalyticsService } from './domain/recruitment.analytics.serv
 import { MobilityAnalyticsService } from './domain/mobility.analytics.service';
 import { InclusionAnalyticsService } from './domain/inclusion.analytics.service';
 import { SkillsAnalyticsService } from './domain/skills.analytics.service';
-import { EducationAnalyticsService } from './domain/enterprise-profile.analytics.service';
+import { EducationAnalyticsService } from './domain/education.analytics.service';  // ← FIXED: import from correct file
+import { EnterpriseProfileAnalyticsService } from './domain/enterprise-profile.analytics.service';  // ← ADD THIS
+import { JobApplicationsAnalyticsService } from './domain/job-applications.analytics.service';  // ← ADD THIS
 import { OnefopAnalyticsFacade } from './facade/onefop-analytics.facade';
 
 const DOMAIN_SERVICES = [
@@ -19,6 +21,8 @@ const DOMAIN_SERVICES = [
   InclusionAnalyticsService,
   SkillsAnalyticsService,
   EducationAnalyticsService,
+  EnterpriseProfileAnalyticsService,    // ← ADD THIS
+  JobApplicationsAnalyticsService,       // ← ADD THIS
 ];
 
 @Module({
@@ -30,8 +34,6 @@ const DOMAIN_SERVICES = [
   ],
   exports: [
     OnefopAnalyticsFacade,
-    // Export domain services only if other modules need targeted access.
-    // For most cases the facade is sufficient.
   ],
 })
 export class OnefopAnalyticsModule { }

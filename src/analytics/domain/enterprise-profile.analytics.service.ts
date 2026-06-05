@@ -159,6 +159,79 @@ export class EnterpriseProfileAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // Facade-facing alias: getEnterpriseProfile
+    //   Called by the facade with { dimension } instead of { groupBy }.
+    // ─────────────────────────────────────────────────────────────
+    async getEnterpriseProfile(
+        filter: AnalyticsFilter & { dimension?: EnterpriseProfileDimension },
+    ): Promise<EnterpriseProfileSegment[]> {
+        return this.getEnterpriseProfileBreakdown({
+            ...filter,
+            groupBy: filter.dimension ?? 'sector',
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Registered job seekers (S23Q01)
+    // ─────────────────────────────────────────────────────────────
+    async getRegisteredSeekers(
+        filter: AnalyticsFilter,
+    ): Promise<{ total: number; male: number | null; female: number | null }> {
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) return { total: 0, male: null, female: null };
+
+        const rows: {
+            registeredSeekers: number | null;
+            registeredSeekersMale: number | null;
+            registeredSeekersFemale: number | null;
+        }[] = await (this.prisma as any).onefopEnterpriseDetail.findMany({
+            where: { submissionId: { in: ids } },
+            select: {
+                registeredSeekers: true,
+                registeredSeekersMale: true,
+                registeredSeekersFemale: true,
+            },
+        });
+
+        return {
+            total: rows.reduce((sum, r) => sum + (r.registeredSeekers ?? 0), 0),
+            male: rows.reduce((sum, r) => sum + (r.registeredSeekersMale ?? 0), 0),
+            female: rows.reduce((sum, r) => sum + (r.registeredSeekersFemale ?? 0), 0),
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // First-time labour market entrants gap (S23)
+    // ─────────────────────────────────────────────────────────────
+    async getFirstTimeLaborGap(
+        filter: AnalyticsFilter,
+    ): Promise<{ registeredFirstTime: number; hiredFirstTime: number; gap: number; absorptionRate: number | null }> {
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) return { registeredFirstTime: 0, hiredFirstTime: 0, gap: 0, absorptionRate: null };
+
+        const rows: {
+            firstTimeSeekers: number | null;
+            firstTimeWorkers: number | null;
+        }[] = await (this.prisma as any).onefopEnterpriseDetail.findMany({
+            where: { submissionId: { in: ids } },
+            select: {
+                firstTimeSeekers: true,
+                firstTimeWorkers: true,
+            },
+        });
+
+        const registered = rows.reduce((sum, r) => sum + (r.firstTimeSeekers ?? 0), 0);
+        const hired = rows.reduce((sum, r) => sum + (r.firstTimeWorkers ?? 0), 0);
+
+        return {
+            registeredFirstTime: registered,
+            hiredFirstTime: hired,
+            gap: registered - hired,
+            absorptionRate: registered > 0 ? +((hired / registered) * 100).toFixed(1) : null,
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Private: group rows by a chosen dimension and aggregate
     // ─────────────────────────────────────────────────────────────
     private aggregateByDimension(

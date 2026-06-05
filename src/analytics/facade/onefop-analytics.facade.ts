@@ -9,18 +9,19 @@ import { MobilityAnalyticsService } from '../domain/mobility.analytics.service';
 import { InclusionAnalyticsService } from '../domain/inclusion.analytics.service';
 import { SkillsAnalyticsService } from '../domain/skills.analytics.service';
 import { EducationAnalyticsService } from '../domain/education.analytics.service';
+import { EnterpriseProfileAnalyticsService } from '../domain/enterprise-profile.analytics.service';
+import { JobApplicationsAnalyticsService } from '../domain/job-applications.analytics.service';
 import type {
     AnalyticsFilter,
     RecruitmentTrendFilter,
     LaborMarketTensionFilter,
     SubmissionListFilter,
+    TrendFilter,
     WorkforceSnapshot,
     MobilityDashboard,
     SkillsDashboard,
     InclusionDashboard,
 } from '../core/analytics-types';
-
-import { EnterpriseProfileAnalyticsService } from '../domain/enterprise-profile.analytics.service';
 
 @Injectable()
 export class OnefopAnalyticsFacade {
@@ -32,49 +33,162 @@ export class OnefopAnalyticsFacade {
         private readonly inclusion: InclusionAnalyticsService,
         private readonly skills: SkillsAnalyticsService,
         private readonly education: EducationAnalyticsService,
-        private readonly enterpriseProfile: EnterpriseProfileAnalyticsService, // add this
+        private readonly enterpriseProfile: EnterpriseProfileAnalyticsService,
+        private readonly jobApplications: JobApplicationsAnalyticsService,
     ) { }
 
     // ─────────────────────────────────────────────────────────────
-    // Convenience pass-throughs for single-domain queries
-    // (controllers call these so they don't import domain services)
+    // EMPLOYMENT
     // ─────────────────────────────────────────────────────────────
 
-    getEmploymentSummary = (f: AnalyticsFilter) => this.employment.getEmploymentSummary(f);
-    getEmploymentByCsp = (f: AnalyticsFilter) => this.employment.getEmploymentByCsp(f);
-    getEmploymentByLocation = (f: Parameters<EmploymentAnalyticsService['getEmploymentByLocation']>[0]) => this.employment.getEmploymentByLocation(f);
-    getGenderParity = (f: AnalyticsFilter) => this.employment.getGenderParity(f);
+    getEmploymentSummary = (f: AnalyticsFilter) =>
+        this.employment.getEmploymentSummary(f);
 
-    getRecruitmentTrends = (f: RecruitmentTrendFilter) => this.recruitment.getRecruitmentTrends(f);
-    getHiresByDemographics = (f: Parameters<RecruitmentAnalyticsService['getHiresByDemographics']>[0]) => this.recruitment.getHiresByDemographics(f);
-    getYouthEmployment = (f: AnalyticsFilter) => this.recruitment.getYouthEmployment(f);
-    getDiplomaDistribution = (f: AnalyticsFilter) => this.recruitment.getDiplomaDistribution(f);
-    getDiplomaSummary = (f: AnalyticsFilter & { limit?: number }) => this.recruitment.getDiplomaSummary(f);
-    getHiresByDiploma = (f: AnalyticsFilter & { limit?: number }) => this.recruitment.getHiresByDiploma(f);
-    getLaborMarketTension = (f: LaborMarketTensionFilter) => this.recruitment.getLaborMarketTension(f);
+    getEmploymentByCsp = (f: AnalyticsFilter) =>
+        this.employment.getEmploymentByCsp(f);
 
-    getDepartures = (f: AnalyticsFilter) => this.mobility.getDepartures(f);
-    getDepartureSummary = (f: AnalyticsFilter) => this.mobility.getDepartureSummary(f);
-    getDismissalReasons = (f: AnalyticsFilter) => this.mobility.getDismissalReasons(f);
-    getDismissalUnemployment = (f: AnalyticsFilter) => this.mobility.getDismissalUnemployment(f);
-    getInternships = (f: AnalyticsFilter) => this.mobility.getInternships(f);
+    getEmploymentByLocation = (f: Parameters<EmploymentAnalyticsService['getEmploymentByLocation']>[0]) =>
+        this.employment.getEmploymentByLocation(f);
 
-    getDisabilityData = (f: AnalyticsFilter) => this.inclusion.getDisabilityData(f);
-    getVulnerableWorkers = (f: AnalyticsFilter) => this.inclusion.getVulnerableWorkers(f);
-    getInclusionMetrics = (f: Parameters<InclusionAnalyticsService['getInclusionMetrics']>[0]) => this.inclusion.getInclusionMetrics(f);
-    getFirstTimeWorkers = (f: AnalyticsFilter) => this.inclusion.getFirstTimeWorkers(f);
+    getGenderParity = (f: AnalyticsFilter) =>
+        this.employment.getGenderParity(f);
 
-    getSkillNeeds = (f: AnalyticsFilter & { limit?: number }) => this.skills.getSkillNeeds(f);
-    getSkillDemand = (f: AnalyticsFilter & { limit?: number }) => this.skills.getSkillDemand(f);
-    getTrainingNeeds = (f: AnalyticsFilter & { limit?: number }) => this.skills.getTrainingNeeds(f);
-    getTrainingGap = (f: AnalyticsFilter) => this.skills.getTrainingGap(f);
+    getGenderParityByCsp = (f: AnalyticsFilter) =>
+        this.employment.getGenderParityByCsp(f);
+
+    getWorkforceYouth = (f: AnalyticsFilter) =>
+        this.employment.getWorkforceYouth(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // RECRUITMENT
+    // ─────────────────────────────────────────────────────────────
+
+    getRecruitmentTrends = (f: RecruitmentTrendFilter) =>
+        this.recruitment.getRecruitmentTrends(f);
+
+    getHiresByDemographics = (f: Parameters<RecruitmentAnalyticsService['getHiresByDemographics']>[0]) =>
+        this.recruitment.getHiresByDemographics(f);
+
+    getYouthEmployment = (f: AnalyticsFilter) =>
+        this.recruitment.getYouthEmployment(f);
+
+    getDiplomaDistribution = (f: AnalyticsFilter) =>
+        this.recruitment.getDiplomaDistribution(f);
+
+    getDiplomaSummary = (f: AnalyticsFilter & { limit?: number }) =>
+        this.recruitment.getDiplomaSummary(f);
+
+    getHiresByDiploma = (f: AnalyticsFilter & { limit?: number }) =>
+        this.recruitment.getHiresByDiploma(f);
+
+    getLaborMarketTension = (f: LaborMarketTensionFilter) =>
+        this.recruitment.getLaborMarketTension(f);
+
+    getRecruitmentByLocation = (f: Parameters<RecruitmentAnalyticsService['getRecruitmentByLocation']>[0]) =>
+        this.recruitment.getRecruitmentByLocation(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // MOBILITY
+    // ─────────────────────────────────────────────────────────────
+
+    getDepartures = (f: AnalyticsFilter) =>
+        this.mobility.getDepartures(f);
+
+    getDepartureSummary = (f: AnalyticsFilter) =>
+        this.mobility.getDepartureSummary(f);
+
+    getDismissalReasons = (f: AnalyticsFilter) =>
+        this.mobility.getDismissalReasons(f);
+
+    getDismissalUnemployment = (f: AnalyticsFilter) =>
+        this.mobility.getDismissalUnemployment(f);
+
+    getInternships = (f: AnalyticsFilter) =>
+        this.mobility.getInternships(f);
+
+    getDeparturesByLocation = (f: Parameters<MobilityAnalyticsService['getDeparturesByLocation']>[0]) =>
+        this.mobility.getDeparturesByLocation(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // INCLUSION
+    // ─────────────────────────────────────────────────────────────
+
+    getDisabilityData = (f: AnalyticsFilter) =>
+        this.inclusion.getDisabilityData(f);
+
+    getVulnerableWorkers = (f: AnalyticsFilter) =>
+        this.inclusion.getVulnerableWorkers(f);
+
+    getInclusionMetrics = (f: Parameters<InclusionAnalyticsService['getInclusionMetrics']>[0]) =>
+        this.inclusion.getInclusionMetrics(f);
+
+    getFirstTimeWorkers = (f: AnalyticsFilter) =>
+        this.inclusion.getFirstTimeWorkers(f);
+
+    getInclusionTrends = (f: TrendFilter) =>
+        this.inclusion.getInclusionTrends(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // SKILLS
+    // ─────────────────────────────────────────────────────────────
+
+    getSkillNeeds = (f: AnalyticsFilter & { limit?: number }) =>
+        this.skills.getSkillNeeds(f);
+
+    getSkillDemand = (f: AnalyticsFilter & { limit?: number }) =>
+        this.skills.getSkillDemand(f);
+
+    getTrainingNeeds = (f: AnalyticsFilter & { limit?: number }) =>
+        this.skills.getTrainingNeeds(f);
+
+    getTrainingGap = (f: AnalyticsFilter) =>
+        this.skills.getTrainingGap(f);
+
+    getSkillTrends = (f: TrendFilter) =>
+        this.skills.getSkillTrends(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // ENTERPRISE PROFILE
+    // ─────────────────────────────────────────────────────────────
+
+    getEnterpriseProfile = (f: Parameters<EnterpriseProfileAnalyticsService['getEnterpriseProfile']>[0]) =>
+        this.enterpriseProfile.getEnterpriseProfile(f);
 
     getVacanciesBySegment = (f: AnalyticsFilter & { groupBy: 'enterpriseSize' | 'sector' }) =>
-        this.education.getVacanciesBySegment(f, this.enterpriseProfile);
-    getSubmissions = (f: SubmissionListFilter) => this.education.getSubmissions(f);
+        this.enterpriseProfile.getVacanciesBySegment(f);
 
     // ─────────────────────────────────────────────────────────────
-    // Aggregate helpers — each resolves _ids once before delegating
+    // JOB APPLICATIONS
+    // ─────────────────────────────────────────────────────────────
+
+    getJobApplications = (f: AnalyticsFilter) =>
+        this.jobApplications.getJobApplications(f);
+
+    getApplicationConversion = (f: AnalyticsFilter) =>
+        this.jobApplications.getApplicationConversionRate(f);
+
+    getApplicationTrend = (f: TrendFilter) =>
+        this.jobApplications.getApplicationTrends(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // REGISTERED SEEKERS — delegated to EnterpriseProfileService
+    // ─────────────────────────────────────────────────────────────
+
+    getRegisteredSeekers = (f: AnalyticsFilter) =>
+        this.enterpriseProfile.getRegisteredSeekers(f);
+
+    getFirstTimeLaborGap = (f: AnalyticsFilter) =>
+        this.enterpriseProfile.getFirstTimeLaborGap(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // EDUCATION / SUBMISSIONS
+    // ─────────────────────────────────────────────────────────────
+
+    getSubmissions = (f: SubmissionListFilter) =>
+        this.education.getSubmissions(f);
+
+    // ─────────────────────────────────────────────────────────────
+    // AGGREGATE HELPERS
     // ─────────────────────────────────────────────────────────────
 
     async getWorkforceSnapshot(filter: AnalyticsFilter): Promise<WorkforceSnapshot> {
@@ -128,14 +242,12 @@ export class OnefopAnalyticsFacade {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Full dashboard — single DB round-trip per dataset
+    // FULL DASHBOARD
     // ─────────────────────────────────────────────────────────────
+
     async getDashboard(filter: AnalyticsFilter) {
         const ids = await this.query.resolveSubmissionIds(filter);
-
-        if (!ids.length) {
-            return this.emptyDashboard(filter);
-        }
+        if (!ids.length) return this.emptyDashboard(filter);
 
         const f: AnalyticsFilter = { ...filter, _ids: ids };
 
@@ -206,8 +318,9 @@ export class OnefopAnalyticsFacade {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Private helpers
+    // PRIVATE
     // ─────────────────────────────────────────────────────────────
+
     private emptyDashboard(filter: AnalyticsFilter) {
         return {
             submissionCount: 0,
@@ -227,7 +340,7 @@ export class OnefopAnalyticsFacade {
             skillNeeds: [],
             trainingNeeds: [],
             trainingGap: { skillsInDemand: [], skillsInSurplus: [], balanced: [] },
-            workforceSnapshot: { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, averageAge: null },
+            workforceSnapshot: { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, youthRate: 0, averageAge: null },
             mobilityDashboard: { totalEmployees: 0, totalDepartures: 0, resignationRate: 0, dismissalRate: 0, retirementRate: 0, turnoverRate: 0, retentionRate: 0 },
             skillsDashboard: { topSkills: [], topTrainingDomains: [], biggestSkillGaps: [] },
             inclusionDashboard: { disabilityRate: 0, vulnerableRate: 0, femaleLeadershipRate: 0, disabledCount: 0, vulnerableCount: 0 },
