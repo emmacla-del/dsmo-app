@@ -14,6 +14,7 @@ import { EnterpriseProfileAnalyticsService } from './domain/enterprise-profile.a
 import { JobApplicationsAnalyticsService } from './domain/job-applications.analytics.service';  // ← ADD THIS
 import { OnefopAnalyticsFacade } from './facade/onefop-analytics.facade';
 
+
 const DOMAIN_SERVICES = [
   EmploymentAnalyticsService,
   RecruitmentAnalyticsService,
