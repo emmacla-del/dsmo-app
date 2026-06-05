@@ -152,6 +152,38 @@ export class QuestionnairesService {
 
     const flat = normalized as unknown as FlatFormData;
 
+    // Resolve geo + sector IDs before transaction
+    const entityForGeo = (questionnaireData as any);
+    const geoRegion =
+      entityForGeo.enterprise?.region ??
+      entityForGeo.cooperative?.region ??
+      entityForGeo.ctd?.region ??
+      entityForGeo.ong?.region ?? null;
+    const geoDept =
+      entityForGeo.enterprise?.department ??
+      entityForGeo.cooperative?.department ??
+      entityForGeo.ctd?.department ??
+      entityForGeo.ong?.department ?? null;
+    const geoSubdiv =
+      entityForGeo.enterprise?.subdivision ??
+      entityForGeo.cooperative?.subdivision ??
+      entityForGeo.ctd?.subdivision ??
+      entityForGeo.ong?.subdivision ?? null;
+    const geoSector =
+      entityForGeo.enterprise?.sector ??
+      entityForGeo.cooperative?.sector ??
+      entityForGeo.ctd?.sector ??
+      entityForGeo.ong?.sector ?? null;
+
+    const { regionId, departmentId, subdivisionId, sectorId } =
+      await this.resolveGeoAndSector(
+        this.prisma,
+        geoRegion,
+        geoDept,
+        geoSubdiv,
+        geoSector,
+      );
+
     const result = await (this.prisma as any).$transaction(async (tx: TxClient) => {
       const respondent = questionnaireData.respondent;
 
@@ -186,12 +218,15 @@ export class QuestionnairesService {
           submittedBy: dto.userId ?? null,
           companyId: dto.companyId,
           establishmentId: dto.establishmentId,
-          quarterCode: dto.quarterCode ?? this.getCurrentQuarter(), // ← ADD THIS
-          submissionDate: new Date(), // ← ADD THIS
-          region: entityRegion,
-          department: entityDepartment,
-          subdivision: entitySubdivision,
+          quarterCode: dto.quarterCode ?? this.getCurrentQuarter(),
+          submissionDate: new Date(),
+          region: geoRegion,
+          department: geoDept,
+          subdivision: geoSubdiv,
           status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
+          regionId,        // ← resolved FK
+          departmentId,    // ← resolved FK
+          subdivisionId,   // ← resolved FK
         },
       });
       const sid: string = submission.id;
@@ -225,6 +260,7 @@ export class QuestionnairesService {
             phone2: e.phone2 ?? null,
             poBox: e.poBox ?? null,
             sector: this.mapSector(e.sector as 1 | 2 | 3),
+            sectorId,
             branch: e.branch ?? null,
             mainActivity: e.mainActivity ?? '',
             headOffice: e.headOffice ?? null,
@@ -252,6 +288,7 @@ export class QuestionnairesService {
             phone2: c.phone2 ?? null,
             poBox: c.poBox ?? null,
             sector: this.mapSector(c.sector as 1 | 2 | 3),
+            sectorId,
             branch: c.branch ?? null,
             mainActivity: c.mainActivity ?? null,
             cooperativeType: this.mapCooperativeType(c.type as 1 | 2 | 3),
@@ -279,6 +316,7 @@ export class QuestionnairesService {
             phone2: ct.phone2 ?? null,
             poBox: ct.poBox ?? null,
             sector: this.mapSector(ct.sector as 1 | 2 | 3),
+            sectorId,
             branch: ct.branch ?? null,
             permanentWorkers: ct.permanentWorkers ?? null,
             vacancies: ct.vacancies ?? null,
@@ -303,6 +341,7 @@ export class QuestionnairesService {
             phone2: o.phone2 ?? null,
             poBox: o.poBox ?? null,
             sector: this.mapSector(o.sector as 1 | 2 | 3),
+            sectorId,
             branch: o.branch ?? null,
             mainMission: o.mainMission ?? null,
             permanentWorkers: o.permanentWorkers ?? null,
@@ -538,43 +577,28 @@ export class QuestionnairesService {
     }
   }
 
-  private async saveVulnerableOtherFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private async saveVulnerableOtherFlat(
+    tx: TxClient,
+    submissionId: string,
+    flat: FlatFormData,
+  ): Promise<void> {
     const prefix = 's22q05_oth';
-    const cspRows = ['cadres', 'foremen', 'workers', 'total'];
+    const vulnerableRows = ['deplaces_internes', 'refugies', 'orphelins', 'total'];
     const statuses = ['permanent', 'temporary', 'total'];
     const genders = ['male', 'female', 'total'];
     const records: object[] = [];
 
-    for (const row of cspRows) {
+    for (const vRow of vulnerableRows) {
       for (const status of statuses) {
         for (const gender of genders) {
-          const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
+          const value = this.flatInt(flat, `${prefix}_${vRow}_${status}_${gender}`);
           if (value !== 0) {
-            // Map to the correct enum values
-            let vulnerableType: string;
-            switch (this.up(row)) {
-              case 'CADRES':
-                vulnerableType = 'CADRES_VULN';
-                break;
-              case 'FOREMEN':
-                vulnerableType = 'FOREMEN_VULN';
-                break;
-              case 'WORKERS':
-                vulnerableType = 'WORKERS_VULN';
-                break;
-              case 'TOTAL':
-                vulnerableType = 'TOTAL_VULN';
-                break;
-              default:
-                vulnerableType = this.up(row);
-            }
-
             records.push({
               submissionId,
-              vulnerableType: vulnerableType,
+              vulnerableType: vRow === 'total' ? 'TOTAL_VULN' : this.up(vRow),
               status: this.up(status),
               gender: this.up(gender),
-              value
+              value,
             });
           }
         }
@@ -585,7 +609,6 @@ export class QuestionnairesService {
       await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
     }
   }
-
   private async saveFirstTimeWorkersFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const prefix = 's23q02';
     const contracts = ['permanent', 'temporary'];
@@ -628,29 +651,30 @@ export class QuestionnairesService {
       //     }
       //   }
       // }
+    } // ← contract loop ends here
 
-      for (const gender of genders) {
-        for (const ageKey of ageBandKeys) {
-          const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
-          if (value !== 0) {
-            records.push({
-              submissionId,
-              contractType: 'TOTAL',
-              cspCategory: 'TOTAL',
-              gender: this.up(gender),
-              ageBand: this.mapAgeBand(ageKey),
-              value
-            });
-          }
+    // grand total — runs once after both contracts are collected
+    for (const gender of genders) {
+      for (const ageKey of ageBandKeys) {
+        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
+        if (value !== 0) {
+          records.push({
+            submissionId,
+            contractType: 'TOTAL',
+            cspCategory: 'TOTAL',
+            gender: this.up(gender),
+            ageBand: this.mapAgeBand(ageKey),
+            value
+          });
         }
       }
+    }
 
-      if (records.length > 0) {
-        await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
-      }
+    // single save after everything is collected
+    if (records.length > 0) {
+      await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
     }
   }
-
   private async saveDepartureFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const prefix = 's3q01';
     const cspRows = ['cadres', 'foremen', 'workers', 'total'];
@@ -671,7 +695,7 @@ export class QuestionnairesService {
   private async saveDismissalReasonsFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
-      const reasonText = this.flatStr(flat, `s3q02_reason_${i}_text`);
+      const reasonText = this.flatStr(flat, `s3q02_reason_${i}_label`); // ← was _text
       const male = this.flatInt(flat, `s3q02_reason_${i}_male`);
       const female = this.flatInt(flat, `s3q02_reason_${i}_female`);
       const total = this.flatInt(flat, `s3q02_reason_${i}_total`);
@@ -716,7 +740,7 @@ export class QuestionnairesService {
   private async saveSkillsFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
-      const description = this.flatStr(flat, `s4q02_skill_${i}_text`);
+      const description = this.flatStr(flat, `s4q02_skill_${i}_label`);
       const male = this.flatInt(flat, `s4q02_skill_${i}_male`);
       const female = this.flatInt(flat, `s4q02_skill_${i}_female`);
       const total = this.flatInt(flat, `s4q02_skill_${i}_total`);
@@ -730,7 +754,7 @@ export class QuestionnairesService {
   private async saveTrainingFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
-      const domain = this.flatStr(flat, `s4q03_domain_${i}_text`);
+      const domain = this.flatStr(flat, `s4q03_domain_${i}_label`); // ← was _text
       const male = this.flatInt(flat, `s4q03_domain_${i}_male`);
       const female = this.flatInt(flat, `s4q03_domain_${i}_female`);
       const total = this.flatInt(flat, `s4q03_domain_${i}_total`);
@@ -769,7 +793,93 @@ export class QuestionnairesService {
     return value ? (map[value] ?? '') : '';
   }
 
-  // Add this method here ↓↓↓
+  // ... existing methods above ...
+
+  private async resolveGeoAndSector(
+    tx: TxClient,
+    regionName: string | null | undefined,
+    departmentName: string | null | undefined,
+    subdivisionName: string | null | undefined,
+    sectorValue: string | null | undefined,
+  ): Promise<{
+    regionId: string | null;
+    departmentId: string | null;
+    subdivisionId: string | null;
+    sectorId: string | null;
+  }> {
+    let regionId: string | null = null;
+    let departmentId: string | null = null;
+    let subdivisionId: string | null = null;
+    let sectorId: string | null = null;
+
+    if (subdivisionName && departmentName && regionName) {
+      const subdiv = await tx.subdivision.findFirst({
+        where: {
+          name: { equals: subdivisionName, mode: 'insensitive' },
+          department: {
+            name: { equals: departmentName, mode: 'insensitive' },
+            region: {
+              name: { equals: regionName, mode: 'insensitive' },
+            },
+          },
+        },
+        include: {
+          department: {
+            include: { region: true },
+          },
+        },
+      });
+      if (subdiv) {
+        subdivisionId = subdiv.id;
+        departmentId = subdiv.department.id;
+        regionId = subdiv.department.region.id;
+      }
+    } else if (departmentName && regionName) {
+      const dept = await tx.department.findFirst({
+        where: {
+          name: { equals: departmentName, mode: 'insensitive' },
+          region: {
+            name: { equals: regionName, mode: 'insensitive' },
+          },
+        },
+        include: { region: true },
+      });
+      if (dept) {
+        departmentId = dept.id;
+        regionId = dept.region.id;
+      }
+    } else if (regionName) {
+      const reg = await tx.region.findFirst({
+        where: { name: { equals: regionName, mode: 'insensitive' } },
+      });
+      if (reg) regionId = reg.id;
+    }
+
+    if (sectorValue) {
+      const categoryMap: Record<string, string> = {
+        'primaire': 'Primary',
+        'primary': 'Primary',
+        'secondaire': 'Secondary',
+        'secondary': 'Secondary',
+        'tertiaire': 'Tertiary',
+        'tertiary': 'Tertiary',
+      };
+      const lower = sectorValue.toLowerCase();
+      const category = Object.entries(categoryMap).find(([k]) =>
+        lower.includes(k),
+      )?.[1] ?? null;
+
+      if (category) {
+        const sector = await tx.sector.findFirst({
+          where: { category },
+        });
+        if (sector) sectorId = sector.id;
+      }
+    }
+
+    return { regionId, departmentId, subdivisionId, sectorId };
+  }
+
   private getCurrentQuarter(): string {
     const now = new Date();
     const year = now.getFullYear();
@@ -822,3 +932,4 @@ export class QuestionnairesService {
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 }
+

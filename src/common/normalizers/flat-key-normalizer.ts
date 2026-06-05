@@ -741,8 +741,7 @@ function toInt(value: unknown): number {
  * All Flutter camelCase / snake_case S0–S1 field names.
  * Used by the pass-through loop to avoid duplicating them
  * as raw table keys in the output.
- */
-const CAMEL_KEY_SET = new Set([
+ */const CAMEL_KEY_SET = new Set([
     // S0
     'respondentName', 'respondentFunction', 'respondentPhone1',
     'respondentPhone2', 'respondentEmail',
@@ -767,8 +766,9 @@ const CAMEL_KEY_SET = new Set([
     'cooperative_region', 'cooperative_dept',
     'cooperative_subdiv', 'cooperative_locality',
     // CTD
-    'ctdName',  // ← ADD
+    'ctdName',
     'ctdType', 'ctd_type', 'councilType', 'council_type', 'ctdYearCreated',
+    'CTD_S1Q02', // ← ADD: prevents conditional field leaking into passthrough loop
     // ONG
     'ongName', 'ngoName', 'name',
     'ongName', 'ong_name', 'ongHeadOffice', 'ongMainMission',
