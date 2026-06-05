@@ -3,7 +3,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OnefopAnalyticsService } from './onefop-analytics.service';
+import { OnefopAnalyticsFacade } from './facade/onefop-analytics.facade';
 
 function toInt(val: any): number | undefined {
     const n = parseInt(val, 10);
@@ -23,7 +23,7 @@ function toDate(val: any): Date | undefined {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP', 'COMPANY')
 export class OnefopAnalyticsController {
-    constructor(private readonly analytics: OnefopAnalyticsService) { }
+    constructor(private readonly analytics: OnefopAnalyticsFacade) { }
 
     // ─────────────────────────────────────────────────────────────
     // DASHBOARD & SUMMARY
@@ -32,7 +32,7 @@ export class OnefopAnalyticsController {
     @Get('dashboard')
     async getDashboard(@Query() q: any) {
         return this.analytics.getDashboard({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -47,7 +47,7 @@ export class OnefopAnalyticsController {
     @Get('employment-summary')
     async getEmploymentSummary(@Query() q: any) {
         return this.analytics.getEmploymentSummary({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -65,7 +65,7 @@ export class OnefopAnalyticsController {
     @Get('employment')
     async getEmployment(@Query() q: any) {
         return this.analytics.getEmploymentByLocation({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -80,7 +80,7 @@ export class OnefopAnalyticsController {
     @Get('employment-by-csp')
     async getEmploymentByCsp(@Query() q: any) {
         return this.analytics.getEmploymentByCsp({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -94,7 +94,7 @@ export class OnefopAnalyticsController {
     @Get('employment-by-location')
     async getEmploymentByLocation(@Query() q: any) {
         return this.analytics.getEmploymentByLocation({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -113,8 +113,8 @@ export class OnefopAnalyticsController {
     @Get('recruitment-trends')
     async getRecruitmentTrends(@Query() q: any) {
         return this.analytics.getRecruitmentTrends({
-            startYear: toInt(q.startYear)!,
-            endYear: toInt(q.endYear)!,
+            startYear: toInt(q.startYear) ?? toInt(q.year) ?? new Date().getFullYear(),
+            endYear: toInt(q.endYear) ?? toInt(q.year) ?? new Date().getFullYear(),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -129,7 +129,7 @@ export class OnefopAnalyticsController {
     @Get('hires')
     async getHires(@Query() q: any) {
         return this.analytics.getHiresByDemographics({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -146,7 +146,7 @@ export class OnefopAnalyticsController {
     @Get('hires-by-demographics')
     async getHiresByDemographics(@Query() q: any) {
         return this.analytics.getHiresByDemographics({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -163,7 +163,7 @@ export class OnefopAnalyticsController {
     @Get('hires/diploma')
     async getHiresByDiploma(@Query() q: any) {
         return this.analytics.getDiplomaSummary({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -174,13 +174,32 @@ export class OnefopAnalyticsController {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // LABOR MARKET TENSION
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('labor-market-tension')
+    async getLaborMarketTension(@Query() q: any) {
+        return this.analytics.getLaborMarketTension({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            granularity: q.granularity || 'annual',
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // DEMOGRAPHICS & SOCIAL
     // ─────────────────────────────────────────────────────────────
 
     @Get('gender-parity')
     async getGenderParity(@Query() q: any) {
         return this.analytics.getGenderParity({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -194,7 +213,7 @@ export class OnefopAnalyticsController {
     @Get('youth-employment')
     async getYouthEmployment(@Query() q: any) {
         return this.analytics.getYouthEmployment({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -208,7 +227,7 @@ export class OnefopAnalyticsController {
     @Get('inclusion')
     async getInclusion(@Query() q: any) {
         return this.analytics.getInclusionMetrics({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -223,7 +242,7 @@ export class OnefopAnalyticsController {
     @Get('inclusion-metrics')
     async getInclusionMetrics(@Query() q: any) {
         return this.analytics.getInclusionMetrics({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -242,7 +261,7 @@ export class OnefopAnalyticsController {
     @Get('skills')
     async getSkills(@Query() q: any) {
         return this.analytics.getSkillNeeds({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -253,7 +272,7 @@ export class OnefopAnalyticsController {
     @Get('skill-needs')
     async getSkillNeeds(@Query() q: any) {
         return this.analytics.getSkillNeeds({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -264,7 +283,7 @@ export class OnefopAnalyticsController {
     @Get('training-needs')
     async getTrainingNeeds(@Query() q: any) {
         return this.analytics.getTrainingNeeds({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -275,7 +294,7 @@ export class OnefopAnalyticsController {
     @Get('training-gap')
     async getTrainingGap(@Query() q: any) {
         return this.analytics.getTrainingGap({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
@@ -293,7 +312,7 @@ export class OnefopAnalyticsController {
     @Get('vacancies')
     async getVacancies(@Query() q: any) {
         return this.analytics.getVacanciesBySegment({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -304,7 +323,7 @@ export class OnefopAnalyticsController {
     @Get('vacancies-by-segment')
     async getVacanciesBySegment(@Query() q: any) {
         return this.analytics.getVacanciesBySegment({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
@@ -319,7 +338,7 @@ export class OnefopAnalyticsController {
     @Get('diploma-distribution')
     async getDiplomaDistribution(@Query() q: any) {
         return this.analytics.getDiplomaDistribution({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -331,7 +350,7 @@ export class OnefopAnalyticsController {
     @Get('diploma-summary')
     async getDiplomaSummary(@Query() q: any) {
         return this.analytics.getDiplomaSummary({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -348,7 +367,7 @@ export class OnefopAnalyticsController {
     @Get('disability-data')
     async getDisabilityData(@Query() q: any) {
         return this.analytics.getDisabilityData({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -360,7 +379,7 @@ export class OnefopAnalyticsController {
     @Get('vulnerable-workers')
     async getVulnerableWorkers(@Query() q: any) {
         return this.analytics.getVulnerableWorkers({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -376,7 +395,7 @@ export class OnefopAnalyticsController {
     @Get('first-time-workers')
     async getFirstTimeWorkers(@Query() q: any) {
         return this.analytics.getFirstTimeWorkers({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -388,7 +407,7 @@ export class OnefopAnalyticsController {
     @Get('departures')
     async getDepartures(@Query() q: any) {
         return this.analytics.getDepartures({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -400,7 +419,7 @@ export class OnefopAnalyticsController {
     @Get('departure-summary')
     async getDepartureSummary(@Query() q: any) {
         return this.analytics.getDepartureSummary({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -416,7 +435,7 @@ export class OnefopAnalyticsController {
     @Get('dismissal-reasons')
     async getDismissalReasons(@Query() q: any) {
         return this.analytics.getDismissalReasons({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -428,7 +447,7 @@ export class OnefopAnalyticsController {
     @Get('dismissal-unemployment')
     async getDismissalUnemployment(@Query() q: any) {
         return this.analytics.getDismissalUnemployment({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -444,7 +463,7 @@ export class OnefopAnalyticsController {
     @Get('internships')
     async getInternships(@Query() q: any) {
         return this.analytics.getInternships({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             region: q.region,
@@ -460,7 +479,7 @@ export class OnefopAnalyticsController {
     @Get('submissions')
     async getSubmissions(@Query() q: any) {
         return this.analytics.getSubmissions({
-            year: toInt(q.year),
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
             startDate: toDate(q.startDate),
