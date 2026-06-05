@@ -26,23 +26,69 @@ export enum AgeBand {
     TOTAL = 'TOTAL',
 }
 
+export enum ContractType {
+    PERMANENT = 'PERMANENT',
+    TEMPORARY = 'TEMPORARY',
+    TOTAL = 'TOTAL',
+}
+
 export enum DepartureType {
-    RESIGNATION = 'RESIGNATION',
     DISMISSAL = 'DISMISSAL',
+    RESIGNATION = 'RESIGNATION',
     RETIREMENT = 'RETIREMENT',
     OTHER = 'OTHER',
     ENSEMBLE = 'ENSEMBLE',
 }
 
-export enum StatusFlag {
-    TOTAL = 'TOTAL',
-}
-
 export enum InternshipType {
+    VACATION = 'VACATION',
+    ACADEMIC = 'ACADEMIC',
+    PROFESSIONAL = 'PROFESSIONAL',
+    PRE_EMPLOYMENT = 'PRE_EMPLOYMENT',
     TOTAL = 'TOTAL',
 }
 
 export enum DiplomaFlag {
+    CEP = 'CEP',
+    PROBATOIRE = 'PROBATOIRE',
+    BAC = 'BAC',
+    BTS = 'BTS',
+    LICENCE = 'LICENCE',
+    MAITRISE = 'MAITRISE',
+    MASTER = 'MASTER',
+    DQP = 'DQP',
+    CQP = 'CQP',
+    AUTRES = 'AUTRES',
+    SANS_DIPLOME = 'SANS_DIPLOME',
+    BEPC = 'BEPC',
+    TOTAL = 'TOTAL',
+}
+
+export enum DisabilityStatus {
+    PERMANENT = 'PERMANENT',
+    TEMPORARY = 'TEMPORARY',
+    TOTAL = 'TOTAL',
+}
+
+export enum VulnerableType {
+    DEPLACES_INTERNES = 'DEPLACES_INTERNES',
+    REFUGIES = 'REFUGIES',
+    ORPHELINS = 'ORPHELINS',
+    CADRES_VULN = 'CADRES_VULN',
+    FOREMEN_VULN = 'FOREMEN_VULN',
+    WORKERS_VULN = 'WORKERS_VULN',
+    TOTAL_VULN = 'TOTAL_VULN',
+}
+
+export enum DismissalUnemploymentType {
+    DISMISSAL = 'DISMISSAL',
+    TECHNICAL_UNEMPLOYMENT = 'TECHNICAL_UNEMPLOYMENT',
+    TOTAL = 'TOTAL',
+}
+
+export enum StatusFlag {
+    PERMANENT = 'PERMANENT',
+    TEMPORARY = 'TEMPORARY',
     TOTAL = 'TOTAL',
 }
 

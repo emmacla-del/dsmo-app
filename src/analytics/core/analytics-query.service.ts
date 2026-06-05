@@ -15,7 +15,7 @@ export class AnalyticsQueryService {
     // ─────────────────────────────────────────────────────────────
     buildSubmissionWhere(
         filter: AnalyticsFilter,
-        status: string = SubmissionStatus.APPROVED,
+        status: SubmissionStatus = SubmissionStatus.APPROVED,
     ): Record<string, unknown> {
         const where: Record<string, unknown> = {
             status,
@@ -23,7 +23,7 @@ export class AnalyticsQueryService {
         };
 
         if (filter.submissionId) where['id'] = filter.submissionId;
-        if (filter.entityType) where['formType'] = filter.entityType.toUpperCase();
+        if (filter.entityType) where['formType'] = filter.entityType;
         if (filter.region) where['region'] = { contains: filter.region, mode: 'insensitive' };
         if (filter.department) where['department'] = { contains: filter.department, mode: 'insensitive' };
         if (filter.subdivision) where['subdivision'] = { contains: filter.subdivision, mode: 'insensitive' };
@@ -38,7 +38,7 @@ export class AnalyticsQueryService {
     // _ids on the filter to avoid redundant DB round-trips.
     // ─────────────────────────────────────────────────────────────
     async resolveSubmissionIds(filter: AnalyticsFilter): Promise<string[]> {
-        if (filter._ids) return filter._ids;
+        if (filter._ids) return [...filter._ids];
         const submissions = await this.resolveSubmissions(filter);
         return submissions.map((s) => s.id);
     }

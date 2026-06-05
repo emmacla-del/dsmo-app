@@ -20,6 +20,8 @@ import type {
     InclusionDashboard,
 } from '../core/analytics-types';
 
+import { EnterpriseProfileAnalyticsService } from '../domain/enterprise-profile.analytics.service';
+
 @Injectable()
 export class OnefopAnalyticsFacade {
     constructor(
@@ -30,6 +32,7 @@ export class OnefopAnalyticsFacade {
         private readonly inclusion: InclusionAnalyticsService,
         private readonly skills: SkillsAnalyticsService,
         private readonly education: EducationAnalyticsService,
+        private readonly enterpriseProfile: EnterpriseProfileAnalyticsService, // add this
     ) { }
 
     // ─────────────────────────────────────────────────────────────
@@ -66,48 +69,68 @@ export class OnefopAnalyticsFacade {
     getTrainingNeeds = (f: AnalyticsFilter & { limit?: number }) => this.skills.getTrainingNeeds(f);
     getTrainingGap = (f: AnalyticsFilter) => this.skills.getTrainingGap(f);
 
-    getVacanciesBySegment = (f: Parameters<EducationAnalyticsService['getVacanciesBySegment']>[0]) => this.education.getVacanciesBySegment(f);
+    getVacanciesBySegment = (f: AnalyticsFilter & { groupBy: 'enterpriseSize' | 'sector' }) =>
+        this.education.getVacanciesBySegment(f, this.enterpriseProfile);
     getSubmissions = (f: SubmissionListFilter) => this.education.getSubmissions(f);
 
     // ─────────────────────────────────────────────────────────────
-    // Aggregate helpers (each resolves IDs once via filter._ids)
+    // Aggregate helpers — each resolves _ids once before delegating
     // ─────────────────────────────────────────────────────────────
 
     async getWorkforceSnapshot(filter: AnalyticsFilter): Promise<WorkforceSnapshot> {
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) {
+            return { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, youthRate: 0, averageAge: null };
+        }
+        const f: AnalyticsFilter = { ...filter, _ids: ids };
         const [emp, cspRows, genderParity] = await Promise.all([
-            this.employment.getEmploymentSummary(filter),
-            this.employment.getEmploymentByCsp(filter),
-            this.employment.getGenderParity(filter),
+            this.employment.getEmploymentSummary(f),
+            this.employment.getEmploymentByCsp(f),
+            this.employment.getGenderParity(f),
         ]);
         return this.employment.computeWorkforceSnapshot(emp, cspRows, genderParity);
     }
 
     async getMobilityDashboard(filter: AnalyticsFilter): Promise<MobilityDashboard> {
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) {
+            return { totalEmployees: 0, totalDepartures: 0, resignationRate: 0, dismissalRate: 0, retirementRate: 0, turnoverRate: 0, retentionRate: 0 };
+        }
+        const f: AnalyticsFilter = { ...filter, _ids: ids };
         const [emp, departures] = await Promise.all([
-            this.employment.getEmploymentSummary(filter),
-            this.mobility.getDepartureSummary(filter),
+            this.employment.getEmploymentSummary(f),
+            this.mobility.getDepartureSummary(f),
         ]);
         return this.mobility.computeMobilityDashboard(emp.totalEmployees, departures);
     }
 
     async getSkillsDashboard(filter: AnalyticsFilter): Promise<SkillsDashboard> {
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) {
+            return { topSkills: [], topTrainingDomains: [], biggestSkillGaps: [] };
+        }
+        const f: AnalyticsFilter = { ...filter, _ids: ids };
         const [skillNeeds, trainingNeeds] = await Promise.all([
-            this.skills.getSkillNeeds({ ...filter, limit: 10 }),
-            this.skills.getTrainingNeeds({ ...filter, limit: 10 }),
+            this.skills.getSkillNeeds({ ...f, limit: 10 }),
+            this.skills.getTrainingNeeds({ ...f, limit: 10 }),
         ]);
         const gap = computeTrainingGap(skillNeeds, trainingNeeds);
         return this.skills.computeSkillsDashboard(skillNeeds, trainingNeeds, gap);
     }
 
     async getInclusionDashboard(filter: AnalyticsFilter): Promise<InclusionDashboard> {
-        return this.inclusion.getInclusionDashboard(filter, this.employment);
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) {
+            return { disabilityRate: 0, vulnerableRate: 0, femaleLeadershipRate: 0, disabledCount: 0, vulnerableCount: 0 };
+        }
+        const f: AnalyticsFilter = { ...filter, _ids: ids };
+        return this.inclusion.getInclusionDashboard(f, this.employment);
     }
 
     // ─────────────────────────────────────────────────────────────
     // Full dashboard — single DB round-trip per dataset
     // ─────────────────────────────────────────────────────────────
     async getDashboard(filter: AnalyticsFilter) {
-        // Resolve IDs once; stamp onto filter so every sub-call skips the lookup
         const ids = await this.query.resolveSubmissionIds(filter);
 
         if (!ids.length) {
@@ -150,7 +173,6 @@ export class OnefopAnalyticsFacade {
             this.employment.getEmploymentByCsp(f),
         ]);
 
-        // Pure computations — zero DB access
         const trainingGap = computeTrainingGap(allSkillNeeds, allTrainingNeeds);
 
         return {
@@ -205,7 +227,7 @@ export class OnefopAnalyticsFacade {
             skillNeeds: [],
             trainingNeeds: [],
             trainingGap: { skillsInDemand: [], skillsInSurplus: [], balanced: [] },
-            workforceSnapshot: { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, averageAge: 0 },
+            workforceSnapshot: { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, averageAge: null },
             mobilityDashboard: { totalEmployees: 0, totalDepartures: 0, resignationRate: 0, dismissalRate: 0, retirementRate: 0, turnoverRate: 0, retentionRate: 0 },
             skillsDashboard: { topSkills: [], topTrainingDomains: [], biggestSkillGaps: [] },
             inclusionDashboard: { disabilityRate: 0, vulnerableRate: 0, femaleLeadershipRate: 0, disabledCount: 0, vulnerableCount: 0 },

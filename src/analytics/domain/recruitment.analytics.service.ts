@@ -26,6 +26,16 @@ import type {
     RecruitmentDbRow,
 } from '../core/analytics-types';
 
+// ─────────────────────────────────────────────────────────────
+// Inline filter shapes for getHiresByDemographics —
+// use enum members instead of raw string literals.
+// ─────────────────────────────────────────────────────────────
+type HiresDemographicsFilter = AnalyticsFilter & {
+    csp?: CspCategory.CADRES | CspCategory.FOREMEN | CspCategory.WORKERS;
+    gender?: Gender.MALE | Gender.FEMALE;
+    ageBand?: AgeBand.AGE_15_24 | AgeBand.AGE_25_34 | AgeBand.AGE_35_PLUS;
+};
+
 @Injectable()
 export class RecruitmentAnalyticsService {
     constructor(
@@ -49,11 +59,23 @@ export class RecruitmentAnalyticsService {
 
         const [permanent, temporary] = await Promise.all([
             (this.prisma as any).onefopCspGenderAge.findMany({
-                where: { submissionId: { in: ids }, tableName: TableName.PERMANENT_HIRE, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL, ageBand: AgeBand.TOTAL },
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.PERMANENT_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
                 select: { submissionId: true, value: true },
             }) as Promise<RecruitmentDbRow[]>,
             (this.prisma as any).onefopCspGenderAge.findMany({
-                where: { submissionId: { in: ids }, tableName: TableName.TEMP_HIRE, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL, ageBand: AgeBand.TOTAL },
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.TEMP_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
                 select: { submissionId: true, value: true },
             }) as Promise<RecruitmentDbRow[]>,
         ]);
@@ -83,11 +105,7 @@ export class RecruitmentAnalyticsService {
     // ─────────────────────────────────────────────────────────────
     // 2. Hires by demographics
     // ─────────────────────────────────────────────────────────────
-    async getHiresByDemographics(filter: AnalyticsFilter & {
-        csp?: 'CADRES' | 'FOREMEN' | 'WORKERS';
-        gender?: 'MALE' | 'FEMALE';
-        ageBand?: 'AGE_15_24' | 'AGE_25_34' | 'AGE_35_PLUS';
-    }): Promise<HireDemographicsRow[]> {
+    async getHiresByDemographics(filter: HiresDemographicsFilter): Promise<HireDemographicsRow[]> {
         const ids = await this.query.resolveSubmissionIds(filter);
         if (!ids.length) return [];
 
@@ -127,11 +145,23 @@ export class RecruitmentAnalyticsService {
 
         const [youth, total] = await Promise.all([
             (this.prisma as any).onefopCspGenderAge.aggregate({
-                where: { submissionId: { in: ids }, tableName: TableName.PERMANENT_HIRE, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL, ageBand: AgeBand.AGE_15_24 },
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.PERMANENT_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.AGE_15_24,
+                },
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
             (this.prisma as any).onefopCspGenderAge.aggregate({
-                where: { submissionId: { in: ids }, tableName: TableName.PERMANENT_HIRE, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL, ageBand: AgeBand.TOTAL },
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.PERMANENT_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
         ]);
@@ -160,7 +190,12 @@ export class RecruitmentAnalyticsService {
             orderBy: [{ diploma: 'asc' }, { gender: 'asc' }],
         });
 
-        return rows.map((r) => ({ diploma: r.diploma, gender: r.gender, ageBand: r.ageBand, count: r._sum.value ?? 0 }));
+        return rows.map((r) => ({
+            diploma: r.diploma,
+            gender: r.gender,
+            ageBand: r.ageBand,
+            count: r._sum.value ?? 0,
+        }));
     }
 
     async getDiplomaSummary(filter: AnalyticsFilter & { limit?: number }): Promise<DiplomaSummaryRow[]> {
@@ -169,7 +204,12 @@ export class RecruitmentAnalyticsService {
 
         const rows: DiplomaSummaryGroupRow[] = await (this.prisma as any).onefopDiplomaData.groupBy({
             by: ['diploma'],
-            where: { submissionId: { in: ids }, gender: Gender.TOTAL, ageBand: AgeBand.TOTAL, diploma: { not: DiplomaFlag.TOTAL } },
+            where: {
+                submissionId: { in: ids },
+                gender: Gender.TOTAL,
+                ageBand: AgeBand.TOTAL,
+                diploma: { not: DiplomaFlag.TOTAL },
+            },
             _sum: { value: true },
             orderBy: { _sum: { value: 'desc' } },
         });
@@ -200,11 +240,9 @@ export class RecruitmentAnalyticsService {
             return this._tensionForIds(await this.query.resolveSubmissionIds(filter));
         }
 
-        // For quarter / semester: resolve submissions with metadata, group by period
         const submissions = await this.query.resolveSubmissions(filter);
         if (!submissions.length) return [];
 
-        // Group submission IDs by period key
         const periodMap = new Map<string, string[]>();
         for (const s of submissions) {
             const key = granularity === 'quarter'
@@ -214,15 +252,12 @@ export class RecruitmentAnalyticsService {
             periodMap.get(key)!.push(s.id);
         }
 
-        // Compute tension for each period in parallel
         const periods = Array.from(periodMap.entries()).sort(([a], [b]) => a.localeCompare(b));
-        const results = await Promise.all(
+        return Promise.all(
             periods.map(([period, ids]) =>
                 this._tensionForIds(ids).then((tension) => ({ period, tension })),
             ),
         );
-
-        return results;
     }
 
     // ─── Private: compute tension for a fixed set of submission IDs ───
@@ -239,12 +274,24 @@ export class RecruitmentAnalyticsService {
             }) as Promise<VacancyTotalDbRow[]>,
 
             (this.prisma as any).onefopCspGenderAge.aggregate({
-                where: { submissionId: { in: ids }, tableName: TableName.PERMANENT_HIRE, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL, ageBand: AgeBand.TOTAL },
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.PERMANENT_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
 
             (this.prisma as any).onefopCspGenderAge.aggregate({
-                where: { submissionId: { in: ids }, tableName: TableName.TEMP_HIRE, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL, ageBand: AgeBand.TOTAL },
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.TEMP_HIRE,
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                },
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
 
@@ -259,7 +306,7 @@ export class RecruitmentAnalyticsService {
                 },
                 _sum: { value: true },
                 orderBy: [{ cspCategory: 'asc' }],
-            }) as Promise<{ cspCategory: string; _sum: { value: number | null } }[]>,
+            }) as Promise<{ cspCategory: CspCategory; _sum: { value: number | null } }[]>,
         ]);
 
         const totalVacancies = vacancyRows.reduce((sum, r) => sum + (r.vacancies ?? 0), 0);
@@ -281,16 +328,14 @@ export class RecruitmentAnalyticsService {
 
     private _quarterKey(s: SubmissionMeta): string {
         if (s.quarterCode) return s.quarterCode;
-        const q = Math.ceil((s.createdAt.getMonth() + 1) / 3);
-        return `${s.surveyYear}-T${q}`;
+        return `${s.surveyYear}-T${Math.ceil((s.createdAt.getMonth() + 1) / 3)}`;
     }
 
     private _semesterKey(s: SubmissionMeta): string {
-        const sem = s.createdAt.getMonth() < 6 ? 1 : 2;
-        return `${s.surveyYear}-S${sem}`;
+        return `${s.surveyYear}-S${s.createdAt.getMonth() < 6 ? 1 : 2}`;
     }
 
-    // Alias for frontend compatibility
+    /** Alias for frontend compatibility */
     async getHiresByDiploma(filter: AnalyticsFilter & { limit?: number }): Promise<DiplomaSummaryRow[]> {
         return this.getDiplomaSummary(filter);
     }

@@ -9,7 +9,7 @@ import { RecruitmentAnalyticsService } from './domain/recruitment.analytics.serv
 import { MobilityAnalyticsService } from './domain/mobility.analytics.service';
 import { InclusionAnalyticsService } from './domain/inclusion.analytics.service';
 import { SkillsAnalyticsService } from './domain/skills.analytics.service';
-import { EducationAnalyticsService } from './domain/education.analytics.service';
+import { EducationAnalyticsService } from './domain/enterprise-profile.analytics.service';
 import { OnefopAnalyticsFacade } from './facade/onefop-analytics.facade';
 
 const DOMAIN_SERVICES = [

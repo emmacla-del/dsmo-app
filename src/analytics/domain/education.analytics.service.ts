@@ -1,19 +1,21 @@
-// analytics/domain/education.analytics.service.ts
+// analytics/domain/education.analytics.service.ts  (FULL REPLACEMENT)
 //
-// Covers: vacancies by segment and the submission list query.
-// (The diploma methods live in recruitment.analytics.service.ts
-//  since they're hire-side data, not education-side.)
+// Changes vs original:
+//  • getVacanciesBySegment() now delegates to EnterpriseProfileAnalyticsService
+//    (kept here for backwards-compat; facade still wires both)
+//  • getSubmissions() now lives here but is clearly labelled as an
+//    administrative query, not an analytics function — move to a
+//    SubmissionQueryService when you have time.
+//  No new analytics added; the real enterprise-profile analytics are
+//  in enterprise-profile.analytics.service.ts.
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AnalyticsQueryService } from '../core/analytics-query.service';
 import { SubmissionStatus } from '../core/analytics-enums';
-import type {
-    AnalyticsFilter,
-    SubmissionListFilter,
-    VacancySegment,
-    EnterpriseDetailDbRow,
-} from '../core/analytics-types';
+import type { AnalyticsFilter, SubmissionListFilter } from '../core/analytics-types';
+import type { EnterpriseProfileSegment } from '../core/analytics-types';
+import type { EnterpriseProfileAnalyticsService } from './enterprise-profile.analytics.service';
 
 @Injectable()
 export class EducationAnalyticsService {
@@ -23,43 +25,19 @@ export class EducationAnalyticsService {
     ) { }
 
     // ─────────────────────────────────────────────────────────────
-    // 1. Vacancies by segment
+    // Vacancies by segment – delegates to EnterpriseProfileService.
+    // Kept for backwards compatibility with existing facade wiring.
     // ─────────────────────────────────────────────────────────────
     async getVacanciesBySegment(
-        filter: AnalyticsFilter & { groupBy: 'companySize' | 'sector' },
-    ): Promise<VacancySegment[]> {
-        const ids = await this.query.resolveSubmissionIds(filter);
-        if (!ids.length) return [];
-
-        const details: EnterpriseDetailDbRow[] = await (this.prisma as any).onefopEnterpriseDetail.findMany({
-            where: { submissionId: { in: ids } },
-            select: { enterpriseSize: true, sector: true, vacancies: true },
-        });
-
-        const map = new Map<string, { vacancies: number; count: number }>();
-        for (const d of details) {
-            const key = filter.groupBy === 'companySize'
-                ? (d.enterpriseSize ?? 'Inconnu')
-                : (d.sector ?? 'Inconnu');
-
-            if (!map.has(key)) map.set(key, { vacancies: 0, count: 0 });
-            const stats = map.get(key)!;
-            stats.vacancies += d.vacancies ?? 0;
-            stats.count += 1;
-        }
-
-        return Array.from(map.entries())
-            .map(([segment, stats]) => ({
-                segment,
-                totalVacancies: stats.vacancies,
-                companyCount: stats.count,
-                avgVacanciesPerCompany: stats.count > 0 ? Math.round(stats.vacancies / stats.count) : 0,
-            }))
-            .sort((a, b) => b.totalVacancies - a.totalVacancies);
+        filter: AnalyticsFilter & { groupBy: 'enterpriseSize' | 'sector' },
+        enterpriseProfile: Pick<EnterpriseProfileAnalyticsService, 'getVacanciesBySegment'>,
+    ): Promise<EnterpriseProfileSegment[]> {
+        return enterpriseProfile.getVacanciesBySegment(filter);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. Submission list
+    // Administrative: raw submission list
+    // TODO: move to SubmissionQueryService when architecture allows.
     // ─────────────────────────────────────────────────────────────
     async getSubmissions(filter: SubmissionListFilter) {
         return (this.prisma as any).onefopSubmission.findMany({

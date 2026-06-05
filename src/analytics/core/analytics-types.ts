@@ -1,5 +1,19 @@
 // analytics/core/analytics-types.ts
 
+import {
+    AgeBand,
+    CspCategory,
+    DepartureType,
+    DiplomaFlag,
+    EntityType,
+    Gender,
+    InternshipType,
+    StatusFlag,
+    SubmissionStatus,
+    TableName,
+    ContractType,
+} from './analytics-enums';
+
 // ─────────────────────────────────────────────────────────────
 // FILTER INTERFACES
 // ─────────────────────────────────────────────────────────────
@@ -10,7 +24,6 @@ export interface AnalyticsScope {
     region?: string;
     department?: string;
     subdivision?: string;
-    // Period range filters - these are used by buildPeriodWhere helper
     fromQuarter?: string;
     toQuarter?: string;
     startDate?: Date;
@@ -18,25 +31,26 @@ export interface AnalyticsScope {
 }
 
 export interface AnalyticsFilter extends AnalyticsScope {
-    entityType?: string;   // 'ENTREPRISE' | 'COOPERATIVE' | 'CTD' | 'ONG'
-    submissionId?: string;   // internal UUID
-    /** Pre-resolved submission IDs — set by facade to avoid repeated DB lookups */
-    _ids?: string[];
+    entityType?: EntityType;
+    submissionId?: string;
+    _ids?: readonly string[];
+}
+
+export type TrendGranularity = 'year' | 'quarter' | 'semester' | 'month';
+
+export interface TrendFilter extends AnalyticsFilter {
+    startYear?: number;
+    endYear?: number;
+    granularity?: TrendGranularity;
 }
 
 export interface SubmissionListFilter extends AnalyticsFilter {
-    status?: string;
+    status?: SubmissionStatus;
     limit?: number;
     offset?: number;
 }
 
 export interface LaborMarketTensionFilter extends AnalyticsFilter {
-    /**
-     * Controls how tension is aggregated when the filter spans multiple periods.
-     * - 'annual'   — sum all matching submissions into one result (default)
-     * - 'quarter'  — one result per quarter (e.g. 2024-T1, 2024-T2)
-     * - 'semester' — one result per semester (e.g. 2024-S1, 2024-S2)
-     */
     granularity?: 'annual' | 'quarter' | 'semester';
 }
 
@@ -47,7 +61,7 @@ export interface RecruitmentTrendFilter extends AnalyticsFilter {
 }
 
 // ─────────────────────────────────────────────────────────────
-// INTERNAL DB ROW SHAPES  (used only within domain services)
+// INTERNAL DB ROW SHAPES
 // ─────────────────────────────────────────────────────────────
 
 export interface SubmissionMeta {
@@ -66,51 +80,51 @@ export interface PrismaAggregateResult {
 }
 
 export interface CspGenderAgeGroupRow {
-    tableName: string;
-    cspCategory: string;
-    gender: string;
-    ageBand: string;
+    tableName: TableName;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand;
     _sum: { value: number | null };
 }
 
 export interface GenderGroupRow {
-    gender: string;
+    gender: Gender;
     _sum: { value: number | null };
 }
 
 export interface CspGroupRow {
-    cspCategory: string;
+    cspCategory: CspCategory;
     _sum: { value: number | null };
 }
 
 export interface DiplomaGroupRow {
-    diploma: string;
-    gender: string;
-    ageBand: string;
+    diploma: DiplomaFlag | string;
+    gender: Gender;
+    ageBand: AgeBand;
     _sum: { value: number | null };
 }
 
 export interface DiplomaSummaryGroupRow {
-    diploma: string;
+    diploma: DiplomaFlag | string;
     _sum: { value: number | null };
 }
 
 export interface DisabilityGroupRow {
-    cspCategory: string;
-    status: string;
-    gender: string;
+    cspCategory: CspCategory;
+    status: StatusFlag | string;
+    gender: Gender;
     _sum: { value: number | null };
 }
 
 export interface VulnerableGroupRow {
     vulnerableType: string;
-    status: string;
-    gender: string;
+    status: StatusFlag | string;
+    gender: Gender;
     _sum: { value: number | null };
 }
 
 export interface DisabledByCspGroupRow {
-    cspCategory: string;
+    cspCategory: CspCategory;
     _sum: { value: number | null };
 }
 
@@ -121,21 +135,21 @@ export interface VulnerableByTypeGroupRow {
 
 export interface FirstTimeWorkerGroupRow {
     contractType: string;
-    cspCategory: string;
-    gender: string;
-    ageBand: string;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand;
     _sum: { value: number | null };
 }
 
 export interface DepartureGroupRow {
-    cspCategory: string;
-    departureType: string;
-    gender: string;
+    cspCategory: CspCategory;
+    departureType: DepartureType;
+    gender: Gender;
     _sum: { value: number | null };
 }
 
 export interface DepartureSummaryGroupRow {
-    departureType: string;
+    departureType: DepartureType;
     _sum: { value: number | null };
 }
 
@@ -148,15 +162,15 @@ export interface DismissalReasonDbRow {
 }
 
 export interface DismissalUnemploymentGroupRow {
-    cspCategory: string;
+    cspCategory: CspCategory;
     type: string;
-    gender: string;
+    gender: Gender;
     _sum: { value: number | null };
 }
 
 export interface InternshipGroupRow {
-    internshipType: string;
-    gender: string;
+    internshipType: InternshipType | string;
+    gender: Gender;
     _sum: { value: number | null };
 }
 
@@ -182,6 +196,7 @@ export interface RecruitmentDbRow {
 export interface EnterpriseDetailDbRow {
     enterpriseSize: string | null;
     sector: string | null;
+    sectorId: string | null;
     vacancies: number | null;
 }
 
@@ -190,17 +205,204 @@ export interface LocationTotalDbRow {
     value: number | null;
 }
 
+export interface VacancyTotalDbRow {
+    vacancies: number | null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 1: JOB APPLICATIONS (S21Q01)
+// ─────────────────────────────────────────────────────────────
+
+export interface JobApplicationRow {
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand | null;
+    count: number;
+}
+
+export interface JobApplicationSummary {
+    totalApplications: number;
+    byGender: { gender: Gender; count: number }[];
+    byCsp: { cspCategory: CspCategory; count: number }[];
+}
+
+export interface ApplicationConversionResult {
+    totalApplications: number;
+    totalHires: number;
+    conversionRate: number | null;
+    byCsp: {
+        cspCategory: CspCategory;
+        applications: number;
+        hires: number;
+        conversionRate: number | null;
+    }[];
+}
+
+export interface ApplicationTrend {
+    period: string;
+    totalApplications: number;
+    totalHires: number;
+    conversionRate: number | null;
+}
+
+export interface JobApplicationGroupRow {
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand | null;
+    _sum: { value: number | null };
+}
+
+export interface JobApplicationCspGroupRow {
+    cspCategory: CspCategory;
+    _sum: { value: number | null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 1: REGISTERED FIRST-TIME SEEKERS (S23Q01)
+// ─────────────────────────────────────────────────────────────
+
+export interface RegisteredSeekerRow {
+    contractType: ContractType;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand | null;
+    count: number;
+}
+
+export interface FirstTimeLaborGapResult {
+    registered: number;
+    recruited: number;
+    absorptionRate: number | null;
+    byCsp: {
+        cspCategory: CspCategory;
+        registered: number;
+        recruited: number;
+        absorptionRate: number | null;
+    }[];
+}
+
+export interface RegisteredSeekerGroupRow {
+    contractType: ContractType;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand | null;
+    _sum: { value: number | null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 2: ENTERPRISE PROFILE BREAKDOWN
+// ─────────────────────────────────────────────────────────────
+
+export type EnterpriseProfileDimension =
+    | 'legalStatus'
+    | 'area'
+    | 'branch'
+    | 'mainActivity'
+    | 'sector'
+    | 'enterpriseSize';
+
+export interface EnterpriseProfileSegment {
+    segment: string;
+    companyCount: number;
+    totalEmployees: number;
+    totalVacancies: number;
+    avgEmployeesPerCompany: number;
+}
+
+export interface EnterpriseProfileDbRow {
+    legalStatus: string | null;
+    area: string | null;
+    branch: string | null;
+    mainActivity: string | null;
+    sector: string | null;
+    enterpriseSize: string | null;
+    permanentWorkers: number | null;
+    vacancies: number | null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 2: GENDER PARITY BY CSP
+// ─────────────────────────────────────────────────────────────
+
+export interface GenderParityByCspRow {
+    cspCategory: CspCategory;
+    maleCount: number;
+    femaleCount: number;
+    malePercentage: number;
+    femalePercentage: number;
+    ratioFemaleToMale: number | null;
+}
+
+export interface CspGenderGroupRow {
+    cspCategory: CspCategory;
+    gender: Gender;
+    _sum: { value: number | null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 2: LOCATION DRILL-DOWN
+// ─────────────────────────────────────────────────────────────
+
+export interface RecruitmentByLocationRow {
+    name: string;
+    permanentHires: number;
+    temporaryHires: number;
+    totalHires: number;
+    companyCount: number;
+}
+
+export interface DeparturesByLocationRow {
+    name: string;
+    totalDepartures: number;
+    resignations: number;
+    dismissals: number;
+    companyCount: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 2: YOUTH IN WORKFORCE (STOCK)
+// ─────────────────────────────────────────────────────────────
+
+export interface WorkforceYouthResult {
+    youthCount: number;
+    totalEmployees: number;
+    youthRate: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 3: SKILL TRENDS OVER TIME
+// ─────────────────────────────────────────────────────────────
+
+export interface SkillTrendPeriod {
+    period: string;
+    topSkills: { skill: string; totalCount: number }[];
+    topTrainingDomains: { domain: string; totalCount: number }[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRIORITY 3: INCLUSION TRENDS OVER TIME
+// ─────────────────────────────────────────────────────────────
+
+export interface InclusionTrendPeriod {
+    period: string;
+    disabledCount: number;
+    vulnerableCount: number;
+    totalEmployees: number;
+    disabilityRate: number;
+    vulnerableRate: number;
+}
+
 // ─────────────────────────────────────────────────────────────
 // PUBLIC RETURN TYPES
 // ─────────────────────────────────────────────────────────────
 
 export interface GenderCount {
-    gender: string;
+    gender: Gender;
     count: number;
 }
 
 export interface CspCount {
-    cspCategory: string;
+    cspCategory: CspCategory;
     count: number;
 }
 
@@ -211,10 +413,10 @@ export interface EmploymentSummary {
 }
 
 export interface EmploymentByCspRow {
-    tableName: string;
-    cspCategory: string;
-    gender: string;
-    ageBand: string;
+    tableName: TableName;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand;
     total: number;
 }
 
@@ -241,9 +443,9 @@ export interface RecruitmentTrend {
 }
 
 export interface HireDemographicsRow {
-    cspCategory: string;
-    gender: string;
-    ageBand: string;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand;
     count: number;
 }
 
@@ -254,33 +456,33 @@ export interface YouthEmploymentResult {
 }
 
 export interface DiplomaDistributionRow {
-    diploma: string;
-    gender: string;
-    ageBand: string;
+    diploma: DiplomaFlag | string;
+    gender: Gender;
+    ageBand: AgeBand;
     count: number;
 }
 
 export interface DiplomaSummaryRow {
-    diploma: string;
+    diploma: DiplomaFlag | string;
     total: number;
 }
 
 export interface DisabilityRow {
-    cspCategory: string;
-    status: string;
-    gender: string;
+    cspCategory: CspCategory;
+    status: StatusFlag | string;
+    gender: Gender;
     count: number;
 }
 
 export interface VulnerableWorkerRow {
     vulnerableType: string;
-    status: string;
-    gender: string;
+    status: StatusFlag | string;
+    gender: Gender;
     count: number;
 }
 
 export interface DisabledByCsp {
-    cspCategory: string;
+    cspCategory: CspCategory;
     count: number;
 }
 
@@ -299,21 +501,21 @@ export interface InclusionMetricsResult {
 
 export interface FirstTimeWorkerRow {
     contractType: string;
-    cspCategory: string;
-    gender: string;
-    ageBand: string;
+    cspCategory: CspCategory;
+    gender: Gender;
+    ageBand: AgeBand;
     count: number;
 }
 
 export interface DepartureRow {
-    cspCategory: string;
-    departureType: string;
-    gender: string;
+    cspCategory: CspCategory;
+    departureType: DepartureType;
+    gender: Gender;
     count: number;
 }
 
 export interface DepartureSummaryRow {
-    departureType: string;
+    departureType: DepartureType;
     total: number;
 }
 
@@ -325,15 +527,15 @@ export interface DismissalReason {
 }
 
 export interface DismissalUnemploymentRow {
-    cspCategory: string;
+    cspCategory: CspCategory;
     type: string;
-    gender: string;
+    gender: Gender;
     count: number;
 }
 
 export interface InternshipRow {
-    internshipType: string;
-    gender: string;
+    internshipType: InternshipType | string;
+    gender: Gender;
     count: number;
 }
 
@@ -393,7 +595,8 @@ export interface WorkforceSnapshot {
     male: number;
     female: number;
     youth: number;
-    averageAge: number;
+    youthRate: number;
+    averageAge: number | null;
 }
 
 export interface MobilityDashboard {
@@ -424,42 +627,22 @@ export interface InclusionDashboard {
 // LABOR MARKET TENSION
 // ─────────────────────────────────────────────────────────────
 
-/**
- * CSP-level tension row.
- * `vacancies` is always null here — the survey captures vacancies at enterprise
- * level only, not broken down by CSP. The row exists so the frontend can display
- * hires per category alongside the aggregate vacancy total.
- */
 export interface LaborMarketCspRow {
-    cspCategory: string;
-    /** Actual hires (permanent + temporary) for this CSP category */
+    cspCategory: CspCategory;
     hires: number;
-    /** Always null — vacancy data is not available at CSP granularity */
     vacancies: null;
-    /** Hire share of total hires, as a percentage */
     hireSharePct: number;
 }
 
 export interface LaborMarketTension {
-    /** Total declared unfilled positions (from onefopEnterpriseDetail.vacancies) */
     totalVacancies: number;
-    /** Total actual hires (permanent + temporary, all CSP, s22q01 + s22q02) */
     totalRecruitments: number;
-    /** totalVacancies − totalRecruitments  (positive = more openings than fills) */
     gap: number;
-    /** totalRecruitments / totalVacancies × 100, or null when vacancies = 0 */
     absorptionRate: number | null;
-    /** Hires broken down by CSP — vacancies not available at this granularity */
     byCsp: LaborMarketCspRow[];
 }
 
-/** Raw vacancy total row used internally */
-export interface VacancyTotalDbRow {
-    vacancies: number | null;
-}
-
-/** One period slice when granularity is quarter or semester */
 export interface LaborMarketTensionByPeriod {
-    period: string;   // e.g. '2024-T1', '2024-S2', '2024'
+    period: string;
     tension: LaborMarketTension;
 }

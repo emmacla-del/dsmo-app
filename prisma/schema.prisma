@@ -593,7 +593,9 @@ model OnefopSubmission {
   factSkillNeeds        OnefopFactSkillNeed[]
   firstTimeWorkers      OnefopFirstTimeWorker[]
   internshipData        OnefopInternshipData[]
+  jobApplicationData    OnefopJobApplicationData[]
   ongDetail             OnefopOngDetail?
+  registeredSeekers     OnefopRegisteredSeeker[]
   respondent            OnefopRespondent?
   skillNeeds            OnefopSkillNeed[]
   company               Company?                      @relation(fields: [companyId], references: [id])
@@ -807,6 +809,40 @@ model OnefopFirstTimeWorker {
   @@unique([submissionId, contractType, cspCategory, gender, ageBand])
   @@index([submissionId])
   @@map("onefop_first_time_workers")
+}
+
+model OnefopJobApplicationData {
+  id           String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  submissionId String
+  cspCategory  String
+  gender       String
+  ageBand      String?
+  value        Int              @default(0)
+  createdAt    DateTime         @default(now()) @db.Timestamp(6)
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_job_application_submission")
+
+  @@unique([submissionId, cspCategory, gender, ageBand], map: "unique_job_application")
+  @@index([cspCategory], map: "idx_job_application_csp")
+  @@index([submissionId], map: "idx_job_application_submission")
+  @@map("onefop_job_application_data")
+}
+
+model OnefopRegisteredSeeker {
+  id           String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  submissionId String
+  contractType String
+  cspCategory  String
+  gender       String
+  ageBand      String?
+  value        Int              @default(0)
+  createdAt    DateTime         @default(now()) @db.Timestamp(6)
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_registered_seeker_submission")
+
+  @@unique([submissionId, contractType, cspCategory, gender, ageBand], map: "unique_registered_seeker")
+  @@index([contractType], map: "idx_registered_seeker_contract")
+  @@index([cspCategory], map: "idx_registered_seeker_csp")
+  @@index([submissionId], map: "idx_registered_seeker_submission")
+  @@map("onefop_registered_seekers")
 }
 
 model OnefopDepartureData {

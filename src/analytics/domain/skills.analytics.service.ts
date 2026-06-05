@@ -1,4 +1,8 @@
-// analytics/domain/skills.analytics.service.ts
+// analytics/domain/skills.analytics.service.ts  (FULL REPLACEMENT)
+//
+// Changes vs original:
+//  • getSkillTrends() — top skills and training domains by period (P3)
+//  All original methods preserved.
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -15,6 +19,7 @@ import type {
     SkillNeedDbRow,
     TrainingNeedDbRow,
 } from '../core/analytics-types';
+import type { SkillTrendPeriod, TrendFilter } from '../core/analytics-types';
 
 @Injectable()
 export class SkillsAnalyticsService {
@@ -24,7 +29,7 @@ export class SkillsAnalyticsService {
     ) { }
 
     // ─────────────────────────────────────────────────────────────
-    // 1. Skill needs
+    // 1. Skill needs (unchanged)
     // ─────────────────────────────────────────────────────────────
     async getSkillNeeds(filter: AnalyticsFilter & { limit?: number }): Promise<SkillNeedRow[]> {
         const ids = await this.query.resolveSubmissionIds(filter);
@@ -49,7 +54,7 @@ export class SkillsAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. Training needs
+    // 2. Training needs (unchanged)
     // ─────────────────────────────────────────────────────────────
     async getTrainingNeeds(filter: AnalyticsFilter & { limit?: number }): Promise<TrainingNeedRow[]> {
         const ids = await this.query.resolveSubmissionIds(filter);
@@ -74,7 +79,7 @@ export class SkillsAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 3. Training gap
+    // 3. Training gap (unchanged)
     // ─────────────────────────────────────────────────────────────
     async getTrainingGap(filter: AnalyticsFilter): Promise<TrainingGapResult> {
         const [skillNeeds, trainingNeeds] = await Promise.all([
@@ -85,7 +90,77 @@ export class SkillsAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 4. Skills dashboard (aggregate) — called with pre-fetched data from facade
+    // 4. NEW – Skill trends over time (P3)
+    //    Returns the top-N skills and training domains for each period.
+    //    Because skill/training data is free-text it must be grouped
+    //    in application memory per period (same approach as getSkillNeeds).
+    //    Periods are ≤8 in practice, so per-period fetches are fine.
+    // ─────────────────────────────────────────────────────────────
+    async getSkillTrends(
+        filter: TrendFilter & { topN?: number },
+    ): Promise<SkillTrendPeriod[]> {
+        const topN = filter.topN ?? 5;
+        const granularity = filter.granularity ?? 'year';
+        const submissions = await this.query.resolveSubmissions(filter);
+
+        const inRange = (filter.startYear && filter.endYear)
+            ? submissions.filter((s) => s.surveyYear >= filter.startYear! && s.surveyYear <= filter.endYear!)
+            : submissions;
+
+        if (!inRange.length) return [];
+
+        // Group submissions by period
+        const periodMap = new Map<string, string[]>();
+        for (const s of inRange) {
+            const key = this.query.periodKey(s, granularity);
+            if (!periodMap.has(key)) periodMap.set(key, []);
+            periodMap.get(key)!.push(s.id);
+        }
+
+        const periods = Array.from(periodMap.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+        return Promise.all(
+            periods.map(async ([period, ids]) => {
+                const [skillRows, trainingRows] = await Promise.all([
+                    (this.prisma as any).onefopSkillNeed.findMany({
+                        where: { submissionId: { in: ids }, skillDescription: { not: null } },
+                        select: { skillDescription: true, maleCount: true, femaleCount: true, totalCount: true },
+                    }) as Promise<SkillNeedDbRow[]>,
+
+                    (this.prisma as any).onefopTrainingNeed.findMany({
+                        where: { submissionId: { in: ids }, trainingDomain: { not: null } },
+                        select: { trainingDomain: true, maleCount: true, femaleCount: true, totalCount: true },
+                    }) as Promise<TrainingNeedDbRow[]>,
+                ]);
+
+                const skillGrouped = this.groupTextRows(
+                    skillRows,
+                    (r) => r.skillDescription?.trim() || 'Non précisé',
+                    (r) => ({ male: r.maleCount ?? 0, female: r.femaleCount ?? 0, total: r.totalCount ?? 0 }),
+                );
+                const trainingGrouped = this.groupTextRows(
+                    trainingRows,
+                    (r) => r.trainingDomain?.trim() || 'Non précisé',
+                    (r) => ({ male: r.maleCount ?? 0, female: r.femaleCount ?? 0, total: r.totalCount ?? 0 }),
+                );
+
+                const topSkills = skillGrouped
+                    .map(([skill, c]) => ({ skill, totalCount: c.total }))
+                    .sort((a, b) => b.totalCount - a.totalCount)
+                    .slice(0, topN);
+
+                const topTrainingDomains = trainingGrouped
+                    .map(([domain, c]) => ({ domain, totalCount: c.total }))
+                    .sort((a, b) => b.totalCount - a.totalCount)
+                    .slice(0, topN);
+
+                return { period, topSkills, topTrainingDomains };
+            }),
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 5. Skills dashboard (unchanged)
     // ─────────────────────────────────────────────────────────────
     computeSkillsDashboard(
         skillNeeds: SkillNeedRow[],
@@ -111,13 +186,12 @@ export class SkillsAnalyticsService {
         return this.computeSkillsDashboard(skillNeeds, trainingNeeds, trainingGap);
     }
 
-    // Alias for frontend compatibility
     async getSkillDemand(filter: AnalyticsFilter & { limit?: number }): Promise<SkillNeedRow[]> {
         return this.getSkillNeeds(filter);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Private helpers
+    // Private helpers (unchanged)
     // ─────────────────────────────────────────────────────────────
     private groupTextRows<T>(
         rows: T[],

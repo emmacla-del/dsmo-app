@@ -368,7 +368,10 @@ export class QuestionnairesService {
         await this.saveVulnerableOtherFlat(tx, sid, flat);
       }
 
+      // Inside the transaction, add these lines after saveFirstTimeWorkersFlat
       await this.saveFirstTimeWorkersFlat(tx, sid, flat);
+      await this.saveJobApplicationData(tx, sid, flat);        // ← ADD THIS
+      await this.saveRegisteredSeekerData(tx, sid, flat);      // ← ADD THIS
       await this.saveDepartureFlat(tx, sid, flat);
       await this.saveDismissalReasonsFlat(tx, sid, flat);
       await this.saveDismissalUnemploymentFlat(tx, sid, flat);
@@ -764,7 +767,75 @@ export class QuestionnairesService {
     }
     if (records.length > 0) await tx.onefopTrainingNeed.createMany({ data: records, skipDuplicates: true });
   }
+  // Add after saveTrainingFlat() method
 
+  private async saveJobApplicationData(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+    const prefix = 's21q01';
+    const cspRows = ['cadres', 'foremen', 'workers', 'total'];
+    const genders = ['male', 'female', 'total'];
+    const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
+    const rows: object[] = [];
+    const now = new Date();
+
+    for (const csp of cspRows) {
+      for (const gender of genders) {
+        for (const ageKey of ageBandKeys) {
+          const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${ageKey}`);
+          if (value !== 0) {
+            rows.push({
+              id: randomUUID(),
+              submissionId,
+              cspCategory: this.up(csp),
+              gender: this.up(gender),
+              ageBand: this.mapAgeBand(ageKey),
+              value,
+              createdAt: now,
+            });
+          }
+        }
+      }
+    }
+
+    if (rows.length > 0) {
+      await tx.onefopJobApplicationData.createMany({ data: rows, skipDuplicates: true });
+    }
+  }
+
+  private async saveRegisteredSeekerData(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+    const prefix = 's23q01';
+    const contracts = ['permanent', 'temporary'];
+    const cspRows = ['cadres', 'foremen', 'workers'];
+    const genders = ['male', 'female', 'total'];
+    const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
+    const rows: object[] = [];
+    const now = new Date();
+
+    for (const contract of contracts) {
+      for (const csp of cspRows) {
+        for (const gender of genders) {
+          for (const ageKey of ageBandKeys) {
+            const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${ageKey}`);
+            if (value !== 0) {
+              rows.push({
+                id: randomUUID(),
+                submissionId,
+                contractType: this.up(contract),
+                cspCategory: this.up(csp),
+                gender: this.up(gender),
+                ageBand: this.mapAgeBand(ageKey),
+                value,
+                createdAt: now,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    if (rows.length > 0) {
+      await tx.onefopRegisteredSeeker.createMany({ data: rows, skipDuplicates: true });
+    }
+  }
   private mapLegalStatus(value?: 1 | 2 | 3 | 4): string {
     const map: Record<number, string> = { 1: 'Société unipersonnelle/ Single-member company', 2: 'SARL/ LLC', 3: 'SA/ PLC', 4: 'Autres/ Others' };
     return value ? (map[value] ?? '') : '';
