@@ -3,6 +3,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 
+import { OnefopAnalyticsController } from './onefop-analytics.controller';
 import { AnalyticsQueryService } from './core/analytics-query.service';
 import { EmploymentAnalyticsService } from './domain/employment.analytics.service';
 import { RecruitmentAnalyticsService } from './domain/recruitment.analytics.service';
@@ -28,6 +29,7 @@ const DOMAIN_SERVICES = [
 
 @Module({
   imports: [PrismaModule],
+  controllers: [OnefopAnalyticsController],
   providers: [
     AnalyticsQueryService,
     ...DOMAIN_SERVICES,
