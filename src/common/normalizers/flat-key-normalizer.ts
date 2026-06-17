@@ -55,7 +55,7 @@
  * DB service.
  *
  * @param raw        The raw body.data object as received from Flutter.
- * @param entityType 'cooperative' | 'enterprise' | 'ctd' | 'ong'
+ * @param entityType 'cooperative' | 'entreprise' | 'ctd' | 'ong' (lowercase French spelling -- matches normalizedEntityType.toLowerCase())
  * @returns          Flat object with schema-registry keys.
  */
 export function normalizeFlatKeys(
@@ -436,7 +436,7 @@ function buildPermTempTable(n: Record<string, unknown>, prefix: string): Record<
 }
 
 function buildVulnerableTable(n: Record<string, unknown>, entityType: string): Record<string, unknown> {
-    const prefix = entityType === 'enterprise' ? 's22q05_ent' : 's22q05_oth';
+    const prefix = entityType === 'entreprise' ? 's22q05_ent' : 's22q05_oth';
     const rows = ['internalDisplaced', 'refugees', 'orphans', 'total'] as const;
     const rowKeys = ['deplaces_internes', 'refugies', 'orphelins', 'total'] as const;
     const statuses = ['permanent', 'temporary', 'total'] as const;

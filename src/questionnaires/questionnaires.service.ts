@@ -635,22 +635,26 @@ export class QuestionnairesService {
           }
         }
       }
-      // TODO: uncomment when SUBTOTAL is added to CspCategory enum
-      // for (const gender of genders) {
-      //   for (const ageKey of ageBandKeys) {
-      //     const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${ageKey}`);
-      //     if (value !== 0) {
-      //       records.push({
-      //         submissionId,
-      //         contractType: this.up(contract),
-      //         cspCategory: 'SUBTOTAL',
-      //         gender: this.up(gender),
-      //         ageBand: this.mapAgeBand(ageKey),
-      //         value
-      //       });
-      //     }
-      //   }
-      // }
+      // Per-contract subtotal (sum across CSP categories): CspCategory has no
+      // 'SUBTOTAL' member, but 'TOTAL' is unused for a specific (non-TOTAL)
+      // contractType elsewhere in this table, so it uniquely represents
+      // "all CSP categories, this one contract type" without colliding with
+      // the per-CSP rows above or the grand-total rows below.
+      for (const gender of genders) {
+        for (const ageKey of ageBandKeys) {
+          const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${ageKey}`);
+          if (value !== 0) {
+            records.push({
+              submissionId,
+              contractType: this.up(contract),
+              cspCategory: 'TOTAL',
+              gender: this.up(gender),
+              ageBand: this.mapAgeBand(ageKey),
+              value
+            });
+          }
+        }
+      }
     } // ← contract loop ends here
 
     // grand total — runs once after both contracts are collected
@@ -799,32 +803,52 @@ export class QuestionnairesService {
   }
 
   private async saveRegisteredSeekerData(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+    // S23Q01 has no contract-type dimension in the form (only S23Q02 does) --
+    // the flat keys are `s23q01_${csp}_${gender}_${ageKey}`, with 'total' used
+    // as a real csp value for the CSP-total row, mirroring saveCspGenderAgeFlat.
+    // contractType is set to the constant 'TOTAL' since this table's schema
+    // requires a value but the section was never broken down by contract.
     const prefix = 's23q01';
-    const contracts = ['permanent', 'temporary'];
     const cspRows = ['cadres', 'foremen', 'workers'];
     const genders = ['male', 'female', 'total'];
     const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const rows: object[] = [];
     const now = new Date();
 
-    for (const contract of contracts) {
-      for (const csp of cspRows) {
-        for (const gender of genders) {
-          for (const ageKey of ageBandKeys) {
-            const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${ageKey}`);
-            if (value !== 0) {
-              rows.push({
-                id: randomUUID(),
-                submissionId,
-                contractType: this.up(contract),
-                cspCategory: this.up(csp),
-                gender: this.up(gender),
-                ageBand: this.mapAgeBand(ageKey),
-                value,
-                createdAt: now,
-              });
-            }
+    for (const csp of cspRows) {
+      for (const gender of genders) {
+        for (const ageKey of ageBandKeys) {
+          const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${ageKey}`);
+          if (value !== 0) {
+            rows.push({
+              id: randomUUID(),
+              submissionId,
+              contractType: 'TOTAL',
+              cspCategory: this.up(csp),
+              gender: this.up(gender),
+              ageBand: this.mapAgeBand(ageKey),
+              value,
+              createdAt: now,
+            });
           }
+        }
+      }
+    }
+
+    for (const gender of genders) {
+      for (const ageKey of ageBandKeys) {
+        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
+        if (value !== 0) {
+          rows.push({
+            id: randomUUID(),
+            submissionId,
+            contractType: 'TOTAL',
+            cspCategory: 'TOTAL',
+            gender: this.up(gender),
+            ageBand: this.mapAgeBand(ageKey),
+            value,
+            createdAt: now,
+          });
         }
       }
     }

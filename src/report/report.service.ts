@@ -34,7 +34,7 @@ const BASE_TYPE_TO_PRISMA: Record<string, ReportType> = {
     employmentTrends: 'EMPLOYMENT_SUMMARY',
     recruitmentAnalysis: 'RECRUITMENT_ANALYSIS',
     departureAnalysis: 'DEPARTURE_ANALYSIS',
-    genderParity: 'EMPLOYMENT_SUMMARY',
+    genderParity: 'GENDER_PARITY',
     regionalSummary: 'REGIONAL_SUMMARY',
     regionalComparison: 'REGIONAL_SUMMARY',
     sectorBreakdown: 'SECTOR_BREAKDOWN',
@@ -952,8 +952,8 @@ export class ReportService {
             summary = {
                 totalEstablishments: snap.submissionCount,
                 year: snap.scope.year,
-                totalMen: snap.genderParity.maleApplicants,
-                totalWomen: snap.genderParity.femaleApplicants,
+                totalMen: snap.genderParity.maleCount,
+                totalWomen: snap.genderParity.femaleCount,
             };
         } else if (
             ['employmentTrends', 'employmentSummary',

@@ -214,9 +214,11 @@ export class OnefopAnalyticsService {
     const ids = await this.resolveSubmissionIds(filter);
     if (!ids.length) return { maleCount: 0, femaleCount: 0, malePercentage: 0, femalePercentage: 0, ratioFemaleToMale: null };
 
-    const rows = await (this.prisma as any).onefopCspGenderAge.groupBy({
+    // S21Q01 (job applicants) is stored in onefopJobApplicationData, never in
+    // onefopCspGenderAge -- that table only ever holds s22q01/s22q02 hires.
+    const rows = await (this.prisma as any).onefopJobApplicationData.groupBy({
       by: ['gender'],
-      where: { submissionId: { in: ids }, tableName: 's21q01', cspCategory: 'TOTAL', ageBand: 'TOTAL', gender: { in: ['MALE', 'FEMALE'] } },
+      where: { submissionId: { in: ids }, cspCategory: 'TOTAL', gender: { in: ['MALE', 'FEMALE'] } },
       _sum: { value: true },
     });
 
