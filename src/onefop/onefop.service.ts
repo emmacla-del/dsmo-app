@@ -155,12 +155,22 @@ export class OnefopService {
     }
 
     async getActiveQuarter() {
-        const now = new Date();
-        const quarter = Math.floor(now.getMonth() / 3) + 1;
+        const round = await this.prisma.submissionRound.findFirst({
+            where: { status: { in: ['OPEN', 'EXTENDED'] } },
+            orderBy: { openedAt: 'desc' },
+        });
+        if (!round) {
+            return {
+                isOpen: false,
+                code: null,
+                message: "Aucune période de soumission n'est actuellement ouverte.",
+            };
+        }
         return {
-            code: `${now.getFullYear()}-Q${quarter}`,
-            year: now.getFullYear(),
-            quarter: quarter,
+            isOpen: true,
+            code: round.quarterCode,
+            label: round.labelFr,
+            deadline: round.deadline,
         };
     }
 

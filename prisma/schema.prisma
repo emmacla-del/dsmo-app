@@ -519,8 +519,8 @@ model SubmissionRound {
   periodEnd         DateTime
   deadline          DateTime
   status            RoundStatus        @default(DRAFT)
-  targetRegions     String[]
-  targetEntityTypes OnefopEntityType[]
+  targetRegions     String[]           @default([])
+  targetEntityTypes OnefopEntityType[] @default([])
   openedBy          String?
   openedAt          DateTime?
   closedBy          String?
