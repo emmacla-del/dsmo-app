@@ -1,11 +1,22 @@
 // analytics/domain/enterprise-profile.analytics.service.ts
 //
-// NEW service extracted from education.analytics.service.ts and extended.
-// Covers all enterprise-profile dimensions from OnefopEnterpriseDetail
-// and the equivalent cooperative / CTD / ONG detail models.
+// Covers all entity-profile dimensions from Section 1 of all 4 questionnaires.
 //
-// Also absorbs getVacanciesBySegment (previously in EducationAnalyticsService)
-// so that service can be deprecated or kept lean for true education analytics.
+// Source mapping:
+//   S1Q01 → legalStatus         (Enterprise only)
+//   S1Q04 → area                (Urban / Rural — all entity types)
+//   S1Q07 → sector              (all entity types)
+//   S1Q08 → branch              (all entity types)
+//   S1Q08/S1Q09 → mainActivity  (Enterprise / Cooperative / ONG)
+//   S1Q12 → enterpriseSize      (Enterprise only: TPE/PE/ME/GE)
+//   S1Q10/S1Q11/S1Q09 → permanentWorkers  (scalar per entity, see employment service)
+//   S1Q11/S1Q12/S1Q10/S1Q11 → vacancies  (scalar per entity)
+//
+// NOTE on S23Q01 / S23Q02 (registered seekers / first-time workers):
+//   These are stored in onefopRegisteredSeeker and onefopFirstTimeWorker.
+//   They are NOT columns on the entity detail tables.
+//   The correct implementations for those queries live in
+//   InclusionAnalyticsService. This service does NOT duplicate them.
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -17,7 +28,6 @@ import type {
     EnterpriseProfileDbRow,
 } from '../core/analytics-types';
 
-// All text fields that can carry "Inconnu" when null
 const UNKNOWN = 'Inconnu';
 
 @Injectable()
@@ -28,18 +38,19 @@ export class EnterpriseProfileAnalyticsService {
     ) { }
 
     // ─────────────────────────────────────────────────────────────
-    // Core: profile breakdown by any dimension
+    // Core: profile breakdown by any Section 1 dimension.
     //
     // groupBy options:
-    //   legalStatus   – Sole proprietorship, SARL, SA, etc.
-    //   area          – Urban / Rural (directly from the form)
-    //   branch        – Branch of activity (free-text, grouped by value)
-    //   mainActivity  – Primary activity (free-text, grouped by value)
-    //   sector        – Sector (already available in getVacanciesBySegment)
-    //   enterpriseSize– TPE / PME / GE etc.
+    //   legalStatus   — S1Q01 (Enterprise only)
+    //   area          — S1Q04 Urban/Rural (all entity types)
+    //   branch        — S1Q08 (all entity types)
+    //   mainActivity  — S1Q08/S1Q09 (Enterprise / Cooperative / ONG)
+    //   sector        — S1Q07 (all entity types)
+    //   enterpriseSize— S1Q12 (Enterprise only: TPE/PE/ME/GE)
     //
-    // For cooperative / CTD / ONG submissions the equivalent detail tables
-    // are queried and merged so aggregations span all entity types.
+    // All four entity detail tables are queried in parallel and merged
+    // so aggregations span all entity types. Fields not collected for
+    // a given type (e.g. legalStatus for CTD) resolve to UNKNOWN.
     // ─────────────────────────────────────────────────────────────
     async getEnterpriseProfileBreakdown(
         filter: AnalyticsFilter & { groupBy: EnterpriseProfileDimension },
@@ -49,8 +60,6 @@ export class EnterpriseProfileAnalyticsService {
 
         const ids = submissions.map((s) => s.id);
 
-        // Pull from all four entity-detail tables. Each returns the same
-        // shape: the groupBy field + permanentWorkers + vacancies.
         const [enterprise, cooperative, ctd, ong] = await Promise.all([
             (this.prisma as any).onefopEnterpriseDetail.findMany({
                 where: { submissionId: { in: ids } },
@@ -66,7 +75,6 @@ export class EnterpriseProfileAnalyticsService {
                 },
             }) as Promise<EnterpriseProfileDbRow[]>,
 
-            // Cooperatives share area/sector/branch/mainActivity fields
             (this.prisma as any).onefopCooperativeDetail.findMany({
                 where: { submissionId: { in: ids } },
                 select: {
@@ -102,34 +110,27 @@ export class EnterpriseProfileAnalyticsService {
             }) as Promise<Partial<EnterpriseProfileDbRow>[]>,
         ]);
 
-        const allRows: Partial<EnterpriseProfileDbRow>[] = [
-            ...enterprise,
-            ...cooperative,
-            ...ctd,
-            ...ong,
-        ];
-
-        return this.aggregateByDimension(allRows, filter.groupBy);
+        return this.aggregateByDimension(
+            [...enterprise, ...cooperative, ...ctd, ...ong],
+            filter.groupBy,
+        );
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Convenience: urban vs rural split
-    //    Returns exactly two rows: Urban / Rural (+ Inconnu if any nulls).
+    // Convenience methods
     // ─────────────────────────────────────────────────────────────
+
+    /** S1Q04 Urban / Rural split across all entity types */
     async getUrbanRuralSplit(filter: AnalyticsFilter): Promise<EnterpriseProfileSegment[]> {
         return this.getEnterpriseProfileBreakdown({ ...filter, groupBy: 'area' });
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Convenience: legal status distribution
-    // ─────────────────────────────────────────────────────────────
+    /** S1Q01 legal status distribution (Enterprise only) */
     async getLegalStatusBreakdown(filter: AnalyticsFilter): Promise<EnterpriseProfileSegment[]> {
         return this.getEnterpriseProfileBreakdown({ ...filter, groupBy: 'legalStatus' });
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Convenience: top N branches by employment
-    // ─────────────────────────────────────────────────────────────
+    /** S1Q08 top branches by permanent employees */
     async getTopBranches(
         filter: AnalyticsFilter & { limit?: number },
     ): Promise<EnterpriseProfileSegment[]> {
@@ -137,9 +138,7 @@ export class EnterpriseProfileAnalyticsService {
         return filter.limit ? rows.slice(0, filter.limit) : rows;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Convenience: top N main activities by employment
-    // ─────────────────────────────────────────────────────────────
+    /** S1Q08/S1Q09 top main activities by permanent employees */
     async getTopMainActivities(
         filter: AnalyticsFilter & { limit?: number },
     ): Promise<EnterpriseProfileSegment[]> {
@@ -147,21 +146,14 @@ export class EnterpriseProfileAnalyticsService {
         return filter.limit ? rows.slice(0, filter.limit) : rows;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Vacancies by segment (migrated from EducationAnalyticsService)
-    //    Kept here so the facade can call one service for all
-    //    enterprise-profile + vacancy segmentation queries.
-    // ─────────────────────────────────────────────────────────────
+    /** Vacancies grouped by enterpriseSize (S1Q12) or sector (S1Q07) */
     async getVacanciesBySegment(
         filter: AnalyticsFilter & { groupBy: 'enterpriseSize' | 'sector' },
     ): Promise<EnterpriseProfileSegment[]> {
         return this.getEnterpriseProfileBreakdown({ ...filter, groupBy: filter.groupBy });
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Facade-facing alias: getEnterpriseProfile
-    //   Called by the facade with { dimension } instead of { groupBy }.
-    // ─────────────────────────────────────────────────────────────
+    /** Facade alias — accepts { dimension } instead of { groupBy } */
     async getEnterpriseProfile(
         filter: AnalyticsFilter & { dimension?: EnterpriseProfileDimension },
     ): Promise<EnterpriseProfileSegment[]> {
@@ -172,79 +164,25 @@ export class EnterpriseProfileAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Registered job seekers (S23Q01)
-    // ─────────────────────────────────────────────────────────────
-    async getRegisteredSeekers(
-        filter: AnalyticsFilter,
-    ): Promise<{ total: number; male: number | null; female: number | null }> {
-        const ids = await this.query.resolveSubmissionIds(filter);
-        if (!ids.length) return { total: 0, male: null, female: null };
-
-        const rows: {
-            registeredSeekers: number | null;
-            registeredSeekersMale: number | null;
-            registeredSeekersFemale: number | null;
-        }[] = await (this.prisma as any).onefopEnterpriseDetail.findMany({
-            where: { submissionId: { in: ids } },
-            select: {
-                registeredSeekers: true,
-                registeredSeekersMale: true,
-                registeredSeekersFemale: true,
-            },
-        });
-
-        return {
-            total: rows.reduce((sum, r) => sum + (r.registeredSeekers ?? 0), 0),
-            male: rows.reduce((sum, r) => sum + (r.registeredSeekersMale ?? 0), 0),
-            female: rows.reduce((sum, r) => sum + (r.registeredSeekersFemale ?? 0), 0),
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // First-time labour market entrants gap (S23)
-    // ─────────────────────────────────────────────────────────────
-    async getFirstTimeLaborGap(
-        filter: AnalyticsFilter,
-    ): Promise<{ registeredFirstTime: number; hiredFirstTime: number; gap: number; absorptionRate: number | null }> {
-        const ids = await this.query.resolveSubmissionIds(filter);
-        if (!ids.length) return { registeredFirstTime: 0, hiredFirstTime: 0, gap: 0, absorptionRate: null };
-
-        const rows: {
-            firstTimeSeekers: number | null;
-            firstTimeWorkers: number | null;
-        }[] = await (this.prisma as any).onefopEnterpriseDetail.findMany({
-            where: { submissionId: { in: ids } },
-            select: {
-                firstTimeSeekers: true,
-                firstTimeWorkers: true,
-            },
-        });
-
-        const registered = rows.reduce((sum, r) => sum + (r.firstTimeSeekers ?? 0), 0);
-        const hired = rows.reduce((sum, r) => sum + (r.firstTimeWorkers ?? 0), 0);
-
-        return {
-            registeredFirstTime: registered,
-            hiredFirstTime: hired,
-            gap: registered - hired,
-            absorptionRate: registered > 0 ? +((hired / registered) * 100).toFixed(1) : null,
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // Private: group rows by a chosen dimension and aggregate
+    // Private: group and aggregate rows by dimension
     // ─────────────────────────────────────────────────────────────
     private aggregateByDimension(
         rows: Partial<EnterpriseProfileDbRow>[],
         dimension: EnterpriseProfileDimension,
     ): EnterpriseProfileSegment[] {
-        const map = new Map<string, { totalEmployees: number; totalVacancies: number; companyCount: number }>();
+        const map = new Map<string, {
+            totalEmployees: number;
+            totalVacancies: number;
+            companyCount: number;
+        }>();
 
         for (const row of rows) {
             const rawKey: string | null | undefined = (row as any)[dimension];
             const key = rawKey?.trim() || UNKNOWN;
 
-            if (!map.has(key)) map.set(key, { totalEmployees: 0, totalVacancies: 0, companyCount: 0 });
+            if (!map.has(key)) {
+                map.set(key, { totalEmployees: 0, totalVacancies: 0, companyCount: 0 });
+            }
             const stats = map.get(key)!;
             stats.totalEmployees += row.permanentWorkers ?? 0;
             stats.totalVacancies += row.vacancies ?? 0;
@@ -257,9 +195,10 @@ export class EnterpriseProfileAnalyticsService {
                 companyCount: stats.companyCount,
                 totalEmployees: stats.totalEmployees,
                 totalVacancies: stats.totalVacancies,
-                avgEmployeesPerCompany: stats.companyCount > 0
-                    ? Math.round(stats.totalEmployees / stats.companyCount)
-                    : 0,
+                avgEmployeesPerCompany:
+                    stats.companyCount > 0
+                        ? Math.round(stats.totalEmployees / stats.companyCount)
+                        : 0,
             }))
             .sort((a, b) => b.totalEmployees - a.totalEmployees);
     }

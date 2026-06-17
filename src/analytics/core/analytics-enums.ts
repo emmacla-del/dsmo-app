@@ -1,9 +1,23 @@
 // analytics/core/analytics-enums.ts
 
 export enum TableName {
-    WORKFORCE = 's21q01',
+    // S22Q01 — permanent recruits by CSP × gender × age band
     PERMANENT_HIRE = 's22q01',
+    // S22Q02 — temporary recruits by CSP × gender × age band
     TEMP_HIRE = 's22q02',
+    /** @deprecated Use TEMP_HIRE */
+    TEMPORARY_HIRE = 's22q02',
+    /**
+     * @deprecated WORKFORCE was removed — there is no CSP×gender×age workforce
+     * table. Permanent employee stock is a scalar in entity detail models.
+     * Replace callers with EmploymentAnalyticsService.getPermanentEmployeeSummary().
+     * Temporarily aliased to PERMANENT_HIRE so existing code compiles.
+     */
+    WORKFORCE = 's22q01',
+    // NOTE: S21Q01 (job applications) is stored in onefopJobApplicationData,
+    // not in onefopCspGenderAge — there is no TableName entry for it.
+    // Permanent employee stock (S1Q10) is a scalar in entity detail models —
+    // it has no CSP×gender×age breakdown and no TableName entry.
 }
 
 export enum Gender {
@@ -71,9 +85,11 @@ export enum DisabilityStatus {
 }
 
 export enum VulnerableType {
+    // Used for ENTREPRISE submissions (S22Q05 rows by nature of vulnerability)
     DEPLACES_INTERNES = 'DEPLACES_INTERNES',
     REFUGIES = 'REFUGIES',
     ORPHELINS = 'ORPHELINS',
+    // Used for COOPERATIVE / CTD / ONG submissions (S22Q05 rows by CSP)
     CADRES_VULN = 'CADRES_VULN',
     FOREMEN_VULN = 'FOREMEN_VULN',
     WORKERS_VULN = 'WORKERS_VULN',

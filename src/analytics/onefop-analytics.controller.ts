@@ -46,7 +46,7 @@ export class OnefopAnalyticsController {
 
     @Get('employment-summary')
     async getEmploymentSummary(@Query() q: any) {
-        return this.analytics.getEmploymentSummary({
+        return this.analytics.getPermanentEmployeeSummary({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
@@ -64,7 +64,7 @@ export class OnefopAnalyticsController {
 
     @Get('employment')
     async getEmployment(@Query() q: any) {
-        return this.analytics.getEmploymentByLocation({
+        return this.analytics.getPermanentEmployeesByLocation({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
@@ -77,23 +77,9 @@ export class OnefopAnalyticsController {
         });
     }
 
-    @Get('employment-by-csp')
-    async getEmploymentByCsp(@Query() q: any) {
-        return this.analytics.getEmploymentByCsp({
-            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
-            fromQuarter: q.fromQuarter,
-            toQuarter: q.toQuarter,
-            startDate: toDate(q.startDate),
-            endDate: toDate(q.endDate),
-            region: q.region,
-            department: q.department,
-            subdivision: q.subdivision,
-        });
-    }
-
     @Get('employment-by-location')
     async getEmploymentByLocation(@Query() q: any) {
-        return this.analytics.getEmploymentByLocation({
+        return this.analytics.getPermanentEmployeesByLocation({
             surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
             fromQuarter: q.fromQuarter,
             toQuarter: q.toQuarter,
@@ -566,20 +552,6 @@ export class OnefopAnalyticsController {
         });
     }
 
-    @Get('gender-parity-by-csp')
-    async getGenderParityByCsp(@Query() q: any) {
-        return this.analytics.getGenderParityByCsp({
-            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
-            fromQuarter: q.fromQuarter,
-            toQuarter: q.toQuarter,
-            startDate: toDate(q.startDate),
-            endDate: toDate(q.endDate),
-            region: q.region,
-            department: q.department,
-            subdivision: q.subdivision,
-        });
-    }
-
     @Get('recruitment-by-location')
     async getRecruitmentByLocation(@Query() q: any) {
         return this.analytics.getRecruitmentByLocation({
@@ -607,24 +579,6 @@ export class OnefopAnalyticsController {
             department: q.department,
             subdivision: q.subdivision,
             groupBy: q.groupBy || 'region',
-        });
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // YOUTH IN WORKFORCE (STOCK)
-    // ─────────────────────────────────────────────────────────────
-
-    @Get('workforce-youth')
-    async getWorkforceYouth(@Query() q: any) {
-        return this.analytics.getWorkforceYouth({
-            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
-            fromQuarter: q.fromQuarter,
-            toQuarter: q.toQuarter,
-            startDate: toDate(q.startDate),
-            endDate: toDate(q.endDate),
-            region: q.region,
-            department: q.department,
-            subdivision: q.subdivision,
         });
     }
 

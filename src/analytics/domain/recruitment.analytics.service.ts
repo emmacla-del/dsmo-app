@@ -25,11 +25,13 @@ import type {
     DiplomaSummaryGroupRow,
     RecruitmentDbRow,
 } from '../core/analytics-types';
+// Local aliases for economic clarity — map legacy type names to their correct meaning
+type YouthRecruitmentResult = YouthEmploymentResult;
+type VacancyFulfilmentResult = LaborMarketTension;
+type VacancyFulfilmentByPeriod = LaborMarketTensionByPeriod;
+type OccupationalDemandRow = LaborMarketCspRow;
 
-// ─────────────────────────────────────────────────────────────
-// Inline filter shapes for getHiresByDemographics —
-// use enum members instead of raw string literals.
-// ─────────────────────────────────────────────────────────────
+
 type HiresDemographicsFilter = AnalyticsFilter & {
     csp?: CspCategory.CADRES | CspCategory.FOREMEN | CspCategory.WORKERS;
     gender?: Gender.MALE | Gender.FEMALE;
@@ -44,7 +46,7 @@ export class RecruitmentAnalyticsService {
     ) { }
 
     // ─────────────────────────────────────────────────────────────
-    // 1. Recruitment trends
+    // 1. Recruitment trends — S22Q01 (permanent) + S22Q02 (temporary)
     // ─────────────────────────────────────────────────────────────
     async getRecruitmentTrends(filter: RecruitmentTrendFilter): Promise<RecruitmentTrend[]> {
         if (filter.startYear > filter.endYear) return [];
@@ -103,81 +105,128 @@ export class RecruitmentAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. Hires by demographics
+    // 2. Hires by demographics — S22Q01 + S22Q02
+    //    Measures the share of all recruits aged 15-24 out of total
+    //    recruits. Not a true youth employment rate (which requires
+    //    youth population as denominator). Correctly: Youth Share of Recruitment.
     // ─────────────────────────────────────────────────────────────
     async getHiresByDemographics(filter: HiresDemographicsFilter): Promise<HireDemographicsRow[]> {
         const ids = await this.query.resolveSubmissionIds(filter);
         if (!ids.length) return [];
 
-        const where: Record<string, unknown> = {
-            submissionId: { in: ids },
-            tableName: TableName.PERMANENT_HIRE,
-            cspCategory: { not: CspCategory.TOTAL },
-            gender: { not: Gender.TOTAL },
-            ageBand: { not: AgeBand.TOTAL },
+        const baseWhere = (tableName: string): Record<string, unknown> => {
+            const w: Record<string, unknown> = {
+                submissionId: { in: ids },
+                tableName,
+                cspCategory: { not: CspCategory.TOTAL },
+                gender: { not: Gender.TOTAL },
+                ageBand: { not: AgeBand.TOTAL },
+            };
+            if (filter.csp) w['cspCategory'] = filter.csp;
+            if (filter.gender) w['gender'] = filter.gender;
+            if (filter.ageBand) w['ageBand'] = filter.ageBand;
+            return w;
         };
 
-        if (filter.csp) where['cspCategory'] = filter.csp;
-        if (filter.gender) where['gender'] = filter.gender;
-        if (filter.ageBand) where['ageBand'] = filter.ageBand;
+        const [permRows, tempRows]: [CspGenderAgeGroupRow[], CspGenderAgeGroupRow[]] =
+            await Promise.all([
+                (this.prisma as any).onefopCspGenderAge.groupBy({
+                    by: ['cspCategory', 'gender', 'ageBand'],
+                    where: baseWhere(TableName.PERMANENT_HIRE),
+                    _sum: { value: true },
+                }),
+                (this.prisma as any).onefopCspGenderAge.groupBy({
+                    by: ['cspCategory', 'gender', 'ageBand'],
+                    where: baseWhere(TableName.TEMP_HIRE),
+                    _sum: { value: true },
+                }),
+            ]);
 
-        const rows: CspGenderAgeGroupRow[] = await (this.prisma as any).onefopCspGenderAge.groupBy({
-            by: ['cspCategory', 'gender', 'ageBand'],
-            where,
-            _sum: { value: true },
-            orderBy: [{ cspCategory: 'asc' }, { gender: 'asc' }, { ageBand: 'asc' }],
-        });
+        // merge permanent + temporary counts per CSP × gender × ageBand cell
+        const key = (r: CspGenderAgeGroupRow) => `${r.cspCategory}|${r.gender}|${r.ageBand}`;
+        const merged = new Map<string, HireDemographicsRow>();
 
-        return rows.map((r) => ({
-            cspCategory: r.cspCategory,
-            gender: r.gender,
-            ageBand: r.ageBand,
-            count: r._sum.value ?? 0,
-        }));
+        for (const r of permRows) {
+            const k = key(r);
+            merged.set(k, {
+                cspCategory: r.cspCategory,
+                gender: r.gender,
+                ageBand: r.ageBand,
+                count: r._sum.value ?? 0,
+            });
+        }
+        for (const r of tempRows) {
+            const k = key(r);
+            const existing = merged.get(k);
+            if (existing) {
+                existing.count += r._sum.value ?? 0;
+            } else {
+                merged.set(k, {
+                    cspCategory: r.cspCategory,
+                    gender: r.gender,
+                    ageBand: r.ageBand,
+                    count: r._sum.value ?? 0,
+                });
+            }
+        }
+
+        return Array.from(merged.values()).sort((a, b) =>
+            a.cspCategory.localeCompare(b.cspCategory) ||
+            a.gender.localeCompare(b.gender),
+        );
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 3. Youth employment
+    // 3. Youth share of recruitment — S22Q01 + S22Q02
+    //    Youth (15-24) hires and total hires must include both
+    //    permanent and temporary contracts collected in the survey.
     // ─────────────────────────────────────────────────────────────
-    async getYouthEmployment(filter: AnalyticsFilter): Promise<YouthEmploymentResult> {
+    async getYouthShareOfRecruitment(filter: AnalyticsFilter): Promise<YouthRecruitmentResult> {
         const ids = await this.query.resolveSubmissionIds(filter);
-        if (!ids.length) return { youthHires: 0, totalHires: 0, youthPercentage: 0 };
+        if (!ids.length) return { youthHires: 0, totalHires: 0, youthSharePct: 0 };
 
-        const [youth, total] = await Promise.all([
+        const hireWhere = (tableName: string, ageBand: AgeBand) => ({
+            submissionId: { in: ids },
+            tableName,
+            cspCategory: CspCategory.TOTAL,
+            gender: Gender.TOTAL,
+            ageBand,
+        });
+
+        const [permYouth, tempYouth, permTotal, tempTotal] = await Promise.all([
             (this.prisma as any).onefopCspGenderAge.aggregate({
-                where: {
-                    submissionId: { in: ids },
-                    tableName: TableName.PERMANENT_HIRE,
-                    cspCategory: CspCategory.TOTAL,
-                    gender: Gender.TOTAL,
-                    ageBand: AgeBand.AGE_15_24,
-                },
+                where: hireWhere(TableName.PERMANENT_HIRE, AgeBand.AGE_15_24),
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
             (this.prisma as any).onefopCspGenderAge.aggregate({
-                where: {
-                    submissionId: { in: ids },
-                    tableName: TableName.PERMANENT_HIRE,
-                    cspCategory: CspCategory.TOTAL,
-                    gender: Gender.TOTAL,
-                    ageBand: AgeBand.TOTAL,
-                },
+                where: hireWhere(TableName.TEMP_HIRE, AgeBand.AGE_15_24),
+                _sum: { value: true },
+            }) as Promise<PrismaAggregateResult>,
+            (this.prisma as any).onefopCspGenderAge.aggregate({
+                where: hireWhere(TableName.PERMANENT_HIRE, AgeBand.TOTAL),
+                _sum: { value: true },
+            }) as Promise<PrismaAggregateResult>,
+            (this.prisma as any).onefopCspGenderAge.aggregate({
+                where: hireWhere(TableName.TEMP_HIRE, AgeBand.TOTAL),
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
         ]);
 
-        const youthCount = youth._sum.value ?? 0;
-        const totalCount = total._sum.value ?? 0;
+        const youthHires = (permYouth._sum.value ?? 0) + (tempYouth._sum.value ?? 0);
+        const totalHires = (permTotal._sum.value ?? 0) + (tempTotal._sum.value ?? 0);
 
         return {
-            youthHires: youthCount,
-            totalHires: totalCount,
-            youthPercentage: calculateRate(youthCount, totalCount),
+            youthHires,
+            totalHires,
+            youthSharePct: calculateRate(youthHires, totalHires),
         };
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 4. Diploma distribution
+    // 4. Diploma distribution — S22Q03
+    //    The questionnaire captures diploma by total recruits (no
+    //    contract type split), so onefopDiplomaData is already the
+    //    combined permanent + temporary count. No change needed.
     // ─────────────────────────────────────────────────────────────
     async getDiplomaDistribution(filter: AnalyticsFilter): Promise<DiplomaDistributionRow[]> {
         const ids = await this.query.resolveSubmissionIds(filter);
@@ -219,25 +268,21 @@ export class RecruitmentAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 5. Labor market tension
+    // 5. Vacancy fulfilment / Recruitment absorption
     //
-    // Vacancies come from onefopEnterpriseDetail (enterprise-level total).
-    // Hires come from s22q01 + s22q02 (permanent + temporary).
-    // CSP breakdown is available on the hires side only — the survey does not
-    // capture vacancies at CSP granularity.
-    //
-    // granularity:
-    //   'annual'   (default) — aggregate all matching submissions → LaborMarketTension
-    //   'quarter'            — one result per quarter code        → LaborMarketTensionByPeriod[]
-    //   'semester'           — one result per semester            → LaborMarketTensionByPeriod[]
+    //    Vacancies (S1Q11/S1Q12/S1Q10/S1Q11) vs total hires (S22Q01+S22Q02).
+    //    Reports: gap (unfilled positions), vacancy fulfilment rate,
+    //    and occupational demand structure. Not true labour market
+    //    tension (which needs job-seeker counts as denominator).
+    //    byCsp is occupational demand structure, not CSP-level tension.
     // ─────────────────────────────────────────────────────────────
-    async getLaborMarketTension(
+    async getVacancyFulfilment(
         filter: LaborMarketTensionFilter,
-    ): Promise<LaborMarketTension | LaborMarketTensionByPeriod[]> {
+    ): Promise<VacancyFulfilmentResult | VacancyFulfilmentByPeriod[]> {
         const granularity = filter.granularity ?? 'annual';
 
         if (granularity === 'annual') {
-            return this._tensionForIds(await this.query.resolveSubmissionIds(filter));
+            return this._vacancyFulfilmentForIds(await this.query.resolveSubmissionIds(filter));
         }
 
         const submissions = await this.query.resolveSubmissions(filter);
@@ -255,20 +300,43 @@ export class RecruitmentAnalyticsService {
         const periods = Array.from(periodMap.entries()).sort(([a], [b]) => a.localeCompare(b));
         return Promise.all(
             periods.map(([period, ids]) =>
-                this._tensionForIds(ids).then((tension) => ({ period, tension })),
+                this._vacancyFulfilmentForIds(ids).then((tension) => ({ period, tension })),
             ),
         );
     }
 
-    // ─── Private: compute tension for a fixed set of submission IDs ───
-
-    private async _tensionForIds(ids: string[]): Promise<LaborMarketTension> {
+    private async _vacancyFulfilmentForIds(ids: string[]): Promise<VacancyFulfilmentResult> {
         if (!ids.length) {
-            return { totalVacancies: 0, totalRecruitments: 0, gap: 0, absorptionRate: null, byCsp: [] };
+            return { totalVacancies: 0, totalRecruitments: 0, gap: 0, vacancyFulfilmentRate: null, occupationalDemand: [] };
         }
 
-        const [vacancyRows, permanentHires, temporaryHires, hiresByCspRaw] = await Promise.all([
+        const [
+            enterpriseVacancies,
+            cooperativeVacancies,
+            ctdVacancies,
+            ongVacancies,
+            permanentHires,
+            temporaryHires,
+            permHiresByCspRaw,
+            tempHiresByCspRaw,
+        ] = await Promise.all([
+            // vacancies from all four entity detail models (S1Q11 / S1Q12 / S1Q10 / S1Q11)
             (this.prisma as any).onefopEnterpriseDetail.findMany({
+                where: { submissionId: { in: ids } },
+                select: { vacancies: true },
+            }) as Promise<VacancyTotalDbRow[]>,
+
+            (this.prisma as any).onefopCooperativeDetail.findMany({
+                where: { submissionId: { in: ids } },
+                select: { vacancies: true },
+            }) as Promise<VacancyTotalDbRow[]>,
+
+            (this.prisma as any).onefopCtdDetail.findMany({
+                where: { submissionId: { in: ids } },
+                select: { vacancies: true },
+            }) as Promise<VacancyTotalDbRow[]>,
+
+            (this.prisma as any).onefopOngDetail.findMany({
                 where: { submissionId: { in: ids } },
                 select: { vacancies: true },
             }) as Promise<VacancyTotalDbRow[]>,
@@ -295,6 +363,7 @@ export class RecruitmentAnalyticsService {
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
 
+            // CSP breakdown — permanent hires
             (this.prisma as any).onefopCspGenderAge.groupBy({
                 by: ['cspCategory'],
                 where: {
@@ -307,23 +376,64 @@ export class RecruitmentAnalyticsService {
                 _sum: { value: true },
                 orderBy: [{ cspCategory: 'asc' }],
             }) as Promise<{ cspCategory: CspCategory; _sum: { value: number | null } }[]>,
+
+            // CSP breakdown — temporary hires
+            (this.prisma as any).onefopCspGenderAge.groupBy({
+                by: ['cspCategory'],
+                where: {
+                    submissionId: { in: ids },
+                    tableName: TableName.TEMP_HIRE,
+                    gender: Gender.TOTAL,
+                    ageBand: AgeBand.TOTAL,
+                    cspCategory: { in: [CspCategory.CADRES, CspCategory.FOREMEN, CspCategory.WORKERS] },
+                },
+                _sum: { value: true },
+                orderBy: [{ cspCategory: 'asc' }],
+            }) as Promise<{ cspCategory: CspCategory; _sum: { value: number | null } }[]>,
         ]);
 
-        const totalVacancies = vacancyRows.reduce((sum, r) => sum + (r.vacancies ?? 0), 0);
-        const totalRecruitments = (permanentHires._sum.value ?? 0) + (temporaryHires._sum.value ?? 0);
+        const totalVacancies = [
+            ...enterpriseVacancies,
+            ...cooperativeVacancies,
+            ...ctdVacancies,
+            ...ongVacancies,
+        ].reduce((sum, r) => sum + (r.vacancies ?? 0), 0);
+
+        const totalRecruitments =
+            (permanentHires._sum.value ?? 0) + (temporaryHires._sum.value ?? 0);
+
         const gap = totalVacancies - totalRecruitments;
-        const absorptionRate = totalVacancies > 0
+        const vacancyFulfilmentRate = totalVacancies > 0
             ? +((totalRecruitments / totalVacancies) * 100).toFixed(1)
             : null;
 
-        const byCsp: LaborMarketCspRow[] = hiresByCspRaw.map((r) => ({
-            cspCategory: r.cspCategory,
-            hires: r._sum.value ?? 0,
-            vacancies: null,
-            hireSharePct: calculateRate(r._sum.value ?? 0, totalRecruitments > 0 ? totalRecruitments : 1),
-        }));
+        // merge permanent + temporary hire counts per CSP
+        const hireMap = new Map<CspCategory, number>();
+        for (const r of permHiresByCspRaw) {
+            hireMap.set(r.cspCategory, (hireMap.get(r.cspCategory) ?? 0) + (r._sum.value ?? 0));
+        }
+        for (const r of tempHiresByCspRaw) {
+            hireMap.set(r.cspCategory, (hireMap.get(r.cspCategory) ?? 0) + (r._sum.value ?? 0));
+        }
 
-        return { totalVacancies, totalRecruitments, gap, absorptionRate, byCsp };
+        // Occupational demand structure: hire share per CSP.
+        // Vacancies are not collected at CSP granularity in the questionnaire,
+        // so this is recruitment distribution, not CSP-level tension.
+        const occupationalDemand: OccupationalDemandRow[] = [
+            CspCategory.CADRES,
+            CspCategory.FOREMEN,
+            CspCategory.WORKERS,
+        ].map((csp) => {
+            const hires = hireMap.get(csp) ?? 0;
+            return {
+                cspCategory: csp,
+                hires,
+                vacancies: null, // not collected at CSP granularity
+                hireSharePct: calculateRate(hires, totalRecruitments > 0 ? totalRecruitments : 1),
+            };
+        });
+
+        return { totalVacancies, totalRecruitments, gap, vacancyFulfilmentRate, occupationalDemand };
     }
 
     private _quarterKey(s: SubmissionMeta): string {
@@ -341,7 +451,7 @@ export class RecruitmentAnalyticsService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 6. Recruitment by location
+    // 6. Recruitment by location — S22Q01 + S22Q02
     // ─────────────────────────────────────────────────────────────
     async getRecruitmentByLocation(
         filter: AnalyticsFilter & { groupBy?: 'region' | 'department' | 'subdivision' },
@@ -379,7 +489,6 @@ export class RecruitmentAnalyticsService {
         const tempMap = new Map(temporary.map((r) => [r.submissionId, r.value ?? 0]));
 
         const locationMap = new Map<string, { permanent: number; temporary: number }>();
-
         for (const s of submissions) {
             const location: string = (s as any)[groupBy] ?? 'Inconnu';
             if (!locationMap.has(location)) locationMap.set(location, { permanent: 0, temporary: 0 });

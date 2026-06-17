@@ -387,9 +387,12 @@ export interface InclusionTrendPeriod {
     period: string;
     disabledCount: number;
     vulnerableCount: number;
-    totalEmployees: number;
-    disabilityRate: number;
-    vulnerableRate: number;
+    /** Total hires in this period (denominator for inclusion rates) */
+    totalHires: number;
+    /** Disabled hires / total hires × 100 */
+    disabilityHireRate: number;
+    /** Vulnerable hires / total hires × 100 */
+    vulnerableHireRate: number;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -452,7 +455,8 @@ export interface HireDemographicsRow {
 export interface YouthEmploymentResult {
     youthHires: number;
     totalHires: number;
-    youthPercentage: number;
+    /** Share of all recruits aged 15-24. Not a true employment rate. */
+    youthSharePct: number;
 }
 
 export interface DiplomaDistributionRow {
@@ -615,16 +619,16 @@ export interface SkillsDashboard {
     biggestSkillGaps: SkillGapItem[];
 }
 
-export interface InclusionDashboard {
-    disabilityRate: number;
-    vulnerableRate: number;
-    femaleLeadershipRate: number;
-    disabledCount: number;
-    vulnerableCount: number;
-}
+// InclusionDashboard is defined and exported by InclusionAnalyticsService.
+// Import it from '../domain/inclusion.analytics.service', not from here.
+// The fields it exposes reflect hire-flow rates (not stock rates):
+//   disabilityHireRate, vulnerableHireRate, femaleExecutiveHireRate,
+//   disabledHireCount, vulnerableHireCount, permanentHires, temporaryHires, totalHires
 
 // ─────────────────────────────────────────────────────────────
-// LABOR MARKET TENSION
+// VACANCY FULFILMENT (formerly Labor Market Tension)
+// Measures how well employers fill their declared vacancies.
+// Not true labour market tension (requires job-seeker denominator).
 // ─────────────────────────────────────────────────────────────
 
 export interface LaborMarketCspRow {
@@ -638,8 +642,10 @@ export interface LaborMarketTension {
     totalVacancies: number;
     totalRecruitments: number;
     gap: number;
-    absorptionRate: number | null;
-    byCsp: LaborMarketCspRow[];
+    /** Fraction of vacancies filled: totalRecruitments / totalVacancies × 100 */
+    vacancyFulfilmentRate: number | null;
+    /** Occupational demand structure — hire share per CSP (not CSP-level tension) */
+    occupationalDemand: LaborMarketCspRow[];
 }
 
 export interface LaborMarketTensionByPeriod {

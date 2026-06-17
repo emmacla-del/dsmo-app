@@ -3,6 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { AnalyticsQueryService } from '../core/analytics-query.service';
 import { computeTrainingGap } from '../core/analytics-utils';
+import { Gender } from '../core/analytics-enums';
 import { EmploymentAnalyticsService } from '../domain/employment.analytics.service';
 import { RecruitmentAnalyticsService } from '../domain/recruitment.analytics.service';
 import { MobilityAnalyticsService } from '../domain/mobility.analytics.service';
@@ -17,10 +18,7 @@ import type {
     LaborMarketTensionFilter,
     SubmissionListFilter,
     TrendFilter,
-    WorkforceSnapshot,
-    MobilityDashboard,
     SkillsDashboard,
-    InclusionDashboard,
 } from '../core/analytics-types';
 
 @Injectable()
@@ -39,25 +37,23 @@ export class OnefopAnalyticsFacade {
 
     // ─────────────────────────────────────────────────────────────
     // EMPLOYMENT
+    // Stock of permanent employees — S1Q10/S1Q09/S1Q11 (scalar per entity).
+    // No gender / CSP / age breakdown exists for the stock; those dimensions
+    // are only collected for FLOWS (recruits, departures, applications).
     // ─────────────────────────────────────────────────────────────
 
-    getEmploymentSummary = (f: AnalyticsFilter) =>
-        this.employment.getEmploymentSummary(f);
+    getPermanentEmployeeSummary = (f: AnalyticsFilter) =>
+        this.employment.getPermanentEmployeeSummary(f);
 
-    getEmploymentByCsp = (f: AnalyticsFilter) =>
-        this.employment.getEmploymentByCsp(f);
+    getPermanentEmployeesByLocation = (
+        f: Parameters<EmploymentAnalyticsService['getPermanentEmployeesByLocation']>[0],
+    ) => this.employment.getPermanentEmployeesByLocation(f);
 
-    getEmploymentByLocation = (f: Parameters<EmploymentAnalyticsService['getEmploymentByLocation']>[0]) =>
-        this.employment.getEmploymentByLocation(f);
+    getPermanentEmployeesByEntityType = (f: AnalyticsFilter) =>
+        this.employment.getPermanentEmployeesByEntityType(f);
 
-    getGenderParity = (f: AnalyticsFilter) =>
-        this.employment.getGenderParity(f);
-
-    getGenderParityByCsp = (f: AnalyticsFilter) =>
-        this.employment.getGenderParityByCsp(f);
-
-    getWorkforceYouth = (f: AnalyticsFilter) =>
-        this.employment.getWorkforceYouth(f);
+    getPermanentEmployeesBySize = (f: AnalyticsFilter) =>
+        this.employment.getPermanentEmployeesBySize(f);
 
     // ─────────────────────────────────────────────────────────────
     // RECRUITMENT
@@ -66,11 +62,17 @@ export class OnefopAnalyticsFacade {
     getRecruitmentTrends = (f: RecruitmentTrendFilter) =>
         this.recruitment.getRecruitmentTrends(f);
 
-    getHiresByDemographics = (f: Parameters<RecruitmentAnalyticsService['getHiresByDemographics']>[0]) =>
-        this.recruitment.getHiresByDemographics(f);
+    getHiresByDemographics = (
+        f: Parameters<RecruitmentAnalyticsService['getHiresByDemographics']>[0],
+    ) => this.recruitment.getHiresByDemographics(f);
 
+    /** Youth share of recruitment (15-24 hires / total hires). */
+    getYouthShareOfRecruitment = (f: AnalyticsFilter) =>
+        this.recruitment.getYouthShareOfRecruitment(f);
+
+    /** @deprecated Use getYouthShareOfRecruitment */
     getYouthEmployment = (f: AnalyticsFilter) =>
-        this.recruitment.getYouthEmployment(f);
+        this.recruitment.getYouthShareOfRecruitment(f);
 
     getDiplomaDistribution = (f: AnalyticsFilter) =>
         this.recruitment.getDiplomaDistribution(f);
@@ -81,11 +83,17 @@ export class OnefopAnalyticsFacade {
     getHiresByDiploma = (f: AnalyticsFilter & { limit?: number }) =>
         this.recruitment.getHiresByDiploma(f);
 
-    getLaborMarketTension = (f: LaborMarketTensionFilter) =>
-        this.recruitment.getLaborMarketTension(f);
+    /** Vacancy fulfilment rate and occupational demand structure. */
+    getVacancyFulfilment = (f: LaborMarketTensionFilter) =>
+        this.recruitment.getVacancyFulfilment(f);
 
-    getRecruitmentByLocation = (f: Parameters<RecruitmentAnalyticsService['getRecruitmentByLocation']>[0]) =>
-        this.recruitment.getRecruitmentByLocation(f);
+    /** @deprecated Use getVacancyFulfilment */
+    getLaborMarketTension = (f: LaborMarketTensionFilter) =>
+        this.recruitment.getVacancyFulfilment(f);
+
+    getRecruitmentByLocation = (
+        f: Parameters<RecruitmentAnalyticsService['getRecruitmentByLocation']>[0],
+    ) => this.recruitment.getRecruitmentByLocation(f);
 
     // ─────────────────────────────────────────────────────────────
     // MOBILITY
@@ -106,8 +114,9 @@ export class OnefopAnalyticsFacade {
     getInternships = (f: AnalyticsFilter) =>
         this.mobility.getInternships(f);
 
-    getDeparturesByLocation = (f: Parameters<MobilityAnalyticsService['getDeparturesByLocation']>[0]) =>
-        this.mobility.getDeparturesByLocation(f);
+    getDeparturesByLocation = (
+        f: Parameters<MobilityAnalyticsService['getDeparturesByLocation']>[0],
+    ) => this.mobility.getDeparturesByLocation(f);
 
     // ─────────────────────────────────────────────────────────────
     // INCLUSION
@@ -119,8 +128,9 @@ export class OnefopAnalyticsFacade {
     getVulnerableWorkers = (f: AnalyticsFilter) =>
         this.inclusion.getVulnerableWorkers(f);
 
-    getInclusionMetrics = (f: Parameters<InclusionAnalyticsService['getInclusionMetrics']>[0]) =>
-        this.inclusion.getInclusionMetrics(f);
+    getInclusionMetrics = (
+        f: Parameters<InclusionAnalyticsService['getInclusionMetrics']>[0],
+    ) => this.inclusion.getInclusionMetrics(f);
 
     getFirstTimeWorkers = (f: AnalyticsFilter) =>
         this.inclusion.getFirstTimeWorkers(f);
@@ -151,11 +161,13 @@ export class OnefopAnalyticsFacade {
     // ENTERPRISE PROFILE
     // ─────────────────────────────────────────────────────────────
 
-    getEnterpriseProfile = (f: Parameters<EnterpriseProfileAnalyticsService['getEnterpriseProfile']>[0]) =>
-        this.enterpriseProfile.getEnterpriseProfile(f);
+    getEnterpriseProfile = (
+        f: Parameters<EnterpriseProfileAnalyticsService['getEnterpriseProfile']>[0],
+    ) => this.enterpriseProfile.getEnterpriseProfile(f);
 
-    getVacanciesBySegment = (f: AnalyticsFilter & { groupBy: 'enterpriseSize' | 'sector' }) =>
-        this.enterpriseProfile.getVacanciesBySegment(f);
+    getVacanciesBySegment = (
+        f: AnalyticsFilter & { groupBy: 'enterpriseSize' | 'sector' },
+    ) => this.enterpriseProfile.getVacanciesBySegment(f);
 
     // ─────────────────────────────────────────────────────────────
     // JOB APPLICATIONS
@@ -171,14 +183,17 @@ export class OnefopAnalyticsFacade {
         this.jobApplications.getApplicationTrends(f);
 
     // ─────────────────────────────────────────────────────────────
-    // REGISTERED SEEKERS — delegated to EnterpriseProfileService
+    // REGISTERED SEEKERS / FIRST-TIME LABOUR GAP
+    // Source: S23Q01 (registered seekers) + S23Q02 (first-time workers recruited)
+    // Owned by InclusionAnalyticsService.
     // ─────────────────────────────────────────────────────────────
 
+    /** @deprecated Use getRegisteredFirstTimeSeekers */
     getRegisteredSeekers = (f: AnalyticsFilter) =>
-        this.enterpriseProfile.getRegisteredSeekers(f);
+        this.inclusion.getRegisteredFirstTimeSeekers(f);
 
     getFirstTimeLaborGap = (f: AnalyticsFilter) =>
-        this.enterpriseProfile.getFirstTimeLaborGap(f);
+        this.inclusion.getFirstTimeLaborGap(f);
 
     // ─────────────────────────────────────────────────────────────
     // EDUCATION / SUBMISSIONS
@@ -190,33 +205,6 @@ export class OnefopAnalyticsFacade {
     // ─────────────────────────────────────────────────────────────
     // AGGREGATE HELPERS
     // ─────────────────────────────────────────────────────────────
-
-    async getWorkforceSnapshot(filter: AnalyticsFilter): Promise<WorkforceSnapshot> {
-        const ids = await this.query.resolveSubmissionIds(filter);
-        if (!ids.length) {
-            return { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, youthRate: 0, averageAge: null };
-        }
-        const f: AnalyticsFilter = { ...filter, _ids: ids };
-        const [emp, cspRows, genderParity] = await Promise.all([
-            this.employment.getEmploymentSummary(f),
-            this.employment.getEmploymentByCsp(f),
-            this.employment.getGenderParity(f),
-        ]);
-        return this.employment.computeWorkforceSnapshot(emp, cspRows, genderParity);
-    }
-
-    async getMobilityDashboard(filter: AnalyticsFilter): Promise<MobilityDashboard> {
-        const ids = await this.query.resolveSubmissionIds(filter);
-        if (!ids.length) {
-            return { totalEmployees: 0, totalDepartures: 0, resignationRate: 0, dismissalRate: 0, retirementRate: 0, turnoverRate: 0, retentionRate: 0 };
-        }
-        const f: AnalyticsFilter = { ...filter, _ids: ids };
-        const [emp, departures] = await Promise.all([
-            this.employment.getEmploymentSummary(f),
-            this.mobility.getDepartureSummary(f),
-        ]);
-        return this.mobility.computeMobilityDashboard(emp.totalEmployees, departures);
-    }
 
     async getSkillsDashboard(filter: AnalyticsFilter): Promise<SkillsDashboard> {
         const ids = await this.query.resolveSubmissionIds(filter);
@@ -232,13 +220,25 @@ export class OnefopAnalyticsFacade {
         return this.skills.computeSkillsDashboard(skillNeeds, trainingNeeds, gap);
     }
 
-    async getInclusionDashboard(filter: AnalyticsFilter): Promise<InclusionDashboard> {
+    async getInclusionDashboard(filter: AnalyticsFilter) {
         const ids = await this.query.resolveSubmissionIds(filter);
         if (!ids.length) {
             return { disabilityRate: 0, vulnerableRate: 0, femaleLeadershipRate: 0, disabledCount: 0, vulnerableCount: 0 };
         }
         const f: AnalyticsFilter = { ...filter, _ids: ids };
-        return this.inclusion.getInclusionDashboard(f, this.employment);
+        return this.inclusion.getInclusionDashboard(f) as any;
+    }
+
+    /** Gender split of job applicants (S21Q01) — only flow with a gender breakdown. */
+    async getGenderParity(filter: AnalyticsFilter) {
+        const summary = await this.jobApplications.getJobApplicationSummary(filter);
+        const maleApplicants = summary.byGender.find((g) => g.gender === Gender.MALE)?.count ?? 0;
+        const femaleApplicants = summary.byGender.find((g) => g.gender === Gender.FEMALE)?.count ?? 0;
+        return {
+            maleApplicants,
+            femaleApplicants,
+            totalApplications: summary.totalApplications,
+        };
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -252,9 +252,8 @@ export class OnefopAnalyticsFacade {
         const f: AnalyticsFilter = { ...filter, _ids: ids };
 
         const [
-            employment,
-            genderParity,
-            youthEmployment,
+            employmentSummary,
+            youthShareOfRecruitment,
             diplomas,
             disability,
             inclusion,
@@ -266,11 +265,9 @@ export class OnefopAnalyticsFacade {
             internships,
             allSkillNeeds,
             allTrainingNeeds,
-            cspRows,
         ] = await Promise.all([
-            this.employment.getEmploymentSummary(f),
-            this.employment.getGenderParity(f),
-            this.recruitment.getYouthEmployment(f),
+            this.employment.getPermanentEmployeeSummary(f),
+            this.recruitment.getYouthShareOfRecruitment(f),
             this.recruitment.getDiplomaSummary({ ...f, limit: 10 }),
             this.inclusion.getDisabilityData(f),
             this.inclusion.getInclusionMetrics({ ...f, breakdownBy: 'both' }),
@@ -282,7 +279,6 @@ export class OnefopAnalyticsFacade {
             this.mobility.getInternships(f),
             this.skills.getSkillNeeds(f),
             this.skills.getTrainingNeeds(f),
-            this.employment.getEmploymentByCsp(f),
         ]);
 
         const trainingGap = computeTrainingGap(allSkillNeeds, allTrainingNeeds);
@@ -290,9 +286,8 @@ export class OnefopAnalyticsFacade {
         return {
             submissionCount: ids.length,
             filter,
-            employment,
-            genderParity,
-            youthEmployment,
+            employmentSummary,
+            youthShareOfRecruitment,
             diplomas,
             disability,
             inclusion,
@@ -305,14 +300,10 @@ export class OnefopAnalyticsFacade {
             skillNeeds: allSkillNeeds.slice(0, 10),
             trainingNeeds: allTrainingNeeds.slice(0, 10),
             trainingGap,
-            workforceSnapshot: this.employment.computeWorkforceSnapshot(employment, cspRows, genderParity),
-            mobilityDashboard: this.mobility.computeMobilityDashboard(employment.totalEmployees, departures),
-            skillsDashboard: this.skills.computeSkillsDashboard(allSkillNeeds.slice(0, 10), allTrainingNeeds.slice(0, 10), trainingGap),
-            inclusionDashboard: this.inclusion.computeInclusionDashboard(
-                employment.totalEmployees,
-                inclusion,
-                cspRows,
-                (rows) => this.employment.computeFemaleLeadershipRate(rows),
+            skillsDashboard: this.skills.computeSkillsDashboard(
+                allSkillNeeds.slice(0, 10),
+                allTrainingNeeds.slice(0, 10),
+                trainingGap,
             ),
         };
     }
@@ -325,9 +316,13 @@ export class OnefopAnalyticsFacade {
         return {
             submissionCount: 0,
             filter,
-            employment: { totalEmployees: 0, byGender: [], byCsp: [] },
-            genderParity: { maleCount: 0, femaleCount: 0, malePercentage: 0, femalePercentage: 0, ratioFemaleToMale: null },
-            youthEmployment: { youthHires: 0, totalHires: 0, youthPercentage: 0 },
+            employmentSummary: {
+                totalPermanentEmployees: 0,
+                totalVacancies: 0,
+                vacancyRate: 0,
+                reportingEntities: 0,
+            },
+            youthShareOfRecruitment: { youthHires: 0, totalHires: 0, youthSharePct: 0 },
             diplomas: [],
             disability: [],
             inclusion: { disabled: 0, vulnerable: 0, totalHires: 0, disabledByCsp: [], vulnerableByType: [] },
@@ -340,10 +335,7 @@ export class OnefopAnalyticsFacade {
             skillNeeds: [],
             trainingNeeds: [],
             trainingGap: { skillsInDemand: [], skillsInSurplus: [], balanced: [] },
-            workforceSnapshot: { totalEmployees: 0, cadres: 0, foremen: 0, workers: 0, male: 0, female: 0, youth: 0, youthRate: 0, averageAge: null },
-            mobilityDashboard: { totalEmployees: 0, totalDepartures: 0, resignationRate: 0, dismissalRate: 0, retirementRate: 0, turnoverRate: 0, retentionRate: 0 },
             skillsDashboard: { topSkills: [], topTrainingDomains: [], biggestSkillGaps: [] },
-            inclusionDashboard: { disabilityRate: 0, vulnerableRate: 0, femaleLeadershipRate: 0, disabledCount: 0, vulnerableCount: 0 },
         };
     }
 }
