@@ -698,7 +698,7 @@ export class QuestionnairesService {
   private async saveDismissalReasonsFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
-      const reasonText = this.flatStr(flat, `s3q02_reason_${i}_label`); // ← was _text
+      const reasonText = this.flatStr(flat, `s3q02_reason_${i}_text`);
       const male = this.flatInt(flat, `s3q02_reason_${i}_male`);
       const female = this.flatInt(flat, `s3q02_reason_${i}_female`);
       const total = this.flatInt(flat, `s3q02_reason_${i}_total`);
@@ -743,7 +743,7 @@ export class QuestionnairesService {
   private async saveSkillsFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
-      const description = this.flatStr(flat, `s4q02_skill_${i}_label`);
+      const description = this.flatStr(flat, `s4q02_skill_${i}_text`);
       const male = this.flatInt(flat, `s4q02_skill_${i}_male`);
       const female = this.flatInt(flat, `s4q02_skill_${i}_female`);
       const total = this.flatInt(flat, `s4q02_skill_${i}_total`);
@@ -757,7 +757,7 @@ export class QuestionnairesService {
   private async saveTrainingFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
-      const domain = this.flatStr(flat, `s4q03_domain_${i}_label`); // ← was _text
+      const domain = this.flatStr(flat, `s4q03_domain_${i}_text`);
       const male = this.flatInt(flat, `s4q03_domain_${i}_male`);
       const female = this.flatInt(flat, `s4q03_domain_${i}_female`);
       const total = this.flatInt(flat, `s4q03_domain_${i}_total`);
