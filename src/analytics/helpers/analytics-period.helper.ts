@@ -2,6 +2,15 @@
 
 export interface AnalyticsPeriod {
     year?: number;
+    /**
+     * Alias for `year` used by the domain/facade analytics services
+     * (src/analytics/core/analytics-types.ts's AnalyticsFilter). Both are
+     * accepted so buildPeriodWhere works for either filter shape — see the
+     * fix for the bug where this only checked `year` and silently ignored
+     * every surveyYear-based filter, making the year/period selector a
+     * no-op across the whole ONEFOP analytics module.
+     */
+    surveyYear?: number;
     fromQuarter?: string;
     toQuarter?: string;
     startDate?: Date;
@@ -18,9 +27,11 @@ export interface AnalyticsScope extends AnalyticsPeriod {
 export function buildPeriodWhere(scope: AnalyticsScope) {
     const where: any = {};
 
-    // Year filtering (coarse)
-    if (scope.year) {
-        where.surveyYear = scope.year;
+    // Year filtering (coarse) — surveyYear takes precedence since that's
+    // the field name the current domain/facade services actually set.
+    const year = scope.surveyYear ?? scope.year;
+    if (year) {
+        where.surveyYear = year;
     }
 
     // Quarter filtering (precise)
