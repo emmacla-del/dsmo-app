@@ -158,7 +158,7 @@ export class AnalyticsController {
         }
 
         const company = await this.prisma.company.findUnique({
-            where: { userId: req.user.sub },
+            where: { userId: req.user.id },
         });
         if (!company) throw new BadRequestException('Entreprise non trouvée');
 

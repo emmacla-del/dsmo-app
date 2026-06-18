@@ -25,7 +25,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req: any) {
-    return this.authService.getMe(req.user.sub);
+    return this.authService.getMe(req.user.id);
   }
 
   @Post('register')
@@ -187,6 +187,6 @@ export class AuthController {
   @Post('resend-verification')
   @UseGuards(JwtAuthGuard)
   async resendVerification(@Request() req: any) {
-    return this.authService.resendVerificationEmail(req.user.sub);
+    return this.authService.resendVerificationEmail(req.user.id);
   }
 }
