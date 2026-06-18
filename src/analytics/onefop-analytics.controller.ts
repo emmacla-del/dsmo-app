@@ -92,6 +92,20 @@ export class OnefopAnalyticsController {
         });
     }
 
+    @Get('employment-by-entity-type')
+    async getEmploymentByEntityType(@Query() q: any) {
+        return this.analytics.getPermanentEmployeesByEntityType({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────
     // RECRUITMENT & HIRES
     // ─────────────────────────────────────────────────────────────
