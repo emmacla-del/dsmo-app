@@ -106,6 +106,20 @@ export class OnefopAnalyticsController {
         });
     }
 
+    @Get('employment-by-size')
+    async getEmploymentBySize(@Query() q: any) {
+        return this.analytics.getPermanentEmployeesBySize({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────
     // RECRUITMENT & HIRES
     // ─────────────────────────────────────────────────────────────
