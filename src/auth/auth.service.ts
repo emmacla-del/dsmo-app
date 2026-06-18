@@ -2,19 +2,28 @@
   Injectable,
   BadRequestException,
   ConflictException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
+import { NotificationService } from '../dsmo/notification.service';
+
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private notificationService: NotificationService,
   ) { }
 
   async validateUser(email: string, password: string) {
@@ -91,6 +100,7 @@ export class AuthService {
         region: user.region,
         department: user.department,
         stream: user.stream,
+        emailVerified: user.emailVerified,
         features,
       },
     };
@@ -253,6 +263,7 @@ export class AuthService {
           department: companyData.department,
           status: 'ACTIVE',
           isActive: true,
+          emailVerified: false,
         },
       });
 
@@ -300,6 +311,16 @@ export class AuthService {
           establishmentIdGeneratedAt: establishmentId ? new Date() : undefined,
         },
       });
+
+      const rawToken = await this.issueEmailVerificationToken(user.id);
+      const verifyLink = `${process.env.APP_URL || 'https://dsmo.ministry.cm'}/verify-email?token=${rawToken}`;
+      try {
+        await this.notificationService.sendEmailVerificationEmail(user.email, verifyLink);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send verification email to ${user.email}: ${(error as Error).message}`,
+        );
+      }
 
       // ✅ Return the login response WITH company data including establishmentId
       const loginResult = await this.login(user);
@@ -369,5 +390,150 @@ export class AuthService {
       where: { id },
       data: { status: 'REJECTED', isActive: false },
     });
+  }
+
+  /**
+   * Always returns a generic outcome regardless of whether the email exists,
+   * to avoid leaking which addresses are registered.
+   */
+  async forgotPassword(email: string) {
+    const genericResponse = {
+      message:
+        'Si un compte existe avec cette adresse, un e-mail de réinitialisation a été envoyé.',
+    };
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return genericResponse;
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpires: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS),
+      },
+    });
+
+    const baseUrl = process.env.APP_URL || 'https://dsmo.ministry.cm';
+    const resetLink = `${baseUrl}/reset-password?token=${rawToken}`;
+
+    try {
+      await this.notificationService.sendPasswordResetEmail(user.email, resetLink);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send password reset email to ${user.email}: ${(error as Error).message}`,
+      );
+    }
+
+    return genericResponse;
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || !newPassword) {
+      throw new BadRequestException('Token et nouveau mot de passe requis');
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 8 caractères',
+      );
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await this.prisma.user.findFirst({
+      where: { passwordResetTokenHash: tokenHash },
+    });
+
+    if (
+      !user ||
+      !user.passwordResetExpires ||
+      user.passwordResetExpires.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Lien de réinitialisation invalide ou expiré');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetTokenHash: null,
+        passwordResetExpires: null,
+        // Clicking a link mailed to this address already proves ownership.
+        emailVerified: true,
+      },
+    });
+
+    return { message: 'Mot de passe réinitialisé avec succès.' };
+  }
+
+  private async issueEmailVerificationToken(userId: string): Promise<string> {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpires: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+      },
+    });
+
+    return rawToken;
+  }
+
+  async verifyEmail(token: string) {
+    if (!token) {
+      throw new BadRequestException('Token requis');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await this.prisma.user.findFirst({
+      where: { emailVerificationTokenHash: tokenHash },
+    });
+
+    if (
+      !user ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Lien de vérification invalide ou expiré');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerificationTokenHash: null,
+        emailVerificationExpires: null,
+      },
+    });
+
+    return { message: 'Adresse e-mail vérifiée avec succès.' };
+  }
+
+  async resendVerificationEmail(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
+    if (user.emailVerified) {
+      return { message: 'Votre adresse e-mail est déjà vérifiée.' };
+    }
+
+    const rawToken = await this.issueEmailVerificationToken(user.id);
+    const verifyLink = `${process.env.APP_URL || 'https://dsmo.ministry.cm'}/verify-email?token=${rawToken}`;
+
+    try {
+      await this.notificationService.sendEmailVerificationEmail(user.email, verifyLink);
+    } catch (error) {
+      this.logger.error(
+        `Failed to resend verification email to ${user.email}: ${(error as Error).message}`,
+      );
+      throw new BadRequestException(
+        "Impossible d'envoyer l'e-mail pour le moment. Réessayez plus tard.",
+      );
+    }
+
+    return { message: 'E-mail de vérification renvoyé.' };
   }
 }

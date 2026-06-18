@@ -36,6 +36,7 @@
     "passport-local": "^1.0.0",
     "pdfkit": "^0.18.0",
     "pdfkit-table": "^0.1.99",
+    "playwright": "^1.61.0",
     "prisma": "^5.22.0",
     "puppeteer": "22.15.0",
     "reflect-metadata": "^0.1.14",

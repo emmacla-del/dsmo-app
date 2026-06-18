@@ -168,4 +168,25 @@ export class AuthController {
     const available = await this.authService.isEmailAvailable(email);
     return { available };
   }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.newPassword);
+  }
+
+  @Post('verify-email')
+  async verifyEmail(@Body('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  async resendVerification(@Request() req: any) {
+    return this.authService.resendVerificationEmail(req.user.sub);
+  }
 }

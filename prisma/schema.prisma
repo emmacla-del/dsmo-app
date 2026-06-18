@@ -130,6 +130,11 @@ model User {
   isActive          Boolean            @default(true)
   rejectionReason   String?
   rejectedAt        DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpires   DateTime?
+  emailVerified              Boolean   @default(true)
+  emailVerificationTokenHash String?
+  emailVerificationExpires   DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   status            UserStatus         @default(PENDING_APPROVAL)

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, DeclarationStatus } from '../types/prisma.types';
 import * as nodemailer from 'nodemailer';
@@ -6,6 +6,7 @@ import { AuditService } from './audit.service';
 
 @Injectable()
 export class NotificationService {
+    private readonly logger = new Logger(NotificationService.name);
     private transporter: any;
 
     constructor(
@@ -21,6 +22,13 @@ export class NotificationService {
                 pass: process.env.SMTP_PASS,
             } : undefined,
         });
+
+        if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            this.logger.warn(
+                'SMTP is not fully configured (SMTP_HOST/SMTP_USER/SMTP_PASS missing). ' +
+                'Outgoing emails — including password reset and declaration notifications — will fail until these env vars are set.',
+            );
+        }
     }
 
     /**
@@ -316,6 +324,120 @@ export class NotificationService {
             where: { id: recipientId },
             data: { status: 'OPENED', openedAt: new Date() },
         });
+    }
+
+    /**
+     * Send a password reset email with a tokenized link.
+     */
+    async sendPasswordResetEmail(to: string, resetLink: string) {
+        const html = this.generatePasswordResetHtml(resetLink);
+        const text =
+            `Vous avez demandé la réinitialisation de votre mot de passe DSMO.\n\n` +
+            `Cliquez sur le lien suivant pour choisir un nouveau mot de passe (valable 1 heure) :\n${resetLink}\n\n` +
+            `Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.`;
+
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[DSMO] Réinitialisation de votre mot de passe',
+            text,
+            html,
+        });
+    }
+
+    /**
+     * Send a welcome email asking the user to confirm their address.
+     */
+    async sendEmailVerificationEmail(to: string, verifyLink: string) {
+        const html = this.generateEmailVerificationHtml(verifyLink);
+        const text =
+            `Bienvenue sur la plateforme DSMO.\n\n` +
+            `Confirmez votre adresse e-mail en cliquant sur le lien suivant (valable 24 heures) :\n${verifyLink}\n\n` +
+            `Si vous n'êtes pas à l'origine de cette inscription, ignorez cet e-mail.`;
+
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[DSMO] Confirmez votre adresse e-mail',
+            text,
+            html,
+        });
+    }
+
+    /**
+     * Generate HTML email template for email verification.
+     */
+    private generateEmailVerificationHtml(verifyLink: string): string {
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .header { background-color: #1a5d3a; color: white; padding: 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 20px; line-height: 1.6; }
+            .footer { background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; margin-top: 20px; }
+            .button { display: inline-block; background-color: #1a5d3a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>DSM-O CAMEROUN</h1>
+            <p>Plateforme Nationale de la Déclaration sur la Situation de la Main d'Œuvre</p>
+          </div>
+          <div class="content">
+            <p>Madame, Monsieur,</p>
+            <p>Bienvenue sur la plateforme DSMO. Veuillez confirmer votre adresse e-mail pour finaliser votre inscription.</p>
+            <a href="${verifyLink}" class="button">Confirmer mon adresse e-mail</a>
+            <p>Ce lien est valable 24 heures. Si vous n'êtes pas à l'origine de cette inscription, vous pouvez ignorer cet e-mail.</p>
+          </div>
+          <div class="footer">
+            <p>Ministère de l'Emploi et de la Formation Professionnelle | Cameroun</p>
+            <p>© ${new Date().getFullYear()} - Tous droits réservés</p>
+          </div>
+        </body>
+      </html>
+    `;
+    }
+
+    /**
+     * Generate HTML email template for password reset.
+     */
+    private generatePasswordResetHtml(resetLink: string): string {
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .header { background-color: #1a5d3a; color: white; padding: 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 20px; line-height: 1.6; }
+            .footer { background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; margin-top: 20px; }
+            .button { display: inline-block; background-color: #1a5d3a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>DSM-O CAMEROUN</h1>
+            <p>Plateforme Nationale de la Déclaration sur la Situation de la Main d'Œuvre</p>
+          </div>
+          <div class="content">
+            <p>Madame, Monsieur,</p>
+            <p>Vous avez demandé la réinitialisation de votre mot de passe sur la plateforme DSMO.</p>
+            <a href="${resetLink}" class="button">Réinitialiser mon mot de passe</a>
+            <p>Ce lien est valable 1 heure. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail.</p>
+          </div>
+          <div class="footer">
+            <p>Ministère de l'Emploi et de la Formation Professionnelle | Cameroun</p>
+            <p>© ${new Date().getFullYear()} - Tous droits réservés</p>
+          </div>
+        </body>
+      </html>
+    `;
     }
 
     /**
