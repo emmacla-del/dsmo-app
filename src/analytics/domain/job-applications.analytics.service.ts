@@ -38,12 +38,14 @@ export class JobApplicationsAnalyticsService {
         const ids = await this.query.resolveSubmissionIds(filter);
         if (!ids.length) return [];
 
-        const rows: JobApplicationGroupRow[] = await (this.prisma as any).onefopJobApplicationData.groupBy({
+        const rows: JobApplicationGroupRow[] = await (this.prisma as any).onefopCspGenderAge.groupBy({
             by: ['cspCategory', 'gender', 'ageBand'],
             where: {
                 submissionId: { in: ids },
+                tableName: TableName.JOB_APPLICATION,
                 cspCategory: { not: CspCategory.TOTAL },
                 gender: { not: Gender.TOTAL },
+                ageBand: { not: AgeBand.TOTAL },
             },
             _sum: { value: true },
             orderBy: [{ cspCategory: 'asc' }, { gender: 'asc' }, { ageBand: 'asc' }],
@@ -66,33 +68,27 @@ export class JobApplicationsAnalyticsService {
             return { totalApplications: 0, byGender: [], byCsp: [] };
         }
 
+        const baseWhere = {
+            submissionId: { in: ids },
+            tableName: TableName.JOB_APPLICATION,
+            ageBand: AgeBand.TOTAL,
+        };
+
         const [totals, byGender, byCsp] = await Promise.all([
-            (this.prisma as any).onefopJobApplicationData.aggregate({
-                where: {
-                    submissionId: { in: ids },
-                    cspCategory: CspCategory.TOTAL,
-                    gender: Gender.TOTAL,
-                },
+            (this.prisma as any).onefopCspGenderAge.aggregate({
+                where: { ...baseWhere, cspCategory: CspCategory.TOTAL, gender: Gender.TOTAL },
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
 
-            (this.prisma as any).onefopJobApplicationData.groupBy({
+            (this.prisma as any).onefopCspGenderAge.groupBy({
                 by: ['gender'],
-                where: {
-                    submissionId: { in: ids },
-                    cspCategory: CspCategory.TOTAL,
-                    gender: { in: [Gender.MALE, Gender.FEMALE] },
-                },
+                where: { ...baseWhere, cspCategory: CspCategory.TOTAL, gender: { in: [Gender.MALE, Gender.FEMALE] } },
                 _sum: { value: true },
             }) as Promise<{ gender: Gender; _sum: { value: number | null } }[]>,
 
-            (this.prisma as any).onefopJobApplicationData.groupBy({
+            (this.prisma as any).onefopCspGenderAge.groupBy({
                 by: ['cspCategory'],
-                where: {
-                    submissionId: { in: ids },
-                    gender: Gender.TOTAL,
-                    cspCategory: { in: [CspCategory.CADRES, CspCategory.FOREMEN, CspCategory.WORKERS] },
-                },
+                where: { ...baseWhere, gender: Gender.TOTAL, cspCategory: { in: [CspCategory.CADRES, CspCategory.FOREMEN, CspCategory.WORKERS] } },
                 _sum: { value: true },
             }) as Promise<JobApplicationCspGroupRow[]>,
         ]);
@@ -141,12 +137,8 @@ export class JobApplicationsAnalyticsService {
             permHireByCspRaw,
             tempHireByCspRaw,
         ] = await Promise.all([
-            (this.prisma as any).onefopJobApplicationData.aggregate({
-                where: {
-                    submissionId: { in: ids },
-                    cspCategory: CspCategory.TOTAL,
-                    gender: Gender.TOTAL,
-                },
+            (this.prisma as any).onefopCspGenderAge.aggregate({
+                where: baseHireWhere(TableName.JOB_APPLICATION),
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
 
@@ -160,13 +152,9 @@ export class JobApplicationsAnalyticsService {
                 _sum: { value: true },
             }) as Promise<PrismaAggregateResult>,
 
-            (this.prisma as any).onefopJobApplicationData.groupBy({
+            (this.prisma as any).onefopCspGenderAge.groupBy({
                 by: ['cspCategory'],
-                where: {
-                    submissionId: { in: ids },
-                    gender: Gender.TOTAL,
-                    cspCategory: { in: [CspCategory.CADRES, CspCategory.FOREMEN, CspCategory.WORKERS] },
-                },
+                where: baseCspHireWhere(TableName.JOB_APPLICATION),
                 _sum: { value: true },
             }) as Promise<JobApplicationCspGroupRow[]>,
 
@@ -236,7 +224,7 @@ export class JobApplicationsAnalyticsService {
 
         const ids = inRange.map((s) => s.id);
 
-        const hireWhere = (tableName: string) => ({
+        const totalsWhere = (tableName: string) => ({
             submissionId: { in: ids },
             tableName,
             cspCategory: CspCategory.TOTAL,
@@ -245,22 +233,18 @@ export class JobApplicationsAnalyticsService {
         });
 
         const [appRows, permHireRows, tempHireRows] = await Promise.all([
-            (this.prisma as any).onefopJobApplicationData.findMany({
-                where: {
-                    submissionId: { in: ids },
-                    cspCategory: CspCategory.TOTAL,
-                    gender: Gender.TOTAL,
-                },
+            (this.prisma as any).onefopCspGenderAge.findMany({
+                where: totalsWhere(TableName.JOB_APPLICATION),
                 select: { submissionId: true, value: true },
             }) as Promise<{ submissionId: string; value: number | null }[]>,
 
             (this.prisma as any).onefopCspGenderAge.findMany({
-                where: hireWhere(TableName.PERMANENT_HIRE),
+                where: totalsWhere(TableName.PERMANENT_HIRE),
                 select: { submissionId: true, value: true },
             }) as Promise<{ submissionId: string; value: number | null }[]>,
 
             (this.prisma as any).onefopCspGenderAge.findMany({
-                where: hireWhere(TableName.TEMP_HIRE),
+                where: totalsWhere(TableName.TEMP_HIRE),
                 select: { submissionId: true, value: true },
             }) as Promise<{ submissionId: string; value: number | null }[]>,
         ]);

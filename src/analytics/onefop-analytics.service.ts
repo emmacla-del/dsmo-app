@@ -214,11 +214,18 @@ export class OnefopAnalyticsService {
     const ids = await this.resolveSubmissionIds(filter);
     if (!ids.length) return { maleCount: 0, femaleCount: 0, malePercentage: 0, femalePercentage: 0, ratioFemaleToMale: null };
 
-    // S21Q01 (job applicants) is stored in onefopJobApplicationData, never in
-    // onefopCspGenderAge -- that table only ever holds s22q01/s22q02 hires.
-    const rows = await (this.prisma as any).onefopJobApplicationData.groupBy({
+    // S21Q01 (job applicants) — onefopJobApplicationData only holds rows for
+    // submissions recorded after 2026-06-05; onefopCspGenderAge (tableName
+    // 's21q01') has been populated since 2026-05-14 and covers all of them.
+    const rows = await (this.prisma as any).onefopCspGenderAge.groupBy({
       by: ['gender'],
-      where: { submissionId: { in: ids }, cspCategory: 'TOTAL', gender: { in: ['MALE', 'FEMALE'] } },
+      where: {
+        submissionId: { in: ids },
+        tableName: 's21q01',
+        cspCategory: 'TOTAL',
+        ageBand: 'TOTAL',
+        gender: { in: ['MALE', 'FEMALE'] },
+      },
       _sum: { value: true },
     });
 

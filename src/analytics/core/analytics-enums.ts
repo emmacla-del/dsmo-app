@@ -14,8 +14,12 @@ export enum TableName {
      * Temporarily aliased to PERMANENT_HIRE so existing code compiles.
      */
     WORKFORCE = 's22q01',
-    // NOTE: S21Q01 (job applications) is stored in onefopJobApplicationData,
-    // not in onefopCspGenderAge — there is no TableName entry for it.
+    // S21Q01 — job applications by CSP × gender × age band. The ETL also
+    // writes these rows into the dedicated onefopJobApplicationData table,
+    // but that table only started being populated 2026-06-05 — submissions
+    // recorded before then only have this tableName, so analytics reads
+    // from here instead.
+    JOB_APPLICATION = 's21q01',
     // Permanent employee stock (S1Q10) is a scalar in entity detail models —
     // it has no CSP×gender×age breakdown and no TableName entry.
 }
