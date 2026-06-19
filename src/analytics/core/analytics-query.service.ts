@@ -98,7 +98,11 @@ export class AnalyticsQueryService {
         ).map((s: { id: string }) => s.id);
         if (!approvedIds.length) return [];
 
-        const where = { submissionId: { in: approvedIds }, sector: { not: null } };
+        // No `sector: { not: null }` here — onefopEnterpriseDetail.sector is a
+        // required (non-nullable) column, so Prisma rejects a `not: null`
+        // filter against it (StringFilter, not NullableStringFilter). Null/empty
+        // values from the other 3 (nullable) tables are filtered out below instead.
+        const where = { submissionId: { in: approvedIds } };
         const [enterprises, cooperatives, ctds, ongs] = await Promise.all([
             (this.prisma as any).onefopEnterpriseDetail.findMany({ where, select: { sector: true } }),
             (this.prisma as any).onefopCooperativeDetail.findMany({ where, select: { sector: true } }),
