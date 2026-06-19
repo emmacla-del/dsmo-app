@@ -32,6 +32,8 @@ export interface AnalyticsScope {
 
 export interface AnalyticsFilter extends AnalyticsScope {
     entityType?: EntityType;
+    /** S1Q07 business sector — free text on the entity-detail tables, not on OnefopSubmission itself. */
+    sector?: string;
     submissionId?: string;
     _ids?: readonly string[];
 }

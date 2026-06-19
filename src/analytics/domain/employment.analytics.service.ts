@@ -267,7 +267,11 @@ export class EmploymentAnalyticsService {
         const map = new Map<string, { employees: number; count: number }>();
 
         for (const r of enterpriseRows) {
-            const key = r.enterpriseSize ?? 'Unknown';
+            // enterpriseSize is stored as a bilingual label, e.g.
+            // "PE/ Small enterprise" — take the code before the slash so it
+            // matches the TPE/PE/ME/GE buckets below regardless of whether
+            // the stored value is the bare code or the full label.
+            const key = (r.enterpriseSize ?? 'Unknown').split('/')[0].trim() || 'Unknown';
             const entry = map.get(key) ?? { employees: 0, count: 0 };
             entry.employees += r.permanentWorkers ?? 0;
             entry.count += 1;

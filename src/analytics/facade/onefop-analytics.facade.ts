@@ -19,6 +19,7 @@ import type {
     SubmissionListFilter,
     TrendFilter,
     SkillsDashboard,
+    MobilityDashboard,
 } from '../core/analytics-types';
 
 @Injectable()
@@ -118,6 +119,28 @@ export class OnefopAnalyticsFacade {
         f: Parameters<MobilityAnalyticsService['getDeparturesByLocation']>[0],
     ) => this.mobility.getDeparturesByLocation(f);
 
+    /**
+     * Departure rates relative to total workforce (turnover/retention),
+     * not just departure-type shares. Reuses the employment summary
+     * resolved here instead of MobilityAnalyticsService.getMobilityDashboard's
+     * standalone path, which would re-read the 4 detail tables.
+     */
+    async getMobilityDashboard(filter: AnalyticsFilter): Promise<MobilityDashboard> {
+        const ids = await this.query.resolveSubmissionIds(filter);
+        if (!ids.length) return this.mobility.computeMobilityDashboard(0, []);
+
+        const f: AnalyticsFilter = { ...filter, _ids: ids };
+        const [employmentSummary, departures] = await Promise.all([
+            this.employment.getPermanentEmployeeSummary(f),
+            this.mobility.getDepartureSummary(f),
+        ]);
+
+        return this.mobility.computeMobilityDashboard(
+            employmentSummary.totalPermanentEmployees,
+            departures,
+        );
+    }
+
     // ─────────────────────────────────────────────────────────────
     // INCLUSION
     // ─────────────────────────────────────────────────────────────
@@ -201,6 +224,9 @@ export class OnefopAnalyticsFacade {
 
     getSubmissions = (f: SubmissionListFilter) =>
         this.education.getSubmissions(f);
+
+    /** Distinct sector values in use, for the analytics filter picker. */
+    getDistinctSectors = () => this.query.getDistinctSectors();
 
     // ─────────────────────────────────────────────────────────────
     // AGGREGATE HELPERS

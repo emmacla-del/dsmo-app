@@ -41,6 +41,7 @@ export class OnefopAnalyticsController {
             department: q.department,
             subdivision: q.subdivision,
             entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -55,6 +56,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -73,6 +76,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             groupBy: q.groupBy || 'region',
         });
     }
@@ -88,6 +93,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             groupBy: q.groupBy || 'region',
         });
     }
@@ -103,6 +110,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -117,6 +126,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -136,6 +147,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             granularity: q.granularity || 'year',
         });
     }
@@ -151,6 +164,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             csp: q.csp,
             gender: q.gender,
             ageBand: q.ageGroup || q.ageBand,
@@ -168,6 +183,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             csp: q.csp,
             gender: q.gender,
             ageBand: q.ageGroup || q.ageBand,
@@ -183,6 +200,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             limit: toInt(q.limit),
         });
     }
@@ -202,6 +221,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             granularity: q.granularity || 'annual',
         });
     }
@@ -221,6 +242,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -235,6 +258,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -249,6 +274,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             breakdownBy: q.breakdownBy,
         });
     }
@@ -264,6 +291,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             breakdownBy: q.breakdownBy,
         });
     }
@@ -279,6 +308,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             limit: toInt(q.limit),
         });
     }
@@ -290,6 +321,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             limit: toInt(q.limit),
         });
     }
@@ -301,6 +334,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             limit: toInt(q.limit),
         });
     }
@@ -316,6 +351,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -330,6 +367,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             groupBy: q.groupBy || 'businessSector',
         });
     }
@@ -341,6 +380,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             groupBy: q.groupBy || 'companySize',
         });
     }
@@ -358,6 +399,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -370,6 +413,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             limit: toInt(q.limit),
         });
     }
@@ -387,6 +432,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -399,6 +446,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -415,6 +464,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -427,6 +478,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -439,6 +492,22 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
+        });
+    }
+
+    @Get('mobility-dashboard')
+    async getMobilityDashboard(@Query() q: any) {
+        return this.analytics.getMobilityDashboard({
+            surveyYear: toInt(q.year) ?? toInt(q.surveyYear),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -455,6 +524,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -467,6 +538,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -483,6 +556,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -501,6 +576,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -515,6 +592,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -529,6 +608,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             granularity: q.granularity || 'quarter',
         });
     }
@@ -548,6 +629,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -562,6 +645,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
         });
     }
 
@@ -576,6 +661,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             dimension: q.dimension || 'sector',
         });
     }
@@ -591,6 +678,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             groupBy: q.groupBy || 'region',
         });
     }
@@ -606,6 +695,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             groupBy: q.groupBy || 'region',
         });
     }
@@ -625,6 +716,8 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             granularity: q.granularity || 'quarter',
         });
     }
@@ -644,8 +737,19 @@ export class OnefopAnalyticsController {
             region: q.region,
             department: q.department,
             subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
             granularity: q.granularity || 'quarter',
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SECTOR REFERENCE (for the analytics filter picker)
+    // ─────────────────────────────────────────────────────────────
+
+    @Get('sectors')
+    async getSectors() {
+        return this.analytics.getDistinctSectors();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -664,6 +768,7 @@ export class OnefopAnalyticsController {
             department: q.department,
             subdivision: q.subdivision,
             entityType: q.entityType,
+            sector: q.sector,
             status: q.status,
             limit: toInt(q.limit),
             offset: toInt(q.offset),

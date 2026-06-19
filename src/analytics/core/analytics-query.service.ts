@@ -44,8 +44,19 @@ export class AnalyticsQueryService {
     }
 
     async resolveSubmissions(filter: AnalyticsFilter): Promise<SubmissionMeta[]> {
+        const where = this.buildSubmissionWhere(filter);
+
+        // `sector` (S1Q07) lives on the entity-detail tables, not on
+        // OnefopSubmission, so it can't be expressed in buildSubmissionWhere
+        // directly — resolve the matching submission ids first and intersect.
+        if (filter.sector) {
+            const sectorIds = await this.resolveSubmissionIdsBySector(filter.sector);
+            if (!sectorIds.length) return [];
+            where['id'] = { in: sectorIds };
+        }
+
         return (this.prisma as any).onefopSubmission.findMany({
-            where: this.buildSubmissionWhere(filter),
+            where,
             select: {
                 id: true,
                 surveyYear: true,
@@ -57,6 +68,50 @@ export class AnalyticsQueryService {
                 createdAt: true,
             },
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Resolve the submission ids whose entity-detail row has the given
+    // sector (S1Q07), across all 4 entity types.
+    // ─────────────────────────────────────────────────────────────
+    private async resolveSubmissionIdsBySector(sector: string): Promise<string[]> {
+        const where = { sector: { equals: sector, mode: 'insensitive' as const } };
+        const [enterprises, cooperatives, ctds, ongs] = await Promise.all([
+            (this.prisma as any).onefopEnterpriseDetail.findMany({ where, select: { submissionId: true } }),
+            (this.prisma as any).onefopCooperativeDetail.findMany({ where, select: { submissionId: true } }),
+            (this.prisma as any).onefopCtdDetail.findMany({ where, select: { submissionId: true } }),
+            (this.prisma as any).onefopOngDetail.findMany({ where, select: { submissionId: true } }),
+        ]);
+        return [...enterprises, ...cooperatives, ...ctds, ...ongs].map((r) => r.submissionId);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Distinct sector values actually in use, for the analytics filter
+    // picker. Only looks at entities belonging to an approved submission.
+    // ─────────────────────────────────────────────────────────────
+    async getDistinctSectors(): Promise<string[]> {
+        const approvedIds = (
+            await (this.prisma as any).onefopSubmission.findMany({
+                where: { status: SubmissionStatus.APPROVED },
+                select: { id: true },
+            })
+        ).map((s: { id: string }) => s.id);
+        if (!approvedIds.length) return [];
+
+        const where = { submissionId: { in: approvedIds }, sector: { not: null } };
+        const [enterprises, cooperatives, ctds, ongs] = await Promise.all([
+            (this.prisma as any).onefopEnterpriseDetail.findMany({ where, select: { sector: true } }),
+            (this.prisma as any).onefopCooperativeDetail.findMany({ where, select: { sector: true } }),
+            (this.prisma as any).onefopCtdDetail.findMany({ where, select: { sector: true } }),
+            (this.prisma as any).onefopOngDetail.findMany({ where, select: { sector: true } }),
+        ]);
+
+        const sectors = new Set<string>();
+        for (const row of [...enterprises, ...cooperatives, ...ctds, ...ongs]) {
+            const value = (row.sector as string | null)?.trim();
+            if (value) sectors.add(value);
+        }
+        return [...sectors].sort((a, b) => a.localeCompare(b));
     }
 
     // ─────────────────────────────────────────────────────────────
