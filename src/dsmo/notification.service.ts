@@ -174,6 +174,49 @@ export class NotificationService {
     }
 
     /**
+     * Email a pre-resolved list of companies directly (no permission/audit
+     * checks — callers like CampaignService have already authorized the
+     * action via their own route guards). Looks up each company's user
+     * email and reuses the same SMTP transporter/template as sendNotification.
+     */
+    async sendToCompanies(
+        companies: { id: string; userId: string | null; name: string }[],
+        subject: string,
+        message: string,
+    ): Promise<{ sent: number; failed: number }> {
+        let sent = 0;
+        let failed = 0;
+
+        for (const company of companies) {
+            if (!company.userId) {
+                failed++;
+                continue;
+            }
+            try {
+                const user = await this.prisma.user.findUnique({ where: { id: company.userId } });
+                if (!user?.email) {
+                    failed++;
+                    continue;
+                }
+
+                await this.transporter.sendMail({
+                    from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+                    to: user.email,
+                    subject,
+                    text: `${company.name},\n\n${message}`,
+                    html: this.generateEmailHtml(company.name, message),
+                });
+                sent++;
+            } catch (error) {
+                this.logger.warn(`Failed to email company ${company.id}: ${(error as Error).message}`);
+                failed++;
+            }
+        }
+
+        return { sent, failed };
+    }
+
+    /**
      * Send deadline reminder emails (automated or manual).
      */
     async sendDeadlineReminders(

@@ -2,6 +2,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../dsmo/notification.service';
 import { UserRole } from '../types/prisma.types';
 
 // Transaction client type provided by Prisma — doesn't include NestJS lifecycle methods.
@@ -11,7 +12,10 @@ type PrismaTx = Prisma.TransactionClient;
 export class CampaignService {
     private readonly logger = new Logger(CampaignService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService,
+    ) { }
 
     async createCampaign(data: any) {
         const code = await this.generateCampaignCode(data.type, new Date(data.startDate));
@@ -204,6 +208,37 @@ export class CampaignService {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id: campaignId } });
         if (!campaign) throw new NotFoundException('Campaign not found');
 
+        const companies = await this._getPendingCompanies(campaignId);
+        const subject = this.getReminderSubject(reminderType, campaign.name);
+        const message = this.getReminderMessage(reminderType, campaign);
+
+        const { sent, failed } = await this.notificationService.sendToCompanies(
+            companies,
+            subject,
+            message,
+        );
+
+        const reminder = await this.prisma.campaignReminder.create({
+            data: {
+                campaignId,
+                reminderType,
+                recipientCount: sent,
+                subject,
+                message,
+            },
+        });
+
+        this.logger.log(
+            `Reminder [${reminderType}] sent to ${sent}/${companies.length} recipients for campaign ${campaignId} (${failed} failed)`,
+        );
+        return reminder;
+    }
+
+    /**
+     * Companies still pending (not SUBMITTED/VALIDATED) for a campaign,
+     * with the fields NotificationService needs to email them.
+     */
+    private async _getPendingCompanies(campaignId: string) {
         // FIX N+1: fetch pending submissions, then all their companies in one query.
         const pendingSubmissions = await this.prisma.campaignSubmission.findMany({
             where: { campaignId, status: { notIn: ['SUBMITTED', 'VALIDATED'] } },
@@ -214,22 +249,10 @@ export class CampaignService {
             .map(s => s.establishmentId)
             .filter((id): id is string => id != null);
 
-        const recipientCount = await this.prisma.company.count({
+        return this.prisma.company.findMany({
             where: { establishmentId: { in: establishmentIds } },
+            select: { id: true, userId: true, name: true },
         });
-
-        const reminder = await this.prisma.campaignReminder.create({
-            data: {
-                campaignId,
-                reminderType,
-                recipientCount,
-                subject: this.getReminderSubject(reminderType, campaign.name),
-                message: this.getReminderMessage(reminderType, campaign),
-            },
-        });
-
-        this.logger.log(`Reminder [${reminderType}] sent to ${recipientCount} recipients for campaign ${campaignId}`);
-        return reminder;
     }
 
     async getActiveCampaignsForCompany(userId: string) {
@@ -376,6 +399,7 @@ export class CampaignService {
             DEADLINE_APPROACHING: `Rappel: Échéance de la campagne ${campaignName}`,
             FINAL_REMINDER: `Dernier rappel: ${campaignName} se termine bientôt`,
             DEADLINE_EXTENDED: `Prorogation: Nouvelle échéance pour ${campaignName}`,
+            CAMPAIGN_EXPIRED: `Campagne clôturée: ${campaignName}`,
         };
         return subjects[type] ?? `Information: ${campaignName}`;
     }
@@ -386,6 +410,7 @@ export class CampaignService {
             DEADLINE_APPROACHING: `La campagne "${campaign.name}" se termine le ${campaign.deadline?.toLocaleDateString('fr-FR')}. Finalisez votre soumission.`,
             FINAL_REMINDER: `DERNIER RAPPEL: La campagne "${campaign.name}" se termine dans 24 heures.`,
             DEADLINE_EXTENDED: `La date limite de "${campaign.name}" a été prolongée au ${campaign.deadline?.toLocaleDateString('fr-FR')}.`,
+            CAMPAIGN_EXPIRED: `La campagne "${campaign.name}" est désormais clôturée. Aucune soumission supplémentaire ne sera prise en compte.`,
         };
         return messages[type] ?? `Veuillez prendre connaissance de la campagne "${campaign.name}".`;
     }
