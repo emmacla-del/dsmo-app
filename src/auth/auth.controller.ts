@@ -163,6 +163,28 @@ export class AuthController {
     return this.authService.rejectUser(id);
   }
 
+  // Admin-mediated reset: SUPER_ADMIN verifies identity out-of-band, then
+  // generates a one-time temporary password to relay to the user directly.
+  @Post('admin/reset-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  async adminResetPassword(@Body('email') email: string, @Request() req: any) {
+    return this.authService.adminResetPassword(email, req.user.id);
+  }
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Request() req: any,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(
+      req.user.id,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
+
   @Get('check-email')
   async checkEmail(@Query('email') email: string) {
     const available = await this.authService.isEmailAvailable(email);

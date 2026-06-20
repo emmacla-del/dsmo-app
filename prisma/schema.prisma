@@ -132,6 +132,7 @@ model User {
   rejectedAt        DateTime?
   passwordResetTokenHash String?
   passwordResetExpires   DateTime?
+  mustChangePassword     Boolean   @default(false)
   emailVerified              Boolean   @default(true)
   emailVerificationTokenHash String?
   emailVerificationExpires   DateTime?

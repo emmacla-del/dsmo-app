@@ -12,9 +12,11 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 import { NotificationService } from '../dsmo/notification.service';
+import { AuditService } from '../dsmo/audit.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const TEMP_PASSWORD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationService: NotificationService,
+    private auditService: AuditService,
   ) { }
 
   async validateUser(email: string, password: string) {
@@ -101,6 +104,7 @@ export class AuthService {
         department: user.department,
         stream: user.stream,
         emailVerified: user.emailVerified,
+        mustChangePassword: user.mustChangePassword,
         features,
       },
     };
@@ -466,6 +470,72 @@ export class AuthService {
     });
 
     return { message: 'Mot de passe réinitialisé avec succès.' };
+  }
+
+  /**
+   * Admin-mediated reset: SUPER_ADMIN has verified the user's identity
+   * out-of-band (phone/in person) and generates a one-time temporary
+   * password to relay to them directly. No email involved.
+   */
+  async adminResetPassword(email: string, adminUserId: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('Utilisateur introuvable.');
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, mustChangePassword: true },
+    });
+
+    await this.auditService.log(
+      adminUserId,
+      'ADMIN_RESET_PASSWORD',
+      'User',
+      user.id,
+      `Generated a temporary password for ${user.email}`,
+    );
+
+    return { email: user.email, temporaryPassword };
+  }
+
+  private generateTemporaryPassword(length = 10): string {
+    return Array.from(crypto.randomFillSync(new Uint8Array(length)))
+      .map((b) => TEMP_PASSWORD_CHARS[b % TEMP_PASSWORD_CHARS.length])
+      .join('');
+  }
+
+  /**
+   * Authenticated password change. Used both for the voluntary "change my
+   * password" action and for the forced change after an admin-issued
+   * temporary password (mustChangePassword).
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestException('Mot de passe actuel et nouveau mot de passe requis');
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable.');
+
+    const currentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!currentValid) {
+      throw new BadRequestException('Mot de passe actuel incorrect.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: false },
+    });
+
+    return { message: 'Mot de passe mis à jour avec succès.' };
   }
 
   private async issueEmailVerificationToken(userId: string): Promise<string> {
