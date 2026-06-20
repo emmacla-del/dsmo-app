@@ -1,5 +1,5 @@
 // src/report/report.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportType, ReportFormat } from '../types/prisma.types';
@@ -117,6 +117,8 @@ export interface AuditLogEntry {
 
 @Injectable()
 export class ReportService {
+    private readonly logger = new Logger(ReportService.name);
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly reportPdfService: ReportPdfService,
@@ -410,7 +412,7 @@ export class ReportService {
         });
 
         this.processBatchJob(jobId, params).catch(err => {
-            console.error(`Batch job ${jobId} failed:`, err);
+            this.logger.error(`Batch job ${jobId} failed: ${(err as Error).message}`, (err as Error).stack);
         });
 
         return { id: job.id, status: 'PENDING', message: 'Batch generation started' };
@@ -456,7 +458,7 @@ export class ReportService {
                     completed++;
                 } catch (e) {
                     failed++;
-                    console.error(`Failed to generate report for region ${region}:`, e);
+                    this.logger.error(`Failed to generate report for region ${region}: ${(e as Error).message}`, (e as Error).stack);
                 }
 
                 // FIX: was this.prisma.batchJob → correct name is batch_jobs
@@ -526,7 +528,7 @@ export class ReportService {
         };
 
         this.processBatchJob(jobId, params).catch(err => {
-            console.error(`Retry job ${jobId} failed:`, err);
+            this.logger.error(`Retry job ${jobId} failed: ${(err as Error).message}`, (err as Error).stack);
         });
 
         return { success: true, message: 'Job retry started' };

@@ -437,6 +437,7 @@ model CampaignReminder {
   message        String?
   createdAt      DateTime     @default(now())
   recipientCount Int          @default(0)
+  failedCount    Int          @default(0)
   reminderType   String       @default("INITIAL")
   subject        String?
   campaign       DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)

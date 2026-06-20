@@ -223,14 +223,20 @@ export class CampaignService {
                 campaignId,
                 reminderType,
                 recipientCount: sent,
+                failedCount: failed,
                 subject,
                 message,
             },
         });
 
-        this.logger.log(
-            `Reminder [${reminderType}] sent to ${sent}/${companies.length} recipients for campaign ${campaignId} (${failed} failed)`,
-        );
+        const summary = `Reminder [${reminderType}] sent to ${sent}/${companies.length} recipients for campaign ${campaignId} (${failed} failed)`;
+        // Elevate to warn when anything failed, so a fully-failed batch (e.g.
+        // SMTP outage) stands out in logs instead of reading like a routine send.
+        if (failed > 0) {
+            this.logger.warn(summary);
+        } else {
+            this.logger.log(summary);
+        }
         return reminder;
     }
 
