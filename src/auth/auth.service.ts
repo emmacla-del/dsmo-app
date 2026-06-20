@@ -314,13 +314,13 @@ export class AuthService {
 
       const rawToken = await this.issueEmailVerificationToken(user.id);
       const verifyLink = `${process.env.APP_URL || 'https://dsmo.ministry.cm'}/verify-email?token=${rawToken}`;
-      try {
-        await this.notificationService.sendEmailVerificationEmail(user.email, verifyLink);
-      } catch (error) {
+      // Fire-and-forget: a slow/unreachable SMTP server must not block the
+      // registration response (the account is already created at this point).
+      this.notificationService.sendEmailVerificationEmail(user.email, verifyLink).catch((error) => {
         this.logger.error(
           `Failed to send verification email to ${user.email}: ${(error as Error).message}`,
         );
-      }
+      });
 
       // ✅ Return the login response WITH company data including establishmentId
       const loginResult = await this.login(user);

@@ -21,6 +21,12 @@ export class NotificationService {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             } : undefined,
+            // Without these, a stalled/unreachable SMTP server can hang for
+            // nodemailer's defaults (connectionTimeout 2min, socketTimeout 10min),
+            // blocking any request path that awaits an email send.
+            connectionTimeout: 10_000,
+            greetingTimeout: 10_000,
+            socketTimeout: 10_000,
         });
 
         if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
