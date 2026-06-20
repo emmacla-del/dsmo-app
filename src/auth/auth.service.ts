@@ -419,13 +419,13 @@ export class AuthService {
     const baseUrl = process.env.APP_URL || 'https://dsmo.ministry.cm';
     const resetLink = `${baseUrl}/reset-password?token=${rawToken}`;
 
-    try {
-      await this.notificationService.sendPasswordResetEmail(user.email, resetLink);
-    } catch (error) {
+    // Fire-and-forget: the response is identical regardless of email outcome
+    // (we never reveal whether the account exists), so don't block on SMTP.
+    this.notificationService.sendPasswordResetEmail(user.email, resetLink).catch((error) => {
       this.logger.error(
         `Failed to send password reset email to ${user.email}: ${(error as Error).message}`,
       );
-    }
+    });
 
     return genericResponse;
   }
