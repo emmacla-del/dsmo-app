@@ -7,10 +7,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
+import { OnefopSubmissionPdfService } from '../pdf/onefop-submission-pdf.service';
 
 @Injectable()
 export class OnefopService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private pdfService: OnefopSubmissionPdfService,
+    ) { }
 
     async submitForm(userId: string, dto: OnefopSubmissionDto) {
         const { data, entityType, isDraft, formId, establishmentId, quarterCode, __meta } = dto;
@@ -152,6 +156,18 @@ export class OnefopService {
         }
 
         return submission;
+    }
+
+    async getSubmissionPdfUrl(submissionId: string): Promise<string> {
+        const submission = await this.prisma.onefopSubmission.findFirst({
+            where: { id: submissionId },
+        });
+
+        if (!submission) {
+            throw new NotFoundException('Submission not found');
+        }
+
+        return this.pdfService.getSignedUrl(submission);
     }
 
     async getActiveQuarter() {

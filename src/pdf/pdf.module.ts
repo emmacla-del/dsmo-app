@@ -2,9 +2,10 @@
 
 import { Module } from '@nestjs/common';
 import { OnefopPuppeteerService } from './onefop-puppeteer.service';
+import { OnefopSubmissionPdfService } from './onefop-submission-pdf.service';
 
 @Module({
-  providers: [OnefopPuppeteerService],
-  exports: [OnefopPuppeteerService],
+  providers: [OnefopPuppeteerService, OnefopSubmissionPdfService],
+  exports: [OnefopPuppeteerService, OnefopSubmissionPdfService],
 })
 export class PdfModule { }

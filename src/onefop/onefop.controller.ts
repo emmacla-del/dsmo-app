@@ -4,10 +4,12 @@ import {
     Get,
     UseGuards,
     Req,
+    Res,
     Query,
     Param,
     ParseUUIDPipe,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { OnefopService } from './onefop.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -41,6 +43,13 @@ export class OnefopController {
     @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
     async getSubmissionDetail(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
         return this.onefopService.getSubmissionDetail(req.user.id, id);
+    }
+
+    @Get('submissions/:id/pdf')
+    @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+    async downloadSubmissionPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+        const url = await this.onefopService.getSubmissionPdfUrl(id);
+        res.redirect(url);
     }
 
     @Get('active-quarter')
