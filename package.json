@@ -15,7 +15,17 @@
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "postinstall": "prisma generate && npx puppeteer browsers install chrome"
+    "postinstall": "prisma generate && npx puppeteer browsers install chrome",
+    "test": "jest"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "testEnvironment": "node"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.19",
@@ -41,6 +51,7 @@
     "prisma": "^5.22.0",
     "puppeteer": "22.15.0",
     "reflect-metadata": "^0.1.14",
+    "resend": "^6.14.0",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
@@ -48,11 +59,14 @@
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.25",
     "@types/handlebars": "^4.0.40",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.39",
     "@types/nodemailer": "^8.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/pdfkit": "^0.17.5",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
   }
