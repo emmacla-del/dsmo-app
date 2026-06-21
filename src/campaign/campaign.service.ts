@@ -20,7 +20,7 @@ export class CampaignService {
     async createCampaign(data: any) {
         const code = await this.generateCampaignCode(data.type, new Date(data.startDate));
 
-        return this.prisma.dataCampaign.create({
+        const campaign = await this.prisma.dataCampaign.create({
             data: {
                 code,
                 name: data.name,
@@ -36,6 +36,11 @@ export class CampaignService {
                 createdBy: data.createdBy,
             },
         });
+
+        // Campaigns go live immediately on creation — entities matching the
+        // targeting criteria need to see them right away, not after a separate
+        // manual "activate" step the admin may not know to take.
+        return this.activateCampaign(campaign.id);
     }
 
     async listCampaigns(status?: string, type?: string, user?: any) {
