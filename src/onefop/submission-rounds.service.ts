@@ -27,15 +27,17 @@ export class SubmissionRoundsService {
         });
     }
 
-    // Opens the given round and atomically closes any other round that was
-    // still OPEN/EXTENDED, so "the active round" always resolves unambiguously.
+    // Opens the given round and atomically closes any other round of the
+    // same module that was still OPEN/EXTENDED, so "the active round" for a
+    // given module always resolves unambiguously. Scoped per module so an
+    // ONEFOP round and a DSMO round can be open at the same time.
     async open(id: string, userId: string) {
         const round = await this.prisma.submissionRound.findUnique({ where: { id } });
         if (!round) throw new NotFoundException('Submission round not found');
 
         return this.prisma.$transaction(async (tx) => {
             await tx.submissionRound.updateMany({
-                where: { id: { not: id }, status: { in: ['OPEN', 'EXTENDED'] } },
+                where: { id: { not: id }, module: round.module, status: { in: ['OPEN', 'EXTENDED'] } },
                 data: { status: 'CLOSED', closedAt: new Date(), closedBy: userId },
             });
             return tx.submissionRound.update({
@@ -55,9 +57,9 @@ export class SubmissionRoundsService {
         });
     }
 
-    async getActive() {
+    async getActive(module: 'ONEFOP' | 'DSMO' = 'ONEFOP') {
         return this.prisma.submissionRound.findFirst({
-            where: { status: { in: ['OPEN', 'EXTENDED'] } },
+            where: { module, status: { in: ['OPEN', 'EXTENDED'] } },
             orderBy: { openedAt: 'desc' },
         });
     }

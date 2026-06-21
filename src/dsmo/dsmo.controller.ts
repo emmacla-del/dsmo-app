@@ -38,6 +38,11 @@ export class DsmoController {
 
   // ===== CORE DECLARATION ENDPOINTS =====
 
+  @Get('active-period')
+  async getActivePeriod() {
+    return this.dsmoService.getActivePeriod();
+  }
+
   @Post('declaration')
   @Roles('COMPANY')
   async submitDeclaration(@Req() req: any, @Body() dto: SubmitDeclarationDto) {

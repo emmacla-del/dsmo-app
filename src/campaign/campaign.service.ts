@@ -1,6 +1,6 @@
 // src/campaign/campaign.service.ts
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, DataCampaign, OnefopEntityType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
 import { UserRole } from '../types/prisma.types';
@@ -26,6 +26,7 @@ export class CampaignService {
                 name: data.name,
                 description: data.description,
                 type: data.type,
+                collectionType: data.collectionType === 'DSMO' ? 'DSMO' : 'ONEFOP',
                 startDate: new Date(data.startDate),
                 deadline: new Date(data.deadline),
                 targetRegions: data.targetRegions || [],
@@ -40,7 +41,7 @@ export class CampaignService {
         // Campaigns go live immediately on creation — entities matching the
         // targeting criteria need to see them right away, not after a separate
         // manual "activate" step the admin may not know to take.
-        return this.activateCampaign(campaign.id);
+        return this.activateCampaign(campaign.id, data.createdBy);
     }
 
     async listCampaigns(status?: string, type?: string, user?: any) {
@@ -113,10 +114,14 @@ export class CampaignService {
     }
 
     async deleteCampaign(id: string) {
+        // Deleting the campaign sets the round's campaignId to NULL (FK is
+        // ON DELETE SET NULL) rather than deleting it — close it first so an
+        // OPEN round doesn't survive, orphaned, past its campaign's deletion.
+        await this._closeCollectionRound(id);
         return this.prisma.dataCampaign.delete({ where: { id } });
     }
 
-    async activateCampaign(id: string) {
+    async activateCampaign(id: string, actorUserId?: string) {
         const campaign = await this.prisma.dataCampaign.findUnique({ where: { id } });
         if (!campaign) throw new NotFoundException('Campaign not found');
 
@@ -135,6 +140,11 @@ export class CampaignService {
             });
         });
 
+        // This is what actually opens data collection for companies — without
+        // it, the campaign just tracked reminders/status while the real
+        // ONEFOP/DSMO submission gate (SubmissionRound) stayed untouched.
+        await this._openCollectionRound(campaign, actorUserId ?? campaign.createdBy ?? undefined);
+
         if (campaign.autoReminders) {
             await this.sendReminders(id, 'CAMPAIGN_ANNOUNCEMENT');
         }
@@ -142,24 +152,35 @@ export class CampaignService {
         return this.prisma.dataCampaign.findUnique({ where: { id } });
     }
 
-    async pauseCampaign(id: string) {
-        return this.prisma.dataCampaign.update({
+    async pauseCampaign(id: string, actorUserId?: string) {
+        const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: { status: 'PAUSED' },
         });
+        await this._closeCollectionRound(id, actorUserId ?? campaign.createdBy ?? undefined);
+        return campaign;
     }
 
-    async closeCampaign(id: string) {
-        return this.prisma.dataCampaign.update({
+    async closeCampaign(id: string, actorUserId?: string) {
+        const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: { status: 'CLOSED', closedAt: new Date() },
         });
+        await this._closeCollectionRound(id, actorUserId ?? campaign.createdBy ?? undefined);
+        return campaign;
     }
 
     async extendDeadline(id: string, newDeadline: Date) {
         const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: { deadline: newDeadline, extendedDeadline: newDeadline, status: 'ACTIVE' },
+        });
+        // Keep the open round's deadline in sync; bump it to EXTENDED so the
+        // distinction between "still within the original window" and
+        // "running past it" survives in the round's own status too.
+        await this.prisma.submissionRound.updateMany({
+            where: { campaignId: id, status: { in: ['OPEN', 'EXTENDED'] } },
+            data: { deadline: newDeadline, periodEnd: newDeadline, status: 'EXTENDED' },
         });
         await this.sendReminders(id, 'DEADLINE_EXTENDED');
         return campaign;
@@ -304,6 +325,70 @@ export class CampaignService {
     // ═══════════════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Opens (or reopens) the SubmissionRound that gates the campaign's
+     * collectionType module. One round per campaign (campaignId is unique),
+     * so reactivating a PAUSED campaign reopens its existing round instead
+     * of creating a duplicate. Any other round still open for the same
+     * module is closed first — only one round per module may be open at
+     * once, mirroring SubmissionRoundsService.open()'s invariant.
+     */
+    private async _openCollectionRound(campaign: DataCampaign, userId?: string) {
+        const periodEnd = campaign.extendedDeadline ?? campaign.deadline ?? new Date();
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.submissionRound.updateMany({
+                where: {
+                    campaignId: { not: campaign.id },
+                    module: campaign.collectionType,
+                    status: { in: ['OPEN', 'EXTENDED'] },
+                },
+                data: { status: 'CLOSED', closedAt: new Date(), closedBy: userId },
+            });
+
+            await tx.submissionRound.upsert({
+                where: { campaignId: campaign.id },
+                create: {
+                    campaignId: campaign.id,
+                    module: campaign.collectionType,
+                    quarterCode: campaign.code,
+                    labelFr: campaign.name,
+                    labelEn: campaign.name,
+                    periodStart: campaign.startDate ?? new Date(),
+                    periodEnd,
+                    deadline: periodEnd,
+                    targetRegions: campaign.targetRegions,
+                    targetEntityTypes: campaign.targetEntityTypes as OnefopEntityType[],
+                    status: 'OPEN',
+                    openedAt: new Date(),
+                    openedBy: userId,
+                },
+                update: {
+                    labelFr: campaign.name,
+                    labelEn: campaign.name,
+                    periodStart: campaign.startDate ?? undefined,
+                    periodEnd,
+                    deadline: periodEnd,
+                    targetRegions: campaign.targetRegions,
+                    targetEntityTypes: campaign.targetEntityTypes as OnefopEntityType[],
+                    status: 'OPEN',
+                    openedAt: new Date(),
+                    openedBy: userId,
+                    closedAt: null,
+                    closedBy: null,
+                },
+            });
+        });
+    }
+
+    /** Closes the SubmissionRound tied to this campaign, if one is open. */
+    private async _closeCollectionRound(campaignId: string, userId?: string) {
+        await this.prisma.submissionRound.updateMany({
+            where: { campaignId, status: { in: ['OPEN', 'EXTENDED'] } },
+            data: { status: 'CLOSED', closedAt: new Date(), closedBy: userId },
+        });
+    }
 
     /**
      * Shared progress builder — used by both getCampaignProgress()

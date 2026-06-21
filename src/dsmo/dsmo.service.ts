@@ -249,7 +249,38 @@ export class DsmoService {
     }
   }
 
+  /**
+   * Mirrors OnefopService.getActiveQuarter() but scoped to the DSMO module —
+   * the SubmissionRound a DataCampaign opens when its collectionType is
+   * DSMO. No round open means no DSMO declaration period is currently
+   * collecting data.
+   */
+  async getActivePeriod() {
+    const round = await this.prisma.submissionRound.findFirst({
+      where: { module: 'DSMO', status: { in: ['OPEN', 'EXTENDED'] } },
+      orderBy: { openedAt: 'desc' },
+    });
+    if (!round) {
+      return {
+        isOpen: false,
+        code: null,
+        message: "Aucune période de déclaration DSMO n'est actuellement ouverte.",
+      };
+    }
+    return {
+      isOpen: true,
+      code: round.quarterCode,
+      label: round.labelFr,
+      deadline: round.deadline,
+    };
+  }
+
   async submitDeclaration(userId: string, dto: SubmitDeclarationDto) {
+    const activePeriod = await this.getActivePeriod();
+    if (!activePeriod.isOpen) {
+      throw new BadRequestException(activePeriod.message);
+    }
+
     const company = await this.createOrUpdateCompany(userId, dto.company);
 
     const existingDecl = await this.prisma.declaration.findFirst({

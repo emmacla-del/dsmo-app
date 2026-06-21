@@ -113,47 +113,47 @@ model Sector {
 }
 
 model User {
-  id                String             @id @default(uuid())
-  email             String             @unique
-  passwordHash      String
-  firstName         String?
-  lastName          String?
-  role              UserRole           @default(COMPANY)
-  region            String?
-  department        String?
-  subdivision       String?
-  matricule         String?
-  poste             String?
-  serviceCode       String?
-  positionType      String?
-  positionTitle     String?
-  isActive          Boolean            @default(true)
-  rejectionReason   String?
-  rejectedAt        DateTime?
-  passwordResetTokenHash String?
-  passwordResetExpires   DateTime?
-  mustChangePassword     Boolean   @default(false)
-  emailVerified              Boolean   @default(true)
+  id                         String             @id @default(uuid())
+  email                      String             @unique
+  passwordHash               String
+  firstName                  String?
+  lastName                   String?
+  role                       UserRole           @default(COMPANY)
+  region                     String?
+  department                 String?
+  subdivision                String?
+  matricule                  String?
+  poste                      String?
+  serviceCode                String?
+  positionType               String?
+  positionTitle              String?
+  isActive                   Boolean            @default(true)
+  rejectionReason            String?
+  rejectedAt                 DateTime?
+  passwordResetTokenHash     String?
+  passwordResetExpires       DateTime?
+  mustChangePassword         Boolean            @default(false)
+  emailVerified              Boolean            @default(true)
   emailVerificationTokenHash String?
   emailVerificationExpires   DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  status            UserStatus         @default(PENDING_APPROVAL)
-  auditLogs         AuditLog[]
-  batchJobs         BatchJob[]
-  company           Company?
-  createdCampaigns  DataCampaign[]     @relation("CampaignCreatedBy")
-  distributionLists DistributionList[]
-  distributionLogs  DistributionLog[]
-  notifications     Notification[]
-  onefopSubmissions OnefopSubmission[]
-  approvedReports   Report[]           @relation("ReportApprovedBy")
-  generatedReports  Report[]
-  scheduledReports  ScheduledReport[]
-  submissionDrafts  SubmissionDraft[]
-  closedRounds      SubmissionRound[]  @relation("RoundClosedBy")
-  openedRounds      SubmissionRound[]  @relation("RoundOpenedBy")
-  minefopService    MinefopService?    @relation(fields: [serviceCode], references: [code])
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  status                     UserStatus         @default(PENDING_APPROVAL)
+  auditLogs                  AuditLog[]
+  batchJobs                  BatchJob[]
+  company                    Company?
+  createdCampaigns           DataCampaign[]     @relation("CampaignCreatedBy")
+  distributionLists          DistributionList[]
+  distributionLogs           DistributionLog[]
+  notifications              Notification[]
+  onefopSubmissions          OnefopSubmission[]
+  approvedReports            Report[]           @relation("ReportApprovedBy")
+  generatedReports           Report[]
+  scheduledReports           ScheduledReport[]
+  submissionDrafts           SubmissionDraft[]
+  closedRounds               SubmissionRound[]  @relation("RoundClosedBy")
+  openedRounds               SubmissionRound[]  @relation("RoundOpenedBy")
+  minefopService             MinefopService?    @relation(fields: [serviceCode], references: [code])
 
   @@index([role])
   @@index([serviceCode])
@@ -402,10 +402,14 @@ model DataCampaign {
   targetEntityTypes String[]             @default([])
   targetRegions     String[]             @default([])
   type              String?
+  // Which form this campaign actually gates — drives the SubmissionRound
+  // opened/closed alongside the campaign's lifecycle (see SubmissionRound.module).
+  collectionType    SubmissionModule     @default(ONEFOP)
   status            CampaignStatus       @default(DRAFT)
   reminders         CampaignReminder[]
   submissions       CampaignSubmission[]
   creator           User?                @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
+  round             SubmissionRound?
 
   @@index([status])
   @@map("data_campaigns")
@@ -528,16 +532,25 @@ model SubmissionRound {
   status            RoundStatus        @default(DRAFT)
   targetRegions     String[]           @default([])
   targetEntityTypes OnefopEntityType[] @default([])
+  // Which form this round actually opens/closes submission for. Rounds are
+  // scoped per module so an ONEFOP round and a DSMO round can be open
+  // simultaneously without one closing the other.
+  module            SubmissionModule   @default(ONEFOP)
+  // Set when this round was opened/closed by a DataCampaign's lifecycle
+  // rather than directly via the admin Submission Rounds screen.
+  campaignId        String?            @unique
   openedBy          String?
   openedAt          DateTime?
   closedBy          String?
   closedAt          DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  campaign          DataCampaign?      @relation(fields: [campaignId], references: [id])
   closedByUser      User?              @relation("RoundClosedBy", fields: [closedBy], references: [id])
   openedByUser      User?              @relation("RoundOpenedBy", fields: [openedBy], references: [id])
 
   @@index([status])
+  @@index([module, status])
   @@index([deadline])
   @@index([quarterCode])
   @@map("submission_rounds")
@@ -1267,6 +1280,14 @@ enum RoundStatus {
   EXTENDED
   CLOSED
   ARCHIVED
+}
+
+// Shared between DataCampaign.collectionType and SubmissionRound.module so
+// a campaign's chosen collection type can be assigned directly to the round
+// it opens without a cast.
+enum SubmissionModule {
+  ONEFOP
+  DSMO
 }
 
 enum ReportType {

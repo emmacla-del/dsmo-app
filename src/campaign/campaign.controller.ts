@@ -56,20 +56,20 @@ export class CampaignController {
 
     @Post(':id/activate')
     @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL)
-    async activateCampaign(@Param('id') id: string) {
-        return this.campaignService.activateCampaign(id);
+    async activateCampaign(@Param('id') id: string, @Req() req: any) {
+        return this.campaignService.activateCampaign(id, req.user.id);
     }
 
     @Post(':id/pause')
     @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL)
-    async pauseCampaign(@Param('id') id: string) {
-        return this.campaignService.pauseCampaign(id);
+    async pauseCampaign(@Param('id') id: string, @Req() req: any) {
+        return this.campaignService.pauseCampaign(id, req.user.id);
     }
 
     @Post(':id/close')
     @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL)
-    async closeCampaign(@Param('id') id: string) {
-        return this.campaignService.closeCampaign(id);
+    async closeCampaign(@Param('id') id: string, @Req() req: any) {
+        return this.campaignService.closeCampaign(id, req.user.id);
     }
 
     @Post(':id/extend')

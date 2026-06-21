@@ -172,7 +172,7 @@ export class OnefopService {
 
     async getActiveQuarter() {
         const round = await this.prisma.submissionRound.findFirst({
-            where: { status: { in: ['OPEN', 'EXTENDED'] } },
+            where: { module: 'ONEFOP', status: { in: ['OPEN', 'EXTENDED'] } },
             orderBy: { openedAt: 'desc' },
         });
         if (!round) {
