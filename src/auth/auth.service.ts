@@ -12,11 +12,22 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 import { NotificationService } from '../dsmo/notification.service';
-import { AuditService } from '../dsmo/audit.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const TEMP_PASSWORD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+// Demo-grade self-service reset: fixed pool of 4 questions answered
+// against existing Company fields. No new table — see
+// getSecurityQuestions / resetPasswordWithSecurityAnswers.
+type SecurityQuestionKey = 'rccm' | 'phone' | 'companyName' | 'registrationDate';
+
+const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
+  rccm: 'Quel est le numéro RCCM (registre du commerce) de votre entreprise ?',
+  phone: 'Quel est le numéro de téléphone enregistré sur votre compte ?',
+  companyName: 'Quel est le nom de votre organisation ?',
+  registrationDate:
+    "Quel est le mois et l'année d'inscription de votre compte (format MM/AAAA) ?",
+};
 
 @Injectable()
 export class AuthService {
@@ -26,7 +37,6 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationService: NotificationService,
-    private auditService: AuditService,
   ) { }
 
   async validateUser(email: string, password: string) {
@@ -473,39 +483,123 @@ export class AuthService {
   }
 
   /**
-   * Admin-mediated reset: SUPER_ADMIN has verified the user's identity
-   * out-of-band (phone/in person) and generates a one-time temporary
-   * password to relay to them directly. No email involved.
+   * Self-service reset, step 1: always returns 2 randomly chosen questions
+   * from the fixed pool, regardless of whether the login exists — this
+   * never reveals account existence. Demo-grade: no rate limiting.
    */
-  async adminResetPassword(email: string, adminUserId: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new BadRequestException('Utilisateur introuvable.');
-    }
+  async getSecurityQuestions(_login: string) {
+    const keys = Object.keys(SECURITY_QUESTIONS) as SecurityQuestionKey[];
+    const selected = [...keys].sort(() => Math.random() - 0.5).slice(0, 2);
 
-    const temporaryPassword = this.generateTemporaryPassword();
-    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash, mustChangePassword: true },
-    });
-
-    await this.auditService.log(
-      adminUserId,
-      'ADMIN_RESET_PASSWORD',
-      'User',
-      user.id,
-      `Generated a temporary password for ${user.email}`,
-    );
-
-    return { email: user.email, temporaryPassword };
+    return {
+      questions: selected.map((key) => ({
+        key,
+        question: SECURITY_QUESTIONS[key],
+      })),
+    };
   }
 
-  private generateTemporaryPassword(length = 10): string {
-    return Array.from(crypto.randomFillSync(new Uint8Array(length)))
-      .map((b) => TEMP_PASSWORD_CHARS[b % TEMP_PASSWORD_CHARS.length])
-      .join('');
+  /**
+   * Self-service reset, step 2: both answers must match the user's Company
+   * fields (case-insensitive, trimmed). Demo-grade: no lockout/rate
+   * limiting, and any failure returns the same generic message so it
+   * doesn't reveal which part was wrong or whether the account exists.
+   */
+  async resetPasswordWithSecurityAnswers(
+    login: string,
+    answers: Record<string, string>,
+    newPassword: string,
+  ) {
+    const GENERIC_ERROR = 'Informations incorrectes.';
+
+    if (!login || !answers || Object.keys(answers).length !== 2 || !newPassword) {
+      throw new BadRequestException(GENERIC_ERROR);
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 8 caractères',
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email: login } });
+    if (!user) {
+      throw new BadRequestException(GENERIC_ERROR);
+    }
+
+    const company = await this.prisma.company.findUnique({
+      where: { userId: user.id },
+    });
+
+    const allCorrect = Object.entries(answers).every(([key, value]) =>
+      this.checkSecurityAnswer(key, value, company),
+    );
+    if (!allCorrect) {
+      throw new BadRequestException(GENERIC_ERROR);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, mustChangePassword: false },
+    });
+
+    return { message: 'Mot de passe réinitialisé avec succès.' };
+  }
+
+  private checkSecurityAnswer(
+    key: string,
+    providedAnswer: string,
+    company: {
+      registrationNumber: string | null;
+      phone: string | null;
+      name: string;
+      createdAt: Date;
+    } | null,
+  ): boolean {
+    if (!company || typeof providedAnswer !== 'string' || !providedAnswer.trim()) {
+      return false;
+    }
+
+    let expected: string | null;
+    switch (key as SecurityQuestionKey) {
+      case 'rccm':
+        expected = company.registrationNumber;
+        break;
+      case 'phone':
+        expected = company.phone;
+        break;
+      case 'companyName':
+        expected = company.name;
+        break;
+      case 'registrationDate':
+        expected = this.formatMonthYear(company.createdAt);
+        break;
+      default:
+        expected = null;
+    }
+
+    if (!expected) return false;
+    return providedAnswer.trim().toLowerCase() === expected.trim().toLowerCase();
+  }
+
+  private formatMonthYear(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${month}/${date.getFullYear()}`;
+  }
+
+  /**
+   * Admin-mediated reset: temporarily inert. It used to email a reset
+   * link, but EmailService was removed from the password reset flow in
+   * favor of the self-service security-question flow above
+   * (getSecurityQuestions / resetPasswordWithSecurityAnswers). This
+   * endpoint's replacement behavior hasn't been decided yet.
+   */
+  async adminResetPassword(_email: string, _adminUserId: string) {
+    throw new BadRequestException(
+      'La réinitialisation par administrateur est temporairement ' +
+        'indisponible. Utilisez le flux de questions de sécurité côté ' +
+        'utilisateur.',
+    );
   }
 
   /**

@@ -164,7 +164,7 @@ export class AuthController {
   }
 
   // Admin-mediated reset: SUPER_ADMIN verifies identity out-of-band, then
-  // generates a one-time temporary password to relay to the user directly.
+  // this issues a reset token and emails the link directly to the user.
   @Post('admin/reset-password')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
@@ -199,6 +199,29 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() body: { token: string; newPassword: string }) {
     return this.authService.resetPassword(body.token, body.newPassword);
+  }
+
+  // Self-service reset via security questions — demo-grade, no rate
+  // limiting. See AuthService.getSecurityQuestions for details.
+  @Post('reset/questions')
+  async getResetSecurityQuestions(@Body('login') login: string) {
+    return this.authService.getSecurityQuestions(login);
+  }
+
+  @Post('reset/verify')
+  async verifyResetSecurityAnswers(
+    @Body()
+    body: {
+      login: string;
+      answers: Record<string, string>;
+      newPassword: string;
+    },
+  ) {
+    return this.authService.resetPasswordWithSecurityAnswers(
+      body.login,
+      body.answers,
+      body.newPassword,
+    );
   }
 
   @Post('verify-email')
