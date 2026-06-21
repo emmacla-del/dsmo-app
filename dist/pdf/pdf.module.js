@@ -9,13 +9,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PdfModule = void 0;
 const common_1 = require("@nestjs/common");
 const onefop_puppeteer_service_1 = require("./onefop-puppeteer.service");
+const onefop_submission_pdf_service_1 = require("./onefop-submission-pdf.service");
 let PdfModule = class PdfModule {
 };
 exports.PdfModule = PdfModule;
 exports.PdfModule = PdfModule = __decorate([
     (0, common_1.Module)({
-        providers: [onefop_puppeteer_service_1.OnefopPuppeteerService],
-        exports: [onefop_puppeteer_service_1.OnefopPuppeteerService],
+        providers: [onefop_puppeteer_service_1.OnefopPuppeteerService, onefop_submission_pdf_service_1.OnefopSubmissionPdfService],
+        exports: [onefop_puppeteer_service_1.OnefopPuppeteerService, onefop_submission_pdf_service_1.OnefopSubmissionPdfService],
     })
 ], PdfModule);
 //# sourceMappingURL=pdf.module.js.map
