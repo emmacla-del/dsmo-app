@@ -99,7 +99,7 @@ export class CampaignService {
     }
 
     async updateCampaign(id: string, data: any) {
-        return this.prisma.dataCampaign.update({
+        const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: {
                 name: data.name,
@@ -110,6 +110,42 @@ export class CampaignService {
                 targetEntityTypes: data.targetEntityTypes,
                 reminderDays: data.reminderDays,
             },
+        });
+
+        // Edits here (name/deadline/targeting) previously never reached the
+        // SubmissionRound actually gating submission — an admin editing a
+        // live campaign's deadline or target regions had no real effect.
+        await this.prisma.submissionRound.updateMany({
+            where: { campaignId: id, status: { in: ['OPEN', 'EXTENDED'] } },
+            data: {
+                labelFr: campaign.name,
+                labelEn: campaign.name,
+                deadline: campaign.deadline ?? undefined,
+                periodEnd: campaign.deadline ?? undefined,
+                targetRegions: campaign.targetRegions,
+                targetEntityTypes: campaign.targetEntityTypes as OnefopEntityType[],
+            },
+        });
+
+        return campaign;
+    }
+
+    /**
+     * The active campaign (if any) already collecting for this module —
+     * used to warn an admin before creating a second one, since activating
+     * the new one will close the existing one's round.
+     */
+    async findActiveCampaignForModule(collectionType: string, excludeId?: string) {
+        if (collectionType !== 'ONEFOP' && collectionType !== 'DSMO') {
+            throw new BadRequestException('collectionType must be ONEFOP or DSMO');
+        }
+        return this.prisma.dataCampaign.findFirst({
+            where: {
+                collectionType,
+                status: 'ACTIVE',
+                id: excludeId ? { not: excludeId } : undefined,
+            },
+            select: { id: true, name: true, code: true, deadline: true },
         });
     }
 
@@ -332,7 +368,11 @@ export class CampaignService {
      * so reactivating a PAUSED campaign reopens its existing round instead
      * of creating a duplicate. Any other round still open for the same
      * module is closed first — only one round per module may be open at
-     * once, mirroring SubmissionRoundsService.open()'s invariant.
+     * once, mirroring SubmissionRoundsService.open()'s invariant. The
+     * superseded campaign's own status is closed too, so the campaign list
+     * doesn't keep showing it as ACTIVE after its round was cut off —
+     * this is the "overwrite" the admin is warned about and confirms via
+     * GET /campaigns/conflicts before creating a colliding campaign.
      */
     private async _openCollectionRound(campaign: DataCampaign, userId?: string) {
         const periodEnd = campaign.extendedDeadline ?? campaign.deadline ?? new Date();
@@ -345,6 +385,15 @@ export class CampaignService {
                     status: { in: ['OPEN', 'EXTENDED'] },
                 },
                 data: { status: 'CLOSED', closedAt: new Date(), closedBy: userId },
+            });
+
+            await tx.dataCampaign.updateMany({
+                where: {
+                    id: { not: campaign.id },
+                    collectionType: campaign.collectionType,
+                    status: 'ACTIVE',
+                },
+                data: { status: 'CLOSED', closedAt: new Date() },
             });
 
             await tx.submissionRound.upsert({

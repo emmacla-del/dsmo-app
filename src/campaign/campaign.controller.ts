@@ -36,6 +36,17 @@ export class CampaignController {
         return this.campaignService.getActiveCampaignsForCompany(req.user.id);
     }
 
+    // Lets the create-campaign dialog warn the admin before submitting if a
+    // campaign already collecting for this module would be overwritten.
+    @Get('conflicts')
+    @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL)
+    async checkConflict(
+        @Query('collectionType') collectionType: string,
+        @Query('excludeId') excludeId?: string,
+    ) {
+        return this.campaignService.findActiveCampaignForModule(collectionType, excludeId);
+    }
+
     @Get(':id')
     @Roles(UserRole.SUPER_ADMIN, UserRole.CENTRAL, UserRole.REGIONAL)
     async getCampaign(@Param('id') id: string) {
