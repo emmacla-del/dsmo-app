@@ -20,21 +20,32 @@ export class CampaignService {
     // — common for older registrations — silently stops matching).
     private readonly allEntityTypes: OnefopEntityType[] = ['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'];
 
+    // The campaign name is always one of these two official titles, tied
+    // 1:1 to the collection type it gates — never taken from the client, so
+    // a stale UI build or a direct API call can't create a campaign with a
+    // blank or mistyped name (mirrors campaignNameByCollectionType in
+    // lib/screens/campaign/campaign_constants.dart).
+    private readonly campaignNameByCollectionType: Record<string, string> = {
+        ONEFOP: "COLLECTE DES DONNEES SUR LES EMPLOIS CREES PAR LE SECTEUR MODERNE DE L'ECONOMIE",
+        DSMO: "DECLARATION SUR LA SITUATION DE LA MAIN D'OEUVRE",
+    };
+
     constructor(
         private prisma: PrismaService,
         private notificationService: NotificationService,
     ) { }
 
     async createCampaign(data: any) {
+        const collectionType = data.collectionType === 'DSMO' ? 'DSMO' : 'ONEFOP';
         const code = await this.generateCampaignCode(data.type, new Date(data.startDate));
 
         const campaign = await this.prisma.dataCampaign.create({
             data: {
                 code,
-                name: data.name,
+                name: this.campaignNameByCollectionType[collectionType],
                 description: data.description,
                 type: data.type,
-                collectionType: data.collectionType === 'DSMO' ? 'DSMO' : 'ONEFOP',
+                collectionType,
                 startDate: new Date(data.startDate),
                 deadline: new Date(data.deadline),
                 targetRegions: data.targetRegions || [],
@@ -113,10 +124,11 @@ export class CampaignService {
     }
 
     async updateCampaign(id: string, data: any) {
+        // name is intentionally not editable here — it's derived from
+        // collectionType, which is itself immutable after creation.
         const campaign = await this.prisma.dataCampaign.update({
             where: { id },
             data: {
-                name: data.name,
                 description: data.description,
                 deadline: data.deadline ? new Date(data.deadline) : undefined,
                 targetRegions: data.targetRegions,
