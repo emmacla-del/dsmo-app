@@ -12,6 +12,14 @@ type PrismaTx = Prisma.TransactionClient;
 export class CampaignService {
     private readonly logger = new Logger(CampaignService.name);
 
+    // Before the targeting UI had an explicit "All" option, the only way to
+    // target every entity type was to manually tick every checkbox — so a
+    // targetEntityTypes array that happens to list all of these is just as
+    // unrestricted as an empty one, and must be treated the same way when
+    // matching companies (otherwise every company with no entityType set
+    // — common for older registrations — silently stops matching).
+    private readonly allEntityTypes: OnefopEntityType[] = ['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'];
+
     constructor(
         private prisma: PrismaService,
         private notificationService: NotificationService,
@@ -50,7 +58,13 @@ export class CampaignService {
         if (type) where.type = type;
 
         if (user?.role === UserRole.REGIONAL && user.region) {
-            where.targetRegions = { has: user.region };
+            // An empty targetRegions means "all regions", so it must still
+            // match here — `has` on an empty array is always false, which
+            // used to hide every "all regions" campaign from REGIONAL users.
+            where.OR = [
+                { targetRegions: { isEmpty: true } },
+                { targetRegions: { has: user.region } },
+            ];
         }
 
         const campaigns = await this.prisma.dataCampaign.findMany({
@@ -182,7 +196,17 @@ export class CampaignService {
         await this._openCollectionRound(campaign, actorUserId ?? campaign.createdBy ?? undefined);
 
         if (campaign.autoReminders) {
-            await this.sendReminders(id, 'CAMPAIGN_ANNOUNCEMENT');
+            // Fire-and-forget: announcement emails are a best-effort side
+            // effect of activation, not part of it. Awaiting this used to
+            // mean every create/activate call blocked on emailing every
+            // targeted company one at a time — disastrous when targeting
+            // is broad and SMTP is slow or unreachable (same pattern as the
+            // registration/reset emails in AuthService).
+            this.sendReminders(id, 'CAMPAIGN_ANNOUNCEMENT').catch((error) => {
+                this.logger.error(
+                    `Failed to send campaign announcement reminders for ${id}: ${(error as Error).message}`,
+                );
+            });
         }
 
         return this.prisma.dataCampaign.findUnique({ where: { id } });
@@ -328,15 +352,35 @@ export class CampaignService {
         if (!company?.establishmentId) return [];
 
         const now = new Date();
+        // Each targeting axis is independent: an empty array means "no
+        // restriction on this axis" (the "All" option in the targeting UI),
+        // not "matches nothing" — `has` on an empty array is always false,
+        // so the previous OR-across-axes version meant a campaign with no
+        // filters at all (the common "target everyone" case) never matched
+        // any company. A campaign only needs to satisfy every axis it
+        // actually restricts.
         const campaigns = await this.prisma.dataCampaign.findMany({
             where: {
                 status: 'ACTIVE',
                 startDate: { lte: now },
                 deadline: { gte: now },
-                OR: [
-                    { targetRegions: { has: company.region } },
-                    { targetDepartments: { has: company.department } },
-                    { targetEntityTypes: { has: company.entityType! } },
+                AND: [
+                    { OR: [{ targetRegions: { isEmpty: true } }, { targetRegions: { has: company.region } }] },
+                    { OR: [{ targetDepartments: { isEmpty: true } }, { targetDepartments: { has: company.department } }] },
+                    company.entityType
+                        ? {
+                              OR: [
+                                  { targetEntityTypes: { isEmpty: true } },
+                                  { targetEntityTypes: { hasEvery: this.allEntityTypes } },
+                                  { targetEntityTypes: { has: company.entityType } },
+                              ],
+                          }
+                        : {
+                              OR: [
+                                  { targetEntityTypes: { isEmpty: true } },
+                                  { targetEntityTypes: { hasEvery: this.allEntityTypes } },
+                              ],
+                          },
                 ],
             },
             include: {
@@ -479,33 +523,33 @@ export class CampaignService {
         const where: any = { establishmentId: { not: null } };
         if (campaign.targetRegions?.length) where.region = { in: campaign.targetRegions };
         if (campaign.targetDepartments?.length) where.department = { in: campaign.targetDepartments };
+        // FIX: targetEntityTypes was selected in the create-campaign UI and
+        // stored on the campaign, but never actually used to filter who gets
+        // a submission record — every company in the targeted region(s)
+        // was initialized regardless of entity type.
+        if (campaign.targetEntityTypes?.length) where.entityType = { in: campaign.targetEntityTypes };
 
         const establishments = await db.company.findMany({
             where,
             select: { id: true, establishmentId: true },
         });
 
-        // Batch upserts — still one per establishment but now inside a
-        // transaction so the whole operation is atomic.
-        for (const est of establishments) {
-            if (!est.establishmentId) continue;
-
-            await db.campaignSubmission.upsert({
-                where: {
-                    campaignId_establishmentId: {
-                        campaignId,
-                        establishmentId: est.establishmentId,
-                    },
-                },
-                update: {},
-                create: {
+        // FIX: one upsert per establishment (N sequential round-trips inside
+        // the activation transaction) made creating a broadly-targeted —
+        // especially "all" — campaign take a very long time. A single bulk
+        // insert does the same job (skipDuplicates mirrors the old upsert's
+        // update: {} no-op on conflict) in one round-trip.
+        await db.campaignSubmission.createMany({
+            data: establishments
+                .filter((est) => est.establishmentId)
+                .map((est) => ({
                     campaignId,
                     companyId: est.id,
-                    establishmentId: est.establishmentId,
-                    status: 'NOT_STARTED',
-                },
-            });
-        }
+                    establishmentId: est.establishmentId!,
+                    status: 'NOT_STARTED' as const,
+                })),
+            skipDuplicates: true,
+        });
     }
 
     /**
@@ -529,13 +573,23 @@ export class CampaignService {
 
         const prefix = `${type}_${year}_${suffix}`;
 
-        // Count existing codes that start with this prefix to derive the next seq
-        const existing = await this.prisma.dataCampaign.count({
-            where: { code: { startsWith: prefix } },
-        });
-
-        const seq = (existing + 1).toString().padStart(3, '0');
-        return `${prefix}_${seq}`;
+        // This code is reused as the SubmissionRound.quarterCode opened
+        // alongside the campaign, and that round row outlives the campaign
+        // (its campaignId FK is ON DELETE SET NULL, not cascade) — so a
+        // deleted campaign's code stays permanently reserved on its orphaned
+        // round. Counting only current DataCampaign rows could regenerate a
+        // code that collides with one of those leftover rounds. Check both
+        // tables directly by unique key instead, so a code is never reused.
+        let seq = 1;
+        for (;;) {
+            const candidate = `${prefix}_${seq.toString().padStart(3, '0')}`;
+            const [campaignClash, roundClash] = await Promise.all([
+                this.prisma.dataCampaign.findUnique({ where: { code: candidate } }),
+                this.prisma.submissionRound.findUnique({ where: { quarterCode: candidate } }),
+            ]);
+            if (!campaignClash && !roundClash) return candidate;
+            seq++;
+        }
     }
 
     private getReminderSubject(type: string, campaignName: string): string {

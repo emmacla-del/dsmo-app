@@ -190,33 +190,51 @@ export class NotificationService {
         subject: string,
         message: string,
     ): Promise<{ sent: number; failed: number }> {
+        // FIX N+1: one query for every recipient's email instead of one
+        // findUnique per company.
+        const userIds = companies
+            .map((c) => c.userId)
+            .filter((id): id is string => id != null);
+        const users = await this.prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, email: true },
+        });
+        const emailByUserId = new Map(users.map((u) => [u.id, u.email]));
+
         let sent = 0;
         let failed = 0;
 
-        for (const company of companies) {
-            if (!company.userId) {
-                failed++;
-                continue;
-            }
-            try {
-                const user = await this.prisma.user.findUnique({ where: { id: company.userId } });
-                if (!user?.email) {
-                    failed++;
-                    continue;
-                }
+        // Send in small concurrent batches instead of strictly one-at-a-time
+        // — with SMTP slow or unreachable, sequential sends meant N stacked
+        // connection timeouts.
+        const CONCURRENCY = 10;
+        for (let i = 0; i < companies.length; i += CONCURRENCY) {
+            const batch = companies.slice(i, i + CONCURRENCY);
+            const results = await Promise.allSettled(
+                batch.map(async (company) => {
+                    const email = company.userId ? emailByUserId.get(company.userId) : undefined;
+                    if (!email) throw new Error('No user email found');
 
-                await this.transporter.sendMail({
-                    from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
-                    to: user.email,
-                    subject,
-                    text: `${company.name},\n\n${message}`,
-                    html: this.generateEmailHtml(company.name, message),
-                });
-                sent++;
-            } catch (error) {
-                this.logger.warn(`Failed to email company ${company.id}: ${(error as Error).message}`);
-                failed++;
-            }
+                    return this.transporter.sendMail({
+                        from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+                        to: email,
+                        subject,
+                        text: `${company.name},\n\n${message}`,
+                        html: this.generateEmailHtml(company.name, message),
+                    });
+                }),
+            );
+
+            results.forEach((result, idx) => {
+                if (result.status === 'fulfilled') {
+                    sent++;
+                } else {
+                    failed++;
+                    this.logger.warn(
+                        `Failed to email company ${batch[idx].id}: ${(result.reason as Error).message}`,
+                    );
+                }
+            });
         }
 
         return { sent, failed };
