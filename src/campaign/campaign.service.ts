@@ -37,12 +37,14 @@ export class CampaignService {
 
     async createCampaign(data: any) {
         const collectionType = data.collectionType === 'DSMO' ? 'DSMO' : 'ONEFOP';
-        const code = await this.generateCampaignCode(data.type, new Date(data.startDate));
+        const startDate = new Date(data.startDate);
+        const code = await this.generateCampaignCode(data.type, startDate);
 
         const campaign = await this.prisma.dataCampaign.create({
             data: {
                 code,
-                name: this.campaignNameByCollectionType[collectionType],
+                name: `${this.campaignNameByCollectionType[collectionType]} ` +
+                    this.buildPeriodSuffix(data.type, startDate),
                 description: data.description,
                 type: data.type,
                 collectionType,
@@ -565,6 +567,29 @@ export class CampaignService {
                 })),
             skipDuplicates: true,
         });
+    }
+
+    /**
+     * Spells out which quarter/semester/year a campaign actually covers —
+     * e.g. "POUR LE PREMIER TRIMESTRE 2026" — computed from its own
+     * type/startDate rather than hardcoded, so it stays correct no matter
+     * when a campaign is created or which period it's backdated/scheduled
+     * for.
+     */
+    private buildPeriodSuffix(type: string, startDate: Date): string {
+        const year = startDate.getFullYear();
+        const quarter = Math.ceil((startDate.getMonth() + 1) / 3); // 1..4
+
+        if (type === 'SEMESTER') {
+            const semesterOrdinals = ['PREMIER', 'DEUXIEME'];
+            const semester = quarter <= 2 ? 0 : 1;
+            return `POUR LE ${semesterOrdinals[semester]} SEMESTRE ${year}`;
+        }
+        if (type === 'ANNUAL') {
+            return `POUR L'ANNEE ${year}`;
+        }
+        const quarterOrdinals = ['PREMIER', 'DEUXIEME', 'TROISIEME', 'QUATRIEME'];
+        return `POUR LE ${quarterOrdinals[quarter - 1]} TRIMESTRE ${year}`;
     }
 
     /**
