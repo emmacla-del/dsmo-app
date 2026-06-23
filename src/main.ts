@@ -1,6 +1,8 @@
 ﻿// main.ts
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
 
@@ -11,12 +13,23 @@ async function bootstrap() {
   // IPv4 results so those connections use the address that's actually routable.
   dns.setDefaultResultOrder('ipv4first');
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Render terminates TLS and proxies to this app, so without trusting the
+  // proxy, req.ip resolves to Render's internal address instead of the real
+  // client IP. Account lockout, audit logs, and the admin IP allowlist all
+  // depend on req.ip being the actual caller.
+  app.set('trust proxy', 1);
+
+  app.use(helmet());
 
   app.setGlobalPrefix('api'); // ← added
 
+  // ALLOWED_ORIGINS lets production be locked down to known frontend origins
+  // without breaking it before that env var is configured.
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean);
   app.enableCors({
-    origin: '*',
+    origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });

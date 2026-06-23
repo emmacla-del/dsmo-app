@@ -1,5 +1,7 @@
 ﻿import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { DsmoModule } from './dsmo/dsmo.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -18,6 +20,7 @@ import { DataManagementModule } from './data-management/data-management.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     AuthModule,
     DsmoModule,
     PrismaModule,
@@ -33,5 +36,6 @@ import { DataManagementModule } from './data-management/data-management.module';
     ReportModule,
     DataManagementModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule { }

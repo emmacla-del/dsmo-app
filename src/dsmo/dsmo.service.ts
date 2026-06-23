@@ -99,6 +99,52 @@ export class DsmoService {
     return company;
   }
 
+  /** Admin-facing company directory — every company, not just the caller's own. */
+  async listCompanies(params: { search?: string; page?: number; pageSize?: number }) {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const pageSize =
+      params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
+
+    const where: any = {};
+    const term = params.search?.trim();
+    if (term) {
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { taxNumber: { contains: term, mode: 'insensitive' } },
+        { establishmentId: { contains: term, mode: 'insensitive' } },
+        { region: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, companies] = await Promise.all([
+      this.prisma.company.count({ where }),
+      this.prisma.company.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          taxNumber: true,
+          establishmentId: true,
+          region: true,
+          department: true,
+          subdivision: true,
+          address: true,
+          phone: true,
+          mainActivity: true,
+          totalEmployees: true,
+          entityType: true,
+          createdAt: true,
+          user: { select: { id: true, email: true, isActive: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return { companies, total, page, pageSize };
+  }
+
   // ✅ UPDATED: saveCompanyProfile with establishmentId generation
   async saveCompanyProfile(userId: string, dto: any) {
     const subdivisionValue = dto.subdivision ?? dto.department ?? 'Non spécifié';

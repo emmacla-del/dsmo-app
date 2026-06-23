@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 import { NotificationService } from '../dsmo/notification.service';
+import { PdfService } from '../dsmo/pdf.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -37,10 +38,24 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private notificationService: NotificationService,
+    private pdfService: PdfService,
   ) { }
 
-  async validateUser(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  /**
+   * Accepts either the account email or a company's establishmentId (the
+   * "identifiant" shown on the registration attestation) in the login field,
+   * so a company that's lost track of its email can still log in.
+   */
+  async validateUser(login: string, password: string) {
+    let user = await this.prisma.user.findUnique({ where: { email: login } });
+    if (!user) {
+      const company = await this.prisma.company.findFirst({
+        where: { establishmentId: login },
+      });
+      if (company) {
+        user = await this.prisma.user.findUnique({ where: { id: company.userId } });
+      }
+    }
     if (!user) return null;
     const passwordValid = await bcrypt.compare(password, user.passwordHash);
     if (!passwordValid) return null;
@@ -326,6 +341,37 @@ export class AuthService {
         },
       });
 
+      // Attestation generation must never block registration — the account
+      // and establishmentId already exist at this point regardless.
+      let attestationUrl: string | undefined;
+      if (establishmentId) {
+        try {
+          const attestation = await this.pdfService.generateRegistrationAttestation({
+            establishmentId,
+            companyName: company.name,
+            entityType: company.entityType ?? 'N/A',
+            taxNumber: company.taxNumber,
+            region: company.region,
+            department: company.department,
+            subdivision: company.subdivision,
+            registrationDate: company.createdAt,
+            email: user.email,
+          });
+          attestationUrl = attestation.signedUrl;
+          await this.prisma.company.update({
+            where: { id: company.id },
+            data: {
+              attestationUrl: attestation.storagePath,
+              attestationGeneratedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to generate registration attestation for company ${company.id}: ${(error as Error).message}`,
+          );
+        }
+      }
+
       const rawToken = await this.issueEmailVerificationToken(user.id);
       const verifyLink = `${process.env.APP_URL || 'https://dsmo.ministry.cm'}/verify-email?token=${rawToken}`;
       // Fire-and-forget: a slow/unreachable SMTP server must not block the
@@ -347,6 +393,7 @@ export class AuthService {
           establishmentId: company.establishmentId,
           taxNumber: company.taxNumber,
           entityType: company.entityType,
+          attestationUrl: attestationUrl ?? null,
         },
       };
     } catch (error: any) {
@@ -355,6 +402,58 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Self-service "identifiant oublié": matches organisation name + NIU
+   * (taxNumber) + phone against the Company table — the only 3 fields
+   * collected for every entity type today. Same generic-failure convention
+   * as resetPasswordWithSecurityAnswers: never reveal which field was wrong.
+   */
+  async findIdentifier(companyName: string, taxNumber: string, phone: string) {
+    const GENERIC_ERROR = 'Informations incorrectes.';
+    if (!companyName?.trim() || !taxNumber?.trim() || !phone?.trim()) {
+      throw new BadRequestException(GENERIC_ERROR);
+    }
+
+    const normalizedPhone = this.normalizeDigits(phone);
+    const candidates = await this.prisma.company.findMany({
+      where: {
+        name: { equals: companyName.trim(), mode: 'insensitive' },
+        taxNumber: taxNumber.trim(),
+      },
+    });
+
+    const match = candidates.find(
+      (c) => normalizedPhone.length > 0 && this.normalizeDigits(c.phone) === normalizedPhone,
+    );
+    if (!match) {
+      throw new BadRequestException(GENERIC_ERROR);
+    }
+    if (!match.establishmentId) {
+      throw new BadRequestException(
+        'Identifiant non disponible pour ce compte. Contactez le support DSMO.',
+      );
+    }
+
+    return {
+      establishmentId: match.establishmentId,
+      companyName: match.name,
+    };
+  }
+
+  private normalizeDigits(value: string | null | undefined): string {
+    return (value ?? '').replace(/\D/g, '');
+  }
+
+  /** Re-signs the stored attestation PDF so it can be re-downloaded anytime. */
+  async getAttestation(userId: string) {
+    const company = await this.prisma.company.findUnique({ where: { userId } });
+    if (!company?.attestationUrl) {
+      throw new BadRequestException("Aucune attestation n'est disponible pour ce compte.");
+    }
+    const url = await this.pdfService.getSignedUrlForPath(company.attestationUrl);
+    return { url };
   }
 
   async getPendingMinefopUsers() {
@@ -404,6 +503,145 @@ export class AuthService {
       where: { id },
       data: { status: 'REJECTED', isActive: false },
     });
+  }
+
+  private static readonly ASSIGNABLE_ROLES = [
+    'DIVISIONAL',
+    'REGIONAL',
+    'CENTRAL',
+    'SUPER_ADMIN',
+    'SUPER_ADMIN_DSMO',
+    'SUPER_ADMIN_ONEFOP',
+    'DATA_MANAGER',
+    'CAMPAIGN_MANAGER',
+    'ANALYST',
+    'AUDITOR',
+  ];
+
+  /**
+   * Excludes role=COMPANY by default — company accounts are managed via
+   * the company directory (dsmo.service.listCompanies), not this staff
+   * roster, and approveUser/rejectUser already special-case COMPANY out
+   * of the equivalent pending-list query above.
+   */
+  async listUsers(params: {
+    search?: string;
+    role?: string;
+    status?: string;
+    isActive?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const pageSize =
+      params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
+
+    const where: any = { role: { not: 'COMPANY' } };
+    if (params.role) where.role = params.role;
+    if (params.status) where.status = params.status;
+    if (params.isActive !== undefined) where.isActive = params.isActive === 'true';
+
+    const term = params.search?.trim();
+    if (term) {
+      where.OR = [
+        { email: { contains: term, mode: 'insensitive' } },
+        { firstName: { contains: term, mode: 'insensitive' } },
+        { lastName: { contains: term, mode: 'insensitive' } },
+        { matricule: { contains: term, mode: 'insensitive' } },
+        { serviceCode: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, users] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          isActive: true,
+          region: true,
+          department: true,
+          matricule: true,
+          serviceCode: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return { users, total, page, pageSize };
+  }
+
+  async updateUserRole(id: string, role: string, actingUserId: string) {
+    if (id === actingUserId) {
+      throw new BadRequestException('Vous ne pouvez pas modifier votre propre rôle');
+    }
+    if (!AuthService.ASSIGNABLE_ROLES.includes(role)) {
+      throw new BadRequestException('Rôle invalide');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    if (user.role === 'COMPANY') {
+      throw new BadRequestException(
+        'Le rôle des comptes entreprise ne peut pas être modifié',
+      );
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: { role: role as any },
+    });
+  }
+
+  async setUserActive(id: string, isActive: boolean, actingUserId: string) {
+    if (id === actingUserId) {
+      throw new BadRequestException(
+        isActive
+          ? 'Vous ne pouvez pas réactiver votre propre compte'
+          : 'Vous ne pouvez pas suspendre votre propre compte',
+      );
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    return this.prisma.user.update({
+      where: { id },
+      data: { isActive },
+    });
+  }
+
+  /**
+   * Hard delete. Most staff accounts with any activity (declarations,
+   * submissions, notifications, audit logs, etc.) carry required FK
+   * references to User with no cascade configured in schema.prisma, so
+   * Postgres will reject the delete with a foreign-key violation —
+   * surfaced here as a ConflictException telling the admin to suspend
+   * instead. Only accounts with zero linked records can actually be
+   * hard-deleted.
+   */
+  async deleteUser(id: string, actingUserId: string) {
+    if (id === actingUserId) {
+      throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    try {
+      await this.prisma.user.delete({ where: { id } });
+      return { message: 'Utilisateur supprimé avec succès.' };
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2003') {
+        throw new ConflictException(
+          'Impossible de supprimer cet utilisateur : des données liées existent ' +
+            '(déclarations, soumissions, notifications...). Suspendez le compte à la place.',
+        );
+      }
+      throw error;
+    }
   }
 
   /**

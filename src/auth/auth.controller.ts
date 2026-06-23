@@ -1,4 +1,4 @@
-﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Param, Query } from '@nestjs/common';
+﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -163,6 +163,61 @@ export class AuthController {
     return this.authService.rejectUser(id);
   }
 
+  // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async listUsers(
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+    @Query('status') status?: string,
+    @Query('isActive') isActive?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.authService.listUsers({
+      search,
+      role,
+      status,
+      isActive,
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    });
+  }
+
+  @Patch('users/:id/role')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async updateUserRole(
+    @Param('id') id: string,
+    @Body('role') role: string,
+    @Request() req: any,
+  ) {
+    return this.authService.updateUserRole(id, role, req.user.id);
+  }
+
+  @Patch('users/:id/suspend')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async suspendUser(@Param('id') id: string, @Request() req: any) {
+    return this.authService.setUserActive(id, false, req.user.id);
+  }
+
+  @Patch('users/:id/activate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async activateUser(@Param('id') id: string, @Request() req: any) {
+    return this.authService.setUserActive(id, true, req.user.id);
+  }
+
+  @Delete('users/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async deleteUser(@Param('id') id: string, @Request() req: any) {
+    return this.authService.deleteUser(id, req.user.id);
+  }
+
   // Admin-mediated reset: SUPER_ADMIN verifies identity out-of-band, then
   // this issues a reset token and emails the link directly to the user.
   @Post('admin/reset-password')
@@ -227,6 +282,22 @@ export class AuthController {
   @Post('verify-email')
   async verifyEmail(@Body('token') token: string) {
     return this.authService.verifyEmail(token);
+  }
+
+  // Self-service "identifiant oublié" — public, mirrors the reset/questions
+  // and reset/verify security-question flow above but recovers the
+  // establishmentId instead of resetting the password.
+  @Post('identifier/find')
+  async findIdentifier(
+    @Body() body: { companyName: string; taxNumber: string; phone: string },
+  ) {
+    return this.authService.findIdentifier(body.companyName, body.taxNumber, body.phone);
+  }
+
+  @Get('attestation')
+  @UseGuards(JwtAuthGuard)
+  async getAttestation(@Request() req: any) {
+    return this.authService.getAttestation(req.user.id);
   }
 
   @Post('resend-verification')

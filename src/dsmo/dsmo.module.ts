@@ -9,6 +9,6 @@ import { NotificationService } from './notification.service';
 @Module({
   controllers: [DsmoController],
   providers: [DsmoService, PdfService, ValidationService, AuditService, NotificationService],
-  exports: [DsmoService, ValidationService, AuditService, NotificationService],
+  exports: [DsmoService, PdfService, ValidationService, AuditService, NotificationService],
 })
 export class DsmoModule { }

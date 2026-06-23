@@ -33,6 +33,29 @@ const FINAL_REQUIRED_FIELDS: Record<string, string[]> = {
   ong: ['name'],
 };
 
+// Human-readable, bilingual labels for the dotted `entity.field` paths
+// enforceFinalRequiredFields() collects — shown to end users instead of
+// the raw internal path (e.g. "enterprise.mainActivity").
+const REQUIRED_FIELD_LABELS: Record<string, string> = {
+  'respondent.name': 'Nom du répondant / Respondent name',
+  'respondent.function': 'Fonction du répondant / Respondent role',
+  'respondent.phone1': 'Téléphone du répondant / Respondent phone',
+  'enterprise.name': "Nom de l'entreprise / Company name",
+  'enterprise.legalStatus': 'Statut juridique / Legal status',
+  'enterprise.area': 'Milieu de résidence / Area',
+  'enterprise.region': 'Région / Region',
+  'enterprise.department': 'Département / Department',
+  'enterprise.subdivision': 'Arrondissement / Subdivision',
+  'enterprise.phone1': "Téléphone de l'entreprise / Company phone",
+  'enterprise.sector': "Secteur d'activité / Business sector",
+  'enterprise.mainActivity': 'Activité principale / Main activity',
+  'enterprise.permanentWorkers': 'Employés permanents / Permanent workers',
+  'enterprise.size': "Taille de l'entreprise / Company size",
+  'cooperative.name': 'Nom de la coopérative / Cooperative name',
+  'ctd.type': 'Type de CTD / Local authority type',
+  'ong.name': "Nom de l'ONG / NGO name",
+};
+
 // ============================================================
 // NORMALIZATION HELPER - Converts any entity type to uppercase
 // ============================================================
@@ -407,8 +430,13 @@ export class QuestionnairesService {
       }
     }
     if (missingFields.length > 0) {
+      const labels = missingFields.map((f) => REQUIRED_FIELD_LABELS[f] ?? f);
+      const summary = labels.length <= 3
+        ? labels.join(', ')
+        : `${labels.slice(0, 3).join(', ')}, +${labels.length - 3}`;
       throw new BadRequestException(
-        `Champs obligatoires manquants pour la soumission finale: ${missingFields.join(', ')}`,
+        `Informations obligatoires manquantes : ${summary}. Veuillez compléter le formulaire avant de soumettre. / ` +
+        `Missing required information: ${summary}. Please complete the form before submitting.`,
       );
     }
   }

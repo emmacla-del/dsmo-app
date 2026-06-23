@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ReportType, ReportFormat } from '../types/prisma.types';
 import { ReportPdfService } from './report-pdf.service';
 import { OnefopAnalyticsService } from '../analytics/onefop-analytics.service';
+import { AuditService } from '../dsmo/audit.service';
 
 // ── Camel-case helper ────────────────────────────────────────
 function toCamel(s: string): string {
@@ -123,6 +124,7 @@ export class ReportService {
         private readonly prisma: PrismaService,
         private readonly reportPdfService: ReportPdfService,
         private readonly analyticsService: OnefopAnalyticsService,
+        private readonly auditService: AuditService,
     ) { }
 
     // ═══════════════════════════════════════════════════════════
@@ -345,7 +347,7 @@ export class ReportService {
     }
 
     // ── POST /reports/approve ───────────────────────────────────────────────
-    async approveReport(reportId: string, approved: boolean, rejectionReason?: string) {
+    async approveReport(reportId: string, approved: boolean, approvedBy: string, rejectionReason?: string) {
         const report = await this.prisma.report.findUnique({
             where: { id: reportId },
         });
@@ -358,15 +360,18 @@ export class ReportService {
             where: { id: reportId },
             data: {
                 approvalStatus: approved ? 'APPROVED' : 'REJECTED',
+                approvedBy,
                 approvedAt: new Date(),
                 rejectionReason: rejectionReason,
             },
         });
 
-        await this.logAudit(
+        await this.auditService.log(
+            approvedBy,
             approved ? 'APPROVE' : 'REJECT',
-            { reportId, reportName: report.name, reason: rejectionReason },
-            'system',
+            'Report',
+            reportId,
+            `${approved ? 'Approved' : 'Rejected'} report "${report.name}"${rejectionReason ? ` — ${rejectionReason}` : ''}`,
         );
 
         return {
@@ -482,10 +487,12 @@ export class ReportService {
                 },
             });
 
-            await this.logAudit(
-                'BATCH_GENERATE',
-                { jobId, name: params.name, regions: params.regions, completed, failed },
+            await this.auditService.log(
                 params.createdBy || 'system',
+                'BATCH_GENERATE',
+                'BatchJob',
+                jobId,
+                `Batch "${params.name}": ${completed} completed, ${failed} failed across ${params.regions.length} region(s)`,
             );
         } catch (error) {
             // FIX: was this.prisma.batchJob → correct name is batch_jobs
@@ -583,10 +590,12 @@ export class ReportService {
             },
         });
 
-        await this.logAudit(
-            'DISTRIBUTE',
-            { reportId, reportName: report.name, recipients, listIds: distributionListIds, comment },
+        await this.auditService.log(
             sentBy || 'system',
+            'DISTRIBUTE',
+            'Report',
+            reportId,
+            `Distributed "${report.name}" to ${recipients.length} recipient(s)${comment ? ` — ${comment}` : ''}`,
         );
 
         return { success: true, recipientsCount: recipients.length };
@@ -597,26 +606,9 @@ export class ReportService {
         return this.prisma.auditLog.findMany({
             orderBy: { timestamp: 'desc' },
             take: limit,
-        });
-    }
-
-    // ── POST /audit/log ─────────────────────────────────────────────────────
-    async logAudit(action: string, details: any, userId: string) {
-        // FIX: Prisma's AuditLog schema uses a relation for user, not a plain
-        // string userId field. Use the unchecked create form with the raw
-        // foreign-key field name that your schema declares (e.g. user_id),
-        // OR connect via relation. Adjust the field name below to match your
-        // actual Prisma schema column (common options shown):
-        return this.prisma.auditLog.create({
-            data: {
-                action,
-                details,
-                // Use the scalar FK field directly (unchecked create).
-                // Replace 'user_id' with whatever your schema calls it if different.
-                user_id: userId,
-                timestamp: new Date(),
-            } as any, // `as any` is a safe fallback if the field name still diverges;
-            // ideally replace with the exact field name from your schema.
+            include: {
+                user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+            },
         });
     }
 
@@ -734,10 +726,12 @@ export class ReportService {
                 },
             });
 
-            await this.logAudit(
-                'GENERATE',
-                { reportId: report.id, reportName, scope: resolvedScope, sections },
+            await this.auditService.log(
                 params.createdBy || 'system',
+                'GENERATE',
+                'Report',
+                report.id,
+                `Generated "${reportName}"`,
             );
 
             return { id: report.id, name: reportName, status: 'PENDING_APPROVAL', url };

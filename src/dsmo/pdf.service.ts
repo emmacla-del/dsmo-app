@@ -79,6 +79,18 @@ export interface PdfData {
   processingService?: ProcessingServiceInfo;
 }
 
+export interface AttestationData {
+  establishmentId: string;
+  companyName: string;
+  entityType: string;
+  taxNumber: string;
+  region: string;
+  department: string;
+  subdivision: string;
+  registrationDate: Date;
+  email: string;
+}
+
 // ── i18n ──────────────────────────────────────────────────────────────────────
 
 const LABELS = {
@@ -383,6 +395,153 @@ export class PdfService {
     } catch {
       return false;
     }
+  }
+
+  // ── Registration attestation ────────────────────────────────────────────────
+
+  private getAttestationStoragePath(establishmentId: string, year: number): string {
+    return `attestations/${year}/${establishmentId}.pdf`;
+  }
+
+  async generateRegistrationAttestation(
+    data: AttestationData,
+  ): Promise<{ storagePath: string; signedUrl: string }> {
+    const year = data.registrationDate.getFullYear();
+    const storagePath = this.getAttestationStoragePath(data.establishmentId, year);
+    const buffer = await this.buildAttestationPdf(data);
+
+    const { error: uploadError } = await this.supabase.storage
+      .from(this.bucketName)
+      .upload(storagePath, buffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+    if (uploadError) {
+      throw new Error(`Failed to upload attestation: ${uploadError.message}`);
+    }
+
+    const signedUrl = await this.getSignedUrlForPath(storagePath);
+    return { storagePath, signedUrl };
+  }
+
+  /** Generic re-signing for any stored path — used to re-download the attestation later. */
+  async getSignedUrlForPath(storagePath: string, expiresInSeconds?: number): Promise<string> {
+    const expiry = expiresInSeconds ?? this.signedUrlExpirySeconds;
+    const { data, error } = await this.supabase.storage
+      .from(this.bucketName)
+      .createSignedUrl(storagePath, expiry);
+    if (error || !data) {
+      throw new Error(`Failed to generate signed URL: ${error?.message}`);
+    }
+    return data.signedUrl;
+  }
+
+  private buildAttestationPdf(data: AttestationData): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const doc = new this.PDFDocument({
+        size: 'A4',
+        margins: { top: 56, bottom: 56, left: 56, right: 56 },
+        info: {
+          Title: `Attestation d'inscription - ${data.establishmentId}`,
+          Author: 'MINEFOP Cameroun',
+          Subject: "Attestation d'inscription DSMO",
+        },
+      });
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageW = 595.28;
+      const ml = 56;
+      const contentW = pageW - ml * 2;
+      let y = 56;
+
+      if (this.coatOfArmsBuffer) {
+        const imgSize = 64;
+        doc.image(this.coatOfArmsBuffer, ml + contentW / 2 - imgSize / 2, y, {
+          width: imgSize,
+          height: imgSize,
+        });
+        y += imgSize + 10;
+      } else {
+        y += 10;
+      }
+
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('black');
+      doc.text('REPUBLIQUE DU CAMEROUN', ml, y, { width: contentW, align: 'center' });
+      y += 14;
+      doc.font('Helvetica').fontSize(9);
+      doc.text('Paix - Travail - Patrie', ml, y, { width: contentW, align: 'center' });
+      y += 20;
+      doc.font('Helvetica-Bold').fontSize(10);
+      doc.text("MINISTERE DE L'EMPLOI ET DE LA FORMATION PROFESSIONNELLE", ml, y, {
+        width: contentW,
+        align: 'center',
+      });
+      y += 26;
+
+      doc.moveTo(ml, y).lineTo(ml + contentW, y).stroke();
+      y += 20;
+
+      doc.font('Helvetica-Bold').fontSize(16);
+      doc.text("ATTESTATION D'INSCRIPTION", ml, y, { width: contentW, align: 'center' });
+      y += 30;
+
+      doc.font('Helvetica').fontSize(10.5).fillColor('black');
+      doc.text(
+        "Le Système de Déclaration de la Situation de la Main-d'Oeuvre (DSMO) atteste que " +
+          "l'établissement suivant est inscrit sur la plateforme :",
+        ml,
+        y,
+        { width: contentW, align: 'left', lineGap: 4 },
+      );
+      y += 50;
+
+      const row = (label: string, value: string) => {
+        doc.font('Helvetica-Bold').fontSize(10).text(`${label} :`, ml, y, { width: 170 });
+        doc.font('Helvetica').fontSize(10).text(value, ml + 175, y, { width: contentW - 175 });
+        y += 22;
+      };
+
+      row('Raison sociale', data.companyName);
+      row("Type d'entité", data.entityType);
+      row('N° Contribuable (NIU)', data.taxNumber);
+      row('Région', data.region);
+      row('Département', data.department);
+      row('Arrondissement', data.subdivision);
+      row("Date d'inscription", data.registrationDate.toLocaleDateString('fr-FR'));
+      y += 14;
+
+      const boxH = 70;
+      doc.roundedRect(ml, y, contentW, boxH, 8).fillAndStroke('#E8F5E9', '#2E7D32');
+      doc.fillColor('#1B5E20').font('Helvetica-Bold').fontSize(9);
+      doc.text('IDENTIFIANT ETABLISSEMENT', ml, y + 12, { width: contentW, align: 'center' });
+      doc.font('Helvetica-Bold').fontSize(22).fillColor('#1B5E20');
+      doc.text(data.establishmentId, ml, y + 28, { width: contentW, align: 'center' });
+      y += boxH + 20;
+
+      doc.fillColor('black').font('Helvetica-Oblique').fontSize(9);
+      doc.text(
+        `Cet identifiant, ou l'adresse e-mail ${data.email}, peut être utilisé pour se connecter ` +
+          'à la plateforme DSMO. Conservez ce document.',
+        ml,
+        y,
+        { width: contentW, align: 'left', lineGap: 3 },
+      );
+      y += 50;
+
+      doc.font('Helvetica').fontSize(8.5).fillColor('#666666');
+      doc.text(
+        `Document généré automatiquement le ${new Date().toLocaleDateString('fr-FR')} — ` +
+          "ne constitue pas un document d'identité officiel.",
+        ml,
+        y,
+        { width: contentW, align: 'left' },
+      );
+
+      doc.end();
+    });
   }
 
   // ── Public URL (for public buckets only) ───────────────────────────────────

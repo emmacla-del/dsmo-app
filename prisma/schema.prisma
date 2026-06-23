@@ -208,6 +208,8 @@ model Company {
   enterpriseSize             String?
   establishmentId            String?
   establishmentIdGeneratedAt DateTime?               @db.Timestamp(6)
+  attestationUrl             String?
+  attestationGeneratedAt     DateTime?               @db.Timestamp(6)
   campaignSubmissions        CampaignSubmission[]
   departmentRef              Department?             @relation(fields: [departmentId], references: [id])
   regionRef                  Region?                 @relation(fields: [regionId], references: [id])

@@ -54,8 +54,10 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL] as UserRole[]).includes(user.role)) {
-            throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can send notifications');
+        const NATIONAL_ROLES = [UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP] as UserRole[];
+
+        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
+            throw new ForbiddenException('Only DIVISIONAL, REGIONAL, CENTRAL, or SUPER_ADMIN users can send notifications');
         }
 
         const where: any = {};
@@ -72,7 +74,7 @@ export class NotificationService {
             if (filters.regionFilter && filters.regionFilter !== user.region) {
                 throw new ForbiddenException('Cannot send to companies outside your region');
             }
-        } else if (user.role === UserRole.CENTRAL) {
+        } else if (NATIONAL_ROLES.includes(user.role)) {
             if (filters.regionFilter) where.region = filters.regionFilter;
             if (filters.departmentFilter) where.department = filters.departmentFilter;
         }
@@ -311,8 +313,10 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL, UserRole.CENTRAL] as UserRole[]).includes(user.role)) {
-            throw new ForbiddenException('Only DIVISIONAL, REGIONAL, or CENTRAL users can view notifications');
+        const NATIONAL_ROLES = [UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP] as UserRole[];
+
+        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
+            throw new ForbiddenException('Only DIVISIONAL, REGIONAL, CENTRAL, or SUPER_ADMIN users can view notifications');
         }
 
         const where: any = {};

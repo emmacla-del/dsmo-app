@@ -36,6 +36,20 @@ export class DsmoController {
     return this.dsmoService.saveCompanyProfile(req.user.id, dto);
   }
 
+  @Get('companies')
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async listCompanies(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.dsmoService.listCompanies({
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    });
+  }
+
   // ===== CORE DECLARATION ENDPOINTS =====
 
   @Get('active-period')
@@ -88,7 +102,7 @@ export class DsmoController {
   }
 
   @Get('stats/summary')
-  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
   async getDeclarationStats(
     @Query('year', ParseIntPipe) year: number,
     @Query('region') region?: string,
@@ -100,7 +114,7 @@ export class DsmoController {
   // ===== NOTIFICATION & COMPLIANCE ENDPOINTS =====
 
   @Post('notifications/send')
-  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
   async sendNotification(
     @Req() req: any,
     @Body('subject') subject: string,
@@ -110,13 +124,28 @@ export class DsmoController {
     return this.notificationService.sendNotification(req.user.id, subject, message, filters);
   }
 
+  // Static route — must come before GET 'notifications/:id' below, otherwise
+  // Nest would never reach this one.
   @Get('notifications')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
   async getNotifications(
     @Req() req: any,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ) {
     return this.notificationService.getNotifications(req.user.id, page, limit);
+  }
+
+  @Get('notifications/:id')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async getNotificationDetails(@Param('id') id: string) {
+    return this.notificationService.getNotificationDetails(id);
+  }
+
+  @Get('notifications/:id/stats')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async getNotificationStats(@Param('id') id: string) {
+    return this.notificationService.getNotificationStats(id);
   }
 
   // ===== DOCUMENT MANAGEMENT ENDPOINTS =====
