@@ -1,5 +1,5 @@
 // src/data-management/data-management.service.ts
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -26,6 +26,48 @@ export class DataManagementService {
                 },
             },
         });
+    }
+
+    async updateRegion(id: string, data: { name?: string; code?: string; nameEn?: string }) {
+        const region = await this.prisma.region.findUnique({ where: { id } });
+        if (!region) throw new NotFoundException('Région introuvable.');
+        return this.prisma.region.update({ where: { id }, data });
+    }
+
+    async deleteRegion(id: string) {
+        const region = await this.prisma.region.findUnique({
+            where: { id },
+            include: { _count: { select: { companies: true, departments: true } } },
+        });
+        if (!region) throw new NotFoundException('Région introuvable.');
+        if (region._count.companies > 0 || region._count.departments > 0) {
+            throw new BadRequestException(
+                'Impossible de supprimer une région encore liée à des entreprises ou départements.',
+            );
+        }
+        await this.prisma.region.delete({ where: { id } });
+        return { success: true };
+    }
+
+    async updateSector(id: string, data: { name?: string; code?: string; category?: string; nameEn?: string }) {
+        const sector = await this.prisma.sector.findUnique({ where: { id } });
+        if (!sector) throw new NotFoundException('Secteur introuvable.');
+        return this.prisma.sector.update({ where: { id }, data });
+    }
+
+    async deleteSector(id: string) {
+        const sector = await this.prisma.sector.findUnique({
+            where: { id },
+            include: { _count: { select: { companies: true } } },
+        });
+        if (!sector) throw new NotFoundException('Secteur introuvable.');
+        if (sector._count.companies > 0) {
+            throw new BadRequestException(
+                'Impossible de supprimer un secteur encore lié à des entreprises.',
+            );
+        }
+        await this.prisma.sector.delete({ where: { id } });
+        return { success: true };
     }
 
     async getDataStats() {
