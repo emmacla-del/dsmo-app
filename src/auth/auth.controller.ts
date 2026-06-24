@@ -18,7 +18,16 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Request() req: any) {
+    if (req.user.twoFactorEnabled) {
+      return this.authService.initiateTwoFactorChallenge(req.user);
+    }
     return this.authService.login(req.user);
+  }
+
+  // Step 2 of 2FA login — see AuthService.initiateTwoFactorChallenge.
+  @Post('2fa/verify')
+  async verifyTwoFactor(@Body() body: { challengeToken: string; code: string }) {
+    return this.authService.verifyTwoFactorCode(body.challengeToken, body.code);
   }
 
   // ── Session restoration — called by Flutter on app startup ──
@@ -218,6 +227,15 @@ export class AuthController {
     return this.authService.deleteUser(id, req.user.id);
   }
 
+  // Break-glass: recovers a user locked out of their account because their
+  // 2FA code email never arrived. See AuthService.adminSetTwoFactorEnabled.
+  @Patch('users/:id/two-factor')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  async adminSetTwoFactor(@Param('id') id: string, @Body('enabled') enabled: boolean) {
+    return this.authService.adminSetTwoFactorEnabled(id, enabled);
+  }
+
   // Admin-mediated reset: SUPER_ADMIN verifies identity out-of-band, then
   // this issues a reset token and emails the link directly to the user.
   @Post('admin/reset-password')
@@ -238,6 +256,27 @@ export class AuthController {
       body.currentPassword,
       body.newPassword,
     );
+  }
+
+  @Patch('preferences')
+  @UseGuards(JwtAuthGuard)
+  async updatePreferences(
+    @Request() req: any,
+    @Body()
+    body: {
+      emailNotificationsEnabled?: boolean;
+      pushNotificationsEnabled?: boolean;
+      weeklyDigestEnabled?: boolean;
+      smsNotificationsEnabled?: boolean;
+    },
+  ) {
+    return this.authService.updatePreferences(req.user.id, body);
+  }
+
+  @Patch('two-factor')
+  @UseGuards(JwtAuthGuard)
+  async setTwoFactor(@Request() req: any, @Body('enabled') enabled: boolean) {
+    return this.authService.setTwoFactorEnabled(req.user.id, enabled);
   }
 
   @Get('check-email')

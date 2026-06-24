@@ -99,6 +99,7 @@ export class NotificationService {
 
         const recipients: any[] = [];
         const failures: any[] = [];
+        let skippedByPreference = 0;
 
         for (const company of companies) {
             try {
@@ -108,6 +109,13 @@ export class NotificationService {
 
                 if (!companyUser || !companyUser.email) {
                     failures.push({ companyId: company.id, reason: 'No user email found' });
+                    continue;
+                }
+
+                // Recipient opted out of email notifications — no record is
+                // created since there's nothing to mark SENT/FAILED for.
+                if (!companyUser.emailNotificationsEnabled) {
+                    skippedByPreference++;
                     continue;
                 }
 
@@ -177,6 +185,7 @@ export class NotificationService {
             totalRecipients: companies.length,
             successfulSends: recipients.length,
             failedSends: failures.length,
+            skippedByPreference,
             failures: failures.length > 0 ? failures : undefined,
         };
     }
@@ -191,7 +200,7 @@ export class NotificationService {
         companies: { id: string; userId: string | null; name: string }[],
         subject: string,
         message: string,
-    ): Promise<{ sent: number; failed: number }> {
+    ): Promise<{ sent: number; failed: number; skippedByPreference: number }> {
         // FIX N+1: one query for every recipient's email instead of one
         // findUnique per company.
         const userIds = companies
@@ -199,22 +208,34 @@ export class NotificationService {
             .filter((id): id is string => id != null);
         const users = await this.prisma.user.findMany({
             where: { id: { in: userIds } },
-            select: { id: true, email: true },
+            select: { id: true, email: true, emailNotificationsEnabled: true },
         });
-        const emailByUserId = new Map(users.map((u) => [u.id, u.email]));
+        const userById = new Map(users.map((u) => [u.id, u]));
 
         let sent = 0;
         let failed = 0;
+        let skippedByPreference = 0;
+
+        // Opted-out recipients are filtered out before the batches below so
+        // they don't count against sent/failed.
+        const eligible = companies.filter((company) => {
+            const user = company.userId ? userById.get(company.userId) : undefined;
+            if (user && !user.emailNotificationsEnabled) {
+                skippedByPreference++;
+                return false;
+            }
+            return true;
+        });
 
         // Send in small concurrent batches instead of strictly one-at-a-time
         // — with SMTP slow or unreachable, sequential sends meant N stacked
         // connection timeouts.
         const CONCURRENCY = 10;
-        for (let i = 0; i < companies.length; i += CONCURRENCY) {
-            const batch = companies.slice(i, i + CONCURRENCY);
+        for (let i = 0; i < eligible.length; i += CONCURRENCY) {
+            const batch = eligible.slice(i, i + CONCURRENCY);
             const results = await Promise.allSettled(
                 batch.map(async (company) => {
-                    const email = company.userId ? emailByUserId.get(company.userId) : undefined;
+                    const email = company.userId ? userById.get(company.userId)?.email : undefined;
                     if (!email) throw new Error('No user email found');
 
                     return this.transporter.sendMail({
@@ -239,7 +260,7 @@ export class NotificationService {
             });
         }
 
-        return { sent, failed };
+        return { sent, failed, skippedByPreference };
     }
 
     /**
@@ -398,6 +419,53 @@ export class NotificationService {
     }
 
     /**
+     * Send a 2FA login verification code. Blocking (not fire-and-forget) —
+     * unlike password reset, the caller already proved their password is
+     * correct, so there's no account-enumeration concern, and the login
+     * flow can't proceed without this email actually arriving.
+     */
+    async sendTwoFactorCodeEmail(to: string, code: string) {
+        const html = this.generateTwoFactorCodeHtml(code);
+        const text =
+            `Votre code de vérification DSMO est : ${code}\n\n` +
+            `Ce code est valable 10 minutes. Si vous n'êtes pas à l'origine de cette tentative de connexion, ignorez cet e-mail.`;
+
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[DSMO] Votre code de vérification',
+            text,
+            html,
+        });
+    }
+
+    /**
+     * Send a personal weekly activity summary (see WeeklyDigestService).
+     */
+    async sendWeeklyDigestEmail(
+        to: string,
+        summary: { newThisWeek: number; pending: number; approved?: number },
+    ) {
+        const html = this.generateWeeklyDigestHtml(summary);
+        const lines = [
+            `Nouvelles déclarations cette semaine : ${summary.newThisWeek}`,
+            `En attente de traitement : ${summary.pending}`,
+        ];
+        if (summary.approved !== undefined) {
+            lines.push(`Approuvées : ${summary.approved}`);
+        }
+        const text = `Votre récapitulatif hebdomadaire DSMO :\n\n${lines.join('\n')}`;
+
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[DSMO] Votre récapitulatif hebdomadaire',
+            text,
+            html,
+        });
+    }
+
+    /**
      * Send a password reset email with a tokenized link.
      */
     async sendPasswordResetEmail(to: string, resetLink: string) {
@@ -433,6 +501,90 @@ export class NotificationService {
             text,
             html,
         });
+    }
+
+    /**
+     * Generate HTML email template for a 2FA verification code.
+     */
+    private generateTwoFactorCodeHtml(code: string): string {
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .header { background-color: #1a5d3a; color: white; padding: 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 20px; line-height: 1.6; text-align: center; }
+            .code { display: inline-block; background-color: #f5f5f5; border: 2px dashed #1a5d3a; border-radius: 8px; padding: 14px 28px; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1a5d3a; margin: 15px 0; }
+            .footer { background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>DSM-O CAMEROUN</h1>
+            <p>Plateforme Nationale de la Déclaration sur la Situation de la Main d'Œuvre</p>
+          </div>
+          <div class="content">
+            <p>Voici votre code de vérification pour terminer la connexion :</p>
+            <div class="code">${code}</div>
+            <p>Ce code est valable 10 minutes. Si vous n'êtes pas à l'origine de cette tentative de connexion, ignorez cet e-mail.</p>
+          </div>
+          <div class="footer">
+            <p>Ministère de l'Emploi et de la Formation Professionnelle | Cameroun</p>
+            <p>© ${new Date().getFullYear()} - Tous droits réservés</p>
+          </div>
+        </body>
+      </html>
+    `;
+    }
+
+    /**
+     * Generate HTML email template for the weekly activity digest.
+     */
+    private generateWeeklyDigestHtml(
+        summary: { newThisWeek: number; pending: number; approved?: number },
+    ): string {
+        const approvedRow =
+            summary.approved !== undefined
+                ? `<tr><td style="padding:8px 0;">Approuvées</td><td style="padding:8px 0; text-align:right; font-weight:bold;">${summary.approved}</td></tr>`
+                : '';
+        return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .header { background-color: #1a5d3a; color: white; padding: 20px; text-align: center; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 20px; line-height: 1.6; }
+            table { width: 100%; border-collapse: collapse; }
+            td { border-bottom: 1px solid #eee; }
+            .footer { background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>DSM-O CAMEROUN</h1>
+            <p>Votre récapitulatif hebdomadaire</p>
+          </div>
+          <div class="content">
+            <table>
+              <tr><td style="padding:8px 0;">Nouvelles déclarations cette semaine</td><td style="padding:8px 0; text-align:right; font-weight:bold;">${summary.newThisWeek}</td></tr>
+              <tr><td style="padding:8px 0;">En attente de traitement</td><td style="padding:8px 0; text-align:right; font-weight:bold;">${summary.pending}</td></tr>
+              ${approvedRow}
+            </table>
+            <p>Connectez-vous à la plateforme DSMO pour plus de détails.</p>
+          </div>
+          <div class="footer">
+            <p>Ministère de l'Emploi et de la Formation Professionnelle | Cameroun</p>
+            <p>© ${new Date().getFullYear()} - Tous droits réservés</p>
+          </div>
+        </body>
+      </html>
+    `;
     }
 
     /**

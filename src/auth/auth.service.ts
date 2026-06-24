@@ -16,6 +16,8 @@ import { PdfService } from '../dsmo/pdf.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const TWO_FACTOR_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const TWO_FACTOR_CHALLENGE_JWT_TTL = '10m';
 
 // Demo-grade self-service reset: fixed pool of 4 questions answered
 // against existing Company fields. No new table — see
@@ -69,7 +71,7 @@ export class AuthService {
         'Votre compte a été désactivé. Contactez un administrateur.',
       );
     }
-    const { passwordHash, ...safeUser } = user;
+    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
     return safeUser;
   }
 
@@ -130,6 +132,11 @@ export class AuthService {
         stream: user.stream,
         emailVerified: user.emailVerified,
         mustChangePassword: user.mustChangePassword,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
+        pushNotificationsEnabled: user.pushNotificationsEnabled,
+        weeklyDigestEnabled: user.weeklyDigestEnabled,
+        smsNotificationsEnabled: user.smsNotificationsEnabled,
+        twoFactorEnabled: user.twoFactorEnabled,
         features,
       },
     };
@@ -145,7 +152,123 @@ export class AuthService {
         'Votre compte a été désactivé. Contactez un administrateur.',
       );
     }
-    const { passwordHash, ...safeUser } = user;
+    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
+    return safeUser;
+  }
+
+  /**
+   * Step 1 of 2FA login: credentials already verified by validateUser/
+   * LocalStrategy. Issues a one-time code emailed to the user and a
+   * short-lived signed challenge token (separate from the real access
+   * token — it only proves "password was correct", not "fully logged in").
+   * Blocking on the email send (see NotificationService.sendTwoFactorCodeEmail)
+   * since the user can't proceed without the code actually arriving.
+   */
+  async initiateTwoFactorChallenge(user: { id: string; email: string }) {
+    const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        twoFactorCodeHash: codeHash,
+        twoFactorCodeExpires: new Date(Date.now() + TWO_FACTOR_CODE_TTL_MS),
+      },
+    });
+
+    try {
+      await this.notificationService.sendTwoFactorCodeEmail(user.email, code);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send 2FA code to ${user.email}: ${(error as Error).message}`,
+      );
+      throw new BadRequestException(
+        "Impossible d'envoyer le code de vérification pour le moment. Réessayez.",
+      );
+    }
+
+    const challengeToken = this.jwtService.sign(
+      { sub: user.id, purpose: '2fa_pending' },
+      { expiresIn: TWO_FACTOR_CHALLENGE_JWT_TTL },
+    );
+
+    return { requiresTwoFactor: true, challengeToken };
+  }
+
+  /**
+   * Step 2 of 2FA login: verifies the emailed code against the
+   * challengeToken from initiateTwoFactorChallenge, then issues the real
+   * access token via login() — same shape as a normal, non-2FA login.
+   */
+  async verifyTwoFactorCode(challengeToken: string, code: string) {
+    const GENERIC_ERROR = 'Code de vérification invalide ou expiré. Reconnectez-vous.';
+    if (!challengeToken || !code) {
+      throw new UnauthorizedException(GENERIC_ERROR);
+    }
+
+    let payload: any;
+    try {
+      payload = this.jwtService.verify(challengeToken);
+    } catch {
+      throw new UnauthorizedException(GENERIC_ERROR);
+    }
+    if (payload?.purpose !== '2fa_pending' || !payload.sub) {
+      throw new UnauthorizedException(GENERIC_ERROR);
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || !user.twoFactorCodeHash || !user.twoFactorCodeExpires) {
+      throw new UnauthorizedException(GENERIC_ERROR);
+    }
+    if (user.twoFactorCodeExpires.getTime() < Date.now()) {
+      throw new UnauthorizedException(GENERIC_ERROR);
+    }
+
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+    if (codeHash !== user.twoFactorCodeHash) {
+      throw new UnauthorizedException('Code de vérification incorrect.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { twoFactorCodeHash: null, twoFactorCodeExpires: null },
+    });
+
+    return this.login(user);
+  }
+
+  /**
+   * Updates the caller's notification preferences. Email is the only
+   * channel actually wired to a sender today (see NotificationService) —
+   * push/SMS are persisted so the toggle is real per-user state, but
+   * nothing consumes them yet since no push/SMS gateway exists.
+   */
+  async updatePreferences(
+    userId: string,
+    prefs: {
+      emailNotificationsEnabled?: boolean;
+      pushNotificationsEnabled?: boolean;
+      weeklyDigestEnabled?: boolean;
+      smsNotificationsEnabled?: boolean;
+    },
+  ) {
+    const data: Record<string, boolean> = {};
+    if (prefs.emailNotificationsEnabled !== undefined) data.emailNotificationsEnabled = prefs.emailNotificationsEnabled;
+    if (prefs.pushNotificationsEnabled !== undefined) data.pushNotificationsEnabled = prefs.pushNotificationsEnabled;
+    if (prefs.weeklyDigestEnabled !== undefined) data.weeklyDigestEnabled = prefs.weeklyDigestEnabled;
+    if (prefs.smsNotificationsEnabled !== undefined) data.smsNotificationsEnabled = prefs.smsNotificationsEnabled;
+
+    const user = await this.prisma.user.update({ where: { id: userId }, data });
+    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
+    return safeUser;
+  }
+
+  async setTwoFactorEnabled(userId: string, enabled: boolean) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: enabled },
+    });
+    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
     return safeUser;
   }
 
@@ -613,6 +736,24 @@ export class AuthService {
       where: { id },
       data: { isActive },
     });
+  }
+
+  /**
+   * Admin break-glass: force-disables 2FA on another account, for when the
+   * user is locked out because the OTP email never arrived (email delivery
+   * on this deployment is known to be unreliable — see NotificationService).
+   * Self-service /auth/two-factor only ever operates on the caller's own
+   * account, so this is the only way to recover a locked-out user.
+   */
+  async adminSetTwoFactorEnabled(id: string, enabled: boolean) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { twoFactorEnabled: enabled, twoFactorCodeHash: null, twoFactorCodeExpires: null },
+    });
+    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = updated;
+    return safeUser;
   }
 
   /**

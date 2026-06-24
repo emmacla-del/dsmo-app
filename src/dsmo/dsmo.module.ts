@@ -5,10 +5,11 @@ import { PdfService } from './pdf.service';
 import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { NotificationService } from './notification.service';
+import { WeeklyDigestService } from './weekly-digest.service';
 
 @Module({
   controllers: [DsmoController],
-  providers: [DsmoService, PdfService, ValidationService, AuditService, NotificationService],
+  providers: [DsmoService, PdfService, ValidationService, AuditService, NotificationService, WeeklyDigestService],
   exports: [DsmoService, PdfService, ValidationService, AuditService, NotificationService],
 })
 export class DsmoModule { }

@@ -136,6 +136,13 @@ model User {
   emailVerified              Boolean            @default(true)
   emailVerificationTokenHash String?
   emailVerificationExpires   DateTime?
+  emailNotificationsEnabled  Boolean            @default(true)
+  pushNotificationsEnabled   Boolean            @default(true)
+  weeklyDigestEnabled        Boolean            @default(false)
+  smsNotificationsEnabled    Boolean            @default(false)
+  twoFactorEnabled           Boolean            @default(false)
+  twoFactorCodeHash          String?
+  twoFactorCodeExpires       DateTime?
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   status                     UserStatus         @default(PENDING_APPROVAL)
