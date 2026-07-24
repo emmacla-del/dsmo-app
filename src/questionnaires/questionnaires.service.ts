@@ -978,7 +978,7 @@ export class QuestionnairesService {
       if (reg) regionId = reg.id;
     }
 
-    if (sectorValue) {
+    if (sectorValue !== undefined && sectorValue !== null) {
       const categoryMap: Record<string, string> = {
         'primaire': 'Primary',
         'primary': 'Primary',
@@ -987,10 +987,17 @@ export class QuestionnairesService {
         'tertiaire': 'Tertiary',
         'tertiary': 'Tertiary',
       };
-      const lower = sectorValue.toLowerCase();
-      const category = Object.entries(categoryMap).find(([k]) =>
-        lower.includes(k),
-      )?.[1] ?? null;
+      const numericCategoryMap: Record<string, string> = {
+        '1': 'Primary',
+        '2': 'Secondary',
+        '3': 'Tertiary',
+      };
+      const normalizedSector = String(sectorValue).trim();
+      const lower = normalizedSector.toLowerCase();
+      const category =
+        (numericCategoryMap[lower] ||
+          Object.entries(categoryMap).find(([k]) => lower.includes(k))?.[1]) ??
+        null;
 
       if (category) {
         const sector = await tx.sector.findFirst({
