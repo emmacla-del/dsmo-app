@@ -429,8 +429,11 @@ export class CampaignService {
      * so reactivating a PAUSED campaign reopens its existing round instead
      * of creating a duplicate. Any other round still open for the same
      * module is closed first — only one round per module may be open at
-     * once, mirroring SubmissionRoundsService.open()'s invariant. The
-     * superseded campaign's own status is closed too, so the campaign list
+     * once. This is now the only code path that opens a round: the old
+     * standalone admin open/close endpoints were removed because they let a
+     * round be opened without a campaignId, so "no active campaign" and "no
+     * open round" could silently drift apart. The superseded campaign's own
+     * status is closed too, so the campaign list
      * doesn't keep showing it as ACTIVE after its round was cut off —
      * this is the "overwrite" the admin is warned about and confirms via
      * GET /campaigns/conflicts before creating a colliding campaign.
