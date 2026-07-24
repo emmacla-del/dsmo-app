@@ -3,8 +3,8 @@ services:
     name: dsmo-app-frontend
     runtime: static
     buildCommand: |
-      git clone https://github.com/flutter/flutter.git -b 3.41.5 --depth 1 /opt/flutter
-      export PATH="/opt/flutter/bin:$PATH"
+      git clone https://github.com/flutter/flutter.git -b 3.41.5 --depth 1 flutter-sdk
+      export PATH="$PWD/flutter-sdk/bin:$PATH"
       flutter pub get
       flutter build web --release
     staticPublishPath: build/web
