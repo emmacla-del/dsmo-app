@@ -238,18 +238,18 @@ export class QuestionnairesService {
           formType: normalizedEntityType,
           rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
-          submittedBy: dto.userId ?? null,
-          companyId: dto.companyId,
+          submissionDate: new Date(),
           establishmentId: dto.establishmentId,
           quarterCode: dto.quarterCode ?? this.getCurrentQuarter(),
-          submissionDate: new Date(),
           region: geoRegion,
           department: geoDept,
           subdivision: geoSubdiv,
           status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
-          regionId,        // ← resolved FK
-          departmentId,    // ← resolved FK
-          subdivisionId,   // ← resolved FK
+          user: dto.userId ? { connect: { id: dto.userId } } : undefined,
+          company: dto.companyId ? { connect: { id: dto.companyId } } : undefined,
+          regionRef: regionId ? { connect: { id: regionId } } : undefined,
+          departmentRef: departmentId ? { connect: { id: departmentId } } : undefined,
+          subdivisionRef: subdivisionId ? { connect: { id: subdivisionId } } : undefined,
         },
       });
       const sid: string = submission.id;

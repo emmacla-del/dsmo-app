@@ -596,6 +596,7 @@ model OnefopSubmission {
   reviewedAt            DateTime?
   pdfUrl                String?
   surveyYear            Int
+  submissionDate        DateTime                      @default(now())
   region                String?
   department            String?
   subdivision           String?
