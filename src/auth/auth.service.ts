@@ -89,7 +89,7 @@ export class AuthService {
     const onefopSubs = await this.prisma.onefopSubmission.findMany({
       where: { submittedBy: userId },
       orderBy: { createdAt: 'desc' },
-      select: { status: true, surveyYear: true },
+      select: { status: true, surveyYear: true, submissionDate: true },
     });
 
     const latestSubmitted = onefopSubs.find((s) =>
@@ -102,6 +102,7 @@ export class AuthService {
       onefopBenchmarking: !!latestApproved,
       onefopSubmissionStatus: latestSubmitted?.status ?? null,
       onefopSurveyYear: latestSubmitted?.surveyYear ?? null,
+      onefopSubmissionDate: latestSubmitted?.submissionDate ?? null,
       onefopHasDraft: onefopSubs.some((s) => s.status === 'DRAFT'),
     };
   }
