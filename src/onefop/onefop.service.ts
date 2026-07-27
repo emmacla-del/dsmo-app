@@ -117,6 +117,10 @@ export class OnefopService {
             where.department = user.department;
         } else if (user.role === 'REGIONAL' && user.region) {
             where.region = user.region;
+        } else if (user.role === 'COMPANY') {
+            const company = await this.prisma.company.findFirst({ where: { userId: user.id } });
+            if (!company) return [];
+            where.companyId = company.id;
         }
 
         const submissions = await this.prisma.onefopSubmission.findMany({
@@ -145,7 +149,7 @@ export class OnefopService {
         }));
     }
 
-    async getSubmissionDetail(userId: string, submissionId: string) {
+    async getSubmissionDetail(user: any, submissionId: string) {
         const submission = await this.prisma.onefopSubmission.findFirst({
             where: { id: submissionId },
             include: { company: true }
@@ -155,10 +159,12 @@ export class OnefopService {
             throw new NotFoundException('Submission not found');
         }
 
+        await this.assertCanAccessSubmission(user, submission.companyId);
+
         return submission;
     }
 
-    async getSubmissionPdfUrl(submissionId: string): Promise<string> {
+    async getSubmissionPdfUrl(submissionId: string, user: any): Promise<string> {
         const submission = await this.prisma.onefopSubmission.findFirst({
             where: { id: submissionId },
         });
@@ -167,7 +173,21 @@ export class OnefopService {
             throw new NotFoundException('Submission not found');
         }
 
+        await this.assertCanAccessSubmission(user, submission.companyId);
+
         return this.pdfService.getSignedUrl(submission);
+    }
+
+    /// A COMPANY user may only reach their own submissions — the other
+    /// roles listed on these endpoints (DIVISIONAL/REGIONAL/CENTRAL/
+    /// SUPER_ADMIN*) are trusted reviewer roles with no per-record scoping
+    /// today, so this only tightens the newly-added COMPANY case.
+    private async assertCanAccessSubmission(user: any, companyId: string) {
+        if (user.role !== 'COMPANY') return;
+        const company = await this.prisma.company.findFirst({ where: { userId: user.id } });
+        if (!company || company.id !== companyId) {
+            throw new ForbiddenException('Access denied');
+        }
     }
 
     async getActiveQuarter() {
