@@ -204,6 +204,21 @@ export class DataManagementService {
                 cooperativeDetail: true,
                 ctdDetail: true,
                 ongDetail: true,
+                cspGenderAge: true,
+                diplomaData: true,
+                disabilityData: true,
+                vulnerableData: true,
+                firstTimeWorkers: true,
+                jobApplicationData: true,
+                registeredSeekers: true,
+                departureData: true,
+                dismissalReasons: true,
+                dismissalUnemployment: true,
+                internshipData: true,
+                skillNeeds: true,
+                trainingNeeds: true,
+                factRecruitments: true,
+                factSkillNeeds: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -358,11 +373,183 @@ export class DataManagementService {
             }
         }
 
+        // Sections 1-4 of the questionnaire (recruitment, workforce structure,
+        // departures, skill/training needs, diplomas, disability, etc.) live in
+        // 15 normalized breakdown tables, not on OnefopSubmission itself — one
+        // sheet per table, every row tagged back to its submission/company.
+        this.addBreakdownSheet(workbook, 'Effectifs CSP-Genre-Âge',
+            [{ header: 'Tableau', key: 'tableName', width: 20 },
+            { header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'cspGenderAge',
+            (item) => ({ tableName: item.tableName, cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Diplômes',
+            [{ header: 'Diplôme', key: 'diploma', width: 16 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'diplomaData',
+            (item) => ({ diploma: item.diploma, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Situations de handicap',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Statut', key: 'status', width: 12 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'disabilityData',
+            (item) => ({ cspCategory: item.cspCategory, status: item.status, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Personnes vulnérables',
+            [{ header: 'Catégorie vulnérable', key: 'vulnerableType', width: 20 },
+            { header: 'Statut', key: 'status', width: 12 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'vulnerableData',
+            (item) => ({ vulnerableType: item.vulnerableType, status: item.status, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Premiers emplois',
+            [{ header: 'Type de contrat', key: 'contractType', width: 16 },
+            { header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'firstTimeWorkers',
+            (item) => ({ contractType: item.contractType, cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Candidatures reçues',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'jobApplicationData',
+            (item) => ({ cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Demandeurs enregistrés',
+            [{ header: 'Type de contrat', key: 'contractType', width: 16 },
+            { header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'registeredSeekers',
+            (item) => ({ contractType: item.contractType, cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Départs',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Type de départ', key: 'departureType', width: 16 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'departureData',
+            (item) => ({ cspCategory: item.cspCategory, departureType: item.departureType, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Motifs de licenciement',
+            [{ header: 'N°', key: 'reasonIndex', width: 8 },
+            { header: 'Motif', key: 'reasonText', width: 30 },
+            { header: 'Hommes', key: 'maleCount', width: 10 },
+            { header: 'Femmes', key: 'femaleCount', width: 10 },
+            { header: 'Total', key: 'totalCount', width: 10 }],
+            submissions, 'dismissalReasons',
+            (item) => ({ reasonIndex: item.reasonIndex, reasonText: item.reasonText, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }));
+
+        this.addBreakdownSheet(workbook, 'Licenciement-Chômage technique',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Type', key: 'type', width: 20 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'dismissalUnemployment',
+            (item) => ({ cspCategory: item.cspCategory, type: item.type, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Stages',
+            [{ header: 'Type de stage', key: 'internshipType', width: 18 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'internshipData',
+            (item) => ({ internshipType: item.internshipType, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Besoins en compétences',
+            [{ header: 'N°', key: 'skillIndex', width: 8 },
+            { header: 'Compétence', key: 'skillDescription', width: 32 },
+            { header: 'Hommes', key: 'maleCount', width: 10 },
+            { header: 'Femmes', key: 'femaleCount', width: 10 },
+            { header: 'Total', key: 'totalCount', width: 10 }],
+            submissions, 'skillNeeds',
+            (item) => ({ skillIndex: item.skillIndex, skillDescription: item.skillDescription, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }));
+
+        this.addBreakdownSheet(workbook, 'Besoins en formation',
+            [{ header: 'N°', key: 'domainIndex', width: 8 },
+            { header: 'Domaine', key: 'trainingDomain', width: 32 },
+            { header: 'Hommes', key: 'maleCount', width: 10 },
+            { header: 'Femmes', key: 'femaleCount', width: 10 },
+            { header: 'Total', key: 'totalCount', width: 10 }],
+            submissions, 'trainingNeeds',
+            (item) => ({ domainIndex: item.domainIndex, trainingDomain: item.trainingDomain, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }));
+
+        this.addBreakdownSheet(workbook, 'Recrutements (détail)',
+            [{ header: 'Année', key: 'year', width: 10 },
+            { header: 'CSP', key: 'csp', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageGroup', width: 14 },
+            { header: 'Nombre', key: 'count', width: 10 },
+            { header: 'Type de recrutement', key: 'recruitmentType', width: 20 }],
+            submissions, 'factRecruitments',
+            (item) => ({ year: item.year, csp: item.csp, gender: item.gender, ageGroup: item.ageGroup, count: item.count, recruitmentType: item.recruitmentType }));
+
+        this.addBreakdownSheet(workbook, 'Besoins compétences (détail)',
+            [{ header: 'Année', key: 'year', width: 10 },
+            { header: 'Compétence', key: 'skillDescription', width: 32 },
+            { header: 'Nombre', key: 'count', width: 10 }],
+            submissions, 'factSkillNeeds',
+            (item) => ({ year: item.year, skillDescription: item.skillDescription, count: item.count }));
+
         if (workbook.worksheets.length === 0) {
             workbook.addWorksheet('Soumissions').addRow(['Aucune soumission approuvée trouvée.']);
         }
 
         const buffer = await workbook.xlsx.writeBuffer();
         return Buffer.from(buffer);
+    }
+
+    private identityColumns(): Partial<ExcelJS.Column>[] {
+        return [
+            { header: 'N° de soumission', key: 'submissionId', width: 24 },
+            { header: 'Entreprise', key: 'entreprise', width: 26 },
+            { header: "Type d'entité", key: 'typeEntite', width: 14 },
+            { header: 'Région', key: 'region', width: 14 },
+        ];
+    }
+
+    private identityFields(s: any) {
+        return {
+            submissionId: s.submissionId,
+            entreprise: s.company?.name ?? null,
+            typeEntite: s.formType,
+            region: s.region,
+        };
+    }
+
+    private addBreakdownSheet(
+        workbook: ExcelJS.Workbook,
+        title: string,
+        columns: Partial<ExcelJS.Column>[],
+        submissions: any[],
+        relationKey: string,
+        rowMapper: (item: any) => Record<string, unknown>,
+    ): void {
+        const rows: Record<string, unknown>[] = [];
+        for (const s of submissions) {
+            const items = s[relationKey] as any[] | undefined;
+            if (!items || items.length === 0) continue;
+            for (const item of items) {
+                rows.push({ ...this.identityFields(s), ...rowMapper(item) });
+            }
+        }
+        if (rows.length === 0) return;
+
+        const sheet = workbook.addWorksheet(title);
+        sheet.columns = [...this.identityColumns(), ...columns];
+        sheet.getRow(1).font = { bold: true };
+        for (const row of rows) sheet.addRow(row);
     }
 }
