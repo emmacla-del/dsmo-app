@@ -464,10 +464,124 @@ export class DataManagementService {
             }
         }
 
+        // Tidy/long-format versions of the same 13 breakdown tables, kept
+        // alongside the flattened per-entity sheets above. The flattened
+        // sheets are for browsing one entity's full submission; these are
+        // for actual analysis (PivotTables, SUMIFS, or loading straight
+        // into Python/R/Stata) — one row per submission × category, a
+        // single "Valeur" column, nothing to unpivot first.
+        this.addBreakdownSheet(workbook, 'Effectifs CSP-Genre-Âge',
+            [{ header: 'Tableau', key: 'tableName', width: 20 },
+            { header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'cspGenderAge',
+            (item) => ({ tableName: item.tableName, cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Diplômes',
+            [{ header: 'Diplôme', key: 'diploma', width: 16 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'diplomaData',
+            (item) => ({ diploma: item.diploma, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Situations de handicap',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Statut', key: 'status', width: 12 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'disabilityData',
+            (item) => ({ cspCategory: item.cspCategory, status: item.status, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Personnes vulnérables',
+            [{ header: 'Catégorie vulnérable', key: 'vulnerableType', width: 20 },
+            { header: 'Statut', key: 'status', width: 12 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'vulnerableData',
+            (item) => ({ vulnerableType: item.vulnerableType, status: item.status, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Premiers emplois',
+            [{ header: 'Type de contrat', key: 'contractType', width: 16 },
+            { header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'firstTimeWorkers',
+            (item) => ({ contractType: item.contractType, cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Candidatures reçues',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'jobApplicationData',
+            (item) => ({ cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Demandeurs enregistrés',
+            [{ header: 'Type de contrat', key: 'contractType', width: 16 },
+            { header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'registeredSeekers',
+            (item) => ({ contractType: item.contractType, cspCategory: item.cspCategory, gender: item.gender, ageBand: item.ageBand, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Départs',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Type de départ', key: 'departureType', width: 16 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'departureData',
+            (item) => ({ cspCategory: item.cspCategory, departureType: item.departureType, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Motifs de licenciement',
+            [{ header: 'N°', key: 'reasonIndex', width: 8 },
+            { header: 'Motif', key: 'reasonText', width: 30 },
+            { header: 'Hommes', key: 'maleCount', width: 10 },
+            { header: 'Femmes', key: 'femaleCount', width: 10 },
+            { header: 'Total', key: 'totalCount', width: 10 }],
+            submissions, 'dismissalReasons',
+            (item) => ({ reasonIndex: item.reasonIndex, reasonText: item.reasonText, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }));
+
+        this.addBreakdownSheet(workbook, 'Licenciement-Chômage technique',
+            [{ header: 'Catégorie', key: 'cspCategory', width: 14 },
+            { header: 'Type', key: 'type', width: 20 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'dismissalUnemployment',
+            (item) => ({ cspCategory: item.cspCategory, type: item.type, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Stages',
+            [{ header: 'Type de stage', key: 'internshipType', width: 18 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 }],
+            submissions, 'internshipData',
+            (item) => ({ internshipType: item.internshipType, gender: item.gender, value: item.value }));
+
+        this.addBreakdownSheet(workbook, 'Besoins en compétences',
+            [{ header: 'N°', key: 'skillIndex', width: 8 },
+            { header: 'Compétence', key: 'skillDescription', width: 32 },
+            { header: 'Hommes', key: 'maleCount', width: 10 },
+            { header: 'Femmes', key: 'femaleCount', width: 10 },
+            { header: 'Total', key: 'totalCount', width: 10 }],
+            submissions, 'skillNeeds',
+            (item) => ({ skillIndex: item.skillIndex, skillDescription: item.skillDescription, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }));
+
+        this.addBreakdownSheet(workbook, 'Besoins en formation',
+            [{ header: 'N°', key: 'domainIndex', width: 8 },
+            { header: 'Domaine', key: 'trainingDomain', width: 32 },
+            { header: 'Hommes', key: 'maleCount', width: 10 },
+            { header: 'Femmes', key: 'femaleCount', width: 10 },
+            { header: 'Total', key: 'totalCount', width: 10 }],
+            submissions, 'trainingNeeds',
+            (item) => ({ domainIndex: item.domainIndex, trainingDomain: item.trainingDomain, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }));
+
         // The two free-text "fact" tables don't reduce to a fixed set of
-        // columns (no bounded index, freeform descriptions), so they stay as
-        // their own long-format sheets rather than being pivoted onto the
-        // main entity rows.
+        // columns (no bounded index, freeform descriptions), so they've
+        // always been their own long-format sheets.
         this.addBreakdownSheet(workbook, 'Recrutements (détail)',
             [{ header: 'Année', key: 'year', width: 10 },
             { header: 'CSP', key: 'csp', width: 14 },
