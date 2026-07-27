@@ -1,4 +1,5 @@
-﻿import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Res, UseGuards, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 import { DataManagementService } from './data-management.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -57,7 +58,18 @@ export class DataManagementController {
 
   @Post('export/submissions')
   @Roles(UserRole.SUPER_ADMIN)
-  async exportSubmissions(@Body() filters: any) {
-    return this.dataManagementService.exportSubmissions(filters);
+  async exportSubmissions(@Body() filters: any, @Res({ passthrough: true }) res: Response) {
+    const result = await this.dataManagementService.exportSubmissions(filters);
+
+    if (Buffer.isBuffer(result)) {
+      const date = new Date().toISOString().slice(0, 10);
+      res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="onefop_submissions_${date}.xlsx"`,
+      });
+      return new StreamableFile(result);
+    }
+
+    return result;
   }
 }

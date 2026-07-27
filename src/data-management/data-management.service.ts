@@ -1,6 +1,7 @@
 // src/data-management/data-management.service.ts
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class DataManagementService {
@@ -173,9 +174,10 @@ export class DataManagementService {
             };
         }
 
-        // ONEFOP submissions
-        const where: any = {};
-        if (filters.status) where.status = filters.status;
+        // ONEFOP submissions — compiled into a real, downloadable Excel workbook.
+        // Only APPROVED submissions are exported: these are the validated records
+        // entities have submitted through the ONEFOP questionnaire.
+        const where: any = { status: 'APPROVED' };
         if (filters.region) where.region = filters.region;
         if (filters.department) where.department = filters.department;
         if (filters.year) where.surveyYear = Number(filters.year);
@@ -197,19 +199,170 @@ export class DataManagementService {
                         establishmentId: true,
                     },
                 },
-                enterpriseDetail: {
-                    select: { mainActivity: true, sector: true, permanentWorkers: true },
-                },
+                respondent: true,
+                enterpriseDetail: true,
+                cooperativeDetail: true,
+                ctdDetail: true,
+                ongDetail: true,
             },
             orderBy: { createdAt: 'desc' },
         });
 
+        return this.buildOnefopWorkbook(submissions);
+    }
+
+    private commonColumns(): Partial<ExcelJS.Column>[] {
+        return [
+            { header: 'N° de soumission', key: 'submissionId', width: 24 },
+            { header: 'Statut', key: 'status', width: 14 },
+            { header: 'Année d\'enquête', key: 'surveyYear', width: 14 },
+            { header: 'Trimestre', key: 'quarterCode', width: 12 },
+            { header: 'Entreprise (fiche)', key: 'companyName', width: 26 },
+            { header: 'N° contribuable', key: 'taxNumber', width: 18 },
+            { header: 'ID établissement', key: 'establishmentId', width: 18 },
+            { header: 'Région', key: 'region', width: 16 },
+            { header: 'Département', key: 'department', width: 18 },
+            { header: 'Arrondissement', key: 'subdivision', width: 18 },
+            { header: 'Date de soumission', key: 'submissionDate', width: 20 },
+            { header: 'Répondant', key: 'respondentName', width: 22 },
+            { header: 'Fonction du répondant', key: 'respondentFunction', width: 22 },
+            { header: 'Téléphone répondant', key: 'respondentPhone', width: 18 },
+        ];
+    }
+
+    private commonRow(s: any) {
         return {
-            type: 'ONEFOP',
-            count: submissions.length,
-            filters,
-            exportedAt: new Date(),
-            data: submissions,
+            submissionId: s.submissionId,
+            status: s.status,
+            surveyYear: s.surveyYear,
+            quarterCode: s.quarterCode,
+            companyName: s.company?.name ?? null,
+            taxNumber: s.company?.taxNumber ?? s.taxNumber ?? null,
+            establishmentId: s.company?.establishmentId ?? s.establishmentId ?? null,
+            region: s.region ?? s.company?.region ?? null,
+            department: s.department ?? s.company?.department ?? null,
+            subdivision: s.subdivision,
+            submissionDate: s.submissionDate,
+            respondentName: s.respondent?.respondentName ?? null,
+            respondentFunction: s.respondent?.respondentFunction ?? null,
+            respondentPhone: s.respondent?.phone1 ?? null,
         };
+    }
+
+    private async buildOnefopWorkbook(submissions: any[]): Promise<Buffer> {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'MINEFOP';
+        workbook.created = new Date();
+
+        const sheetDefs: Array<{
+            formType: string;
+            title: string;
+            detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail';
+            columns: Partial<ExcelJS.Column>[];
+        }> = [
+            {
+                formType: 'ENTREPRISE',
+                title: 'Entreprises',
+                detailKey: 'enterpriseDetail',
+                columns: [
+                    { header: 'Raison sociale', key: 'companyName', width: 26 },
+                    { header: 'Statut juridique', key: 'legalStatus', width: 18 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Téléphone 1', key: 'phone1', width: 16 },
+                    { header: 'Téléphone 2', key: 'phone2', width: 16 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Secteur', key: 'sector', width: 18 },
+                    { header: 'Branche', key: 'branch', width: 18 },
+                    { header: 'Activité principale', key: 'mainActivity', width: 28 },
+                    { header: 'Siège social', key: 'headOffice', width: 20 },
+                    { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
+                    { header: 'Postes vacants', key: 'vacancies', width: 14 },
+                    { header: 'Taille', key: 'enterpriseSize', width: 12 },
+                ],
+            },
+            {
+                formType: 'COOPERATIVE',
+                title: 'Coopératives',
+                detailKey: 'cooperativeDetail',
+                columns: [
+                    { header: 'Nom de la coopérative', key: 'cooperativeName', width: 26 },
+                    { header: 'Siège social', key: 'headOffice', width: 20 },
+                    { header: 'Année de création', key: 'yearCreated', width: 16 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Téléphone 1', key: 'phone1', width: 16 },
+                    { header: 'Téléphone 2', key: 'phone2', width: 16 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Secteur', key: 'sector', width: 18 },
+                    { header: 'Branche', key: 'branch', width: 18 },
+                    { header: 'Activité principale', key: 'mainActivity', width: 28 },
+                    { header: 'Type de coopérative', key: 'cooperativeType', width: 20 },
+                    { header: 'Type (autre)', key: 'cooperativeTypeOther', width: 20 },
+                    { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
+                    { header: 'Postes vacants', key: 'vacancies', width: 14 },
+                ],
+            },
+            {
+                formType: 'CTD',
+                title: 'CTD',
+                detailKey: 'ctdDetail',
+                columns: [
+                    { header: 'Type de CTD', key: 'ctdType', width: 18 },
+                    { header: 'Type de conseil', key: 'councilType', width: 18 },
+                    { header: 'Année de création', key: 'yearCreated', width: 16 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Téléphone 1', key: 'phone1', width: 16 },
+                    { header: 'Téléphone 2', key: 'phone2', width: 16 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Secteur', key: 'sector', width: 18 },
+                    { header: 'Branche', key: 'branch', width: 18 },
+                    { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
+                    { header: 'Postes vacants', key: 'vacancies', width: 14 },
+                ],
+            },
+            {
+                formType: 'ONG',
+                title: 'ONG',
+                detailKey: 'ongDetail',
+                columns: [
+                    { header: 'Nom de l\'ONG', key: 'ongName', width: 26 },
+                    { header: 'Siège social', key: 'headOffice', width: 20 },
+                    { header: 'Année de création', key: 'yearCreated', width: 16 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Téléphone 1', key: 'phone1', width: 16 },
+                    { header: 'Téléphone 2', key: 'phone2', width: 16 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Secteur', key: 'sector', width: 18 },
+                    { header: 'Branche', key: 'branch', width: 18 },
+                    { header: 'Mission principale', key: 'mainMission', width: 28 },
+                    { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
+                    { header: 'Postes vacants', key: 'vacancies', width: 14 },
+                ],
+            },
+        ];
+
+        for (const def of sheetDefs) {
+            const rows = submissions.filter((s) => s.formType === def.formType);
+            if (rows.length === 0) continue;
+
+            const sheet = workbook.addWorksheet(def.title);
+            sheet.columns = [...this.commonColumns(), ...def.columns];
+            sheet.getRow(1).font = { bold: true };
+
+            for (const s of rows) {
+                const detail = s[def.detailKey] ?? {};
+                sheet.addRow({ ...this.commonRow(s), ...detail });
+            }
+        }
+
+        if (workbook.worksheets.length === 0) {
+            workbook.addWorksheet('Soumissions').addRow(['Aucune soumission approuvée trouvée.']);
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return Buffer.from(buffer);
     }
 }
