@@ -94,8 +94,31 @@ function debugLog(label: string, value: any, maxChars = 2000): void {
 export class QuestionnairesService {
   constructor(private prisma: PrismaService) { }
 
+  /**
+   * Mirrors DsmoService.getActivePeriod() / OnefopService.getActiveQuarter()
+   * but inline here since QuestionnairesModule doesn't import OnefopModule.
+   * No open SubmissionRound for ONEFOP means no campaign window is
+   * currently collecting final submissions.
+   */
+  private async assertOnefopRoundOpen(): Promise<void> {
+    const round = await this.prisma.submissionRound.findFirst({
+      where: { module: 'ONEFOP', status: { in: ['OPEN', 'EXTENDED'] } },
+      orderBy: { openedAt: 'desc' },
+    });
+    if (!round) {
+      throw new BadRequestException(
+        "Aucune période de soumission ONEFOP n'est actuellement ouverte.",
+      );
+    }
+  }
+
   async submitQuestionnaire(dto: OnefopSubmissionDto): Promise<OnefopResponseDto> {
     const isDraft = dto.isDraft ?? false;
+    // Drafts are just in-progress personal scratch data — only the final
+    // submission needs an admin-opened campaign window.
+    if (!isDraft) {
+      await this.assertOnefopRoundOpen();
+    }
     // Normalize entityType to uppercase
     const normalizedEntityType = normalizeEntityType(dto.entityType);
 
