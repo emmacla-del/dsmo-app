@@ -315,10 +315,22 @@ export class DsmoService {
    * the SubmissionRound a DataCampaign opens when its collectionType is
    * DSMO. No round open means no DSMO declaration period is currently
    * collecting data.
+   *
+   * The `deadline` check matters on its own, not just `status`: a round only
+   * gets flipped to CLOSED by a daily cron (CampaignSchedulerService, 6am),
+   * which can miss its firing entirely if the service was asleep (Render
+   * free-tier idle spin-down). Without this, a campaign whose deadline has
+   * passed — and which has already disappeared from every "active
+   * campaign" UI — could still silently accept declarations until the cron
+   * next happens to run.
    */
   async getActivePeriod() {
     const round = await this.prisma.submissionRound.findFirst({
-      where: { module: 'DSMO', status: { in: ['OPEN', 'EXTENDED'] } },
+      where: {
+        module: 'DSMO',
+        status: { in: ['OPEN', 'EXTENDED'] },
+        deadline: { gte: new Date() },
+      },
       orderBy: { openedAt: 'desc' },
     });
     if (!round) {

@@ -191,8 +191,16 @@ export class OnefopService {
     }
 
     async getActiveQuarter() {
+        // `deadline` is checked directly rather than trusting `status` alone:
+        // a round is only flipped to CLOSED by a daily cron that can miss its
+        // firing (e.g. Render free-tier idle spin-down), so a round can sit
+        // OPEN past its own deadline.
         const round = await this.prisma.submissionRound.findFirst({
-            where: { module: 'ONEFOP', status: { in: ['OPEN', 'EXTENDED'] } },
+            where: {
+                module: 'ONEFOP',
+                status: { in: ['OPEN', 'EXTENDED'] },
+                deadline: { gte: new Date() },
+            },
             orderBy: { openedAt: 'desc' },
         });
         if (!round) {

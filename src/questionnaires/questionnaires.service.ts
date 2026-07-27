@@ -99,10 +99,22 @@ export class QuestionnairesService {
    * but inline here since QuestionnairesModule doesn't import OnefopModule.
    * No open SubmissionRound for ONEFOP means no campaign window is
    * currently collecting final submissions.
+   *
+   * The `deadline` check matters on its own, not just `status`: a round only
+   * gets flipped to CLOSED by a daily cron (CampaignSchedulerService, 6am),
+   * which can miss its firing entirely if the service was asleep (Render
+   * free-tier idle spin-down). Without this, a campaign whose deadline has
+   * passed — and which has already disappeared from every "active
+   * campaign" UI — could still silently accept submissions until the cron
+   * next happens to run.
    */
   private async assertOnefopRoundOpen(): Promise<void> {
     const round = await this.prisma.submissionRound.findFirst({
-      where: { module: 'ONEFOP', status: { in: ['OPEN', 'EXTENDED'] } },
+      where: {
+        module: 'ONEFOP',
+        status: { in: ['OPEN', 'EXTENDED'] },
+        deadline: { gte: new Date() },
+      },
       orderBy: { openedAt: 'desc' },
     });
     if (!round) {
