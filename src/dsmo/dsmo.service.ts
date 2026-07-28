@@ -94,6 +94,9 @@ export class DsmoService {
         respondentFunction: true,
         respondentPhone: true,
         respondentPhone2: true,
+        totalEmployees: true,
+        menCount: true,
+        womenCount: true,
       }
     });
     return company;
@@ -489,7 +492,13 @@ export class DsmoService {
     });
 
     await this.auditService.log(userId, 'SUBMIT_DECLARATION', 'Declaration', submitted.id, trackingNumber);
-    return { success: true, trackingNumber, pdfUrls: urls, fileHashes: hashes };
+    return {
+      success: true,
+      declaration: { id: submitted.id },
+      trackingNumber,
+      pdfUrls: urls,
+      fileHashes: hashes,
+    };
   }
 
   async getPendingDeclarations(user: any) {
