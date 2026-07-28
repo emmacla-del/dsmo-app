@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/ultra_theme.dart';
+import '../../widgets/period_selector.dart';
+import '../../providers/auth_provider.dart';
 import 'report_models.dart';
 import 'report_providers.dart';
 import 'report_generator_tab.dart';
@@ -10,6 +12,23 @@ import 'report_approvals_tab.dart';
 import 'report_batch_tab.dart';
 import 'report_compare_tab.dart';
 import 'report_audit_tab.dart';
+
+const _superAdminBackendRoles = {
+  'SUPER_ADMIN',
+  'SUPER_ADMIN_DSMO',
+  'SUPER_ADMIN_ONEFOP',
+};
+
+UserRole _mapBackendRole(String? backendRole) {
+  if (backendRole == null) return UserRole.viewer;
+  if (_superAdminBackendRoles.contains(backendRole)) return UserRole.superAdmin;
+  if (backendRole == 'CENTRAL' ||
+      backendRole == 'ANALYST' ||
+      backendRole == 'AUDITOR') {
+    return UserRole.admin;
+  }
+  return UserRole.viewer;
+}
 
 class ReportScreen extends ConsumerStatefulWidget {
   const ReportScreen({super.key});
@@ -21,14 +40,53 @@ class ReportScreen extends ConsumerStatefulWidget {
 class _ReportScreenState extends ConsumerState<ReportScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final UserRole _currentUserRole = UserRole.superAdmin;
+  late UserRole _currentUserRole;
   late ReportPermissions _permissions;
+  PeriodConfig? _prefillPeriod;
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
+    _checkPrefillArguments();
+  }
+
+  void _loadUserRole() {
+    final backendRole = ref.read(authProvider).value?.role;
+    _currentUserRole = _mapBackendRole(backendRole);
     _permissions = ReportPermissions.forRole(_currentUserRole);
     _tabController = TabController(length: _getTabCount(), vsync: this);
+  }
+
+  void _checkPrefillArguments() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic> && args.containsKey('prefill')) {
+        final prefillData = args['prefill'] as Map<String, dynamic>;
+        setState(() {
+          _prefillPeriod = PeriodConfig(
+            type: _parsePeriodType(prefillData['periodType'] ?? 'year'),
+            year: prefillData['year'],
+            quarter: prefillData['quarter'],
+            semester: prefillData['semester'],
+            customRange: prefillData['customRange'],
+          );
+        });
+      }
+    });
+  }
+
+  PeriodType _parsePeriodType(String type) {
+    switch (type) {
+      case 'quarter':
+        return PeriodType.quarter;
+      case 'semester':
+        return PeriodType.semester;
+      case 'custom':
+        return PeriodType.custom;
+      default:
+        return PeriodType.year;
+    }
   }
 
   @override
@@ -93,7 +151,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                 Icon(_currentUserRole.icon,
                     size: 12, color: UltraTheme.textSecondary),
                 const SizedBox(width: 4),
-                Text(_currentUserRole.label, style: TextStyle(fontSize: 10)),
+                Text(_currentUserRole.label,
+                    style: const TextStyle(fontSize: 10)),
               ],
             ),
           ],
@@ -109,8 +168,8 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
           controller: _tabController,
           tabs: _getTabs(),
           isScrollable: true,
-          indicatorColor: const Color(0xFF1D9E75),
-          labelColor: const Color(0xFF1D9E75),
+          indicatorColor: UltraTheme.primary,
+          labelColor: UltraTheme.primary,
           unselectedLabelColor: UltraTheme.textMuted,
         ),
       ),
@@ -121,6 +180,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
           ReportGeneratorTab(
             userRole: _currentUserRole,
             permissions: _permissions,
+            prefillPeriod: _prefillPeriod,
             onReportGenerated: _refreshAll,
           ),
 

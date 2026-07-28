@@ -1,6 +1,7 @@
 // lib/screens/register_widgets.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'register_constants.dart'
     show
         kStepRole,
@@ -421,6 +422,7 @@ class Field extends StatelessWidget {
   final IconData icon;
   final String? hint;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
   final bool required;
   final int maxLines;
@@ -433,6 +435,7 @@ class Field extends StatelessWidget {
     required this.icon,
     this.hint,
     this.keyboardType,
+    this.inputFormatters,
     this.validator,
     this.required = true,
     this.maxLines = 1,
@@ -446,6 +449,7 @@ class Field extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         textInputAction: textInputAction,
         maxLines: maxLines,
         style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),

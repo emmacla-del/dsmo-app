@@ -71,58 +71,72 @@ Widget errorRow(String m) => Padding(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, size: 14, color: Color(0xFFE24B4A)),
+          const Icon(Icons.error_outline, size: 14, color: kDanger),
           const SizedBox(width: 6),
-          Text(m,
-              style: const TextStyle(fontSize: 12, color: Color(0xFFA32D2D))),
+          Flexible(
+            child:
+                Text(m, style: const TextStyle(fontSize: 12, color: kDanger)),
+          ),
         ],
       ),
     );
 
 InputDecoration inputDecoration(
-    {required bool focused, required bool hasError, String? hint}) {
+    {required bool focused,
+    required bool hasError,
+    String? hint,
+    String? helperText}) {
   return InputDecoration(
     isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
     filled: true,
-    fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+    fillColor: hasError ? kDangerSoft : kFieldFill,
     hintText: hint,
-    hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+    hintStyle: const TextStyle(fontSize: 14, color: kInkFaint),
+    helperText: helperText,
+    helperStyle: const TextStyle(fontSize: 11, color: kInkFaint),
+    helperMaxLines: 2,
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderSide: const BorderSide(color: kBorder, width: 1)),
     enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(
-            color: hasError ? const Color(0xFFE24B4A) : const Color(0xFFE2E8F0),
-            width: 1)),
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderSide: BorderSide(color: hasError ? kDanger : kBorder, width: 1)),
     focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF4472C4), width: 2)),
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderSide: const BorderSide(color: kAccent, width: 1.5)),
     errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE24B4A), width: 1)),
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderSide: const BorderSide(color: kDanger, width: 1)),
   );
 }
 
 InputDecoration dropdownDecoration(bool hasError) => InputDecoration(
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       filled: true,
-      fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+      fillColor: hasError ? kDangerSoft : kFieldFill,
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderSide: const BorderSide(color: kBorder, width: 1)),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(
-              color:
-                  hasError ? const Color(0xFFE24B4A) : const Color(0xFFE2E8F0),
-              width: 1)),
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderSide:
+              BorderSide(color: hasError ? kDanger : kBorder, width: 1)),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF4472C4), width: 2)),
+          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderSide: const BorderSide(color: kAccent, width: 1.5)),
     );
+
+/// Upfront hint for fields capped by an input formatter, so hitting the
+/// limit doesn't look like a dead keystroke with no explanation.
+String? fieldHelperText(FieldSchema f) {
+  if (f.type == 'tel') {
+    return '9 chiffres, sans le 0 initial / 9 digits, no leading 0';
+  }
+  if (FieldValidator.isYearField(f)) return '4 chiffres / 4-digit year';
+  return null;
+}
 
 TextInputType keyboardType(String t) {
   switch (t) {
@@ -189,7 +203,8 @@ class SimpleField extends StatelessWidget {
                 decoration: inputDecoration(
                     focused: fn.hasFocus,
                     hasError: e,
-                    hint: field.type == 'number' ? '0' : null),
+                    hint: field.type == 'number' ? '0' : null,
+                    helperText: fieldHelperText(field)),
                 onTapOutside: (_) => ctrl.onBlur(field.id),
                 onFieldSubmitted: (_) {
                   ctrl.onBlur(field.id);
@@ -269,7 +284,8 @@ class RadioField extends StatelessWidget {
             ),
             if (e) ...[
               const SizedBox(height: 6),
-              errorRow('Veuillez sélectionner une option'),
+              errorRow(
+                  'Veuillez sélectionner une option / Please select an option'),
             ],
           ],
         ),
@@ -309,7 +325,7 @@ class SelectField extends StatelessWidget {
               focusNode: ctrl.fm.getNode(field.id),
               child: DropdownButtonFormField<String>(
                 initialValue: cur,
-                hint: const Text('Sélectionner',
+                hint: const Text('Sélectionner / Select',
                     style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
                 isExpanded: true,
                 style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
@@ -326,7 +342,8 @@ class SelectField extends StatelessWidget {
               ),
             ),
             if (e && (cur == null || cur.isEmpty))
-              errorRow('Veuillez sélectionner une option'),
+              errorRow(
+                  'Veuillez sélectionner une option / Please select an option'),
           ],
         ),
       ),
@@ -426,10 +443,13 @@ class _HybridTableBody extends StatelessWidget {
     const nc = kHybridNumWidth;
     const double outerBorder = 1.0;
 
-    final effectiveWidth =
-        availableWidth - 2 * outerBorder - 2 * OL.borderWidth;
-    final tc = (200.0).clamp(200.0, effectiveWidth - 3 * nc);
-    final totalTableWidth = tc + 3 * nc + 2 * OL.borderWidth + 2 * outerBorder;
+    // Text column has a fixed minimum width; when the table doesn't fit the
+    // available width, the horizontal SingleChildScrollView below (driven by
+    // needsScroll) takes over instead of trying to squeeze it — clamping it
+    // to the available width here could push the lower bound above the
+    // upper bound and throw on narrow screens.
+    const double tc = 200.0;
+    const totalTableWidth = tc + 3 * nc + 2 * OL.borderWidth + 2 * outerBorder;
 
     Widget headerRow = Container(
       constraints: const BoxConstraints(minHeight: OL.headerRowHeight),
@@ -485,6 +505,7 @@ class _HybridTableBody extends StatelessWidget {
         allCells: allCells,
         fieldId: fieldId,
         ctrl: ctrl,
+        tableId: pfx,
       ));
     }
 
@@ -506,9 +527,9 @@ class _HybridTableBody extends StatelessWidget {
         border: Border.all(color: OL.borderColor, width: OL.borderWidth),
       ),
       child: Row(children: [
-        SizedBox(
+        const SizedBox(
           width: tc,
-          child: const Padding(
+          child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text('TOTAL', style: kGrandTotalStyle),
           ),
@@ -536,15 +557,12 @@ class _HybridTableBody extends StatelessWidget {
     );
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kRadiusMd),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-          boxShadow: const [
-            BoxShadow(
-                color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
-          ],
+          color: kSurface,
+          border: Border.all(color: kBorder, width: 1),
+          boxShadow: kShadowCard,
         ),
         child: needsScroll
             ? SingleChildScrollView(
@@ -568,6 +586,7 @@ class _HybridDataRow extends StatelessWidget {
   final List<String> allCells;
   final String fieldId;
   final OnefopFormController ctrl;
+  final String tableId;
 
   const _HybridDataRow({
     required this.index,
@@ -582,6 +601,7 @@ class _HybridDataRow extends StatelessWidget {
     required this.allCells,
     required this.fieldId,
     required this.ctrl,
+    required this.tableId,
   });
 
   @override
@@ -613,8 +633,7 @@ class _HybridDataRow extends StatelessWidget {
                 minLines: 1,
                 decoration: InputDecoration(
                   hintText: rowLabel,
-                  hintStyle:
-                      const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                  hintStyle: const TextStyle(fontSize: 13, color: kInkFaint),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: OL.cellPadH + 4, vertical: 10),
@@ -635,7 +654,7 @@ class _HybridDataRow extends StatelessWidget {
                 value: ctrl.aGrid[mid] ?? 0,
                 onChanged: ctrl.onGridCellChanged,
                 fm: ctrl.fm,
-                tableId: 's3q02',
+                tableId: tableId,
                 allCells: allCells,
                 rowWidth: 2,
                 onExitTable: () => ctrl.exitTable(fieldId),
@@ -655,7 +674,7 @@ class _HybridDataRow extends StatelessWidget {
                 value: ctrl.aGrid[fid] ?? 0,
                 onChanged: ctrl.onGridCellChanged,
                 fm: ctrl.fm,
-                tableId: 's3q02',
+                tableId: tableId,
                 allCells: allCells,
                 rowWidth: 2,
                 onExitTable: () => ctrl.exitTable(fieldId),
@@ -675,7 +694,7 @@ class _HybridDataRow extends StatelessWidget {
                 tot == 0 ? '—' : '$tot',
                 style: tot > 0
                     ? kTotalStyle
-                    : kTableDataStyle.copyWith(color: const Color(0xFF94A3B8)),
+                    : kTableDataStyle.copyWith(color: kInkFaint),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -823,7 +842,7 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
         builder: (ctx, _) {
           final focused = _n.hasFocus;
           return ColoredBox(
-            color: focused ? const Color(0xFFEBF3FF) : Colors.transparent,
+            color: focused ? kAccentSoft : Colors.transparent,
             child: TextField(
               controller: _c,
               focusNode: _n,
@@ -834,7 +853,7 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
               style: const TextStyle(
                   fontSize: kNumCellFontSize,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF000000)),
+                  color: kInk),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -842,8 +861,8 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
                 hintText: focused ? '0' : null,
-                hintStyle: const TextStyle(
-                    fontSize: kNumCellFontSize, color: Color(0xFFCBD5E1)),
+                hintStyle:
+                    const TextStyle(fontSize: kNumCellFontSize, color: kBorderStrong),
               ),
               onChanged: (v) =>
                   widget.onChanged(widget.cellId, int.tryParse(v) ?? 0),
@@ -939,17 +958,10 @@ class _HighlightBlockState extends State<HighlightBlock> {
         bottom: widget.isTable ? 0 : 8,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: _focused
-            ? (widget.isTable
-                ? const Color(0xFFF0F6FF)
-                : const Color(0xFFF5F8FF))
-            : Colors.transparent,
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        color: _focused ? kAccentSoft : Colors.transparent,
         border: _focused
-            ? Border(
-                left: BorderSide(
-                    color: const Color(0xFF4472C4).withValues(alpha: 0.7),
-                    width: 3))
+            ? const Border(left: BorderSide(color: kAccent, width: 3))
             : null,
       ),
       child: widget.child,
@@ -978,23 +990,21 @@ class RadioOption extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(kRadiusSm),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFEEF2FF) : Colors.transparent,
+            color: isSelected ? kAccentSoft : Colors.transparent,
             border: Border.all(
-              color: isSelected
-                  ? const Color(0xFF4472C4)
-                  : const Color(0xFFE2E8F0),
+              color: isSelected ? kAccent : kBorder,
               width: isSelected ? 1.5 : 1,
             ),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kRadiusSm),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                        color: const Color(0xFF4472C4).withValues(alpha: 0.1),
+                        color: kAccent.withValues(alpha: 0.10),
                         blurRadius: 8,
                         offset: const Offset(0, 2)),
                   ]
@@ -1010,16 +1020,13 @@ class RadioOption extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF4472C4)
-                            : const Color(0xFF94A3B8),
-                        width: 2),
+                        color: isSelected ? kAccent : kInkFaint, width: 2),
                   ),
                   padding: const EdgeInsets.all(4),
                   child: isSelected
-                      ? Container(
-                          decoration: const BoxDecoration(
-                              shape: BoxShape.circle, color: Color(0xFF4472C4)))
+                      ? const DecoratedBox(
+                          decoration:
+                              BoxDecoration(shape: BoxShape.circle, color: kAccent))
                       : const SizedBox.shrink(),
                 ),
               ),
@@ -1030,9 +1037,7 @@ class RadioOption extends StatelessWidget {
                       fontSize: 14,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFF475569),
+                      color: isSelected ? kInk : kInkSoft,
                     )),
               ),
             ],
@@ -1044,131 +1049,62 @@ class RadioOption extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-// STICKY SECTION HEADER
+// SECTION COMPLETION BADGE  (used inside the app bar's section row)
 // ══════════════════════════════════════════════════════════════
 
-class StickySectionHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final String sectionId;
-  final String title;
-  final IconData? icon;
+class SectionCompletionBadge extends StatelessWidget {
   final bool isComplete;
-
-  StickySectionHeaderDelegate({
-    required this.sectionId,
-    required this.title,
-    this.icon,
-    required this.isComplete,
-  });
+  const SectionCompletionBadge({super.key, required this.isComplete});
 
   @override
-  double get minExtent => 52.0;
-  @override
-  double get maxExtent => 52.0;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: kScrollChildWidth),
-        child: Container(
-          decoration: BoxDecoration(
-            color: OL.sectionHeaderBg(sectionId),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              topRight: Radius.circular(12),
-            ),
-            border: const Border(
-              top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-              left: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-              right: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-            ),
-            boxShadow: overlapsContent
-                ? [
-                    const BoxShadow(
-                      color: Color(0x1A000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: OL.sectionHeaderPaddingH,
-            vertical: OL.sectionHeaderPaddingV,
-          ),
-          child: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: Colors.white, size: 18),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: Text(title, style: OL.shStyle),
-              ),
-              if (isComplete)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF70AD47),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check, color: Colors.white, size: 12),
-                      SizedBox(width: 4),
-                      Text(
-                        'Complet',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(20),
-                    border:
-                        Border.all(color: const Color(0xFFF59E0B), width: 0.5),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.pending, color: Color(0xFFD97706), size: 12),
-                      SizedBox(width: 4),
-                      Text(
-                        'En cours',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFB45309),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+  Widget build(BuildContext context) {
+    if (isComplete) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: kSuccess,
+          borderRadius: BorderRadius.circular(20),
         ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check, color: Colors.white, size: 12),
+            SizedBox(width: 4),
+            Text(
+              'Complet / Done',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: kWarningSoft,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kWarning.withValues(alpha: 0.4), width: 0.5),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.pending, color: kWarning, size: 12),
+          SizedBox(width: 4),
+          Text(
+            'En cours / Pending',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: kWarning,
+            ),
+          ),
+        ],
       ),
     );
-  }
-
-  @override
-  bool shouldRebuild(covariant StickySectionHeaderDelegate old) {
-    return old.sectionId != sectionId ||
-        old.title != title ||
-        old.icon != icon ||
-        old.isComplete != isComplete;
   }
 }
 
@@ -1190,7 +1126,7 @@ class Sidebar extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
         width: _width,
-        color: const Color(0xFFF8FAFC),
+        color: kCanvas,
         child: ClipRect(
           child: OverflowBox(
             alignment: Alignment.topLeft,
@@ -1204,7 +1140,7 @@ class Sidebar extends StatelessWidget {
                   if (ctrl.sidebarMode == 2) ...[
                     _progressHeader(),
                     _progressBar(),
-                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    const Divider(height: 1, color: kBorder),
                     const SizedBox(height: 8),
                   ],
                   Expanded(
@@ -1246,15 +1182,15 @@ class Sidebar extends StatelessWidget {
     switch (ctrl.sidebarMode) {
       case 2:
         icon = Icons.chevron_left;
-        tooltip = 'Réduire la barre';
+        tooltip = 'Réduire la barre / Collapse sidebar';
         break;
       case 1:
         icon = Icons.last_page;
-        tooltip = 'Masquer la barre';
+        tooltip = 'Masquer la barre / Hide sidebar';
         break;
       default:
         icon = Icons.menu;
-        tooltip = 'Afficher la barre';
+        tooltip = 'Afficher la barre / Show sidebar';
     }
     return Align(
       alignment: Alignment.topRight,
@@ -1269,10 +1205,10 @@ class Sidebar extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
+                color: kFieldFill,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 18, color: const Color(0xFF475569)),
+              child: Icon(icon, size: 18, color: kInkSoft),
             ),
           ),
         ),
@@ -1288,13 +1224,11 @@ class Sidebar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(children: [
         Text('$done/${secs.length}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            style: const TextStyle(fontSize: 12, color: kInkSoft)),
         const Spacer(),
         Text('${(ratio * 100).round()}%',
             style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4472C4))),
+                fontSize: 12, fontWeight: FontWeight.w700, color: kAccent)),
       ]),
     );
   }
@@ -1309,8 +1243,8 @@ class Sidebar extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: LinearProgressIndicator(
           value: ratio,
-          backgroundColor: const Color(0xFFE2E8F0),
-          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF70AD47)),
+          backgroundColor: kBorder,
+          valueColor: const AlwaysStoppedAnimation<Color>(kSuccess),
           minHeight: 6,
         ),
       ),
@@ -1320,8 +1254,7 @@ class Sidebar extends StatelessWidget {
   Widget _autosaveIndicator() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: const BoxDecoration(
-            border:
-                Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1))),
+            border: Border(top: BorderSide(color: kBorder, width: 1))),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           transitionBuilder: (child, anim) =>
@@ -1329,39 +1262,42 @@ class Sidebar extends StatelessWidget {
           child: ctrl.saving
               ? const Row(
                   key: ValueKey('s'),
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                       SizedBox(
                           width: 12,
                           height: 12,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Color(0xFF94A3B8))),
+                              strokeWidth: 2, color: kInkFaint)),
                       SizedBox(width: 8),
-                      Text('Sauvegarde…',
-                          style: TextStyle(
-                              fontSize: 12, color: Color(0xFF94A3B8))),
+                      Expanded(
+                        child: Text('Sauvegarde… / Saving…',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: kInkFaint)),
+                      ),
                     ])
               : ctrl.dirty
                   ? const Row(
                       key: ValueKey('d'),
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                          Icon(Icons.circle, size: 8, color: Color(0xFFF97316)),
+                          Icon(Icons.circle, size: 8, color: kWarning),
                           SizedBox(width: 8),
-                          Text('Non sauvegardé',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFFF97316))),
+                          Expanded(
+                            child: Text('Non sauvegardé / Unsaved',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12, color: kWarning)),
+                          ),
                         ])
                   : const Row(
                       key: ValueKey('ok'),
-                      mainAxisSize: MainAxisSize.min,
                       children: [
                           Icon(Icons.check_circle_outline,
-                              size: 14, color: Color(0xFF70AD47)),
+                              size: 14, color: kSuccess),
                           SizedBox(width: 8),
-                          Text('Sauvegardé',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFF70AD47))),
+                          Expanded(
+                            child: Text('Sauvegardé / Saved',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12, color: kSuccess)),
+                          ),
                         ]),
         ),
       );
@@ -1400,12 +1336,10 @@ class _SidebarPageItem extends StatelessWidget {
             horizontal: ctrl.sidebarMode == 2 ? 12 : 8,
             vertical: ctrl.sidebarMode == 2 ? 12 : 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFEEF2FF) : Colors.transparent,
+          color: isActive ? kAccentSoft : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: isActive
-              ? Border.all(
-                  color: const Color(0xFF4472C4).withValues(alpha: 0.3),
-                  width: 1)
+              ? Border.all(color: kAccent.withValues(alpha: 0.35), width: 1)
               : null,
         ),
         child: Row(children: [
@@ -1415,10 +1349,10 @@ class _SidebarPageItem extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: allDone
-                  ? const Color(0xFF70AD47)
+                  ? kSuccess
                   : isActive
-                      ? const Color(0xFF4472C4)
-                      : const Color(0xFFE2E8F0),
+                      ? kAccent
+                      : kBorder,
             ),
             alignment: Alignment.center,
             child: allDone
@@ -1429,9 +1363,7 @@ class _SidebarPageItem extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: isActive
-                                ? Colors.white
-                                : const Color(0xFF94A3B8))),
+                            color: isActive ? Colors.white : kInkFaint)),
           ),
           if (ctrl.sidebarMode == 2) ...[
             const SizedBox(width: 10),
@@ -1444,15 +1376,12 @@ class _SidebarPageItem extends StatelessWidget {
                           fontSize: 13,
                           fontWeight:
                               isActive ? FontWeight.w700 : FontWeight.w500,
-                          color: isActive
-                              ? const Color(0xFF1E293B)
-                              : const Color(0xFF475569)),
+                          color: isActive ? kInk : kInkSoft),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   if (subtitle.isNotEmpty)
                     Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: const TextStyle(fontSize: 11, color: kInkFaint),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                   if (!allDone && missingCount > 0)
@@ -1461,23 +1390,23 @@ class _SidebarPageItem extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                          color: const Color(0xFFFFF7ED),
+                          color: kWarningSoft,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: const Color(0xFFFDBA74), width: 0.5)),
+                              color: kWarning.withValues(alpha: 0.4),
+                              width: 0.5)),
                       child: Text(
-                          '$missingCount manquant${missingCount > 1 ? 's' : ''}',
+                          '$missingCount manquant${missingCount > 1 ? 's' : ''} / missing',
                           style: const TextStyle(
                               fontSize: 10,
-                              color: Color(0xFFEA580C),
+                              color: kWarning,
                               fontWeight: FontWeight.w600)),
                     ),
                 ],
               ),
             ),
             if (allDone)
-              const Icon(Icons.check_circle,
-                  size: 16, color: Color(0xFF70AD47)),
+              const Icon(Icons.check_circle, size: 16, color: kSuccess),
           ],
         ]),
       ),
@@ -1516,29 +1445,39 @@ class NavBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        color: kSurface,
+        border: Border(top: BorderSide(color: kBorder, width: 1)),
         boxShadow: [
           BoxShadow(
-              color: Color(0x0A000000), blurRadius: 12, offset: Offset(0, -2))
+              color: Color(0x0A0E1A2E), blurRadius: 16, offset: Offset(0, -2))
         ],
       ),
       child: SafeArea(
         child: Row(children: [
-          if (onPrevious != null)
-            NavButton(
-                label: '← Précédent', primary: false, onPressed: onPrevious)
-          else
-            const SizedBox(width: 100),
+          // Visibility (not a conditional swap) keeps this slot exactly the
+          // width of the real button even when hidden on page 1, so the
+          // centered progress indicator doesn't jump sideways when the
+          // Previous button appears on later pages.
+          Visibility(
+            visible: onPrevious != null,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: NavButton(
+              label: 'Précédent / Back',
+              icon: Icons.arrow_back_rounded,
+              iconLeading: true,
+              primary: false,
+              onPressed: onPrevious,
+            ),
+          ),
           const Spacer(),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('${currentPage + 1} / $totalPages  —  $pageLabel',
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF4472C4))),
+                      fontSize: 12, fontWeight: FontWeight.w600, color: kAccent)),
               const SizedBox(height: 6),
               SizedBox(
                 width: 160,
@@ -1547,10 +1486,9 @@ class NavBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: (currentPage + 1) / totalPages,
-                    backgroundColor: const Color(0xFFE2E8F0),
-                    valueColor: AlwaysStoppedAnimation<Color>(allValid
-                        ? const Color(0xFF70AD47)
-                        : const Color(0xFF4472C4)),
+                    backgroundColor: kBorder,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        allValid ? kSuccess : kAccent),
                   ),
                 ),
               ),
@@ -1558,7 +1496,8 @@ class NavBar extends StatelessWidget {
           ),
           const Spacer(),
           NavButton(
-            label: isLast ? 'Aperçu PDF →' : 'Suivant →',
+            label: isLast ? 'Aperçu PDF / Preview' : 'Suivant / Next',
+            icon: Icons.arrow_forward_rounded,
             primary: canProceed,
             onPressed: canProceed ? onNextOrPreview : null,
           ),
@@ -1570,30 +1509,46 @@ class NavBar extends StatelessWidget {
 
 class NavButton extends StatelessWidget {
   final String label;
+  final IconData icon;
+  final bool iconLeading;
   final bool primary;
   final VoidCallback? onPressed;
 
-  const NavButton(
-      {super.key, required this.label, required this.primary, this.onPressed});
+  const NavButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    this.iconLeading = false,
+    required this.primary,
+    this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final color = primary ? Colors.white : kInkSoft;
+    final iconWidget = Icon(icon, size: 16, color: color);
+    final textWidget = Text(label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ));
+
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor:
-            primary ? const Color(0xFF4472C4) : const Color(0xFFF1F5F9),
-        foregroundColor: primary ? Colors.white : const Color(0xFF475569),
+        backgroundColor: primary ? kAccent : kFieldFill,
+        foregroundColor: color,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusSm)),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
       ),
-      child: Text(label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: primary ? Colors.white : const Color(0xFF475569),
-          )),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: iconLeading
+            ? [iconWidget, const SizedBox(width: 8), textWidget]
+            : [textWidget, const SizedBox(width: 8), iconWidget],
+      ),
     );
   }
 }
@@ -1611,7 +1566,7 @@ class StepperStrip extends StatelessWidget {
     if (ctrl.schema == null) return const SizedBox.shrink();
     return Container(
       height: 68,
-      color: Colors.white,
+      color: kSurface,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
@@ -1665,10 +1620,10 @@ class StepperItem extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isCompleted
-                  ? const Color(0xFF70AD47)
+                  ? kSuccess
                   : isActive
-                      ? const Color(0xFF4472C4)
-                      : const Color(0xFFE2E8F0),
+                      ? kAccent
+                      : kBorder,
             ),
             alignment: Alignment.center,
             child: isCompleted
@@ -1677,17 +1632,14 @@ class StepperItem extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color:
-                            isActive ? Colors.white : const Color(0xFF94A3B8))),
+                        color: isActive ? Colors.white : kInkFaint)),
           ),
           const SizedBox(height: 4),
           Text(label,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive
-                    ? const Color(0xFF4472C4)
-                    : const Color(0xFF64748B),
+                color: isActive ? kAccent : kInkSoft,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
@@ -1706,8 +1658,7 @@ class StepConnector extends StatelessWidget {
         width: 24,
         height: 2,
         decoration: BoxDecoration(
-          color:
-              isCompleted ? const Color(0xFF70AD47) : const Color(0xFFE2E8F0),
+          color: isCompleted ? kSuccess : kBorder,
           borderRadius: BorderRadius.circular(1),
         ),
       );
@@ -1717,12 +1668,17 @@ class StepConnector extends StatelessWidget {
 // APP BAR
 // ══════════════════════════════════════════════════════════════
 
+const double kSectionHeaderRowHeight = 52.0;
+
 class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool loading;
   final bool saving;
   final bool dirty;
   final VoidCallback? onCancel;
+  final String? sectionTitle;
+  final IconData? sectionIcon;
+  final bool sectionComplete;
 
   const OnefopAppBar({
     super.key,
@@ -1731,19 +1687,63 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.saving,
     required this.dirty,
     this.onCancel,
+    this.sectionTitle,
+    this.sectionIcon,
+    this.sectionComplete = false,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+      kToolbarHeight + (sectionTitle == null ? 0 : kSectionHeaderRowHeight));
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
       title: Text(title,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-      backgroundColor: const Color(0xFF4472C4),
+      backgroundColor: kNavy,
       foregroundColor: Colors.white,
       elevation: 0,
+      bottom: sectionTitle == null
+          ? null
+          : PreferredSize(
+              preferredSize: const Size.fromHeight(kSectionHeaderRowHeight),
+              // AppBar lays out `bottom` as a non-flexible child of an
+              // internal Column, which hands it an unbounded height
+              // constraint. PreferredSize only pins its own size, not its
+              // child's, so without this explicit height NavigationToolbar
+              // below receives Infinity and throws during layout.
+              child: SizedBox(
+                height: kSectionHeaderRowHeight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: OL.sectionHeaderPaddingH,
+                    vertical: OL.sectionHeaderPaddingV,
+                  ),
+                  // NavigationToolbar (the same widget AppBar uses
+                  // internally) measures the leading/trailing slots and
+                  // centers the middle title in the true remaining space,
+                  // so the title stays centered even though the icon and
+                  // the completion badge are different widths (and the
+                  // badge's width changes between "En cours" and "Complet").
+                  child: NavigationToolbar(
+                    centerMiddle: true,
+                    leading: sectionIcon == null
+                        ? null
+                        : Icon(sectionIcon, color: Colors.white, size: 18),
+                    middle: Text(
+                      sectionTitle!,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: OL.shStyle,
+                    ),
+                    trailing:
+                        SectionCompletionBadge(isComplete: sectionComplete),
+                  ),
+                ),
+              ),
+            ),
       actions: [
         if (!loading)
           Padding(
@@ -1759,11 +1759,11 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white70))
                     : dirty
-                        ? Icon(
-                            key: const ValueKey('d'),
+                        ? const Icon(
+                            key: ValueKey('d'),
                             Icons.circle,
                             size: 8,
-                            color: Colors.orange.shade300)
+                            color: Color(0xFFD9B274))
                         : const Icon(
                             key: ValueKey('ok'),
                             Icons.cloud_done_outlined,
@@ -1775,7 +1775,7 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (onCancel != null)
           TextButton(
             onPressed: onCancel,
-            child: const Text('ANNULER',
+            child: const Text('ANNULER / CANCEL',
                 style: TextStyle(color: Colors.white70, fontSize: 12)),
           ),
         const SizedBox(width: 8),
@@ -1798,8 +1798,7 @@ class SkeletonLine extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-            color: const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(6)),
+            color: kBorder, borderRadius: BorderRadius.circular(6)),
       );
 }
 
@@ -1811,8 +1810,7 @@ class SkeletonCircle extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
-            color: Color(0xFFE2E8F0), shape: BoxShape.circle),
+        decoration: const BoxDecoration(color: kBorder, shape: BoxShape.circle),
       );
 }
 
@@ -1863,4 +1861,64 @@ class SkeletonScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// DEFERRED REVEAL — spreads expensive widget construction (big
+// tables) across several frames instead of all in the same frame
+// a page navigation lands on. A section like "Emploi" can hold
+// 200+ numeric cells across its tables; building all of them
+// synchronously in one frame is real CPU work that reads as the
+// tap "taking a moment to react". Staggering the reveal keeps
+// every individual frame cheap so the tap itself feels instant,
+// and the tables fill in progressively right behind it.
+// ══════════════════════════════════════════════════════════════
+
+class DeferredReveal extends StatefulWidget {
+  final Widget placeholder;
+  final WidgetBuilder builder;
+  final Duration delay;
+
+  const DeferredReveal({
+    super.key,
+    required this.placeholder,
+    required this.builder,
+    this.delay = Duration.zero,
+  });
+
+  @override
+  State<DeferredReveal> createState() => _DeferredRevealState();
+}
+
+class _DeferredRevealState extends State<DeferredReveal> {
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(widget.delay, () {
+      if (mounted) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _ready ? widget.builder(context) : widget.placeholder;
+}
+
+class TableSkeleton extends StatelessWidget {
+  final double height;
+  const TableSkeleton({super.key, this.height = 180});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: height,
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: OL.questionGapV),
+        decoration: BoxDecoration(
+          color: kFieldFill,
+          borderRadius: BorderRadius.circular(kRadiusMd),
+          border: Border.all(color: kBorder),
+        ),
+      );
 }

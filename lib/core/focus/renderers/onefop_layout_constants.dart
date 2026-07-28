@@ -14,6 +14,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_colors.dart';
+
 // ─────────────────────────────────────────────────────────────
 // PAGE & CONTAINER
 // ─────────────────────────────────────────────────────────────
@@ -26,11 +28,11 @@ class OL {
   static const double contentWidth = pageWidth - 2 * pageMarginH; // 754
 
   // Section container
-  static const double sectionBorderRadius = 12.0; // modern rounded cards
+  static const double sectionBorderRadius = 16.0; // calmer, less "boxy"
   static const double sectionHeaderPaddingV = 10.0;
   static const double sectionHeaderPaddingH = 16.0;
-  static const double sectionBodyPaddingV = 16.0;
-  static const double sectionBodyPaddingH = 16.0;
+  static const double sectionBodyPaddingV = 24.0;
+  static const double sectionBodyPaddingH = 28.0;
 
   // ─────────────────────────────────────────────────────────────
   // TYPOGRAPHY  (unified 13–14 px scale)
@@ -74,46 +76,48 @@ class OL {
   static const double phFontSize = 14.0;
 
   // ─────────────────────────────────────────────────────────────
-  // COLORS  (modern slate/blue palette)
+  // COLORS — one brand color (AppColors.deepEmerald, same green as
+  // login/password/approval screens) for every accent/chrome role;
+  // kept in sync with the token set in onefop_form_constants.dart.
   // ─────────────────────────────────────────────────────────────
 
-  // Section header backgrounds by section id
-  static const Color shBgSection0 = Color(0xFF4472C4); // respondent — blue
-  static const Color shBgSection1 = Color(0xFF4472C4); // entity identity
-  static const Color shBgSection2 = Color(0xFF4472C4); // employment
-  static const Color shBgSection3 = Color(0xFF4472C4); // departures
-  static const Color shBgSection4 = Color(0xFF4472C4); // training
+  // Section header backgrounds — brand green, not a second hue.
+  static const Color shBgSection0 = AppColors.deepEmerald;
+  static const Color shBgSection1 = AppColors.deepEmerald;
+  static const Color shBgSection2 = AppColors.deepEmerald;
+  static const Color shBgSection3 = AppColors.deepEmerald;
+  static const Color shBgSection4 = AppColors.deepEmerald;
   static const Color shFg = Colors.white;
 
-  // Question header (.qt) — warm amber box with soft border
-  static const Color qtBg = Color(0xFFFFFBEB);
-  static const Color qtBorder = Color(0xFFF59E0B);
+  // Question header (.qt) — warm, muted parchment box (restrained,
+  // not a bright alert-amber)
+  static const Color qtBg = Color(0xFFF8F0E1);
+  static const Color qtBorder = Color(0xFFD9C08F);
 
   // Table header row
-  static const Color tableHdrBg = Color(0xFFF1F5F9); // slate-100
-  static const Color tableHdrFg = Color(0xFF1E293B); // slate-800
+  static const Color tableHdrBg = Color(0xFFF5F6F9);
+  static const Color tableHdrFg = Color(0xFF1A1A1A);
 
   // Table alternate row
   static const Color tableRowEven = Color(0xFFFFFFFF);
-  static const Color tableRowOdd = Color(0xFFF8FAFC); // slate-50
+  static const Color tableRowOdd = Color(0xFFF8F9FC);
 
   // Total cell background
-  static const Color totalCellBg = Color(0xFFEFF6FF); // blue-50
-  static const Color grandTotalBg =
-      Color(0xFFF8FAFC); // slate-50 (very light grey)
+  static const Color totalCellBg = Color(0xFFE1F0E8); // brand-green tint
+  static const Color grandTotalBg = AppColors.deepEmerald;
   static const Color grandTotalFg = Colors.white;
 
   // Input cell background (editable)
   static const Color inputCellBg = Color(0xFFFFFFFF);
-  static const Color inputCellBgFocus = Color(0xFFF8FAFF);
-  static const Color inputCellBgTotal = Color(0xFFF1F5F9);
+  static const Color inputCellBgFocus = Color(0xFFE1F0E8);
+  static const Color inputCellBgTotal = Color(0xFFF5F6F9);
 
-  // Border colour — soft slate instead of harsh black
-  static const Color borderColor = Color(0xFFE2E8F0); // slate-200
+  // Border colour — soft, warm-neutral hairline
+  static const Color borderColor = Color(0xFFE7E9F0);
   static const double borderWidth = 1.0;
 
   // Subtle grey used for internal cell separators in some tables
-  static const Color cellSepColor = Color(0xFFCBD5E1); // slate-300
+  static const Color cellSepColor = Color(0xFFD7DAE4);
 
   // ─────────────────────────────────────────────────────────────
   // GRID GEOMETRY  (modern touch-friendly dimensions)
@@ -148,8 +152,8 @@ class OL {
   // SPACING
   // ─────────────────────────────────────────────────────────────
 
-  static const double questionGapV = 20.0; // gap between questions
-  static const double sectionGapV = 24.0; // gap between sections
+  static const double questionGapV = 24.0; // gap between questions
+  static const double sectionGapV = 32.0; // gap between sections
   static const double labelGapV = 8.0; // gap between label and control
   static const double tableOverflow = 16.0; // scroll handle area
 
@@ -171,44 +175,44 @@ class OL {
   static TextStyle get qtStyle => const TextStyle(
         fontSize: qtFontSize,
         fontWeight: qtFontWeight,
-        color: Color(0xFF1E293B),
+        color: Color(0xFF1A1A1A),
         height: qtLineHeight,
       );
 
   static TextStyle get qcStyle => const TextStyle(
         fontSize: qcFontSize,
         fontWeight: qcFontWeight,
-        color: Color(0xFF1E40AF),
+        color: AppColors.deepEmerald,
       );
 
   static TextStyle get lblStyle => const TextStyle(
         fontSize: lblFontSize,
         fontWeight: lblFontWeight,
-        color: Color(0xFF334155),
+        color: Color(0xFF4A4A4A),
       );
 
   static TextStyle get thStyle => const TextStyle(
         fontSize: thFontSize,
         fontWeight: thFontWeight,
-        color: Color(0xFF1E293B),
+        color: Color(0xFF1A1A1A),
       );
 
   static TextStyle get tdStyle => const TextStyle(
         fontSize: tdFontSize,
         fontWeight: tdFontWeight,
-        color: Color(0xFF334155),
+        color: Color(0xFF4A4A4A),
       );
 
   static TextStyle get rlStyle => const TextStyle(
         fontSize: rlFontSize,
         fontWeight: rlFontWeight,
-        color: Color(0xFF1E293B),
+        color: Color(0xFF1A1A1A),
       );
 
   static TextStyle get totStyle => const TextStyle(
         fontSize: totFontSize,
         fontWeight: totFontWeight,
-        color: Color(0xFF1E293B),
+        color: Color(0xFF1A1A1A),
       );
 
   static TextStyle get grandTotStyle => const TextStyle(

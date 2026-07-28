@@ -1,22 +1,27 @@
 // lib/features/analytics/providers/onefop_dashboard_providers.dart
 //
 // Standalone ONEFOP providers — all calls go to /onefop-analytics/*.
-// Filter-state providers (yearProvider, regionIdProvider, etc.) are
+// Filter-state providers (dashboardFilterProvider, regionIdProvider, etc.) are
 // imported AND re-exported from dashboard_providers.dart so the screen
 // only needs one import.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/api_client.dart';
+import '../../../widgets/period_selector.dart';
 import '../models/dashboard_models.dart';
-import '../models/time_series_data.dart';
+import '../models/dashboard_bundle.dart';
+import '../models/filter_state.dart';
+import '../models/labor_market_tension.dart';
+import '../models/mobility_dashboard.dart';
 import 'dashboard_providers.dart';
 
 export 'dashboard_providers.dart'
     show
-        yearProvider,
         regionIdProvider,
-        regionNameProvider,
         departmentIdProvider,
+        entityTypeProvider,
+        sectorProvider,
+        sectorFilterOptionsProvider,
         startYearProvider,
         endYearProvider,
         granularityProvider,
@@ -27,6 +32,153 @@ export 'dashboard_providers.dart'
         canAccessAnalyticsProvider,
         regionsProvider,
         departmentsProvider;
+
+export '../models/filter_state.dart' show dashboardFilterProvider, AnalyticsFilterState;
+
+Map<String, dynamic> _safeMap(dynamic value) {
+  if (value is Map) {
+    return Map<String, dynamic>.from(value);
+  }
+  return <String, dynamic>{};
+}
+
+List<dynamic> _safeList(dynamic value) {
+  if (value is List) {
+    return List<dynamic>.from(value);
+  }
+  return <dynamic>[];
+}
+
+Future<T?> _safeProviderFuture<T>(Future<T> future) async {
+  try {
+    return await future;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Shared by [onefopDashboardSummaryProvider] and
+/// [onefopPreviousYearSummaryProvider] — both need real departure totals
+/// (dismissals + resignations + retirements + other) to compute an honest
+/// "Départs" KPI and "Variation nette" (recruitments − departures), instead
+/// of the hardcoded zeros the dashboard endpoint alone provides.
+Future<({int dismissals, int retirements, int total})> _fetchDepartureTotals(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
+  final response = await api.get(
+    '/onefop-analytics/departure-summary',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+
+  int dismissals = 0, resignations = 0, retirements = 0, other = 0;
+  for (final item in _safeList(response.data).map((e) => _safeMap(e))) {
+    final type = (item['departureType'] as String? ?? '').toUpperCase();
+    final count = (item['total'] as num?)?.toInt() ?? 0;
+    switch (type) {
+      case 'DISMISSAL':
+        dismissals = count;
+        break;
+      case 'RESIGNATION':
+        resignations = count;
+        break;
+      case 'RETIREMENT':
+        retirements = count;
+        break;
+      case 'OTHER':
+        other = count;
+        break;
+    }
+  }
+
+  return (
+    dismissals: dismissals + resignations + other,
+    retirements: retirements,
+    total: dismissals + resignations + retirements + other,
+  );
+}
+
+/// Shared by [onefopDashboardSummaryProvider] and
+/// [onefopPreviousYearSummaryProvider]. The dashboard endpoint itself has no
+/// gender breakdown of the employee stock — ONEFOP doesn't collect that.
+/// The only gender split available is of job *applicants* (S21Q01), via the
+/// dedicated gender-parity endpoint. Callers must label this distinctly
+/// from workforce composition (e.g. "Part féminine (candidatures)").
+Future<({int male, int female})> _fetchApplicantGenderSplit(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
+  final response = await api.get(
+    '/onefop-analytics/gender-parity',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  final d = _safeMap(response.data);
+  return (
+    male: (d['maleApplicants'] as num?)?.toInt() ?? 0,
+    female: (d['femaleApplicants'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// Used by [onefopDashboardSummaryProvider] for the "Secteur leader" KPI.
+/// The dashboard endpoint has no `vacanciesBySector` field — that key never
+/// existed in OnefopAnalyticsFacade.getDashboard's response, so reading it
+/// always produced an empty list. The real per-sector breakdown (S1Q07),
+/// sorted by `totalEmployees` descending, comes from the same
+/// vacancies-by-segment endpoint already used by [onefopSectorsProvider].
+Future<List<TopSector>> _fetchTopSectorsByEmployees(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
+  final response = await api.get(
+    '/onefop-analytics/vacancies',
+    queryParameters: {
+      ...period.toApiParams(),
+      'groupBy': 'sector',
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return _safeList(response.data)
+      .map((e) => _safeMap(e))
+      .take(5)
+      .map((v) => TopSector.fromJson({
+            'sector': v['segment'] ?? '—',
+            'employees': v['totalEmployees'] ?? 0,
+          }))
+      .toList();
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PRIVATE HELPER CLASSES
@@ -103,104 +255,186 @@ class _OnefopEntityBreakdown {
 // GET /onefop-analytics/dashboard
 // ═══════════════════════════════════════════════════════════════
 
-/// Current-year ONEFOP KPI summary.
-final onefopDashboardSummaryProvider =
-    FutureProvider.family<DashboardSummary, int>((ref, year) async {
-  final api = ref.read(apiClientProvider);
-  final region = ref.watch(effectiveRegionProvider);
-  final department = ref.watch(effectiveDepartmentProvider);
-
+/// Shared by [onefopDashboardSummaryProvider] and
+/// [onefopNationalSummaryProvider] — fetches and aggregates the dashboard
+/// KPI summary for an explicit scope, so the "vs national" benchmark (which
+/// needs the exact same aggregation with region/department/subdivision
+/// forced to null) can't drift from the real per-filter computation.
+Future<DashboardSummary> _fetchDashboardSummaryData(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
   final response = await api.get(
     '/onefop-analytics/dashboard',
     queryParameters: {
-      'year': year,
+      ...period.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
 
-  final d = response.data as Map<String, dynamic>;
+  final d = _safeMap(response.data);
 
-  // Build the top-sectors list from vacanciesBySector
-  final vacancies = d['vacanciesBySector'] as List? ?? [];
-  final topSectors = vacancies
-      .take(5)
-      .map((v) => TopSector.fromJson({
-            'sector': v['segment'] ?? '—',
-            'employees': v['totalVacancies'] ?? 0,
-          }))
-      .toList();
+  // OnefopAnalyticsFacade.getDashboard returns the employment aggregate
+  // under `employmentSummary` (PermanentEmployeeSummary: totalPermanentEmployees,
+  // totalVacancies, vacancyRate, reportingEntities) — `employment` is kept
+  // as a fallback for older/alternate API shapes.
+  final employment = d['employmentSummary'] is Map
+      ? _safeMap(d['employmentSummary'])
+      : (d['employment'] is Map ? _safeMap(d['employment']) : d);
 
-  // Flatten recruitment totals from trend array
-  final trendList = d['recruitmentTrends'] as List? ?? [];
-  final totalRecruitments = trendList.fold<int>(
-    0,
-    (s, t) => s + ((t['totalRecruitments'] as num?)?.toInt() ?? 0),
-  );
+  final topSectors = await _fetchTopSectorsByEmployees(
+      api, period, region, department, subdivision, entityType, sector);
 
-  final gp = d['genderParity'] as Map<String, dynamic>? ?? {};
+  final genderSplit = await _fetchApplicantGenderSplit(
+      api, period, region, department, subdivision, entityType, sector);
+  final genderTotal = genderSplit.male + genderSplit.female;
+  final femalePct =
+      genderTotal > 0 ? genderSplit.female / genderTotal * 100 : 0.0;
+  final malePct = genderTotal > 0 ? genderSplit.male / genderTotal * 100 : 0.0;
+
+  // Total recruitments is not provided as a flat field by this endpoint —
+  // youthShareOfRecruitment.totalHires is the same underlying figure
+  // (total hires across the period) and is always populated.
+  final youthShare = d['youthShareOfRecruitment'] is Map
+      ? _safeMap(d['youthShareOfRecruitment'])
+      : <String, dynamic>{};
+  final totalRecruitments = (d['totalRecruitments'] as num?)?.toInt() ??
+      (employment['totalRecruitments'] as num?)?.toInt() ??
+      (youthShare['totalHires'] as num?)?.toInt() ??
+      0;
+
+  final departures = await _fetchDepartureTotals(
+      api, period, region, department, subdivision, entityType, sector);
 
   return DashboardSummary.fromJson({
-    'year': year,
+    'year': period.year ?? DateTime.now().year,
     'region': region ?? 'National',
-    'totalDeclarations': d['totalCompanies'] ?? 0,
-    'totalEmployees': d['totalEmployees'] ?? 0,
+    // The dashboard endpoint has no `totalCompanies` field (that key only
+    // exists in an unused DTO) — `submissionCount` is the real count of
+    // resolved submissions for this filter, i.e. the declaring companies.
+    'totalDeclarations': d['submissionCount'] ?? 0,
+    'totalEmployees': employment['totalPermanentEmployees'] ??
+        employment['totalEmployees'] ??
+        d['totalEmployees'] ??
+        0,
     'employmentGrowthRate': 0.0, // ONEFOP dashboard doesn't compute YoY
     'genderDistribution': {
-      'male': gp['malePercentage'] ?? 0,
-      'female': gp['femalePercentage'] ?? 0,
+      'male': malePct,
+      'female': femalePct,
     },
     'topSectors': topSectors
         .map((s) => {'sector': s.sector, 'employees': s.employees})
         .toList(),
     'totalRecruitments': totalRecruitments,
-    'totalDismissals': 0, // not in ONEFOP form
-    'totalRetirements': 0,
+    'totalDismissals': departures.dismissals,
+    'totalRetirements': departures.retirements,
     'totalPromotions': 0,
-    'netChange': totalRecruitments,
+    'netChange': totalRecruitments - departures.total,
   });
+}
+
+/// Current-year ONEFOP KPI summary.
+final onefopDashboardSummaryProvider =
+    FutureProvider.family<DashboardSummary, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchDashboardSummaryData(
+      api, period, region, department, subdivision, entityType, sector);
+});
+
+/// National-scope counterpart of [onefopDashboardSummaryProvider] — always
+/// omits region/department/subdivision so the Synthèse tab can show each
+/// KPI's share of the national total ("vs national average" benchmark)
+/// regardless of which geographic filter is active. Entity type and sector
+/// are kept so the comparison stays apples-to-apples on entity/sector,
+/// isolating only the geographic effect.
+final onefopNationalSummaryProvider =
+    FutureProvider.family<DashboardSummary, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchDashboardSummaryData(
+      api, period, null, null, null, entityType, sector);
 });
 
 /// Previous-year summary for YoY KPI deltas.
 final onefopPreviousYearSummaryProvider =
-    FutureProvider.family<DashboardSummary, int>((ref, year) async {
+    FutureProvider.family<DashboardSummary, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  final previousPeriod = period.previousYearPeriod;
 
   final response = await api.get(
     '/onefop-analytics/dashboard',
     queryParameters: {
-      'year': year - 1,
+      ...previousPeriod.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
 
-  final d = response.data as Map<String, dynamic>;
-  final trendList = d['recruitmentTrends'] as List? ?? [];
-  final totalRecruitments = trendList.fold<int>(
-    0,
-    (s, t) => s + ((t['totalRecruitments'] as num?)?.toInt() ?? 0),
-  );
-  final gp = d['genderParity'] as Map<String, dynamic>? ?? {};
+  final d = _safeMap(response.data);
+  final employment = d['employmentSummary'] is Map
+      ? _safeMap(d['employmentSummary'])
+      : (d['employment'] is Map ? _safeMap(d['employment']) : d);
+
+  final genderSplit = await _fetchApplicantGenderSplit(
+      api, previousPeriod, region, department, subdivision, entityType, sector);
+  final genderTotal = genderSplit.male + genderSplit.female;
+  final femalePct =
+      genderTotal > 0 ? genderSplit.female / genderTotal * 100 : 0.0;
+  final malePct = genderTotal > 0 ? genderSplit.male / genderTotal * 100 : 0.0;
+
+  final youthShare = d['youthShareOfRecruitment'] is Map
+      ? _safeMap(d['youthShareOfRecruitment'])
+      : <String, dynamic>{};
+  final totalRecruitments = (d['totalRecruitments'] as num?)?.toInt() ??
+      (employment['totalRecruitments'] as num?)?.toInt() ??
+      (youthShare['totalHires'] as num?)?.toInt() ??
+      0;
+
+  final departures = await _fetchDepartureTotals(
+      api, previousPeriod, region, department, subdivision, entityType, sector);
 
   return DashboardSummary.fromJson({
-    'year': year - 1,
+    'year': (period.year ?? DateTime.now().year) - 1,
     'region': region ?? 'National',
-    'totalDeclarations': d['totalCompanies'] ?? 0,
-    'totalEmployees': d['totalEmployees'] ?? 0,
+    'totalDeclarations': d['submissionCount'] ?? 0,
+    'totalEmployees': employment['totalPermanentEmployees'] ??
+        employment['totalEmployees'] ??
+        d['totalEmployees'] ??
+        0,
     'employmentGrowthRate': 0.0,
     'genderDistribution': {
-      'male': gp['malePercentage'] ?? 0,
-      'female': gp['femalePercentage'] ?? 0,
+      'male': malePct,
+      'female': femalePct,
     },
     'topSectors': [],
     'totalRecruitments': totalRecruitments,
-    'totalDismissals': 0,
-    'totalRetirements': 0,
+    'totalDismissals': departures.dismissals,
+    'totalRetirements': departures.retirements,
     'totalPromotions': 0,
-    'netChange': totalRecruitments,
+    'netChange': totalRecruitments - departures.total,
   });
 });
 
@@ -216,6 +450,9 @@ final _onefopTrendsProvider = FutureProvider.family<
       int endYear,
       String? regionId,
       String? departmentId,
+      String? subdivisionId,
+      String? entityType,
+      String? sector,
       Granularity granularity,
     })>((ref, p) async {
   final api = ref.read(apiClientProvider);
@@ -226,15 +463,29 @@ final _onefopTrendsProvider = FutureProvider.family<
       'endYear': p.endYear,
       if (p.regionId != null) 'region': p.regionId,
       if (p.departmentId != null) 'department': p.departmentId,
+      if (p.subdivisionId != null) 'subdivision': p.subdivisionId,
+      if (p.entityType != null) 'entityType': p.entityType,
+      if (p.sector != null) 'sector': p.sector,
       'granularity': p.granularity.name,
     },
   );
-  return (response.data as List)
-      .map((e) => TimeSeriesData.fromJson({
-            'period': e['period'],
-            'totalEmployees': e['totalRecruitments'] ?? 0,
-          }))
-      .toList();
+  return _safeList(response.data).map((e) {
+    final m = _safeMap(e);
+    final yearValue = (m['year'] as num?)?.toInt() ??
+        int.tryParse(m['period']?.toString().split('-').first ?? '') ??
+        0;
+    final period = m['period']?.toString() ?? '';
+    final label = m['label']?.toString() ??
+        (period.isEmpty ? yearValue.toString() : '$yearValue $period');
+    return TimeSeriesData.fromJson({
+      'year': yearValue,
+      'period': period,
+      'shortLabel': label,
+      'totalEmployees': (m['totalRecruitments'] as num?)?.toInt() ??
+          (m['totalEmployees'] as num?)?.toInt() ??
+          0,
+    });
+  }).toList();
 });
 
 /// UI-facing wrapper that reads current filter state.
@@ -245,6 +496,9 @@ final onefopFilteredTrendsProvider =
     endYear: ref.watch(endYearProvider),
     regionId: ref.watch(effectiveRegionProvider),
     departmentId: ref.watch(effectiveDepartmentProvider),
+    subdivisionId: ref.watch(subdivisionIdProvider),
+    entityType: ref.watch(entityTypeProvider),
+    sector: ref.watch(sectorProvider),
     granularity: ref.watch(granularityProvider),
   );
   return ref.watch(_onefopTrendsProvider(params).future);
@@ -252,32 +506,39 @@ final onefopFilteredTrendsProvider =
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 3 — SECTOR DISTRIBUTION
-// GET /onefop-analytics/vacancies?groupBy=businessSector
+// GET /onefop-analytics/vacancies?groupBy=sector
 // ═══════════════════════════════════════════════════════════════
 
 final onefopSectorsProvider =
-    FutureProvider.family<List<Sector>, int>((ref, year) async {
+    FutureProvider.family<List<Sector>, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
     '/onefop-analytics/vacancies',
     queryParameters: {
-      'year': year,
-      'groupBy': 'businessSector',
+      ...period.toApiParams(),
+      'groupBy': 'sector',
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  return (response.data as List)
-      .map((e) => Sector.fromJson({
-            'sector': e['segment'] ?? '—',
-            'employees': e['totalVacancies'] ?? 0,
-            'male': 0,
-            'female': 0,
-          }))
-      .toList();
+  return _safeList(response.data).map((e) {
+    final m = _safeMap(e);
+    return Sector.fromJson({
+      'sector': m['segment'] ?? '—',
+      'employees': m['totalVacancies'] ?? 0,
+      'male': 0,
+      'female': 0,
+    });
+  }).toList();
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -287,20 +548,29 @@ final onefopSectorsProvider =
 // ═══════════════════════════════════════════════════════════════
 
 final onefopGenderDistributionProvider =
-    FutureProvider.family<List<GenderRegion>, int>((ref, year) async {
+    FutureProvider.family<List<GenderRegion>, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
     '/onefop-analytics/gender-parity',
     queryParameters: {
-      'year': year,
+      ...period.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  final d = response.data as Map<String, dynamic>;
+
+  final d = response.data is List
+      ? _safeMap((response.data as List).isNotEmpty ? response.data[0] : {})
+      : _safeMap(response.data);
   final male = (d['maleApplicants'] as num?)?.toInt() ?? 0;
   final female = (d['femaleApplicants'] as num?)?.toInt() ?? 0;
 
@@ -321,29 +591,36 @@ final onefopGenderDistributionProvider =
 // ═══════════════════════════════════════════════════════════════
 
 final onefopRegionalProvider =
-    FutureProvider.family<List<GenderRegion>, int>((ref, year) async {
+    FutureProvider.family<List<GenderRegion>, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
     '/onefop-analytics/employment',
     queryParameters: {
-      'year': year,
+      ...period.toApiParams(),
       'groupBy': 'region',
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  return (response.data as List)
-      .map((e) => GenderRegion.fromJson({
-            'region': e['name'] ?? '—',
-            'male': 0,
-            'female': 0,
-            'other': 0,
-            'total': e['totalEmployees'] ?? 0,
-          }))
-      .toList();
+  return _safeList(response.data).map((e) {
+    final m = _safeMap(e);
+    return GenderRegion.fromJson({
+      'region': m['name'] ?? '—',
+      'male': 0,
+      'female': 0,
+      'other': 0,
+      'total': m['totalEmployees'] ?? 0,
+    });
+  }).toList();
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -351,33 +628,99 @@ final onefopRegionalProvider =
 // GET /onefop-analytics/inclusion?breakdownBy=both
 // ═══════════════════════════════════════════════════════════════
 
-final onefopInclusionProvider =
-    FutureProvider.family<VulnerableInclusion, int>((ref, year) async {
-  final api = ref.read(apiClientProvider);
-  final region = ref.watch(effectiveRegionProvider);
-  final department = ref.watch(effectiveDepartmentProvider);
-
+/// Shared by [onefopInclusionProvider] and [onefopNationalInclusionProvider]
+/// — same lesson as [_fetchDashboardSummaryData]: one fetch body, not two,
+/// so the national baseline can't silently drop a filter the real one has.
+Future<VulnerableInclusion> _fetchInclusionData(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
   final response = await api.get(
     '/onefop-analytics/inclusion',
     queryParameters: {
-      'year': year,
+      ...period.toApiParams(),
       'breakdownBy': 'both',
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  final d = response.data as Map<String, dynamic>;
-  final byType = d['vulnerableByType'] as Map<String, dynamic>? ?? {};
-  final byCsp = (d['disabledByCSP'] as Map<String, dynamic>? ?? {})
-      .map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
+  final d = _safeMap(response.data);
+
+  // vulnerableByType may be returned as a Map or as a List of { vulnerableType, _sum }
+  final dynamic vRaw = d['vulnerableByType'];
+  final Map<String, int> byType = {};
+  if (vRaw is Map) {
+    vRaw.forEach((k, v) {
+      byType[k.toString()] = (v as num?)?.toInt() ?? 0;
+    });
+  } else if (vRaw is Iterable) {
+    for (final item in vRaw) {
+      final m = _safeMap(item);
+      final key = m['vulnerableType']?.toString() ?? '';
+      final count = (m['_sum'] is Map && m['_sum']['value'] is num)
+          ? (m['_sum']['value'] as num).toInt()
+          : (m['count'] as num?)?.toInt() ?? (m['value'] as num?)?.toInt() ?? 0;
+      if (key.isNotEmpty) byType[key] = (byType[key] ?? 0) + count;
+    }
+  }
+
+  // disabledByCsp may also be a Map or a List of { cspCategory, _sum }
+  final dynamic cRaw = d['disabledByCsp'];
+  final Map<String, int> byCsp = {};
+  if (cRaw is Map) {
+    cRaw.forEach((k, v) {
+      byCsp[k.toString()] = (v as num?)?.toInt() ?? 0;
+    });
+  } else if (cRaw is Iterable) {
+    for (final item in cRaw) {
+      final m = _safeMap(item);
+      final key = m['cspCategory']?.toString() ?? '';
+      final count = (m['_sum'] is Map && m['_sum']['value'] is num)
+          ? (m['_sum']['value'] as num).toInt()
+          : (m['count'] as num?)?.toInt() ?? (m['value'] as num?)?.toInt() ?? 0;
+      if (key.isNotEmpty) byCsp[key] = (byCsp[key] ?? 0) + count;
+    }
+  }
 
   return VulnerableInclusion.fromJson({
     'total': d['vulnerable'] ?? 0,
-    'internalDisplaced': byType['deplaces_internes'] ?? 0,
-    'refugees': byType['refugies'] ?? 0,
-    'orphans': byType['orphelins'] ?? 0,
+    'internalDisplaced': byType['DEPLACES_INTERNES'] ?? 0,
+    'refugees': byType['REFUGIES'] ?? 0,
+    'orphans': byType['ORPHELINS'] ?? 0,
     'byCsp': byCsp,
+    'totalHires': d['totalHires'] ?? 0,
   });
+}
+
+final onefopInclusionProvider =
+    FutureProvider.family<VulnerableInclusion, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchInclusionData(
+      api, period, region, department, subdivision, entityType, sector);
+});
+
+/// National-scope counterpart — see [onefopNationalSummaryProvider] for why
+/// region/department/subdivision are forced null while entityType/sector
+/// are kept (isolates the geographic effect for the benchmarking tab).
+final onefopNationalInclusionProvider =
+    FutureProvider.family<VulnerableInclusion, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchInclusionData(api, period, null, null, null, entityType, sector);
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -389,27 +732,35 @@ final onefopInclusionProvider =
 // ═══════════════════════════════════════════════════════════════
 
 final onefopDiplomaProvider =
-    FutureProvider.family<_OnefopDiplomaResult, int>((ref, year) async {
+    FutureProvider.family<_OnefopDiplomaResult, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
     '/onefop-analytics/hires/diploma',
     queryParameters: {
-      'year': year,
+      ...period.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  final list = response.data as List;
+  final list = _safeList(response.data).map((e) => _safeMap(e)).toList();
   return _OnefopDiplomaResult(
     list
         .map((e) => _DiplomaItem(
               diploma: e['diploma']?.toString() ?? '—',
               male: 0, // endpoint returns total only, no gender split
               female: 0,
-              total: (e['hires'] as num?)?.toInt() ?? 0,
+              total: (e['hires'] as num?)?.toInt() ??
+                  (e['total'] as num?)?.toInt() ??
+                  0,
             ))
         .toList(),
   );
@@ -424,51 +775,94 @@ final onefopDiplomaProvider =
 // ═══════════════════════════════════════════════════════════════
 
 final onefopTrainingProvider =
-    FutureProvider.family<_OnefopTrainingData, int>((ref, year) async {
+    FutureProvider.family<_OnefopTrainingData, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
     '/onefop-analytics/training-gap',
     queryParameters: {
-      'year': year,
+      ...period.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  final d = response.data as Map<String, dynamic>;
+  final d = _safeMap(response.data);
 
-  final topSkills = (d['skillsInDemand'] as List? ?? [])
-      .map<Map<String, dynamic>>((s) => {
-            'skill': s['skill'],
-            'count': s['demand'] ?? 0,
-            'demand': s['demand'] ?? 0,
-            'supply': s['supply'] ?? 0,
-            'gap': s['gap'] ?? 0,
-          })
-      .toList();
+  final topSkills =
+      _safeList(d['skillsInDemand']).map<Map<String, dynamic>>((s) {
+    final m = _safeMap(s);
+    return {
+      'skill': m['skill'],
+      'count': m['demand'] ?? 0,
+      'demand': m['demand'] ?? 0,
+      'supply': m['supply'] ?? 0,
+      'gap': m['gap'] ?? 0,
+    };
+  }).toList();
 
   // skillsInSurplus doubles as "training domains available"
-  final topDomains = (d['skillsInSurplus'] as List? ?? [])
-      .map<Map<String, dynamic>>((s) => {
-            'domain': s['skill'],
-            'count': s['supply'] ?? 0,
-            'demand': s['demand'] ?? 0,
-            'supply': s['supply'] ?? 0,
-            'gap': s['gap'] ?? 0,
-          })
-      .toList();
+  final topDomains =
+      _safeList(d['skillsInSurplus']).map<Map<String, dynamic>>((s) {
+    final m = _safeMap(s);
+    return {
+      'domain': m['skill'],
+      'count': m['supply'] ?? 0,
+      'demand': m['demand'] ?? 0,
+      'supply': m['supply'] ?? 0,
+      'gap': m['gap'] ?? 0,
+    };
+  }).toList();
+
+  final internshipsResponse = await api.get(
+    '/onefop-analytics/internships',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  final internshipRows =
+      _safeList(internshipsResponse.data).map((e) => _safeMap(e)).toList();
+
+  int vacation = 0, academic = 0, professional = 0, preEmployment = 0;
+  for (final row in internshipRows) {
+    final type = row['internshipType']?.toString() ?? '';
+    final count = (row['count'] as num?)?.toInt() ?? 0;
+    switch (type) {
+      case 'VACATION':
+        vacation += count;
+        break;
+      case 'ACADEMIC':
+        academic += count;
+        break;
+      case 'PROFESSIONAL':
+        professional += count;
+        break;
+      case 'PRE_EMPLOYMENT':
+        preEmployment += count;
+        break;
+    }
+  }
 
   return _OnefopTrainingData(
     topSkills: topSkills,
     topDomains: topDomains,
-    // ONEFOP form does not track internship subtypes
-    vacationInternships: 0,
-    academicInternships: 0,
-    professionalInternships: 0,
-    preEmploymentInternships: 0,
-    totalInternships: 0,
+    vacationInternships: vacation,
+    academicInternships: academic,
+    professionalInternships: professional,
+    preEmploymentInternships: preEmployment,
+    totalInternships: vacation + academic + professional + preEmployment,
   );
 });
 
@@ -476,93 +870,160 @@ final onefopTrainingProvider =
 // SECTION 9 — FIRST-TIME EMPLOYMENT
 // GET /onefop-analytics/hires  +  /onefop-analytics/youth-employment
 // ═══════════════════════════════════════════════════════════════
-
+// This tab is about the first-time job-seeker funnel (S23Q01 registered vs
+// S23Q02 recruited) — NOT general enterprise hires (S22Q01/02). Using
+// /hires + /youth-employment here made "Taux de conversion" structurally
+// ~100% (hires divided by hires) and fabricated the age split via a fixed
+// 60/40 ratio. /first-time-labor-gap + the raw /registered-seekers and
+// /first-time-workers rows give the real S23 figures instead.
 final onefopFirstTimeEmploymentProvider =
-    FutureProvider.family<FirstTimeEmployment, int>((ref, year) async {
+    FutureProvider.family<FirstTimeEmployment, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final qp = {
-    'year': year,
+    ...period.toApiParams(),
     if (region != null) 'region': region,
     if (department != null) 'department': department,
+    if (subdivision != null) 'subdivision': subdivision,
+    if (entityType != null) 'entityType': entityType,
+    if (sector != null) 'sector': sector,
   };
 
   final results = await Future.wait([
-    api.get('/onefop-analytics/hires', queryParameters: qp),
-    api.get('/onefop-analytics/youth-employment', queryParameters: qp),
+    api.get('/onefop-analytics/first-time-labor-gap', queryParameters: qp),
+    api.get('/onefop-analytics/registered-seekers', queryParameters: qp),
+    api.get('/onefop-analytics/first-time-workers', queryParameters: qp),
   ]);
 
-  final hires = results[0].data as Map<String, dynamic>;
-  final youth = results[1].data as Map<String, dynamic>;
+  // { registered, recruited, absorptionRate, byCsp } — authoritative totals
+  final gap = _safeMap(results[0].data);
 
-  // Flatten CSP totals across cadres / foremen / workers
-  int totalMale = 0;
-  int totalFemale = 0;
-  for (final csp in ['cadres', 'foremen', 'workers']) {
-    final cspData = hires[csp] as Map<String, dynamic>? ?? {};
-    totalMale += (cspData['male']?['total'] as num?)?.toInt() ?? 0;
-    totalFemale += (cspData['female']?['total'] as num?)?.toInt() ?? 0;
+  // Rows: { contractType, cspCategory, gender, ageBand, count }, crossed
+  // across all four dimensions — every read below pins the other three
+  // dimensions to TOTAL so the requested one isn't double-counted.
+  final seekerRows = _safeList(results[1].data).map((e) => _safeMap(e)).toList();
+  final recruitRows = _safeList(results[2].data).map((e) => _safeMap(e)).toList();
+
+  int seekersMale = 0, seekersFemale = 0;
+  for (final r in seekerRows) {
+    if (r['contractType'] != 'TOTAL' ||
+        r['cspCategory'] != 'TOTAL' ||
+        r['ageBand'] != 'TOTAL') {
+      continue;
+    }
+    final count = (r['count'] as num?)?.toInt() ?? 0;
+    if (r['gender'] == 'MALE') seekersMale += count;
+    if (r['gender'] == 'FEMALE') seekersFemale += count;
   }
-  final recruitsTotal = totalMale + totalFemale;
-  final youthHires = (youth['youthHires'] as num?)?.toInt() ?? 0;
-  final totalHires = (youth['totalHires'] as num?)?.toInt() ?? 0;
-  final nonYouth = recruitsTotal - youthHires;
+
+  int recruitsMale = 0, recruitsFemale = 0;
+  int age15 = 0, age25 = 0, age35 = 0;
+  int permanent = 0, temporary = 0;
+  for (final r in recruitRows) {
+    final count = (r['count'] as num?)?.toInt() ?? 0;
+    final contractType = r['contractType']?.toString() ?? '';
+    final cspCategory = r['cspCategory']?.toString() ?? '';
+    final ageBand = r['ageBand']?.toString() ?? '';
+    final gender = r['gender']?.toString() ?? '';
+
+    if (contractType == 'TOTAL' && cspCategory == 'TOTAL' && ageBand == 'TOTAL') {
+      if (gender == 'MALE') recruitsMale += count;
+      if (gender == 'FEMALE') recruitsFemale += count;
+    }
+    if (contractType == 'TOTAL' && cspCategory == 'TOTAL' && gender == 'TOTAL') {
+      switch (ageBand) {
+        case 'AGE_15_24':
+          age15 += count;
+          break;
+        case 'AGE_25_34':
+          age25 += count;
+          break;
+        case 'AGE_35_PLUS':
+          age35 += count;
+          break;
+      }
+    }
+    if (cspCategory == 'TOTAL' && gender == 'TOTAL' && ageBand == 'TOTAL') {
+      if (contractType == 'PERMANENT') permanent += count;
+      if (contractType == 'TEMPORARY') temporary += count;
+    }
+  }
+
+  final seekersTotal =
+      (gap['registered'] as num?)?.toInt() ?? (seekersMale + seekersFemale);
+  final recruitsTotal =
+      (gap['recruited'] as num?)?.toInt() ?? (recruitsMale + recruitsFemale);
+  final conversionRate = (gap['absorptionRate'] as num?)?.toDouble() ??
+      (seekersTotal > 0 ? recruitsTotal / seekersTotal * 100 : 0.0);
 
   return FirstTimeEmployment.fromJson({
-    'seekersTotal': totalHires,
-    'seekersMale': totalMale,
-    'seekersFemale': totalFemale,
+    'seekersTotal': seekersTotal,
+    'seekersMale': seekersMale,
+    'seekersFemale': seekersFemale,
     'recruitsTotal': recruitsTotal,
-    'recruitsMale': totalMale,
-    'recruitsFemale': totalFemale,
-    'conversionRate':
-        totalHires > 0 ? (recruitsTotal / totalHires * 100).toDouble() : 0.0,
-    'recruitsAge15_24': youthHires,
-    'recruitsAge25_34': nonYouth > 0 ? (nonYouth * 0.6).round() : 0,
-    'recruitsAge35Plus': nonYouth > 0 ? (nonYouth * 0.4).round() : 0,
-    'recruitsPermanent': recruitsTotal, // s22q01 = permanent by definition
-    'recruitsTemporary': 0,
+    'recruitsMale': recruitsMale,
+    'recruitsFemale': recruitsFemale,
+    'conversionRate': conversionRate,
+    'recruitsAge15_24': age15,
+    'recruitsAge25_34': age25,
+    'recruitsAge35Plus': age35,
+    'recruitsPermanent': permanent,
+    'recruitsTemporary': temporary,
   });
 });
-
 // ═══════════════════════════════════════════════════════════════
 // SECTION 10 — ENTITY SIZE
-// GET /onefop-analytics/vacancies?groupBy=companySize
+// GET /onefop-analytics/employment-by-size
+// Counts ALL reporting enterprises by S1Q12 size category (TPE/PE/ME/GE),
+// not just those with posted vacancies — more complete than grouping
+// /vacancies by enterpriseSize.
 //
 // Screen accesses: (sz as dynamic).tpe / .pe / .me / .ge / .total
 // EntitySizeItem has exactly those fields.
 // ═══════════════════════════════════════════════════════════════
 
 final onefopEntitySizeProvider =
-    FutureProvider.family<EntitySizeItem, int>((ref, year) async {
+    FutureProvider.family<EntitySizeItem, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
-    '/onefop-analytics/vacancies',
+    '/onefop-analytics/employment-by-size',
     queryParameters: {
-      'year': year,
-      'groupBy': 'companySize',
+      ...period.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
 
   int tpe = 0, pe = 0, me = 0, ge = 0;
-  for (final item in response.data as List) {
-    final count = (item['companyCount'] as num?)?.toInt() ?? 0;
-    switch (item['segment']?.toString()) {
+  for (final item in _safeList(response.data).map((e) => _safeMap(e))) {
+    final count = (item['entityCount'] as num?)?.toInt() ?? 0;
+    switch (item['sizeCategory']?.toString()) {
       case 'TPE':
         tpe = count;
+        break;
       case 'PE':
         pe = count;
+        break;
       case 'ME':
         me = count;
+        break;
       case 'GE':
         ge = count;
+        break;
     }
   }
   return EntitySizeItem.fromJson({
@@ -575,114 +1036,779 @@ final onefopEntitySizeProvider =
 });
 
 // ═══════════════════════════════════════════════════════════════
-// SECTION 11 — ENTITY BREAKDOWN (stub)
-// ONEFOP form does not track legal-form breakdown.
+// SECTION 11 — ENTITY BREAKDOWN
+// GET /onefop-analytics/employment-by-entity-type
+// formType is the canonical discriminator on OnefopSubmission — always
+// populated, unlike the per-entity detail tables which only exist for the
+// matching form type.
 // Screen accesses: (bd as dynamic).enterprises.count / .employees
 //   .cooperatives.count / .ctds.count / .ongs.count
 // ═══════════════════════════════════════════════════════════════
 
 final onefopEntityBreakdownProvider =
-    FutureProvider.family<_OnefopEntityBreakdown, int>((ref, _) async {
-  const zero = _EntityGroup(count: 0, employees: 0);
-  return const _OnefopEntityBreakdown(
-    enterprises: zero,
-    cooperatives: zero,
-    ctds: zero,
-    ongs: zero,
-  );
-});
-
-// ═══════════════════════════════════════════════════════════════
-// SECTION 12 — STUBS FOR DSMO-ONLY CONCEPTS
-// These sections do not exist in the ONEFOP questionnaire.
-// Each stub returns a zeroed model so the screen shows empty
-// state rather than crashing on a 404.
-// ═══════════════════════════════════════════════════════════════
-
-/// Employment balance — ONEFOP tracks recruitments but NOT departures.
-/// Uses recruitment-trends as proxy for jobsCreated; losses are zero.
-final onefopEmploymentBalanceProvider =
-    FutureProvider.family<EmploymentBalance, int>((ref, year) async {
+    FutureProvider.family<_OnefopEntityBreakdown, PeriodConfig>((ref, period) async {
   final api = ref.read(apiClientProvider);
   final region = ref.watch(effectiveRegionProvider);
   final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
 
   final response = await api.get(
-    '/onefop-analytics/recruitment-trends',
+    '/onefop-analytics/employment-by-entity-type',
     queryParameters: {
-      'startYear': year,
-      'endYear': year,
+      ...period.toApiParams(),
       if (region != null) 'region': region,
       if (department != null) 'department': department,
-      'granularity': 'year',
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
     },
   );
-  final list = response.data as List;
-  final created = list.fold<int>(
-    0,
-    (s, t) =>
-        s +
-        ((t['permanentRecruitments'] as num?)?.toInt() ?? 0) +
-        ((t['temporaryRecruitments'] as num?)?.toInt() ?? 0),
+
+  const zero = _EntityGroup(count: 0, employees: 0);
+  final byType = <String, _EntityGroup>{};
+  for (final row in _safeList(response.data).map((e) => _safeMap(e))) {
+    final type = row['entityType']?.toString() ?? '';
+    byType[type] = _EntityGroup(
+      count: (row['entityCount'] as num?)?.toInt() ?? 0,
+      employees: (row['totalPermanentEmployees'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  return _OnefopEntityBreakdown(
+    enterprises: byType['ENTREPRISE'] ?? zero,
+    cooperatives: byType['COOPERATIVE'] ?? zero,
+    ctds: byType['CTD'] ?? zero,
+    ongs: byType['ONG'] ?? zero,
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 12 — REAL MOVEMENTS & DEPARTURES
+// ═══════════════════════════════════════════════════════════════
+
+// ── Real departure summary ─────────────────────────────────────
+final onefopDeparturesProvider =
+    FutureProvider.family<DeparturesMobility, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/departure-summary',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
   );
 
-  return EmploymentBalance.fromJson({
-    'jobsCreated': created,
-    'jobsLost': 0,
-    'netChange': created,
-    'averageWorkforce': created.toDouble(),
-    'dismissals': 0,
-    'resignations': 0,
-    'retirements': 0,
-    'technicalUnemployment': 0,
-  });
-});
+  final list = _safeList(response.data).map((e) => _safeMap(e)).toList();
 
-/// Labour-market gap — not in ONEFOP form.
-final onefopLaborMarketProvider =
-    FutureProvider.family<LaborMarketGap, int>((ref, _) async {
-  return LaborMarketGap.fromJson(
-      {'totalApplications': 0, 'totalRecruitments': 0, 'byCsp': {}});
-});
+  int dismissals = 0;
+  int resignations = 0;
+  int retirements = 0;
+  int other = 0;
+  final Map<String, int> byCsp = {};
 
-/// Departures & mobility — not in ONEFOP form.
-final onefopDeparturesProvider =
-    FutureProvider.family<DeparturesMobility, int>((ref, _) async {
+  for (final item in list) {
+    final type = (item['departureType'] as String? ?? '').toUpperCase();
+    final count = (item['total'] as num?)?.toInt() ?? 0;
+    switch (type) {
+      case 'DISMISSAL':
+        dismissals = count;
+        break;
+      case 'RESIGNATION':
+        resignations = count;
+        break;
+      case 'RETIREMENT':
+        retirements = count;
+        break;
+      case 'OTHER':
+        other = count;
+        break;
+    }
+  }
+
+  final total = dismissals + resignations + retirements + other;
+
   return DeparturesMobility.fromJson({
-    'dismissals': 0,
-    'resignations': 0,
-    'retirements': 0,
-    'other': 0,
-    'total': 0,
-    'byCsp': {},
+    'dismissals': dismissals,
+    'resignations': resignations,
+    'retirements': retirements,
+    'other': other,
+    'total': total,
+    'byCsp': byCsp,
   });
+});
+
+// ── Mobility dashboard (turnover / retention rates vs. workforce) ─
+Future<MobilityDashboard> _fetchMobilityDashboardData(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
+  final response = await api.get(
+    '/onefop-analytics/mobility-dashboard',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return MobilityDashboard.fromJson(_safeMap(response.data));
+}
+
+final onefopMobilityDashboardProvider =
+    FutureProvider.family<MobilityDashboard, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchMobilityDashboardData(
+      api, period, region, department, subdivision, entityType, sector);
+});
+
+/// National-scope counterpart — see [onefopNationalSummaryProvider].
+final onefopNationalMobilityDashboardProvider =
+    FutureProvider.family<MobilityDashboard, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchMobilityDashboardData(
+      api, period, null, null, null, entityType, sector);
+});
+
+// ── Dismissal reasons ─────────────────────────────────────────
+final onefopDismissalReasonsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/dismissal-reasons',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+
+  return _safeList(response.data)
+      .map((e) => _safeMap(e))
+      .where((m) => (m['totalCount'] as num? ?? 0) > 0)
+      .toList();
+});
+
+// ── Technical unemployment ────────────────────────────────────
+final onefopTechnicalUnemploymentProvider =
+    FutureProvider.family<Map<String, dynamic>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/dismissal-unemployment',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+
+  final list = _safeList(response.data).map((e) => _safeMap(e)).toList();
+
+  int technicalTotal = 0;
+  int dismissalTotal = 0;
+  final Map<String, int> techByCsp = {};
+
+  for (final item in list) {
+    final type = (item['type'] as String? ?? '').toUpperCase();
+    final csp = item['cspCategory'] as String? ?? '';
+    final gender = (item['gender'] as String? ?? '').toUpperCase();
+    final count = (item['count'] as num?)?.toInt() ?? 0;
+
+    if (gender != 'TOTAL') continue;
+
+    if (type == 'TECHNICAL_UNEMPLOYMENT') {
+      technicalTotal += count;
+      if (csp != 'TOTAL') {
+        techByCsp[csp] = (techByCsp[csp] ?? 0) + count;
+      }
+    } else if (type == 'DISMISSAL') {
+      dismissalTotal += count;
+    }
+  }
+
+  String? mostAffectedCsp;
+  int mostAffectedCount = 0;
+  techByCsp.forEach((k, v) {
+    if (v > mostAffectedCount) {
+      mostAffectedCount = v;
+      mostAffectedCsp = k;
+    }
+  });
+
+  final grandTotal = technicalTotal + dismissalTotal;
+  final techShare = grandTotal > 0 ? technicalTotal / grandTotal : 0.0;
+
+  return {
+    'technicalTotal': technicalTotal,
+    'dismissalTotal': dismissalTotal,
+    'grandTotal': grandTotal,
+    'techShare': techShare,
+    'techByCsp': techByCsp,
+    'mostAffectedCsp': mostAffectedCsp,
+    'mostAffectedCount': mostAffectedCount,
+  };
+});
+
+// ── Employment balance ─────────────────────────────────────────
+final onefopEmploymentBalanceProvider =
+    FutureProvider.family<EmploymentBalance, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  final resolvedYear = period.year ?? DateTime.now().year;
+
+  final qp = {
+    ...period.toApiParams(),
+    if (region != null) 'region': region,
+    if (department != null) 'department': department,
+    if (subdivision != null) 'subdivision': subdivision,
+    if (entityType != null) 'entityType': entityType,
+    if (sector != null) 'sector': sector,
+  };
+
+  final results = await Future.wait([
+    api.get('/onefop-analytics/recruitment-trends', queryParameters: {
+      ...qp,
+      'startYear': resolvedYear,
+      'endYear': resolvedYear,
+      'granularity': 'year',
+    }),
+    api.get('/onefop-analytics/departure-summary', queryParameters: qp),
+    api.get('/onefop-analytics/dismissal-unemployment', queryParameters: qp),
+  ]);
+
+  final trendList = _safeList(results[0].data).map((e) => _safeMap(e)).toList();
+  int permanent = 0;
+  int temporary = 0;
+  for (final t in trendList) {
+    permanent += (t['permanentRecruitments'] as num?)?.toInt() ?? 0;
+    temporary += (t['temporaryRecruitments'] as num?)?.toInt() ?? 0;
+  }
+  final jobsCreated = permanent + temporary;
+
+  final departureList =
+      _safeList(results[1].data).map((e) => _safeMap(e)).toList();
+  int dismissals = 0;
+  int resignations = 0;
+  int retirements = 0;
+  for (final d in departureList) {
+    final type = (d['departureType'] as String? ?? '').toUpperCase();
+    final count = (d['total'] as num?)?.toInt() ?? 0;
+    switch (type) {
+      case 'DISMISSAL':
+        dismissals = count;
+        break;
+      case 'RESIGNATION':
+        resignations = count;
+        break;
+      case 'RETIREMENT':
+        retirements = count;
+        break;
+    }
+  }
+  final jobsLost = dismissals + resignations + retirements;
+
+  final techList = _safeList(results[2].data).map((e) => _safeMap(e)).toList();
+  int techUnemployment = 0;
+  for (final t in techList) {
+    final type = (t['type'] as String? ?? '').toUpperCase();
+    final gender = (t['gender'] as String? ?? '').toUpperCase();
+    if (type == 'TECHNICAL_UNEMPLOYMENT' && gender == 'TOTAL') {
+      techUnemployment += (t['count'] as num?)?.toInt() ?? 0;
+    }
+  }
+
+  final netChange = jobsCreated - jobsLost;
+  final avgWorkforce = jobsCreated > 0 ? jobsCreated.toDouble() : 1.0;
+
+  return EmploymentBalance.fromJson({
+    'jobsCreated': jobsCreated,
+    'jobsLost': jobsLost,
+    'netChange': netChange,
+    'averageWorkforce': avgWorkforce,
+    'dismissals': dismissals,
+    'resignations': resignations,
+    'retirements': retirements,
+    'technicalUnemployment': techUnemployment,
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 12.5 — LABOR MARKET TENSION
+// GET /onefop-analytics/labor-market-tension
+// ═══════════════════════════════════════════════════════════════
+
+Future<LaborMarketTension> _fetchLaborMarketData(
+  dynamic api,
+  PeriodConfig period,
+  String? region,
+  String? department,
+  String? subdivision,
+  String? entityType,
+  String? sector,
+) async {
+  final response = await api.get(
+    '/onefop-analytics/labor-market-tension',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return LaborMarketTension.fromJson(_safeMap(response.data));
+}
+
+final onefopLaborMarketProvider =
+    FutureProvider.family<LaborMarketTension, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchLaborMarketData(
+      api, period, region, department, subdivision, entityType, sector);
+});
+
+/// National-scope counterpart — see [onefopNationalSummaryProvider].
+final onefopNationalLaborMarketProvider =
+    FutureProvider.family<LaborMarketTension, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  return _fetchLaborMarketData(
+      api, period, null, null, null, entityType, sector);
 });
 
 /// Contract-type distribution — not in ONEFOP form.
 final onefopContractTypeProvider =
-    FutureProvider.family<ContractDistribution, int>((ref, _) async {
+    FutureProvider.family<ContractDistribution, PeriodConfig>((ref, _) async {
   return ContractDistribution.fromJson({'permanent': 0, 'temporary': 0});
+});
+
+// ── Workforce Structure ─────────────────────────────────────
+final onefopVacanciesProvider =
+    FutureProvider.family<List<dynamic>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/vacancies',
+    queryParameters: {
+      ...period.toApiParams(),
+      'groupBy': 'sector',
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return _safeList(response.data);
+});
+
+final onefopEmploymentSummaryProvider =
+    FutureProvider.family<PermanentEmployeeSummary, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/employment-summary',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return PermanentEmployeeSummary.fromJson(_safeMap(response.data));
+});
+
+// CSP breakdown only exists for recruitment flows (S22Q01/S22Q02) — there
+// is no CSP breakdown of the permanent employee stock. This is therefore a
+// recruitment profile (new hires by CSP), not a workforce stock snapshot.
+final onefopRecruitmentCspProfileProvider =
+    FutureProvider.family<Map<String, dynamic>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/hires-by-demographics',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+
+  final rows = _safeList(response.data).map((e) => _safeMap(e)).toList();
+
+  int cadres = 0, foremen = 0, workers = 0;
+  final byCspGender = <String, Map<String, int>>{};
+
+  for (final r in rows) {
+    final csp = r['cspCategory']?.toString() ?? '';
+    final gender = r['gender']?.toString() ?? '';
+    final count = (r['count'] as num?)?.toInt() ?? 0;
+
+    switch (csp) {
+      case 'CADRES':
+        cadres += count;
+        break;
+      case 'FOREMEN':
+        foremen += count;
+        break;
+      case 'WORKERS':
+        workers += count;
+        break;
+    }
+
+    final bucket =
+        byCspGender.putIfAbsent(csp, () => {'maleCount': 0, 'femaleCount': 0});
+    if (gender == 'MALE') {
+      bucket['maleCount'] = (bucket['maleCount'] ?? 0) + count;
+    } else if (gender == 'FEMALE') {
+      bucket['femaleCount'] = (bucket['femaleCount'] ?? 0) + count;
+    }
+  }
+
+  return {
+    'totalHires': cadres + foremen + workers,
+    'cadres': cadres,
+    'foremen': foremen,
+    'workers': workers,
+    'byCsp': byCspGender.entries
+        .map((e) => {
+              'cspCategory': e.key,
+              'maleCount': e.value['maleCount'],
+              'femaleCount': e.value['femaleCount'],
+            })
+        .toList(),
+  };
+});
+
+final onefopRecruitmentTrendsProvider =
+    FutureProvider.family<List<dynamic>, ({int year, String granularity})>(
+        (ref, params) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+  final startYear = params.year - 2;
+  final endYear = params.year;
+
+  final response = await api.get(
+    '/onefop-analytics/recruitment-trends',
+    queryParameters: {
+      'startYear': startYear,
+      'endYear': endYear,
+      'granularity': params.granularity,
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return _safeList(response.data);
+});
+
+final onefopYouthProvider =
+    FutureProvider.family<Map<String, dynamic>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/youth-employment',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return _safeMap(response.data);
+});
+
+final onefopFirstTimeProvider =
+    FutureProvider.family<List<dynamic>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/first-time-workers',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return _safeList(response.data);
+});
+
+final onefopDismissalUnemploymentProvider =
+    FutureProvider.family<List<dynamic>, PeriodConfig>((ref, period) async {
+  final api = ref.read(apiClientProvider);
+  final region = ref.watch(effectiveRegionProvider);
+  final department = ref.watch(effectiveDepartmentProvider);
+  final subdivision = ref.watch(subdivisionIdProvider);
+  final entityType = ref.watch(entityTypeProvider);
+  final sector = ref.watch(sectorProvider);
+
+  final response = await api.get(
+    '/onefop-analytics/dismissal-unemployment',
+    queryParameters: {
+      ...period.toApiParams(),
+      if (region != null) 'region': region,
+      if (department != null) 'department': department,
+      if (subdivision != null) 'subdivision': subdivision,
+      if (entityType != null) 'entityType': entityType,
+      if (sector != null) 'sector': sector,
+    },
+  );
+  return _safeList(response.data);
 });
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 13 — GLOBAL REFRESH HELPER
 // ═══════════════════════════════════════════════════════════════
 
-void onefopRefreshAll(WidgetRef ref, int year) {
-  ref.invalidate(onefopDashboardSummaryProvider(year));
-  ref.invalidate(onefopPreviousYearSummaryProvider(year));
-  ref.invalidate(onefopEmploymentBalanceProvider(year));
-  ref.invalidate(onefopFirstTimeEmploymentProvider(year));
-  ref.invalidate(onefopSectorsProvider(year));
-  ref.invalidate(onefopGenderDistributionProvider(year));
-  ref.invalidate(onefopLaborMarketProvider(year));
-  ref.invalidate(onefopDeparturesProvider(year));
-  ref.invalidate(onefopContractTypeProvider(year));
-  ref.invalidate(onefopInclusionProvider(year));
-  ref.invalidate(onefopDiplomaProvider(year));
-  ref.invalidate(onefopTrainingProvider(year));
-  ref.invalidate(onefopEntityBreakdownProvider(year));
-  ref.invalidate(onefopEntitySizeProvider(year));
-  // onefopFilteredTrendsProvider auto-refreshes because it watches
-  // startYearProvider / endYearProvider / effectiveRegionProvider.
+void onefopRefreshAll(WidgetRef ref) {
+  final filter = ref.read(dashboardFilterProvider);
+  final period = filter.period;
+
+  final providersToInvalidate = [
+    onefopDashboardSummaryProvider(period),
+    onefopPreviousYearSummaryProvider(period),
+    onefopEmploymentBalanceProvider(period),
+    onefopFirstTimeEmploymentProvider(period),
+    onefopSectorsProvider(period),
+    onefopGenderDistributionProvider(period),
+    onefopLaborMarketProvider(period),
+    onefopDeparturesProvider(period),
+    onefopMobilityDashboardProvider(period),
+    onefopDismissalReasonsProvider(period),
+    onefopTechnicalUnemploymentProvider(period),
+    onefopContractTypeProvider(period),
+    onefopInclusionProvider(period),
+    onefopDiplomaProvider(period),
+    onefopTrainingProvider(period),
+    onefopEntityBreakdownProvider(period),
+    onefopEntitySizeProvider(period),
+    onefopVacanciesProvider(period),
+    onefopEmploymentSummaryProvider(period),
+    onefopRecruitmentCspProfileProvider(period),
+    onefopYouthProvider(period),
+    onefopFirstTimeProvider(period),
+    onefopDismissalUnemploymentProvider(period),
+  ];
+
+  for (final provider in providersToInvalidate) {
+    ref.invalidate(provider);
+  }
+
+  ref.invalidate(onefopRecruitmentTrendsProvider(
+    (year: period.year ?? DateTime.now().year, granularity: 'year'),
+  ));
+  ref.invalidate(onefopDashboardBundleProvider);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 14 — DASHBOARD BUNDLE
+// ═══════════════════════════════════════════════════════════════
+
+final onefopDashboardBundleProvider =
+    FutureProvider<DashboardBundle>((ref) async {
+  final filter = ref.watch(dashboardFilterProvider);
+  final period = filter.period;
+
+  // Fire all sub-fetches concurrently instead of one-at-a-time — the
+  // sequential `await` chain this replaced turned ~15 independent API
+  // calls into ~15 back-to-back round trips on every dashboard load.
+  final results = await Future.wait([
+    ref.watch(onefopDashboardSummaryProvider(period).future),
+    _safeProviderFuture(ref.watch(onefopPreviousYearSummaryProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopFilteredTrendsProvider.future)),
+    _safeProviderFuture(ref.watch(onefopSectorsProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopGenderDistributionProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopEmploymentBalanceProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopFirstTimeEmploymentProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopLaborMarketProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopDeparturesProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopContractTypeProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopInclusionProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopDiplomaProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopTrainingProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopEntityBreakdownProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopEntitySizeProvider(period).future)),
+    _safeProviderFuture(ref.watch(onefopRecruitmentCspProfileProvider(period).future)),
+  ]);
+
+  final dashboard = results[0] as DashboardSummary;
+  final previous = results[1] as DashboardSummary?;
+  final trends = (results[2] as List<TimeSeriesData>?) ?? <TimeSeriesData>[];
+  final sectors = (results[3] as List<Sector>?) ?? <Sector>[];
+  final gender = (results[4] as List<GenderRegion>?) ?? <GenderRegion>[];
+  final employmentBalance = results[5] as EmploymentBalance?;
+  final firstTimeEmployment = results[6] as FirstTimeEmployment?;
+  final laborMarketGap = results[7] as LaborMarketTension?;
+  final departuresMobility = results[8] as DeparturesMobility?;
+  final contractDistribution = results[9] as ContractDistribution?;
+  final vulnerableInclusion = results[10] as VulnerableInclusion?;
+  final diplomaResult = results[11] as _OnefopDiplomaResult?;
+  final trainingData = results[12] as _OnefopTrainingData?;
+  final entityResult = results[13] as _OnefopEntityBreakdown?;
+  final entitySize = results[14] as EntitySizeItem?;
+  final cspProfileData = results[15] as Map<String, dynamic>?;
+
+  final cspProfile = cspProfileData == null
+      ? null
+      : (
+          totalHires: (cspProfileData['totalHires'] as num?)?.toInt() ?? 0,
+          cadres: (cspProfileData['cadres'] as num?)?.toInt() ?? 0,
+          foremen: (cspProfileData['foremen'] as num?)?.toInt() ?? 0,
+          workers: (cspProfileData['workers'] as num?)?.toInt() ?? 0,
+        );
+
+  final diplomaBreakdown = <({String diploma, int count})>[
+    for (final item in diplomaResult?.data ?? const <_DiplomaItem>[])
+      if (item.total > 0) (diploma: item.diploma, count: item.total),
+  ]..sort((a, b) => b.count.compareTo(a.count));
+
+  final topSkills = trainingData?.topSkills
+          .map((item) => SkillTraining(
+                skill: item['skill']?.toString() ?? '',
+                demand: (item['demand'] as num?)?.toInt() ?? 0,
+                supply: (item['supply'] as num?)?.toInt() ?? 0,
+                gap: (item['gap'] as num?)?.toInt() ?? 0,
+                count: (item['count'] as num?)?.toInt() ?? 0,
+              ))
+          .toList() ??
+      <SkillTraining>[];
+
+  final topTraining = trainingData?.topDomains
+          .map((item) => SkillTraining(
+                skill: item['domain']?.toString() ?? '',
+                demand: (item['demand'] as num?)?.toInt() ?? 0,
+                supply: (item['supply'] as num?)?.toInt() ?? 0,
+                gap: (item['gap'] as num?)?.toInt() ?? 0,
+                count: (item['count'] as num?)?.toInt() ?? 0,
+              ))
+          .toList() ??
+      <SkillTraining>[];
+
+  final entityBreakdown = entityResult == null
+      ? null
+      : EntityBreakdown(
+          enterprises: entityResult.enterprises.count,
+          cooperatives: entityResult.cooperatives.count,
+          ctds: entityResult.ctds.count,
+          ongs: entityResult.ongs.count,
+          total: entityResult.enterprises.count +
+              entityResult.cooperatives.count +
+              entityResult.ctds.count +
+              entityResult.ongs.count,
+        );
+
+  return DashboardBundle(
+    dashboard: dashboard,
+    previous: previous,
+    trends: trends,
+    sectors: sectors,
+    gender: gender,
+    employmentBalance: employmentBalance,
+    firstTimeEmployment: firstTimeEmployment,
+    laborMarketGap: laborMarketGap,
+    departuresMobility: departuresMobility,
+    contractDistribution: contractDistribution,
+    vulnerableInclusion: vulnerableInclusion,
+    diplomaBreakdown: diplomaBreakdown,
+    cspProfile: cspProfile,
+    topSkills: topSkills.isEmpty ? null : topSkills,
+    topTraining: topTraining.isEmpty ? null : topTraining,
+    internshipPipeline: null,
+    entityBreakdown: entityBreakdown,
+    entitySize: entitySize,
+  );
+});

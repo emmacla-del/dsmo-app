@@ -2,12 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationReceipt extends StatelessWidget {
   final String establishmentId;
   final String companyName;
   final String? email;
   final DateTime registrationDate;
+  final String? attestationUrl;
 
   const RegistrationReceipt({
     super.key,
@@ -15,6 +17,7 @@ class RegistrationReceipt extends StatelessWidget {
     required this.companyName,
     this.email,
     required this.registrationDate,
+    this.attestationUrl,
   });
 
   void _copyToClipboard(BuildContext context, String text, String label) {
@@ -27,6 +30,22 @@ class RegistrationReceipt extends StatelessWidget {
         backgroundColor: Colors.teal,
       ),
     );
+  }
+
+  Future<void> _downloadAttestation(BuildContext context) async {
+    final url = attestationUrl;
+    if (url == null) return;
+    final launched =
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Impossible d'ouvrir l'attestation."),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -254,7 +273,7 @@ class RegistrationReceipt extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Conservez cet identifiant. Il vous sera demandé pour accéder à vos formulaires ONEFOP.',
+                              'Conservez cet identifiant. Il vous sera demandé pour accéder à vos formulaires ONEFOP, et peut aussi être utilisé à la place de votre e-mail pour vous connecter.',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.amber.shade800,
@@ -265,6 +284,33 @@ class RegistrationReceipt extends StatelessWidget {
                         ],
                       ),
                     ),
+
+                    if (attestationUrl != null) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _downloadAttestation(context),
+                          icon: const Icon(Icons.picture_as_pdf_outlined,
+                              size: 16, color: Color(0xFF006B5E)),
+                          label: const Text(
+                            "Télécharger l'attestation",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF006B5E),
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            side: const BorderSide(color: Color(0xFF006B5E)),
+                          ),
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 20),
 

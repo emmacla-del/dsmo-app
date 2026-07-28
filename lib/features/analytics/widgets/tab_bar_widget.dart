@@ -1,48 +1,24 @@
 ﻿// lib/features/analytics/widgets/tab_bar_widget.dart
-// ==================================================================
-// TabBar and TabBarView wrapper
-// ==================================================================
+//
+// The visual tab selector used to live here as a TabBar — it's now the
+// "Section" dropdown inside AnalyticsFilterBar (analytics_filter_bar.dart),
+// merged into the same bar as the period/location/entity/sector filters.
+// TabContent below is unchanged: it's still the TabBarView driven by the
+// same DefaultTabController, just no longer paired with a TabBar sibling.
 
 import 'package:flutter/material.dart';
+
 import '../models/dashboard_models.dart';
-import '../providers/dashboard_providers.dart';
-import '../models/time_series_data.dart';
-import 'common_cards.dart';
+
 import 'overview_tab.dart';
-import 'sectors_tab.dart';
-import 'movements_tab.dart';
-import 'gender_tab.dart';
-
-// TabBarWidget intentionally uses DefaultTabController.of(context) so it stays
-// in sync with the TabBarView in TabContent, which also inherits the same ancestor.
-class TabBarWidget extends StatelessWidget {
-  const TabBarWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: InkColor.surface,
-      child: TabBar(
-        // No explicit controller → uses DefaultTabController ancestor
-        indicator: BoxDecoration(
-          color: AccentColor.teal.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        indicatorSize: TabBarIndicatorSize.label,
-        labelColor: AccentColor.teal,
-        unselectedLabelColor: TextColor.muted,
-        labelStyle: textMono(11, weight: FontWeight.bold),
-        unselectedLabelStyle: textMono(11),
-        tabs: const [
-          Tab(text: 'Synthèse'),
-          Tab(text: 'Secteurs'),
-          Tab(text: 'Mouvements'),
-          Tab(text: 'Parité'),
-        ],
-      ),
-    );
-  }
-}
+import 'benchmarking_tab.dart';
+import 'labor_market_tab.dart';
+import 'workforce_structure_tab.dart';
+import 'recruitment_insertion_tab.dart';
+import 'mobility_retention_tab.dart';
+import 'inclusion_tab.dart';
+import 'competences_formation_tab.dart';
+import 'common_cards.dart' show Granularity;
 
 class TabContent extends StatelessWidget {
   final DashboardSummary dashboard;
@@ -50,52 +26,83 @@ class TabContent extends StatelessWidget {
   final List<TimeSeriesData> trends;
   final List<Sector> sectors;
   final List<GenderRegion> gender;
-  final List<Animation<double>> cardAnimations;
+  final EmploymentBalance? employmentBalance;
+  final List<Animation<double>>? cardAnimations;
   final Granularity granularity;
   final void Function(Granularity) onGranularityChanged;
 
   const TabContent({
+    super.key,
     required this.dashboard,
     required this.previous,
     required this.trends,
     required this.sectors,
     required this.gender,
-    required this.cardAnimations,
+    this.employmentBalance,
+    this.cardAnimations,
     required this.granularity,
     required this.onGranularityChanged,
-    super.key,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Explicit height allows TabBarView to function inside a scrollable view
-    return SizedBox(
-      height: MediaQuery.of(context).size.height - 200,
-      child: TabBarView(
-        children: [
-          OverviewTab(
-            dashboard: dashboard,
-            previous: previous,
-            trends: trends,
-            cardAnimations: cardAnimations,
-            granularity: granularity,
-            onGranularityChanged: onGranularityChanged,
-          ),
-          SectorsTab(
-            sectors: sectors,
-            cardAnimations: cardAnimations,
-          ),
-          MovementsTab(
-            dashboard: dashboard,
-            cardAnimations: cardAnimations,
-          ),
-          GenderTab(
-            gender: gender,
-            dashboard: dashboard,
-            cardAnimations: cardAnimations,
-          ),
-        ],
-      ),
+    return TabBarView(
+      children: [
+        // ─────────────────────────────────────────────
+        // 1. SYNTHÈSE
+        // ─────────────────────────────────────────────
+        OverviewTab(
+          dashboard: dashboard,
+          previous: previous,
+          trends: trends,
+          employmentBalance: employmentBalance,
+          cardAnimations: cardAnimations,
+          granularity: granularity,
+          onGranularityChanged: onGranularityChanged,
+        ),
+
+        // ─────────────────────────────────────────────
+        // 2. BENCHMARKING
+        // ─────────────────────────────────────────────
+        const BenchmarkingTab(),
+
+        // ─────────────────────────────────────────────
+        // 3. MARCHÉ DU TRAVAIL
+        // ─────────────────────────────────────────────
+        const LaborMarketTab(),
+
+        // ─────────────────────────────────────────────
+        // 4. STRUCTURE DES RECRUTEMENTS
+        // ─────────────────────────────────────────────
+        WorkforceStructureTab(
+          sectors: sectors,
+          cardAnimations: cardAnimations,
+        ),
+
+        // ─────────────────────────────────────────────
+        // 5. RECRUTEMENT & INSERTION
+        // ─────────────────────────────────────────────
+        const RecruitmentInsertionTab(),
+
+        // ─────────────────────────────────────────────
+        // 6. MOBILITÉ & RÉTENTION
+        // ─────────────────────────────────────────────
+        const MobilityRetentionTab(),
+
+        // ─────────────────────────────────────────────
+        // 7. INCLUSION
+        // ─────────────────────────────────────────────
+        InclusionTab(
+          gender: gender,
+          dashboard: dashboard,
+          cardAnimations: cardAnimations,
+        ),
+
+        // ─────────────────────────────────────────────
+        // 8. COMPÉTENCES & FORMATION
+        // ─────────────────────────────────────────────
+        const CompetencesFormationTab(),
+      ],
     );
   }
 }

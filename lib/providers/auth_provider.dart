@@ -6,13 +6,20 @@ import '../models/user.dart';
 final authProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
   final api = ref.read(apiClientProvider);
-  return AuthNotifier(api);
+  return AuthNotifier(api, ref);
 });
+
+/// Set by AuthNotifier._doLogin when the backend responds with
+/// `requiresTwoFactor` instead of an access token. Holds the short-lived
+/// challenge token that verifyTwoFactorCode() submits alongside the
+/// emailed code. Null when no 2FA challenge is in progress.
+final twoFactorChallengeProvider = StateProvider<String?>((ref) => null);
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final ApiClient _api;
+  final Ref _ref;
 
-  AuthNotifier(this._api) : super(const AsyncValue.loading()) {
+  AuthNotifier(this._api, this._ref) : super(const AsyncValue.loading()) {
     _tryRestore();
   }
 
@@ -47,6 +54,22 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }
   }
 
+  /// Re-fetches /auth/me and replaces the cached user in place. The cached
+  /// user is otherwise only set at login/register/2FA and never touched
+  /// again for the rest of the session, so server-computed fields on it
+  /// (e.g. onefopSubmissionStatus) go stale the moment something changes
+  /// server-side — call this after actions like a form submission so
+  /// screens reading `user.features` reflect the new state without
+  /// forcing a full logout/login.
+  Future<void> refreshUser() async {
+    try {
+      final response = await _api.get('/auth/me');
+      state = AsyncValue.data(User.fromJson(response.data as Map<String, dynamic>));
+    } catch (_) {
+      // Best-effort — keep the existing cached user on failure.
+    }
+  }
+
   Future<void> login(String email, String password) async {
     if (state is AsyncLoading) return;
     state = const AsyncValue.loading();
@@ -59,6 +82,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         '/auth/login',
         data: {'email': email, 'password': password},
       );
+      if (response.data['requiresTwoFactor'] == true) {
+        _ref.read(twoFactorChallengeProvider.notifier).state =
+            response.data['challengeToken'] as String;
+        state = const AsyncValue.data(null);
+        return;
+      }
       final token = response.data['access_token'];
       await _api.setToken(token);
       final user = User.fromJson(response.data['user']);
@@ -68,9 +97,117 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }
   }
 
+  /// Completes a 2FA login: submits the emailed code alongside the
+  /// challengeToken stashed by _doLogin. On success, behaves exactly like
+  /// a normal login (sets the token and the authenticated user state).
+  Future<void> verifyTwoFactorCode(String code) async {
+    final challengeToken = _ref.read(twoFactorChallengeProvider);
+    if (challengeToken == null) return;
+    state = const AsyncValue.loading();
+    try {
+      final response = await _api.post(
+        '/auth/2fa/verify',
+        data: {'challengeToken': challengeToken, 'code': code},
+      );
+      final token = response.data['access_token'];
+      await _api.setToken(token);
+      final user = User.fromJson(response.data['user']);
+      _ref.read(twoFactorChallengeProvider.notifier).state = null;
+      state = AsyncValue.data(user);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  /// Abandons a pending 2FA challenge and returns to the login form.
+  void cancelTwoFactorChallenge() {
+    _ref.read(twoFactorChallengeProvider.notifier).state = null;
+    state = const AsyncValue.data(null);
+  }
+
+  /// Updates the caller's notification preferences. Email is the only
+  /// channel actually wired to a sender today — push/SMS are persisted
+  /// as real per-user state but not yet delivered anywhere.
+  Future<void> updateNotificationPreferences({
+    bool? emailNotificationsEnabled,
+    bool? pushNotificationsEnabled,
+    bool? weeklyDigestEnabled,
+    bool? smsNotificationsEnabled,
+  }) async {
+    final response = await _api.patch('/auth/preferences', data: {
+      if (emailNotificationsEnabled != null)
+        'emailNotificationsEnabled': emailNotificationsEnabled,
+      if (pushNotificationsEnabled != null)
+        'pushNotificationsEnabled': pushNotificationsEnabled,
+      if (weeklyDigestEnabled != null) 'weeklyDigestEnabled': weeklyDigestEnabled,
+      if (smsNotificationsEnabled != null)
+        'smsNotificationsEnabled': smsNotificationsEnabled,
+    });
+    state = AsyncValue.data(User.fromJson(response.data as Map<String, dynamic>));
+  }
+
+  /// Enables/disables email-OTP 2FA at login.
+  Future<void> setTwoFactorEnabled(bool enabled) async {
+    final response =
+        await _api.patch('/auth/two-factor', data: {'enabled': enabled});
+    state = AsyncValue.data(User.fromJson(response.data as Map<String, dynamic>));
+  }
+
   Future<void> logout() async {
     await _api.logout();
     state = const AsyncValue.data(null);
+  }
+
+  /// Requests a password reset email. Does not touch [state] — this is
+  /// unrelated to the current session. Throws [ApiException] on failure.
+  Future<String> forgotPassword(String email) async {
+    final response = await _api.post(
+      '/auth/forgot-password',
+      data: {'email': email},
+    );
+    return response.data['message'] as String;
+  }
+
+  /// Completes a password reset using the token emailed to the user.
+  /// Does not touch [state] — the user still has to log in afterwards.
+  Future<String> resetPassword(String token, String newPassword) async {
+    final response = await _api.post(
+      '/auth/reset-password',
+      data: {'token': token, 'newPassword': newPassword},
+    );
+    return response.data['message'] as String;
+  }
+
+  /// Changes the current user's password (voluntary, or to clear a
+  /// mustChangePassword flag after an admin-issued temporary password).
+  /// On success, clears mustChangePassword on the in-memory user so the
+  /// app doesn't keep treating the session as needing a forced change.
+  Future<String> changePassword(
+      String currentPassword, String newPassword) async {
+    final response = await _api.patch(
+      '/auth/change-password',
+      data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+    final current = state.value;
+    if (current != null) {
+      state = AsyncValue.data(current.copyWith(mustChangePassword: false));
+    }
+    return response.data['message'] as String;
+  }
+
+  /// Confirms an email address using the token emailed at signup.
+  Future<String> verifyEmail(String token) async {
+    final response = await _api.post(
+      '/auth/verify-email',
+      data: {'token': token},
+    );
+    return response.data['message'] as String;
+  }
+
+  /// Re-sends the verification email to the currently logged-in user.
+  Future<String> resendVerificationEmail() async {
+    final response = await _api.post('/auth/resend-verification');
+    return response.data['message'] as String;
   }
 
   Future<void> register(

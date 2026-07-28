@@ -658,7 +658,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
 }
 
 // ══════════════════════════════════════════════════════════════
-// Private helper widgets (shared pattern with pending_list_screen)
+// Private helper widgets
 // ══════════════════════════════════════════════════════════════
 
 class _StatPill extends StatelessWidget {

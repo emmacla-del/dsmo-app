@@ -1123,6 +1123,8 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
               label: 'Matricule *',
               icon: Icons.badge_outlined,
               hint: 'Votre matricule de fonctionnaire',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Matricule requis' : null,
             ),

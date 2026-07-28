@@ -17,6 +17,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_colors.dart';
+
 class GridTheme {
   GridTheme._();
 
@@ -36,18 +38,19 @@ class GridTheme {
   static const double leadingGroupColWidth = 120.0;
 
   // ── Border ────────────────────────────────────────────────
-  static const Color borderColor = Color(0xFFE2E8F0);
+  static const Color borderColor = Color(0xFFE7E9F0);
   static const double borderWidth = 1.0;
 
-  // ── Background colours ─────────────────────────────────────
-  static const Color headerBg = Color(0xFFF1F5F9);
+  // ── Background colours ("quiet luxury" — kept in sync with
+  // onefop_form_constants.dart's token set) ──────────────────
+  static const Color headerBg = Color(0xFFF5F6F9);
   static const Color rowEven = Color(0xFFFFFFFF);
-  static const Color rowOdd = Color(0xFFF8FAFC);
-  static const Color totalBg = Color(0xFFEFF6FF);
-  static const Color grandTotalBg = Color(0xFF1E293B);
+  static const Color rowOdd = Color(0xFFF8F9FC);
+  static const Color totalBg = Color(0xFFE1F0E8);
+  static const Color grandTotalBg = AppColors.deepEmerald;
   static const Color inputBg = Color(0xFFFFFFFF);
-  static const Color inputBgFocus = Color(0xFFF8FAFF);
-  static const Color readOnlyBg = Color(0xFFF1F5F9);
+  static const Color inputBgFocus = Color(0xFFE1F0E8);
+  static const Color readOnlyBg = Color(0xFFF5F6F9);
 
   // ── Typography (unified 13 px) ────────────────────────────
   static const String? fontFamily = null;
@@ -56,7 +59,7 @@ class GridTheme {
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.w600,
-    color: Color(0xFF1E293B),
+    color: Color(0xFF1A1A1A),
     height: 1.25,
   );
 
@@ -64,7 +67,7 @@ class GridTheme {
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.w500,
-    color: Color(0xFF1E293B),
+    color: Color(0xFF1A1A1A),
     height: 1.25,
   );
 
@@ -72,15 +75,15 @@ class GridTheme {
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF334155),
+    color: Color(0xFF4A4A4A),
     height: 1.25,
   );
 
   static const TextStyle totalStyle = TextStyle(
     fontFamily: fontFamily,
     fontSize: 13,
-    fontWeight: FontWeight.w600,
-    color: Color(0xFF2563EB),
+    fontWeight: FontWeight.w700,
+    color: AppColors.deepEmerald,
     height: 1.25,
   );
 

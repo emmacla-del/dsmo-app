@@ -122,7 +122,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Flush any pending debounced save so an in-flight edit isn't lost when
+    // the screen is torn down (e.g. a back gesture interrupts registration).
     _debounce?.cancel();
+    _saveDraft(immediate: true);
     for (final ctrl in _entityControllers.values) {
       ctrl.dispose();
     }
@@ -388,7 +391,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     try {
       final data = await ref.read(apiClientProvider).getRegions();
       if (mounted) setState(() => _regions = data);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('getRegions failed: $e');
+      if (mounted) {
+        _showSnack('Impossible de charger les régions. Réessayez.',
+            error: true);
+      }
     } finally {
       if (mounted) setState(() => _loadingRegions = false);
     }
@@ -405,7 +413,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     try {
       final data = await ref.read(apiClientProvider).getDepartments(regionId);
       if (mounted) setState(() => _departments = data);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('getDepartments failed: $e');
+      if (mounted) {
+        _showSnack('Impossible de charger les départements. Réessayez.',
+            error: true);
+      }
     } finally {
       if (mounted) setState(() => _loadingDepartments = false);
     }
@@ -421,7 +434,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       final data =
           await ref.read(apiClientProvider).getSubdivisions(departmentId);
       if (mounted) setState(() => _subdivisions = data);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('getSubdivisions failed: $e');
+      if (mounted) {
+        _showSnack('Impossible de charger les arrondissements. Réessayez.',
+            error: true);
+      }
     } finally {
       if (mounted) setState(() => _loadingSubdivisions = false);
     }
@@ -433,7 +451,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     try {
       final data = await ref.read(apiClientProvider).getSectors();
       if (mounted) setState(() => _sectors = data);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('getSectors failed: $e');
+      if (mounted) {
+        _showSnack('Impossible de charger les secteurs. Réessayez.',
+            error: true);
+      }
     } finally {
       if (mounted) setState(() => _loadingSectors = false);
     }
@@ -443,6 +466,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     bool pendingApproval = false,
     String? establishmentId,
     String? companyName,
+    String? attestationUrl,
   }) async {
     if (pendingApproval) {
       // Simple pending approval dialog
@@ -494,6 +518,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           companyName: companyName ?? '',
           email: _respondentEmail,
           registrationDate: DateTime.now(),
+          attestationUrl: attestationUrl,
         ),
       );
       // Receipt handles navigation internally
@@ -608,10 +633,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               _respondentPhone2.isNotEmpty ? _respondentPhone2 : null,
         );
 
-    // Extract establishmentId and company name from response
+    // Extract establishmentId, company name and attestation URL from response
     final establishmentId = response['company']?['establishmentId'] as String?;
     final registeredCompanyName =
         response['company']?['name'] as String? ?? companyName;
+    final attestationUrl = response['company']?['attestationUrl'] as String?;
 
     await _clearDraft();
 
@@ -620,6 +646,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         pendingApproval: false,
         establishmentId: establishmentId,
         companyName: registeredCompanyName,
+        attestationUrl: attestationUrl,
       );
     }
   }
@@ -711,14 +738,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             isMinefop: _isMinefop,
             // removed initialTargetLevel
             onChanged: (fn, ln, func, email, p1, p2) {
-              setState(() {
-                _respondentFirstName = fn;
-                _respondentLastName = ln;
-                _respondentFunction = func;
-                _respondentEmail = email;
-                _respondentPhone1 = p1;
-                _respondentPhone2 = p2;
-              });
+              // No setState: nothing on screen reads these fields back while
+              // the user is on this step (the text fields already reflect
+              // their own controllers), so rebuilding the whole registration
+              // tree on every keystroke would just be wasted work.
+              _respondentFirstName = fn;
+              _respondentLastName = ln;
+              _respondentFunction = func;
+              _respondentEmail = email;
+              _respondentPhone1 = p1;
+              _respondentPhone2 = p2;
               _scheduleDraftSave();
             },
             onEmailAvailabilityChanged: (isAvailable) {
@@ -763,15 +792,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               region,
               department,
             }) {
-              setState(() {
-                _minefopMatricule = matricule;
-                _minefopPoste = poste;
-                _minefopServiceCode = serviceCode;
-                _minefopPositionType = positionType;
-                _minefopServicePath = servicePath;
-                if (region != null) _minefopRegionName = region;
-                if (department != null) _minefopDepartmentName = department;
-              });
+              // Same reasoning as the respondent step: StepMinefopInfo owns
+              // its own dropdown selection state and rebuilds itself, so the
+              // parent doesn't need to rebuild on every Matricule keystroke.
+              _minefopMatricule = matricule;
+              _minefopPoste = poste;
+              _minefopServiceCode = serviceCode;
+              _minefopPositionType = positionType;
+              _minefopServicePath = servicePath;
+              if (region != null) _minefopRegionName = region;
+              if (department != null) _minefopDepartmentName = department;
               _scheduleDraftSave();
             },
           );
@@ -875,62 +905,97 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         default:
           return const SizedBox.shrink();
       }
+    }).map((page) {
+      // Cap each step to a conventional form width and center it — on
+      // mobile the screen is already narrower than the cap so this is a
+      // no-op, on desktop/web it stops fields from stretching edge-to-edge.
+      // Matches the 480px convention used by MinefopPortalScreen.
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: page,
+        ),
+      );
     }).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Column(
-          children: [
-            RegisterHeader(
-              currentStep: _currentVisibleIdx,
-              totalSteps: _visibleCount,
-              step: _step,
-              onBack: _back,
-            ),
-            if (authState.hasError && !isBusy)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  border: Border.all(color: Colors.red.shade200),
-                  borderRadius: BorderRadius.circular(10),
+    return PopScope(
+      // Only let a back gesture/button leave the screen entirely on the
+      // first step. On every other step it steps back within the form
+      // instead, so a stray swipe can't dump the user out to the home
+      // screen mid-registration.
+      canPop: _currentVisibleIdx == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _back();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: SafeArea(
+          child: Column(
+            children: [
+              RegisterHeader(
+                currentStep: _currentVisibleIdx,
+                totalSteps: _visibleCount,
+                step: _step,
+                onBack: _back,
+              ),
+              if (authState.hasError && !isBusy)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(authState.error.toString(),
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 13))),
+                  ]),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(authState.error.toString(),
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 13))),
-                ]),
+              Expanded(
+                child: PageView(
+                  controller: _pageCtrl,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: pages,
+                ),
               ),
-            Expanded(
-              child: PageView(
-                controller: _pageCtrl,
-                physics: const NeverScrollableScrollPhysics(),
-                children: pages,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: _BottomNav(
+                    isBusy: isBusy,
+                    step: _step,
+                    onPrevious: _back,
+                    onNext: _advance,
+                  ),
+                ),
               ),
-            ),
-            _BottomButton(isBusy: isBusy, step: _step, onPressed: _advance),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _BottomButton extends StatelessWidget {
+class _BottomNav extends StatelessWidget {
   final bool isBusy;
   final int step;
-  final VoidCallback onPressed;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
 
-  const _BottomButton({
+  const _BottomNav({
     required this.isBusy,
     required this.step,
-    required this.onPressed,
+    required this.onPrevious,
+    required this.onNext,
   });
 
   @override
@@ -939,31 +1004,80 @@ class _BottomButton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: ElevatedButton(
-            onPressed: isBusy ? null : onPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006B5E),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              elevation: 2,
-            ),
-            child: isBusy
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : Text(
-                    step == kStepReview ? 'Créer mon compte' : 'Continuer',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 54,
+                child: OutlinedButton(
+                  onPressed: isBusy ? null : onPrevious,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF006B5E),
+                    side: const BorderSide(color: Color(0xFF006B5E)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
-          ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.arrow_back_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text('Précédent',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: isBusy ? null : onNext,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF006B5E),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                  ),
+                  child: isBusy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                step == kStepReview
+                                    ? 'Créer mon compte'
+                                    : 'Continuer',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                softWrap: false,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                                step == kStepReview
+                                    ? Icons.check_rounded
+                                    : Icons.arrow_forward_rounded,
+                                size: 18),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -19,27 +19,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/api_client.dart';
 import '../../../providers/auth_provider.dart';
 import '../models/dashboard_models.dart';
-import '../models/time_series_data.dart';
+import '../widgets/common_cards.dart' show Granularity;
 
-// ── Granularity enum ─────────────────────────────────────────
-
-enum Granularity { year, semester, quarter }
+export '../widgets/common_cards.dart' show Granularity;
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — MANUAL FILTER STATE (used by national roles only)
 // ═══════════════════════════════════════════════════════════════
 
-/// Year selected in the filter picker.
-final yearProvider = StateProvider<int>((ref) => DateTime.now().year);
-
-/// Region selected manually by a national user. Null = all regions.
+/// Region selected manually by a national user — holds the region NAME
+/// (matches the denormalized name string the analytics backend filters
+/// on), not its database ID. Null = all regions.
 final regionIdProvider = StateProvider<String?>((ref) => null);
-
-/// Display name of the manually selected region (for the UI label).
-final regionNameProvider = StateProvider<String?>((ref) => null);
 
 /// Department selected manually by a national user. Null = all departments.
 final departmentIdProvider = StateProvider<String?>((ref) => null);
+
+/// Entity type selected manually (ENTREPRISE / COOPERATIVE / CTD / ONG).
+/// Null = all entity types.
+final entityTypeProvider = StateProvider<String?>((ref) => null);
+
+/// Sector (S1Q07) selected manually. Null = all sectors.
+final sectorProvider = StateProvider<String?>((ref) => null);
 
 /// Start year for trend range picker.
 final startYearProvider = StateProvider<int>((ref) => DateTime.now().year - 3);
@@ -137,6 +138,39 @@ final effectiveDepartmentProvider = Provider<String?>((ref) {
 
   // National users → use the department picker (null = all departments).
   return ref.watch(departmentIdProvider);
+});
+
+// Add after departmentIdProvider
+/// Subdivision selected manually by a national user. Null = all subdivisions.
+final subdivisionIdProvider = StateProvider<String?>((ref) => null);
+
+/// Subdivisions within a department — used when a national user has
+/// already picked a region and department, and wants to drill down further.
+final subdivisionsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+        (ref, departmentId) async {
+  final api = ref.read(apiClientProvider);
+  try {
+    final response =
+        await api.get('/locations/departments/$departmentId/subdivisions');
+    return (response.data as List).cast<Map<String, dynamic>>();
+  } catch (e) {
+    // Fallback: try to get from structure endpoint
+    final structureResponse = await api.get('/locations/structure');
+    final regions = structureResponse.data as List;
+    for (final region in regions) {
+      final depts = region['departments'] as List? ?? [];
+      for (final dept in depts) {
+        final deptId = dept['id']?.toString() ?? dept['code']?.toString();
+        if (deptId == departmentId) {
+          return (dept['subdivisions'] as List? ?? [])
+              .map((s) => Map<String, dynamic>.from(s as Map))
+              .toList();
+        }
+      }
+    }
+    return [];
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -542,6 +576,15 @@ final departmentsProvider =
   final api = ref.read(apiClientProvider);
   final response = await api.get('/locations/regions/$regionId/departments');
   return (response.data as List).cast<Map<String, dynamic>>();
+});
+
+/// Distinct ONEFOP business sectors (S1Q07) currently in use — backs the
+/// Sector filter picker. Named distinctly from [sectorsProvider] above,
+/// which is the unrelated DSMO sector-distribution-by-year provider.
+final sectorFilterOptionsProvider = FutureProvider<List<String>>((ref) async {
+  final api = ref.read(apiClientProvider);
+  final response = await api.get('/onefop-analytics/sectors');
+  return (response.data as List).map((e) => e.toString()).toList();
 });
 
 // ═══════════════════════════════════════════════════════════════

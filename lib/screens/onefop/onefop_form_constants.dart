@@ -5,6 +5,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+
 const String kOnefopBaseUrl = 'https://dsmo-app-2.onrender.com/api';
 
 // ── Document width ────────────────────────────────────────────
@@ -17,15 +19,88 @@ const double kScrollChildWidth = kDocWidth + 40.0; // OL.sectionBodyPaddingH*2
 const double kSidebarFullWidth = 240.0;
 const double kSidebarCollapsedWidth = 56.0;
 
+// ══════════════════════════════════════════════════════════════
+// DESIGN TOKENS — one brand color throughout: AppColors.deepEmerald,
+// the same green already used on login/password/approval screens.
+// Restrained neutral ink + surfaces around it, soft long shadows
+// instead of heavy borders. Every color the ONEFOP form uses
+// should come from this palette — no ad-hoc hex literals, and no
+// second brand hue (no navy, no blue) competing with the green.
+// ══════════════════════════════════════════════════════════════
+
+// Ink (text) — three steps of emphasis, never pure black. Neutral,
+// not part of the brand color — this is about legibility only.
+const Color kInk = Color(0xFF1A1A1A); // headings, primary text
+const Color kInkSoft = Color(0xFF4A4A4A); // body / secondary text
+const Color kInkFaint = Color(0xFF9A9A9A); // placeholder / tertiary / hints
+
+// Surfaces
+const Color kCanvas = Color(0xFFF5F7F5); // page background
+const Color kSurface = Color(0xFFFFFFFF); // cards
+const Color kFieldFill = Color(0xFFF7F9F8); // input fill, idle
+const Color kFieldFillHover = Color(0xFFEFF4F1);
+
+// Hairlines
+const Color kBorder = Color(0xFFE4E9E6);
+const Color kBorderStrong = Color(0xFFD3DBD7);
+
+// The one brand color — app bar / primary chrome, CTAs, focus rings,
+// progress, links, selection, and "complete/done" states all share
+// this single green. kAccentDeep is only for pressed/hover states —
+// it's a shade of the same color, not a second hue.
+const Color kAccent = AppColors.deepEmerald; // #0A6640
+const Color kAccentDeep = Color(0xFF063F27);
+const Color kAccentSoft = Color(0xFFE1F0E8);
+
+// "Chrome" is an alias for the brand color — the app bar and other
+// large structural surfaces use it directly rather than a separate hue.
+const Color kNavy = kAccent;
+const Color kNavyDeep = kAccentDeep;
+
+// Status — success reuses the brand color itself (it already reads as
+// "good"); danger/warning stay distinct since they carry real meaning.
+const Color kSuccess = kAccent;
+const Color kSuccessSoft = kAccentSoft;
+const Color kDanger = Color(0xFFCF4433);
+const Color kDangerSoft = Color(0xFFFBEDEB);
+const Color kWarning = Color(0xFFAC7A26);
+const Color kWarningSoft = Color(0xFFF8F0E1);
+
+// Radii — one step larger than the old scale for a calmer, less
+// "boxy" feel; still restrained (no pill-everything).
+const double kRadiusSm = 8.0;
+const double kRadiusMd = 12.0;
+const double kRadiusLg = 16.0;
+
+// Elevation via soft long shadows rather than borders-only cards.
+List<BoxShadow> get kShadowCard => [
+      BoxShadow(
+          color: kInk.withValues(alpha: 0.05),
+          blurRadius: 1,
+          offset: const Offset(0, 1)),
+      BoxShadow(
+          color: kInk.withValues(alpha: 0.06),
+          blurRadius: 28,
+          offset: const Offset(0, 10)),
+    ];
+
+List<BoxShadow> get kShadowFloating => [
+      BoxShadow(
+          color: kInk.withValues(alpha: 0.10),
+          blurRadius: 20,
+          offset: const Offset(0, 6)),
+    ];
+
 // ── Harmonised table typography ───────────────────────────────
-const TextStyle kTableHeaderStyle = TextStyle(
-    fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B));
-const TextStyle kTableDataStyle = TextStyle(
-    fontSize: 13, fontWeight: FontWeight.w400, color: Color(0xFF334155));
-const TextStyle kTotalStyle = TextStyle(
-    fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2563EB));
-const TextStyle kGrandTotalStyle = TextStyle(
-    fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B));
+const TextStyle kTableHeaderStyle =
+    TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kInk);
+const TextStyle kTableDataStyle =
+    TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: kInkSoft);
+const TextStyle kTotalStyle =
+    TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAccent);
+// White text — this sits on the brand-green grand-total row background.
+const TextStyle kGrandTotalStyle =
+    TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white);
 const double kNumCellFontSize = 14.0;
 
 // ── Entity type ─────────────────────────────────────────────
@@ -113,7 +188,7 @@ const Map<String, SidebarMeta> kSidebarMeta = {
   'section1': SidebarMeta('Entité', Icons.corporate_fare_outlined),
   'section1_cooperative':
       SidebarMeta('Coopérative', Icons.corporate_fare_outlined),
-  'section1_enterprise': SidebarMeta('Entreprise', Icons.business_outlined),
+  'section1_entreprise': SidebarMeta('Entreprise', Icons.business_outlined),
   'section1_ctd': SidebarMeta('CTD', Icons.account_balance_outlined),
   'section1_ong': SidebarMeta('ONG', Icons.volunteer_activism_outlined),
   'section2': SidebarMeta('Emploi', Icons.work_outline),

@@ -61,8 +61,9 @@ class DashboardSummary {
         totalEmployees = json['totalEmployees'] ?? 0,
         employmentGrowthRate =
             (json['employmentGrowthRate'] as num?)?.toDouble() ?? 0.0,
-        genderDistribution =
-            GenderDistribution.fromJson(json['genderDistribution'] ?? {}),
+        genderDistribution = GenderDistribution.fromJson(
+            Map<String, dynamic>.from(json['genderDistribution'] as Map? ??
+                {})), // FIXED: LinkedListMap conversion - added Map.from()
         topSectors = (json['topSectors'] as List?)
                 ?.map((e) => TopSector.fromJson(e))
                 .toList() ??
@@ -367,7 +368,8 @@ class LaborMarketGap {
     return LaborMarketGap(
       totalApplications: (json['totalApplications'] as num?)?.toInt() ?? 0,
       totalRecruitments: (json['totalRecruitments'] as num?)?.toInt() ?? 0,
-      byCsp: json['byCsp'] as Map<String, dynamic>? ?? {},
+      byCsp: Map<String, dynamic>.from(json['byCsp'] as Map? ??
+          {}), // FIXED: LinkedListMap conversion - added Map.from()
     );
   }
 }
@@ -396,7 +398,8 @@ class DeparturesMobility {
       retirements: (json['retirements'] as num?)?.toInt() ?? 0,
       other: (json['other'] as num?)?.toInt() ?? 0,
       total: (json['total'] as num?)?.toInt() ?? 0,
-      byCsp: json['byCsp'] as Map<String, dynamic>? ?? {},
+      byCsp: Map<String, dynamic>.from(json['byCsp'] as Map? ??
+          {}), // FIXED: LinkedListMap conversion - added Map.from()
     );
   }
 }
@@ -433,6 +436,9 @@ class VulnerableInclusion {
   final int orphans;
   final int total;
   final Map<String, dynamic> byCsp;
+  // Total hires for the same scope — denominator for "share of hires that
+  // are vulnerable", used by the regional benchmarking tab.
+  final int totalHires;
 
   VulnerableInclusion({
     required this.internalDisplaced,
@@ -440,6 +446,7 @@ class VulnerableInclusion {
     required this.orphans,
     required this.total,
     required this.byCsp,
+    this.totalHires = 0,
   });
 
   factory VulnerableInclusion.fromJson(Map<String, dynamic> json) {
@@ -448,7 +455,9 @@ class VulnerableInclusion {
       refugees: (json['refugees'] as num?)?.toInt() ?? 0,
       orphans: (json['orphans'] as num?)?.toInt() ?? 0,
       total: (json['total'] as num?)?.toInt() ?? 0,
-      byCsp: json['byCsp'] as Map<String, dynamic>? ?? {},
+      byCsp: Map<String, dynamic>.from(json['byCsp'] as Map? ??
+          {}), // FIXED: LinkedListMap conversion - added Map.from()
+      totalHires: (json['totalHires'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -600,4 +609,49 @@ class EntitySizeItem {
       total: (json['total'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+class TimeSeriesData {
+  final int year;
+  final String shortLabel;
+  final String period;
+  final int totalEmployees;
+
+  const TimeSeriesData({
+    required this.year,
+    required this.shortLabel,
+    required this.period,
+    required this.totalEmployees,
+  });
+
+  factory TimeSeriesData.fromJson(Map<String, dynamic> json) => TimeSeriesData(
+        year: (json['year'] as num?)?.toInt() ?? 0,
+        shortLabel: json['shortLabel']?.toString() ?? '',
+        period: json['period']?.toString() ?? '',
+        totalEmployees: (json['totalEmployees'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// GET /onefop-analytics/employment-summary
+class PermanentEmployeeSummary {
+  final int totalPermanentEmployees;
+  final int totalVacancies;
+  final double vacancyRate;
+  final int reportingEntities;
+
+  const PermanentEmployeeSummary({
+    required this.totalPermanentEmployees,
+    required this.totalVacancies,
+    required this.vacancyRate,
+    required this.reportingEntities,
+  });
+
+  factory PermanentEmployeeSummary.fromJson(Map<String, dynamic> json) =>
+      PermanentEmployeeSummary(
+        totalPermanentEmployees:
+            (json['totalPermanentEmployees'] as num?)?.toInt() ?? 0,
+        totalVacancies: (json['totalVacancies'] as num?)?.toInt() ?? 0,
+        vacancyRate: (json['vacancyRate'] as num?)?.toDouble() ?? 0.0,
+        reportingEntities: (json['reportingEntities'] as num?)?.toInt() ?? 0,
+      );
 }

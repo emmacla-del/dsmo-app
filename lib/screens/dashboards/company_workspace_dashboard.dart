@@ -1,11 +1,14 @@
 // lib/screens/dashboards/company_workspace_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async' show Timer;
 import 'dart:math' show pi;
 import '../../theme/ultra_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../providers/auth_provider.dart';
 import '../../data/api_client.dart';
+import '../campaign/campaign_constants.dart'
+    show submissionStatusLabels, campaignTypeLabels, collectionTypeLabels;
 
 // ═══════════════════════════════════════════════════════════
 // PROVIDERS — wired to backend
@@ -19,10 +22,12 @@ final companyWorkspaceProvider =
   final results = await Future.wait([
     api.getMyCompany(),
     api.getDeclarations(),
+    api.getActiveCampaigns(),
   ]);
 
   final company = results[0] as Map<String, dynamic>?;
   final declarations = results[1] as List<dynamic>? ?? [];
+  final activeCampaigns = results[2] as List<dynamic>? ?? [];
 
   final submittedCount = declarations
       .where((d) => ['SUBMITTED', 'DIVISION_APPROVED', 'REGION_APPROVED']
@@ -50,6 +55,7 @@ final companyWorkspaceProvider =
 
   final onefopStatus = user?.features.onefopSubmissionStatus;
   final onefopSurveyYear = user?.features.onefopSurveyYear;
+  final onefopSubmissionDate = user?.features.onefopSubmissionDate;
   final hasDraft = user?.features.onefopHasDraft ?? false;
 
   return {
@@ -63,8 +69,10 @@ final companyWorkspaceProvider =
     'lastUpdated': lastUpdated,
     'onefopStatus': onefopStatus,
     'onefopSurveyYear': onefopSurveyYear,
+    'onefopSubmissionDate': onefopSubmissionDate,
     'hasOnefopDraft': hasDraft,
     'declarations': declarations,
+    'activeCampaigns': activeCampaigns,
   };
 });
 
@@ -94,6 +102,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
   }
 
   Widget _buildContent(BuildContext context, Map<String, dynamic> data) {
+    final company = data['company'] as Map<String, dynamic>?;
     final totalWorkers = data['totalWorkers'] as int;
     final declarationsFiled = data['declarationsFiled'] as int;
     final pendingCount = data['pendingCount'] as int;
@@ -102,6 +111,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     final onefopStatus = data['onefopStatus'] as String?;
     final onefopSurveyYear = data['onefopSurveyYear'] as int?;
     final hasOnefopDraft = data['hasOnefopDraft'] as bool;
+    final activeCampaigns = data['activeCampaigns'] as List<dynamic>? ?? [];
 
     final onefopDisplay =
         _formatOnefopStatus(onefopStatus, onefopSurveyYear, hasOnefopDraft);
@@ -111,9 +121,10 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (onNewSubmission != null)
-            _buildNewSubmissionCard(onNewSubmission!),
-          if (onNewSubmission != null) const SizedBox(height: 24),
+          if (activeCampaigns.isNotEmpty) ...[
+            _buildActiveCampaigns(activeCampaigns, onNewSubmission),
+            const SizedBox(height: 24),
+          ],
           _buildHeroCard(totalWorkers, declarationsFiled, lastUpdated),
           const SizedBox(height: 24),
           _buildKpiRow(
@@ -124,7 +135,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
             children: [
               Expanded(child: _buildRecentActivity(data)),
               const SizedBox(width: 24),
-              Expanded(child: _buildWorkforceByContract(totalWorkers)),
+              Expanded(child: _buildWorkforceByGender(company, totalWorkers)),
             ],
           ),
         ],
@@ -132,59 +143,24 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     );
   }
 
-  // ── Nouvelle soumission card ─────────────────────────────
+  // ── Active campaigns ─────────────────────────────────────
 
-  Widget _buildNewSubmissionCard(VoidCallback onTap) {
-    return Card(
-      elevation: 0,
-      color: UltraTheme.primary.withValues(alpha: 0.06),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        side: BorderSide(color: UltraTheme.primary.withValues(alpha: 0.2)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: UltraTheme.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Nouvelle soumission',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: UltraTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Déclaration DSMO ou questionnaire ONEFOP',
-                      style: UltraTheme.bodyMedium
-                          .copyWith(color: UltraTheme.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: UltraTheme.primary),
-            ],
+  Widget _buildActiveCampaigns(
+      List<dynamic> campaigns, VoidCallback? onNewSubmission) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Campagnes en cours', style: UltraTheme.titleMedium),
+        const SizedBox(height: 12),
+        for (final c in campaigns)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _CampaignCard(
+              campaign: c as Map<String, dynamic>,
+              onNewSubmission: onNewSubmission,
+            ),
           ),
-        ),
-      ),
+      ],
     );
   }
 
@@ -236,13 +212,10 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
               ],
             ),
           ),
-          _buildOnefopStatusBadge(),
         ],
       ),
     );
   }
-
-  Widget _buildOnefopStatusBadge() => const SizedBox.shrink();
 
   // ── KPI row ──────────────────────────────────────────────
 
@@ -430,13 +403,62 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     }
   }
 
+  /// Builds the Recent Activity entry for the company's ONEFOP submission,
+  /// mirroring the DSMO status→label mapping above. Returns null when
+  /// there's no submitted/approved/rejected ONEFOP record to show (a bare
+  /// draft, or nothing at all) — mirrors `_formatOnefopStatus`'s DRAFT
+  /// handling by only surfacing entries reviewers actually acted on.
+  (DateTime, _ActivityItem)? _onefopActivityItem(Map<String, dynamic> data) {
+    final status = data['onefopStatus'] as String?;
+    if (status == null) return null;
+    final year = data['onefopSurveyYear'] as int? ?? DateTime.now().year;
+    final date = data['onefopSubmissionDate'] as DateTime?;
+    final dateStr = date != null
+        ? '${date.day}/${date.month}/${date.year}'
+        : 'Date inconnue';
+    final sortDate = date ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+    switch (status) {
+      case 'APPROVED':
+        return (
+          sortDate,
+          _ActivityItem('ONEFOP $year approuvé', 'Validé par MINEFOP',
+              dateStr, Icons.check_circle_outlined, UltraTheme.success, 'Approuvé')
+        );
+      case 'PENDING_REVIEW':
+        return (
+          sortDate,
+          _ActivityItem('ONEFOP $year soumis', 'En attente MINEFOP', dateStr,
+              Icons.outbound, UltraTheme.warning, 'En révision')
+        );
+      case 'REJECTED':
+        return (
+          sortDate,
+          _ActivityItem('ONEFOP $year rejeté', 'Corrections requises',
+              dateStr, Icons.cancel_outlined, UltraTheme.error, 'Rejeté')
+        );
+      case 'CORRECTION_REQUESTED':
+        return (
+          sortDate,
+          _ActivityItem('ONEFOP $year à corriger', 'Modifications demandées',
+              dateStr, Icons.pending_actions, UltraTheme.warning, 'Corrections')
+        );
+      default:
+        return null;
+    }
+  }
+
   // ── Recent activity (✅ button always enabled) ─────────────────────────
 
   Widget _buildRecentActivity(Map<String, dynamic> data) {
     final declarations = (data['declarations'] as List<dynamic>?) ?? [];
-    final activities = <_ActivityItem>[];
+    // (sortDate, item) pairs so DSMO and ONEFOP entries can be merged and
+    // ranked together by actual recency before formatting/truncating —
+    // ONEFOP submissions used to be entirely absent from this feed since
+    // it only ever read `declarations` (DSMO).
+    final dated = <(DateTime, _ActivityItem)>[];
 
-    for (final decl in declarations.take(4)) {
+    for (final decl in declarations) {
       final status = decl['status'] as String? ?? 'UNKNOWN';
       final year = decl['year'] as int? ?? DateTime.now().year;
       final rawDate = decl['submittedAt'] ?? decl['updatedAt'];
@@ -445,64 +467,89 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
       final dateStr = updatedAt != null
           ? '${updatedAt.day}/${updatedAt.month}/${updatedAt.year}'
           : 'Date inconnue';
+      final sortDate = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
       switch (status) {
         case 'FINAL_APPROVED':
-          activities.add(_ActivityItem(
-              'DSMO Q$year approuvée',
-              'Validée par MINEFOP',
-              dateStr,
-              Icons.check_circle_outlined,
-              UltraTheme.success,
-              'Approuvée'));
+          dated.add((
+            sortDate,
+            _ActivityItem(
+                'DSMO Q$year approuvée',
+                'Validée par MINEFOP',
+                dateStr,
+                Icons.check_circle_outlined,
+                UltraTheme.success,
+                'Approuvée')
+          ));
           break;
         case 'REGION_APPROVED':
-          activities.add(_ActivityItem(
-              'DSMO Q$year en attente',
-              'En attente validation finale',
-              dateStr,
-              Icons.access_time,
-              UltraTheme.warning,
-              'En cours'));
+          dated.add((
+            sortDate,
+            _ActivityItem(
+                'DSMO Q$year en attente',
+                'En attente validation finale',
+                dateStr,
+                Icons.access_time,
+                UltraTheme.warning,
+                'En cours')
+          ));
           break;
         case 'DIVISION_APPROVED':
-          activities.add(_ActivityItem(
-              'DSMO Q$year en révision',
-              'En attente régionale',
-              dateStr,
-              Icons.pending_actions,
-              UltraTheme.info,
-              'Révision'));
+          dated.add((
+            sortDate,
+            _ActivityItem(
+                'DSMO Q$year en révision',
+                'En attente régionale',
+                dateStr,
+                Icons.pending_actions,
+                UltraTheme.info,
+                'Révision')
+          ));
           break;
         case 'SUBMITTED':
-          activities.add(_ActivityItem(
-              'DSMO Q$year soumise',
-              'En attente de révision',
-              dateStr,
-              Icons.outbound,
-              UltraTheme.info,
-              'Soumise'));
+          dated.add((
+            sortDate,
+            _ActivityItem(
+                'DSMO Q$year soumise',
+                'En attente de révision',
+                dateStr,
+                Icons.outbound,
+                UltraTheme.info,
+                'Soumise')
+          ));
           break;
         case 'DRAFT':
-          activities.add(_ActivityItem(
-              'DSMO Q$year brouillon',
-              'Non finalisée',
-              dateStr,
-              Icons.drafts_outlined,
-              UltraTheme.textMuted,
-              'Brouillon'));
+          dated.add((
+            sortDate,
+            _ActivityItem(
+                'DSMO Q$year brouillon',
+                'Non finalisée',
+                dateStr,
+                Icons.drafts_outlined,
+                UltraTheme.textMuted,
+                'Brouillon')
+          ));
           break;
         case 'REJECTED':
-          activities.add(_ActivityItem(
-              'DSMO Q$year rejetée',
-              'Corrections nécessaires',
-              dateStr,
-              Icons.cancel_outlined,
-              UltraTheme.error,
-              'Rejetée'));
+          dated.add((
+            sortDate,
+            _ActivityItem(
+                'DSMO Q$year rejetée',
+                'Corrections nécessaires',
+                dateStr,
+                Icons.cancel_outlined,
+                UltraTheme.error,
+                'Rejetée')
+          ));
           break;
       }
     }
+
+    final onefopItem = _onefopActivityItem(data);
+    if (onefopItem != null) dated.add(onefopItem);
+
+    dated.sort((a, b) => b.$1.compareTo(a.$1));
+    final activities = dated.take(4).map((e) => e.$2).toList();
 
     if (activities.isEmpty) {
       activities.add(_ActivityItem(
@@ -590,29 +637,27 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     );
   }
 
-  // ── Workforce by contract ────────────────────────────────
+  // ── Workforce by gender ───────────────────────────────────
 
-  Widget _buildWorkforceByContract(int totalWorkers) {
-    final contracts = [
-      _ContractType(
-          'Permanent', (totalWorkers * 0.72).round(), UltraTheme.primary),
-      _ContractType(
-          'Fixed-term', (totalWorkers * 0.18).round(), UltraTheme.accent),
-      _ContractType(
-          'Other', (totalWorkers * 0.10).round(), UltraTheme.textMuted),
-    ];
+  Widget _buildWorkforceByGender(
+      Map<String, dynamic>? company, int totalWorkers) {
+    final menCount = company?['menCount'] as int?;
+    final womenCount = company?['womenCount'] as int?;
+    final hasGenderData =
+        menCount != null && womenCount != null && (menCount + womenCount) > 0;
 
-    final sum = contracts.fold(0, (s, c) => s + c.count);
-    if (sum != totalWorkers && totalWorkers > 0) {
-      contracts[0] = _ContractType(contracts[0].name,
-          contracts[0].count + (totalWorkers - sum), contracts[0].color);
-    }
+    final segments = hasGenderData
+        ? [
+            _GenderSegment('Hommes', menCount, UltraTheme.primary),
+            _GenderSegment('Femmes', womenCount, UltraTheme.accent),
+          ]
+        : <_GenderSegment>[];
 
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Workforce by contract',
+          Text('Répartition par genre',
               style: UltraTheme.titleLarge.copyWith(fontSize: 16)),
           const SizedBox(height: 24),
           Center(
@@ -621,11 +666,11 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
               height: 160,
               child: CustomPaint(
                 painter: _DonutChartPainter(
-                  totalWorkers > 0
-                      ? contracts.map((c) => c.count.toDouble()).toList()
+                  hasGenderData
+                      ? segments.map((s) => s.count.toDouble()).toList()
                       : [1.0],
-                  totalWorkers > 0
-                      ? contracts.map((c) => c.color).toList()
+                  hasGenderData
+                      ? segments.map((s) => s.color).toList()
                       : [UltraTheme.textMuted],
                 ),
                 child: Center(
@@ -635,7 +680,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                       Text('$totalWorkers',
                           style:
                               UltraTheme.displayLarge.copyWith(fontSize: 28)),
-                      Text('workers',
+                      Text('employés',
                           style: UltraTheme.labelMedium.copyWith(fontSize: 12)),
                     ],
                   ),
@@ -644,13 +689,19 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          ...contracts.map((c) => _buildContractRow(c, totalWorkers)),
+          if (hasGenderData)
+            ...segments.map((s) => _buildGenderRow(s, menCount + womenCount))
+          else
+            Text(
+              'Répartition par genre non renseignée',
+              style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildContractRow(_ContractType contract, int total) {
+  Widget _buildGenderRow(_GenderSegment segment, int total) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -659,13 +710,13 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
             width: 10,
             height: 10,
             decoration: BoxDecoration(
-              color: contract.color,
+              color: segment.color,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(contract.name,
+            child: Text(segment.name,
                 style: UltraTheme.bodyMedium.copyWith(
                     fontWeight: FontWeight.w500,
                     color: UltraTheme.textPrimary)),
@@ -673,9 +724,9 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
           SizedBox(
             width: 120,
             child: LinearProgressIndicator(
-              value: total > 0 ? contract.count / total : 0,
+              value: total > 0 ? segment.count / total : 0,
               backgroundColor: UltraTheme.background,
-              valueColor: AlwaysStoppedAnimation<Color>(contract.color),
+              valueColor: AlwaysStoppedAnimation<Color>(segment.color),
               minHeight: 6,
               borderRadius: BorderRadius.circular(3),
             ),
@@ -683,7 +734,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
           const SizedBox(width: 12),
           SizedBox(
             width: 32,
-            child: Text('${contract.count}',
+            child: Text('${segment.count}',
                 textAlign: TextAlign.right,
                 style: UltraTheme.bodyMedium.copyWith(
                     fontWeight: FontWeight.w600,
@@ -704,9 +755,6 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (onNewSubmission != null)
-            _buildShimmerCard(height: 80, borderRadius: 16),
-          if (onNewSubmission != null) const SizedBox(height: 24),
           _buildShimmerCard(height: 140, borderRadius: 24),
           const SizedBox(height: 24),
           Row(
@@ -843,6 +891,204 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
 }
 
 // ═══════════════════════════════════════════════════════════
+// ACTIVE CAMPAIGN CARD — ticks its own countdown clock
+// ═══════════════════════════════════════════════════════════
+
+class _CampaignCard extends StatefulWidget {
+  final Map<String, dynamic> campaign;
+  final VoidCallback? onNewSubmission;
+
+  const _CampaignCard({required this.campaign, this.onNewSubmission});
+
+  @override
+  State<_CampaignCard> createState() => _CampaignCardState();
+}
+
+class _CampaignCardState extends State<_CampaignCard> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final campaign = widget.campaign;
+    final mySubmission = campaign['mySubmission'] as String? ?? 'NOT_STARTED';
+    final isDone = mySubmission == 'SUBMITTED' || mySubmission == 'VALIDATED';
+    final statusColor = isDone ? UltraTheme.success : UltraTheme.warning;
+    final type = campaign['type'] as String?;
+    final collectionType = campaign['collectionType'] as String?;
+    final startDate =
+        DateTime.tryParse(campaign['startDate']?.toString() ?? '');
+    final deadline = DateTime.tryParse(campaign['deadline']?.toString() ?? '');
+
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      onTap: isDone ? null : widget.onNewSubmission,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: (isDone ? UltraTheme.success : UltraTheme.primary)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isDone ? Icons.check_circle_outline : Icons.campaign_outlined,
+                  color: isDone ? UltraTheme.success : UltraTheme.primary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  campaign['name'] as String? ?? 'Campagne',
+                  style: UltraTheme.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Chip(
+                label: Text(
+                  submissionStatusLabels[mySubmission] ?? mySubmission,
+                  style: TextStyle(fontSize: 11, color: statusColor),
+                ),
+                backgroundColor: statusColor.withValues(alpha: 0.1),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              if (type != null)
+                _tag(Icons.repeat_rounded, campaignTypeLabels[type] ?? type),
+              if (collectionType != null)
+                _tag(Icons.description_outlined,
+                    collectionTypeLabels[collectionType] ?? collectionType),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Période : ${_formatPeriod(startDate, deadline)}',
+            style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
+          ),
+          const SizedBox(height: 10),
+          _buildCountdown(deadline),
+        ],
+      ),
+    );
+  }
+
+  Widget _tag(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: UltraTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: UltraTheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: UltraTheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatPeriod(DateTime? start, DateTime? end) {
+    String fmt(DateTime d) =>
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    if (start != null && end != null) return '${fmt(start)} → ${fmt(end)}';
+    if (end != null) return "jusqu'au ${fmt(end)}";
+    if (start != null) return 'depuis ${fmt(start)}';
+    return 'non définie';
+  }
+
+  Widget _buildCountdown(DateTime? deadline) {
+    if (deadline == null) {
+      return Text(
+        'Échéance non définie',
+        style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
+      );
+    }
+
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining.isNegative) {
+      return Row(
+        children: [
+          const Icon(Icons.timer_off_outlined,
+              size: 16, color: UltraTheme.error),
+          const SizedBox(width: 6),
+          Text(
+            'Échéance dépassée',
+            style: UltraTheme.bodyMedium
+                .copyWith(color: UltraTheme.error, fontWeight: FontWeight.w600),
+          ),
+        ],
+      );
+    }
+
+    String two(int n) => n.toString().padLeft(2, '0');
+    final days = remaining.inDays;
+    final hours = remaining.inHours % 24;
+    final minutes = remaining.inMinutes % 60;
+    final seconds = remaining.inSeconds % 60;
+    final clock = days > 0
+        ? '${days}j ${two(hours)}:${two(minutes)}:${two(seconds)}'
+        : '${two(hours)}:${two(minutes)}:${two(seconds)}';
+
+    return Row(
+      children: [
+        const Icon(Icons.timer_outlined, size: 16, color: UltraTheme.primary),
+        const SizedBox(width: 6),
+        Text(
+          clock,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: UltraTheme.textPrimary,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text('restant',
+            style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // DATA CLASSES
 // ═══════════════════════════════════════════════════════════
 
@@ -857,11 +1103,11 @@ class _ActivityItem {
       this.status);
 }
 
-class _ContractType {
+class _GenderSegment {
   final String name;
   final int count;
   final Color color;
-  _ContractType(this.name, this.count, this.color);
+  _GenderSegment(this.name, this.count, this.color);
 }
 
 // ═══════════════════════════════════════════════════════════

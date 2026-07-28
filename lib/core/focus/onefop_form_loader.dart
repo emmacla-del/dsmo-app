@@ -7,7 +7,12 @@ import 'compiler/section_title_lookup.dart';
 import 'schema/form_schema_v2.dart';
 
 class OnefopFormLoader {
-  static Future<FormSchemaV2> loadForEntity(String entityType) async {
+  // Synchronous by design: this compiles an in-memory AST with no I/O, so
+  // wrapping it in a Future only forced an extra microtask hop before the
+  // controller could mark itself loaded — which meant the form's first
+  // frame always rendered the loading skeleton, then flashed to the real
+  // form on the very next frame.
+  static FormSchemaV2 loadForEntity(String entityType) {
     print('\n📚 ========== FORM LOADER ==========');
     print('📚 Loading for entity: $entityType');
     print('📚 Total sections in AST: ${allSections.length}');

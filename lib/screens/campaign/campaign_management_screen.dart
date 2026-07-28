@@ -2,41 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/ultra_theme.dart';
 import '../../data/api_client.dart';
-
-// ─── Models ─────────────────────────────────────────────────────────────────
-
-class _Region {
-  final String id;
-  final String name;
-  const _Region({required this.id, required this.name});
-  factory _Region.fromJson(Map<String, dynamic> j) =>
-      _Region(id: j['id'] as String, name: j['name'] as String);
-}
-
-class _Department {
-  final String id;
-  final String name;
-  const _Department({required this.id, required this.name});
-  factory _Department.fromJson(Map<String, dynamic> j) =>
-      _Department(id: j['id'] as String, name: j['name'] as String);
-}
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const _campaignTypes = ['QUARTERLY', 'SEMESTER', 'ANNUAL'];
-const _campaignTypeLabels = {
-  'QUARTERLY': 'Trimestrielle',
-  'SEMESTER': 'Semestrielle',
-  'ANNUAL': 'Annuelle',
-};
-
-const _entityTypes = ['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'];
-const _entityTypeLabels = {
-  'ENTREPRISE': 'Entreprise',
-  'COOPERATIVE': 'Coopérative',
-  'CTD': 'CTD',
-  'ONG': 'ONG',
-};
+import 'campaign_constants.dart';
+import 'campaign_detail_screen.dart';
+import 'date_picker_field.dart';
+import 'region_department_selector.dart';
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
@@ -53,6 +22,8 @@ class _CampaignManagementScreenState
   List<dynamic> _campaigns = [];
   bool _isLoading = true;
   String? _error;
+  String? _statusFilter;
+  String? _actionInProgressId;
 
   @override
   void initState() {
@@ -67,7 +38,9 @@ class _CampaignManagementScreenState
     });
     try {
       final api = ref.read(apiClientProvider);
-      final response = await api.get('/campaigns');
+      final response = await api.get('/campaigns',
+          queryParameters:
+              _statusFilter != null ? {'status': _statusFilter} : null);
       setState(() => _campaigns = response.data as List<dynamic>? ?? []);
     } catch (e) {
       setState(() => _error = e.toString());
@@ -105,6 +78,44 @@ class _CampaignManagementScreenState
   }
 
   Widget _buildBody() {
+    return Column(
+      children: [
+        _buildStatusFilterBar(),
+        Expanded(child: _buildList()),
+      ],
+    );
+  }
+
+  Widget _buildStatusFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          _statusFilterChip(null, 'Toutes'),
+          for (final s in campaignStatuses)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: _statusFilterChip(s, campaignStatusLabels[s] ?? s),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusFilterChip(String? status, String label) {
+    final selected = _statusFilter == status;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _statusFilter = status);
+        _loadCampaigns();
+      },
+    );
+  }
+
+  Widget _buildList() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -113,9 +124,9 @@ class _CampaignManagementScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+            Icon(Icons.error_outline, size: 48, color: UltraTheme.error.withValues(alpha: 0.6)),
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: const TextStyle(color: UltraTheme.error)),
             const SizedBox(height: 16),
             TextButton.icon(
               onPressed: _loadCampaigns,
@@ -129,10 +140,295 @@ class _CampaignManagementScreenState
     if (_campaigns.isEmpty) {
       return _buildEmptyState();
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-      itemCount: _campaigns.length,
-      itemBuilder: (context, i) => _buildCampaignCard(_campaigns[i]),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: _buildCampaignTable(),
+      ),
+    );
+  }
+
+  Widget _buildCampaignTable() {
+    return DataTable(
+      columns: const [
+        DataColumn(label: Text('Campagne')),
+        DataColumn(label: Text('Nom')),
+        DataColumn(label: Text('Statut')),
+        DataColumn(label: Text('Action')),
+      ],
+      rows: _campaigns.map(_buildCampaignRow).toList(),
+    );
+  }
+
+  DataRow _buildCampaignRow(dynamic campaign) {
+    final status = campaign['status'] as String? ?? 'DRAFT';
+    final color = _statusColor(status);
+    return DataRow(
+      cells: [
+        DataCell(Text(campaign['code'] as String? ?? '—')),
+        DataCell(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_statusIcon(status), size: 16, color: color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    campaign['name'] as String? ?? 'Sans nom',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          onTap: () => _viewCampaign(campaign),
+        ),
+        DataCell(Chip(
+          label: Text(campaignStatusLabels[status] ?? status,
+              style: const TextStyle(fontSize: 11)),
+          backgroundColor: color.withValues(alpha: 0.1),
+          labelStyle: TextStyle(color: color),
+          visualDensity: VisualDensity.compact,
+        )),
+        DataCell(_buildRowActions(campaign, status)),
+      ],
+    );
+  }
+
+  Widget _buildRowActions(dynamic campaign, String status) {
+    final canActivate = status == 'DRAFT' || status == 'PAUSED';
+    final canDeactivate = status == 'ACTIVE';
+    final canEdit = status != 'ARCHIVED';
+    final canClose = status == 'ACTIVE' || status == 'PAUSED';
+    final canExtend = status != 'CLOSED' && status != 'ARCHIVED';
+    final canRemind = status == 'ACTIVE';
+    final hasMoreActions = canClose || canExtend || canRemind;
+    final busy = _actionInProgressId == campaign['id'];
+
+    if (busy) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12),
+        child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (canActivate)
+          IconButton(
+            tooltip: 'Activer',
+            icon: const Icon(Icons.play_circle_outline, color: UltraTheme.success),
+            onPressed: () => _activateRow(campaign),
+          ),
+        if (canDeactivate)
+          IconButton(
+            tooltip: 'Désactiver',
+            icon: const Icon(Icons.pause_circle_outline, color: UltraTheme.warning),
+            onPressed: () => _deactivateRow(campaign),
+          ),
+        if (canEdit)
+          IconButton(
+            tooltip: 'Modifier',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _editRow(campaign),
+          ),
+        IconButton(
+          tooltip: 'Supprimer',
+          icon: const Icon(Icons.delete_outline, color: UltraTheme.error),
+          onPressed: () => _deleteRow(campaign),
+        ),
+        if (hasMoreActions)
+          PopupMenuButton<String>(
+            tooltip: "Plus d'actions",
+            icon: const Icon(Icons.more_horiz_rounded),
+            onSelected: (action) => _moreRowAction(campaign, action),
+            itemBuilder: (ctx) => [
+              if (canClose)
+                const PopupMenuItem(value: 'close', child: Text('Clôturer')),
+              if (canExtend)
+                const PopupMenuItem(
+                    value: 'extend', child: Text("Prolonger l'échéance")),
+              if (canRemind)
+                const PopupMenuItem(
+                    value: 'remind', child: Text('Envoyer un rappel')),
+            ],
+          ),
+      ],
+    );
+  }
+
+  // ── Row action handlers ───────────────────────────────────────────────────
+
+  Future<void> _runRowAction(
+    dynamic campaign,
+    Future<void> Function() action, {
+    String? successMessage,
+  }) async {
+    final id = campaign['id'] as String;
+    setState(() => _actionInProgressId = id);
+    try {
+      await action();
+      await _loadCampaigns();
+      if (mounted && successMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(successMessage),
+          backgroundColor: UltraTheme.success,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: UltraTheme.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _actionInProgressId = null);
+    }
+  }
+
+  Future<void> _activateRow(dynamic campaign) => _runRowAction(
+        campaign,
+        () => ref
+            .read(apiClientProvider)
+            .post('/campaigns/${campaign['id']}/activate'),
+        successMessage: 'Campagne activée.',
+      );
+
+  Future<void> _deactivateRow(dynamic campaign) => _runRowAction(
+        campaign,
+        () => ref
+            .read(apiClientProvider)
+            .post('/campaigns/${campaign['id']}/pause'),
+        successMessage: 'Campagne désactivée.',
+      );
+
+  Future<void> _moreRowAction(dynamic campaign, String action) async {
+    switch (action) {
+      case 'close':
+        await _runRowAction(
+          campaign,
+          () => ref
+              .read(apiClientProvider)
+              .post('/campaigns/${campaign['id']}/close'),
+          successMessage: 'Campagne clôturée.',
+        );
+        break;
+      case 'extend':
+        await _extendRow(campaign);
+        break;
+      case 'remind':
+        await _remindRow(campaign);
+        break;
+    }
+  }
+
+  Future<void> _extendRow(dynamic campaign) async {
+    final current = DateTime.tryParse(campaign['deadline']?.toString() ?? '') ??
+        DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(DateTime.now()) ? current : DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2040),
+    );
+    if (picked == null) return;
+    await _runRowAction(
+      campaign,
+      () => ref.read(apiClientProvider).post(
+        '/campaigns/${campaign['id']}/extend',
+        data: {'newDeadline': picked.toIso8601String()},
+      ),
+      successMessage: 'Échéance prolongée.',
+    );
+  }
+
+  Future<void> _remindRow(dynamic campaign) async {
+    String selected = reminderTypes.first;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Envoyer un rappel'),
+          content: DropdownButtonFormField<String>(
+            initialValue: selected,
+            items: reminderTypes
+                .map((t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(reminderTypeLabels[t] ?? t),
+                    ))
+                .toList(),
+            onChanged: (v) => setDialogState(() => selected = v ?? selected),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Envoyer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    await _runRowAction(
+      campaign,
+      () => ref.read(apiClientProvider).post(
+        '/campaigns/${campaign['id']}/remind',
+        data: {'type': selected},
+      ),
+      successMessage: 'Rappel envoyé.',
+    );
+  }
+
+  Future<void> _editRow(dynamic campaign) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => EditCampaignDialog(
+        api: ref.read(apiClientProvider),
+        campaign: campaign as Map<String, dynamic>,
+      ),
+    );
+    if (updated == true) _loadCampaigns();
+  }
+
+  Future<void> _deleteRow(dynamic campaign) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Supprimer la campagne ?'),
+        content: const Text(
+            'Cette action est irréversible et supprimera également toutes les soumissions associées.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: UltraTheme.error),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _runRowAction(
+      campaign,
+      () => ref.read(apiClientProvider).delete('/campaigns/${campaign['id']}'),
+      successMessage: 'Campagne supprimée.',
     );
   }
 
@@ -141,61 +437,14 @@ class _CampaignManagementScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.campaign_outlined, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.campaign_outlined, size: 64, color: UltraTheme.textMuted),
           const SizedBox(height: 16),
           Text('Aucune campagne',
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 18, color: UltraTheme.textMuted)),
           const SizedBox(height: 8),
           Text('Cliquez sur + pour créer une campagne',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+              style: TextStyle(fontSize: 14, color: UltraTheme.textMuted)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCampaignCard(dynamic campaign) {
-    final status = campaign['status'] as String? ?? 'DRAFT';
-    final color = _statusColor(status);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(_statusIcon(status), color: color),
-        ),
-        title: Text(
-          campaign['name'] as String? ?? 'Sans nom',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text('Code: ${campaign['code'] ?? '—'}',
-                style: const TextStyle(fontSize: 12)),
-            Text('Échéance: ${_formatDate(campaign['deadline'])}',
-                style: const TextStyle(fontSize: 12)),
-            Text(
-                'Type: ${_campaignTypeLabels[campaign['type']] ?? campaign['type'] ?? '—'}',
-                style: const TextStyle(fontSize: 12)),
-            if (campaign['_count'] != null)
-              Text(
-                  'Soumissions: ${(campaign['_count'] as Map)['submissions'] ?? 0}',
-                  style: const TextStyle(fontSize: 12)),
-          ],
-        ),
-        isThreeLine: true,
-        trailing: Chip(
-          label: Text(status, style: const TextStyle(fontSize: 11)),
-          backgroundColor: color.withValues(alpha: 0.1),
-          labelStyle: TextStyle(color: color),
-        ),
-        onTap: () => _viewCampaign(campaign),
       ),
     );
   }
@@ -212,7 +461,7 @@ class _CampaignManagementScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Campagne créée avec succès'),
-            backgroundColor: Colors.green,
+            backgroundColor: UltraTheme.success,
           ),
         );
       }
@@ -220,25 +469,29 @@ class _CampaignManagementScreenState
   }
 
   Future<void> _viewCampaign(dynamic campaign) async {
-    // TODO: navigate to campaign detail screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Détails: ${campaign['name']}')),
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CampaignDetailScreen(
+          initialCampaign: campaign as Map<String, dynamic>,
+        ),
+      ),
     );
+    if (changed == true) _loadCampaigns();
   }
 
   Color _statusColor(String? status) {
     switch (status) {
       case 'ACTIVE':
-        return Colors.green;
+        return UltraTheme.success;
       case 'DRAFT':
-        return Colors.orange;
+        return UltraTheme.warning;
       case 'CLOSED':
       case 'ARCHIVED':
-        return Colors.grey;
+        return UltraTheme.textMuted;
       case 'PAUSED':
-        return Colors.blue;
+        return UltraTheme.info;
       default:
-        return Colors.blueGrey;
+        return UltraTheme.textSecondary;
     }
   }
 
@@ -256,19 +509,9 @@ class _CampaignManagementScreenState
         return Icons.campaign_outlined;
     }
   }
-
-  String _formatDate(dynamic date) {
-    if (date == null) return 'Non définie';
-    try {
-      final dt = DateTime.parse(date.toString());
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-    } catch (_) {
-      return date.toString();
-    }
-  }
 }
 
-// ─── Create Campaign Dialog ───────────────────────────────────────────────────
+// ─── Create Campaign Dialog ──────────────────────────────────────────────────
 
 class _CreateCampaignDialog extends StatefulWidget {
   final ApiClient api;
@@ -280,11 +523,11 @@ class _CreateCampaignDialog extends StatefulWidget {
 
 class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
   // Campaign type
   String _selectedType = 'QUARTERLY';
+  String _selectedCollectionType = 'ONEFOP';
 
   // Dates
   DateTime? _startDate;
@@ -297,67 +540,17 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
   // Entity types (multi-select)
   final Set<String> _selectedEntityTypes = {};
 
-  // Regions cascade
-  List<_Region> _regions = [];
-  List<_Department> _departments = [];
-  final Set<String> _selectedRegionNames =
-      {}; // stored as names (backend expects names)
-  final Set<String> _selectedDepartmentNames = {};
+  // Regions/departments cascade (stored as names — backend expects names)
+  Set<String> _selectedRegionNames = {};
+  Set<String> _selectedDepartmentNames = {};
 
-  // Loading states
-  bool _loadingRegions = true;
-  bool _loadingDepartments = false;
   bool _submitting = false;
   String? _submitError;
 
-  // For cascading — the region whose departments are shown
-  String? _expandedRegionId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRegions();
-  }
-
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadRegions() async {
-    try {
-      final data = await widget.api.getRegions();
-      setState(() {
-        _regions = data
-            .whereType<Map<String, dynamic>>()
-            .map(_Region.fromJson)
-            .toList();
-        _loadingRegions = false;
-      });
-    } catch (_) {
-      setState(() => _loadingRegions = false);
-    }
-  }
-
-  Future<void> _loadDepartments(String regionId) async {
-    setState(() {
-      _loadingDepartments = true;
-      _departments = [];
-    });
-    try {
-      final data = await widget.api.getDepartments(regionId);
-      setState(() {
-        _departments = data
-            .whereType<Map<String, dynamic>>()
-            .map(_Department.fromJson)
-            .toList();
-        _loadingDepartments = false;
-      });
-    } catch (_) {
-      setState(() => _loadingDepartments = false);
-    }
   }
 
   Future<void> _submit() async {
@@ -378,11 +571,23 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
     });
 
     try {
+      final conflict = await _checkConflict();
+      if (conflict != null) {
+        setState(() => _submitting = false);
+        if (!mounted) return;
+        final proceed = await _confirmOverwrite(conflict);
+        if (proceed != true) return;
+        setState(() => _submitting = true);
+      }
+
+      // name is intentionally omitted — the backend always derives the
+      // full official title (base title + period) from collectionType,
+      // type and startDate, so anything sent here would just be ignored.
       await widget.api.post('/campaigns', data: {
-        'name': _nameCtrl.text.trim(),
         'description':
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         'type': _selectedType,
+        'collectionType': _selectedCollectionType,
         'startDate': _startDate!.toIso8601String(),
         'deadline': _deadline!.toIso8601String(),
         'targetRegions': _selectedRegionNames.toList(),
@@ -400,6 +605,57 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
     }
   }
 
+  /// The campaign already active for the chosen module, if any — null if
+  /// there's nothing to warn about, also null (rather than throwing) if the
+  /// check itself fails so a transient error here never blocks creation.
+  Future<Map<String, dynamic>?> _checkConflict() async {
+    try {
+      final resp = await widget.api.get('/campaigns/conflicts',
+          queryParameters: {'collectionType': _selectedCollectionType});
+      return resp.data as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool?> _confirmOverwrite(Map<String, dynamic> conflict) {
+    final label = collectionTypeLabels[_selectedCollectionType] ??
+        _selectedCollectionType;
+    final deadline = _formatConflictDate(conflict['deadline']);
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Campagne déjà active'),
+        content: Text(
+          'Une campagne "$label" est déjà active : "${conflict['name']}" '
+          '(échéance $deadline).\n\n'
+          'Créer cette nouvelle campagne clôturera la précédente et ouvrira '
+          'celle-ci à sa place. Continuer ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatConflictDate(dynamic date) {
+    if (date == null) return 'non définie';
+    try {
+      final dt = DateTime.parse(date.toString());
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return date.toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -412,7 +668,7 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 8, 16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
+                color: UltraTheme.primary,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(12)),
               ),
@@ -445,18 +701,54 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // ── Name ──────────────────────────────────────────────
+                    // ── Name (derived from collection type) ───────────────
                     _sectionLabel('Informations générales'),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Le nom officiel détermine aussi quel formulaire s'ouvre "
+                      "pour les établissements ciblés une fois la campagne active.",
+                      style:
+                          TextStyle(fontSize: 12, color: UltraTheme.textMuted),
+                    ),
                     const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _nameCtrl,
+                    DropdownButtonFormField<String>(
+                      value: _selectedCollectionType,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Nom de la campagne *',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.label_outline),
                       ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                      items: collectionTypes
+                          .map((ct) => DropdownMenuItem(
+                                value: ct,
+                                child: Text(
+                                  campaignNameByCollectionType[ct] ?? ct,
+                                  style: const TextStyle(fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setState(
+                          () => _selectedCollectionType = v ?? 'ONEFOP'),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: UltraTheme.background,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        campaignFullNamePreview(
+                            _selectedCollectionType, _selectedType, _startDate),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: UltraTheme.textSecondary,
+                            fontStyle: FontStyle.italic),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -479,10 +771,10 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.category_outlined),
                       ),
-                      items: _campaignTypes
+                      items: campaignTypes
                           .map((t) => DropdownMenuItem(
                                 value: t,
-                                child: Text(_campaignTypeLabels[t] ?? t),
+                                child: Text(campaignTypeLabels[t] ?? t),
                               ))
                           .toList(),
                       onChanged: (v) =>
@@ -496,7 +788,7 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                     Row(
                       children: [
                         Expanded(
-                            child: _DatePickerField(
+                            child: DatePickerField(
                           label: 'Date de début *',
                           value: _startDate,
                           firstDate: DateTime(2020),
@@ -505,7 +797,7 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                         )),
                         const SizedBox(width: 12),
                         Expanded(
-                            child: _DatePickerField(
+                            child: DatePickerField(
                           label: 'Échéance *',
                           value: _deadline,
                           firstDate: _startDate ?? DateTime.now(),
@@ -522,20 +814,29 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 4,
-                      children: _entityTypes.map((et) {
-                        final selected = _selectedEntityTypes.contains(et);
-                        return FilterChip(
-                          label: Text(_entityTypeLabels[et] ?? et),
-                          selected: selected,
-                          onSelected: (v) => setState(() {
-                            if (v) {
-                              _selectedEntityTypes.add(et);
-                            } else {
-                              _selectedEntityTypes.remove(et);
-                            }
-                          }),
-                        );
-                      }).toList(),
+                      children: [
+                        FilterChip(
+                          label: const Text('Toutes'),
+                          selected: _selectedEntityTypes.isEmpty,
+                          onSelected: (v) {
+                            if (v) setState(() => _selectedEntityTypes.clear());
+                          },
+                        ),
+                        ...entityTypes.map((et) {
+                          final selected = _selectedEntityTypes.contains(et);
+                          return FilterChip(
+                            label: Text(entityTypeLabels[et] ?? et),
+                            selected: selected,
+                            onSelected: (v) => setState(() {
+                              if (v) {
+                                _selectedEntityTypes.add(et);
+                              } else {
+                                _selectedEntityTypes.remove(et);
+                              }
+                            }),
+                          );
+                        }),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
@@ -545,13 +846,16 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                     Text(
                       'Sélectionnez des régions. Développez une région pour cibler des départements spécifiques.',
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          TextStyle(fontSize: 12, color: UltraTheme.textMuted),
                     ),
                     const SizedBox(height: 10),
-                    if (_loadingRegions)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      _buildRegionCascade(),
+                    RegionDepartmentSelector(
+                      api: widget.api,
+                      initialRegionNames: _selectedRegionNames,
+                      initialDepartmentNames: _selectedDepartmentNames,
+                      onRegionsChanged: (s) => _selectedRegionNames = s,
+                      onDepartmentsChanged: (s) => _selectedDepartmentNames = s,
+                    ),
                     const SizedBox(height: 16),
 
                     // ── Reminders ─────────────────────────────────────────
@@ -569,7 +873,7 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                       const SizedBox(height: 4),
                       Text('Rappels à J-:',
                           style: TextStyle(
-                              fontSize: 13, color: Colors.grey.shade700)),
+                              fontSize: 13, color: UltraTheme.textSecondary)),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
@@ -598,19 +902,19 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: UltraTheme.error.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
+                          border: Border.all(color: UltraTheme.error.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.error_outline,
-                                color: Colors.red.shade600, size: 18),
+                                color: UltraTheme.error, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(_submitError!,
                                   style: TextStyle(
-                                      color: Colors.red.shade700,
+                                      color: UltraTheme.error,
                                       fontSize: 13)),
                             ),
                           ],
@@ -627,7 +931,7 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                border: Border(top: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.2))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -660,192 +964,14 @@ class _CreateCampaignDialogState extends State<_CreateCampaignDialog> {
     );
   }
 
-  Widget _buildRegionCascade() {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: _regions.asMap().entries.map((entry) {
-          final i = entry.key;
-          final region = entry.value;
-          final isExpanded = _expandedRegionId == region.id;
-          final regionSelected = _selectedRegionNames.contains(region.name);
-
-          return Column(
-            children: [
-              if (i > 0) Divider(height: 1, color: Colors.grey.shade200),
-
-              // Region row
-              InkWell(
-                onTap: () async {
-                  // Toggle expansion for department loading
-                  if (isExpanded) {
-                    setState(() => _expandedRegionId = null);
-                  } else {
-                    setState(() => _expandedRegionId = region.id);
-                    await _loadDepartments(region.id);
-                  }
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(
-                    children: [
-                      // Region checkbox
-                      Checkbox(
-                        value: regionSelected,
-                        onChanged: (v) => setState(() {
-                          if (v == true) {
-                            _selectedRegionNames.add(region.name);
-                          } else {
-                            _selectedRegionNames.remove(region.name);
-                            // Also deselect all its departments
-                            if (_expandedRegionId == region.id) {
-                              for (final d in _departments) {
-                                _selectedDepartmentNames.remove(d.name);
-                              }
-                            }
-                          }
-                        }),
-                      ),
-                      Expanded(
-                        child: Text(
-                          region.name,
-                          style: TextStyle(
-                            fontWeight: regionSelected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      // Expand arrow for departments
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: Colors.grey.shade500,
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Department sub-list (cascaded)
-              if (isExpanded)
-                Container(
-                  color: Colors.grey.shade50,
-                  child: _loadingDepartments
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Center(
-                              child: SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2))),
-                        )
-                      : _departments.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                'Aucun département disponible',
-                                style: TextStyle(
-                                    color: Colors.grey.shade500, fontSize: 13),
-                              ),
-                            )
-                          : Column(
-                              children: _departments.map((dept) {
-                                final deptSelected = _selectedDepartmentNames
-                                    .contains(dept.name);
-                                return CheckboxListTile(
-                                  dense: true,
-                                  contentPadding: const EdgeInsets.only(
-                                      left: 32, right: 12),
-                                  title: Text(dept.name,
-                                      style: const TextStyle(fontSize: 13)),
-                                  value: deptSelected,
-                                  onChanged: (v) => setState(() {
-                                    if (v == true) {
-                                      _selectedDepartmentNames.add(dept.name);
-                                      // Auto-select parent region if not already selected
-                                      _selectedRegionNames.add(region.name);
-                                    } else {
-                                      _selectedDepartmentNames
-                                          .remove(dept.name);
-                                    }
-                                  }),
-                                );
-                              }).toList(),
-                            ),
-                ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   Widget _sectionLabel(String text) {
     return Text(
       text,
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Colors.grey.shade700,
+        color: UltraTheme.textSecondary,
         letterSpacing: 0.3,
-      ),
-    );
-  }
-}
-
-// ─── Date Picker Field ────────────────────────────────────────────────────────
-
-class _DatePickerField extends StatelessWidget {
-  final String label;
-  final DateTime? value;
-  final DateTime firstDate;
-  final DateTime lastDate;
-  final ValueChanged<DateTime> onPicked;
-
-  const _DatePickerField({
-    required this.label,
-    required this.value,
-    required this.firstDate,
-    required this.lastDate,
-    required this.onPicked,
-  });
-
-  String _format(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: firstDate,
-          lastDate: lastDate,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
-          suffixIcon: const Icon(Icons.arrow_drop_down),
-        ),
-        child: Text(
-          value != null ? _format(value!) : 'Choisir...',
-          style: TextStyle(
-            color: value != null ? null : Colors.grey.shade500,
-          ),
-        ),
       ),
     );
   }

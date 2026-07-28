@@ -27,9 +27,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/providers.dart';
+import '../data/api_client.dart' show ApiException;
 import '../models/user.dart';
 import '../theme/ultra_theme.dart';
 import '../services/draft_service.dart';
@@ -48,24 +50,28 @@ import 'dashboards/regional_agent_dashboard.dart';
 import 'dashboards/company_workspace_dashboard.dart';
 
 // Add these imports with the other ONEFOP imports
-import 'campaign/campaign_management_screen.dart';
 import 'report/report_screen.dart';
 import 'data_management/data_management_screen.dart';
+
+// ── Super admin tab merges ──────────────────────────────────────
+import 'superadmin/soumissions_screen.dart';
+import 'superadmin/communication_screen.dart';
 
 // ── DSMO ─────────────────────────────────────────────────────
 import 'dsmo/declaration_wizard_screen.dart';
 import 'dsmo/declarations_list_screen.dart';
+import 'dsmo/company_declarations_screen.dart';
 import 'dsmo/send_notification_screen.dart';
 
 // ── ONEFOP ───────────────────────────────────────────────────
 import 'onefop/onefop_unified_form_screen_v4.dart';
 import 'onefop/onefop_legal_acknowledgment_screen.dart';
 import 'onefop/submissions_viewer_screen.dart'; // NEW: read-only viewer
-import 'onefop/onefop_analytics_screen.dart';
 import 'onefop/onefop_form_constants.dart' show EntityType;
 
 // ── Admin ────────────────────────────────────────────────────
-import 'admin/pending_users_screen.dart';
+import 'admin/admin_reset_password_screen.dart';
+import 'admin/annuaire_screen.dart';
 
 // ── Settings ─────────────────────────────────────────────────
 import '../screens/settings_screen.dart';
@@ -150,7 +156,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _Tab(
             'Declarations',
             Icons.folder_open_outlined,
-            DeclarationsListScreen(onNewSubmission: onNewSubmission),
+            CompanyDeclarationsScreen(onNewSubmission: onNewSubmission),
           ),
           const _Tab(
             'Analytics',
@@ -195,22 +201,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ];
 
       case 'SUPER_ADMIN':
-        // Full access with all admin tabs
+        // Merged tabs: Soumissions (DSMO + ONEFOP), Communication
+        // (Campagnes + Notifications), Annuaire (Utilisateurs +
+        // Entreprises) — see lib/screens/superadmin/ and
+        // lib/screens/admin/annuaire_screen.dart.
         return [
-          const _Tab(
-              'Analytics', Icons.analytics_outlined, OnefopDashboardScreen()),
-          _Tab(
-              'Campaigns', Icons.campaign_outlined, CampaignManagementScreen()),
+          _Tab('Analytics DSMO', Icons.bar_chart_outlined,
+              const OnefopDashboardScreen()),
           _Tab('Reports', Icons.description_outlined, ReportScreen()),
           _Tab('Data Mgmt', Icons.storage_outlined, DataManagementScreen()),
-          _Tab('Déclarations DSMO', Icons.folder_open_outlined,
-              DeclarationsListScreen(onNewSubmission: onNewSubmission)),
-          const _Tab('Soumissions ONEFOP', Icons.assignment_outlined,
-              SubmissionsViewerScreen()),
-          const _Tab('Agents Minefop', Icons.manage_accounts_outlined,
-              PendingUsersScreen()),
-          const _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+          _Tab('Communication', Icons.campaign_outlined,
+              const CommunicationScreen()),
+          _Tab('Soumissions', Icons.assignment_outlined,
+              SoumissionsScreen(onNewSubmission: onNewSubmission)),
+          _Tab('Annuaire', Icons.contacts_outlined, const AnnuaireScreen()),
         ];
       case 'SUPER_ADMIN_DSMO':
         // DSMO-only admin without vetting
@@ -219,8 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               DeclarationsListScreen(onNewSubmission: onNewSubmission)),
           const _Tab('Analytique DSMO', Icons.bar_chart_outlined,
               OnefopDashboardScreen()),
-          const _Tab(
-              'Agents', Icons.manage_accounts_outlined, PendingUsersScreen()),
+          const _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
           const _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
@@ -232,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               OnefopDashboardScreen()),
           _Tab('Soumissions', Icons.list_alt_outlined,
               SubmissionsViewerScreen()),
-          _Tab('Analytique', Icons.analytics_outlined, OnefopAnalyticsScreen()),
+          _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
           _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
@@ -769,8 +772,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
 
-      // TODO: fetch active quarter from round service
-      const activeQuarterCode = '2025-T1';
+      final activeQuarter = await api.getActiveQuarter();
+      if (activeQuarter['isOpen'] != true) {
+        if (!context.mounted) return;
+        _snack(context,
+            message: activeQuarter['message'] as String? ??
+                "Aucune période de soumission n'est actuellement ouverte.",
+            type: SnackBarType.warning);
+        return;
+      }
+      final activeQuarterCode = activeQuarter['code'] as String;
 
       String? entityType = company['entityType'] as String?;
       if (entityType == null) {
@@ -1018,10 +1029,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (!mounted) return;
     if (result == 'dsmo') {
-      _push(const DeclarationWizardScreen());
+      await _openDsmoFormForCompany();
     } else if (result == 'onefop') {
       await _openOnefopFormForCompany();
     }
+  }
+
+  /// Gates the DSMO declaration wizard behind the active DSMO period —
+  /// mirrors _openOnefopFormForCompany()'s active-quarter check below.
+  Future<void> _openDsmoFormForCompany() async {
+    final api = ref.read(apiClientProvider);
+    final activePeriod = await api.getActiveDsmoPeriod();
+    if (activePeriod['isOpen'] != true) {
+      if (!context.mounted) return;
+      _snack(context,
+          message: activePeriod['message'] as String? ??
+              "Aucune période de déclaration DSMO n'est actuellement ouverte.",
+          type: SnackBarType.warning);
+      return;
+    }
+    if (!mounted) return;
+    _push(const DeclarationWizardScreen());
   }
 
   Widget _dialogIcon(IconData icon, Color color) => Container(
@@ -1260,12 +1288,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       },
                     ),
                     DrawerNavItem(
-                      icon: Icons.manage_accounts_outlined,
-                      label: 'Agents en attente',
-                      subtitle: 'Approuver / refuser',
+                      icon: Icons.contacts_outlined,
+                      label: 'Annuaire',
+                      subtitle: 'Utilisateurs et entreprises',
                       onTap: () {
                         Navigator.pop(context);
-                        _push(const PendingUsersScreen());
+                        _push(const AnnuaireScreen());
+                      },
+                    ),
+                    DrawerNavItem(
+                      icon: Icons.password_outlined,
+                      label: 'Réinitialiser un mot de passe',
+                      subtitle: 'Après vérification d\'identité',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _push(const AdminResetPasswordScreen());
                       },
                     ),
                     const Divider(height: 32, indent: 16, endIndent: 16),
@@ -1281,6 +1318,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _push(const SubmissionsViewerScreen());
                       },
                     ),
+                    if (!isDsmoAdmin) ...[
+                      DrawerNavItem(
+                        icon: Icons.contacts_outlined,
+                        label: 'Annuaire',
+                        subtitle: 'Utilisateurs et entreprises',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _push(const AnnuaireScreen());
+                        },
+                      ),
+                      DrawerNavItem(
+                        icon: Icons.password_outlined,
+                        label: 'Réinitialiser un mot de passe',
+                        subtitle: 'Après vérification d\'identité',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _push(const AdminResetPasswordScreen());
+                        },
+                      ),
+                    ],
                     const Divider(height: 32, indent: 16, endIndent: 16),
                   ],
                   if (!isCompany) ...[
@@ -1360,6 +1417,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final filterActive = _filterRegion != null ||
         _filterDepartment != null ||
         _filterStatus != null;
+
+    // The Analytics tab has its own in-page header (title + status + the
+    // notification bell now live there — see OnefopDashboardScreen's
+    // hero) — this shared chrome is fully redundant on desktop, so it
+    // collapses to zero height to give that header the space instead.
+    // Mobile keeps the full bar since it's the only way to open the nav
+    // drawer there.
+    final isAnalyticsTab = !isMobile &&
+        tabs.isNotEmpty &&
+        tabs[_selectedIndex.clamp(0, tabs.length - 1)].screen
+            is OnefopDashboardScreen;
+
+    if (isAnalyticsTab) {
+      return const PreferredSize(
+        preferredSize: Size.zero,
+        child: SizedBox.shrink(),
+      );
+    }
 
     return AppBar(
       backgroundColor: isMobile ? UltraTheme.surface : UltraTheme.background,
@@ -1441,6 +1516,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Future<void> _downloadAttestation() async {
+    try {
+      final url = await ref.read(apiClientProvider).getAttestationUrl();
+      final launched =
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        _snack(context,
+            message: "Impossible d'ouvrir l'attestation.",
+            type: SnackBarType.error);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _snack(context,
+          message: e is ApiException
+              ? e.message
+              : "Aucune attestation n'est disponible pour ce compte.",
+          type: SnackBarType.error);
+    }
+  }
+
   Widget _userPopupMenu(User user, String role) {
     return PopupMenuButton<String>(
       offset: const Offset(0, 48),
@@ -1451,6 +1546,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       color: UltraTheme.surface,
       icon: UserAvatar(email: user.email),
       onSelected: (v) {
+        if (v == 'attestation') _downloadAttestation();
         if (v == 'logout') _confirmLogout(context);
       },
       itemBuilder: (_) => [
@@ -1492,6 +1588,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ]),
         ),
+        if (role == 'COMPANY') ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'attestation',
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: UltraTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+                ),
+                child: const Icon(Icons.picture_as_pdf_outlined,
+                    color: UltraTheme.primary, size: 18),
+              ),
+              const SizedBox(width: 12),
+              const Flexible(
+                child: Text("Mon attestation d'inscription",
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: UltraTheme.textPrimary)),
+              ),
+            ]),
+          ),
+        ],
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
@@ -1592,7 +1716,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: _buildAppBar(context, user, role, tabs),
       drawer: isMobile ? _buildDrawer(user, role) : null,
       railNav: isMobile ? null : _buildNavRail(user, role, tabs),
-      body: ContentShell(child: tabs[safeIndex].screen),
+      body: Column(
+        children: [
+          if (role == 'COMPANY' && !user.emailVerified)
+            const _EmailVerificationBanner(),
+          Expanded(child: ContentShell(child: tabs[safeIndex].screen)),
+        ],
+      ),
       bottomNavigationBar: isMobile && tabs.length >= 2
           ? UltraBottomNavBar(
               tabs: tabs.map((t) => (icon: t.icon, label: t.label)).toList(),
@@ -1683,6 +1813,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 // ═══════════════════════════════════════════════════════════════
 // PRIVATE HELPER WIDGETS
 // ═══════════════════════════════════════════════════════════════
+
+class _EmailVerificationBanner extends ConsumerStatefulWidget {
+  const _EmailVerificationBanner();
+
+  @override
+  ConsumerState<_EmailVerificationBanner> createState() =>
+      _EmailVerificationBannerState();
+}
+
+class _EmailVerificationBannerState
+    extends ConsumerState<_EmailVerificationBanner> {
+  bool _sending = false;
+
+  Future<void> _resend() async {
+    setState(() => _sending = true);
+    try {
+      final message =
+          await ref.read(authProvider.notifier).resendVerificationEmail();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: UltraTheme.warning.withValues(alpha: 0.12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 6,
+        children: [
+          const Icon(Icons.mark_email_unread_outlined,
+              size: 18, color: UltraTheme.warning),
+          const Text(
+            'Veuillez vérifier votre adresse e-mail pour sécuriser votre compte.',
+            style: TextStyle(fontSize: 13, color: UltraTheme.textPrimary),
+          ),
+          GestureDetector(
+            onTap: _sending ? null : _resend,
+            child: Text(
+              _sending ? 'Envoi...' : "Renvoyer l'e-mail",
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: UltraTheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _FilterDropdown extends StatelessWidget {
   const _FilterDropdown({

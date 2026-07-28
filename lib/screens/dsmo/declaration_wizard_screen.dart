@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'employee_list_screen.dart';
 import '../../../data/api_client.dart';
+import 'dsmo_form_style.dart';
 
 // Persists chosen language across the session
 final languageProvider = StateProvider<String>((ref) => 'fr');
@@ -579,10 +580,12 @@ class _DeclarationWizardScreenState
     final language = ref.watch(languageProvider);
 
     return Scaffold(
+      backgroundColor: kCanvas,
       appBar: AppBar(
         title: const Text('Déclaration DSMO'),
-        backgroundColor: Colors.teal,
+        backgroundColor: kAccent,
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -593,7 +596,7 @@ class _DeclarationWizardScreenState
                   i == 0 ? 'fr' : 'en',
               color: Colors.white70,
               selectedColor: Colors.white,
-              fillColor: Colors.teal.shade700,
+              fillColor: kAccentDeep,
               borderColor: Colors.white30,
               selectedBorderColor: Colors.white,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 32),
@@ -602,41 +605,82 @@ class _DeclarationWizardScreenState
           ),
         ],
       ),
-      body: Stepper(
-        currentStep: _currentStep,
-        onStepContinue: _currentStep == 0
-            ? _saveStep1
-            : _currentStep == 1
-                ? _saveStep2
-                : _saveStep3AndGoToEmployees,
-        onStepCancel:
-            _currentStep == 0 ? null : () => setState(() => _currentStep -= 1),
-        steps: [
-          Step(
-            title: const Text("1. Identité de l'établissement"),
-            content: Form(
-              key: _step1FormKey,
-              child: SingleChildScrollView(child: _buildIdentityStep()),
+      body: Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme:
+              Theme.of(context).colorScheme.copyWith(primary: kAccent),
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            // Matches the 480px form-width convention used by the ONEFOP
+            // registration wizard (register_screen.dart) and MinefopPortalScreen.
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Stepper(
+          currentStep: _currentStep,
+          onStepContinue: _currentStep == 0
+              ? _saveStep1
+              : _currentStep == 1
+                  ? _saveStep2
+                  : _saveStep3AndGoToEmployees,
+          onStepCancel: _currentStep == 0
+              ? null
+              : () => setState(() => _currentStep -= 1),
+          controlsBuilder: (context, details) {
+            final isLast = _currentStep == 2;
+            return Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DsmoPrimaryButton(
+                      label: isLast ? 'SOUMETTRE' : 'CONTINUER',
+                      onPressed: details.onStepContinue,
+                      icon: isLast
+                          ? Icons.send_outlined
+                          : Icons.arrow_forward_outlined,
+                    ),
+                  ),
+                  if (details.onStepCancel != null) ...[
+                    const SizedBox(width: 12),
+                    TextButton(
+                      onPressed: details.onStepCancel,
+                      style: TextButton.styleFrom(foregroundColor: kInkSoft),
+                      child: const Text('RETOUR'),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+          steps: [
+            Step(
+              title: const Text("1. Identité de l'établissement"),
+              content: Form(
+                key: _step1FormKey,
+                child: SingleChildScrollView(child: _buildIdentityStep()),
+              ),
+              isActive: true,
+              state: _currentStep > 0 ? StepState.complete : StepState.indexed,
             ),
-            isActive: true,
-            state: _currentStep > 0 ? StepState.complete : StepState.indexed,
-          ),
-          Step(
-            title: const Text('2. Effectifs et mouvements'),
-            content: Form(
-              key: _step2FormKey,
-              child: _buildWorkforceStep(),
+            Step(
+              title: const Text('2. Effectifs et mouvements'),
+              content: Form(
+                key: _step2FormKey,
+                child: _buildWorkforceStep(),
+              ),
+              isActive: _currentStep >= 1,
+              state: _currentStep > 1 ? StepState.complete : StepState.indexed,
             ),
-            isActive: _currentStep >= 1,
-            state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+            Step(
+              title: const Text('3. Informations supplémentaires'),
+              content: _buildQualitativeStep(),
+              isActive: _currentStep >= 2,
+              state: StepState.indexed,
+            ),
+          ],
+        ),
           ),
-          Step(
-            title: const Text('3. Informations supplémentaires'),
-            content: _buildQualitativeStep(),
-            isActive: _currentStep >= 2,
-            state: StepState.indexed,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -654,7 +698,7 @@ class _DeclarationWizardScreenState
           children: [
             Expanded(
               child: _buildDropdown<int>(
-                label: 'Année budgétaire *',
+                label: 'Année budgétaire',
                 value: _budgetYear,
                 items: years,
                 onChanged: (v) =>
@@ -664,9 +708,10 @@ class _DeclarationWizardScreenState
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
+              child: DsmoField(
+                label: 'Date de remplissage',
+                input: InkWell(
+                  borderRadius: BorderRadius.circular(kRadiusSm),
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
@@ -679,15 +724,15 @@ class _DeclarationWizardScreenState
                     }
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date de remplissage',
-                      border: OutlineInputBorder(),
-                      suffixIcon: Icon(Icons.calendar_today),
+                    decoration: dsmoInputDecoration().copyWith(
+                      suffixIcon:
+                          const Icon(Icons.calendar_today, color: kInkFaint),
                     ),
                     child: Text(
                       '${_fillingDate.day.toString().padLeft(2, '0')}/'
                       '${_fillingDate.month.toString().padLeft(2, '0')}/'
                       '${_fillingDate.year}',
+                      style: const TextStyle(fontSize: 14, color: kInk),
                     ),
                   ),
                 ),
@@ -701,7 +746,7 @@ class _DeclarationWizardScreenState
 
         _buildTextField(
           _nameController,
-          'Raison sociale *',
+          'Raison sociale',
           isRequired: true,
           validator: (v) =>
               v == null || v.trim().isEmpty ? 'Champ requis' : null,
@@ -712,7 +757,7 @@ class _DeclarationWizardScreenState
         ),
 
         _buildCascadingDropdown(
-          label: 'Activité principale / Secteur *',
+          label: 'Activité principale / Secteur',
           items: _sectors,
           isLoading: _isLoadingSectors,
           selectedId: _selectedSectorId,
@@ -732,7 +777,7 @@ class _DeclarationWizardScreenState
         _sectionHeader('Localisation'),
 
         _buildCascadingDropdown(
-          label: 'Région *',
+          label: 'Région',
           items: _regions,
           isLoading: _isLoadingRegions,
           selectedId: _selectedRegionId,
@@ -753,7 +798,7 @@ class _DeclarationWizardScreenState
           },
         ),
         _buildCascadingDropdown(
-          label: 'Département *',
+          label: 'Département',
           items: _departments,
           isLoading: _isLoadingDepartments,
           selectedId: _selectedDepartmentId,
@@ -775,7 +820,7 @@ class _DeclarationWizardScreenState
           },
         ),
         _buildCascadingDropdown(
-          label: 'Arrondissement *',
+          label: 'Arrondissement',
           items: _subdivisions,
           isLoading: _isLoadingSubdivisions,
           selectedId: _selectedSubdivisionId,
@@ -796,7 +841,7 @@ class _DeclarationWizardScreenState
 
         _buildTextField(
           _addressController,
-          'Adresse complète *',
+          'Adresse complète',
           isRequired: true,
           validator: (v) =>
               v == null || v.trim().isEmpty ? 'Champ requis' : null,
@@ -813,7 +858,7 @@ class _DeclarationWizardScreenState
               flex: 2,
               child: _buildTextField(
                 _taxNumberController,
-                'N° Contribuable (NIU) *',
+                'N° Contribuable (NIU)',
                 isRequired: true,
                 validator: (v) =>
                     v == null || v.trim().isEmpty ? 'Champ requis' : null,
@@ -840,49 +885,29 @@ class _DeclarationWizardScreenState
   }
 
   Widget _sectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 10),
-      child: Row(
-        children: [
-          Expanded(child: Divider(color: Colors.teal.shade200)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: Colors.teal.shade700,
-              ),
-            ),
-          ),
-          Expanded(child: Divider(color: Colors.teal.shade200)),
-        ],
-      ),
-    );
+    return OnefopSubsectionHeader(title: title);
   }
 
   Widget _buildWorkforceStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Effectifs au 31 décembre — Année en cours',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        const OnefopSubsectionHeader(
+            title: 'Effectifs au 31 décembre — Année en cours'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: Text(
+            'Saisissez Hommes et Femmes — le Total se calcule automatiquement.',
+            style: TextStyle(fontSize: 11, color: kInkFaint),
+          ),
         ),
-        const SizedBox(height: 2),
-        const Text(
-          'Saisissez Hommes et Femmes — le Total se calcule automatiquement.',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-        const SizedBox(height: 10),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _buildTextField(
                 _menCount,
-                'Hommes *',
+                'Hommes',
                 isNumber: true,
                 isRequired: true,
                 validator: _validateGenderSum,
@@ -892,7 +917,7 @@ class _DeclarationWizardScreenState
             Expanded(
               child: _buildTextField(
                 _womenCount,
-                'Femmes *',
+                'Femmes',
                 isNumber: true,
                 isRequired: true,
                 validator: _validateGenderSum,
@@ -901,21 +926,20 @@ class _DeclarationWizardScreenState
             const SizedBox(width: 10),
             Expanded(
               child:
-                  _buildAutoCalcField(_totalEmp, 'Total *', isRequired: true),
+                  _buildAutoCalcField(_totalEmp, 'Total', isRequired: true),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Effectifs au 31 décembre — Année précédente',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        const SizedBox(height: 12),
+        const OnefopSubsectionHeader(
+            title: 'Effectifs au 31 décembre — Année précédente'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: Text(
+            'Facultatif — le Total se calcule automatiquement.',
+            style: TextStyle(fontSize: 11, color: kInkFaint),
+          ),
         ),
-        const SizedBox(height: 2),
-        const Text(
-          'Facultatif — le Total se calcule automatiquement.',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-        const SizedBox(height: 10),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -940,17 +964,16 @@ class _DeclarationWizardScreenState
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        const Text(
-          'Mouvements par catégories de salaire',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        const SizedBox(height: 12),
+        const OnefopSubsectionHeader(
+            title: 'Mouvements par catégories de salaire'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: Text(
+            'Remplissez les cellules — les totaux par ligne et colonne se calculent automatiquement.',
+            style: TextStyle(fontSize: 11, color: kInkFaint),
+          ),
         ),
-        const SizedBox(height: 2),
-        const Text(
-          'Remplissez les cellules — les totaux par ligne et colonne se calculent automatiquement.',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-        const SizedBox(height: 10),
         _buildMovementTable(),
       ],
     );
@@ -962,27 +985,26 @@ class _DeclarationWizardScreenState
     String label, {
     bool isRequired = false,
   }) {
-    return Padding(
+    return DsmoField(
+      label: label,
+      required: isRequired,
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
+      input: TextFormField(
         controller: ctrl,
         readOnly: true,
         keyboardType: TextInputType.number,
-        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.teal),
-          border: const OutlineInputBorder(),
+        style: const TextStyle(fontWeight: FontWeight.bold, color: kAccent),
+        decoration: dsmoInputDecoration().copyWith(
+          fillColor: kAccentSoft,
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.teal.shade300),
+            borderRadius: BorderRadius.circular(kRadiusSm),
+            borderSide: const BorderSide(color: kAccent, width: 1),
           ),
-          filled: true,
-          fillColor: Colors.teal.shade50,
           suffixIcon: const Tooltip(
             message: 'Calculé automatiquement',
             child: Icon(
               Icons.calculate_outlined,
-              color: Colors.teal,
+              color: kAccent,
               size: 18,
             ),
           ),
@@ -1003,43 +1025,43 @@ class _DeclarationWizardScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Informations supplémentaires',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
+        const OnefopSubsectionHeader(title: 'Informations supplémentaires'),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          activeThumbColor: kAccent,
           title: const Text(
             "Votre établissement dispose-t-il d'un centre de formation ?",
-            style: TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: 14, color: kInk),
           ),
           value: _hasTrainingCenter,
           onChanged: (v) => setState(() => _hasTrainingCenter = v),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          activeThumbColor: kAccent,
           title: const Text(
             "Votre établissement prévoit-il des recrutements l'année prochaine ?",
-            style: TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: 14, color: kInk),
           ),
           value: _recruitmentPlansNext,
           onChanged: (v) => setState(() => _recruitmentPlansNext = v),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          activeThumbColor: kAccent,
           title: const Text(
             "Votre établissement dispose-t-il d'un plan de camerounisation ?",
-            style: TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: 14, color: kInk),
           ),
           value: _camerounisationPlan,
           onChanged: (v) => setState(() => _camerounisationPlan = v),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          activeThumbColor: kAccent,
           title: const Text(
             "Votre établissement a-t-il recours aux entreprises de travail temporaire ?",
-            style: TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: 14, color: kInk),
           ),
           value: _usesTempAgencies,
           onChanged: (v) => setState(() => _usesTempAgencies = v),
@@ -1062,18 +1084,17 @@ class _DeclarationWizardScreenState
     bool isRequired = false,
     String? Function(String?)? validator,
   }) {
-    return Padding(
+    return DsmoField(
+      label: label,
+      required: isRequired,
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
+      input: TextFormField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         inputFormatters:
             isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: dsmoInputDecoration(),
         validator: validator ??
             (v) => (isRequired && (v == null || v.trim().isEmpty))
                 ? 'Champ requis'
@@ -1089,16 +1110,15 @@ class _DeclarationWizardScreenState
     required void Function(T?) onChanged,
     required String Function(T) displayName,
     bool enabled = true,
+    bool required = true,
   }) {
-    return Padding(
+    return DsmoField(
+      label: label,
+      required: required,
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<T>(
+      input: DropdownButtonFormField<T>(
         initialValue: value,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          enabled: enabled,
-        ),
+        decoration: dsmoInputDecoration().copyWith(enabled: enabled),
         isExpanded: true,
         items: enabled
             ? items
@@ -1123,29 +1143,27 @@ class _DeclarationWizardScreenState
     String? hint,
   }) {
     final isEnabled = enabled && !isLoading;
-    return Padding(
+    return DsmoField(
+      label: label,
+      required: true,
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<String>(
+      input: DropdownButtonFormField<String>(
         isExpanded: true,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          enabled: isEnabled,
-        ),
+        decoration: dsmoInputDecoration().copyWith(enabled: isEnabled),
         initialValue: selectedId,
         hint: isLoading
             ? const Text(
                 'Chargement...',
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: kInkFaint),
               )
             : (hint != null
                 ? Text(
                     hint,
-                    style: const TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: kInkFaint),
                   )
                 : const Text(
                     'Sélectionner',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: kInkFaint),
                   )),
         items: isLoading
             ? null
@@ -1177,44 +1195,51 @@ class _DeclarationWizardScreenState
   Widget _buildMovementTable() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Table(
-        border: TableBorder.all(color: Colors.grey.shade300),
-        defaultColumnWidth: const IntrinsicColumnWidth(),
-        children: [
-          const TableRow(
-            children: [
-              _Cell('Mouvement', isHeader: true),
-              _Cell('Cat. 1–3', isHeader: true),
-              _Cell('Cat. 4–6', isHeader: true),
-              _Cell('Cat. 7–9', isHeader: true),
-              _Cell('Cat. 10–12', isHeader: true),
-              _Cell('Non Déclaré', isHeader: true),
-              _Cell('TOTAL', isHeader: true),
-            ],
-          ),
-          _buildMovementRow('Recrutement', 'rec'),
-          _buildMovementRow('Avancement', 'pro'),
-          _buildMovementRow('Licenciement', 'lic'),
-          _buildMovementRow('Retraite', 'ret'),
-          _buildMovementRow('Décès', 'dec'),
-          TableRow(
-            children: [
-              const _Cell('TOTAL', isHeader: true),
-              _TotalDisplayCell(_movColTotal('1_3')),
-              _TotalDisplayCell(_movColTotal('4_6')),
-              _TotalDisplayCell(_movColTotal('7_9')),
-              _TotalDisplayCell(_movColTotal('10_12')),
-              _TotalDisplayCell(_movColTotal('nd')),
-              _TotalDisplayCell(_movGrandTotal(), isGrand: true),
-            ],
-          ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(kRadiusSm),
+        child: Table(
+          border: TableBorder.all(color: kBorder),
+          defaultColumnWidth: const IntrinsicColumnWidth(),
+          children: [
+            const TableRow(
+              decoration: BoxDecoration(color: kFieldFill),
+              children: [
+                _Cell('Mouvement', isHeader: true),
+                _Cell('Cat. 1–3', isHeader: true),
+                _Cell('Cat. 4–6', isHeader: true),
+                _Cell('Cat. 7–9', isHeader: true),
+                _Cell('Cat. 10–12', isHeader: true),
+                _Cell('Non Déclaré', isHeader: true),
+                _Cell('TOTAL', isHeader: true),
+              ],
+            ),
+            _buildMovementRow('Recrutement', 'rec', isEven: true),
+            _buildMovementRow('Avancement', 'pro', isEven: false),
+            _buildMovementRow('Licenciement', 'lic', isEven: true),
+            _buildMovementRow('Retraite', 'ret', isEven: false),
+            _buildMovementRow('Décès', 'dec', isEven: true),
+            TableRow(
+              decoration: const BoxDecoration(color: kAccentSoft),
+              children: [
+                const _Cell('TOTAL', isHeader: true),
+                _TotalDisplayCell(_movColTotal('1_3')),
+                _TotalDisplayCell(_movColTotal('4_6')),
+                _TotalDisplayCell(_movColTotal('7_9')),
+                _TotalDisplayCell(_movColTotal('10_12')),
+                _TotalDisplayCell(_movColTotal('nd')),
+                _TotalDisplayCell(_movGrandTotal(), isGrand: true),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  TableRow _buildMovementRow(String label, String prefix) {
+  TableRow _buildMovementRow(String label, String prefix,
+      {required bool isEven}) {
     return TableRow(
+      decoration: BoxDecoration(color: isEven ? kSurface : kCanvas),
       children: [
         _Cell(label),
         ..._movSuffixes.map((suffix) {
@@ -1261,13 +1286,14 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Text(
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-          fontSize: isHeader ? 12 : 13,
+          fontWeight: isHeader ? FontWeight.w600 : FontWeight.w500,
+          fontSize: 13,
+          color: isHeader ? kInk : kInkSoft,
         ),
       ),
     );
@@ -1289,6 +1315,8 @@ class _EditableCell extends StatelessWidget {
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         textAlign: TextAlign.center,
         textInputAction: TextInputAction.next,
+        cursorColor: kAccent,
+        style: const TextStyle(fontSize: 13, color: kInk),
         decoration: const InputDecoration(
           isDense: true,
           border: InputBorder.none,
@@ -1298,7 +1326,7 @@ class _EditableCell extends StatelessWidget {
   }
 }
 
-/// Read-only cell showing an auto-calculated total (teal = grand total).
+/// Read-only cell showing an auto-calculated total (brand green = grand total).
 class _TotalDisplayCell extends StatelessWidget {
   final int value;
   final bool isGrand;
@@ -1307,15 +1335,15 @@ class _TotalDisplayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      color: isGrand ? Colors.teal.shade100 : Colors.grey.shade100,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      color: isGrand ? kAccent : kAccentSoft,
       child: Text(
         '$value',
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-          color: isGrand ? Colors.teal.shade800 : Colors.grey.shade700,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+          color: isGrand ? Colors.white : kAccent,
         ),
       ),
     );

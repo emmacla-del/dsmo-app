@@ -18,6 +18,8 @@
 // ══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+
+import '../../../theme/app_colors.dart';
 import 'onefop_layout_constants.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -181,7 +183,7 @@ class OnefopFieldLabel extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF1E293B),
+              color: Color(0xFF1A1A1A),
               height: 1.3,
             ),
           ),
@@ -193,7 +195,7 @@ class OnefopFieldLabel extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: Color(0xFFE24B4A),
+              color: Color(0xFFCF4433),
             ),
           ),
         ],
@@ -202,15 +204,15 @@ class OnefopFieldLabel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: const Color(0xFFF8F9FC),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFE7E9F0)),
             ),
             child: const Text(
               'Optionnel',
               style: TextStyle(
                 fontSize: 10,
-                color: Color(0xFF64748B),
+                color: Color(0xFF4A4A4A),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -278,7 +280,7 @@ class OnefopQuestionHeader extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF64748B),
+                color: Color(0xFF4A4A4A),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -308,17 +310,21 @@ class OnefopSubsectionHeader extends StatelessWidget {
             width: 4,
             height: 20,
             decoration: BoxDecoration(
-              color: const Color(0xFF4472C4),
+              color: AppColors.deepEmerald,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1E293B),
+          Flexible(
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A1A1A),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -326,7 +332,7 @@ class OnefopSubsectionHeader extends StatelessWidget {
             child: Divider(
               height: 1,
               thickness: 1,
-              color: Color(0xFFE2E8F0),
+              color: Color(0xFFE7E9F0),
             ),
           ),
         ],
@@ -355,7 +361,7 @@ class OnefopDividerLabel extends StatelessWidget {
               height: 1,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFE2E8F0), Colors.transparent],
+                  colors: [Color(0xFFE7E9F0), Colors.transparent],
                 ),
               ),
             ),
@@ -366,7 +372,7 @@ class OnefopDividerLabel extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
+              color: Color(0xFF4A4A4A),
               letterSpacing: 0.5,
             ),
           ),
@@ -376,7 +382,7 @@ class OnefopDividerLabel extends StatelessWidget {
               height: 1,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.transparent, Color(0xFFE2E8F0)],
+                  colors: [Colors.transparent, Color(0xFFE7E9F0)],
                 ),
               ),
             ),

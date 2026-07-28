@@ -12,9 +12,39 @@
 // Wires into: authProvider, router (go_router)
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../data/api_client.dart';
+import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../main.dart' show router;
+
+// ─── Support contact (used when the self-service identifier lookup
+// can't find a match — bottoms out in a human verifying identity over
+// WhatsApp) ──────────────────────────────────────────────
+const String _supportWhatsappNumber = '237651965905';
+const String _supportPhoneDisplay = '+237 6 51 96 59 05';
+
+Future<void> _launchSupportWhatsApp(BuildContext context, String message) async {
+  final uri = Uri.https('wa.me', _supportWhatsappNumber, {'text': message});
+  try {
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched) throw Exception('launchUrl returned false');
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _C.red,
+        content: Text(
+          "WhatsApp est introuvable sur cet appareil. "
+          "Composez directement le $_supportPhoneDisplay.",
+        ),
+      ),
+    );
+  }
+}
 
 // ─── Palette ─────────────────────────────────────────────
 class _C {
@@ -22,7 +52,6 @@ class _C {
   static const greenDark = Color(0xFF003D35);
   static const greenLight = Color(0xFFEAF6F4);
   static const greenMid = Color(0xFFD0EDE9);
-  static const gray100 = Color(0xFFF3F4F6);
   static const gray200 = Color(0xFFE5E7EB);
   static const gray400 = Color(0xFF9CA3AF);
   static const gray500 = Color(0xFF6B7280);
@@ -50,9 +79,11 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
     with SingleTickerProviderStateMixin {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _twoFactorCodeCtrl = TextEditingController();
 
   bool _obscure = true;
   bool _submitting = false;
+  bool _twoFactorSubmitting = false;
   int _tab = 0; // 0=login 1=register 2=forgot
 
   late final AnimationController _fadeCtrl;
@@ -72,6 +103,7 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
     _fadeCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _twoFactorCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -87,6 +119,23 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
     }
   }
 
+  Future<void> _submitTwoFactor() async {
+    if (_twoFactorSubmitting) return;
+    setState(() => _twoFactorSubmitting = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .verifyTwoFactorCode(_twoFactorCodeCtrl.text.trim());
+    } finally {
+      if (mounted) setState(() => _twoFactorSubmitting = false);
+    }
+  }
+
+  void _cancelTwoFactor() {
+    _twoFactorCodeCtrl.clear();
+    ref.read(authProvider.notifier).cancelTwoFactorChallenge();
+  }
+
   void _switchTab(int t) {
     setState(() => _tab = t);
     _fadeCtrl
@@ -97,13 +146,19 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<dynamic>>(authProvider, (_, next) {
-      if (next is AsyncData && next.value != null) router.go('/home');
+      if (next is AsyncData && next.value is User) {
+        final user = next.value as User;
+        router.go(user.mustChangePassword ? '/change-password' : '/home');
+      }
     });
 
     final authState = ref.watch(authProvider);
+    final twoFactorToken = ref.watch(twoFactorChallengeProvider);
     final bool isBusy = _submitting || authState.isLoading;
     final String? authError = authState.hasError && !isBusy
-        ? 'Identifiants incorrects. Vérifiez et réessayez.'
+        ? (twoFactorToken != null
+            ? 'Code incorrect ou expiré. Réessayez.'
+            : 'Identifiants incorrects. Vérifiez et réessayez.')
         : null;
 
     return Scaffold(
@@ -144,22 +199,32 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
                           // Action buttons
                           _ActionButtons(onTabChange: _switchTab),
 
-                          // Login card
+                          // Login card — swapped for the 2FA code card while
+                          // a challenge from authProvider.login() is pending.
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-                            child: _LoginCard(
-                              tab: _tab,
-                              onTabChange: _switchTab,
-                              emailCtrl: _emailCtrl,
-                              passwordCtrl: _passwordCtrl,
-                              obscure: _obscure,
-                              onToggleObscure: () =>
-                                  setState(() => _obscure = !_obscure),
-                              isBusy: isBusy,
-                              authError: authError,
-                              onSubmit: _submit,
-                              fadeAnim: _fadeAnim,
-                            ),
+                            child: twoFactorToken != null
+                                ? _TwoFactorCard(
+                                    codeCtrl: _twoFactorCodeCtrl,
+                                    isBusy: _twoFactorSubmitting ||
+                                        authState.isLoading,
+                                    authError: authError,
+                                    onSubmit: _submitTwoFactor,
+                                    onCancel: _cancelTwoFactor,
+                                  )
+                                : _LoginCard(
+                                    tab: _tab,
+                                    onTabChange: _switchTab,
+                                    emailCtrl: _emailCtrl,
+                                    passwordCtrl: _passwordCtrl,
+                                    obscure: _obscure,
+                                    onToggleObscure: () =>
+                                        setState(() => _obscure = !_obscure),
+                                    isBusy: isBusy,
+                                    authError: authError,
+                                    onSubmit: _submit,
+                                    fadeAnim: _fadeAnim,
+                                  ),
                           ),
                         ],
                       ),
@@ -202,7 +267,8 @@ class _Banner extends StatelessWidget {
               Image.asset(
                 'assets/images/coat_of_arms.png',
                 fit: BoxFit.cover,
-                alignment: const Alignment(0, 0.05), // ← tweak the vertical offset
+                alignment:
+                    const Alignment(0, 0.05), // ← tweak the vertical offset
                 errorBuilder: (_, __, ___) =>
                     Container(color: const Color(0xFF004D43)),
               ),
@@ -292,7 +358,7 @@ class _Banner extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════ // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // ACTION BUTTONS (centered, constrained width)
 // ═══════════════════════════════════════════════════════════
 
@@ -380,12 +446,164 @@ class _LoginCard extends StatelessWidget {
                       isBusy: isBusy,
                       authError: authError,
                       onSubmit: onSubmit,
-                      onRegisterTap: () => onTabChange(1),
                     )
                   : tab == 1
                       ? _RegisterPane()
                       : _ForgotPane(),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 2FA code card — shown instead of _LoginCard while a challenge from
+// authProvider.login() is pending (see twoFactorChallengeProvider) ───────
+
+class _TwoFactorCard extends StatelessWidget {
+  final TextEditingController codeCtrl;
+  final bool isBusy;
+  final String? authError;
+  final VoidCallback onSubmit, onCancel;
+
+  const _TwoFactorCard({
+    required this.codeCtrl,
+    required this.isBusy,
+    required this.authError,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        border: Border.all(color: _C.gray200),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+        child: _TwoFactorPane(
+          codeCtrl: codeCtrl,
+          isBusy: isBusy,
+          authError: authError,
+          onSubmit: onSubmit,
+          onCancel: onCancel,
+        ),
+      ),
+    );
+  }
+}
+
+class _TwoFactorPane extends StatefulWidget {
+  final TextEditingController codeCtrl;
+  final bool isBusy;
+  final String? authError;
+  final VoidCallback onSubmit, onCancel;
+
+  const _TwoFactorPane({
+    required this.codeCtrl,
+    required this.isBusy,
+    required this.authError,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  @override
+  State<_TwoFactorPane> createState() => _TwoFactorPaneState();
+}
+
+class _TwoFactorPaneState extends State<_TwoFactorPane> {
+  final _formKey = GlobalKey<FormState>();
+
+  void _handleSubmit() {
+    if (_formKey.currentState!.validate()) widget.onSubmit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Vérification en deux étapes',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w800, color: _C.gray900)),
+          const SizedBox(height: 6),
+          const Text(
+            'Un code de vérification a été envoyé à votre adresse e-mail. '
+            'Saisissez-le ci-dessous pour terminer la connexion.',
+            style: TextStyle(fontSize: 13, color: _C.gray700, height: 1.4),
+          ),
+          const SizedBox(height: 18),
+
+          if (widget.authError != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: _C.redFaint,
+                border: Border.all(color: _C.redBorder),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                widget.authError!,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600, color: _C.red),
+              ),
+            ),
+          ],
+
+          _FieldRow(
+            label: 'Code',
+            child: TextFormField(
+              controller: widget.codeCtrl,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              maxLength: 6,
+              onFieldSubmitted: (_) => _handleSubmit(),
+              style: const TextStyle(
+                  fontSize: 18, letterSpacing: 4, color: _C.gray900),
+              decoration: _dgiInput(hint: '000000').copyWith(counterText: ''),
+              validator: (v) {
+                if (v == null || v.trim().length != 6) {
+                  return 'Code à 6 chiffres requis';
+                }
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 10,
+            children: [
+              _ConnectButton(
+                isBusy: widget.isBusy,
+                onTap: _handleSubmit,
+                label: 'Vérifier',
+              ),
+              GestureDetector(
+                onTap: widget.isBusy ? null : widget.onCancel,
+                child: const Text(
+                  "Retour à la connexion",
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: _C.green),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -452,7 +670,7 @@ class _LoginPane extends StatefulWidget {
   final TextEditingController emailCtrl, passwordCtrl;
   final bool obscure, isBusy;
   final String? authError;
-  final VoidCallback onToggleObscure, onSubmit, onRegisterTap;
+  final VoidCallback onToggleObscure, onSubmit;
 
   const _LoginPane({
     required this.emailCtrl,
@@ -462,7 +680,6 @@ class _LoginPane extends StatefulWidget {
     required this.authError,
     required this.onToggleObscure,
     required this.onSubmit,
-    required this.onRegisterTap,
   });
 
   @override
@@ -502,15 +719,16 @@ class _LoginPaneState extends State<_LoginPane> {
             ),
           ],
 
-          // Login field (label | input)
+          // Login field (label | input) — accepts either the account
+          // email or a company's establishmentId, see AuthService.validateUser.
           _FieldRow(
             label: 'Login',
             child: TextFormField(
               controller: widget.emailCtrl,
-              keyboardType: TextInputType.emailAddress,
+              keyboardType: TextInputType.text,
               textInputAction: TextInputAction.next,
               style: const TextStyle(fontSize: 14, color: _C.gray900),
-              decoration: _dgiInput(hint: 'nom@entreprise.cm'),
+              decoration: _dgiInput(hint: 'nom@entreprise.cm ou EN26000112'),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Requis';
                 return null;
@@ -579,9 +797,10 @@ class _LoginPaneState extends State<_LoginPane> {
               // Connect button
               _ConnectButton(isBusy: widget.isBusy, onTap: _handleSubmit),
 
-              // Forgot password
+              // Forgot password — routes to the self-service security
+              // question flow (see ForgotPasswordScreen).
               GestureDetector(
-                onTap: () {},
+                onTap: () => router.go('/forgot-password'),
                 child: const Text(
                   'Mot de passe oublié ?',
                   style: TextStyle(
@@ -616,19 +835,252 @@ class _RegisterPane extends StatelessWidget {
   }
 }
 
-// ─── Forgot pane ─────────────────────────────────────────
+// ─── Forgot identifier pane ──────────────────────────────────
+//
+// Self-service: matches organisation name + NIU + phone against the
+// Company table (the only 3 fields collected for every entity type at
+// registration) and returns the establishmentId. See
+// AuthService.findIdentifier on the backend.
 
-class _ForgotPane extends StatelessWidget {
+class _ForgotPane extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_ForgotPane> createState() => _ForgotPaneState();
+}
+
+class _ForgotPaneState extends ConsumerState<_ForgotPane> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _niuCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+
+  bool _submitting = false;
+  String? _error;
+  String? _foundEstablishmentId;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _niuCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final result = await ref.read(apiClientProvider).findIdentifier(
+            companyName: _nameCtrl.text.trim(),
+            taxNumber: _niuCtrl.text.trim(),
+            phone: _phoneCtrl.text.trim(),
+          );
+      if (!mounted) return;
+      setState(
+          () => _foundEstablishmentId = result['establishmentId'] as String?);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error =
+          e is ApiException ? e.message : 'Une erreur est survenue.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _reset() {
+    setState(() {
+      _foundEstablishmentId = null;
+      _error = null;
+      _nameCtrl.clear();
+      _niuCtrl.clear();
+      _phoneCtrl.clear();
+    });
+  }
+
+  void _copyId() {
+    final id = _foundEstablishmentId;
+    if (id == null) return;
+    Clipboard.setData(ClipboardData(text: id));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _C.green,
+        content: Text('Identifiant copié dans le presse-papier'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return _SoonPane(
-      icon: Icons.help_outline,
-      title: 'Identifiant oublié',
-      body:
-          'Contactez le support DSMO en précisant le nom de votre organisation '
-          "et votre numéro d'immatriculation au registre du commerce (RCCM).",
-      buttonLabel: 'Contacter le support',
-      onTap: () {},
+    return _foundEstablishmentId != null ? _buildResult() : _buildForm();
+  }
+
+  Widget _buildForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Indiquez le nom de votre organisation, son numéro contribuable "
+            "(NIU) et le numéro de téléphone enregistré pour retrouver "
+            "votre identifiant.",
+            style: TextStyle(fontSize: 12.5, color: _C.gray500, height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          if (_error != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: _C.redFaint,
+                border: Border.all(color: _C.redBorder),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                _error!,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600, color: _C.red),
+              ),
+            ),
+          ],
+          _FieldRow(
+            label: 'Organisation',
+            child: TextFormField(
+              controller: _nameCtrl,
+              textInputAction: TextInputAction.next,
+              style: const TextStyle(fontSize: 14, color: _C.gray900),
+              decoration: _dgiInput(hint: "Nom de l'organisation"),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _FieldRow(
+            label: 'NIU',
+            child: TextFormField(
+              controller: _niuCtrl,
+              textInputAction: TextInputAction.next,
+              style: const TextStyle(fontSize: 14, color: _C.gray900),
+              decoration: _dgiInput(hint: 'Numéro contribuable'),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _FieldRow(
+            label: 'Téléphone',
+            child: TextFormField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) {
+                if (!_submitting) _submit();
+              },
+              style: const TextStyle(fontSize: 14, color: _C.gray900),
+              decoration: _dgiInput(hint: '6XXXXXXXX'),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: _ConnectButton(
+              isBusy: _submitting,
+              onTap: _submit,
+              label: 'Rechercher',
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: GestureDetector(
+              onTap: () => _launchSupportWhatsApp(
+                context,
+                "Bonjour, je n'arrive pas à retrouver mon identifiant DSMO.",
+              ),
+              child: const Text(
+                'Toujours introuvable ? Contactez le support',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: _C.green),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResult() {
+    return Column(
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: _C.greenLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.check_circle_outline_rounded,
+              color: _C.green, size: 26),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'Identifiant retrouvé',
+          style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w700, color: _C.gray700),
+        ),
+        const SizedBox(height: 14),
+        GestureDetector(
+          onTap: _copyId,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _C.greenLight,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _C.greenMid),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'IDENTIFIANT ÉTABLISSEMENT',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _C.green,
+                      letterSpacing: 0.5),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _foundEstablishmentId!,
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: _C.greenDark,
+                      letterSpacing: 1),
+                ),
+                const SizedBox(height: 4),
+                const Text('Touchez pour copier',
+                    style: TextStyle(fontSize: 11, color: _C.green)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: _reset,
+          child: const Text(
+            'Nouvelle recherche',
+            style: TextStyle(color: _C.gray500, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -792,7 +1244,12 @@ InputDecoration _dgiInput({required String hint, Widget? suffix}) {
 class _ConnectButton extends StatelessWidget {
   final bool isBusy;
   final VoidCallback onTap;
-  const _ConnectButton({required this.isBusy, required this.onTap});
+  final String label;
+  const _ConnectButton({
+    required this.isBusy,
+    required this.onTap,
+    this.label = 'Connexion',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -805,20 +1262,23 @@ class _ConnectButton extends StatelessWidget {
           color: isBusy ? _C.green.withValues(alpha: 0.6) : _C.green,
           borderRadius: BorderRadius.circular(5),
         ),
-        child: isBusy
-            ? const SizedBox(
-                width: 15,
-                height: 15,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
-              )
-            : const Text(
-                'Connexion',
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white),
-              ),
+        child: Center(
+          widthFactor: 1,
+          child: isBusy
+              ? const SizedBox(
+                  width: 15,
+                  height: 15,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : Text(
+                  label,
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white),
+                ),
+        ),
       ),
     );
   }

@@ -23,6 +23,31 @@ import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 import '../data/bilan_rh.dart';
 
+Map<String, dynamic> _safeMap(dynamic value) {
+  if (value is Map) {
+    return Map<String, dynamic>.from(value);
+  }
+  return <String, dynamic>{};
+}
+
+int _safeInt(dynamic value) {
+  return (value as num?)?.toInt() ?? 0;
+}
+
+double _safeDouble(dynamic value) {
+  return (value as num?)?.toDouble() ?? 0.0;
+}
+
+bool _safeBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final lower = value.trim().toLowerCase();
+    return lower == 'true' || lower == '1';
+  }
+  return false;
+}
+
 // ═══════════════════════════════════════════════════════════
 // DATA MODELS  (v1)
 // ═══════════════════════════════════════════════════════════
@@ -44,18 +69,19 @@ class CompanySummary {
     required this.growthRate,
   });
 
-  factory CompanySummary.fromJson(Map<String, dynamic> json) => CompanySummary(
-        year: json['year'] as int,
-        totalEmployees: json['totalEmployees'] as int,
-        gender:
-            GenderBreakdown.fromJson(json['gender'] as Map<String, dynamic>),
-        categories: (json['categories'] as Map<String, dynamic>).map(
-          (k, v) => MapEntry(k, v as int),
-        ),
-        movements:
-            MovementSummary.fromJson(json['movements'] as Map<String, dynamic>),
-        growthRate: (json['growthRate'] as num).toDouble(),
-      );
+  factory CompanySummary.fromJson(Map<String, dynamic> json) {
+    final data = _safeMap(json);
+    return CompanySummary(
+      year: _safeInt(data['year']),
+      totalEmployees: _safeInt(data['totalEmployees']),
+      gender: GenderBreakdown.fromJson(_safeMap(data['gender'])),
+      categories: _safeMap(data['categories']).map(
+        (k, v) => MapEntry(k.toString(), _safeInt(v)),
+      ),
+      movements: MovementSummary.fromJson(_safeMap(data['movements'])),
+      growthRate: _safeDouble(data['growthRate']),
+    );
+  }
 }
 
 class GenderBreakdown {
@@ -71,13 +97,15 @@ class GenderBreakdown {
     required this.femalePct,
   });
 
-  factory GenderBreakdown.fromJson(Map<String, dynamic> json) =>
-      GenderBreakdown(
-        male: json['male'] as int,
-        female: json['female'] as int,
-        malePct: (json['malePct'] as num).toDouble(),
-        femalePct: (json['femalePct'] as num).toDouble(),
-      );
+  factory GenderBreakdown.fromJson(Map<String, dynamic> json) {
+    final data = _safeMap(json);
+    return GenderBreakdown(
+      male: _safeInt(data['male']),
+      female: _safeInt(data['female']),
+      malePct: _safeDouble(data['malePct']),
+      femalePct: _safeDouble(data['femalePct']),
+    );
+  }
 }
 
 class MovementSummary {
@@ -93,13 +121,15 @@ class MovementSummary {
     required this.netChange,
   });
 
-  factory MovementSummary.fromJson(Map<String, dynamic> json) =>
-      MovementSummary(
-        recruitments: json['recruitments'] as int,
-        dismissals: json['dismissals'] as int,
-        retirements: json['retirements'] as int,
-        netChange: json['netChange'] as int,
-      );
+  factory MovementSummary.fromJson(Map<String, dynamic> json) {
+    final data = _safeMap(json);
+    return MovementSummary(
+      recruitments: _safeInt(data['recruitments']),
+      dismissals: _safeInt(data['dismissals']),
+      retirements: _safeInt(data['retirements']),
+      netChange: _safeInt(data['netChange']),
+    );
+  }
 }
 
 class BenchmarkData {
@@ -117,13 +147,20 @@ class BenchmarkData {
     this.metrics,
   });
 
-  factory BenchmarkData.fromJson(Map<String, dynamic> json) => BenchmarkData(
-        available: json['available'] as bool,
-        reason: json['reason'] as String?,
-        peerCount: json['peerCount'] as int?,
-        groupBy: json['groupBy'] as String? ?? 'sector',
-        metrics: json['metrics'] as Map<String, dynamic>?,
-      );
+  factory BenchmarkData.fromJson(Map<String, dynamic> json) {
+    final data = _safeMap(json);
+    return BenchmarkData(
+      available: _safeBool(data['available']),
+      reason: data['reason']?.toString(),
+      peerCount: data['peerCount'] is num
+          ? _safeInt(data['peerCount'])
+          : null,
+      groupBy: data['groupBy']?.toString() ?? 'sector',
+      metrics: data['metrics'] is Map
+          ? Map<String, dynamic>.from(data['metrics'] as Map)
+          : null,
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -137,7 +174,7 @@ final companySummaryProvider =
   try {
     final response = await api.get('/dsmo/analytics/company-summary',
         queryParameters: {'year': year});
-    return CompanySummary.fromJson(response.data as Map<String, dynamic>);
+    return CompanySummary.fromJson(_safeMap(response.data));
   } on DioException catch (e) {
     // Treat 403 (forbidden) and 404 (not found) as "no data available"
     if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
@@ -156,7 +193,7 @@ final companyBenchmarksProvider =
       '/dsmo/analytics/company-benchmarks',
       queryParameters: {'year': year, 'groupBy': 'sector'},
     );
-    return BenchmarkData.fromJson(response.data as Map<String, dynamic>);
+    return BenchmarkData.fromJson(_safeMap(response.data));
   } on DioException catch (e) {
     if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
       return null;
@@ -526,25 +563,29 @@ class _BenchmarkCards extends StatelessWidget {
     final metrics = benchmarks.metrics;
     if (metrics == null) return const SizedBox.shrink();
 
-    final empMetrics = metrics['totalEmployees'] as Map<String, dynamic>?;
-    final genderMetrics = metrics['femalePercentage'] as Map<String, dynamic>?;
+    final empMetrics = metrics['totalEmployees'] is Map
+        ? Map<String, dynamic>.from(metrics['totalEmployees'] as Map)
+        : <String, dynamic>{};
+    final genderMetrics = metrics['femalePercentage'] is Map
+        ? Map<String, dynamic>.from(metrics['femalePercentage'] as Map)
+        : <String, dynamic>{};
 
     return Column(
       children: [
-        if (empMetrics != null)
+        if (empMetrics.isNotEmpty)
           _BenchmarkRow(
             label: 'Effectif total',
-            mine: (empMetrics['mine'] as num).toInt(),
-            median: (empMetrics['median'] as num).toInt(),
-            percentile: (empMetrics['percentile'] as num).toInt(),
+            mine: _safeInt(empMetrics['mine']),
+            median: _safeInt(empMetrics['median']),
+            percentile: _safeInt(empMetrics['percentile']),
             unit: 'employés',
           ),
-        if (genderMetrics != null)
+        if (genderMetrics.isNotEmpty)
           _BenchmarkRow(
             label: 'Taux de féminisation',
-            mine: (genderMetrics['mine'] as num).toDouble(),
-            median: (genderMetrics['median'] as num).toDouble(),
-            percentile: (genderMetrics['percentile'] as num).toInt(),
+            mine: _safeDouble(genderMetrics['mine']),
+            median: _safeDouble(genderMetrics['median']),
+            percentile: _safeInt(genderMetrics['percentile']),
             unit: '%',
             isPercentage: true,
           ),

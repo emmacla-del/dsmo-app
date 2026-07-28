@@ -31,6 +31,7 @@ class _EmailFieldWithAvailabilityState
   String? _availabilityError;
   bool _isChecking = false;
   bool _dirty = false;
+  bool _checkFailed = false;
   String? _lastCheckedEmail;
 
   static final _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
@@ -57,6 +58,7 @@ class _EmailFieldWithAvailabilityState
         _availabilityError = null;
         _isChecking = false;
         _dirty = false;
+        _checkFailed = false;
         _lastCheckedEmail = null;
       });
       widget.onEmailValidated?.call();
@@ -68,6 +70,7 @@ class _EmailFieldWithAvailabilityState
     setState(() {
       _availabilityError = null;
       _dirty = false;
+      _checkFailed = false;
     });
     widget.onEmailAvailabilityChanged?.call(true);
 
@@ -88,17 +91,34 @@ class _EmailFieldWithAvailabilityState
 
       setState(() => _isChecking = true);
 
-      final available =
-          await ref.read(emailAvailabilityProvider(latestEmail).future);
-      if (!mounted) return;
+      try {
+        final available =
+            await ref.read(emailAvailabilityProvider(latestEmail).future);
+        if (!mounted) return;
 
-      setState(() {
-        _dirty = true;
-        _isChecking = false;
-        _availabilityError = available ? null : 'Cet email est déjà utilisé.';
-      });
-      widget.onEmailValidated?.call();
-      widget.onEmailAvailabilityChanged?.call(available);
+        setState(() {
+          _dirty = true;
+          _isChecking = false;
+          _checkFailed = false;
+          _availabilityError =
+              available ? null : 'Cet email est déjà utilisé.';
+        });
+        widget.onEmailValidated?.call();
+        widget.onEmailAvailabilityChanged?.call(available);
+      } catch (e) {
+        if (!mounted) return;
+        // Couldn't reach the server (e.g. slow cold start) — don't claim
+        // the email is taken. The backend re-checks uniqueness on submit.
+        _lastCheckedEmail = null;
+        setState(() {
+          _dirty = false;
+          _isChecking = false;
+          _checkFailed = true;
+          _availabilityError = null;
+        });
+        widget.onEmailValidated?.call();
+        widget.onEmailAvailabilityChanged?.call(true);
+      }
     });
   }
 
@@ -181,6 +201,24 @@ class _EmailFieldWithAvailabilityState
                 Text(
                   'Email disponible',
                   style: TextStyle(fontSize: 12, color: Color(0xFF006B5E)),
+                ),
+              ],
+            ),
+          ),
+
+        // ── Verification unreachable (e.g. slow/cold server) ──
+        if (!_isChecking && _checkFailed)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Icon(Icons.wifi_off_rounded,
+                    size: 14, color: Color(0xFF94A3B8)),
+                SizedBox(width: 6),
+                Text(
+                  "Vérification impossible pour l'instant, "
+                  'continuez — elle sera revérifiée à la soumission.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),

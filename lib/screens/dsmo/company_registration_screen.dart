@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/api_client.dart';
 import '../../../providers/auth_provider.dart';
 import 'employee_list_screen.dart';
+import 'dsmo_form_style.dart';
 
 class CompanyRegistrationScreen extends ConsumerStatefulWidget {
   const CompanyRegistrationScreen({super.key});
@@ -175,90 +176,110 @@ class _CompanyRegistrationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kCanvas,
       appBar: AppBar(
         title: const Text('DSM-O Digital'),
-        backgroundColor: Colors.teal,
+        backgroundColor: kAccent,
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _buildSectionHeader('I. IDENTIFICATION DE L\'ETABLISSEMENT'),
-            _buildField(_nameController, 'Raison Sociale *', isRequired: true),
-            _buildField(_taxNumberController, 'N° Contribuable (NIU) *',
-                isRequired: true),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildField(_regionController, 'Région *',
-                        isRequired: true)),
-                const SizedBox(width: 10),
-                Expanded(child: _buildField(_cnpsController, 'N° CNPS')),
-              ],
-            ),
-            _buildField(_parentCompanyController,
-                'Raison sociale de l\'entreprise dont dépend l\'établissement'),
-            _buildField(_mainActivityController, 'Activité principale *',
-                isRequired: true),
-            _buildField(_secondaryActivityController, 'Activité secondaire'),
-            _buildField(_deptController, 'Département *', isRequired: true),
-            _buildField(_subdivisionController, 'Arrondissement *',
-                isRequired: true),
-            _buildField(_addressController, 'Adresse *', isRequired: true),
-            _buildField(_capitalController, 'Capital social (XAF)',
-                isNumber: true),
-            const SizedBox(height: 20),
-            _buildSectionHeader('II. EFFECTIFS AU 31 DÉCEMBRE'),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildField(_totalEmp, 'Total Employés *',
-                        isNumber: true, isRequired: true)),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: _buildField(_menCount, 'Hommes *',
-                        isNumber: true, validator: _validateGenderSum)),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: _buildField(_womenCount, 'Femmes *',
-                        isNumber: true, validator: _validateGenderSum)),
-              ],
-            ),
-            _buildField(_lastYearTotal, 'Total employés (année dernière)',
-                isNumber: true),
-            const SizedBox(height: 20),
-            _buildSectionHeader('III. MOUVEMENTS PAR CATÉGORIES'),
-            _buildMovementTable(),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                minimumSize: const Size(double.infinity, 50),
+            DsmoSectionCard(
+              title: "I. IDENTIFICATION DE L'ÉTABLISSEMENT",
+              icon: Icons.business_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildField(_nameController, 'Raison Sociale',
+                      isRequired: true),
+                  _buildField(_taxNumberController, 'N° Contribuable (NIU)',
+                      isRequired: true),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                          child: _buildField(_regionController, 'Région',
+                              isRequired: true)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child:
+                              _buildField(_cnpsController, 'N° CNPS')),
+                    ],
+                  ),
+                  _buildField(_parentCompanyController,
+                      "Raison sociale de l'entreprise dont dépend l'établissement"),
+                  _buildField(
+                      _mainActivityController, 'Activité principale',
+                      isRequired: true),
+                  _buildField(
+                      _secondaryActivityController, 'Activité secondaire'),
+                  _buildField(_deptController, 'Département',
+                      isRequired: true),
+                  _buildField(_subdivisionController, 'Arrondissement',
+                      isRequired: true),
+                  _buildField(_addressController, 'Adresse',
+                      isRequired: true),
+                  _buildField(_capitalController, 'Capital social (XAF)',
+                      isNumber: true, isLast: true),
+                ],
               ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('SOUMETTRE LA DÉCLARATION',
-                      style: TextStyle(color: Colors.white)),
             ),
+            DsmoSectionCard(
+              title: 'II. EFFECTIFS AU 31 DÉCEMBRE',
+              icon: Icons.groups_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                          child: _buildField(_totalEmp, 'Total Employés',
+                              isNumber: true, isRequired: true)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _buildField(_menCount, 'Hommes',
+                              isNumber: true,
+                              isRequired: true,
+                              validator: _validateGenderSum)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _buildField(_womenCount, 'Femmes',
+                              isNumber: true,
+                              isRequired: true,
+                              validator: _validateGenderSum)),
+                    ],
+                  ),
+                  _buildField(
+                      _lastYearTotal, 'Total employés (année dernière)',
+                      isNumber: true, isLast: true),
+                ],
+              ),
+            ),
+            DsmoSectionCard(
+              title: 'III. MOUVEMENTS PAR CATÉGORIES',
+              icon: Icons.swap_horiz_outlined,
+              child: _buildMovementTable(),
+            ),
+            const SizedBox(height: 8),
+            DsmoPrimaryButton(
+              label: 'SOUMETTRE LA DÉCLARATION',
+              onPressed: _submit,
+              loading: _isLoading,
+              icon: Icons.send_outlined,
+            ),
+            const SizedBox(height: 16),
             const Text(
-              '\nConformément à la loi No 91/023 du 16 déc 1991.',
-              style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic),
+              'Conformément à la loi No 91/023 du 16 déc 1991.',
+              style: TextStyle(
+                  fontSize: 11, fontStyle: FontStyle.italic, color: kInkFaint),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text(
-        title,
-        style: const TextStyle(
-            fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 14),
       ),
     );
   }
@@ -268,17 +289,19 @@ class _CompanyRegistrationScreenState
     String label, {
     bool isNumber = false,
     bool isRequired = false,
+    bool isLast = false,
     String? Function(String?)? validator,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
+    return DsmoField(
+      label: label,
+      required: isRequired,
+      padding: isLast
+          ? EdgeInsets.zero
+          : const EdgeInsets.only(bottom: 20),
+      input: TextFormField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: dsmoInputDecoration(),
         validator: validator ??
             (value) {
               if (isRequired && (value == null || value.isEmpty)) {
@@ -291,32 +314,42 @@ class _CompanyRegistrationScreenState
   }
 
   Widget _buildMovementTable() {
-    return Table(
-      border: TableBorder.all(color: Colors.grey.shade300),
-      columnWidths: const {0: FlexColumnWidth(2)},
-      children: [
-        const TableRow(children: [
-          _Cell('Action', isHeader: true),
-          _Cell('1-3', isHeader: true),
-          _Cell('4-6', isHeader: true),
-          _Cell('7-9', isHeader: true),
-          _Cell('10-12', isHeader: true),
-        ]),
-        _buildMovementRow('Recrutement', 'rec'),
-        _buildMovementRow('Licenciement', 'lic'),
-        _buildMovementRow('Retraite', 'ret'),
-      ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(kRadiusSm),
+      child: Table(
+        border: TableBorder.all(color: kBorder),
+        columnWidths: const {0: FlexColumnWidth(2)},
+        children: [
+          const TableRow(
+            decoration: BoxDecoration(color: kFieldFill),
+            children: [
+              _Cell('Action', isHeader: true),
+              _Cell('1-3', isHeader: true),
+              _Cell('4-6', isHeader: true),
+              _Cell('7-9', isHeader: true),
+              _Cell('10-12', isHeader: true),
+            ],
+          ),
+          _buildMovementRow('Recrutement', 'rec', isEven: true),
+          _buildMovementRow('Licenciement', 'lic', isEven: false),
+          _buildMovementRow('Retraite', 'ret', isEven: true),
+        ],
+      ),
     );
   }
 
-  TableRow _buildMovementRow(String label, String keyPrefix) {
-    return TableRow(children: [
-      _Cell(label),
-      _EditableCell(_movements['${keyPrefix}_1_3']!),
-      _EditableCell(_movements['${keyPrefix}_4_6']!),
-      _EditableCell(_movements['${keyPrefix}_7_9']!),
-      _EditableCell(_movements['${keyPrefix}_10_12']!),
-    ]);
+  TableRow _buildMovementRow(String label, String keyPrefix,
+      {required bool isEven}) {
+    return TableRow(
+      decoration: BoxDecoration(color: isEven ? kSurface : kCanvas),
+      children: [
+        _Cell(label),
+        _EditableCell(_movements['${keyPrefix}_1_3']!),
+        _EditableCell(_movements['${keyPrefix}_4_6']!),
+        _EditableCell(_movements['${keyPrefix}_7_9']!),
+        _EditableCell(_movements['${keyPrefix}_10_12']!),
+      ],
+    );
   }
 }
 
@@ -328,13 +361,14 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       child: Text(
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-          fontSize: 12,
+          fontWeight: isHeader ? FontWeight.w600 : FontWeight.w500,
+          fontSize: 13,
+          color: isHeader ? kInk : kInkSoft,
         ),
       ),
     );
@@ -348,11 +382,13 @@ class _EditableCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       child: TextField(
         controller: ctrl,
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
+        cursorColor: kAccent,
+        style: const TextStyle(fontSize: 13, color: kInk),
         decoration: const InputDecoration(
           isDense: true,
           border: InputBorder.none,

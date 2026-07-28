@@ -1,8 +1,10 @@
+// lib/screens/onefop/onefop_analytics_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../data/api_client.dart';
-import '../../features/analytics/widgets/common_cards.dart';
+import '../../theme/ultra_theme.dart';
+import '../../widgets/period_selector.dart';
 
 class OnefopAnalyticsScreen extends ConsumerStatefulWidget {
   const OnefopAnalyticsScreen({super.key});
@@ -13,18 +15,21 @@ class OnefopAnalyticsScreen extends ConsumerStatefulWidget {
 }
 
 class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
-  // Shared state
-  int _selectedYear = DateTime.now().year;
+  PeriodConfig _period = PeriodConfig(
+    type: PeriodType.year,
+    year: DateTime.now().year,
+  );
+
   String? _selectedRegion;
   String? _selectedDepartment;
   String? _selectedSubdivision;
 
-  // Data holders
+  // Data holders — types corrected to match backend responses
   Map<String, dynamic> _dashboard = {};
   List<dynamic> _employment = [];
   List<dynamic> _recruitmentTrends = [];
-  Map<String, dynamic> _hiresByDemographics = {};
-  dynamic _hiresByDiploma;
+  List<dynamic> _hiresByDemographics = []; // ← was Map, backend returns List
+  List<dynamic> _hiresByDiploma = [];
   List<dynamic> _vacancies = [];
   List<dynamic> _skills = [];
   Map<String, dynamic> _trainingGap = {};
@@ -35,108 +40,209 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   bool _loading = true;
   String? _error;
 
-  // Filters for granular endpoints
-  String _employmentGroupBy = 'region'; // region, department, subdivision
-  String _trendsGranularity = 'year'; // year, quarter, month
-  String _vacanciesGroupBy = 'businessSector'; // businessSector, companySize
-  String? _selectedCsp;
-  String? _selectedGender;
-  String? _selectedAgeGroup;
+  // Filters
+  String _employmentGroupBy = 'region';
+  String _trendsGranularity = 'year';
+  String _vacanciesGroupBy = 'sector';
+  String? _selectedCsp; // values: null | 'CADRES' | 'FOREMEN' | 'WORKERS'
+  String? _selectedGender; // values: null | 'MALE' | 'FEMALE'
+  String?
+      _selectedAgeBand; // values: null | 'AGE_15_24' | 'AGE_25_34' | 'AGE_35_PLUS'
 
   final int _currentYear = DateTime.now().year;
+  List<Map<String, dynamic>> _geoStructure = [];
+  bool _geoLoading = true;
+
+  List<String> get _regionNames =>
+      _geoStructure.map((r) => r['name'] as String).toList();
+
+  List<String> _departmentNames(String? regionName) {
+    if (regionName == null) return [];
+    final region = _geoStructure.firstWhere(
+      (r) => r['name'] == regionName,
+      orElse: () => <String, dynamic>{},
+    );
+    if (region.isEmpty) return [];
+    return (region['departments'] as List<dynamic>)
+        .map((d) => d['name'] as String)
+        .toList();
+  }
+
+  List<String> _subdivisionNames(String? regionName, String? deptName) {
+    if (regionName == null || deptName == null) return [];
+    final region = _geoStructure.firstWhere(
+      (r) => r['name'] == regionName,
+      orElse: () => <String, dynamic>{},
+    );
+    if (region.isEmpty) return [];
+    final depts = region['departments'];
+    if (depts is! List) return [];
+    final dept = depts.whereType<Map>().firstWhere(
+          (d) => d['name'] == deptName,
+          orElse: () => {},
+        );
+    if (dept.isEmpty) return [];
+    final subs = dept['subdivisions'];
+    if (subs is! List) return [];
+    return subs
+        .whereType<Map>()
+        .map((s) => s['name']?.toString() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadGeoStructure();
     _fetchAll();
   }
 
-  Future<void> _fetchAll() async {
-    setState(() => _loading = true);
+  Future<void> _loadGeoStructure() async {
     try {
       final api = ref.read(apiClientProvider);
+      final res = await api.getLocationStructure();
+      if (mounted) {
+        setState(() {
+          _geoStructure =
+              res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _geoLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _geoLoading = false);
+    }
+  }
 
-      // Run all requests in parallel
+  Future<void> _fetchAll() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = ref.read(apiClientProvider);
+      final periodParams = _period.toApiParams();
+
       final results = await Future.wait([
+        // 0 — dashboard
         api.getOnefopDashboard(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision),
+          year: periodParams['year'],
+          fromQuarter: periodParams['fromQuarter'],
+          toQuarter: periodParams['toQuarter'],
+          startDate: periodParams['startDate'],
+          endDate: periodParams['endDate'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+        ),
+        // 1 — employment by location
         api.getOnefopEmployment(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            groupBy: _employmentGroupBy),
+          year: periodParams['year'],
+          fromQuarter: periodParams['fromQuarter'],
+          toQuarter: periodParams['toQuarter'],
+          startDate: periodParams['startDate'],
+          endDate: periodParams['endDate'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          groupBy: _employmentGroupBy,
+        ),
+        // 2 — recruitment trends
         api.getOnefopRecruitmentTrends(
-            startYear: _selectedYear - 2,
-            endYear: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            granularity: _trendsGranularity),
+          startYear: (periodParams['year'] ?? _currentYear) - 2,
+          endYear: periodParams['year'] ?? _currentYear,
+          fromQuarter: periodParams['fromQuarter'],
+          toQuarter: periodParams['toQuarter'],
+          startDate: periodParams['startDate'],
+          endDate: periodParams['endDate'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          granularity: _trendsGranularity,
+        ),
+        // 3 — hires by demographics (returns List)
         api.getOnefopHires(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            csp: _selectedCsp,
-            gender: _selectedGender,
-            ageGroup: _selectedAgeGroup),
+          year: periodParams['year'],
+          fromQuarter: periodParams['fromQuarter'],
+          toQuarter: periodParams['toQuarter'],
+          startDate: periodParams['startDate'],
+          endDate: periodParams['endDate'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          csp: _selectedCsp,
+          gender: _selectedGender,
+          ageGroup: _selectedAgeBand,
+        ),
+        // 4 — hires by diploma
         api.getOnefopHiresByDiploma(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            limit: 10),
+          year: periodParams['year'],
+          fromQuarter: periodParams['fromQuarter'],
+          toQuarter: periodParams['toQuarter'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          limit: 10,
+        ),
+        // 5 — vacancies
         api.getOnefopVacancies(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            groupBy: _vacanciesGroupBy),
+          year: periodParams['year'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          groupBy: _vacanciesGroupBy,
+        ),
+        // 6 — skills
         api.getOnefopSkills(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            limit: 10),
+          year: periodParams['year'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          limit: 10,
+        ),
+        // 7 — training gap
         api.getOnefopTrainingGap(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision),
+          year: periodParams['year'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+        ),
+        // 8 — gender parity
         api.getOnefopGenderParity(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision),
+          year: periodParams['year'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+        ),
+        // 9 — youth employment
         api.getOnefopYouthEmployment(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision),
+          year: periodParams['year'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+        ),
+        // 10 — inclusion
         api.getOnefopInclusion(
-            year: _selectedYear,
-            region: _selectedRegion,
-            department: _selectedDepartment,
-            subdivision: _selectedSubdivision,
-            breakdownBy: 'both'),
+          year: periodParams['year'],
+          region: _selectedRegion,
+          department: _selectedDepartment,
+          subdivision: _selectedSubdivision,
+          breakdownBy: 'both',
+        ),
       ]);
 
       setState(() {
-        _dashboard = results[0];
-        _employment = results[1];
-        _recruitmentTrends = results[2];
-        _hiresByDemographics = results[3];
-        _hiresByDiploma = results[4];
-        _vacancies = results[5];
-        _skills = results[6];
-        _trainingGap = results[7];
-        _genderParity = results[8];
-        _youthEmployment = results[9];
-        _inclusion = results[10];
+        _dashboard = (results[0] as Map?)?.cast<String, dynamic>() ?? {};
+        _employment = results[1] is List ? results[1] as List : [];
+        _recruitmentTrends = results[2] is List ? results[2] as List : [];
+        _hiresByDemographics = results[3] is List ? results[3] as List : [];
+        _hiresByDiploma = results[4] is List ? results[4] as List : [];
+        _vacancies = results[5] is List ? results[5] as List : [];
+        _skills = results[6] is List ? results[6] as List : [];
+        _trainingGap = (results[7] as Map?)?.cast<String, dynamic>() ?? {};
+        _genderParity = (results[8] as Map?)?.cast<String, dynamic>() ?? {};
+        _youthEmployment = (results[9] as Map?)?.cast<String, dynamic>() ?? {};
+        _inclusion = (results[10] as Map?)?.cast<String, dynamic>() ?? {};
         _loading = false;
       });
     } catch (e) {
@@ -150,20 +256,25 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: InkColor.base,
+      backgroundColor: UltraTheme.background,
       appBar: AppBar(
-        backgroundColor: InkColor.surface,
-        foregroundColor: Colors.white,
+        backgroundColor: UltraTheme.surface,
+        foregroundColor: UltraTheme.textPrimary,
         elevation: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('ONEFOP · Analyse approfondie',
-                style:
-                    textMono(13, color: Colors.white, weight: FontWeight.bold)),
-            Text(
-                '$_selectedYear${_selectedRegion != null ? ' · $_selectedRegion' : ''}',
-                style: textMono(11, color: TextColor.muted)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: UltraTheme.textPrimary,
+                    fontWeight: FontWeight.bold)),
+            Text(_period.displayText,
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    color: UltraTheme.textMuted)),
           ],
         ),
         actions: [
@@ -183,39 +294,40 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               ? _errorState()
               : RefreshIndicator(
                   onRefresh: _fetchAll,
-                  color: AccentColor.teal,
-                  backgroundColor: InkColor.card,
+                  color: UltraTheme.primary,
+                  backgroundColor: UltraTheme.surface,
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // Live data disclaimer + archive shortcut
+                      PeriodSelector(
+                        initialType: _period.type,
+                        initialYear: _period.year,
+                        initialQuarter: _period.quarter,
+                        initialSemester: _period.semester,
+                        initialCustomRange: _period.customRange,
+                        onChanged: (newPeriod) {
+                          setState(() => _period = newPeriod);
+                          _fetchAll();
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       _buildLiveBanner(),
-                      // Summary KPIs
                       _buildKpiRow(),
                       const SizedBox(height: 16),
-                      // Employment by location
                       _buildEmploymentSection(),
                       const SizedBox(height: 24),
-                      // Recruitment trends
                       _buildRecruitmentTrendsSection(),
                       const SizedBox(height: 24),
-                      // Hires by demographics
                       _buildHiresDemographicsSection(),
                       const SizedBox(height: 24),
-                      // Hires by diploma
                       _buildDiplomaSection(),
                       const SizedBox(height: 24),
-                      // Vacancies by segment
                       _buildVacanciesSection(),
                       const SizedBox(height: 24),
-                      // Skills & training gap
                       _buildSkillsSection(),
                       const SizedBox(height: 24),
-                      // Gender, youth, inclusion
-                      // Gender, youth, inclusion
                       _buildSocialMetricsSection(),
                       const SizedBox(height: 16),
-                      // Shortcut to freeze current view as an official report
                       _buildArchiveShortcut(),
                     ],
                   ),
@@ -224,84 +336,146 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   void _showFilterDialog() {
+    String? tempRegion = _selectedRegion;
+    String? tempDepartment = _selectedDepartment;
+    String? tempSubdivision = _selectedSubdivision;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: InkColor.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Filtres',
-            style: textMono(14,
-                color: TextColor.primary, weight: FontWeight.bold)),
-        content: StatefulBuilder(
-          builder: (ctx, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<int>(
-                initialValue: _selectedYear,
-                decoration: const InputDecoration(labelText: 'Année'),
-                items: List.generate(5, (i) => _currentYear - i)
-                    .map((y) =>
-                        DropdownMenuItem(value: y, child: Text(y.toString())))
-                    .toList(),
-                onChanged: (v) => setDialogState(() => _selectedYear = v!),
-              ),
-              TextFormField(
-                initialValue: _selectedRegion,
-                decoration:
-                    const InputDecoration(labelText: 'Region (optional)'),
-                onChanged: (v) => setDialogState(
-                    () => _selectedRegion = v.isEmpty ? null : v),
-              ),
-              TextFormField(
-                initialValue: _selectedDepartment,
-                decoration:
-                    const InputDecoration(labelText: 'Department (optional)'),
-                onChanged: (v) => setDialogState(
-                    () => _selectedDepartment = v.isEmpty ? null : v),
-              ),
-              TextFormField(
-                initialValue: _selectedSubdivision,
-                decoration:
-                    const InputDecoration(labelText: 'Subdivision (optional)'),
-                onChanged: (v) => setDialogState(
-                    () => _selectedSubdivision = v.isEmpty ? null : v),
-              ),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: UltraTheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Filtres géographiques',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  color: UltraTheme.textPrimary,
+                  fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_geoLoading)
+                  const LinearProgressIndicator(color: Color(0xFF1D9E75))
+                else ...[
+                  DropdownButtonFormField<String?>(
+                    value: tempRegion,
+                    decoration: const InputDecoration(
+                      labelText: 'Région',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                          value: null, child: Text('Toutes les régions')),
+                      ..._regionNames.map(
+                          (r) => DropdownMenuItem(value: r, child: Text(r))),
+                    ],
+                    onChanged: (v) => setDialogState(() {
+                      tempRegion = v;
+                      tempDepartment = null;
+                      tempSubdivision = null;
+                    }),
+                  ),
+                  if (tempRegion != null) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      value: tempDepartment,
+                      decoration: const InputDecoration(
+                        labelText: 'Département',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                            value: null, child: Text('Tous les départements')),
+                        ..._departmentNames(tempRegion).map(
+                            (d) => DropdownMenuItem(value: d, child: Text(d))),
+                      ],
+                      onChanged: (v) => setDialogState(() {
+                        tempDepartment = v;
+                        tempSubdivision = null;
+                      }),
+                    ),
+                  ],
+                  if (tempDepartment != null &&
+                      _subdivisionNames(tempRegion, tempDepartment)
+                          .isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      value: tempSubdivision,
+                      decoration: const InputDecoration(
+                        labelText: 'Arrondissement',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                            value: null,
+                            child: Text('Tous les arrondissements')),
+                        ..._subdivisionNames(tempRegion, tempDepartment).map(
+                            (s) => DropdownMenuItem(value: s, child: Text(s))),
+                      ],
+                      onChanged: (v) =>
+                          setDialogState(() => tempSubdivision = v),
+                    ),
+                  ],
+                ],
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
+          actions: [
+            TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child:
-                  Text('Annuler', style: textMono(12, color: TextColor.muted))),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _fetchAll();
-            },
-            child:
-                Text('Appliquer', style: textMono(12, color: AccentColor.teal)),
-          ),
-        ],
+              child: Text('Annuler',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: UltraTheme.textMuted)),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedRegion = tempRegion;
+                  _selectedDepartment = tempDepartment;
+                  _selectedSubdivision = tempSubdivision;
+                });
+                Navigator.pop(ctx);
+                _fetchAll();
+              },
+              child: Text('Appliquer',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: UltraTheme.primary)),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildKpiRow() {
-    return GlassCard(
+    final employment = _dashboard['employment'] as Map? ?? {};
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _kpiItem(
-                'Effectif total',
-                _dashboard['totalEmployees']?.toString() ?? '0',
-                AccentColor.teal),
+              'Effectif total',
+              (employment['totalEmployees'] ?? 0).toString(),
+              UltraTheme.primary,
+            ),
             _kpiItem(
-                'Entreprises',
-                _dashboard['totalCompanies']?.toString() ?? '0',
-                AccentColor.blue),
+              'Soumissions',
+              (_dashboard['submissionCount'] ?? 0).toString(),
+              UltraTheme.primaryLight,
+            ),
           ],
         ),
       ),
@@ -311,7 +485,11 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   Widget _kpiItem(String label, String value, Color accent) {
     return Column(
       children: [
-        Text(label, style: textMono(11, color: TextColor.muted)),
+        Text(label,
+            style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                color: UltraTheme.textMuted)),
         const SizedBox(height: 4),
         Text(
           value,
@@ -330,10 +508,17 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: List.generate(
-        5,
+        8,
         (i) => Padding(
           padding: const EdgeInsets.only(bottom: 14),
-          child: Shimmer(height: i == 0 ? 80 : 240),
+          child: Container(
+            height: i == 0 ? 80 : 240,
+            decoration: BoxDecoration(
+              color: UltraTheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+          ),
         ),
       ),
     );
@@ -347,23 +532,31 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.wifi_off_rounded,
-                size: 56, color: TextColor.muted),
+                size: 56, color: UltraTheme.textMuted),
             const SizedBox(height: 16),
             const Text('Connexion impossible',
                 style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: TextColor.primary)),
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: UltraTheme.textPrimary,
+                )),
             const SizedBox(height: 8),
             Text(_error ?? '',
-                style: textMono(11, color: TextColor.muted),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    color: UltraTheme.textMuted),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            TealButton(
-                label: 'Réessayer',
-                icon: Icons.refresh_rounded,
-                onTap: _fetchAll),
+            ElevatedButton(
+              onPressed: _fetchAll,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: UltraTheme.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Réessayer'),
+            ),
           ],
         ),
       ),
@@ -371,7 +564,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildEmploymentSection() {
-    return GlassCard(
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -381,21 +577,22 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Emploi par localisation',
-                    style: textMono(14,
-                        color: TextColor.primary, weight: FontWeight.bold)),
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        color: UltraTheme.textPrimary,
+                        fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _employmentGroupBy,
                   items: const [
-                    DropdownMenuItem(value: 'region', child: Text('Region')),
+                    DropdownMenuItem(value: 'region', child: Text('Région')),
                     DropdownMenuItem(
-                        value: 'department', child: Text('Department')),
+                        value: 'department', child: Text('Département')),
                     DropdownMenuItem(
-                        value: 'subdivision', child: Text('Subdivision')),
+                        value: 'subdivision', child: Text('Arrondissement')),
                   ],
                   onChanged: (v) {
-                    setState(() {
-                      _employmentGroupBy = v!;
-                    });
+                    setState(() => _employmentGroupBy = v!);
                     _fetchAll();
                   },
                 ),
@@ -405,7 +602,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             SizedBox(
               height: 300,
               child: _employment.isEmpty
-                  ? const Center(child: Text('No data'))
+                  ? const Center(child: Text('Aucune donnée'))
                   : BarChart(
                       BarChartData(
                         barGroups: _employment.asMap().entries.map((e) {
@@ -413,9 +610,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                             x: e.key,
                             barRods: [
                               BarChartRodData(
-                                  toY: (e.value['totalEmployees'] ?? 0)
-                                      .toDouble(),
-                                  color: AccentColor.teal),
+                                toY:
+                                    (e.value['totalEmployees'] ?? 0).toDouble(),
+                                color: UltraTheme.primary,
+                              ),
                             ],
                           );
                         }).toList(),
@@ -429,8 +627,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 8),
                                     child: Text(
-                                        _employment[index]['name'] ?? '',
-                                        style: const TextStyle(fontSize: 10)),
+                                      _employment[index]['name'] ?? '',
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
                                   );
                                 }
                                 return const Text('');
@@ -450,7 +649,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildRecruitmentTrendsSection() {
-    return GlassCard(
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -460,19 +662,23 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Tendances des recrutements',
-                    style: textMono(14,
-                        color: TextColor.primary, weight: FontWeight.bold)),
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        color: UltraTheme.textPrimary,
+                        fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _trendsGranularity,
                   items: const [
-                    DropdownMenuItem(value: 'year', child: Text('Year')),
-                    DropdownMenuItem(value: 'quarter', child: Text('Quarter')),
-                    DropdownMenuItem(value: 'month', child: Text('Month')),
+                    DropdownMenuItem(value: 'year', child: Text('Année')),
+                    DropdownMenuItem(
+                        value: 'quarter', child: Text('Trimestre')),
+                    DropdownMenuItem(
+                        value: 'semester', child: Text('Semestre')),
+                    DropdownMenuItem(value: 'month', child: Text('Mois')),
                   ],
                   onChanged: (v) {
-                    setState(() {
-                      _trendsGranularity = v!;
-                    });
+                    setState(() => _trendsGranularity = v!);
                     _fetchAll();
                   },
                 ),
@@ -482,7 +688,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             SizedBox(
               height: 250,
               child: _recruitmentTrends.isEmpty
-                  ? const Center(child: Text('No data'))
+                  ? const Center(child: Text('Aucune donnée'))
                   : LineChart(
                       LineChartData(
                         lineBarsData: [
@@ -491,12 +697,13 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                                 .asMap()
                                 .entries
                                 .map((e) => FlSpot(
-                                    e.key.toDouble(),
-                                    (e.value['totalRecruitments'] ?? 0)
-                                        .toDouble()))
+                                      e.key.toDouble(),
+                                      (e.value['totalRecruitments'] ?? 0)
+                                          .toDouble(),
+                                    ))
                                 .toList(),
                             isCurved: true,
-                            color: AccentColor.teal,
+                            color: UltraTheme.primary,
                             barWidth: 3,
                           ),
                         ],
@@ -509,8 +716,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                                 if (index >= 0 &&
                                     index < _recruitmentTrends.length) {
                                   return Text(
-                                      _recruitmentTrends[index]['period'] ?? '',
-                                      style: const TextStyle(fontSize: 10));
+                                    _recruitmentTrends[index]['period'] ?? '',
+                                    style: const TextStyle(fontSize: 10),
+                                  );
                                 }
                                 return const Text('');
                               },
@@ -529,97 +737,146 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildHiresDemographicsSection() {
-    return GlassCard(
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Embauches par démographie',
-                style: textMono(14,
-                    color: TextColor.primary, weight: FontWeight.bold)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: UltraTheme.textPrimary,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text('All CSP'),
-                  selected: _selectedCsp == null,
-                  onSelected: (_) => setState(() => _selectedCsp = null),
-                ),
-                FilterChip(
-                  label: const Text('Executives'),
-                  selected: _selectedCsp == 'executives',
-                  onSelected: (_) =>
-                      setState(() => _selectedCsp = 'executives'),
-                ),
-                FilterChip(
-                  label: const Text('Foremen'),
-                  selected: _selectedCsp == 'foremen',
-                  onSelected: (_) => setState(() => _selectedCsp = 'foremen'),
-                ),
-                FilterChip(
-                  label: const Text('Field Workers'),
-                  selected: _selectedCsp == 'fieldWorkers',
-                  onSelected: (_) =>
-                      setState(() => _selectedCsp = 'fieldWorkers'),
-                ),
-              ],
-            ),
+
+            // CSP — uppercase values matching backend CspCategory enum
+            Wrap(spacing: 8, children: [
+              FilterChip(
+                label: const Text('Tous CSP'),
+                selected: _selectedCsp == null,
+                onSelected: (_) {
+                  setState(() => _selectedCsp = null);
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('Cadres'),
+                selected: _selectedCsp == 'CADRES',
+                onSelected: (_) {
+                  setState(() => _selectedCsp = 'CADRES');
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('Agents de maîtrise'),
+                selected: _selectedCsp == 'FOREMEN',
+                onSelected: (_) {
+                  setState(() => _selectedCsp = 'FOREMEN');
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('Ouvriers'),
+                selected: _selectedCsp == 'WORKERS',
+                onSelected: (_) {
+                  setState(() => _selectedCsp = 'WORKERS');
+                  _fetchAll();
+                },
+              ),
+            ]),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text('All Genders'),
-                  selected: _selectedGender == null,
-                  onSelected: (_) => setState(() => _selectedGender = null),
-                ),
-                FilterChip(
-                  label: const Text('Male'),
-                  selected: _selectedGender == 'male',
-                  onSelected: (_) => setState(() => _selectedGender = 'male'),
-                ),
-                FilterChip(
-                  label: const Text('Female'),
-                  selected: _selectedGender == 'female',
-                  onSelected: (_) => setState(() => _selectedGender = 'female'),
-                ),
-              ],
-            ),
+
+            // Gender — uppercase values matching backend Gender enum
+            Wrap(spacing: 8, children: [
+              FilterChip(
+                label: const Text('Tous genres'),
+                selected: _selectedGender == null,
+                onSelected: (_) {
+                  setState(() => _selectedGender = null);
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('Hommes'),
+                selected: _selectedGender == 'MALE',
+                onSelected: (_) {
+                  setState(() => _selectedGender = 'MALE');
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('Femmes'),
+                selected: _selectedGender == 'FEMALE',
+                onSelected: (_) {
+                  setState(() => _selectedGender = 'FEMALE');
+                  _fetchAll();
+                },
+              ),
+            ]),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text('All Ages'),
-                  selected: _selectedAgeGroup == null,
-                  onSelected: (_) => setState(() => _selectedAgeGroup = null),
-                ),
-                FilterChip(
-                  label: const Text('15-24'),
-                  selected: _selectedAgeGroup == '15_24',
-                  onSelected: (_) =>
-                      setState(() => _selectedAgeGroup = '15_24'),
-                ),
-                FilterChip(
-                  label: const Text('25-34'),
-                  selected: _selectedAgeGroup == '25_34',
-                  onSelected: (_) =>
-                      setState(() => _selectedAgeGroup = '25_34'),
-                ),
-                FilterChip(
-                  label: const Text('35+'),
-                  selected: _selectedAgeGroup == '35plus',
-                  onSelected: (_) =>
-                      setState(() => _selectedAgeGroup = '35plus'),
-                ),
-              ],
-            ),
+
+            // Age band — matches backend AgeBand enum exactly
+            Wrap(spacing: 8, children: [
+              FilterChip(
+                label: const Text('Tous âges'),
+                selected: _selectedAgeBand == null,
+                onSelected: (_) {
+                  setState(() => _selectedAgeBand = null);
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('15–24'),
+                selected: _selectedAgeBand == 'AGE_15_24',
+                onSelected: (_) {
+                  setState(() => _selectedAgeBand = 'AGE_15_24');
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('25–34'),
+                selected: _selectedAgeBand == 'AGE_25_34',
+                onSelected: (_) {
+                  setState(() => _selectedAgeBand = 'AGE_25_34');
+                  _fetchAll();
+                },
+              ),
+              FilterChip(
+                label: const Text('35+'),
+                selected: _selectedAgeBand == 'AGE_35_PLUS',
+                onSelected: (_) {
+                  setState(() => _selectedAgeBand = 'AGE_35_PLUS');
+                  _fetchAll();
+                },
+              ),
+            ]),
             const SizedBox(height: 16),
-            if (_hiresByDemographics.isNotEmpty)
-              Text(
-                  'Total hires: ${_hiresByDemographics['value'] ?? _hiresByDemographics.toString()}'),
+
+            if (_hiresByDemographics.isEmpty)
+              const Center(child: Text('Aucune donnée'))
+            else
+              ..._hiresByDemographics.map((row) => ListTile(
+                    dense: true,
+                    title: Text(
+                      '${row['cspCategory']} · ${row['gender']} · ${row['ageBand']}',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: UltraTheme.textPrimary),
+                    ),
+                    trailing: Text(
+                      '${row['count']}',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: UltraTheme.primary),
+                    ),
+                  )),
           ],
         ),
       ),
@@ -627,27 +884,40 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildDiplomaSection() {
-    List<dynamic> diplomas = [];
-    if (_hiresByDiploma is List) {
-      diplomas = _hiresByDiploma;
-    } else if (_hiresByDiploma is Map &&
-        _hiresByDiploma.containsKey('diploma')) {
-      diplomas = [_hiresByDiploma];
-    }
-    return GlassCard(
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Embauches par diplôme',
-                style: textMono(14,
-                    color: TextColor.primary, weight: FontWeight.bold)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: UltraTheme.textPrimary,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            ...diplomas.map((d) => ListTile(
-                title: Text(d['diploma']),
-                trailing: Text('${d['hires']} hires'))),
-            if (diplomas.isEmpty) const Text('No data'),
+            if (_hiresByDiploma.isEmpty)
+              const Center(child: Text('Aucune donnée'))
+            else
+              ..._hiresByDiploma.map((d) => ListTile(
+                    dense: true,
+                    title: Text(d['diploma']?.toString() ?? '',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: UltraTheme.textPrimary)),
+                    trailing: Text(
+                      '${d['total'] ?? 0}',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: UltraTheme.primary),
+                    ),
+                  )),
           ],
         ),
       ),
@@ -655,7 +925,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildVacanciesSection() {
-    return GlassCard(
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -665,31 +938,44 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Postes vacants par segment',
-                    style: textMono(14,
-                        color: TextColor.primary, weight: FontWeight.bold)),
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                        color: UltraTheme.textPrimary,
+                        fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _vacanciesGroupBy,
                   items: const [
+                    DropdownMenuItem(value: 'sector', child: Text('Secteur')),
                     DropdownMenuItem(
-                        value: 'businessSector',
-                        child: Text('Business Sector')),
-                    DropdownMenuItem(
-                        value: 'companySize', child: Text('Company Size')),
+                        value: 'companySize', child: Text('Taille entreprise')),
                   ],
                   onChanged: (v) {
-                    setState(() {
-                      _vacanciesGroupBy = v!;
-                    });
+                    setState(() => _vacanciesGroupBy = v!);
                     _fetchAll();
                   },
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            ..._vacancies.map((v) => ListTile(
-                title: Text(v['segment']),
-                trailing: Text('${v['totalVacancies']} vacancies'))),
-            if (_vacancies.isEmpty) const Text('No data'),
+            if (_vacancies.isEmpty)
+              const Center(child: Text('Aucune donnée'))
+            else
+              ..._vacancies.map((v) => ListTile(
+                    dense: true,
+                    title: Text(v['segment']?.toString() ?? '',
+                        style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: UltraTheme.textPrimary)),
+                    trailing: Text(
+                      '${v['totalVacancies']} postes',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: UltraTheme.primary),
+                    ),
+                  )),
           ],
         ),
       ),
@@ -697,32 +983,53 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildSkillsSection() {
-    return GlassCard(
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Compétences demandées',
-                style: textMono(14,
-                    color: TextColor.primary, weight: FontWeight.bold)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: UltraTheme.textPrimary,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            ..._skills.map((s) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      Expanded(
+            if (_skills.isEmpty)
+              const Center(child: Text('Aucune donnée'))
+            else
+              ..._skills.map((s) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Expanded(
                           child: Text(s['skill']?.toString() ?? '',
-                              style: textMono(12, color: TextColor.primary))),
-                      Text('${s['count']} mentions',
-                          style: textMono(11, color: AccentColor.teal)),
-                    ],
-                  ),
-                )),
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: UltraTheme.textPrimary)),
+                        ),
+                        Text(
+                          '${s['totalCount']} mentions',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 11,
+                              color: UltraTheme.primary),
+                        ),
+                      ],
+                    ),
+                  )),
             const SizedBox(height: 16),
             Text('Écart formation (Demande vs Offre)',
-                style: textMono(13,
-                    color: TextColor.secondary, weight: FontWeight.w600)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: UltraTheme.textSecondary,
+                    fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             ...(_trainingGap['skillsInDemand'] as List? ?? [])
                 .map((g) => Padding(
@@ -731,9 +1038,17 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(g['skill']?.toString() ?? '',
-                              style: textMono(12, color: TextColor.primary)),
-                          Text('Demande: ${g['demand']}, Offre: ${g['supply']}',
-                              style: textMono(11, color: TextColor.muted)),
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  color: UltraTheme.textPrimary)),
+                          Text(
+                            'Demande: ${g['demand']}, Offre: ${g['supply']}',
+                            style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 11,
+                                color: UltraTheme.textMuted),
+                          ),
                         ],
                       ),
                     )),
@@ -746,49 +1061,116 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   Widget _buildSocialMetricsSection() {
     final femalePct =
         ((_genderParity['femalePercentage'] as num?)?.toDouble() ?? 0) / 100;
-    return GlassCard(
+    final disabledByCsp = (_inclusion['disabledByCsp'] as List?) ?? [];
+    final vulnerableByType = (_inclusion['vulnerableByType'] as List?) ?? [];
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: UltraTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Parité · Jeunes · Inclusion',
-                style: textMono(14,
-                    color: TextColor.primary, weight: FontWeight.bold)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: UltraTheme.textPrimary,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            Text('Parité H/F', style: textMono(12, color: TextColor.secondary)),
+
+            // Gender parity
+            Text('Parité H/F',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: UltraTheme.textSecondary)),
             const SizedBox(height: 4),
             LinearProgressIndicator(
-              value: femalePct,
-              backgroundColor: AccentColor.blue.withAlpha(60),
-              valueColor: const AlwaysStoppedAnimation<Color>(AccentColor.teal),
+              value: femalePct.clamp(0.0, 1.0),
+              backgroundColor: UltraTheme.primaryLight.withAlpha(60),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(UltraTheme.primary),
               minHeight: 6,
               borderRadius: BorderRadius.circular(3),
             ),
             const SizedBox(height: 4),
             Text(
-                'H: ${_genderParity['malePercentage']?.toStringAsFixed(1)}%  ·  F: ${_genderParity['femalePercentage']?.toStringAsFixed(1)}%',
-                style: textMono(11, color: TextColor.muted)),
+              'H: ${(_genderParity['malePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%'
+              '  ·  '
+              'F: ${(_genderParity['femalePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  color: UltraTheme.textMuted),
+            ),
             const SizedBox(height: 12),
+
+            // Youth employment
             Text('Emploi jeunes',
-                style: textMono(12, color: TextColor.secondary)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: UltraTheme.textSecondary)),
             Text(
-                '${_youthEmployment['youthHires'] ?? 0} embauches  (${_youthEmployment['youthPercentage']?.toStringAsFixed(1)}%)',
-                style: textMono(13, color: AccentColor.blue)),
+              '${_youthEmployment['youthHires'] ?? 0} embauches'
+              ' (${(_youthEmployment['youthPercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%)',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: UltraTheme.primaryLight),
+            ),
             const SizedBox(height: 12),
-            Text('Inclusion', style: textMono(12, color: TextColor.secondary)),
+
+            // Inclusion totals
+            Text('Inclusion',
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: UltraTheme.textSecondary)),
             Text('Handicapés : ${_inclusion['disabled'] ?? 0}',
-                style: textMono(12, color: TextColor.primary)),
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: UltraTheme.textPrimary)),
             Text('Vulnérables : ${_inclusion['vulnerable'] ?? 0}',
-                style: textMono(12, color: TextColor.primary)),
-            if (_inclusion['disabledByCSP'] != null) ...[
+                style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: UltraTheme.textPrimary)),
+
+            if (disabledByCsp.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text('Par CSP (handicapés)',
-                  style: textMono(11, color: TextColor.muted)),
-              ...(_inclusion['disabledByCSP'] as Map<String, dynamic>)
-                  .entries
-                  .map((e) => Text('${e.key}: ${e.value}',
-                      style: textMono(11, color: TextColor.primary))),
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      color: UltraTheme.textMuted)),
+              ...disabledByCsp.map((e) => Text(
+                    '${e['cspCategory']}: ${e['count']}',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        color: UltraTheme.textPrimary),
+                  )),
+            ],
+
+            if (vulnerableByType.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Par type (vulnérables)',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      color: UltraTheme.textMuted)),
+              ...vulnerableByType.map((e) => Text(
+                    '${e['vulnerableType']}: ${e['count']}',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        color: UltraTheme.textPrimary),
+                  )),
             ],
           ],
         ),
@@ -813,7 +1195,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Données en temps réel — $_selectedYear'
+              'Données en temps réel — ${_period.displayText}'
               '${_selectedRegion != null ? ' · $_selectedRegion' : ''}. '
               'Les chiffres reflètent l\'état actuel de la base et peuvent '
               'différer des rapports officiels archivés.',
@@ -835,10 +1217,14 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
       padding: const EdgeInsets.only(bottom: 24),
       child: OutlinedButton.icon(
         onPressed: () {
-          // Pre-fill ReportScreen wizard with current filters.
-          // Adjust the route name to match your Navigator setup.
           Navigator.pushNamed(context, '/reports', arguments: {
-            'year': _selectedYear,
+            'prefill': {
+              'periodType': _period.type.name,
+              'year': _period.year,
+              'quarter': _period.quarter,
+              'semester': _period.semester,
+              'customRange': _period.customRange,
+            },
             'region': _selectedRegion,
             'department': _selectedDepartment,
             'subdivision': _selectedSubdivision,

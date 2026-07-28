@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../services/reference_cache_service.dart';
 
 class ApiException implements Exception {
   final int? statusCode;
@@ -15,12 +16,11 @@ class ApiException implements Exception {
 
 class ApiClient {
   final Dio dio;
+  final _cache = ReferenceCacheService();
 
   ApiClient()
       : dio = Dio(BaseOptions(
-          baseUrl: kIsWeb
-              ? 'https://dsmo-app-2.onrender.com/api'
-              : 'https://dsmo-app-2.onrender.com/api',
+          baseUrl: 'https://dsmo-app-2.onrender.com/api',
           connectTimeout: const Duration(seconds: 60),
           receiveTimeout: const Duration(seconds: 60),
           headers: {'Content-Type': 'application/json'},
@@ -105,6 +105,30 @@ class ApiClient {
       {dynamic data, Options? options}) async {
     try {
       return await dio.patch<T>(path, data: data, options: options);
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<Response<T>> put<T>(String path,
+      {dynamic data, Options? options}) async {
+    try {
+      return await dio.put<T>(path, data: data, options: options);
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<Response<T>> delete<T>(String path,
+      {dynamic data, Options? options}) async {
+    try {
+      return await dio.delete<T>(path, data: data, options: options);
     } on DioException catch (e) {
       throw ApiException(
         statusCode: e.response?.statusCode,
@@ -303,6 +327,43 @@ class ApiClient {
     await _clearToken();
   }
 
+  /// Self-service "identifiant oublié": resolves the establishmentId from
+  /// organisation name + NIU (tax number) + phone, the only 3 fields
+  /// collected for every entity type at registration.
+  Future<Map<String, dynamic>> findIdentifier({
+    required String companyName,
+    required String taxNumber,
+    required String phone,
+  }) async {
+    try {
+      final response = await dio.post('/auth/identifier/find', data: {
+        'companyName': companyName,
+        'taxNumber': taxNumber,
+        'phone': phone,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Re-signs and returns the URL of the caller's registration attestation
+  /// PDF so it can be re-downloaded anytime, not just right after signup.
+  Future<String> getAttestationUrl() async {
+    try {
+      final response = await dio.get('/auth/attestation');
+      return response.data['url'] as String;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   // ========== ADMIN: PENDING MINEFOP USERS ==========
 
   Future<List<dynamic>> getPendingMinefopUsers() async {
@@ -343,11 +404,39 @@ class ApiClient {
     }
   }
 
-  // ==================== LOCATION METHODS ====================
+  // ==================== ADMIN: ACTIVE USER MANAGEMENT ====================
 
-  Future<List<dynamic>> getRegions() async {
+  Future<Map<String, dynamic>> listUsers({
+    String? search,
+    String? role,
+    String? status,
+    bool? isActive,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     try {
-      final response = await dio.get('/locations/regions');
+      final response = await dio.get('/auth/users', queryParameters: {
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (role != null) 'role': role,
+        if (status != null) 'status': status,
+        if (isActive != null) 'isActive': isActive.toString(),
+        'page': page,
+        'pageSize': pageSize,
+      });
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> updateUserRole(
+      String userId, String role) async {
+    try {
+      final response =
+          await dio.patch('/auth/users/$userId/role', data: {'role': role});
       return response.data;
     } on DioException catch (e) {
       throw ApiException(
@@ -355,60 +444,167 @@ class ApiClient {
         message: _handleError(e),
       );
     }
+  }
+
+  Future<Map<String, dynamic>> suspendUser(String userId) async {
+    try {
+      final response = await dio.patch('/auth/users/$userId/suspend');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> activateUser(String userId) async {
+    try {
+      final response = await dio.patch('/auth/users/$userId/activate');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    try {
+      await dio.delete('/auth/users/$userId');
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // ==================== ADMIN: COMPANY DIRECTORY ====================
+
+  Future<Map<String, dynamic>> listCompanies({
+    String? search,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final response = await dio.get('/dsmo/companies', queryParameters: {
+        if (search != null && search.isNotEmpty) 'search': search,
+        'page': page,
+        'pageSize': pageSize,
+      });
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // ==================== LOCATION METHODS ====================
+
+  // Geography/sectors are effectively static administrative reference
+  // data — cached for a week so dropdowns keep working offline and the
+  // network isn't hit on every screen visit.
+  static const _referenceTtl = Duration(days: 7);
+  static const _serviceTreeTtl = Duration(days: 1);
+
+  Future<List<dynamic>> getRegions() async {
+    return _cache.getCached<List<dynamic>>(
+      key: 'regions',
+      ttl: _referenceTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get('/locations/regions');
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   Future<List<dynamic>> getDepartments(String regionId) async {
-    try {
-      final response =
-          await dio.get('/locations/regions/$regionId/departments');
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'departments_$regionId',
+      ttl: _referenceTtl,
+      fetch: () async {
+        try {
+          final response =
+              await dio.get('/locations/regions/$regionId/departments');
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   Future<List<dynamic>> getSubdivisions(String departmentId) async {
-    try {
-      final response =
-          await dio.get('/locations/departments/$departmentId/subdivisions');
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'subdivisions_$departmentId',
+      ttl: _referenceTtl,
+      fetch: () async {
+        try {
+          final response = await dio
+              .get('/locations/departments/$departmentId/subdivisions');
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
 // Returns the full region → department → subdivision tree in one call.
 // Used by the report wizard to drive all three dropdowns locally
 // without cascading network requests on each selection change.
   Future<List<dynamic>> getLocationStructure() async {
-    try {
-      final response = await dio.get('/locations/structure');
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'location_structure',
+      ttl: _referenceTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get('/locations/structure');
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
   // ==================== SECTOR METHODS ====================
 
   Future<List<dynamic>> getSectors() async {
-    try {
-      final response = await dio.get('/sectors');
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'sectors',
+      ttl: _referenceTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get('/sectors');
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   // ==================== MINEFOP SERVICE METHODS ====================
@@ -417,48 +613,66 @@ class ApiClient {
     required String category,
     required int level,
   }) async {
-    try {
-      if (level == 1) {
-        final response = await dio.get('/minefop-services/roots',
-            queryParameters: {'category': category});
-        return response.data;
-      } else {
-        final response = await dio
-            .get('/minefop-services', queryParameters: {'category': category});
-        return response.data;
-      }
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'minefop_services_${category}_$level',
+      ttl: _serviceTreeTtl,
+      fetch: () async {
+        try {
+          if (level == 1) {
+            final response = await dio.get('/minefop-services/roots',
+                queryParameters: {'category': category});
+            return response.data;
+          } else {
+            final response = await dio.get('/minefop-services',
+                queryParameters: {'category': category});
+            return response.data;
+          }
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   Future<List<dynamic>> getMinefopServiceChildren(String parentCode) async {
-    try {
-      final response = await dio.get('/minefop-services/children',
-          queryParameters: {'parentCode': parentCode});
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'minefop_children_$parentCode',
+      ttl: _serviceTreeTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get('/minefop-services/children',
+              queryParameters: {'parentCode': parentCode});
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   Future<List<dynamic>> getMinefopServicePositions(String serviceCode) async {
-    try {
-      final response =
-          await dio.get('/minefop-services/$serviceCode/positions');
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'minefop_positions_$serviceCode',
+      ttl: _serviceTreeTtl,
+      fetch: () async {
+        try {
+          final response =
+              await dio.get('/minefop-services/$serviceCode/positions');
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   // ==================== CASCADE METHODS FOR MINEFOP REGISTRATION ====================
@@ -466,57 +680,75 @@ class ApiClient {
   /// Step 1 — position types available for a given MINEFOP role.
   /// Returns List<{ positionType: string, label: string }>.
   Future<List<dynamic>> getPositionTypesByRole(String role) async {
-    try {
-      final response = await dio.get(
-        '/minefop-services/positions/by-role',
-        queryParameters: {'role': role},
-      );
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'position_types_$role',
+      ttl: _serviceTreeTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get(
+            '/minefop-services/positions/by-role',
+            queryParameters: {'role': role},
+          );
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   /// Step 2 — parent units that contain at least one service with [positionType].
   /// Returns a filtered tree of ServiceNode objects.
   Future<List<dynamic>> getParentServicesForPosition(
       String positionType, String role) async {
-    try {
-      final response = await dio.get(
-        '/minefop-services/parents-for-position',
-        queryParameters: {'positionType': positionType, 'role': role},
-      );
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'parent_services_${positionType}_$role',
+      ttl: _serviceTreeTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get(
+            '/minefop-services/parents-for-position',
+            queryParameters: {'positionType': positionType, 'role': role},
+          );
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   /// Step 3 — child services under [parentCode] that hold [positionType].
   /// Each item includes positionTitle from ServicePosition.title.
   Future<List<dynamic>> getChildServicesForPosition(
       String parentCode, String positionType) async {
-    try {
-      final response = await dio.get(
-        '/minefop-services/children-for-position',
-        queryParameters: {
-          'parentCode': parentCode,
-          'positionType': positionType,
-        },
-      );
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiException(
-        statusCode: e.response?.statusCode,
-        message: _handleError(e),
-      );
-    }
+    return _cache.getCached<List<dynamic>>(
+      key: 'child_services_${parentCode}_$positionType',
+      ttl: _serviceTreeTtl,
+      fetch: () async {
+        try {
+          final response = await dio.get(
+            '/minefop-services/children-for-position',
+            queryParameters: {
+              'parentCode': parentCode,
+              'positionType': positionType,
+            },
+          );
+          return response.data;
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
   }
 
   /// Draft restoration — resolves a [serviceCode] back to its parent and full
@@ -589,7 +821,35 @@ class ApiClient {
     }
   }
 
+  // ==================== CAMPAIGN METHODS ====================
+
+  Future<List<dynamic>> getActiveCampaigns() async {
+    try {
+      final response = await dio.get('/campaigns/active/current');
+      return response.data as List<dynamic>? ?? [];
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   // ==================== DECLARATION METHODS ====================
+
+  /// Get the currently active DSMO declaration period (mirrors getActiveQuarter
+  /// for ONEFOP) — { isOpen, code, label, deadline }.
+  Future<Map<String, dynamic>> getActiveDsmoPeriod() async {
+    try {
+      final response = await dio.get('/dsmo/active-period');
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
 
   Future<Map<String, dynamic>> createDeclaration(
       Map<String, dynamic> data) async {
@@ -781,10 +1041,13 @@ class ApiClient {
     }
   }
 
-  /// Get the currently active quarter for ONEFOP submissions
-  Future<Map<String, dynamic>> getActiveQuarter() async {
+  /// Get the generated PDF bytes for a submitted ONEFOP questionnaire
+  Future<List<int>> getOnefopSubmissionPdf(String submissionId) async {
     try {
-      final response = await dio.get('/onefop/active-quarter');
+      final response = await dio.get(
+        '/onefop/submissions/$submissionId/pdf',
+        options: Options(responseType: ResponseType.bytes),
+      );
       return response.data;
     } on DioException catch (e) {
       throw ApiException(
@@ -794,9 +1057,40 @@ class ApiClient {
     }
   }
 
-  Future<List<dynamic>> getPendingQuestionnaires() async {
+  /// Export all approved ONEFOP submissions as an Excel workbook (Super Admin only)
+  Future<List<int>> exportOnefopSubmissionsExcel({
+    String? region,
+    String? department,
+    int? year,
+    String? fromDate,
+    String? toDate,
+  }) async {
     try {
-      final response = await dio.get('/admin/questionnaires/pending');
+      final response = await dio.post(
+        '/data-management/export/submissions',
+        data: {
+          'type': 'ONEFOP',
+          if (region != null) 'region': region,
+          if (department != null) 'department': department,
+          if (year != null) 'year': year,
+          if (fromDate != null) 'fromDate': fromDate,
+          if (toDate != null) 'toDate': toDate,
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Get the currently active quarter for ONEFOP submissions
+  Future<Map<String, dynamic>> getActiveQuarter() async {
+    try {
+      final response = await dio.get('/onefop/active-quarter');
       return response.data;
     } on DioException catch (e) {
       throw ApiException(
@@ -851,6 +1145,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> getOnefopDashboard({
     int? year,
+    String? fromQuarter,
+    String? toQuarter,
+    String? startDate,
+    String? endDate,
     String? region,
     String? department,
     String? subdivision,
@@ -858,9 +1156,14 @@ class ApiClient {
     try {
       final query = <String, dynamic>{};
       if (year != null) query['year'] = year;
+      if (fromQuarter != null) query['fromQuarter'] = fromQuarter;
+      if (toQuarter != null) query['toQuarter'] = toQuarter;
+      if (startDate != null) query['startDate'] = startDate;
+      if (endDate != null) query['endDate'] = endDate;
       if (region != null) query['region'] = region;
       if (department != null) query['department'] = department;
       if (subdivision != null) query['subdivision'] = subdivision;
+
       final response =
           await dio.get('/onefop-analytics/dashboard', queryParameters: query);
       return response.data;
@@ -874,6 +1177,10 @@ class ApiClient {
 
   Future<List<dynamic>> getOnefopEmployment({
     int? year,
+    String? fromQuarter,
+    String? toQuarter,
+    String? startDate,
+    String? endDate,
     String? region,
     String? department,
     String? subdivision,
@@ -883,6 +1190,10 @@ class ApiClient {
       final query = <String, dynamic>{
         'groupBy': groupBy,
         if (year != null) 'year': year,
+        if (fromQuarter != null) 'fromQuarter': fromQuarter,
+        if (toQuarter != null) 'toQuarter': toQuarter,
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
         if (region != null) 'region': region,
         if (department != null) 'department': department,
         if (subdivision != null) 'subdivision': subdivision,
@@ -901,6 +1212,10 @@ class ApiClient {
   Future<List<dynamic>> getOnefopRecruitmentTrends({
     required int startYear,
     required int endYear,
+    String? fromQuarter,
+    String? toQuarter,
+    String? startDate,
+    String? endDate,
     String? region,
     String? department,
     String? subdivision,
@@ -911,6 +1226,10 @@ class ApiClient {
         'startYear': startYear,
         'endYear': endYear,
         'granularity': granularity,
+        if (fromQuarter != null) 'fromQuarter': fromQuarter,
+        if (toQuarter != null) 'toQuarter': toQuarter,
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
         if (region != null) 'region': region,
         if (department != null) 'department': department,
         if (subdivision != null) 'subdivision': subdivision,
@@ -926,8 +1245,13 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> getOnefopHires({
+  // change return type from Map to List
+  Future<List<dynamic>> getOnefopHires({
     int? year,
+    String? fromQuarter,
+    String? toQuarter,
+    String? startDate,
+    String? endDate,
     String? region,
     String? department,
     String? subdivision,
@@ -938,15 +1262,20 @@ class ApiClient {
     try {
       final query = <String, dynamic>{};
       if (year != null) query['year'] = year;
+      if (fromQuarter != null) query['fromQuarter'] = fromQuarter;
+      if (toQuarter != null) query['toQuarter'] = toQuarter;
+      if (startDate != null) query['startDate'] = startDate;
+      if (endDate != null) query['endDate'] = endDate;
       if (region != null) query['region'] = region;
       if (department != null) query['department'] = department;
       if (subdivision != null) query['subdivision'] = subdivision;
       if (csp != null) query['csp'] = csp;
       if (gender != null) query['gender'] = gender;
       if (ageGroup != null) query['ageGroup'] = ageGroup;
+
       final response =
           await dio.get('/onefop-analytics/hires', queryParameters: query);
-      return response.data;
+      return response.data is List ? response.data as List : [];
     } on DioException catch (e) {
       throw ApiException(
         statusCode: e.response?.statusCode,
@@ -957,6 +1286,8 @@ class ApiClient {
 
   Future<dynamic> getOnefopHiresByDiploma({
     int? year,
+    String? fromQuarter,
+    String? toQuarter,
     String? region,
     String? department,
     String? subdivision,
@@ -966,11 +1297,14 @@ class ApiClient {
     try {
       final query = <String, dynamic>{};
       if (year != null) query['year'] = year;
+      if (fromQuarter != null) query['fromQuarter'] = fromQuarter;
+      if (toQuarter != null) query['toQuarter'] = toQuarter;
       if (region != null) query['region'] = region;
       if (department != null) query['department'] = department;
       if (subdivision != null) query['subdivision'] = subdivision;
       if (diploma != null) query['diploma'] = diploma;
       if (limit != null) query['limit'] = limit;
+
       final response = await dio.get('/onefop-analytics/hires/diploma',
           queryParameters: query);
       return response.data;
@@ -1143,7 +1477,15 @@ class ApiClient {
             if (message.length == 1) {
               return message.first.toString();
             }
-            return 'Validation échouée: ${message.join(', ')}';
+            // NestJS validation returns one raw constraint message per
+            // invalid field — joining all of them produces a wall of
+            // developer-facing text that can fill the entire screen.
+            // Show a short, bounded summary instead.
+            return 'Certains champs du formulaire sont invalides ou '
+                'incomplets (${message.length} erreurs). Veuillez vérifier '
+                'votre saisie. / Some form fields are invalid or '
+                'incomplete (${message.length} errors). Please review '
+                'your entries.';
           }
 
           if (message is String && message.isNotEmpty) {

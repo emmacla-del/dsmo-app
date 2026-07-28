@@ -92,32 +92,40 @@ class FieldValidator {
     final raw = data[f.id];
     final v = raw?.toString().trim() ?? '';
 
-    if (v.isEmpty) return 'Champ obligatoire';
+    if (v.isEmpty) return 'Champ obligatoire / Required field';
 
     switch (f.type) {
       case 'tel':
         if (!isValidPhone(v)) {
           if (v.length != 9) {
-            return 'Le numéro doit contenir exactement 9 chiffres';
+            return 'Le numéro doit contenir exactement 9 chiffres / '
+                'Number must be exactly 9 digits';
           }
-          return 'Le numéro doit commencer par 2 (fixe) ou 6 (mobile)';
+          return 'Le numéro doit commencer par 2 (fixe) ou 6 (mobile) / '
+              'Number must start with 2 (landline) or 6 (mobile)';
         }
         break;
       case 'email':
         if (!isValidEmail(v)) {
           return 'Veuillez entrer une adresse e-mail valide'
-              ' (ex: contact@entreprise.com)';
+              ' (ex: contact@entreprise.com) / '
+              'Please enter a valid email address (e.g. contact@company.com)';
         }
         break;
       case 'number':
         if (isYearField(f)) {
           if (int.tryParse(v) == null) {
-            return 'Veuillez entrer une année valide (ex: 1998)';
+            return 'Veuillez entrer une année valide (ex: 1998) / '
+                'Please enter a valid year (e.g. 1998)';
           }
           final year = int.parse(v);
-          if (year < 1900) return "L'année doit être ≥ 1900";
+          if (year < 1900) {
+            return "L'année doit être ≥ 1900 / Year must be ≥ 1900";
+          }
           final current = DateTime.now().year;
-          if (year > current) return "L'année doit être ≤ $current";
+          if (year > current) {
+            return "L'année doit être ≤ $current / Year must be ≤ $current";
+          }
         }
         break;
     }
@@ -125,7 +133,7 @@ class FieldValidator {
     // Conditional required: dependsOn / dependsValue
     if (f.dependsOn != null && f.dependsValue != null) {
       if (data[f.dependsOn] == f.dependsValue && v.isEmpty) {
-        return 'Champ obligatoire (conditionnel)';
+        return 'Champ obligatoire (conditionnel) / Required field (conditional)';
       }
     }
 

@@ -15,8 +15,6 @@ final emailAvailabilityProvider =
     final isAvailable = nested['available'] as bool;
 
     return isAvailable;
-  } catch (e) {
-    return false;
   } finally {
     link.close();
   }

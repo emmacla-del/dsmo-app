@@ -19,6 +19,7 @@ import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
 import '../../data/api_client.dart';
+import '../../services/sync_queue_service.dart';
 
 import 'onefop_form_constants.dart';
 import 'onefop_table_engine.dart';
@@ -40,7 +41,9 @@ class PreviewResult {
 class SubmitResult {
   final bool success;
   final String? error;
-  const SubmitResult({required this.success, this.error});
+  final bool wasQueued;
+  const SubmitResult(
+      {required this.success, this.error, this.wasQueued = false});
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -169,8 +172,12 @@ class OnefopFormController extends ChangeNotifier {
 
   Future<void> _loadSchema() async {
     try {
-      final s =
-          await OnefopFormLoader.loadForEntity(entityTypeForSchema(entityType));
+      // No `await` here: loadForEntity is now synchronous, and skipping the
+      // await keeps this whole method running synchronously through to
+      // `notifyListeners()` below, so `initialize()` (called from initState)
+      // completes before the widget's first build — the form renders
+      // directly, without a loading-skeleton flash first.
+      final s = OnefopFormLoader.loadForEntity(entityTypeForSchema(entityType));
       _schema = s;
       _engine = NavigationEngine(s);
       _fm = UnifiedFocusManagerV2(_engine!);
@@ -349,7 +356,6 @@ class OnefopFormController extends ChangeNotifier {
     _valCache.remove(id);
     _schedRevalidate();
     _bump();
-    scrollToField(id);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -387,6 +393,18 @@ class OnefopFormController extends ChangeNotifier {
     _saveInFlight = false;
     _saving = false;
     notifyListeners();
+  }
+
+  /// Synchronously persist any edits still waiting on the debounce timer.
+  /// Must run before [dispose] — Cancel/back-navigation tear down the
+  /// widget well inside the 3s autosave window otherwise, dropping the
+  /// user's last edits silently.
+  void flushPendingSave() {
+    _asTimer?.cancel();
+    _asTimer = null;
+    if (!_dirty) return;
+    _dirty = false;
+    onSave(Map.from(_data));
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -430,7 +448,7 @@ class OnefopFormController extends ChangeNotifier {
           f.id,
           () => FieldValidator.validate(f, _data, touched: _touched),
         ) ??
-        'Champ obligatoire';
+        'Champ obligatoire / Required field';
   }
 
   bool validateSection(SectionSchema s) {
@@ -564,7 +582,7 @@ class OnefopFormController extends ChangeNotifier {
     }
   }
 
-  void focusFieldId(String fieldId, {bool preferFirst = true}) {
+  void focusFieldId(String fieldId, {bool preferFirst = true, bool scroll = true}) {
     final field = _schema?.getField(fieldId);
     if (field != null && field.type == 'table') {
       final cells = TableCellEngine.cellIds(field);
@@ -576,7 +594,7 @@ class OnefopFormController extends ChangeNotifier {
     } else {
       _fm!.focus(fieldId);
     }
-    scrollToField(fieldId);
+    if (scroll) scrollToField(fieldId);
   }
 
   void exitTable(String fieldId) {
@@ -686,7 +704,12 @@ class OnefopFormController extends ChangeNotifier {
       _si++;
       _visibleFieldIds = computeVisibleFieldIds();
       notifyListeners();
-      focusFirst();
+      // _scrollToTop() already handles the scroll for a page change —
+      // also animating focusFirst()'s own scroll-into-view at the same
+      // time fights it on the same controller (two competing animations
+      // racing for the scroll position), which is what made page/sidebar
+      // navigation feel sluggish. Focus only; don't scroll twice.
+      focusFirst(scroll: false);
       _scrollToTop();
     }
   }
@@ -696,7 +719,7 @@ class OnefopFormController extends ChangeNotifier {
       _si--;
       _visibleFieldIds = computeVisibleFieldIds();
       notifyListeners();
-      focusFirst();
+      focusFirst(scroll: false);
       _scrollToTop();
     }
   }
@@ -705,16 +728,16 @@ class OnefopFormController extends ChangeNotifier {
     _si = page;
     _visibleFieldIds = computeVisibleFieldIds();
     notifyListeners();
-    focusFirst();
+    focusFirst(scroll: false);
     _scrollToTop();
   }
 
-  void focusFirst() {
+  void focusFirst({bool scroll = true}) {
     if (_schema == null) return;
     _visibleFieldIds = computeVisibleFieldIds();
     if (_visibleFieldIds.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        focusFieldId(_visibleFieldIds.first, preferFirst: true);
+        focusFieldId(_visibleFieldIds.first, preferFirst: true, scroll: scroll);
       });
     }
   }
@@ -848,7 +871,7 @@ class OnefopFormController extends ChangeNotifier {
           success: true, bytes: Uint8List.fromList(pdfBytes), fileName: fn);
     } catch (e) {
       print('❌ Preview error: $e');
-      return PreviewResult(success: false, error: 'Erreur réseau : $e');
+      return PreviewResult(success: false, error: friendlySubmitError(e));
     }
   }
 
@@ -862,39 +885,69 @@ class OnefopFormController extends ChangeNotifier {
           success: false, error: 'Erreur interne : aperçu non disponible');
     }
 
-    try {
-      final apiClient = ApiClient();
+    final apiClient = ApiClient();
+    final payload = {
+      'data': snapshot,
+      'entityType': entityTypeString(entityType),
+      'userId': userId ?? 'unknown',
+      'companyId': companyId,
+      'establishmentId': _metaEstablishmentId,
+      'quarterCode': _metaQuarterCode,
+      'formId':
+          'ONEFOP_${_metaEstablishmentId}_${_metaQuarterCode}_${DateTime.now().millisecondsSinceEpoch}',
+      '__meta': {
+        'establishmentId': _metaEstablishmentId,
+        'taxNumber': _metaTaxNumber,
+        'cnpsNumber': _metaCnpsNumber,
+        'registrationNumber': _metaRegistrationNumber,
+      },
+      'isDraft': false,
+    };
 
+    try {
       // Debug: Check if token exists
       final token = await apiClient.getStoredToken();
       print('🔑 Submit - Token present: ${token != null}');
 
-      await apiClient.submitQuestionnaire({
-        'data': snapshot,
-        'entityType': entityTypeString(entityType),
-        'userId': userId ?? 'unknown',
-        'companyId': companyId,
-        'establishmentId': _metaEstablishmentId,
-        'quarterCode': _metaQuarterCode,
-        'formId':
-            'ONEFOP_${_metaEstablishmentId}_${_metaQuarterCode}_${DateTime.now().millisecondsSinceEpoch}',
-        '__meta': {
-          'establishmentId': _metaEstablishmentId,
-          'taxNumber': _metaTaxNumber,
-          'cnpsNumber': _metaCnpsNumber,
-          'registrationNumber': _metaRegistrationNumber,
-        },
-        'isDraft': false,
-      });
+      await apiClient.submitQuestionnaire(payload);
 
       _submissionSnapshot = null;
       onSave({});
       onSubmitSuccess?.call();
       return const SubmitResult(success: true);
+    } on ApiException catch (e) {
+      // A null statusCode means the request never reached the server
+      // (connection timeout/error), not a rejection — queue it durably
+      // instead of losing the snapshot, which otherwise only lives in
+      // memory and would be lost on an app kill.
+      if (e.statusCode == null) {
+        await SyncQueueService(apiClient).enqueue(
+          method: 'post',
+          path: '/onefop/submit',
+          payload: payload,
+          label: 'Questionnaire ONEFOP — ${_metaEstablishmentId ?? userId ?? ''}',
+        );
+        _submissionSnapshot = null;
+        onSave({});
+        onSubmitSuccess?.call();
+        return const SubmitResult(success: true, wasQueued: true);
+      }
+      print('❌ Submit error: $e');
+      return SubmitResult(success: false, error: friendlySubmitError(e));
     } catch (e) {
       print('❌ Submit error: $e');
-      return SubmitResult(success: false, error: 'Erreur réseau : $e');
+      return SubmitResult(success: false, error: friendlySubmitError(e));
     }
+  }
+
+  /// [ApiException] already carries a short, bounded, user-facing message
+  /// from [ApiClient]'s error handling. Anything else (a codec error, a
+  /// dropped connection Dio didn't wrap, etc.) falls back to a generic
+  /// sentence instead of surfacing the raw exception/stack-trace text.
+  String friendlySubmitError(Object e) {
+    if (e is ApiException) return e.message;
+    return 'Une erreur est survenue. Veuillez réessayer. / '
+        'Something went wrong. Please try again.';
   }
 
   void onSelectChanged(FieldSchema f, String? value) {

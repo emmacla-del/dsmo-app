@@ -3,6 +3,7 @@ class UserFeatures {
   final bool onefopBenchmarking;
   final String? onefopSubmissionStatus;
   final int? onefopSurveyYear;
+  final DateTime? onefopSubmissionDate;
   final bool onefopHasDraft;
 
   UserFeatures({
@@ -10,6 +11,7 @@ class UserFeatures {
     this.onefopBenchmarking = false,
     this.onefopSubmissionStatus,
     this.onefopSurveyYear,
+    this.onefopSubmissionDate,
     this.onefopHasDraft = false,
   });
 
@@ -18,6 +20,9 @@ class UserFeatures {
         onefopBenchmarking: json['onefopBenchmarking'] ?? false,
         onefopSubmissionStatus: json['onefopSubmissionStatus'],
         onefopSurveyYear: json['onefopSurveyYear'],
+        onefopSubmissionDate: json['onefopSubmissionDate'] != null
+            ? DateTime.tryParse(json['onefopSubmissionDate'])
+            : null,
         onefopHasDraft: json['onefopHasDraft'] ?? false,
       );
 }
@@ -37,6 +42,13 @@ class User {
   final String? positionType;
   final String? positionTitle;
   final bool isActive;
+  final bool emailVerified;
+  final bool mustChangePassword;
+  final bool emailNotificationsEnabled;
+  final bool pushNotificationsEnabled;
+  final bool weeklyDigestEnabled;
+  final bool smsNotificationsEnabled;
+  final bool twoFactorEnabled;
   final UserFeatures features;
 
   User({
@@ -54,6 +66,13 @@ class User {
     this.positionType,
     this.positionTitle,
     required this.isActive,
+    this.emailVerified = true,
+    this.mustChangePassword = false,
+    this.emailNotificationsEnabled = true,
+    this.pushNotificationsEnabled = true,
+    this.weeklyDigestEnabled = false,
+    this.smsNotificationsEnabled = false,
+    this.twoFactorEnabled = false,
     required this.features,
   });
 
@@ -72,6 +91,38 @@ class User {
         positionType: json['positionType'] as String?,
         positionTitle: json['positionTitle'] as String?,
         isActive: json['isActive'] as bool? ?? true,
+        emailVerified: json['emailVerified'] as bool? ?? true,
+        mustChangePassword: json['mustChangePassword'] as bool? ?? false,
+        emailNotificationsEnabled: json['emailNotificationsEnabled'] as bool? ?? true,
+        pushNotificationsEnabled: json['pushNotificationsEnabled'] as bool? ?? true,
+        weeklyDigestEnabled: json['weeklyDigestEnabled'] as bool? ?? false,
+        smsNotificationsEnabled: json['smsNotificationsEnabled'] as bool? ?? false,
+        twoFactorEnabled: json['twoFactorEnabled'] as bool? ?? false,
         features: UserFeatures.fromJson(json['features'] ?? {}),
+      );
+
+  User copyWith({bool? mustChangePassword}) => User(
+        id: id,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        role: role,
+        stream: stream,
+        region: region,
+        department: department,
+        subdivision: subdivision,
+        matricule: matricule,
+        serviceCode: serviceCode,
+        positionType: positionType,
+        positionTitle: positionTitle,
+        isActive: isActive,
+        emailVerified: emailVerified,
+        mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+        emailNotificationsEnabled: emailNotificationsEnabled,
+        pushNotificationsEnabled: pushNotificationsEnabled,
+        weeklyDigestEnabled: weeklyDigestEnabled,
+        smsNotificationsEnabled: smsNotificationsEnabled,
+        twoFactorEnabled: twoFactorEnabled,
+        features: features,
       );
 }

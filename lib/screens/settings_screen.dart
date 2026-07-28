@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../theme/ultra_theme.dart';
+import '../providers/auth_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // ParametresScreen
@@ -37,11 +38,29 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   final _newPassCtrl = TextEditingController();
 
   // ── Toggle state ─────────────────────────────────────────────
-  bool _emailNotif = true;
-  bool _pushNotif = true;
-  bool _weeklyReport = false;
-  bool _smsNotif = false;
-  bool _twoFactor = false;
+  // Values themselves come from authProvider's User (the source of
+  // truth) — this just tracks which toggle has an in-flight request so
+  // its Switch can be disabled and reverted on failure.
+  final Set<String> _savingPrefs = {};
+
+  Future<void> _updatePreference(
+    String key,
+    Future<void> Function() action,
+  ) async {
+    if (_savingPrefs.contains(key)) return;
+    setState(() => _savingPrefs.add(key));
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de mettre à jour ce paramètre : $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingPrefs.remove(key));
+    }
+  }
 
   // ── Tab definitions ──────────────────────────────────────────
   static const _tabs = [
@@ -279,6 +298,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildNotificationsTab() {
+    final user = ref.watch(authProvider).value;
     return _SettingsCard(
       icon: Icons.notifications_outlined,
       title: 'Preferences de notification',
@@ -289,29 +309,55 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             icon: Icons.email_outlined,
             title: 'Notifications email',
             subtitle: 'Recevez un email pour chaque nouvelle declaration',
-            value: _emailNotif,
-            onChanged: (v) => setState(() => _emailNotif = v),
+            value: user?.emailNotificationsEnabled ?? true,
+            enabled: !_savingPrefs.contains('email'),
+            onChanged: (v) => _updatePreference(
+              'email',
+              () => ref
+                  .read(authProvider.notifier)
+                  .updateNotificationPreferences(emailNotificationsEnabled: v),
+            ),
           ),
           _buildToggle(
             icon: Icons.notifications_active_outlined,
             title: 'Alertes en temps reel',
-            subtitle: 'Notifications push dans le navigateur',
-            value: _pushNotif,
-            onChanged: (v) => setState(() => _pushNotif = v),
+            subtitle: 'Notifications push dans le navigateur '
+                '(préférence enregistrée — canal push à venir)',
+            value: user?.pushNotificationsEnabled ?? true,
+            enabled: !_savingPrefs.contains('push'),
+            onChanged: (v) => _updatePreference(
+              'push',
+              () => ref
+                  .read(authProvider.notifier)
+                  .updateNotificationPreferences(pushNotificationsEnabled: v),
+            ),
           ),
           _buildToggle(
             icon: Icons.summarize_outlined,
             title: 'Rapports hebdomadaires',
             subtitle: 'Recevez un recapitulatif chaque lundi matin',
-            value: _weeklyReport,
-            onChanged: (v) => setState(() => _weeklyReport = v),
+            value: user?.weeklyDigestEnabled ?? false,
+            enabled: !_savingPrefs.contains('weekly'),
+            onChanged: (v) => _updatePreference(
+              'weekly',
+              () => ref
+                  .read(authProvider.notifier)
+                  .updateNotificationPreferences(weeklyDigestEnabled: v),
+            ),
           ),
           _buildToggle(
             icon: Icons.sms_outlined,
             title: 'Notifications SMS',
-            subtitle: 'Alertes urgentes par message texte',
-            value: _smsNotif,
-            onChanged: (v) => setState(() => _smsNotif = v),
+            subtitle: 'Alertes urgentes par message texte '
+                '(préférence enregistrée — canal SMS à venir)',
+            value: user?.smsNotificationsEnabled ?? false,
+            enabled: !_savingPrefs.contains('sms'),
+            onChanged: (v) => _updatePreference(
+              'sms',
+              () => ref
+                  .read(authProvider.notifier)
+                  .updateNotificationPreferences(smsNotificationsEnabled: v),
+            ),
             isLast: true,
           ),
         ],
@@ -324,6 +370,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildSecurityTab() {
+    final user = ref.watch(authProvider).value;
     return _SettingsCard(
       icon: Icons.shield_outlined,
       title: 'Securite du compte',
@@ -342,9 +389,14 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           _buildToggle(
             icon: Icons.verified_user_outlined,
             title: 'Authentification a deux facteurs (2FA)',
-            subtitle: 'Exiger un code de verification a chaque connexion',
-            value: _twoFactor,
-            onChanged: (v) => setState(() => _twoFactor = v),
+            subtitle: 'Exiger un code de verification envoyé par email '
+                'a chaque connexion',
+            value: user?.twoFactorEnabled ?? false,
+            enabled: !_savingPrefs.contains('twoFactor'),
+            onChanged: (v) => _updatePreference(
+              'twoFactor',
+              () => ref.read(authProvider.notifier).setTwoFactorEnabled(v),
+            ),
             isLast: true,
           ),
           const SizedBox(height: 8),
@@ -717,6 +769,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
     required bool value,
     required ValueChanged<bool> onChanged,
     bool isLast = false,
+    bool enabled = true,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -758,14 +811,21 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             ),
           ),
           const SizedBox(width: 12),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: UltraTheme.primary,
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: UltraTheme.textMuted.withValues(alpha: 0.25),
-          ),
+          if (!enabled)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeThumbColor: Colors.white,
+              activeTrackColor: UltraTheme.primary,
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: UltraTheme.textMuted.withValues(alpha: 0.25),
+            ),
         ],
       ),
     );
