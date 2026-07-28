@@ -561,7 +561,17 @@ export class PdfService {
 
   // ── PDF building ──────────────────────────────────────────────────────────
 
-  private buildPdf(data: PdfData, copy: 1 | 2 | 3): Promise<Buffer> {
+  /**
+   * Builds a single-copy, non-persisted PDF for the "preview before submit"
+   * flow — no Supabase upload, no tracking number allocation. Reuses the
+   * exact same layout code as the final declaration so what the company
+   * previews matches what they'll eventually receive.
+   */
+  buildPreviewPdf(data: PdfData): Promise<Buffer> {
+    return this.buildPdf({ ...data, trackingNumber: data.trackingNumber || 'APERÇU' }, 1, 'APERÇU / PREVIEW');
+  }
+
+  private buildPdf(data: PdfData, copy: 1 | 2 | 3, watermarkOverride?: string): Promise<Buffer> {
     const lang: Lang = data.language === 'en' ? LABELS.en : LABELS.fr;
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
@@ -579,22 +589,22 @@ export class PdfService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      this.drawWatermark(doc, copy, lang);
+      this.drawWatermark(doc, copy, lang, watermarkOverride);
       const headerBottom = this.drawBilingualHeader(doc, MT, lang, data.processingService);
       this.drawPartA(doc, data, headerBottom + 5, lang);
       doc.addPage();
-      this.drawWatermark(doc, copy, lang);
+      this.drawWatermark(doc, copy, lang, watermarkOverride);
       this.drawPartB(doc, data, copy, lang);
       doc.end();
     });
   }
 
-  private drawWatermark(doc: any, copy: 1 | 2 | 3, lang: Lang): void {
+  private drawWatermark(doc: any, copy: 1 | 2 | 3, lang: Lang, textOverride?: string): void {
     doc.save();
     doc.translate(PAGE_W / 2, PAGE_H / 2).rotate(-45)
       .font('Helvetica-Bold').fontSize(46)
       .fillColor('#CCCCCC').fillOpacity(0.18)
-      .text(lang.watermarks[copy], -210, -20, { width: 420, align: 'center', lineBreak: false });
+      .text(textOverride ?? lang.watermarks[copy], -210, -20, { width: 420, align: 'center', lineBreak: false });
     doc.restore();
     doc.fillColor('black').fillOpacity(1);
   }

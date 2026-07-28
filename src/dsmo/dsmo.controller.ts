@@ -63,6 +63,19 @@ export class DsmoController {
     return this.dsmoService.submitDeclaration(req.user.id, dto);
   }
 
+  @Post('declaration/preview')
+  @Roles('COMPANY')
+  async previewDeclaration(
+    @Body() dto: SubmitDeclarationDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.dsmoService.previewDeclarationPdf(dto);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="apercu-declaration.pdf"');
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  }
+
   @Get('declarations/pending')
   @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN')
   async getPending(@Req() req: any) {

@@ -351,6 +351,47 @@ export class DsmoService {
     };
   }
 
+  /**
+   * Renders the declaration PDF from the in-progress form payload without
+   * touching the database — used by the "preview before submit" step so the
+   * company can see the real document before the data is persisted.
+   */
+  async previewDeclarationPdf(dto: SubmitDeclarationDto): Promise<Buffer> {
+    const getMovement = (type: MovementType) => {
+      const m = (dto.movements || []).find((mv) => mv.movementType === type);
+      if (!m) return undefined;
+      return {
+        cat1_3: m.cat1_3 ?? 0,
+        cat4_6: m.cat4_6 ?? 0,
+        cat7_9: m.cat7_9 ?? 0,
+        cat10_12: m.cat10_12 ?? 0,
+        catNonDeclared: m.catNonDeclared ?? 0,
+      };
+    };
+
+    const processingService = await this.resolveProcessingService();
+
+    const pdfData: PdfData = {
+      trackingNumber: 'APERÇU',
+      year: dto.year,
+      fillingDate: dto.fillingDate || new Date().toISOString(),
+      language: dto.language ?? 'fr',
+      processingService,
+      company: {
+        ...dto.company,
+        recruitments: getMovement(MovementType.RECRUITMENT),
+        promotions: getMovement(MovementType.PROMOTION),
+        dismissals: getMovement(MovementType.DISMISSAL),
+        retirements: getMovement(MovementType.RETIREMENT),
+        deaths: getMovement(MovementType.DEATH),
+      },
+      qualitative: dto.qualitative,
+      employees: dto.employees,
+    };
+
+    return this.pdfService.buildPreviewPdf(pdfData);
+  }
+
   async submitDeclaration(userId: string, dto: SubmitDeclarationDto) {
     const activePeriod = await this.getActivePeriod();
     if (!activePeriod.isOpen) {
