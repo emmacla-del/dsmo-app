@@ -2,12 +2,16 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import '../../../data/api_client.dart';
+import '../../../providers/sync_queue_provider.dart';
+import '../../widgets/pdf_viewer_screen.dart';
 
 final employeeListProvider = StateProvider<List<Employee>>((ref) => []);
 
@@ -1148,10 +1152,13 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     return true;
   }
 
-  Future<void> _submitDeclaration() async {
+  /// Shared employee/effectifs checks that gate both the plain submit
+  /// flow and the "preview then confirm" flow — neither should be able
+  /// to skip these by taking the other path.
+  Future<bool> _validateEmployeesForSubmission() async {
     if (_employees.isEmpty) {
       _showError('Ajoutez au moins un employé avant de soumettre');
-      return;
+      return false;
     }
 
     final invalidEmployees = _employees
@@ -1161,21 +1168,14 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     if (invalidEmployees.isNotEmpty) {
       _showError(
           'Certains employés ont des données invalides (nom vide ou salaire ≤ 0)');
-      return;
+      return false;
     }
 
     final isValid = await _validateAgainstPartA();
-    if (!isValid) return;
-    if (!mounted) return;
+    return isValid && mounted;
+  }
 
-    final previewConfirmed = await _showPartAPreview();
-    if (!previewConfirmed || !mounted) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final api = ref.read(apiClientProvider);
-      final payload = {
+  Map<String, dynamic> _buildDeclarationPayload() => {
         'company': widget.companyData,
         'year': widget.year,
         'fillingDate': widget.fillingDate ?? _getCurrentDate(),
@@ -1186,6 +1186,77 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         'language': widget.language,
       };
 
+  Future<void> _submitDeclaration() async {
+    if (!await _validateEmployeesForSubmission()) return;
+    if (!mounted) return;
+
+    final previewConfirmed = await _showPartAPreview();
+    if (!previewConfirmed || !mounted) return;
+
+    await _postDeclaration(_buildDeclarationPayload());
+  }
+
+  /// Fetches a real, rendered preview of the declaration PDF (no data is
+  /// persisted server-side yet) and shows it in the same PDF viewer used
+  /// by ONEFOP, so the company can see the actual document — not just a
+  /// textual summary — before deciding to submit.
+  Future<void> _previewGeneratedPdf() async {
+    if (!await _validateEmployeesForSubmission()) return;
+    if (!mounted) return;
+
+    final payload = _buildDeclarationPayload();
+    setState(() => _isLoading = true);
+    Uint8List bytes;
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.dio.post<List<int>>(
+        '/dsmo/declaration/preview',
+        data: payload,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      bytes = Uint8List.fromList(response.data!);
+    } catch (e) {
+      if (mounted) _showError("Impossible de générer l'aperçu: $e");
+      return;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    if (!mounted) return;
+
+    final fileName = 'dsmo_apercu_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    Future<void> onConfirm() async {
+      Navigator.pop(context);
+      await _postDeclaration(payload);
+    }
+
+    if (kIsWeb) {
+      PdfCache.currentPdfBytes = bytes;
+      PdfCache.currentPdfName = fileName;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(pdfPath: fileName, onConfirm: onConfirm),
+        ),
+      );
+    } else {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(bytes);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerScreen(pdfPath: file.path, onConfirm: onConfirm),
+        ),
+      );
+    }
+  }
+
+  Future<void> _postDeclaration(Map<String, dynamic> payload) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final api = ref.read(apiClientProvider);
       final response = await api.post('/dsmo/declaration', data: payload);
 
       if (response.statusCode == 201 && mounted) {
@@ -1213,11 +1284,59 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         await _showSubmissionError(
             'Erreur lors de la soumission. Code HTTP: ${response.statusCode}\n\n${response.data ?? ''}');
       }
+    } on ApiException catch (e) {
+      // A null statusCode means the request never reached the server
+      // (connection timeout/error) — a genuine connectivity problem, not a
+      // rejection. Queue it durably instead of discarding the user's data.
+      if (e.statusCode == null) {
+        await ref.read(syncQueueServiceProvider).enqueue(
+              method: 'post',
+              path: '/dsmo/declaration',
+              payload: payload,
+              label:
+                  'Déclaration DSMO ${widget.year} — ${widget.companyData['companyName'] ?? widget.companyData['name'] ?? ''}',
+            );
+        final count = await ref.read(syncQueueServiceProvider).pendingCount();
+        if (mounted) {
+          ref.read(pendingSubmissionCountProvider.notifier).state = count;
+          await _employeeBox.clear();
+          ref.read(employeeListProvider.notifier).state = [];
+          await _showQueuedDialog();
+          if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+        }
+      } else if (mounted) {
+        await _showSubmissionError(e.message);
+      }
     } catch (e) {
       if (mounted) await _showSubmissionError(e.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _showQueuedDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.cloud_off, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Connexion indisponible', style: TextStyle(color: Colors.orange)),
+        ]),
+        content: const Text(
+          'Votre déclaration a été enregistrée sur cet appareil et sera '
+          'envoyée automatiquement dès le retour de la connexion. '
+          'Vous pouvez fermer cet écran sans risque.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showPdfSuccessDialog({
@@ -1401,9 +1520,16 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
             tooltip: 'Importer Excel',
           ),
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
+            icon: const Icon(Icons.fact_check_outlined),
             onPressed: _previewPdf,
             tooltip: 'Aperçu PARTIE A',
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _employees.isEmpty || _isLoading
+                ? null
+                : _previewGeneratedPdf,
+            tooltip: 'Aperçu du PDF',
           ),
         ],
       ),
