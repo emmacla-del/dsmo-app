@@ -42,6 +42,14 @@ class _HistoryEntry {
 
 enum _Group { draft, pending, approved, rejected }
 
+const _tableHeaderStyle = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    color: UltraTheme.textSecondary);
+const _tableCellStyle =
+    TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary);
+
 const _dsmoStatusMeta = {
   'DRAFT': (label: 'Brouillon', color: UltraTheme.textMuted, group: _Group.draft),
   'SUBMITTED': (label: 'Soumise', color: UltraTheme.info, group: _Group.pending),
@@ -317,156 +325,107 @@ class _CompanyDeclarationsScreenState
     if (_error != null) return _buildError();
     if (_filtered.isEmpty) return _buildEmpty();
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-      itemCount: _filtered.length,
-      itemBuilder: (_, i) {
-        return AnimatedBuilder(
-          animation: _animCtrl,
-          builder: (_, child) {
-            final delay = (i * 0.06).clamp(0.0, 0.5);
-            final t = ((_animCtrl.value - delay) / (1 - delay)).clamp(0.0, 1.0);
-            final curve = Curves.easeOutCubic.transform(t);
-            return Opacity(
-              opacity: curve,
-              child: Transform.translate(
-                  offset: Offset(0, 16 * (1 - curve)), child: child),
-            );
-          },
-          child: _buildCard(_filtered[i]),
-        );
-      },
+    return FadeTransition(
+      opacity: _animCtrl,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+        child: _buildTable(),
+      ),
     );
   }
 
-  Widget _buildCard(_HistoryEntry e) {
+  Widget _buildTable() {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: UltraTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(UltraTheme.surface),
+          columnSpacing: 20,
+          horizontalMargin: 16,
+          showCheckboxColumn: false,
+          columns: const [
+            DataColumn(label: Text('Filière', style: _tableHeaderStyle)),
+            DataColumn(label: Text('Déclaration', style: _tableHeaderStyle)),
+            DataColumn(label: Text('Détails', style: _tableHeaderStyle)),
+            DataColumn(label: Text('Date', style: _tableHeaderStyle)),
+            DataColumn(label: Text('Statut', style: _tableHeaderStyle)),
+            DataColumn(label: Text('PDF', style: _tableHeaderStyle)),
+          ],
+          rows: _filtered.map(_buildRow).toList(),
+        ),
+      ),
+    );
+  }
+
+  DataRow _buildRow(_HistoryEntry e) {
     final dateStr = e.date != null
         ? '${e.date!.day.toString().padLeft(2, '0')}/${e.date!.month.toString().padLeft(2, '0')}/${e.date!.year}'
         : 'Date inconnue';
     final streamColor =
         e.stream == 'DSMO' ? UltraTheme.primary : UltraTheme.accent;
+    final pdfUrl = e.raw['pdfUrl'] as String?;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return DataRow(
+      onSelectChanged: (_) => _showDetailSheet(e),
+      cells: [
+        DataCell(Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: streamColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _showDetailSheet(e),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: e.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  e.isDraft
-                      ? Icons.drafts_outlined
-                      : (e.stream == 'DSMO'
-                          ? Icons.assignment_outlined
-                          : Icons.bar_chart_outlined),
-                  color: e.color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: streamColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(e.stream,
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: streamColor)),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(e.title,
-                              style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: UltraTheme.textPrimary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                      ]),
-                      const SizedBox(height: 4),
-                      Row(children: [
-                        const Icon(Icons.calendar_today_outlined,
-                            size: 12, color: UltraTheme.textMuted),
-                        const SizedBox(width: 3),
-                        Text(dateStr,
-                            style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: UltraTheme.textMuted)),
-                        if (e.subtitle != null) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(e.subtitle!,
-                                style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 12,
-                                    color: UltraTheme.textMuted),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                        ],
-                      ]),
-                    ]),
-              ),
-              const SizedBox(width: 10),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: e.color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(e.statusLabel,
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: e.color)),
-                ),
-                const SizedBox(height: 6),
-                const Icon(Icons.chevron_right_rounded,
-                    size: 18, color: UltraTheme.textMuted),
-              ]),
-            ]),
+          child: Text(e.stream,
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: streamColor)),
+        )),
+        DataCell(SizedBox(
+          width: 220,
+          child: Text(e.title,
+              style: _tableCellStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        )),
+        DataCell(SizedBox(
+          width: 160,
+          child: Text(e.subtitle ?? '—',
+              style: _tableCellStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        )),
+        DataCell(Text(dateStr, style: _tableCellStyle)),
+        DataCell(Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: e.color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
+          child: Text(e.statusLabel,
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: e.color)),
+        )),
+        DataCell(
+          (pdfUrl != null && pdfUrl.isNotEmpty)
+              ? IconButton(
+                  onPressed: () => _downloadPdf(pdfUrl),
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                  color: UltraTheme.primary,
+                  tooltip: 'Télécharger le PDF',
+                )
+              : const Text('—', style: _tableCellStyle),
         ),
-      ),
+      ],
     );
   }
 
