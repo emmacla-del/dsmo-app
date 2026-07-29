@@ -12,31 +12,31 @@ export class DataManagementController {
   constructor(private dataManagementService: DataManagementService) { }
 
   @Get('regions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.REGIONAL)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.REGIONAL)
   async getRegions() {
     return this.dataManagementService.getRegions();
   }
 
   @Get('sectors')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.REGIONAL)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.REGIONAL)
   async getSectors() {
     return this.dataManagementService.getSectors();
   }
 
   @Patch('regions/:id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
   async updateRegion(@Param('id') id: string, @Body() data: { name?: string; code?: string; nameEn?: string }) {
     return this.dataManagementService.updateRegion(id, data);
   }
 
   @Delete('regions/:id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
   async deleteRegion(@Param('id') id: string) {
     return this.dataManagementService.deleteRegion(id);
   }
 
   @Patch('sectors/:id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
   async updateSector(
     @Param('id') id: string,
     @Body() data: { name?: string; code?: string; category?: string; nameEn?: string },
@@ -45,19 +45,19 @@ export class DataManagementController {
   }
 
   @Delete('sectors/:id')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
   async deleteSector(@Param('id') id: string) {
     return this.dataManagementService.deleteSector(id);
   }
 
   @Get('stats')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.REGIONAL)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.REGIONAL)
   async getDataStats() {
     return this.dataManagementService.getDataStats();
   }
 
   @Post('export/submissions')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
   async exportSubmissions(@Body() filters: any, @Res({ passthrough: true }) res: Response) {
     const result = await this.dataManagementService.exportSubmissions(filters);
 

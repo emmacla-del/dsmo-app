@@ -16,7 +16,7 @@ import { QuestionnairesService } from './questionnaires.service';
 
 @Controller('admin/questionnaires')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
 export class AdminQuestionnairesController {
   constructor(private readonly service: QuestionnairesService) { }
 

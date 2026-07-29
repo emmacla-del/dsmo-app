@@ -28,13 +28,13 @@ export class AnalyticsController {
     // ═══════════════════════════════════════════════════════════
 
     @Get('employment-by-region')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getEmploymentByRegion(@Query('year') year: number) {
         return this.analyticsService.getEmploymentByRegion(year);
     }
 
     @Get('employment-trends')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getEmploymentTrends(
         @Query('startYear') startYear: number,
         @Query('endYear') endYear: number,
@@ -50,7 +50,7 @@ export class AnalyticsController {
     }
 
     @Get('sector-distribution')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getSectorDistribution(
         @Query('year') year: number,
         @Query('region') region?: string,
@@ -59,7 +59,7 @@ export class AnalyticsController {
     }
 
     @Get('gender-distribution')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getGenderDistribution(
         @Query('year') year: number,
         @Query('region') region?: string,
@@ -68,13 +68,13 @@ export class AnalyticsController {
     }
 
     @Get('category-distribution')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getCategoryDistribution(@Query('year') year: number) {
         return this.analyticsService.getCategoryDistribution(year);
     }
 
     @Get('recruitment-forecast')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getRecruitmentForecast(
         @Query('years') years?: number,
         @Query('forecastYears') forecastYears?: number,
@@ -83,19 +83,19 @@ export class AnalyticsController {
     }
 
     @Get('unemployment-risk-regions')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getUnemploymentRiskRegions(@Query('year') year: number) {
         return this.analyticsService.getUnemploymentRiskRegions(year);
     }
 
     @Get('sector-labor-shortages')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getSectorLaborShortages(@Query('year') year: number) {
         return this.analyticsService.getSectorLaborShortages(year);
     }
 
     @Get('companies-with-recruitment-plans')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getCompaniesWithRecruitmentPlans(
         @Query('year') year: number,
         @Query('limit') limit?: number,
@@ -104,7 +104,7 @@ export class AnalyticsController {
     }
 
     @Get('dashboard-summary')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getDashboardSummary(
         @Query('year') year: number,
         @Query('region') region?: string,
@@ -170,7 +170,7 @@ export class AnalyticsController {
     // ═══════════════════════════════════════════════════════════
 
     @Get('export')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN')
+    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async exportData(
         @Query('startYear') startYear: number,
         @Query('endYear') endYear: number,

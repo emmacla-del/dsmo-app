@@ -1084,6 +1084,20 @@ model DistributionLog {
   @@map("distribution_logs")
 }
 
+// Singleton row (fixed id "singleton") holding platform-wide configuration.
+// SUPER_ADMIN-only — see src/system-settings.
+model SystemSettings {
+  id                 String   @id @default("singleton")
+  passwordMinLength  Int      @default(8)
+  require2FAForStaff Boolean  @default(false)
+  maintenanceMode    Boolean  @default(false)
+  maintenanceMessage String?
+  updatedBy          String?
+  updatedAt          DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
 enum BatchStatus {
   PENDING
   RUNNING

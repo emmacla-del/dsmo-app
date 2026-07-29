@@ -576,7 +576,8 @@ export class DsmoService {
     let nextStatus: DeclarationStatus;
     if (user.role === UserRole.DIVISIONAL) nextStatus = DeclarationStatus.DIVISION_APPROVED;
     else if (user.role === UserRole.REGIONAL) nextStatus = DeclarationStatus.REGION_APPROVED;
-    else if (user.role === UserRole.CENTRAL) nextStatus = DeclarationStatus.FINAL_APPROVED;
+    else if (user.role === UserRole.CENTRAL || user.role === UserRole.SUPER_ADMIN || user.role === UserRole.SUPER_ADMIN_DSMO)
+      nextStatus = DeclarationStatus.FINAL_APPROVED;
     else throw new ForbiddenException('Privilèges insuffisants.');
 
     return this.prisma.declaration.update({

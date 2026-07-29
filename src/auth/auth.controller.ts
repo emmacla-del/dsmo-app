@@ -176,7 +176,7 @@ export class AuthController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN')
   async listUsers(
     @Query('search') search?: string,
     @Query('role') role?: string,
@@ -197,7 +197,7 @@ export class AuthController {
 
   @Patch('users/:id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN')
   async updateUserRole(
     @Param('id') id: string,
     @Body('role') role: string,
@@ -208,21 +208,21 @@ export class AuthController {
 
   @Patch('users/:id/suspend')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN')
   async suspendUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.setUserActive(id, false, req.user.id);
   }
 
   @Patch('users/:id/activate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN')
   async activateUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.setUserActive(id, true, req.user.id);
   }
 
   @Delete('users/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN')
   async deleteUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.deleteUser(id, req.user.id);
   }
@@ -231,7 +231,7 @@ export class AuthController {
   // 2FA code email never arrived. See AuthService.adminSetTwoFactorEnabled.
   @Patch('users/:id/two-factor')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN')
   async adminSetTwoFactor(@Param('id') id: string, @Body('enabled') enabled: boolean) {
     return this.authService.adminSetTwoFactorEnabled(id, enabled);
   }

@@ -13,7 +13,7 @@ export class ReportController {
 
     // ── POST /reports/completion-rate ─────────────────────────────────────────
     @Post('completion-rate')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST)
     async generateCompletionRateReport(@Body() params: any, @Req() req: any) {
         return this.reportService.generateCompletionRateReport({
             ...params,
@@ -23,14 +23,14 @@ export class ReportController {
 
     // ── POST /reports/employment-trends ───────────────────────────────────────
     @Post('employment-trends')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST)
     async generateEmploymentTrends(@Body() params: any) {
         return this.reportService.generateEmploymentTrendsReport(params);
     }
 
     // ── POST /reports/schedule ────────────────────────────────────────────────
     @Post('schedule')
-    @Roles(UserRole.SUPER_ADMIN)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
     async scheduleReport(@Body() config: any, @Req() req: any) {
         return this.reportService.scheduleReport({
             ...config,
@@ -40,7 +40,7 @@ export class ReportController {
 
     // ── POST /reports/dynamic ─────────────────────────────────────────────────
     @Post('dynamic')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST)
     async generateDynamic(@Body() body: any, @Req() req: any) {
         return this.reportService.generateDynamicReport({
             ...body,
@@ -54,28 +54,28 @@ export class ReportController {
     // GET /reports/:id/data — otherwise NestJS matches them as the :id param
     // and calls getReportData.
     @Get('history')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST, UserRole.AUDITOR)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST, UserRole.AUDITOR)
     async getHistory() {
         return this.reportService.getReportHistory();
     }
 
     // ── GET /reports/scheduled ────────────────────────────────────────────────
     @Get('scheduled')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST)
     async getScheduled() {
         return this.reportService.getScheduledReports();
     }
 
     // ── GET /reports/pending-approval ─────────────────────────────────────────
     @Get('pending-approval')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
     async getPendingApprovals() {
         return this.reportService.getPendingApprovals();
     }
 
     // ── POST /reports/approve ─────────────────────────────────────────────────
     @Post('approve')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
     async approveReport(
         @Body('reportId') reportId: string,
         @Body('approved') approved: boolean,
@@ -92,14 +92,14 @@ export class ReportController {
 
     // ── GET /reports/batch-jobs ───────────────────────────────────────────────
     @Get('batch-jobs')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST)
     async getBatchJobs() {
         return this.reportService.getBatchJobs();
     }
 
     // ── POST /reports/batch ───────────────────────────────────────────────────
     @Post('batch')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
     async generateBatch(@Body() body: any, @Req() req: any) {
         return this.reportService.generateBatchReports({
             ...body,
@@ -109,7 +109,7 @@ export class ReportController {
 
     // ── POST /reports/retry/:jobId ────────────────────────────────────────────
     @Post('retry/:jobId')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
     async retryJob(@Param('jobId') jobId: string) {
         return this.reportService.retryJob(jobId);
     }
@@ -119,7 +119,7 @@ export class ReportController {
     // Numbers are exactly as they were at generation time — never recomputed.
     // Throws 404 if the report predates the snapshot system.
     @Get(':id/data')
-    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.ANALYST, UserRole.AUDITOR)
+    @Roles(UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.ANALYST, UserRole.AUDITOR)
     async getReportData(@Param('id') id: string) {
         return this.reportService.getReportData(id);
     }

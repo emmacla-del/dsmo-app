@@ -16,6 +16,7 @@ import { OnefopModule } from './onefop/onefop.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { ReportModule } from './report/report.module';
 import { DataManagementModule } from './data-management/data-management.module';
+import { SystemSettingsModule } from './system-settings/system-settings.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { DataManagementModule } from './data-management/data-management.module';
     CampaignModule,
     ReportModule,
     DataManagementModule,
+    SystemSettingsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

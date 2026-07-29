@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 import { NotificationService } from '../dsmo/notification.service';
 import { PdfService } from '../dsmo/pdf.service';
+import { SystemSettingsService } from '../system-settings/system-settings.service';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -41,7 +42,17 @@ export class AuthService {
     private jwtService: JwtService,
     private notificationService: NotificationService,
     private pdfService: PdfService,
+    private systemSettings: SystemSettingsService,
   ) { }
+
+  private async requirePasswordMinLength(newPassword: string): Promise<void> {
+    const { passwordMinLength } = await this.systemSettings.getSettings();
+    if (newPassword.length < passwordMinLength) {
+      throw new BadRequestException(
+        `Le mot de passe doit contenir au moins ${passwordMinLength} caractères`,
+      );
+    }
+  }
 
   /**
    * Accepts either the account email or a company's establishmentId (the
@@ -265,6 +276,19 @@ export class AuthService {
   }
 
   async setTwoFactorEnabled(userId: string, enabled: boolean) {
+    if (!enabled) {
+      const existing = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+      if (existing.role !== 'COMPANY') {
+        const { require2FAForStaff } = await this.systemSettings.getSettings();
+        if (require2FAForStaff) {
+          throw new BadRequestException(
+            'La double authentification est obligatoire pour les comptes MINEFOP ' +
+              'selon la politique de sécurité en vigueur.',
+          );
+        }
+      }
+    }
+
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { twoFactorEnabled: enabled },
@@ -828,11 +852,7 @@ export class AuthService {
     if (!token || !newPassword) {
       throw new BadRequestException('Token et nouveau mot de passe requis');
     }
-    if (newPassword.length < 8) {
-      throw new BadRequestException(
-        'Le mot de passe doit contenir au moins 8 caractères',
-      );
-    }
+    await this.requirePasswordMinLength(newPassword);
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const user = await this.prisma.user.findFirst({
@@ -895,11 +915,7 @@ export class AuthService {
     if (!login || !answers || Object.keys(answers).length !== 2 || !newPassword) {
       throw new BadRequestException(GENERIC_ERROR);
     }
-    if (newPassword.length < 8) {
-      throw new BadRequestException(
-        'Le mot de passe doit contenir au moins 8 caractères',
-      );
-    }
+    await this.requirePasswordMinLength(newPassword);
 
     const user = await this.prisma.user.findUnique({ where: { email: login } });
     if (!user) {
@@ -991,9 +1007,7 @@ export class AuthService {
     if (!currentPassword || !newPassword) {
       throw new BadRequestException('Mot de passe actuel et nouveau mot de passe requis');
     }
-    if (newPassword.length < 8) {
-      throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères');
-    }
+    await this.requirePasswordMinLength(newPassword);
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Utilisateur introuvable.');

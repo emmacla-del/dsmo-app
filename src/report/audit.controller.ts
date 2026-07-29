@@ -13,7 +13,7 @@ export class AuditController {
 
     // ── GET /audit/reports ────────────────────────────────────────────────────
     @Get('reports')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.AUDITOR)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.AUDITOR)
     async getAuditLog(@Query('limit') limit?: string) {
         return this.reportService.getAuditLog(limit ? parseInt(limit, 10) : 100);
     }

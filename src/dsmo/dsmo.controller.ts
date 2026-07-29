@@ -77,13 +77,13 @@ export class DsmoController {
   }
 
   @Get('declarations/pending')
-  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
   async getPending(@Req() req: any) {
     return this.dsmoService.getPendingDeclarations(req.user);
   }
 
   @Patch('declarations/:id/validate')
-  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL')
+  @Roles('DIVISIONAL', 'REGIONAL', 'CENTRAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
   async validate(
     @Param('id') id: string,
     @Req() req: any,
