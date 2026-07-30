@@ -32,11 +32,18 @@ const _roleColors = <String, Color>{
   'CAMPAIGN_MANAGER': UltraTheme.accent,
   'ANALYST': UltraTheme.info,
   'AUDITOR': UltraTheme.warning,
+  'SUPER_ADMIN_DSMO': UltraTheme.success,
+  'SUPER_ADMIN_ONEFOP': UltraTheme.primaryLight,
 };
 
 Color roleColor(String role) => _roleColors[role] ?? UltraTheme.primary;
 
-String roleLabel(String role) => role.replaceAll('_', ' ');
+const _roleLabels = <String, String>{
+  'SUPER_ADMIN_DSMO': 'Admin DSMO',
+  'SUPER_ADMIN_ONEFOP': 'Admin ONEFOP',
+};
+
+String roleLabel(String role) => _roleLabels[role] ?? role.replaceAll('_', ' ');
 
 /// Compact inline stat pill: "0  Total"
 class StatPill extends StatelessWidget {

@@ -481,6 +481,42 @@ class ApiClient {
     }
   }
 
+  // ==================== ADMIN: SYSTEM SETTINGS (SUPER_ADMIN only) ====================
+
+  Future<Map<String, dynamic>> getSystemSettings() async {
+    try {
+      final response = await dio.get('/system-settings');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSystemSettings({
+    int? passwordMinLength,
+    bool? require2FAForStaff,
+    bool? maintenanceMode,
+    String? maintenanceMessage,
+  }) async {
+    try {
+      final response = await dio.patch('/system-settings', data: {
+        if (passwordMinLength != null) 'passwordMinLength': passwordMinLength,
+        if (require2FAForStaff != null) 'require2FAForStaff': require2FAForStaff,
+        if (maintenanceMode != null) 'maintenanceMode': maintenanceMode,
+        if (maintenanceMessage != null) 'maintenanceMessage': maintenanceMessage,
+      });
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   // ==================== ADMIN: COMPANY DIRECTORY ====================
 
   Future<Map<String, dynamic>> listCompanies({

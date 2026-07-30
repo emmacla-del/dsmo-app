@@ -7,6 +7,7 @@
 //   DIVISIONAL   → locked to user.region + user.department
 //   REGIONAL     → locked to user.region
 //   CENTRAL      → national read-only, manual filter allowed
+//   SUPER_ADMIN        → full DSMO + ONEFOP access, manual filter allowed
 //   SUPER_ADMIN_DSMO   → full DSMO access, manual filter allowed
 //   SUPER_ADMIN_ONEFOP → full ONEFOP access, manual filter allowed
 //
@@ -66,6 +67,7 @@ const _analyticsRoles = {
   'REGIONAL',
   'DIVISIONAL',
   'CENTRAL',
+  'SUPER_ADMIN',
   'SUPER_ADMIN_DSMO',
   'SUPER_ADMIN_ONEFOP',
 };
@@ -103,7 +105,7 @@ final userScopeProvider =
       return (region: user.region, department: user.department);
 
     default:
-      // CENTRAL, SUPER_ADMIN_DSMO, SUPER_ADMIN_ONEFOP — no forced scope.
+      // CENTRAL, SUPER_ADMIN, SUPER_ADMIN_DSMO, SUPER_ADMIN_ONEFOP — no forced scope.
       // They use the manual filter pickers.
       return (region: null, department: null);
   }

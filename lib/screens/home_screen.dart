@@ -72,6 +72,7 @@ import 'onefop/onefop_form_constants.dart' show EntityType;
 // ── Admin ────────────────────────────────────────────────────
 import 'admin/admin_reset_password_screen.dart';
 import 'admin/annuaire_screen.dart';
+import 'admin/system_settings_screen.dart';
 
 // ── Settings ─────────────────────────────────────────────────
 import '../screens/settings_screen.dart';
@@ -215,6 +216,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _Tab('Soumissions', Icons.assignment_outlined,
               SoumissionsScreen(onNewSubmission: onNewSubmission)),
           _Tab('Annuaire', Icons.contacts_outlined, const AnnuaireScreen()),
+          _Tab('Paramètres', Icons.settings_outlined,
+              const SystemSettingsScreen()),
         ];
       case 'SUPER_ADMIN_DSMO':
         // DSMO-only admin without vetting
@@ -223,7 +226,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               DeclarationsListScreen(onNewSubmission: onNewSubmission)),
           const _Tab('Analytique DSMO', Icons.bar_chart_outlined,
               OnefopDashboardScreen()),
-          const _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
+          const _Tab('Annuaire', Icons.contacts_outlined,
+              AnnuaireScreen(showUsersTab: false)),
           const _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
@@ -235,7 +239,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               OnefopDashboardScreen()),
           _Tab('Soumissions', Icons.list_alt_outlined,
               SubmissionsViewerScreen()),
-          _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
+          _Tab('Annuaire', Icons.contacts_outlined,
+              AnnuaireScreen(showUsersTab: false)),
           _Tab('Notifications', Icons.notifications_outlined,
               SendNotificationScreen()),
         ];
