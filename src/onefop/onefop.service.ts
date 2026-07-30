@@ -146,6 +146,7 @@ export class OnefopService {
             submittedAt: s.createdAt,
             region: s.company?.region,
             department: s.company?.department,
+            flagCount: Array.isArray(s.flags) ? s.flags.length : 0,
         }));
     }
 
