@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/api_client.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/responsive_helpers.dart';
 import '../main.dart' show router;
 
 // ─── Support contact (used when the self-service identifier lookup
@@ -250,6 +251,8 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
 class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final mobile = context.isMobile;
+    final logoSize = mobile ? 46.0 : 60.0;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 960),
@@ -297,12 +300,12 @@ class _Banner extends StatelessWidget {
                     // MINEFOP logo — extreme left
                     Image.asset(
                       'assets/images/minefop-logo.png',
-                      width: 60,
-                      height: 60,
+                      width: logoSize,
+                      height: logoSize,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 60,
-                        height: 60,
+                        width: logoSize,
+                        height: logoSize,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
@@ -326,18 +329,22 @@ class _Banner extends StatelessWidget {
                         children: [
                           Text(
                             "Ministère de l'Emploi et de la Formation Professionnelle",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 16, // increased from 9
+                              fontSize: mobile ? 13 : 16, // increased from 9
                               fontWeight: FontWeight.w600,
                               color: Colors.white.withValues(alpha: 0.9),
                               letterSpacing: 0.6,
                             ),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
+                          Text(
                             'DSMO  DIGITAL',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: mobile ? 18 : 22,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
                               letterSpacing: 1.8,
@@ -597,10 +604,15 @@ class _TwoFactorPaneState extends State<_TwoFactorPane> {
               ),
               GestureDetector(
                 onTap: widget.isBusy ? null : widget.onCancel,
-                child: const Text(
-                  "Retour à la connexion",
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600, color: _C.green),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                  child: Text(
+                    "Retour à la connexion",
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _C.green),
+                  ),
                 ),
               ),
             ],
@@ -634,26 +646,31 @@ class _DgiTabBar extends StatelessWidget {
       child: Row(
         children: List.generate(labels.length, (i) {
           final active = current == i;
-          return GestureDetector(
-            onTap: () => onTap(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.fromLTRB(6, 13, 6, 10),
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: active ? _C.green : Colors.transparent,
-                    width: 3,
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onTap(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: active ? _C.green : Colors.transparent,
+                      width: 3,
+                    ),
                   ),
                 ),
-              ),
-              child: Text(
-                labels[i],
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: active ? _C.greenDark : _C.green,
+                child: Text(
+                  labels[i],
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: active ? _C.greenDark : _C.green,
+                  ),
                 ),
               ),
             ),
@@ -758,7 +775,8 @@ class _LoginPaneState extends State<_LoginPane> {
                   ),
                   onPressed: widget.onToggleObscure,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  constraints:
+                      const BoxConstraints(minWidth: 44, minHeight: 44),
                 ),
               ),
               validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
@@ -777,16 +795,11 @@ class _LoginPaneState extends State<_LoginPane> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: Checkbox(
-                      value: true,
-                      onChanged: (_) {},
-                      activeColor: _C.green,
-                      side: const BorderSide(color: _C.gray400),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
+                  Checkbox(
+                    value: true,
+                    onChanged: (_) {},
+                    activeColor: _C.green,
+                    side: const BorderSide(color: _C.gray400),
                   ),
                   const SizedBox(width: 6),
                   const Text('Rester connecté',
@@ -801,12 +814,15 @@ class _LoginPaneState extends State<_LoginPane> {
               // question flow (see ForgotPasswordScreen).
               GestureDetector(
                 onTap: () => router.go('/forgot-password'),
-                child: const Text(
-                  'Mot de passe oublié ?',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _C.green,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                  child: Text(
+                    'Mot de passe oublié ?',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _C.green,
+                    ),
                   ),
                 ),
               ),
@@ -1162,10 +1178,10 @@ class _Footer extends StatelessWidget {
           const SizedBox(width: 16),
           Row(
             children: ['Aide', 'Confidentialité', 'Contact']
-                .map((l) => Padding(
-                      padding: const EdgeInsets.only(left: 14),
-                      child: GestureDetector(
-                        onTap: () {},
+                .map((l) => GestureDetector(
+                      onTap: () {},
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 10, 2, 10),
                         child: Text(l,
                             style: const TextStyle(
                                 fontSize: 11.5, color: _C.gray400)),
@@ -1191,18 +1207,21 @@ class _FieldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = context.isMobile;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 110,
+          width: mobile ? 92 : 110,
           child: Padding(
             padding: const EdgeInsets.only(top: 10, right: 8),
             child: Text(
               label,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 13.5,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: mobile ? 12 : 13.5,
                   fontWeight: FontWeight.w600,
                   color: _C.gray700),
             ),

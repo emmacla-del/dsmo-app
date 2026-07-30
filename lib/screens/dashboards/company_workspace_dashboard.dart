@@ -5,6 +5,7 @@ import 'dart:async' show Timer;
 import 'dart:math' show pi;
 import '../../theme/ultra_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/responsive_helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../data/api_client.dart';
 import '../campaign/campaign_constants.dart'
@@ -115,6 +116,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
 
     final onefopDisplay =
         _formatOnefopStatus(onefopStatus, onefopSurveyYear, hasOnefopDraft);
+    final mobile = context.isMobile;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -127,17 +129,27 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
           ],
           _buildHeroCard(totalWorkers, declarationsFiled, lastUpdated),
           const SizedBox(height: 24),
-          _buildKpiRow(
-              declarationsFiled, pendingCount, approvedCount, onefopDisplay),
+          _buildKpiRow(mobile, declarationsFiled, pendingCount, approvedCount,
+              onefopDisplay),
           const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildRecentActivity(data)),
-              const SizedBox(width: 24),
-              Expanded(child: _buildWorkforceByGender(company, totalWorkers)),
-            ],
-          ),
+          if (mobile)
+            Column(
+              children: [
+                _buildRecentActivity(data),
+                const SizedBox(height: 24),
+                _buildWorkforceByGender(company, totalWorkers),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildRecentActivity(data)),
+                const SizedBox(width: 24),
+                Expanded(
+                    child: _buildWorkforceByGender(company, totalWorkers)),
+              ],
+            ),
         ],
       ),
     );
@@ -204,7 +216,9 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                     style: UltraTheme.labelLarge),
                 const SizedBox(height: 8),
                 Text('$totalWorkers',
-                    style: UltraTheme.displayLarge.copyWith(fontSize: 40)),
+                    style: UltraTheme.displayLarge.copyWith(fontSize: 40),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 Text(
                     '$activeDeclarations déclarations actives · $lastUpdatedText',
@@ -219,7 +233,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
 
   // ── KPI row ──────────────────────────────────────────────
 
-  Widget _buildKpiRow(int declarationsFiled, int pendingCount,
+  Widget _buildKpiRow(bool mobile, int declarationsFiled, int pendingCount,
       int approvedCount, Map<String, dynamic> onefopDisplay) {
     final declarationProgress = declarationsFiled > 0
         ? (approvedCount / declarationsFiled).clamp(0.0, 1.0)
@@ -228,119 +242,104 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         ? (pendingCount / declarationsFiled).clamp(0.0, 1.0)
         : 0.0;
 
+    final cards = [
+      _kpiCard(
+        title: 'Declarations filed',
+        value: '$declarationsFiled',
+        valueColor: UltraTheme.textPrimary,
+        subtitle: '↑ $approvedCount approuvées',
+        subtitleColor: UltraTheme.success,
+        progress: declarationProgress.toDouble(),
+        progressColor: UltraTheme.primary,
+      ),
+      _kpiCard(
+        title: 'Awaiting approval',
+        value: '$pendingCount',
+        valueColor: UltraTheme.textPrimary,
+        subtitle: pendingCount > 0 ? 'En cours de révision' : 'Tout est à jour',
+        subtitleColor: UltraTheme.textSecondary,
+        progress: pendingProgress.toDouble(),
+        progressColor: UltraTheme.warning,
+      ),
+      _kpiCard(
+        title: onefopDisplay['title'] as String,
+        value: onefopDisplay['value'] as String,
+        valueColor: onefopDisplay['color'] as Color,
+        subtitle: onefopDisplay['subtitle'] as String,
+        subtitleColor: onefopDisplay['color'] as Color,
+        progress: onefopDisplay['progress'] as double,
+        progressColor: onefopDisplay['color'] as Color,
+        valueFontSize: 24,
+      ),
+    ];
+
+    if (mobile) {
+      return Column(
+        children: [
+          for (int i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            cards[i],
+          ],
+        ],
+      );
+    }
+
     return Row(
       children: [
-        Expanded(
-          child: GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Declarations filed', style: UltraTheme.labelLarge),
-                const SizedBox(height: 12),
-                Text('$declarationsFiled',
-                    style: UltraTheme.displayLarge.copyWith(fontSize: 28)),
-                const SizedBox(height: 8),
-                Text('↑ $approvedCount approuvées',
-                    style: UltraTheme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: UltraTheme.success)),
-                const SizedBox(height: 12),
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: UltraTheme.background,
-                      borderRadius: BorderRadius.circular(2)),
-                  child: FractionallySizedBox(
-                    widthFactor: declarationProgress,
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: UltraTheme.primary,
-                          borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: cards[0]),
         const SizedBox(width: 16),
-        Expanded(
-          child: GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Awaiting approval', style: UltraTheme.labelLarge),
-                const SizedBox(height: 12),
-                Text('$pendingCount',
-                    style: UltraTheme.displayLarge.copyWith(fontSize: 28)),
-                const SizedBox(height: 8),
-                Text(
-                  pendingCount > 0 ? 'En cours de révision' : 'Tout est à jour',
-                  style: UltraTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: UltraTheme.background,
-                      borderRadius: BorderRadius.circular(2)),
-                  child: FractionallySizedBox(
-                    widthFactor: pendingProgress,
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: UltraTheme.warning,
-                          borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: cards[1]),
         const SizedBox(width: 16),
-        Expanded(
-          child: GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(onefopDisplay['title'] as String,
-                    style: UltraTheme.labelLarge),
-                const SizedBox(height: 12),
-                Text(
-                  onefopDisplay['value'] as String,
-                  style: UltraTheme.displayLarge.copyWith(
-                      fontSize: 24, color: onefopDisplay['color'] as Color),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  onefopDisplay['subtitle'] as String,
-                  style: UltraTheme.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: onefopDisplay['color'] as Color),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: UltraTheme.background,
-                      borderRadius: BorderRadius.circular(2)),
-                  child: FractionallySizedBox(
-                    widthFactor: onefopDisplay['progress'] as double,
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: onefopDisplay['color'] as Color,
-                          borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: cards[2]),
       ],
+    );
+  }
+
+  Widget _kpiCard({
+    required String title,
+    required String value,
+    required Color valueColor,
+    required String subtitle,
+    required Color subtitleColor,
+    required double progress,
+    required Color progressColor,
+    double valueFontSize = 28,
+  }) {
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: UltraTheme.labelLarge,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 12),
+          Text(value,
+              style: UltraTheme.displayLarge
+                  .copyWith(fontSize: valueFontSize, color: valueColor)),
+          const SizedBox(height: 8),
+          Text(subtitle,
+              style: UltraTheme.bodyMedium
+                  .copyWith(fontWeight: FontWeight.w600, color: subtitleColor),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 12),
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+                color: UltraTheme.background,
+                borderRadius: BorderRadius.circular(2)),
+            child: FractionallySizedBox(
+              widthFactor: progress,
+              child: Container(
+                decoration: BoxDecoration(
+                    color: progressColor, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -569,8 +568,12 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Recent activity',
-                  style: UltraTheme.titleLarge.copyWith(fontSize: 16)),
+              Expanded(
+                child: Text('Recent activity',
+                    style: UltraTheme.titleLarge.copyWith(fontSize: 16),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ),
               TextButton(
                 onPressed: onViewAll, // ✅ Always enabled
                 child: Text(
@@ -716,13 +719,16 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
+            flex: 3,
             child: Text(segment.name,
+                overflow: TextOverflow.ellipsis,
                 style: UltraTheme.bodyMedium.copyWith(
                     fontWeight: FontWeight.w500,
                     color: UltraTheme.textPrimary)),
           ),
-          SizedBox(
-            width: 120,
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
             child: LinearProgressIndicator(
               value: total > 0 ? segment.count / total : 0,
               backgroundColor: UltraTheme.background,
@@ -750,6 +756,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildShimmerLoading(BuildContext context) {
+    final mobile = context.isMobile;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -757,24 +764,49 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         children: [
           _buildShimmerCard(height: 140, borderRadius: 24),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: _buildShimmerCard(height: 160, borderRadius: 20)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildShimmerCard(height: 160, borderRadius: 20)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildShimmerCard(height: 160, borderRadius: 20)),
-            ],
-          ),
+          if (mobile)
+            Column(
+              children: [
+                _buildShimmerCard(height: 160, borderRadius: 20),
+                const SizedBox(height: 12),
+                _buildShimmerCard(height: 160, borderRadius: 20),
+                const SizedBox(height: 12),
+                _buildShimmerCard(height: 160, borderRadius: 20),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                    child: _buildShimmerCard(height: 160, borderRadius: 20)),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: _buildShimmerCard(height: 160, borderRadius: 20)),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: _buildShimmerCard(height: 160, borderRadius: 20)),
+              ],
+            ),
           const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildShimmerCard(height: 320, borderRadius: 20)),
-              const SizedBox(width: 24),
-              Expanded(child: _buildShimmerCard(height: 320, borderRadius: 20)),
-            ],
-          ),
+          if (mobile)
+            Column(
+              children: [
+                _buildShimmerCard(height: 320, borderRadius: 20),
+                const SizedBox(height: 24),
+                _buildShimmerCard(height: 320, borderRadius: 20),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                    child: _buildShimmerCard(height: 320, borderRadius: 20)),
+                const SizedBox(width: 24),
+                Expanded(
+                    child: _buildShimmerCard(height: 320, borderRadius: 20)),
+              ],
+            ),
         ],
       ),
     );
