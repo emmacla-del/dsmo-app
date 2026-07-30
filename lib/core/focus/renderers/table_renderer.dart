@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../schema/field_schema.dart';
 import '../unified_focus_manager_v2.dart';
 import 'generic_spreadsheet_table.dart';
+import 'mobile_card_table.dart';
 import 'table_spec_builder.dart';
 import 'onefop_layout_constants.dart';
 
@@ -20,6 +21,11 @@ class TableRenderer {
     VoidCallback? onExitPrevious,
     // ← ADD: hybrid controller for text/label cells (reasons, skills, training)
     TextEditingController Function(String)? hybridController,
+    // Below the mobile breakpoint, dense grids render as one card per
+    // row instead of a horizontally-scrolling spreadsheet — see
+    // MobileCardTable. Matrix-layout tables have no uniform row/column
+    // shape to card-ize and always use GenericSpreadsheetTable.
+    bool mobile = false,
   }) {
     final spec = field.tableSpec;
     if (spec == null) {
@@ -48,27 +54,42 @@ class TableRenderer {
       }
     }
 
-    final table = GenericSpreadsheetTable(
-      spec: renderSpec,
-      numberValues: gridValues,
-      textValues: textValues, // ← NOW POPULATED
-      onNumberChanged: onCellChanged,
-      onTextChanged: (id, value) {
-        // ← NOW FUNCTIONAL
-        if (hybridController != null) {
-          final c = hybridController(id);
-          // Only update if different to avoid cursor jumps
-          if (c.text != value) {
-            c.text = value;
-          }
+    void onTextChanged(String id, String value) {
+      // ← NOW FUNCTIONAL
+      if (hybridController != null) {
+        final c = hybridController(id);
+        // Only update if different to avoid cursor jumps
+        if (c.text != value) {
+          c.text = value;
         }
-      },
-      focusManager: focusManager,
-      tableId: prefix,
-      onExitTable: onExitTable,
-      onExitPrevious: onExitPrevious,
-      hybridController: hybridController, // ← PASS THROUGH
-    );
+      }
+    }
+
+    final table = (mobile && !renderSpec.isMatrixLayout)
+        ? MobileCardTable(
+            spec: renderSpec,
+            numberValues: gridValues,
+            textValues: textValues,
+            onNumberChanged: onCellChanged,
+            onTextChanged: onTextChanged,
+            focusManager: focusManager,
+            tableId: prefix,
+            onExitTable: onExitTable,
+            onExitPrevious: onExitPrevious,
+            hybridController: hybridController,
+          )
+        : GenericSpreadsheetTable(
+            spec: renderSpec,
+            numberValues: gridValues,
+            textValues: textValues, // ← NOW POPULATED
+            onNumberChanged: onCellChanged,
+            onTextChanged: onTextChanged,
+            focusManager: focusManager,
+            tableId: prefix,
+            onExitTable: onExitTable,
+            onExitPrevious: onExitPrevious,
+            hybridController: hybridController, // ← PASS THROUGH
+          );
 
     final paperCode = field.paperCode;
     final questionText = field.questionText;

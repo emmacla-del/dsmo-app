@@ -367,6 +367,7 @@ class TableFieldWidget extends StatelessWidget {
       onExitTable: () => ctrl.exitTable(field.id),
       onExitPrevious: () => ctrl.exitTablePrevious(field.id),
       hybridController: ctrl.hybridController,
+      mobile: MediaQuery.of(context).size.width < OL.pageWidth,
     );
   }
 }
@@ -450,6 +451,45 @@ class _HybridTableBody extends StatelessWidget {
     // upper bound and throw on narrow screens.
     const double tc = 200.0;
     const totalTableWidth = tc + 3 * nc + 2 * OL.borderWidth + 2 * outerBorder;
+
+    // Below the mobile breakpoint, the 200px label column + 3×100px number
+    // columns can't share a row without scrolling. Stack each row as a
+    // full-width label field over a Row of 3 Expanded M/F/Total cells
+    // instead — no horizontal scroll, and each number cell gets a real
+    // touch-target-sized box rather than a ~60px sliver.
+    final mobile = availableWidth < OL.pageWidth;
+    if (mobile) {
+      int tm = 0, tf = 0, tt = 0;
+      for (final k in def.rowKeys) {
+        tm += ctrl.aGrid['${pfx}_${k}_male'] ?? 0;
+        tf += ctrl.aGrid['${pfx}_${k}_female'] ?? 0;
+        tt += ctrl.aGrid['${pfx}_${k}_total'] ?? 0;
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, left: 2),
+            child: Text(tableLabel, style: kTableHeaderStyle),
+          ),
+          for (int i = 0; i < def.rowKeys.length; i++)
+            _HybridMobileDataCard(
+              tid: '${pfx}_${def.rowKeys[i]}_${def.textSuffix}',
+              mid: '${pfx}_${def.rowKeys[i]}_male',
+              fid: '${pfx}_${def.rowKeys[i]}_female',
+              tot: ctrl.aGrid['${pfx}_${def.rowKeys[i]}_total'] ?? 0,
+              rowLabel: def.rowLabels[i],
+              allCells: allCells,
+              fieldId: fieldId,
+              ctrl: ctrl,
+              tableId: pfx,
+            ),
+          _HybridMobileTotalCard(male: tm, female: tf, total: tt),
+        ],
+      );
+    }
 
     Widget headerRow = Container(
       constraints: const BoxConstraints(minHeight: OL.headerRowHeight),
@@ -700,6 +740,245 @@ class _HybridDataRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// HYBRID TABLE — MOBILE CARDS
+//
+// One card per row: full-width label field, then a Row of 3
+// Expanded Homme/Femme/Total cells below it. Replaces the fixed
+// 200px-label + 3×100px-numeric Row layout that can't fit a phone
+// screen without horizontal scrolling.
+// ══════════════════════════════════════════════════════════════
+
+class _HybridMobileDataCard extends StatelessWidget {
+  final String tid;
+  final String mid;
+  final String fid;
+  final int tot;
+  final String rowLabel;
+  final List<String> allCells;
+  final String fieldId;
+  final OnefopFormController ctrl;
+  final String tableId;
+
+  const _HybridMobileDataCard({
+    required this.tid,
+    required this.mid,
+    required this.fid,
+    required this.tot,
+    required this.rowLabel,
+    required this.allCells,
+    required this.fieldId,
+    required this.ctrl,
+    required this.tableId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(kRadiusMd),
+        border: Border.all(color: kBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            controller: ctrl.hybridController(tid),
+            style: kTableDataStyle,
+            maxLines: 3,
+            minLines: 1,
+            decoration: InputDecoration(
+              hintText: rowLabel,
+              hintStyle: const TextStyle(fontSize: 13, color: kInkFaint),
+              isDense: true,
+              filled: true,
+              fillColor: kFieldFill,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(kRadiusSm),
+                borderSide: const BorderSide(color: kBorder, width: 1),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _HybridMobileNumField(
+                  label: 'Homme / Male',
+                  cellId: mid,
+                  value: ctrl.aGrid[mid] ?? 0,
+                  ctrl: ctrl,
+                  tableId: tableId,
+                  allCells: allCells,
+                  onExitTable: () => ctrl.exitTable(fieldId),
+                  onExitPrevious: () => ctrl.exitTablePrevious(fieldId),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HybridMobileNumField(
+                  label: 'Femme / Female',
+                  cellId: fid,
+                  value: ctrl.aGrid[fid] ?? 0,
+                  ctrl: ctrl,
+                  tableId: tableId,
+                  allCells: allCells,
+                  onExitTable: () => ctrl.exitTable(fieldId),
+                  onExitPrevious: () => ctrl.exitTablePrevious(fieldId),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HybridMobileReadOnlyCell(label: 'Total', value: tot),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HybridMobileNumField extends StatelessWidget {
+  final String label;
+  final String cellId;
+  final int value;
+  final OnefopFormController ctrl;
+  final String tableId;
+  final List<String> allCells;
+  final VoidCallback onExitTable;
+  final VoidCallback onExitPrevious;
+
+  const _HybridMobileNumField({
+    required this.label,
+    required this.cellId,
+    required this.value,
+    required this.ctrl,
+    required this.tableId,
+    required this.allCells,
+    required this.onExitTable,
+    required this.onExitPrevious,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: kInkFaint),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 4),
+        Container(
+          decoration: BoxDecoration(
+            color: OL.inputCellBg,
+            border: Border.all(color: kBorder, width: 1),
+            borderRadius: BorderRadius.circular(kRadiusSm),
+          ),
+          // Tight-sized (not just min-height) so the field's actual
+          // focusable area — not merely its decoration — is a real
+          // touch target, matching MobileCardTable's approach.
+          child: SizedBox(
+            height: 44,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: HybridNumericCell(
+                cellId: cellId,
+                value: value,
+                onChanged: ctrl.onGridCellChanged,
+                fm: ctrl.fm,
+                tableId: tableId,
+                allCells: allCells,
+                rowWidth: 2,
+                onExitTable: onExitTable,
+                onExitPrevious: onExitPrevious,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HybridMobileReadOnlyCell extends StatelessWidget {
+  final String label;
+  final int value;
+  const _HybridMobileReadOnlyCell({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: kInkFaint),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 4),
+        Container(
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: value > 0 ? OL.totalCellBg : OL.inputCellBgTotal,
+            border: Border.all(color: kBorder, width: 1),
+            borderRadius: BorderRadius.circular(kRadiusSm),
+          ),
+          child: Text(
+            value == 0 ? '—' : '$value',
+            style: value > 0
+                ? kTotalStyle
+                : kTableDataStyle.copyWith(color: kInkFaint),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HybridMobileTotalCard extends StatelessWidget {
+  final int male;
+  final int female;
+  final int total;
+  const _HybridMobileTotalCard(
+      {required this.male, required this.female, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: OL.grandTotalBg,
+        borderRadius: BorderRadius.circular(kRadiusMd),
+      ),
+      child: Row(
+        children: [
+          const Text('TOTAL', style: kGrandTotalStyle),
+          const Spacer(),
+          for (final v in [
+            ('H', male),
+            ('F', female),
+            ('T', total),
+          ]) ...[
+            Text('${v.$1}: ${v.$2 == 0 ? '—' : v.$2}', style: kGrandTotalStyle),
+            const SizedBox(width: 12),
+          ],
+        ],
       ),
     );
   }
@@ -1557,33 +1836,85 @@ class NavButton extends StatelessWidget {
 // STEPPER STRIP (Mobile)
 // ══════════════════════════════════════════════════════════════
 
-class StepperStrip extends StatelessWidget {
+// Fixed-width, horizontally-scrolling items (rather than an N-way
+// Expanded split) so each step keeps a comfortable, constant width no
+// matter how many sections the flow has — a Row of Expanded items
+// squeezed labels down to nothing once a flow reached 6+ steps.
+class StepperStrip extends StatefulWidget {
   final OnefopFormController ctrl;
   const StepperStrip({super.key, required this.ctrl});
 
   @override
+  State<StepperStrip> createState() => _StepperStripState();
+}
+
+class _StepperStripState extends State<StepperStrip> {
+  final ScrollController _scroll = ScrollController();
+  int? _lastScrolledPage;
+
+  static const double _itemWidth = 76.0;
+  static const double _connectorWidth = 24.0;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  double _offsetForPage(int page) => page * (_itemWidth + _connectorWidth);
+
+  void _scrollToActive() {
+    final page = widget.ctrl.currentPage;
+    if (_lastScrolledPage == page || !_scroll.hasClients) return;
+    _lastScrolledPage = page;
+    final target = _offsetForPage(page) -
+        (_scroll.position.viewportDimension / 2) +
+        (_itemWidth / 2);
+    _scroll.animateTo(
+      target.clamp(0.0, _scroll.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
     if (ctrl.schema == null) return const SizedBox.shrink();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToActive();
+    });
+
     return Container(
       height: 68,
       color: kSurface,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          for (int p = 0; p < ctrl.pageCount; p++) ...[
-            Expanded(
-              child: StepperItem(
-                index: p,
-                label: ctrl.pageLabel(p),
-                isActive: p == ctrl.currentPage,
-                isCompleted: ctrl.validatePage(p),
-                onTap: () => ctrl.goto(p),
+      child: SingleChildScrollView(
+        controller: _scroll,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            for (int p = 0; p < ctrl.pageCount; p++) ...[
+              SizedBox(
+                width: _itemWidth,
+                child: StepperItem(
+                  index: p,
+                  label: ctrl.pageLabel(p),
+                  isActive: p == ctrl.currentPage,
+                  isCompleted: ctrl.validatePage(p),
+                  onTap: () => ctrl.goto(p),
+                ),
               ),
-            ),
-            if (p < ctrl.pageCount - 1)
-              StepConnector(isCompleted: ctrl.validatePage(p)),
+              if (p < ctrl.pageCount - 1)
+                SizedBox(
+                  width: _connectorWidth,
+                  child: Center(
+                      child: StepConnector(isCompleted: ctrl.validatePage(p))),
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

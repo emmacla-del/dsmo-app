@@ -166,7 +166,11 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       );
     }
 
-    final headerSec = _currentSection;
+    // On mobile the StepperStrip already shows the current section's
+    // label plus a completion checkmark, so the app bar's second row
+    // would be a redundant ~52px of chrome on an already-tight phone
+    // viewport — only render it on desktop, where there's no stepper.
+    final headerSec = desktop ? _currentSection : null;
     return Scaffold(
       backgroundColor: kCanvas,
       appBar: OnefopAppBar(
@@ -218,7 +222,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                     CustomScrollView(
                       controller: _ctrl.mainScroll,
                       slivers: [
-                        ..._sectionSlivers(pairFields: true),
+                        ..._sectionSlivers(pairFields: true, mobile: false),
                         const SliverToBoxAdapter(
                           child: SizedBox(height: 40),
                         ),
@@ -270,7 +274,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         child: CustomScrollView(
           controller: _ctrl.mainScroll,
           slivers: [
-            ..._sectionSlivers(pairFields: false),
+            ..._sectionSlivers(pairFields: false, mobile: true),
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
@@ -283,16 +287,130 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // SECTION SLIVERS
   // ═══════════════════════════════════════════════════════════
 
-  List<Widget> _sectionSlivers({required bool pairFields}) {
+  // Non-blocking coherence hints (e.g. recruitments re-partitioned by
+  // diploma not matching the permanent+temporary total) — see
+  // onefop_coherence_checker.dart. Shown regardless of which section is
+  // currently open since the mismatched tables are often a section apart.
+  Widget _coherenceBanner() {
+    final flags = _ctrl.coherenceFlags;
+    return SliverToBoxAdapter(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kScrollChildWidth),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: kWarning.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(kRadiusSm),
+              border: Border.all(color: kWarning.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.rule_outlined, size: 16, color: kWarning),
+                    const SizedBox(width: 8),
+                    Text(
+                      flags.length == 1
+                          ? 'Incohérence détectée / Inconsistency detected'
+                          : '${flags.length} incohérences détectées / '
+                              'inconsistencies detected',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: kWarning,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                for (final flag in flags)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '• ${flag.message}',
+                      style: const TextStyle(fontSize: 12, color: kInkSoft),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Mobile only: the desktop sidebar's "N missing" chip
+  // (_SidebarPageItem) doesn't exist on mobile, so a user who fails to
+  // advance would otherwise only see pass/fail on the stepper dot with
+  // no indication of *what's* still missing. Mirrors the sidebar chip's
+  // own data source (ctrl.missingLabels) so the two never disagree.
+  Widget _validationBanner(SectionSchema sec) {
+    final missing = _ctrl.missingLabels(sec);
+    return SliverToBoxAdapter(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: kScrollChildWidth),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: kDangerSoft,
+              borderRadius: BorderRadius.circular(kRadiusSm),
+              border: Border.all(color: kDanger.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, size: 16, color: kDanger),
+                    const SizedBox(width: 8),
+                    Text(
+                      missing.length == 1
+                          ? 'Champ manquant / Missing field'
+                          : '${missing.length} champs manquants / '
+                              'missing fields',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: kDanger,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                for (final label in missing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('• $label',
+                        style: const TextStyle(fontSize: 12, color: kInkSoft)),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _sectionSlivers({required bool pairFields, required bool mobile}) {
     final idxs = _ctrl.sectionIndicesForPage(_ctrl.currentPage);
     if (idxs.isEmpty) return const <Widget>[];
     final sec = _ctrl.schema!.sections[idxs.first];
     debugPrint(
         'Page ${_ctrl.currentPage} → ${sec.id} → fields: ${sec.fieldIds.length} → visible: ${_ctrl.computeVisibleFieldIds().length}');
     final isSection1 = sec.id.startsWith('section1_');
+    final showValidationBanner = mobile &&
+        _ctrl.advanceBlockedPage == _ctrl.currentPage &&
+        !_ctrl.validatePage(_ctrl.currentPage);
     _tableStagger = 0;
 
     return [
+      if (showValidationBanner) _validationBanner(sec),
+      if (_ctrl.coherenceFlags.isNotEmpty) _coherenceBanner(),
       if (isSection1 && widget.establishmentId != null)
         SliverToBoxAdapter(
           child: Center(
@@ -548,6 +666,10 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       _ctrl.touchAllRequired();
       final failPage = _ctrl.firstFailingPage;
       if (failPage != null) {
+        // Set before goto() so the jump doesn't clear the flag — goto()
+        // only clears it when landing somewhere other than the blocked
+        // page, and here we're landing exactly on it.
+        _ctrl.flagBlockedPage(failPage);
         _ctrl.goto(failPage);
       }
       _snack(

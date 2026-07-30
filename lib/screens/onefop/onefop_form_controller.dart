@@ -21,6 +21,7 @@ import '../../core/focus/utils/field_validator.dart';
 import '../../data/api_client.dart';
 import '../../services/sync_queue_service.dart';
 
+import 'onefop_coherence_checker.dart';
 import 'onefop_form_constants.dart';
 import 'onefop_table_engine.dart';
 
@@ -136,6 +137,17 @@ class OnefopFormController extends ChangeNotifier {
   // ── Performance notifiers ───────────────────────────────────
   final ValueNotifier<int> version = ValueNotifier<int>(0);
   void _bump() => version.value++;
+
+  // ── Coherence hints — recomputed on every change, see
+  // onefop_coherence_checker.dart. Non-blocking; purely informational. ──
+  List<CoherenceFlag> _coherenceFlags = const [];
+  List<CoherenceFlag> get coherenceFlags => _coherenceFlags;
+
+  @override
+  void notifyListeners() {
+    _coherenceFlags = OnefopCoherenceChecker.check(_data, entityType);
+    super.notifyListeners();
+  }
 
   // ── Autosave ────────────────────────────────────────────────
   Timer? _asTimer;
@@ -491,6 +503,17 @@ class OnefopFormController extends ChangeNotifier {
     return null;
   }
 
+  // ── Mobile validation banner state ──────────────────────────
+  // Which page (if any) just failed to advance/submit — drives
+  // MobilePageValidationBanner. Deliberately narrower than "some page
+  // somewhere is incomplete" (true for most of a session): only set
+  // right when a Next/Submit attempt was blocked, and cleared once the
+  // user navigates to a different page.
+  int? _advanceBlockedPage;
+  int? get advanceBlockedPage => _advanceBlockedPage;
+
+  void flagBlockedPage(int page) => _advanceBlockedPage = page;
+
   void touchAllRequired() {
     if (_schema == null) return;
     for (final s in _schema!.sections) {
@@ -696,6 +719,7 @@ class OnefopFormController extends ChangeNotifier {
   void next() {
     if (_schema == null) return;
     if (!validatePage(_si)) {
+      _advanceBlockedPage = _si;
       touchAllRequired();
       notifyListeners();
       return;
@@ -725,6 +749,10 @@ class OnefopFormController extends ChangeNotifier {
   }
 
   void goto(int page) {
+    // Leaving the page that failed validation clears the banner; landing
+    // on it (e.g. the jump _previewSubmit() does via flagBlockedPage())
+    // keeps it, so it shows exactly where the failure happened.
+    if (page != _advanceBlockedPage) _advanceBlockedPage = null;
     _si = page;
     _visibleFieldIds = computeVisibleFieldIds();
     notifyListeners();

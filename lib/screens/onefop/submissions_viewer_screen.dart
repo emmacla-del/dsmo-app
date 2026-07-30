@@ -984,7 +984,16 @@ class _SubmissionsViewerScreenState
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      if (submission.flagCount > 0) ...[
+                        Tooltip(
+                          message: submission.flagCount == 1
+                              ? '1 incohérence détectée'
+                              : '${submission.flagCount} incohérences détectées',
+                          child: const Icon(Icons.rule_outlined,
+                              size: 15, color: UltraTheme.warning),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       _StatusBadge(meta: meta, dense: true),
                     ],
                   ),
@@ -1582,9 +1591,38 @@ class _SubmissionTableRowState extends State<_SubmissionTableRow> {
                         color: UltraTheme.textMuted),
                   ),
                 ),
-                textCell(s.establishmentName ?? s.establishmentId,
-                    widget.flex[1],
-                    bold: true),
+                Expanded(
+                  flex: widget.flex[1],
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            s.establishmentName ?? s.establishmentId,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: UltraTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (s.flagCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Tooltip(
+                            message: s.flagCount == 1
+                                ? '1 incohérence détectée'
+                                : '${s.flagCount} incohérences détectées',
+                            child: const Icon(Icons.rule_outlined,
+                                size: 14, color: UltraTheme.warning),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
                 textCell(s.establishmentId, widget.flex[2]),
                 textCell(s.entityTypeLabel, widget.flex[3]),
                 textCell(s.region ?? '—', widget.flex[4]),
@@ -1961,6 +1999,7 @@ class _SubmissionDetailScreenState
     final rejectionReason = detail['rejectionReason'] as String?;
     final reviewedBy = detail['reviewedBy'] as String?;
     final reviewedAt = DateTime.tryParse(detail['reviewedAt'] as String? ?? '');
+    final flags = (detail['flags'] as List?)?.cast<Map>() ?? const [];
 
     final sections = _buildAnswerSections(detail);
 
@@ -1985,6 +2024,10 @@ class _SubmissionDetailScreenState
                     region: region,
                     department: department,
                   ),
+                  if (flags.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildCoherenceFlagsBox(flags),
+                  ],
                   if (rejectionReason != null &&
                       rejectionReason.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -2139,6 +2182,54 @@ class _SubmissionDetailScreenState
                 _MetaItem(label: 'Département', value: department),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Coherence flags — cross-question mismatches computed at submit time
+  // (see checkCoherence() in questionnaires.service.ts), e.g. recruitments
+  // re-partitioned by diploma not summing to the permanent+temporary total.
+  // Informational only, never blocks the submission itself.
+  Widget _buildCoherenceFlagsBox(List<Map> flags) {
+    const color = UltraTheme.warning;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.rule_outlined, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              flags.length == 1
+                  ? 'Incohérence détectée'
+                  : '${flags.length} incohérences détectées',
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: color),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          for (final flag in flags)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '• ${flag['message'] ?? flag['code'] ?? ''}',
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: UltraTheme.textPrimary),
+              ),
+            ),
         ],
       ),
     );
@@ -2564,6 +2655,7 @@ class SubmissionSummary {
   final DateTime submittedAt;
   final String? region;
   final String? department;
+  final int flagCount;
 
   SubmissionSummary({
     required this.id,
@@ -2576,6 +2668,7 @@ class SubmissionSummary {
     required this.submittedAt,
     this.region,
     this.department,
+    this.flagCount = 0,
   });
 
   factory SubmissionSummary.fromJson(Map<String, dynamic> json) {
@@ -2590,6 +2683,7 @@ class SubmissionSummary {
       submittedAt: DateTime.parse(json['submittedAt'] as String),
       region: json['region'] as String?,
       department: json['department'] as String?,
+      flagCount: (json['flagCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

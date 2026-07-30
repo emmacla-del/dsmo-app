@@ -16,8 +16,7 @@ import 'package:flutter/material.dart';
 import 'grid_layout_engine.dart';
 import 'grid_render_spec.dart';
 import '../unified_focus_manager_v2.dart';
-import 'shared/number_field.dart';
-import 'shared/text_field.dart';
+import 'shared/grid_cell_dispatch.dart';
 import 'grid_theme.dart';
 
 class GenericSpreadsheetTable extends StatelessWidget {
@@ -631,6 +630,8 @@ class GenericSpreadsheetTable extends StatelessWidget {
   }
 
   // ── Cell widget dispatcher ────────────────────────────────────
+  // Delegates to the shared builder (grid_cell_dispatch.dart) so the
+  // mobile card-per-row table can build identical cell widgets.
   Widget _buildCellWidget({
     required String cellId,
     required CellSpec? cs,
@@ -638,151 +639,25 @@ class GenericSpreadsheetTable extends StatelessWidget {
     required bool isGrandTotal,
     double? width,
   }) {
-    final type = cs?.type ?? CellType.number;
-    final editable = cs?.editable ?? false;
-    final hint = cs?.hint;
-    final options = cs?.options ?? [];
-
-    switch (type) {
-      case CellType.number:
-        if (!editable) {
-          final v = numberValues[cellId] ?? 0;
-          return Padding(
-            padding: GridTheme.cellPadding,
-            child: Text(
-              v == 0 ? '—' : '$v',
-              style: isGrandTotal
-                  ? GridTheme.grandTotalStyle
-                  : GridTheme.totalStyle,
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
-        return NumberField(
-          fieldId: cellId,
-          value: numberValues[cellId] ?? 0,
-          onChanged: onNumberChanged,
-          focusManager: focusManager,
-          tableId: tableId,
-          width: GridTheme.colWidth,
-          height: GridTheme.rowHeight - 2,
-          allCells: allCells,
-          rowWidth: rowWidth,
-          onExitTable: onExitTable,
-          onExitPrevious: onExitPrevious,
-        );
-
-      case CellType.text:
-        final value = spec.textValue?.call(cellId) ?? textValues[cellId] ?? '';
-        if (!editable) {
-          return Padding(
-            padding: GridTheme.cellPadding,
-            child: Text(value, style: GridTheme.dataStyle),
-          );
-        }
-        // Local variable for promotion
-        final hc = hybridController;
-        final externalCtrl = hc != null ? hc(cellId) : null;
-        return FormTextField(
-          fieldId: cellId,
-          value: externalCtrl?.text ?? value,
-          onChanged: (v) {
-            onTextChanged(cellId, v);
-            spec.onTextChanged?.call(cellId, v);
-          },
-          focusManager: focusManager,
-          tableId: tableId,
-          width: width ?? GridTheme.colWidth, // ← CHANGE THIS
-          height: GridTheme.rowHeight - 2,
-          hintText: hint,
-          allCells: allCells,
-          rowWidth: rowWidth,
-          onExitTable: onExitTable,
-          onExitPrevious: onExitPrevious,
-          externalController: externalCtrl,
-        );
-      case CellType.radio:
-        final currentValue = spec.radioValue?.call(cellId) ??
-            spec.textValue?.call(cellId) ??
-            textValues[cellId] ??
-            '';
-        if (options.isEmpty) return const SizedBox.shrink();
-        return _dropdownCell(
-          cellId: cellId,
-          currentValue: currentValue,
-          options: options,
-          onChanged: (v) {
-            spec.onRadioChanged?.call(cellId, v);
-            spec.onTextChanged?.call(cellId, v);
-            onTextChanged(cellId, v);
-          },
-        );
-
-      case CellType.select:
-        final currentValue = spec.selectedValue?.call(cellId) ??
-            spec.textValue?.call(cellId) ??
-            textValues[cellId] ??
-            '';
-        if (options.isEmpty) return const SizedBox.shrink();
-        return _dropdownCell(
-          cellId: cellId,
-          currentValue: currentValue,
-          options: options,
-          onChanged: (v) {
-            spec.onSelectChanged?.call(cellId, v);
-            spec.onTextChanged?.call(cellId, v);
-            onTextChanged(cellId, v);
-          },
-        );
-
-      case CellType.readOnly:
-        final v = numberValues[cellId] ?? 0;
-        return Padding(
-          padding: GridTheme.cellPadding,
-          child: Text(
-            v == 0 ? '—' : '$v',
-            style:
-                isGrandTotal ? GridTheme.grandTotalStyle : GridTheme.totalStyle,
-            textAlign: TextAlign.center,
-          ),
-        );
-
-      case CellType.label:
-        return Padding(
-          padding: GridTheme.labelCellPadding,
-          child: Text(cs?.label ?? '', style: GridTheme.labelStyle),
-        );
-    }
-  }
-
-  Widget _dropdownCell({
-    required String cellId,
-    required String currentValue,
-    required List<String> options,
-    required ValueChanged<String> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: DropdownButton<String>(
-        value: currentValue.isEmpty ? null : currentValue,
-        hint: const Text('—',
-            style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
-        isExpanded: true,
-        underline: const SizedBox(),
-        style: GridTheme.dataStyle,
-        iconSize: 14,
-        items: options
-            .map((o) => DropdownMenuItem(
-                  value: o,
-                  child: Text(o,
-                      style: GridTheme.dataStyle,
-                      overflow: TextOverflow.ellipsis),
-                ))
-            .toList(),
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
-      ),
+    return buildGridCellWidget(
+      cellId: cellId,
+      cs: cs,
+      isTotalRow: isTotalRow,
+      isGrandTotal: isGrandTotal,
+      spec: spec,
+      numberValues: numberValues,
+      textValues: textValues,
+      onNumberChanged: onNumberChanged,
+      onTextChanged: onTextChanged,
+      focusManager: focusManager,
+      tableId: tableId,
+      allCells: allCells,
+      rowWidth: rowWidth,
+      onExitTable: onExitTable,
+      onExitPrevious: onExitPrevious,
+      hybridController: hybridController,
+      width: width ?? GridTheme.colWidth,
+      height: GridTheme.rowHeight - 2,
     );
   }
 
