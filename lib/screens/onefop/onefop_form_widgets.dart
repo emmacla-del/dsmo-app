@@ -1721,6 +1721,32 @@ class NavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.of(context).size.width < OL.pageWidth;
+
+    // Visibility (not a conditional swap) keeps this slot exactly the width
+    // of the real button even when hidden on page 1, so the Next button
+    // (and, on desktop, the centered progress indicator) doesn't jump
+    // sideways when Previous appears on later pages.
+    final previousButton = Visibility(
+      visible: onPrevious != null,
+      maintainSize: true,
+      maintainAnimation: true,
+      maintainState: true,
+      child: NavButton(
+        label: 'Précédent / Back',
+        icon: Icons.arrow_back_rounded,
+        iconLeading: true,
+        primary: false,
+        onPressed: onPrevious,
+      ),
+    );
+    final nextButton = NavButton(
+      label: isLast ? 'Aperçu PDF / Preview' : 'Suivant / Next',
+      icon: Icons.arrow_forward_rounded,
+      primary: canProceed,
+      onPressed: canProceed ? onNextOrPreview : null,
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
@@ -1732,55 +1758,50 @@ class NavBar extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: Row(children: [
-          // Visibility (not a conditional swap) keeps this slot exactly the
-          // width of the real button even when hidden on page 1, so the
-          // centered progress indicator doesn't jump sideways when the
-          // Previous button appears on later pages.
-          Visibility(
-            visible: onPrevious != null,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainState: true,
-            child: NavButton(
-              label: 'Précédent / Back',
-              icon: Icons.arrow_back_rounded,
-              iconLeading: true,
-              primary: false,
-              onPressed: onPrevious,
-            ),
-          ),
-          const Spacer(),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('${currentPage + 1} / $totalPages  —  $pageLabel',
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600, color: kAccent)),
-              const SizedBox(height: 6),
-              SizedBox(
-                width: 160,
-                height: 4,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (currentPage + 1) / totalPages,
-                    backgroundColor: kBorder,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        allValid ? kSuccess : kAccent),
-                  ),
+        // Mobile: just the two buttons, evenly spaced — the bilingual
+        // labels plus a 160px progress bar never fit a phone-width row
+        // together (the "Suivant" button was being pushed past the right
+        // edge). The page-position/progress info is already shown by the
+        // mobile StepperStrip above the form, so it isn't needed here too.
+        child: mobile
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(child: previousButton),
+                  const SizedBox(width: 12),
+                  Flexible(child: nextButton),
+                ],
+              )
+            : Row(children: [
+                previousButton,
+                const Spacer(),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${currentPage + 1} / $totalPages  —  $pageLabel',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: kAccent)),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: 160,
+                      height: 4,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (currentPage + 1) / totalPages,
+                          backgroundColor: kBorder,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              allValid ? kSuccess : kAccent),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          NavButton(
-            label: isLast ? 'Aperçu PDF / Preview' : 'Suivant / Next',
-            icon: Icons.arrow_forward_rounded,
-            primary: canProceed,
-            onPressed: canProceed ? onNextOrPreview : null,
-          ),
-        ]),
+                const Spacer(),
+                nextButton,
+              ]),
       ),
     );
   }
@@ -1806,12 +1827,19 @@ class NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = primary ? Colors.white : kInkSoft;
     final iconWidget = Icon(icon, size: 16, color: color);
-    final textWidget = Text(label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ));
+    // Flexible + ellipsis so the label can shrink instead of overflowing
+    // when an ancestor (e.g. NavBar's mobile Flexible wrapper) compresses
+    // this button below its natural width.
+    final textWidget = Flexible(
+      child: Text(label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: color,
+          )),
+    );
 
     return ElevatedButton(
       onPressed: onPressed,
