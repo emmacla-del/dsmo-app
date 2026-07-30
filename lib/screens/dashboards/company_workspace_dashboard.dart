@@ -987,23 +987,38 @@ class _CampaignCardState extends State<_CampaignCard> {
                 ),
               ),
               const SizedBox(width: 16),
+              // Title gets the full remaining row width (the status badge
+              // used to compete with it here, which on a phone-width card
+              // could squeeze the title's available width down to less than
+              // a single word — forcing mid-word character breaks instead
+              // of wrapping at spaces). Badge now sits below the title.
               Expanded(
-                child: Text(
-                  campaign['name'] as String? ?? 'Campagne',
-                  style: UltraTheme.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      campaign['name'] as String? ?? 'Campagne',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: UltraTheme.bodyLarge.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Chip(
+                        label: Text(
+                          submissionStatusLabels[mySubmission] ?? mySubmission,
+                          style: TextStyle(fontSize: 11, color: statusColor),
+                        ),
+                        backgroundColor: statusColor.withValues(alpha: 0.1),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Chip(
-                label: Text(
-                  submissionStatusLabels[mySubmission] ?? mySubmission,
-                  style: TextStyle(fontSize: 11, color: statusColor),
-                ),
-                backgroundColor: statusColor.withValues(alpha: 0.1),
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
