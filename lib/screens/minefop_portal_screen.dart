@@ -200,9 +200,6 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
                       constraints: const BoxConstraints(maxWidth: 480),
                       child: Column(
                         children: [
-                          // Action buttons
-                          _ActionButtons(onTabChange: _switchTab),
-
                           // Login card — swapped for the 2FA code card while
                           // a challenge from authProvider.login() is pending.
                           Padding(
@@ -366,35 +363,6 @@ class _Banner extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// ACTION BUTTONS (centered, constrained width)
-// ═══════════════════════════════════════════════════════════
-
-class _ActionButtons extends StatelessWidget {
-  final ValueChanged<int> onTabChange;
-  const _ActionButtons({required this.onTabChange});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        children: [
-          _GreenButton(
-            label: 'Je ne suis pas encore inscrit',
-            onTap: () => onTabChange(1),
-          ),
-          const SizedBox(height: 10),
-          _GreenOutlineButton(
-            label: 'Retrouver mon identifiant',
-            onTap: () => onTabChange(2),
-          ),
-        ],
       ),
     );
   }
@@ -1374,33 +1342,3 @@ class _GreenButton extends StatelessWidget {
   }
 }
 
-class _GreenOutlineButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _GreenOutlineButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 24),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: _C.green, width: 2),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: _C.green,
-              letterSpacing: 0.2),
-        ),
-      ),
-    );
-  }
-}
