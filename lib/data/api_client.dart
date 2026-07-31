@@ -18,6 +18,12 @@ class ApiClient {
   final Dio dio;
   final _cache = ReferenceCacheService();
 
+  // Set on every login regardless of "Rester connecté", so the token is
+  // usable for the rest of this app session either way. Only the Hive
+  // write in setToken() is conditional — this is what makes an unchecked
+  // "remember me" actually stop the session from surviving a cold start.
+  String? _memoryToken;
+
   ApiClient()
       : dio = Dio(BaseOptions(
           baseUrl: 'https://dsmo-app-2.onrender.com/api',
@@ -52,6 +58,7 @@ class ApiClient {
   }
 
   Future<String?> _getToken() async {
+    if (_memoryToken != null) return _memoryToken;
     try {
       final box = await Hive.openBox('tokenBox');
       return box.get('access_token') as String?;
@@ -64,12 +71,25 @@ class ApiClient {
   /// for a stored token on app startup without exposing Hive directly.
   Future<String?> getStoredToken() => _getToken();
 
-  Future<void> setToken(String token) async {
+  /// [persist] controls whether the session survives a cold start (the
+  /// "Rester connecté" checkbox on the login screen). The token is always
+  /// kept in memory either way, so it works for the rest of this app
+  /// session — only the Hive write, which is what _tryRestore() finds on
+  /// the *next* launch, is conditional. When false, any token persisted by
+  /// an earlier "remember me" login is explicitly cleared, so this login's
+  /// choice — not a stale previous one — decides what happens next launch.
+  Future<void> setToken(String token, {bool persist = true}) async {
+    _memoryToken = token;
     final box = await Hive.openBox('tokenBox');
-    await box.put('access_token', token);
+    if (persist) {
+      await box.put('access_token', token);
+    } else {
+      await box.delete('access_token');
+    }
   }
 
   Future<void> _clearToken() async {
+    _memoryToken = null;
     final box = await Hive.openBox('tokenBox');
     await box.delete('access_token');
   }

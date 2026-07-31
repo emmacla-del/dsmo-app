@@ -83,6 +83,7 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
   final _twoFactorCodeCtrl = TextEditingController();
 
   bool _obscure = true;
+  bool _rememberMe = true;
   bool _submitting = false;
   bool _twoFactorSubmitting = false;
   int _tab = 0; // 0=login 1=register 2=forgot
@@ -112,9 +113,11 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
     if (_submitting) return;
     setState(() => _submitting = true);
     try {
-      await ref
-          .read(authProvider.notifier)
-          .login(_emailCtrl.text.trim(), _passwordCtrl.text);
+      await ref.read(authProvider.notifier).login(
+            _emailCtrl.text.trim(),
+            _passwordCtrl.text,
+            remember: _rememberMe,
+          );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -221,6 +224,9 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
                                     obscure: _obscure,
                                     onToggleObscure: () =>
                                         setState(() => _obscure = !_obscure),
+                                    rememberMe: _rememberMe,
+                                    onToggleRememberMe: (v) =>
+                                        setState(() => _rememberMe = v),
                                     isBusy: isBusy,
                                     authError: authError,
                                     onSubmit: _submit,
@@ -403,6 +409,8 @@ class _LoginCard extends StatelessWidget {
   final ValueChanged<int> onTabChange;
   final TextEditingController emailCtrl, passwordCtrl;
   final bool obscure, isBusy;
+  final bool rememberMe;
+  final ValueChanged<bool> onToggleRememberMe;
   final String? authError;
   final VoidCallback onToggleObscure, onSubmit;
   final Animation<double> fadeAnim;
@@ -414,6 +422,8 @@ class _LoginCard extends StatelessWidget {
     required this.passwordCtrl,
     required this.obscure,
     required this.isBusy,
+    required this.rememberMe,
+    required this.onToggleRememberMe,
     required this.authError,
     required this.onToggleObscure,
     required this.onSubmit,
@@ -450,6 +460,8 @@ class _LoginCard extends StatelessWidget {
                       passwordCtrl: passwordCtrl,
                       obscure: obscure,
                       onToggleObscure: onToggleObscure,
+                      rememberMe: rememberMe,
+                      onToggleRememberMe: onToggleRememberMe,
                       isBusy: isBusy,
                       authError: authError,
                       onSubmit: onSubmit,
@@ -686,6 +698,8 @@ class _DgiTabBar extends StatelessWidget {
 class _LoginPane extends StatefulWidget {
   final TextEditingController emailCtrl, passwordCtrl;
   final bool obscure, isBusy;
+  final bool rememberMe;
+  final ValueChanged<bool> onToggleRememberMe;
   final String? authError;
   final VoidCallback onToggleObscure, onSubmit;
 
@@ -694,6 +708,8 @@ class _LoginPane extends StatefulWidget {
     required this.passwordCtrl,
     required this.obscure,
     required this.isBusy,
+    required this.rememberMe,
+    required this.onToggleRememberMe,
     required this.authError,
     required this.onToggleObscure,
     required this.onSubmit,
@@ -796,8 +812,8 @@ class _LoginPaneState extends State<_LoginPane> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Checkbox(
-                    value: true,
-                    onChanged: (_) {},
+                    value: widget.rememberMe,
+                    onChanged: (v) => widget.onToggleRememberMe(v ?? true),
                     activeColor: _C.green,
                     side: const BorderSide(color: _C.gray400),
                   ),

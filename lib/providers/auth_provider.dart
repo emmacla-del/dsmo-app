@@ -19,6 +19,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final ApiClient _api;
   final Ref _ref;
 
+  // The "Rester connecté" choice from the login attempt that's currently
+  // in progress. A 2FA challenge splits one login into two requests
+  // (password, then emailed code) with twoFactorChallengeProvider carrying
+  // state between them — this carries the remember choice the same way so
+  // verifyTwoFactorCode() can honor it too.
+  bool _pendingRemember = true;
+
   AuthNotifier(this._api, this._ref) : super(const AsyncValue.loading()) {
     _tryRestore();
   }
@@ -70,13 +77,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String email, String password, {bool remember = true}) async {
     if (state is AsyncLoading) return;
     state = const AsyncValue.loading();
-    await _doLogin(email, password);
+    await _doLogin(email, password, remember: remember);
   }
 
-  Future<void> _doLogin(String email, String password) async {
+  Future<void> _doLogin(String email, String password, {bool remember = true}) async {
+    _pendingRemember = remember;
     try {
       final response = await _api.post(
         '/auth/login',
@@ -89,7 +97,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         return;
       }
       final token = response.data['access_token'];
-      await _api.setToken(token);
+      await _api.setToken(token, persist: remember);
       final user = User.fromJson(response.data['user']);
       state = AsyncValue.data(user);
     } catch (e, stack) {
@@ -110,7 +118,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         data: {'challengeToken': challengeToken, 'code': code},
       );
       final token = response.data['access_token'];
-      await _api.setToken(token);
+      await _api.setToken(token, persist: _pendingRemember);
       final user = User.fromJson(response.data['user']);
       _ref.read(twoFactorChallengeProvider.notifier).state = null;
       state = AsyncValue.data(user);
