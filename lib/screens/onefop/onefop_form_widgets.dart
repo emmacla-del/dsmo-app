@@ -1762,7 +1762,7 @@ class NavBar extends StatelessWidget {
         // labels plus a 160px progress bar never fit a phone-width row
         // together (the "Suivant" button was being pushed past the right
         // edge). The page-position/progress info is already shown by the
-        // mobile StepperStrip above the form, so it isn't needed here too.
+        // mobile MobileContextHeader above the form, so it isn't needed here too.
         child: mobile
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1868,159 +1868,88 @@ class NavButton extends StatelessWidget {
 // Expanded split) so each step keeps a comfortable, constant width no
 // matter how many sections the flow has — a Row of Expanded items
 // squeezed labels down to nothing once a flow reached 6+ steps.
-class StepperStrip extends StatefulWidget {
+// Replaces the old horizontally-scrolling StepperStrip: a full row of
+// numbered circles cost ~68px of vertical space and its own horizontal
+// scroll on a phone-width viewport, for information (section position,
+// completion) that's cheaper to show as text. This is a single compact
+// row (~34px) — section name, "N / total", a hairline progress bar, and
+// (when a question is focused) its paper code — so more of the screen
+// stays available for the actual question content. No tap-to-jump; on
+// mobile that's Précédent/Suivant in the NavBar below the form instead.
+class MobileContextHeader extends StatelessWidget {
   final OnefopFormController ctrl;
-  const StepperStrip({super.key, required this.ctrl});
-
-  @override
-  State<StepperStrip> createState() => _StepperStripState();
-}
-
-class _StepperStripState extends State<StepperStrip> {
-  final ScrollController _scroll = ScrollController();
-  int? _lastScrolledPage;
-
-  static const double _itemWidth = 76.0;
-  static const double _connectorWidth = 24.0;
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  double _offsetForPage(int page) => page * (_itemWidth + _connectorWidth);
-
-  void _scrollToActive() {
-    final page = widget.ctrl.currentPage;
-    if (_lastScrolledPage == page || !_scroll.hasClients) return;
-    _lastScrolledPage = page;
-    final target = _offsetForPage(page) -
-        (_scroll.position.viewportDimension / 2) +
-        (_itemWidth / 2);
-    _scroll.animateTo(
-      target.clamp(0.0, _scroll.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
-  }
+  const MobileContextHeader({super.key, required this.ctrl});
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = widget.ctrl;
     if (ctrl.schema == null) return const SizedBox.shrink();
+    final page = ctrl.currentPage + 1;
+    final total = ctrl.pageCount;
+    final sectionId = ctrl.primarySection(ctrl.currentPage)?.id;
+    final sectionLabel = sectionId == null ? null : kSidebarMeta[sectionId]?.label;
+    final positionText =
+        sectionLabel == null ? 'Section $page / $total' : '$sectionLabel  ·  $page / $total';
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _scrollToActive();
-    });
-
-    return Container(
-      height: 68,
-      color: kSurface,
-      child: SingleChildScrollView(
-        controller: _scroll,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            for (int p = 0; p < ctrl.pageCount; p++) ...[
-              SizedBox(
-                width: _itemWidth,
-                child: StepperItem(
-                  index: p,
-                  label: ctrl.pageLabel(p),
-                  isActive: p == ctrl.currentPage,
-                  isCompleted: ctrl.validatePage(p),
-                  onTap: () => ctrl.goto(p),
+    // The question-code chip depends on which field/cell currently has
+    // focus, which changes without the controller itself notifying (focus
+    // moves go through UnifiedFocusManagerV2, a separate ChangeNotifier) —
+    // listen to ctrl.fm directly so the chip updates as the user tabs
+    // through fields, not just on page change.
+    return AnimatedBuilder(
+      animation: ctrl.fm,
+      builder: (context, _) {
+        final code = ctrl.activeField?.paperCode;
+        return Container(
+          color: kSurface,
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      positionText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w700, color: kInk),
+                    ),
+                  ),
+                  if (code != null && code.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: kAccentSoft,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(code,
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: kAccent)),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: SizedBox(
+                  height: 3,
+                  child: LinearProgressIndicator(
+                    value: total == 0 ? 0 : (page / total).clamp(0.0, 1.0),
+                    backgroundColor: kBorder,
+                    valueColor: const AlwaysStoppedAnimation<Color>(kAccent),
+                  ),
                 ),
               ),
-              if (p < ctrl.pageCount - 1)
-                SizedBox(
-                  width: _connectorWidth,
-                  child: Center(
-                      child: StepConnector(isCompleted: ctrl.validatePage(p))),
-                ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class StepperItem extends StatelessWidget {
-  final int index;
-  final String label;
-  final bool isActive;
-  final bool isCompleted;
-  final VoidCallback onTap;
-
-  const StepperItem({
-    super.key,
-    required this.index,
-    required this.label,
-    required this.isActive,
-    required this.isCompleted,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isCompleted
-                  ? kSuccess
-                  : isActive
-                      ? kAccent
-                      : kBorder,
-            ),
-            alignment: Alignment.center,
-            child: isCompleted
-                ? const Icon(Icons.check, color: Colors.white, size: 14)
-                : Text('${index + 1}',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: isActive ? Colors.white : kInkFaint)),
           ),
-          const SizedBox(height: 4),
-          Text(label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? kAccent : kInkSoft,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ],
-      ),
+        );
+      },
     );
   }
-}
-
-class StepConnector extends StatelessWidget {
-  final bool isCompleted;
-  const StepConnector({super.key, required this.isCompleted});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 24,
-        height: 2,
-        decoration: BoxDecoration(
-          color: isCompleted ? kSuccess : kBorder,
-          borderRadius: BorderRadius.circular(1),
-        ),
-      );
 }
 
 // ══════════════════════════════════════════════════════════════

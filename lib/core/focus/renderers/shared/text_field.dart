@@ -53,6 +53,7 @@ class _FormTextFieldState extends State<FormTextField> {
     _ctrl =
         widget.externalController ?? TextEditingController(text: widget.value);
     _node.onKeyEvent = _handleKey;
+    _node.addListener(_onFocusChange);
   }
 
   @override
@@ -60,7 +61,9 @@ class _FormTextFieldState extends State<FormTextField> {
     super.didUpdateWidget(old);
     if (old.tableId != widget.tableId ||
         old.focusManager != widget.focusManager) {
+      old.focusManager.node(old.fieldId).removeListener(_onFocusChange);
       _node.onKeyEvent = _handleKey;
+      _node.addListener(_onFocusChange);
     }
     // ← ONLY SYNC FROM WIDGET IF NOT USING EXTERNAL CONTROLLER
     if (widget.externalController == null &&
@@ -73,11 +76,30 @@ class _FormTextFieldState extends State<FormTextField> {
   @override
   void dispose() {
     _node.onKeyEvent = null;
+    _node.removeListener(_onFocusChange);
     // ← ONLY DISPOSE IF WE CREATED IT
     if (widget.externalController == null) {
       _ctrl.dispose();
     }
     super.dispose();
+  }
+
+  // Enter/Next moves focus straight to the next cell (see _handleKey), which
+  // can land well outside the viewport in a long table — without this the
+  // field would gain keyboard focus while sitting behind/above the visible
+  // area. Mirrors HighlightBlock's scroll-into-view for simple fields.
+  void _onFocusChange() {
+    if (!_node.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
   }
 
   KeyEventResult _handleKey(FocusNode n, KeyEvent e) {
@@ -184,6 +206,7 @@ class _FormTextFieldState extends State<FormTextField> {
               controller: _ctrl,
               focusNode: _node,
               keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.next,
               textAlign: TextAlign.left,
               textAlignVertical: TextAlignVertical.center,
               style: GridTheme.dataStyle,

@@ -166,10 +166,10 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       );
     }
 
-    // On mobile the StepperStrip already shows the current section's
-    // label plus a completion checkmark, so the app bar's second row
-    // would be a redundant ~52px of chrome on an already-tight phone
-    // viewport — only render it on desktop, where there's no stepper.
+    // On mobile the MobileContextHeader already shows the current section's
+    // label and progress, so the app bar's second row would be a redundant
+    // ~52px of chrome on an already-tight phone viewport — only render it
+    // on desktop, where there's no compact header.
     final headerSec = desktop ? _currentSection : null;
     return Scaffold(
       backgroundColor: kCanvas,
@@ -268,7 +268,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
           color: kSurface,
           border: Border(bottom: BorderSide(color: kBorder, width: 1)),
         ),
-        child: StepperStrip(ctrl: _ctrl),
+        child: MobileContextHeader(ctrl: _ctrl),
       ),
       Expanded(
         child: CustomScrollView(

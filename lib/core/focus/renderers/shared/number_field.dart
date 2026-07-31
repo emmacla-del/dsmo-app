@@ -62,6 +62,7 @@ class _NumberFieldState extends State<NumberField> {
     super.initState();
     _ctrl = TextEditingController(text: _display(widget.value));
     _node.onKeyEvent = _handleKey;
+    _node.addListener(_onFocusChange);
   }
 
   @override
@@ -69,7 +70,9 @@ class _NumberFieldState extends State<NumberField> {
     super.didUpdateWidget(old);
     if (old.tableId != widget.tableId ||
         old.focusManager != widget.focusManager) {
+      old.focusManager.node(old.fieldId).removeListener(_onFocusChange);
       _node.onKeyEvent = _handleKey;
+      _node.addListener(_onFocusChange);
     }
     if (old.value != widget.value) {
       final t = _display(widget.value);
@@ -80,8 +83,27 @@ class _NumberFieldState extends State<NumberField> {
   @override
   void dispose() {
     _node.onKeyEvent = null;
+    _node.removeListener(_onFocusChange);
     _ctrl.dispose();
     super.dispose();
+  }
+
+  // Enter/Next moves focus straight to the next cell (see _handleKey), which
+  // can land well outside the viewport in a long table — without this the
+  // field would gain keyboard focus while sitting behind/above the visible
+  // area. Mirrors HighlightBlock's scroll-into-view for simple fields.
+  void _onFocusChange() {
+    if (!_node.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
   }
 
   KeyEventResult _handleKey(FocusNode n, KeyEvent e) {
@@ -167,6 +189,7 @@ class _NumberFieldState extends State<NumberField> {
             controller: _ctrl,
             focusNode: _node,
             keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next,
             textAlign: TextAlign.center,
             textAlignVertical: TextAlignVertical.center,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],

@@ -1022,4 +1022,27 @@ class OnefopFormController extends ChangeNotifier {
   }
 
   String? dividerLabel(String fieldId) => kDividers[fieldId];
+
+  // Currently focused field — drives the mobile compact header's question-
+  // code chip. Table cells report the individual cell id (e.g. "s21q01_r0_c1"),
+  // not the parent table field, so this walks the current page's fields the
+  // same way focusFieldOffset() does to find the cell's owning table.
+  FieldSchema? get activeField {
+    if (_schema == null) return null;
+    final activeId = _fm?.activeId;
+    if (activeId == null) return null;
+    final direct = _schema!.getField(activeId);
+    if (direct != null) return direct;
+    for (final idx in sectionIndicesForPage(_si)) {
+      for (final fid in _schema!.sections[idx].fieldIds) {
+        final f = _schema!.getField(fid);
+        if (f != null &&
+            f.type == 'table' &&
+            TableCellEngine.cellIds(f).contains(activeId)) {
+          return f;
+        }
+      }
+    }
+    return null;
+  }
 }
