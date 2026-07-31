@@ -451,7 +451,8 @@ class _LoginCard extends StatelessWidget {
 
           // Tab content
           Padding(
-            padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+            padding: EdgeInsets.fromLTRB(
+                context.isMobile ? 16 : 28, 20, context.isMobile ? 16 : 28, 28),
             child: FadeTransition(
               opacity: fadeAnim,
               child: tab == 0
@@ -508,7 +509,8 @@ class _TwoFactorCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+        padding: EdgeInsets.fromLTRB(
+            context.isMobile ? 16 : 28, 24, context.isMobile ? 16 : 28, 28),
         child: _TwoFactorPane(
           codeCtrl: codeCtrl,
           isBusy: isBusy,
@@ -1223,12 +1225,35 @@ class _FieldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mobile = context.isMobile;
+    // The DGI-style label|field split works on desktop's wide card, but on
+    // a phone-width card a fixed side label column left the field itself
+    // only ~190px wide — barely enough for a hint like
+    // "nom@entreprise.cm ou EN26000112". Stacking the label above the
+    // field instead gives the input the card's full width.
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: _C.gray700),
+            ),
+          ),
+          child,
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: mobile ? 92 : 110,
+          width: 110,
           child: Padding(
             padding: const EdgeInsets.only(top: 10, right: 8),
             child: Text(
@@ -1236,8 +1261,8 @@ class _FieldRow extends StatelessWidget {
               textAlign: TextAlign.right,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: mobile ? 12 : 13.5,
+              style: const TextStyle(
+                  fontSize: 13.5,
                   fontWeight: FontWeight.w600,
                   color: _C.gray700),
             ),
