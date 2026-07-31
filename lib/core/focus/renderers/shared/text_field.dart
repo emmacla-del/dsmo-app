@@ -207,6 +207,12 @@ class _FormTextFieldState extends State<FormTextField> {
               focusNode: _node,
               keyboardType: TextInputType.text,
               textInputAction: TextInputAction.next,
+              // See the matching comment in number_field.dart: Flutter's
+              // default onTapOutside would unfocus (closing the keyboard)
+              // on the touch that starts a scroll gesture when running as
+              // mobile web. No-op keeps focus through scrolling, matching
+              // native-app mobile behavior.
+              onTapOutside: (_) {},
               textAlign: TextAlign.left,
               textAlignVertical: TextAlignVertical.center,
               style: GridTheme.dataStyle,

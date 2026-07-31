@@ -190,6 +190,14 @@ class _NumberFieldState extends State<NumberField> {
             focusNode: _node,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.next,
+            // Flutter's default onTapOutside unfocuses on the touch that
+            // *starts* a scroll gesture when running as a mobile web app
+            // (EditableText._EditableTextTapOutsideAction special-cases
+            // kIsWeb + PointerDeviceKind.touch) — the keyboard was closing
+            // the instant the user began dragging to scroll. A no-op
+            // override matches native-app mobile behavior, where tapping/
+            // scrolling outside a field never auto-dismisses the keyboard.
+            onTapOutside: (_) {},
             textAlign: TextAlign.center,
             textAlignVertical: TextAlignVertical.center,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],

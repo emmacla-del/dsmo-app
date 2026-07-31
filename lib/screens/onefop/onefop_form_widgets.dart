@@ -671,6 +671,10 @@ class _HybridDataRow extends StatelessWidget {
                 style: kTableDataStyle,
                 maxLines: 3, // bounded — avoids infinite height inside Row
                 minLines: 1,
+                // See number_field.dart: default onTapOutside would close
+                // the keyboard on the touch that starts a scroll gesture on
+                // mobile web.
+                onTapOutside: (_) {},
                 decoration: InputDecoration(
                   hintText: rowLabel,
                   hintStyle: const TextStyle(fontSize: 13, color: kInkFaint),
@@ -796,6 +800,10 @@ class _HybridMobileDataCard extends StatelessWidget {
             style: kTableDataStyle,
             maxLines: 3,
             minLines: 1,
+            // See number_field.dart: default onTapOutside would close the
+            // keyboard on the touch that starts a scroll gesture on mobile
+            // web.
+            onTapOutside: (_) {},
             decoration: InputDecoration(
               hintText: rowLabel,
               hintStyle: const TextStyle(fontSize: 13, color: kInkFaint),
@@ -1026,6 +1034,26 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
     super.initState();
     _c = TextEditingController(text: _t(widget.value));
     _n.onKeyEvent = _key;
+    _n.addListener(_onFocusChange);
+  }
+
+  // Enter/Next moves focus straight to the next cell (see _key), which can
+  // land outside the viewport — scroll it into view. Mirrors NumberField's
+  // identical fix in shared/number_field.dart (this is a separate, older
+  // duplicate of that widget used only by the hybrid reason/skill/domain
+  // tables, so it needed the same fix applied here too).
+  void _onFocusChange() {
+    if (!_n.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
   }
 
   KeyEventResult _key(FocusNode n, KeyEvent e) {
@@ -1100,7 +1128,9 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
   void didUpdateWidget(HybridNumericCell old) {
     super.didUpdateWidget(old);
     if (old.tableId != widget.tableId || old.fm != widget.fm) {
+      old.fm.node(old.cellId).removeListener(_onFocusChange);
       _n.onKeyEvent = _key;
+      _n.addListener(_onFocusChange);
     }
     if (old.value != widget.value) {
       final t = _t(widget.value);
@@ -1111,6 +1141,7 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
   @override
   void dispose() {
     _n.onKeyEvent = null;
+    _n.removeListener(_onFocusChange);
     _c.dispose();
     super.dispose();
   }
@@ -1126,6 +1157,11 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
               controller: _c,
               focusNode: _n,
               keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.next,
+              // See number_field.dart: default onTapOutside would close the
+              // keyboard on the touch that starts a scroll gesture on
+              // mobile web.
+              onTapOutside: (_) {},
               textAlign: TextAlign.center,
               textAlignVertical: TextAlignVertical.center,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
