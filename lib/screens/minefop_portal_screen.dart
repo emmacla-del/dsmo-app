@@ -192,45 +192,62 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
               // Banner (always full width)
               _Banner(),
 
-              // Scrollable body
+              // Scrollable body — vertically centers the card when it's
+              // shorter than the available height (true on most phones
+              // once the card lost its redundant buttons/padding), instead
+              // of leaving it stranded under the banner with a dead gap
+              // before the footer. Still scrolls normally if the content
+              // ever exceeds the viewport (long error text, a short
+              // viewport, browser zoom).
               Expanded(
-                child: SingleChildScrollView(
-                  child: Center(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 480),
-                      child: Column(
-                        children: [
-                          // Login card — swapped for the 2FA code card while
-                          // a challenge from authProvider.login() is pending.
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-                            child: twoFactorToken != null
-                                ? _TwoFactorCard(
-                                    codeCtrl: _twoFactorCodeCtrl,
-                                    isBusy: _twoFactorSubmitting ||
-                                        authState.isLoading,
-                                    authError: authError,
-                                    onSubmit: _submitTwoFactor,
-                                    onCancel: _cancelTwoFactor,
-                                  )
-                                : _LoginCard(
-                                    tab: _tab,
-                                    onTabChange: _switchTab,
-                                    emailCtrl: _emailCtrl,
-                                    passwordCtrl: _passwordCtrl,
-                                    obscure: _obscure,
-                                    onToggleObscure: () =>
-                                        setState(() => _obscure = !_obscure),
-                                    rememberMe: _rememberMe,
-                                    onToggleRememberMe: (v) =>
-                                        setState(() => _rememberMe = v),
-                                    isBusy: isBusy,
-                                    authError: authError,
-                                    onSubmit: _submit,
-                                    fadeAnim: _fadeAnim,
-                                  ),
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: IntrinsicHeight(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 480),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Login card — swapped for the 2FA code
+                                // card while a challenge from
+                                // authProvider.login() is pending.
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 24),
+                                  child: twoFactorToken != null
+                                      ? _TwoFactorCard(
+                                          codeCtrl: _twoFactorCodeCtrl,
+                                          isBusy: _twoFactorSubmitting ||
+                                              authState.isLoading,
+                                          authError: authError,
+                                          onSubmit: _submitTwoFactor,
+                                          onCancel: _cancelTwoFactor,
+                                        )
+                                      : _LoginCard(
+                                          tab: _tab,
+                                          onTabChange: _switchTab,
+                                          emailCtrl: _emailCtrl,
+                                          passwordCtrl: _passwordCtrl,
+                                          obscure: _obscure,
+                                          onToggleObscure: () => setState(
+                                              () => _obscure = !_obscure),
+                                          rememberMe: _rememberMe,
+                                          onToggleRememberMe: (v) => setState(
+                                              () => _rememberMe = v),
+                                          isBusy: isBusy,
+                                          authError: authError,
+                                          onSubmit: _submit,
+                                          fadeAnim: _fadeAnim,
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -770,52 +787,73 @@ class _LoginPaneState extends State<_LoginPane> {
           ),
           const SizedBox(height: 18),
 
-          // Submit row: checkbox + button + forgot link
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 16,
-            runSpacing: 10,
-            children: [
-              // Remember me
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Checkbox(
-                    value: widget.rememberMe,
-                    onChanged: (v) => widget.onToggleRememberMe(v ?? true),
-                    activeColor: _C.green,
-                    side: const BorderSide(color: _C.gray400),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text('Rester connecté',
-                      style: TextStyle(fontSize: 13, color: _C.gray700)),
-                ],
-              ),
-
-              // Connect button
-              _ConnectButton(isBusy: widget.isBusy, onTap: _handleSubmit),
-
-              // Forgot password — routes to the self-service security
-              // question flow (see ForgotPasswordScreen).
-              GestureDetector(
-                onTap: () => router.go('/forgot-password'),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-                  child: Text(
-                    'Mot de passe oublié ?',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _C.green,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildSubmitRow(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildSubmitRow(BuildContext context) {
+    final rememberMe = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Checkbox(
+          value: widget.rememberMe,
+          onChanged: (v) => widget.onToggleRememberMe(v ?? true),
+          activeColor: _C.green,
+          side: const BorderSide(color: _C.gray400),
+        ),
+        const SizedBox(width: 6),
+        const Text('Rester connecté',
+            style: TextStyle(fontSize: 13, color: _C.gray700)),
+      ],
+    );
+
+    // Forgot password — routes to the self-service security question
+    // flow (see ForgotPasswordScreen).
+    final forgotLink = GestureDetector(
+      onTap: () => router.go('/forgot-password'),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        child: Text(
+          'Mot de passe oublié ?',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: _C.green,
+          ),
+        ),
+      ),
+    );
+
+    final connectButton =
+        _ConnectButton(isBusy: widget.isBusy, onTap: _handleSubmit);
+
+    // On desktop's wider card these three fit comfortably on one centered
+    // row. On a phone-width card they don't, so `Wrap` broke them onto
+    // 2-3 separately-centered lines — a scattered cluster instead of an
+    // aligned form footer. Mobile instead gets: remember-me + forgot-link
+    // paired on one row, full-width submit button below (the standard
+    // mobile login pattern).
+    if (context.isMobile) {
+      return Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [rememberMe, forgotLink],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(width: double.infinity, child: connectButton),
+        ],
+      );
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 10,
+      children: [rememberMe, connectButton, forgotLink],
     );
   }
 }
