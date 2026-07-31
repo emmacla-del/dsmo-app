@@ -1723,8 +1723,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       railNav: isMobile ? null : _buildNavRail(user, role, tabs),
       body: Column(
         children: [
-          if (role == 'COMPANY' && !user.emailVerified)
-            const _EmailVerificationBanner(),
           Expanded(child: ContentShell(child: tabs[safeIndex].screen)),
         ],
       ),
@@ -1818,71 +1816,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 // ═══════════════════════════════════════════════════════════════
 // PRIVATE HELPER WIDGETS
 // ═══════════════════════════════════════════════════════════════
-
-class _EmailVerificationBanner extends ConsumerStatefulWidget {
-  const _EmailVerificationBanner();
-
-  @override
-  ConsumerState<_EmailVerificationBanner> createState() =>
-      _EmailVerificationBannerState();
-}
-
-class _EmailVerificationBannerState
-    extends ConsumerState<_EmailVerificationBanner> {
-  bool _sending = false;
-
-  Future<void> _resend() async {
-    setState(() => _sending = true);
-    try {
-      final message =
-          await ref.read(authProvider.notifier).resendVerificationEmail();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: UltraTheme.warning.withValues(alpha: 0.12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 6,
-        children: [
-          const Icon(Icons.mark_email_unread_outlined,
-              size: 18, color: UltraTheme.warning),
-          const Text(
-            'Veuillez vérifier votre adresse e-mail pour sécuriser votre compte.',
-            style: TextStyle(fontSize: 13, color: UltraTheme.textPrimary),
-          ),
-          GestureDetector(
-            onTap: _sending ? null : _resend,
-            child: Text(
-              _sending ? 'Envoi...' : "Renvoyer l'e-mail",
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: UltraTheme.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _FilterDropdown extends StatelessWidget {
   const _FilterDropdown({
