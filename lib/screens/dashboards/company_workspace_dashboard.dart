@@ -242,55 +242,71 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         ? (pendingCount / declarationsFiled).clamp(0.0, 1.0)
         : 0.0;
 
-    final cards = [
-      _kpiCard(
-        title: 'Declarations filed',
-        value: '$declarationsFiled',
-        valueColor: UltraTheme.textPrimary,
-        subtitle: '↑ $approvedCount approuvées',
-        subtitleColor: UltraTheme.success,
-        progress: declarationProgress.toDouble(),
-        progressColor: UltraTheme.primary,
-      ),
-      _kpiCard(
-        title: 'Awaiting approval',
-        value: '$pendingCount',
-        valueColor: UltraTheme.textPrimary,
-        subtitle: pendingCount > 0 ? 'En cours de révision' : 'Tout est à jour',
-        subtitleColor: UltraTheme.textSecondary,
-        progress: pendingProgress.toDouble(),
-        progressColor: UltraTheme.warning,
-      ),
-      _kpiCard(
-        title: onefopDisplay['title'] as String,
-        value: onefopDisplay['value'] as String,
-        valueColor: onefopDisplay['color'] as Color,
-        subtitle: onefopDisplay['subtitle'] as String,
-        subtitleColor: onefopDisplay['color'] as Color,
-        progress: onefopDisplay['progress'] as double,
-        progressColor: onefopDisplay['color'] as Color,
-        valueFontSize: 24,
-      ),
-    ];
+    // Declarations-filed and Awaiting-approval are both plain DSMO counts —
+    // same shape, so they pair naturally at half width. ONEFOP status keeps
+    // its own full-width row: its value is a status word (e.g. "Corrections
+    // requises"), not a number, and it's the most action-critical of the
+    // three, so it shouldn't be squeezed down to match the others.
+    Widget declarationsCard(bool compact) => _kpiCard(
+          title: 'Declarations filed',
+          value: '$declarationsFiled',
+          valueColor: UltraTheme.textPrimary,
+          subtitle: '↑ $approvedCount approuvées',
+          subtitleColor: UltraTheme.success,
+          progress: declarationProgress.toDouble(),
+          progressColor: UltraTheme.primary,
+          valueFontSize: compact ? 20 : 28,
+          compact: compact,
+        );
+
+    Widget pendingCard(bool compact) => _kpiCard(
+          title: 'Awaiting approval',
+          value: '$pendingCount',
+          valueColor: UltraTheme.textPrimary,
+          subtitle:
+              pendingCount > 0 ? 'En cours de révision' : 'Tout est à jour',
+          subtitleColor: UltraTheme.textSecondary,
+          progress: pendingProgress.toDouble(),
+          progressColor: UltraTheme.warning,
+          valueFontSize: compact ? 20 : 28,
+          compact: compact,
+        );
+
+    final onefopCard = _kpiCard(
+      title: onefopDisplay['title'] as String,
+      value: onefopDisplay['value'] as String,
+      valueColor: onefopDisplay['color'] as Color,
+      subtitle: onefopDisplay['subtitle'] as String,
+      subtitleColor: onefopDisplay['color'] as Color,
+      progress: onefopDisplay['progress'] as double,
+      progressColor: onefopDisplay['color'] as Color,
+      valueFontSize: 24,
+    );
 
     if (mobile) {
       return Column(
         children: [
-          for (int i = 0; i < cards.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            cards[i],
-          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: declarationsCard(true)),
+              const SizedBox(width: 12),
+              Expanded(child: pendingCard(true)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          onefopCard,
         ],
       );
     }
 
     return Row(
       children: [
-        Expanded(child: cards[0]),
+        Expanded(child: declarationsCard(false)),
         const SizedBox(width: 16),
-        Expanded(child: cards[1]),
+        Expanded(child: pendingCard(false)),
         const SizedBox(width: 16),
-        Expanded(child: cards[2]),
+        Expanded(child: onefopCard),
       ],
     );
   }
@@ -304,29 +320,33 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     required double progress,
     required Color progressColor,
     double valueFontSize = 28,
+    bool compact = false,
   }) {
     return GlassCard(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: UltraTheme.labelLarge,
+              style: UltraTheme.labelLarge
+                  .copyWith(fontSize: compact ? 11 : null),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 8 : 12),
           Text(value,
               style: UltraTheme.displayLarge
                   .copyWith(fontSize: valueFontSize, color: valueColor)),
-          const SizedBox(height: 8),
+          SizedBox(height: compact ? 4 : 8),
           Text(subtitle,
-              style: UltraTheme.bodyMedium
-                  .copyWith(fontWeight: FontWeight.w600, color: subtitleColor),
+              style: UltraTheme.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: subtitleColor,
+                  fontSize: compact ? 11 : null),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 8 : 12),
           Container(
-            height: 4,
+            height: compact ? 3 : 4,
             decoration: BoxDecoration(
                 color: UltraTheme.background,
                 borderRadius: BorderRadius.circular(2)),
@@ -767,9 +787,17 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
           if (mobile)
             Column(
               children: [
-                _buildShimmerCard(height: 160, borderRadius: 20),
-                const SizedBox(height: 12),
-                _buildShimmerCard(height: 160, borderRadius: 20),
+                Row(
+                  children: [
+                    Expanded(
+                        child:
+                            _buildShimmerCard(height: 130, borderRadius: 16)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child:
+                            _buildShimmerCard(height: 130, borderRadius: 16)),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 _buildShimmerCard(height: 160, borderRadius: 20),
               ],
