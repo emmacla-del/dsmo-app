@@ -196,50 +196,52 @@ class _FormTextFieldState extends State<FormTextField> {
     return ListenableBuilder(
       listenable: _node,
       builder: (ctx, _) {
-        final focused = _node.hasFocus;
-        return ColoredBox(
-          color: focused ? GridTheme.inputBgFocus : Colors.transparent,
-          child: SizedBox(
+        return SizedBox(
             width: widget.width,
             height: widget.height,
-            child: TextField(
-              controller: _ctrl,
-              focusNode: _node,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
-              // See the matching comment in number_field.dart: Flutter's
-              // default onTapOutside would unfocus (closing the keyboard)
-              // on the touch that starts a scroll gesture when running as
-              // mobile web. No-op keeps focus through scrolling, matching
-              // native-app mobile behavior.
-              onTapOutside: (_) {},
-              textAlign: TextAlign.left,
-              textAlignVertical: TextAlignVertical.center,
-              style: GridTheme.dataStyle,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 9),
-                hintText: widget.hintText,
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFFCBD5E1),
+            // Center: isDense+minimal-padding TextField collapses to its
+            // intrinsic (single-line) height and pins to the TOP of this
+            // SizedBox — textAlignVertical.center only centers text *within*
+            // that collapsed box, not the box itself within the cell. See
+            // number_field.dart for the same fix and how it was verified.
+            child: Center(
+              child: TextField(
+                controller: _ctrl,
+                focusNode: _node,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.next,
+                // See the matching comment in number_field.dart: Flutter's
+                // default onTapOutside would unfocus (closing the keyboard)
+                // on the touch that starts a scroll gesture when running as
+                // mobile web. No-op keeps focus through scrolling, matching
+                // native-app mobile behavior.
+                onTapOutside: (_) {},
+                textAlign: TextAlign.left,
+                textAlignVertical: TextAlignVertical.center,
+                style: GridTheme.dataStyle,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 9),
+                  hintText: widget.hintText,
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFCBD5E1),
+                  ),
+                ),
+                onChanged: widget.onChanged,
+                onSubmitted: (_) => _handleKey(
+                  _node,
+                  const KeyDownEvent(
+                    physicalKey: PhysicalKeyboardKey.enter,
+                    logicalKey: LogicalKeyboardKey.enter,
+                    timeStamp: Duration.zero,
+                  ),
                 ),
               ),
-              onChanged: widget.onChanged,
-              onSubmitted: (_) => _handleKey(
-                _node,
-                const KeyDownEvent(
-                  physicalKey: PhysicalKeyboardKey.enter,
-                  logicalKey: LogicalKeyboardKey.enter,
-                  timeStamp: Duration.zero,
-                ),
-              ),
-            ),
-          ),
-        );
+            ));
       },
     );
   }

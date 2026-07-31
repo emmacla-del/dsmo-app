@@ -1151,8 +1151,12 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
         listenable: _n,
         builder: (ctx, _) {
           final focused = _n.hasFocus;
-          return ColoredBox(
-            color: focused ? kAccentSoft : Colors.transparent,
+          // Center: see number_field.dart — an isDense+zero-padding
+          // TextField collapses to its intrinsic height and pins to the top
+          // of whatever height its ancestor gives it, so the caret sits
+          // near the top of the cell instead of vertically centered without
+          // this wrapper.
+          return Center(
             child: TextField(
               controller: _c,
               focusNode: _n,
@@ -1176,8 +1180,8 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
                 hintText: focused ? '0' : null,
-                hintStyle:
-                    const TextStyle(fontSize: kNumCellFontSize, color: kBorderStrong),
+                hintStyle: const TextStyle(
+                    fontSize: kNumCellFontSize, color: kBorderStrong),
               ),
               onChanged: (v) =>
                   widget.onChanged(widget.cellId, int.tryParse(v) ?? 0),
@@ -1340,8 +1344,8 @@ class RadioOption extends StatelessWidget {
                   padding: const EdgeInsets.all(4),
                   child: isSelected
                       ? const DecoratedBox(
-                          decoration:
-                              BoxDecoration(shape: BoxShape.circle, color: kAccent))
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle, color: kAccent))
                       : const SizedBox.shrink(),
                 ),
               ),
@@ -1575,45 +1579,39 @@ class Sidebar extends StatelessWidget {
           transitionBuilder: (child, anim) =>
               FadeTransition(opacity: anim, child: child),
           child: ctrl.saving
-              ? const Row(
-                  key: ValueKey('s'),
-                  children: [
-                      SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: kInkFaint)),
+              ? const Row(key: ValueKey('s'), children: [
+                  SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: kInkFaint)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Sauvegarde… / Saving…',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: kInkFaint)),
+                  ),
+                ])
+              : ctrl.dirty
+                  ? const Row(key: ValueKey('d'), children: [
+                      Icon(Icons.circle, size: 8, color: kWarning),
                       SizedBox(width: 8),
                       Expanded(
-                        child: Text('Sauvegarde… / Saving…',
+                        child: Text('Non sauvegardé / Unsaved',
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: kInkFaint)),
+                            style: TextStyle(fontSize: 12, color: kWarning)),
                       ),
                     ])
-              : ctrl.dirty
-                  ? const Row(
-                      key: ValueKey('d'),
-                      children: [
-                          Icon(Icons.circle, size: 8, color: kWarning),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text('Non sauvegardé / Unsaved',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12, color: kWarning)),
-                          ),
-                        ])
-                  : const Row(
-                      key: ValueKey('ok'),
-                      children: [
-                          Icon(Icons.check_circle_outline,
-                              size: 14, color: kSuccess),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text('Sauvegardé / Saved',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12, color: kSuccess)),
-                          ),
-                        ]),
+                  : const Row(key: ValueKey('ok'), children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 14, color: kSuccess),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text('Sauvegardé / Saved',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: kSuccess)),
+                      ),
+                    ]),
         ),
       );
 }
@@ -1883,7 +1881,8 @@ class NavButton extends StatelessWidget {
         backgroundColor: primary ? kAccent : kFieldFill,
         foregroundColor: color,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusSm)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kRadiusSm)),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
       ),
       child: Row(
@@ -1922,9 +1921,11 @@ class MobileContextHeader extends StatelessWidget {
     final page = ctrl.currentPage + 1;
     final total = ctrl.pageCount;
     final sectionId = ctrl.primarySection(ctrl.currentPage)?.id;
-    final sectionLabel = sectionId == null ? null : kSidebarMeta[sectionId]?.label;
-    final positionText =
-        sectionLabel == null ? 'Section $page / $total' : '$sectionLabel  ·  $page / $total';
+    final sectionLabel =
+        sectionId == null ? null : kSidebarMeta[sectionId]?.label;
+    final positionText = sectionLabel == null
+        ? 'Section $page / $total'
+        : '$sectionLabel  ·  $page / $total';
 
     // The question-code chip depends on which field/cell currently has
     // focus, which changes without the controller itself notifying (focus
@@ -1950,20 +1951,25 @@ class MobileContextHeader extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 12.5, fontWeight: FontWeight.w700, color: kInk),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: kInk),
                     ),
                   ),
                   if (code != null && code.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
                         color: kAccentSoft,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(code,
                           style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w700, color: kAccent)),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: kAccent)),
                     ),
                   ],
                 ],

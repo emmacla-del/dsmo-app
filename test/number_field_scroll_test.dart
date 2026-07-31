@@ -70,4 +70,53 @@ void main() {
     // stays open) rather than losing focus as a side effect of scrolling.
     expect(fm.getNode('cell_29').hasFocus, isTrue);
   });
+
+  testWidgets('focused cell has no green ColoredBox fill (the "shadow" that was reported)',
+      (tester) async {
+    final fm = UnifiedFocusManagerV2(NavigationEngine(const FormSchemaV2(
+      sections: [],
+      fields: [],
+      grids: [],
+      navigation: NavigationGraph(next: {}, prev: {}, gridNeighbors: {}),
+    )));
+    final cells = ['a'];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 48,
+            width: 200,
+            child: NumberField(
+              fieldId: 'a',
+              value: 0,
+              onChanged: (_, __) {},
+              focusManager: fm,
+              tableId: 't',
+              width: 200,
+              height: 48,
+              allCells: cells,
+              rowWidth: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    fm.focus('a');
+    await tester.pump();
+    expect(fm.getNode('a').hasFocus, isTrue);
+
+    // NumberField previously wrapped its TextField in a ColoredBox that
+    // filled green (0xFFE1F0E8) on focus — this is what the user saw as an
+    // unwanted "shadow" while typing in a table cell on mobile. It should
+    // no longer wrap the field in any ColoredBox at all.
+    expect(
+      find.descendant(
+        of: find.byType(NumberField),
+        matching: find.byType(ColoredBox),
+      ),
+      findsNothing,
+    );
+  });
 }

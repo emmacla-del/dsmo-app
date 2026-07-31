@@ -49,7 +49,6 @@ class GridTheme {
   static const Color totalBg = Color(0xFFE1F0E8);
   static const Color grandTotalBg = AppColors.deepEmerald;
   static const Color inputBg = Color(0xFFFFFFFF);
-  static const Color inputBgFocus = Color(0xFFE1F0E8);
   static const Color readOnlyBg = Color(0xFFF5F6F9);
 
   // ── Typography (unified 13 px) ────────────────────────────

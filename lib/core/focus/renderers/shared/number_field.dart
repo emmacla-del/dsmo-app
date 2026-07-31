@@ -7,9 +7,8 @@
 //   • Removed all InputDecoration borders, fill colour, and
 //     container backgrounds so the cell looks like a bare
 //     spreadsheet cell — centred value, no box artefact.
-//   • Focus highlight is applied to the *parent* GridCell
-//     background (via GridTheme.inputBgFocus) rather than
-//     re-boxing the field inside the cell.
+//   • No focus-color fill — the cursor/keyboard is enough of a focus
+//     cue; a colored background read as an unwanted "shadow" on cells.
 //   • Hint text ("0") shown only when focused and empty.
 //   • MODERNIZED: hint font 9→13 px, softer grey color.
 // ══════════════════════════════════════════════════════════════
@@ -183,8 +182,13 @@ class _NumberFieldState extends State<NumberField> {
       listenable: _node,
       builder: (ctx, _) {
         final focused = _node.hasFocus;
-        return ColoredBox(
-          color: focused ? GridTheme.inputBgFocus : Colors.transparent,
+        // Center: isDense+zero-padding TextField collapses to its intrinsic
+        // (single-line) height and pins to the TOP of whatever height its
+        // ancestor gives it — textAlignVertical.center only centers text
+        // *within* that collapsed box, not the box itself within the cell.
+        // Without this the caret sits near the top of the cell instead of
+        // vertically centered.
+        return Center(
           child: TextField(
             controller: _ctrl,
             focusNode: _node,
