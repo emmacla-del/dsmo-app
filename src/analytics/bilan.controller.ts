@@ -67,23 +67,3 @@ export class BilanController {
         return { years };
     }
 }
-
-// ─────────────────────────────────────────────────────────────
-// MODULE (if you need a standalone module)
-// Copy this into a separate bilan.module.ts or merge into your
-// existing AnalyticsModule.
-// ─────────────────────────────────────────────────────────────
-//
-// import { Module } from '@nestjs/common';
-// import { PrismaModule } from '../prisma/prisma.module';
-// import { BilanController } from './bilan.controller';
-// import { BilanService } from './bilan.service';
-//
-// @Module({
-//   imports: [PrismaModule],
-//   controllers: [BilanController],
-//   providers: [BilanService],
-// })
-// export class BilanModule {}
-//
-// Then add BilanModule to your AppModule imports array.
