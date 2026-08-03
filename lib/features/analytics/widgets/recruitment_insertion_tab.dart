@@ -47,8 +47,8 @@ class _FirstTimeEmploymentContent extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Demandes enregistrées',
-                        style: const TextStyle(
+                    const Text('Demandes enregistrées',
+                        style: TextStyle(
                             fontSize: 9, color: TextColor.muted)),
                     const SizedBox(height: 6),
                     Text(formatNumber(data.seekersTotal),
@@ -73,8 +73,8 @@ class _FirstTimeEmploymentContent extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Primo-recrutés',
-                        style: const TextStyle(
+                    const Text('Primo-recrutés',
+                        style: TextStyle(
                             fontSize: 9, color: TextColor.muted)),
                     const SizedBox(height: 6),
                     Text(formatNumber(data.recruitsTotal),
@@ -108,8 +108,8 @@ class _FirstTimeEmploymentContent extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Taux de conversion',
-                  style: const TextStyle(
+              const Text('Taux de conversion',
+                  style: TextStyle(
                       fontSize: 11, color: TextColor.secondary)),
               Text('${data.conversionRate.toStringAsFixed(1)}%',
                   style: const TextStyle(
@@ -167,8 +167,8 @@ class _FirstTimeEmploymentContent extends StatelessWidget {
               child: GlassCard(
                 child: Column(
                   children: [
-                    Text('CDI / Permanent',
-                        style: const TextStyle(
+                    const Text('CDI / Permanent',
+                        style: TextStyle(
                             fontSize: 10, color: AccentColor.blue)),
                     const SizedBox(height: 6),
                     Text(formatNumber(data.recruitsPermanent),
@@ -186,8 +186,8 @@ class _FirstTimeEmploymentContent extends StatelessWidget {
               child: GlassCard(
                 child: Column(
                   children: [
-                    Text('Temporaire',
-                        style: const TextStyle(
+                    const Text('Temporaire',
+                        style: TextStyle(
                             fontSize: 10, color: AccentColor.gold)),
                     const SizedBox(height: 6),
                     Text(formatNumber(data.recruitsTemporary),

@@ -1,16 +1,18 @@
 // lib/core/focus/schema/field_schema.dart
 
+import '../../i18n/localized_text.dart';
+
 class FieldSchema {
   final String id;
   final String path;
   final String type;
   final String? next;
   final String? prev;
-  final String?
+  final LocalizedText?
       label; // Human-readable label (e.g., "Combien de demandes d'emplois...")
-  final List<String>? options; // For radio/select
+  final List<LocalizedOption>? optionsI18n; // For radio/select
   final bool required; // Is field required?
-  final String? hint; // Helper text
+  final LocalizedText? hint; // Helper text
   final String? paperCode; // Official PDF code
   final Map<String, dynamic>? tableSpec; // For table fields
   final String? dependsOn; // Conditional visibility
@@ -19,11 +21,11 @@ class FieldSchema {
   // Question and instruction text
   final String?
       questionText; // The question text (e.g., "2.1 DEMANDE D'EMPLOIS")
-  final String?
+  final LocalizedText?
       instruction; // The instruction text (e.g., "Combien de demandes d'emplois...")
 
   // Subsection header (e.g., "2.1 DEMANDE D'EMPLOIS/ JOB APPLICATION")
-  final String? subsection;
+  final LocalizedText? subsection;
 
   const FieldSchema({
     required this.id,
@@ -32,7 +34,7 @@ class FieldSchema {
     this.next,
     this.prev,
     this.label,
-    this.options,
+    this.optionsI18n,
     this.required = false,
     this.hint,
     this.paperCode,
@@ -43,4 +45,9 @@ class FieldSchema {
     this.instruction,
     this.subsection, // ← ADD THIS
   });
+
+  /// Canonical option values only — what gets stored/submitted and compared
+  /// against by BackendMappers/dependsValue. Never rendered directly; use
+  /// [optionsI18n] + `.text.of(locale)` for display.
+  List<String>? get options => optionsI18n?.map((o) => o.value).toList();
 }

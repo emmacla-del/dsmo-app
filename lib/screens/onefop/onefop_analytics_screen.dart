@@ -264,14 +264,14 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ONEFOP · Analyse approfondie',
+            const Text('ONEFOP · Analyse approfondie',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     color: UltraTheme.textPrimary,
                     fontWeight: FontWeight.bold)),
             Text(_period.displayText,
-                style: TextStyle(
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
                     color: UltraTheme.textMuted)),
@@ -347,7 +347,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           backgroundColor: UltraTheme.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Filtres géographiques',
+          title: const Text('Filtres géographiques',
               style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
@@ -362,7 +362,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                   const LinearProgressIndicator(color: Color(0xFF1D9E75))
                 else ...[
                   DropdownButtonFormField<String?>(
-                    value: tempRegion,
+                    initialValue: tempRegion,
                     decoration: const InputDecoration(
                       labelText: 'Région',
                       border: OutlineInputBorder(),
@@ -382,7 +382,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                   if (tempRegion != null) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: tempDepartment,
+                      initialValue: tempDepartment,
                       decoration: const InputDecoration(
                         labelText: 'Département',
                         border: OutlineInputBorder(),
@@ -404,7 +404,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                           .isNotEmpty) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: tempSubdivision,
+                      initialValue: tempSubdivision,
                       decoration: const InputDecoration(
                         labelText: 'Arrondissement',
                         border: OutlineInputBorder(),
@@ -427,7 +427,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Annuler',
+              child: const Text('Annuler',
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
@@ -443,7 +443,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 Navigator.pop(ctx);
                 _fetchAll();
               },
-              child: Text('Appliquer',
+              child: const Text('Appliquer',
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
@@ -486,7 +486,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
     return Column(
       children: [
         Text(label,
-            style: TextStyle(
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
                 color: UltraTheme.textMuted)),
@@ -543,7 +543,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 )),
             const SizedBox(height: 8),
             Text(_error ?? '',
-                style: TextStyle(
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
                     color: UltraTheme.textMuted),
@@ -576,7 +576,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Emploi par localisation',
+                const Text('Emploi par localisation',
                     style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
@@ -661,7 +661,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Tendances des recrutements',
+                const Text('Tendances des recrutements',
                     style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
@@ -746,7 +746,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Embauches par démographie',
+            const Text('Embauches par démographie',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -864,14 +864,14 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                     dense: true,
                     title: Text(
                       '${row['cspCategory']} · ${row['gender']} · ${row['ageBand']}',
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
                           color: UltraTheme.textPrimary),
                     ),
                     trailing: Text(
                       '${row['count']}',
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           color: UltraTheme.primary),
@@ -893,7 +893,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Embauches par diplôme',
+            const Text('Embauches par diplôme',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -906,13 +906,13 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               ..._hiresByDiploma.map((d) => ListTile(
                     dense: true,
                     title: Text(d['diploma']?.toString() ?? '',
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
                             color: UltraTheme.textPrimary)),
                     trailing: Text(
                       '${d['total'] ?? 0}',
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           color: UltraTheme.primary),
@@ -937,7 +937,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Postes vacants par segment',
+                const Text('Postes vacants par segment',
                     style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
@@ -964,13 +964,13 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               ..._vacancies.map((v) => ListTile(
                     dense: true,
                     title: Text(v['segment']?.toString() ?? '',
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
                             color: UltraTheme.textPrimary)),
                     trailing: Text(
                       '${v['totalVacancies']} postes',
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
                           color: UltraTheme.primary),
@@ -992,7 +992,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Compétences demandées',
+            const Text('Compétences demandées',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -1008,14 +1008,14 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                       children: [
                         Expanded(
                           child: Text(s['skill']?.toString() ?? '',
-                              style: TextStyle(
+                              style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 12,
                                   color: UltraTheme.textPrimary)),
                         ),
                         Text(
                           '${s['totalCount']} mentions',
-                          style: TextStyle(
+                          style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 11,
                               color: UltraTheme.primary),
@@ -1024,7 +1024,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                     ),
                   )),
             const SizedBox(height: 16),
-            Text('Écart formation (Demande vs Offre)',
+            const Text('Écart formation (Demande vs Offre)',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
@@ -1038,13 +1038,13 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(g['skill']?.toString() ?? '',
-                              style: TextStyle(
+                              style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 12,
                                   color: UltraTheme.textPrimary)),
                           Text(
                             'Demande: ${g['demand']}, Offre: ${g['supply']}',
-                            style: TextStyle(
+                            style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 11,
                                 color: UltraTheme.textMuted),
@@ -1073,7 +1073,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Parité · Jeunes · Inclusion',
+            const Text('Parité · Jeunes · Inclusion',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -1082,7 +1082,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 12),
 
             // Gender parity
-            Text('Parité H/F',
+            const Text('Parité H/F',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -1101,7 +1101,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               'H: ${(_genderParity['malePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%'
               '  ·  '
               'F: ${(_genderParity['femalePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%',
-              style: TextStyle(
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
                   color: UltraTheme.textMuted),
@@ -1109,7 +1109,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 12),
 
             // Youth employment
-            Text('Emploi jeunes',
+            const Text('Emploi jeunes',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -1117,7 +1117,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Text(
               '${_youthEmployment['youthHires'] ?? 0} embauches'
               ' (${(_youthEmployment['youthPercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%)',
-              style: TextStyle(
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
                   color: UltraTheme.primaryLight),
@@ -1125,32 +1125,32 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 12),
 
             // Inclusion totals
-            Text('Inclusion',
+            const Text('Inclusion',
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textSecondary)),
             Text('Handicapés : ${_inclusion['disabled'] ?? 0}',
-                style: TextStyle(
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textPrimary)),
             Text('Vulnérables : ${_inclusion['vulnerable'] ?? 0}',
-                style: TextStyle(
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textPrimary)),
 
             if (disabledByCsp.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text('Par CSP (handicapés)',
+              const Text('Par CSP (handicapés)',
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       color: UltraTheme.textMuted)),
               ...disabledByCsp.map((e) => Text(
                     '${e['cspCategory']}: ${e['count']}',
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         color: UltraTheme.textPrimary),
@@ -1159,14 +1159,14 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
 
             if (vulnerableByType.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text('Par type (vulnérables)',
+              const Text('Par type (vulnérables)',
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       color: UltraTheme.textMuted)),
               ...vulnerableByType.map((e) => Text(
                     '${e['vulnerableType']}: ${e['count']}',
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         color: UltraTheme.textPrimary),

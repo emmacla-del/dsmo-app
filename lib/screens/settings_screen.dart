@@ -10,7 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../theme/ultra_theme.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../providers/auth_provider.dart';
+import '../providers/locale_provider.dart';
+import '../providers/providers.dart';
+import '../main.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // ParametresScreen
@@ -54,7 +58,9 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible de mettre à jour ce paramètre : $e')),
+          SnackBar(
+              content: Text(
+                  context.l10n.settingsUpdatePreferenceError('$e'))),
         );
       }
     } finally {
@@ -63,12 +69,18 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   }
 
   // ── Tab definitions ──────────────────────────────────────────
-  static const _tabs = [
-    (label: 'General', icon: Icons.tune_outlined),
-    (label: 'Notifications', icon: Icons.notifications_outlined),
-    (label: 'Securite', icon: Icons.shield_outlined),
-    (label: 'Integrations', icon: Icons.electrical_services_outlined),
-  ];
+  List<({String label, IconData icon})> get _tabs => [
+        (label: context.l10n.settingsTabGeneral, icon: Icons.tune_outlined),
+        (
+          label: context.l10n.settingsTabNotifications,
+          icon: Icons.notifications_outlined
+        ),
+        (label: context.l10n.settingsTabSecurity, icon: Icons.shield_outlined),
+        (
+          label: context.l10n.settingsTabIntegrations,
+          icon: Icons.electrical_services_outlined
+        ),
+      ];
 
   @override
   void dispose() {
@@ -149,10 +161,10 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Parametres',
+            Text(context.l10n.settingsPageTitle,
                 style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
             const SizedBox(height: 2),
-            Text('Configurez votre etablissement et votre compte',
+            Text(context.l10n.settingsPageSubtitle,
                 style: UltraTheme.bodyMedium),
           ],
         ),
@@ -259,28 +271,29 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildGeneralTab() {
+    final l10n = context.l10n;
     return Column(
       children: [
         _SettingsCard(
           icon: Icons.business_outlined,
-          title: 'Informations generales',
-          subtitle: "Mettez a jour les informations de votre etablissement",
+          title: l10n.settingsGeneralCardTitle,
+          subtitle: l10n.settingsGeneralCardSubtitle,
           child: Column(
             children: [
               _buildFormRow([
-                _buildField("Nom de l'etablissement", _companyNameCtrl),
-                _buildField('Email de contact', _emailCtrl,
+                _buildField(l10n.settingsFieldEstablishmentName, _companyNameCtrl),
+                _buildField(l10n.settingsFieldContactEmail, _emailCtrl,
                     type: TextInputType.emailAddress,
                     prefix: Icons.mail_outline),
               ]),
               const SizedBox(height: 20),
               _buildFormRow([
-                _buildField('Numero SIRET', _siretCtrl),
-                _buildField('Telephone', _phoneCtrl,
+                _buildField(l10n.settingsFieldSiret, _siretCtrl),
+                _buildField(l10n.settingsFieldPhone, _phoneCtrl,
                     type: TextInputType.phone, prefix: Icons.phone_outlined),
               ]),
               const SizedBox(height: 20),
-              _buildField('Adresse complete', _addressCtrl,
+              _buildField(l10n.settingsFieldAddress, _addressCtrl,
                   prefix: Icons.location_on_outlined),
               const SizedBox(height: 28),
               _buildFormActions(),
@@ -288,7 +301,57 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           ),
         ),
         const SizedBox(height: 20),
+        _SettingsCard(
+          icon: Icons.language_outlined,
+          title: context.l10n.languageSettingTitle,
+          subtitle: context.l10n.languageSettingSubtitle,
+          child: _buildLanguageSelector(),
+        ),
+        const SizedBox(height: 20),
         _buildDangerZone(),
+      ],
+    );
+  }
+
+  Widget _buildLanguageSelector() {
+    final current = ref.watch(localeProvider);
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: UltraTheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+          ),
+          child: const Icon(Icons.translate,
+              size: 18, color: UltraTheme.primary),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(context.l10n.languageSettingTitle,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: UltraTheme.textPrimary)),
+        ),
+        const SizedBox(width: 12),
+        SegmentedButton<Locale>(
+          segments: [
+            ButtonSegment(
+              value: const Locale('fr'),
+              label: Text(context.l10n.languageFrench),
+            ),
+            ButtonSegment(
+              value: const Locale('en'),
+              label: Text(context.l10n.languageEnglish),
+            ),
+          ],
+          selected: {current},
+          onSelectionChanged: (selected) =>
+              ref.read(localeProvider.notifier).setLocale(selected.first),
+        ),
       ],
     );
   }
@@ -298,17 +361,18 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildNotificationsTab() {
+    final l10n = context.l10n;
     final user = ref.watch(authProvider).value;
     return _SettingsCard(
       icon: Icons.notifications_outlined,
-      title: 'Preferences de notification',
-      subtitle: 'Choisissez comment vous souhaitez etre alerte',
+      title: l10n.settingsNotificationsCardTitle,
+      subtitle: l10n.settingsNotificationsCardSubtitle,
       child: Column(
         children: [
           _buildToggle(
             icon: Icons.email_outlined,
-            title: 'Notifications email',
-            subtitle: 'Recevez un email pour chaque nouvelle declaration',
+            title: l10n.settingsToggleEmailTitle,
+            subtitle: l10n.settingsToggleEmailSubtitle,
             value: user?.emailNotificationsEnabled ?? true,
             enabled: !_savingPrefs.contains('email'),
             onChanged: (v) => _updatePreference(
@@ -320,9 +384,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           ),
           _buildToggle(
             icon: Icons.notifications_active_outlined,
-            title: 'Alertes en temps reel',
-            subtitle: 'Notifications push dans le navigateur '
-                '(préférence enregistrée — canal push à venir)',
+            title: l10n.settingsToggleRealtimeTitle,
+            subtitle: l10n.settingsToggleRealtimeSubtitle,
             value: user?.pushNotificationsEnabled ?? true,
             enabled: !_savingPrefs.contains('push'),
             onChanged: (v) => _updatePreference(
@@ -334,8 +397,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           ),
           _buildToggle(
             icon: Icons.summarize_outlined,
-            title: 'Rapports hebdomadaires',
-            subtitle: 'Recevez un recapitulatif chaque lundi matin',
+            title: l10n.settingsToggleWeeklyTitle,
+            subtitle: l10n.settingsToggleWeeklySubtitle,
             value: user?.weeklyDigestEnabled ?? false,
             enabled: !_savingPrefs.contains('weekly'),
             onChanged: (v) => _updatePreference(
@@ -347,9 +410,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           ),
           _buildToggle(
             icon: Icons.sms_outlined,
-            title: 'Notifications SMS',
-            subtitle: 'Alertes urgentes par message texte '
-                '(préférence enregistrée — canal SMS à venir)',
+            title: l10n.settingsToggleSmsTitle,
+            subtitle: l10n.settingsToggleSmsSubtitle,
             value: user?.smsNotificationsEnabled ?? false,
             enabled: !_savingPrefs.contains('sms'),
             onChanged: (v) => _updatePreference(
@@ -370,27 +432,27 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildSecurityTab() {
+    final l10n = context.l10n;
     final user = ref.watch(authProvider).value;
     return _SettingsCard(
       icon: Icons.shield_outlined,
-      title: 'Securite du compte',
-      subtitle: "Protegez l'acces a votre espace DSMO",
+      title: l10n.settingsSecurityCardTitle,
+      subtitle: l10n.settingsSecurityCardSubtitle,
       child: Column(
         children: [
           _buildFormRow([
-            _buildField('Mot de passe actuel', _currentPassCtrl,
+            _buildField(l10n.settingsFieldCurrentPassword, _currentPassCtrl,
                 obscure: true, prefix: Icons.lock_outline),
-            _buildField('Nouveau mot de passe', _newPassCtrl,
+            _buildField(l10n.settingsFieldNewPassword, _newPassCtrl,
                 obscure: true,
-                hint: 'Min. 8 caracteres',
+                hint: l10n.settingsPasswordHint,
                 prefix: Icons.lock_reset_outlined),
           ]),
           const SizedBox(height: 20),
           _buildToggle(
             icon: Icons.verified_user_outlined,
-            title: 'Authentification a deux facteurs (2FA)',
-            subtitle: 'Exiger un code de verification envoyé par email '
-                'a chaque connexion',
+            title: l10n.settingsToggle2faTitle,
+            subtitle: l10n.settingsToggle2faSubtitle,
             value: user?.twoFactorEnabled ?? false,
             enabled: !_savingPrefs.contains('twoFactor'),
             onChanged: (v) => _updatePreference(
@@ -421,11 +483,10 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           Icon(Icons.info_outline,
               size: 16, color: UltraTheme.primary.withValues(alpha: 0.8)),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Votre mot de passe doit contenir au moins 8 caracteres, '
-              'une majuscule et un chiffre.',
-              style: TextStyle(
+              context.l10n.settingsPasswordRequirements,
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
                   color: UltraTheme.primary,
@@ -442,36 +503,37 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildIntegrationsTab() {
+    final l10n = context.l10n;
     return _SettingsCard(
       icon: Icons.electrical_services_outlined,
-      title: 'Integrations',
-      subtitle: 'Connectez DSMO a vos outils externes',
+      title: l10n.settingsTabIntegrations,
+      subtitle: l10n.settingsIntegrationsCardSubtitle,
       child: Column(
         children: [
           _buildIntegration(
             name: 'Slack',
-            desc: 'Recevez les alertes dans votre canal Slack',
+            desc: l10n.settingsIntegrationSlackDesc,
             icon: Icons.chat_bubble_outline,
             color: const Color(0xFF4A154B),
             connected: false,
           ),
           _buildIntegration(
             name: 'Microsoft Teams',
-            desc: 'Notifications directement dans Teams',
+            desc: l10n.settingsIntegrationTeamsDesc,
             icon: Icons.groups_outlined,
             color: const Color(0xFF6264A7),
             connected: false,
           ),
           _buildIntegration(
             name: 'Google Calendar',
-            desc: 'Synchronisez les echeances reglementaires',
+            desc: l10n.settingsIntegrationCalendarDesc,
             icon: Icons.calendar_month_outlined,
             color: const Color(0xFF4285F4),
             connected: true,
           ),
           _buildIntegration(
             name: 'API Webhook',
-            desc: 'Envoyez les donnees a votre endpoint custom',
+            desc: l10n.settingsIntegrationWebhookDesc,
             icon: Icons.webhook_outlined,
             color: UltraTheme.accent,
             connected: false,
@@ -487,6 +549,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildDangerZone() {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: UltraTheme.surface,
@@ -527,14 +590,14 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Zone de danger',
-                        style: TextStyle(
+                    Text(l10n.settingsDangerZoneTitle,
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: UltraTheme.error)),
                     const SizedBox(height: 1),
-                    Text('Actions irreversibles sur votre compte',
+                    Text(l10n.settingsDangerZoneSubtitle,
                         style: UltraTheme.bodyMedium),
                   ],
                 ),
@@ -550,16 +613,15 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Supprimer le compte',
-                          style: TextStyle(
+                      Text(l10n.settingsDeleteAccountTitle,
+                          style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: UltraTheme.textPrimary)),
                       const SizedBox(height: 4),
                       Text(
-                          'Cette action est definitive et supprimera toutes '
-                          'vos declarations et donnees.',
+                          l10n.settingsDeleteAccountDesc,
                           style: UltraTheme.bodyMedium),
                     ],
                   ),
@@ -568,7 +630,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                 OutlinedButton.icon(
                   onPressed: () => _confirmDelete(context),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Supprimer'),
+                  label: Text(l10n.settingsDeleteButton),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: UltraTheme.error,
                     side: BorderSide(
@@ -616,12 +678,11 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                     color: UltraTheme.error, size: 28),
               ),
               const SizedBox(height: 20),
-              Text('Confirmer la suppression',
+              Text(ctx.l10n.settingsConfirmDeleteTitle,
                   style: UltraTheme.displayMedium.copyWith(fontSize: 20)),
               const SizedBox(height: 8),
               Text(
-                'Cette action est irreversible. Toutes vos donnees '
-                'seront definitivement supprimees.',
+                ctx.l10n.settingsConfirmDeleteBody,
                 textAlign: TextAlign.center,
                 style: UltraTheme.bodyMedium,
               ),
@@ -636,8 +697,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                           borderRadius:
                               BorderRadius.circular(UltraTheme.radiusMedium)),
                     ),
-                    child: const Text('Annuler',
-                        style: TextStyle(
+                    child: Text(ctx.l10n.cancelButton,
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
                             fontWeight: FontWeight.w600)),
@@ -656,8 +717,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                           borderRadius:
                               BorderRadius.circular(UltraTheme.radiusMedium)),
                     ),
-                    child: const Text('Supprimer',
-                        style: TextStyle(
+                    child: Text(ctx.l10n.settingsDeleteButton,
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 14,
                             fontWeight: FontWeight.w600)),
@@ -669,8 +730,21 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
         ),
       ),
     );
-    // TODO: call API to delete account if confirm == true
-    debugPrint('Delete confirmed: $confirm');
+    if (confirm != true) return;
+    try {
+      await ref.read(apiClientProvider).deleteMyAccount();
+      if (!context.mounted) return;
+      await ref.read(authProvider.notifier).logout();
+      if (!context.mounted) return;
+      router.go('/login');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(context.l10n.settingsDeleteAccountError('$e'))),
+        );
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -839,6 +913,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
     required bool connected,
     bool isLast = false,
   }) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: isLast
@@ -891,8 +966,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                       size: 7,
                       color: UltraTheme.success.withValues(alpha: 0.9)),
                   const SizedBox(width: 5),
-                  const Text('Connecte',
-                      style: TextStyle(
+                  Text(l10n.settingsConnectedBadge,
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -917,7 +992,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                     fontSize: 13,
                     fontWeight: FontWeight.w500),
               ),
-              child: const Text('Connecter'),
+              child: Text(l10n.settingsConnectButton),
             ),
         ],
       ),
@@ -940,13 +1015,13 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             textStyle: const TextStyle(
                 fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600),
           ),
-          child: const Text('Annuler'),
+          child: Text(context.l10n.cancelButton),
         ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: () {},
           icon: const Icon(Icons.check_rounded, size: 17),
-          label: const Text('Enregistrer'),
+          label: Text(context.l10n.settingsSaveButton),
           style: ElevatedButton.styleFrom(
             backgroundColor: UltraTheme.primary,
             foregroundColor: Colors.white,

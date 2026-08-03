@@ -281,7 +281,7 @@ class _IdentificationTableState extends State<IdentificationTable> {
           children: [
             Expanded(
               child: Text(
-                field.label ?? field.id,
+                field.label?.fr ?? field.id,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -378,7 +378,7 @@ class _IdentificationTableState extends State<IdentificationTable> {
                 width: 2,
               ),
             ),
-            hintText: field.hint ?? _defaultHint(field),
+            hintText: field.hint?.fr ?? _defaultHint(field),
             hintStyle: TextStyle(
               color: Colors.grey.shade400,
               fontSize: 12,
@@ -520,7 +520,7 @@ class _IdentificationTableState extends State<IdentificationTable> {
       case 'select':
         return 'Choisir...';
       default:
-        return field.hint ?? 'Saisir...';
+        return field.hint?.fr ?? 'Saisir...';
     }
   }
 }

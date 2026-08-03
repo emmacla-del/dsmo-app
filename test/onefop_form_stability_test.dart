@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:dsmo_app/l10n/generated/app_localizations.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_constants.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_controller.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_widgets.dart';
@@ -50,6 +51,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: OnefopUnifiedFormScreenV4(
             entityType: EntityType.enterprise,
             initialData: const {},
@@ -100,6 +104,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: OnefopUnifiedFormScreenV4(
             entityType: EntityType.enterprise,
             initialData: const {},

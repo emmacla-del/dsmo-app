@@ -5,7 +5,7 @@ import '../../theme/ultra_theme.dart';
 class SectionLabel extends StatelessWidget {
   final IconData icon;
   final String label;
-  const SectionLabel({required this.icon, required this.label});
+  const SectionLabel({super.key, required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class DropdownField<T> extends StatelessWidget {
   final String Function(T) itemLabel;
   final ValueChanged<T?> onChanged;
 
-  const DropdownField({
+  const DropdownField({super.key, 
     required this.label,
     required this.value,
     required this.items,
@@ -77,7 +77,7 @@ class DateField extends StatelessWidget {
   final String label;
   final DateTime? date;
   final VoidCallback onTap;
-  const DateField({required this.label, this.date, required this.onTap});
+  const DateField({super.key, required this.label, this.date, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +115,7 @@ class IconAction extends StatelessWidget {
   final String tooltip;
   final VoidCallback onTap;
   const IconAction(
-      {required this.icon, required this.tooltip, required this.onTap});
+      {super.key, required this.icon, required this.tooltip, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +140,7 @@ class IconAction extends StatelessWidget {
 }
 
 class PdfBadge extends StatelessWidget {
-  const PdfBadge();
+  const PdfBadge({super.key});
   @override
   Widget build(BuildContext context) {
     return Container(

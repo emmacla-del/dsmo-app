@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/i18n/l10n_ext.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'onefop_form_constants.dart' show EntityType;
 
 enum _FlowState {
@@ -145,12 +147,12 @@ class _OnefopLegalAcknowledgmentScreenState
   }
 
   // FIX: return switch (Dart 3) — exhaustiveness guaranteed, no analyzer warning
-  String get _entityShortLabel {
+  String _entityShortLabel(AppLocalizations l10n) {
     return switch (widget.entityType) {
-      EntityType.ong => 'ONG / NGO',
-      EntityType.enterprise => 'ENTREPRISE / ENTERPRISE',
-      EntityType.cooperative => 'COOPÉRATIVE / COOPERATIVE',
-      EntityType.ctd => 'CTD / TCC',
+      EntityType.ong => l10n.entityShortOng,
+      EntityType.enterprise => l10n.entityShortEnterprise,
+      EntityType.cooperative => l10n.entityShortCooperative,
+      EntityType.ctd => l10n.entityShortCtd,
     };
   }
 
@@ -171,9 +173,9 @@ class _OnefopLegalAcknowledgmentScreenState
                   const SizedBox(height: 24),
                   FadeTransition(
                     opacity: _pulseGlow,
-                    child: const Text(
-                      'Chargement…',
-                      style: TextStyle(
+                    child: Text(
+                      context.l10n.loadingEllipsis,
+                      style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 13,
                         color: Color(0xFF94A3B8),
@@ -300,9 +302,9 @@ class _OnefopLegalAcknowledgmentScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'COLLECTE DES DONNÉES SUR LES EMPLOIS CRÉÉS PAR LE SECTEUR MODERNE DE L\'ÉCONOMIE',
-                              style: TextStyle(
+                            Text(
+                              context.l10n.legalNoticeTitle,
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -310,19 +312,9 @@ class _OnefopLegalAcknowledgmentScreenState
                                 height: 1.35,
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF64748B),
-                                height: 1.35,
-                              ),
-                            ),
                             const SizedBox(height: 10),
-                            _EntityBadge(label: _entityShortLabel),
+                            _EntityBadge(
+                                label: _entityShortLabel(context.l10n)),
                           ],
                         ),
                       ),
@@ -387,26 +379,15 @@ class _OnefopLegalAcknowledgmentScreenState
                                 : null,
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'J\'ai pris connaissance de cet avis',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1E293B),
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text('I acknowledge this notice',
-                                    style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 11,
-                                        color: Color(0xFF64748B))),
-                              ],
+                          Expanded(
+                            child: Text(
+                              context.l10n.acknowledgeCheckboxLabel,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
                           ),
                         ],
@@ -422,7 +403,7 @@ class _OnefopLegalAcknowledgmentScreenState
                     curve: Curves.easeOut,
                     transform: _isAcknowledged
                         ? Matrix4.identity()
-                        : (Matrix4.identity()..scale(0.98)),
+                        : (Matrix4.identity()..scaleByDouble(0.98, 0.98, 0.98, 1)),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -440,8 +421,8 @@ class _OnefopLegalAcknowledgmentScreenState
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('Commencer / Begin',
-                            style: TextStyle(
+                        child: Text(context.l10n.beginButton,
+                            style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -459,8 +440,8 @@ class _OnefopLegalAcknowledgmentScreenState
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
                       ),
-                      child: const Text('Retour / Go Back',
-                          style: TextStyle(
+                      child: Text(context.l10n.goBackButton,
+                          style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 12,
                               fontWeight: FontWeight.w500)),
@@ -492,7 +473,7 @@ class _EntityBadge extends StatelessWidget {
         ),
       ),
       child: Text(
-        '- Questionnaire $label -',
+        context.l10n.questionnaireBadge(label),
         style: const TextStyle(
           fontFamily: 'Inter',
           fontSize: 11,
@@ -532,9 +513,9 @@ class _ConfidentialityCard extends StatelessWidget {
                     size: 16, color: Color(0xFF4472C4)),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Avis de confidentialité / Confidential Notice',
-                style: TextStyle(
+              Text(
+                context.l10n.confidentialityNoticeHeading,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -544,29 +525,12 @@ class _ConfidentialityCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Les informations contenues dans ce document sont confidentielles '
-            'et ne pourront être utilisées à des fins de poursuites judiciaires, '
-            'de contrôle fiscal ou de répression économique, conformément à la '
-            'Loi N° 2020/010 du 20 juillet 2020 relative aux recensements et '
-            'enquêtes Statistiques.',
-            style: TextStyle(
+          Text(
+            context.l10n.confidentialityNoticeBody,
+            style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
               color: Color(0xFF475569),
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'The information contained in this document is confidential and may '
-            'not be used for legal proceedings, fiscal control or economic '
-            'repression, in accordance with Law N° 2020/010 of 20 July 2020 '
-            'on censuses and statistical surveys.',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              color: Color(0xFF64748B),
               height: 1.6,
             ),
           ),
@@ -581,14 +545,14 @@ class _LegalFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Icon(Icons.gavel_outlined, size: 13, color: Color(0xFF94A3B8)),
-        SizedBox(width: 8),
+        const Icon(Icons.gavel_outlined, size: 13, color: Color(0xFF94A3B8)),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Loi N° 2020/010 du 20 juillet 2020 / Law N° 2020/010 of 20 July 2020',
-            style: TextStyle(
+            context.l10n.legalFooterLawReference,
+            style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 10,
               color: Color(0xFF94A3B8),

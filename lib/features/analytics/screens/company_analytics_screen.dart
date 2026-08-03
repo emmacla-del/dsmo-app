@@ -21,6 +21,7 @@ import 'package:dio/dio.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
+import '../../../core/i18n/l10n_ext.dart';
 import '../data/bilan_rh.dart';
 
 Map<String, dynamic> _safeMap(dynamic value) {
@@ -235,6 +236,7 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final user = ref.watch(authProvider).value;
     final hasBenchmarking = user?.features.onefopBenchmarking ?? false;
     final submissionStatus = user?.features.onefopSubmissionStatus;
@@ -262,21 +264,23 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
                   const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               unselectedLabelStyle: const TextStyle(fontSize: 13),
               tabs: [
-                const Tab(text: 'Bilan RH'),
+                Tab(text: l10n.companyAnalyticsTabBilanRh),
                 Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Benchmarking'),
+                      Text(l10n.companyAnalyticsTabBenchmarking),
                       if (hasBenchmarking) ...[
                         const SizedBox(width: 6),
-                        const _ActiveBadge(
-                            label: 'Actif', color: Colors.green, mini: true),
+                        _ActiveBadge(
+                            label: l10n.companyAnalyticsBadgeActive,
+                            color: Colors.green,
+                            mini: true),
                       ],
                     ],
                   ),
                 ),
-                const Tab(text: 'Opportunités'),
+                Tab(text: l10n.companyAnalyticsTabOpportunities),
               ],
             ),
           ),
@@ -315,13 +319,11 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
                 ),
 
                 // ── Tab 3: Opportunités ────────────────────
-                const _ComingSoonView(
+                _ComingSoonView(
                   icon: Icons.lightbulb_outline,
-                  title: 'Opportunités actionnables',
-                  description:
-                      'Formations éligibles à des subventions, candidats correspondant à vos postes vacants, '
-                      'et incitatifs fiscaux détectés à partir de vos données.',
-                  badgeLabel: 'Bientôt disponible',
+                  title: l10n.companyAnalyticsOpportunitiesTitle,
+                  description: l10n.companyAnalyticsOpportunitiesDescription,
+                  badgeLabel: l10n.companyAnalyticsComingSoonBadge,
                 ),
               ],
             ),
@@ -351,6 +353,7 @@ class _BilanTabContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     // ── Gate on bilan only — summary is secondary/optional ──
 
     // Still loading the primary data source
@@ -377,18 +380,18 @@ class _BilanTabContent extends StatelessWidget {
       children: [
         // ── Header ────────────────────────────────────────
         Text(
-          'Analytique $currentYear',
+          l10n.companyAnalyticsHeaderYear(currentYear),
           style: UltraTheme.displayMedium.copyWith(fontSize: 24),
         ),
         const SizedBox(height: 4),
         Text(
-          'Données issues de vos déclarations ONEFOP approuvées',
+          l10n.companyAnalyticsBilanSubtitle,
           style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
         ),
         const SizedBox(height: 24),
 
         // ── v1 CompanySummary section (optional — 404 → locked card) ──
-        const _SectionTitle('Ma Situation'),
+        _SectionTitle(l10n.companyAnalyticsSectionMySituation),
         summaryAsync.when(
           data: (s) {
             if (s == null) {
@@ -397,12 +400,13 @@ class _BilanTabContent extends StatelessWidget {
             return _SummaryCards(summary: s);
           },
           loading: () => const _ShimmerSummary(),
-          error: (e, _) => _ErrorCard(message: 'Erreur chargement: $e'),
+          error: (e, _) =>
+              _ErrorCard(message: l10n.companyAnalyticsLoadError('$e')),
         ),
         const SizedBox(height: 32),
 
         // ── v2 BilanRh section (guaranteed non-null here) ──
-        const _SectionTitle('Bilan RH Détaillé'),
+        _SectionTitle(l10n.companyAnalyticsSectionBilanDetailed),
         _BilanRhView(bilan: bilan, year: currentYear),
         const SizedBox(height: 8),
       ],
@@ -427,25 +431,24 @@ class _BenchmarkingTabContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (!hasBenchmarking) {
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const _SectionTitle(
-            'Benchmarking Sectoriel',
-            trailing:
-                _ActiveBadge(label: 'En attente', color: UltraTheme.warning),
+          _SectionTitle(
+            l10n.companyAnalyticsSectionBenchmarking,
+            trailing: _ActiveBadge(
+                label: l10n.companyAnalyticsBadgePending,
+                color: UltraTheme.warning),
           ),
           _LockedBenchmarkCard(status: submissionStatus),
           const SizedBox(height: 32),
-          const _ComingSoonView(
+          _ComingSoonView(
             icon: Icons.bar_chart_outlined,
-            title: 'Benchmarking sectoriel',
-            description:
-                'Comparez vos indicateurs RH avec les entreprises de votre secteur et région. '
-                'Disponible dès que votre dossier est approuvé et que suffisamment '
-                'd\'entreprises ont soumis leur déclaration.',
-            badgeLabel: 'Bientôt disponible',
+            title: l10n.companyAnalyticsBenchmarkingComingTitle,
+            description: l10n.companyAnalyticsBenchmarkingComingDescription,
+            badgeLabel: l10n.companyAnalyticsComingSoonBadge,
           ),
         ],
       );
@@ -458,9 +461,11 @@ class _BenchmarkingTabContent extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              const _SectionTitle(
-                'Benchmarking Sectoriel',
-                trailing: _ActiveBadge(label: 'Actif', color: Colors.green),
+              _SectionTitle(
+                l10n.companyAnalyticsSectionBenchmarking,
+                trailing: _ActiveBadge(
+                    label: l10n.companyAnalyticsBadgeActive,
+                    color: Colors.green),
               ),
               _InsufficientDataCard(
                 peerCount: benchmarks.peerCount ?? 0,
@@ -472,12 +477,15 @@ class _BenchmarkingTabContent extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const _SectionTitle(
-              'Benchmarking Sectoriel',
-              trailing: _ActiveBadge(label: 'Actif', color: Colors.green),
+            _SectionTitle(
+              l10n.companyAnalyticsSectionBenchmarking,
+              trailing: _ActiveBadge(
+                  label: l10n.companyAnalyticsBadgeActive,
+                  color: Colors.green),
             ),
             Text(
-              '${benchmarks.peerCount ?? '—'} entreprises dans votre groupe de comparaison',
+              l10n.companyAnalyticsPeerGroupCount(
+                  '${benchmarks.peerCount ?? '—'}'),
               style: UltraTheme.bodyMedium
                   .copyWith(color: UltraTheme.textMuted, fontSize: 13),
             ),
@@ -487,7 +495,8 @@ class _BenchmarkingTabContent extends StatelessWidget {
         );
       },
       loading: () => const _ShimmerBenchmarkFull(),
-      error: (e, _) => _ErrorView(message: 'Erreur benchmarking: $e'),
+      error: (e, _) =>
+          _ErrorView(message: l10n.companyAnalyticsBenchmarkError('$e')),
     );
   }
 }
@@ -502,46 +511,48 @@ class _SummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       children: [
         _StatCard(
-          title: 'Effectif total',
+          title: l10n.companyAnalyticsTotalWorkforce,
           value: summary.totalEmployees.toString(),
-          subtitle: summary.growthRate >= 0
-              ? '+${summary.growthRate.toStringAsFixed(1)}% vs N-1'
-              : '${summary.growthRate.toStringAsFixed(1)}% vs N-1',
+          subtitle: l10n.companyAnalyticsVsPreviousYearLabel(
+              summary.growthRate >= 0
+                  ? '+${summary.growthRate.toStringAsFixed(1)}%'
+                  : '${summary.growthRate.toStringAsFixed(1)}%'),
           subtitleColor: summary.growthRate >= 0 ? Colors.green : Colors.red,
           icon: Icons.people_outline,
         ),
         _StatCard(
-          title: 'Femmes',
+          title: l10n.womenLabel,
           value: '${summary.gender.femalePct.toStringAsFixed(0)}%',
-          subtitle: '${summary.gender.female} employées',
+          subtitle: l10n.companyAnalyticsFemaleCountLabel(summary.gender.female),
           icon: Icons.woman,
           color: Colors.pink,
         ),
         _StatCard(
-          title: 'Hommes',
+          title: l10n.menLabel,
           value: '${summary.gender.malePct.toStringAsFixed(0)}%',
-          subtitle: '${summary.gender.male} employés',
+          subtitle: l10n.companyAnalyticsMaleCountLabel(summary.gender.male),
           icon: Icons.man,
           color: Colors.blue,
         ),
         _StatCard(
-          title: 'Recrutements',
+          title: l10n.companyAnalyticsRecruitmentsLabel,
           value: summary.movements.recruitments.toString(),
-          subtitle:
-              'Net: ${summary.movements.netChange > 0 ? '+' : ''}${summary.movements.netChange}',
+          subtitle: l10n.companyAnalyticsNetLabel(
+              '${summary.movements.netChange > 0 ? '+' : ''}${summary.movements.netChange}'),
           subtitleColor:
               summary.movements.netChange >= 0 ? Colors.green : Colors.red,
           icon: Icons.person_add_alt,
         ),
         _StatCard(
-          title: 'Départs',
+          title: l10n.companyAnalyticsDeparturesLabel,
           value: (summary.movements.dismissals + summary.movements.retirements)
               .toString(),
-          subtitle:
-              '${summary.movements.dismissals} licenciements · ${summary.movements.retirements} retraites',
+          subtitle: l10n.companyAnalyticsDismissalsRetirementsLabel(
+              summary.movements.dismissals, summary.movements.retirements),
           icon: Icons.person_remove,
         ),
         _CategoryBreakdown(categories: summary.categories),
@@ -560,6 +571,7 @@ class _BenchmarkCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final metrics = benchmarks.metrics;
     if (metrics == null) return const SizedBox.shrink();
 
@@ -574,15 +586,15 @@ class _BenchmarkCards extends StatelessWidget {
       children: [
         if (empMetrics.isNotEmpty)
           _BenchmarkRow(
-            label: 'Effectif total',
+            label: l10n.companyAnalyticsTotalWorkforce,
             mine: _safeInt(empMetrics['mine']),
             median: _safeInt(empMetrics['median']),
             percentile: _safeInt(empMetrics['percentile']),
-            unit: 'employés',
+            unit: l10n.companyAnalyticsUnitEmployees,
           ),
         if (genderMetrics.isNotEmpty)
           _BenchmarkRow(
-            label: 'Taux de féminisation',
+            label: l10n.companyAnalyticsFeminizationRate,
             mine: _safeDouble(genderMetrics['mine']),
             median: _safeDouble(genderMetrics['median']),
             percentile: _safeInt(genderMetrics['percentile']),
@@ -605,22 +617,23 @@ class _BilanRhView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Données issues de votre déclaration ONEFOP approuvée',
+        Text(l10n.companyAnalyticsBilanDeclarationSubtitle,
             style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
         const SizedBox(height: 20),
-        const _SectionLabel('Effectifs'),
+        _SectionLabel(l10n.companyAnalyticsSectionEffectifs),
         _MetricRow(children: [
           _MetricCard(
-            label: 'Employés permanents',
+            label: l10n.companyAnalyticsPermanentEmployees,
             value: bilan.permanentWorkers.toString(),
             icon: Icons.people_outline,
             color: UltraTheme.primary,
           ),
           _MetricCard(
-            label: 'Postes vacants',
+            label: l10n.companyAnalyticsVacantPositions,
             value: bilan.vacancies.toString(),
             badge: '${bilan.vacancyRate.toStringAsFixed(1)}%',
             badgeColor: bilan.vacancyRate > 10 ? Colors.orange : Colors.green,
@@ -630,33 +643,33 @@ class _BilanRhView extends StatelessWidget {
         const SizedBox(height: 8),
         _MetricRow(children: [
           _MetricCard(
-            label: 'Recrutements',
+            label: l10n.companyAnalyticsRecruitmentsLabel,
             value: bilan.totalRecruitments.toString(),
             icon: Icons.person_add_alt_outlined,
             color: Colors.green,
           ),
           _MetricCard(
-            label: 'Taux de rotation',
+            label: l10n.companyAnalyticsTurnoverRate,
             value: '${bilan.turnoverRate.toStringAsFixed(1)}%',
-            badge: bilan.turnoverRate > 10 ? 'Élevé' : 'Normal',
+            badge: bilan.turnoverRate > 10 ? l10n.companyAnalyticsHigh : l10n.companyAnalyticsNormal,
             badgeColor: bilan.turnoverRate > 10 ? Colors.orange : Colors.green,
             icon: Icons.swap_horiz,
           ),
         ]),
         const SizedBox(height: 24),
-        const _SectionLabel('Recrutements par catégorie'),
+        _SectionLabel(l10n.companyAnalyticsSectionRecruitmentsByCategory),
         _CspRecruitmentCard(breakdown: bilan.recruitments.combined),
         const SizedBox(height: 24),
-        const _SectionLabel('Départs'),
+        _SectionLabel(l10n.companyAnalyticsDeparturesLabel),
         _DeparturesCard(departures: bilan.departures),
         const SizedBox(height: 24),
         if (bilan.internships.total > 0) ...[
-          const _SectionLabel('Stagiaires'),
+          _SectionLabel(l10n.companyAnalyticsSectionInterns),
           _InternshipCard(internships: bilan.internships),
           const SizedBox(height: 24),
         ],
         if (bilan.skillNeeds.isNotEmpty || bilan.trainingNeeds.isNotEmpty) ...[
-          const _SectionLabel('Compétences & Formation'),
+          _SectionLabel(l10n.companyAnalyticsSectionSkillsTraining),
           _SkillsTrainingCard(
               skillNeeds: bilan.skillNeeds, trainingNeeds: bilan.trainingNeeds),
           const SizedBox(height: 24),
@@ -847,15 +860,21 @@ class _CategoryBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final total = categories.values.fold(0, (a, b) => a + b);
     if (total == 0) return const SizedBox.shrink();
 
     final entries = [
-      _CatEntry('Cadres (1-3)', categories['cat1_3'] ?? 0, UltraTheme.primary),
-      _CatEntry('Maîtrise (4-6)', categories['cat4_6'] ?? 0, Colors.orange),
-      _CatEntry('Ouvriers (7-9)', categories['cat7_9'] ?? 0, Colors.teal),
-      _CatEntry('Autres (10-12)', categories['cat10_12'] ?? 0, Colors.purple),
-      _CatEntry('Non-déclaré', categories['nonDeclared'] ?? 0, Colors.grey),
+      _CatEntry(l10n.companyAnalyticsCatExecutives, categories['cat1_3'] ?? 0,
+          UltraTheme.primary),
+      _CatEntry(l10n.companyAnalyticsCatSupervisors, categories['cat4_6'] ?? 0,
+          Colors.orange),
+      _CatEntry(
+          l10n.companyAnalyticsCatWorkers, categories['cat7_9'] ?? 0, Colors.teal),
+      _CatEntry(l10n.companyAnalyticsCatOthers, categories['cat10_12'] ?? 0,
+          Colors.purple),
+      _CatEntry(l10n.companyAnalyticsCatUndeclared,
+          categories['nonDeclared'] ?? 0, Colors.grey),
     ].where((e) => e.count > 0).toList();
 
     return Card(
@@ -870,7 +889,7 @@ class _CategoryBreakdown extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Répartition par catégorie',
+            Text(l10n.companyAnalyticsCategoryBreakdownTitle,
                 style: UltraTheme.bodyMedium
                     .copyWith(color: UltraTheme.textMuted)),
             const SizedBox(height: 12),
@@ -966,6 +985,7 @@ class _BenchmarkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final mineStr = isPercentage ? mine.toStringAsFixed(1) : mine.toString();
     final medianStr =
         isPercentage ? median.toStringAsFixed(1) : median.toString();
@@ -974,13 +994,14 @@ class _BenchmarkRow extends StatelessWidget {
     String percentileText;
     if (percentile >= 75) {
       percentileColor = Colors.green;
-      percentileText = 'Top $percentile%';
+      percentileText = l10n.companyAnalyticsPercentileTop(percentile);
     } else if (percentile >= 50) {
       percentileColor = Colors.orange;
-      percentileText = 'Médian+';
+      percentileText = l10n.companyAnalyticsPercentileMedianPlus;
     } else {
       percentileColor = Colors.red;
-      percentileText = 'Bottom ${100 - percentile}%';
+      percentileText =
+          l10n.companyAnalyticsPercentileBottom(100 - percentile);
     }
 
     return Card(
@@ -1024,7 +1045,7 @@ class _BenchmarkRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: _BenchmarkValue(
-                    label: 'Votre entreprise',
+                    label: l10n.companyAnalyticsYourCompany,
                     value: '$mineStr $unit',
                     isHighlighted: true,
                   ),
@@ -1032,7 +1053,7 @@ class _BenchmarkRow extends StatelessWidget {
                 Container(height: 40, width: 1, color: Colors.grey.shade300),
                 Expanded(
                   child: _BenchmarkValue(
-                    label: 'Médiane secteur',
+                    label: l10n.companyAnalyticsSectorMedian,
                     value: '$medianStr $unit',
                     isHighlighted: false,
                   ),
@@ -1163,10 +1184,11 @@ class _CspRecruitmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final rows = [
-      ('Cadres', breakdown.executives),
-      ('Agents de maîtrise', breakdown.foremen),
-      ('Ouvriers / terrain', breakdown.workers),
+      (l10n.companyAnalyticsExecutivesRow, breakdown.executives),
+      (l10n.companyAnalyticsForemenRow, breakdown.foremen),
+      (l10n.companyAnalyticsWorkersFieldRow, breakdown.workers),
     ];
     final grandTotal = breakdown.total.total;
 
@@ -1183,12 +1205,12 @@ class _CspRecruitmentCard extends StatelessWidget {
           children: [
             Row(children: [
               Expanded(
-                  child: Text('Catégorie',
+                  child: Text(l10n.companyAnalyticsCategoryHeader,
                       style: UltraTheme.bodyMedium.copyWith(
                           color: UltraTheme.textMuted, fontSize: 12))),
               SizedBox(
                   width: 48,
-                  child: Text('H',
+                  child: Text(l10n.companyAnalyticsGenderColumnMale,
                       textAlign: TextAlign.center,
                       style: UltraTheme.bodyMedium.copyWith(
                           color: Colors.blue,
@@ -1196,7 +1218,7 @@ class _CspRecruitmentCard extends StatelessWidget {
                           fontWeight: FontWeight.w600))),
               SizedBox(
                   width: 48,
-                  child: Text('F',
+                  child: Text(l10n.companyAnalyticsGenderColumnFemale,
                       textAlign: TextAlign.center,
                       style: UltraTheme.bodyMedium.copyWith(
                           color: Colors.pink,
@@ -1204,7 +1226,7 @@ class _CspRecruitmentCard extends StatelessWidget {
                           fontWeight: FontWeight.w600))),
               SizedBox(
                   width: 48,
-                  child: Text('Total',
+                  child: Text(l10n.total,
                       textAlign: TextAlign.center,
                       style: UltraTheme.bodyMedium.copyWith(
                           color: UltraTheme.textMuted, fontSize: 12))),
@@ -1215,7 +1237,7 @@ class _CspRecruitmentCard extends StatelessWidget {
             const Divider(height: 12),
             Row(children: [
               Expanded(
-                  child: Text('Total',
+                  child: Text(l10n.total,
                       style: UltraTheme.bodyMedium
                           .copyWith(fontWeight: FontWeight.w700))),
               SizedBox(
@@ -1255,6 +1277,7 @@ class _CspRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final pct = grandTotal > 0
         ? (counts.total / grandTotal * 100).toStringAsFixed(0)
         : '0';
@@ -1265,7 +1288,7 @@ class _CspRow extends StatelessWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: UltraTheme.bodyMedium.copyWith(fontSize: 13)),
-          Text('$pct% du total',
+          Text(l10n.companyAnalyticsPercentOfTotal(pct),
               style: UltraTheme.bodyMedium
                   .copyWith(fontSize: 11, color: UltraTheme.textMuted)),
         ])),
@@ -1296,11 +1319,12 @@ class _DeparturesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final rows = [
-      ('Licenciements', departures.dismissals, Colors.red),
-      ('Démissions', departures.resignations, Colors.orange),
-      ('Retraites', departures.retirements, Colors.teal),
-      ('Autres', departures.others, Colors.grey),
+      (l10n.companyAnalyticsDismissals, departures.dismissals, Colors.red),
+      (l10n.companyAnalyticsResignations, departures.resignations, Colors.orange),
+      (l10n.companyAnalyticsRetirements, departures.retirements, Colors.teal),
+      (l10n.companyAnalyticsOthers, departures.others, Colors.grey),
     ].where((r) => r.$2.total > 0).toList();
 
     if (rows.isEmpty) {
@@ -1312,7 +1336,7 @@ class _DeparturesCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text('Aucun départ enregistré sur la période.',
+          child: Text(l10n.companyAnalyticsNoDeparturesRecorded,
               style:
                   UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
         ),
@@ -1340,15 +1364,15 @@ class _DeparturesCard extends StatelessWidget {
                   Expanded(
                       child: Text(r.$1,
                           style: UltraTheme.bodyMedium.copyWith(fontSize: 13))),
-                  Text('H: ${r.$2.male}',
+                  Text('${l10n.companyAnalyticsGenderColumnMale}: ${r.$2.male}',
                       style: UltraTheme.bodyMedium
                           .copyWith(fontSize: 12, color: UltraTheme.textMuted)),
                   const SizedBox(width: 12),
-                  Text('F: ${r.$2.female}',
+                  Text('${l10n.companyAnalyticsGenderColumnFemale}: ${r.$2.female}',
                       style: UltraTheme.bodyMedium
                           .copyWith(fontSize: 12, color: UltraTheme.textMuted)),
                   const SizedBox(width: 12),
-                  Text('Total: ${r.$2.total}',
+                  Text('${l10n.total}: ${r.$2.total}',
                       style: UltraTheme.bodyMedium
                           .copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
                 ]),
@@ -1356,7 +1380,7 @@ class _DeparturesCard extends StatelessWidget {
           const Divider(),
           Row(children: [
             Expanded(
-                child: Text('Total départs',
+                child: Text(l10n.companyAnalyticsTotalDepartures,
                     style: UltraTheme.bodyMedium
                         .copyWith(fontWeight: FontWeight.w600))),
             Text(departures.total.total.toString(),
@@ -1377,11 +1401,12 @@ class _InternshipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final rows = [
-      ('Stage de vacances', internships.holiday),
-      ('Stage académique', internships.academic),
-      ('Stage professionnel', internships.professional),
-      ('Stage pré-emploi', internships.preWork),
+      (l10n.companyAnalyticsInternshipHoliday, internships.holiday),
+      (l10n.companyAnalyticsInternshipAcademic, internships.academic),
+      (l10n.companyAnalyticsInternshipProfessional, internships.professional),
+      (l10n.companyAnalyticsInternshipPreWork, internships.preWork),
     ].where((r) => r.$2 > 0).toList();
 
     return Card(
@@ -1407,7 +1432,7 @@ class _InternshipCard extends StatelessWidget {
           const Divider(),
           Row(children: [
             Expanded(
-                child: Text('Total stagiaires',
+                child: Text(l10n.companyAnalyticsTotalInterns,
                     style: UltraTheme.bodyMedium
                         .copyWith(fontWeight: FontWeight.w600))),
             Text(internships.total.toString(),
@@ -1430,6 +1455,7 @@ class _SkillsTrainingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -1442,7 +1468,7 @@ class _SkillsTrainingCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (skillNeeds.isNotEmpty) ...[
-              Text('Besoins en compétences',
+              Text(l10n.companyAnalyticsSkillNeeds,
                   style: UltraTheme.bodyMedium.copyWith(
                       color: UltraTheme.textMuted,
                       fontSize: 12,
@@ -1456,7 +1482,7 @@ class _SkillsTrainingCard extends StatelessWidget {
             if (skillNeeds.isNotEmpty && trainingNeeds.isNotEmpty)
               const Divider(height: 20),
             if (trainingNeeds.isNotEmpty) ...[
-              Text('Besoins en formation',
+              Text(l10n.companyAnalyticsTrainingNeeds,
                   style: UltraTheme.bodyMedium.copyWith(
                       color: UltraTheme.textMuted,
                       fontSize: 12,
@@ -1519,6 +1545,7 @@ class _InclusionInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final inclPct = totalRecruitments > 0
         ? ((vulnerable.total + disabled.total) / totalRecruitments * 100)
             .toStringAsFixed(1)
@@ -1537,27 +1564,28 @@ class _InclusionInsightCard extends StatelessWidget {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Impact social',
+          Text(l10n.companyAnalyticsSocialImpact,
               style: UltraTheme.bodyMedium.copyWith(
                   fontWeight: FontWeight.w700, color: Colors.teal.shade700)),
           const SizedBox(height: 4),
           if (vulnerable.total > 0)
             Text(
-                '${vulnerable.total} travailleur(s) vulnérable(s) recruté(s) '
-                '(${vulnerable.internalDisplaced.total} déplacés, '
-                '${vulnerable.refugees.total} réfugiés, '
-                '${vulnerable.orphans.total} orphelins)',
+                l10n.companyAnalyticsVulnerableWorkersRecruited(
+                    vulnerable.total,
+                    vulnerable.internalDisplaced.total,
+                    vulnerable.refugees.total,
+                    vulnerable.orphans.total),
                 style: UltraTheme.bodyMedium.copyWith(fontSize: 13)),
           if (disabled.total > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                  '${disabled.total} personne(s) en situation de handicap recrutée(s)',
+                  l10n.companyAnalyticsDisabledWorkersRecruited(disabled.total),
                   style: UltraTheme.bodyMedium.copyWith(fontSize: 13)),
             ),
           const SizedBox(height: 4),
           Text(
-              '$inclPct% de vos recrutements concernent des profils prioritaires.',
+              l10n.companyAnalyticsPriorityProfilesShare(inclPct),
               style: UltraTheme.bodyMedium.copyWith(
                   fontSize: 12,
                   color: Colors.teal.shade600,
@@ -1578,6 +1606,7 @@ class _LockedAnalyticsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     String message;
     IconData icon;
     Color color;
@@ -1585,20 +1614,17 @@ class _LockedAnalyticsCard extends StatelessWidget {
     switch (status) {
       case 'SUBMITTED':
       case 'PENDING_REVIEW':
-        message =
-            'Votre questionnaire ONEFOP est en cours de révision. Les analyses seront disponibles après approbation.';
+        message = l10n.companyAnalyticsLockedUnderReview;
         icon = Icons.hourglass_top;
         color = UltraTheme.warning;
         break;
       case 'DRAFT':
-        message =
-            'Vous avez un brouillon ONEFOP en cours. Finalisez et soumettez pour accéder à vos analyses.';
+        message = l10n.companyAnalyticsLockedDraft;
         icon = Icons.edit_note;
         color = UltraTheme.info;
         break;
       default:
-        message =
-            'Soumettez le questionnaire ONEFOP pour accéder à vos analyses personnelles.';
+        message = l10n.companyAnalyticsLockedDefault;
         icon = Icons.lock_outline;
         color = UltraTheme.textMuted;
     }
@@ -1628,21 +1654,19 @@ class _LockedBenchmarkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     String message;
     IconData icon;
 
     switch (status) {
       case 'SUBMITTED':
-        message =
-            'Votre questionnaire est en cours de révision par MINEFOP. Les comparaisons sectorielles seront débloquées après approbation.';
+        message = l10n.companyAnalyticsBenchmarkLockedSubmitted;
         icon = Icons.hourglass_top;
       case 'UNDER_REVIEW':
-        message =
-            'Votre questionnaire est en cours d\'analyse. Les benchmarks arrivent bientôt.';
+        message = l10n.companyAnalyticsBenchmarkLockedUnderReview;
         icon = Icons.reviews_outlined;
       default:
-        message =
-            'Soumettez le questionnaire ONEFOP pour accéder aux analyses comparatives.';
+        message = l10n.companyAnalyticsBenchmarkLockedDefault;
         icon = Icons.lock_outline;
     }
 
@@ -1671,6 +1695,7 @@ class _LockedBilanView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     IconData icon;
     String message;
     Color color;
@@ -1679,20 +1704,17 @@ class _LockedBilanView extends StatelessWidget {
       case 'SUBMITTED':
       case 'PENDING_REVIEW':
         icon = Icons.hourglass_top;
-        message =
-            'Votre déclaration ONEFOP est en cours de révision. Votre bilan RH sera disponible après approbation.';
+        message = l10n.companyAnalyticsBilanLockedUnderReview;
         color = UltraTheme.warning;
         break;
       case 'DRAFT':
         icon = Icons.edit_note;
-        message =
-            'Vous avez un brouillon en cours. Finalisez et soumettez votre déclaration pour accéder à votre bilan.';
+        message = l10n.companyAnalyticsBilanLockedDraft;
         color = UltraTheme.info;
         break;
       default:
         icon = Icons.lock_outline;
-        message =
-            'Soumettez votre déclaration ONEFOP pour accéder à votre bilan RH personnalisé.';
+        message = l10n.companyAnalyticsBilanLockedDefault;
         color = UltraTheme.textMuted;
     }
 
@@ -1719,6 +1741,7 @@ class _InsufficientDataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -1730,13 +1753,13 @@ class _InsufficientDataCard extends StatelessWidget {
         children: [
           const Icon(Icons.bar_chart, size: 40, color: UltraTheme.textMuted),
           const SizedBox(height: 12),
-          Text('Données insuffisantes pour le benchmarking',
+          Text(l10n.companyAnalyticsInsufficientDataTitle,
               textAlign: TextAlign.center,
               style:
                   UltraTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(
-              '$peerCount entreprise(s) dans votre groupe (minimum $minRequired requis).',
+              l10n.companyAnalyticsInsufficientDataDetail(peerCount, minRequired),
               textAlign: TextAlign.center,
               style: UltraTheme.bodyMedium
                   .copyWith(fontSize: 12)
@@ -1859,22 +1882,6 @@ class _ShimmerSummary extends StatelessWidget {
           (i) => const Padding(
                 padding: EdgeInsets.only(bottom: 12),
                 child: _ShimmerCard(height: 80, borderRadius: 16),
-              )),
-    );
-  }
-}
-
-class _ShimmerBenchmark extends StatelessWidget {
-  const _ShimmerBenchmark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-          2,
-          (i) => const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: _ShimmerCard(height: 120, borderRadius: 16),
               )),
     );
   }

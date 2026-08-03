@@ -398,15 +398,21 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
           label: 'PÉRIODE',
         ),
         const SizedBox(height: 12),
-        ...periodOptions.map((option) => RadioListTile<String>(
-              value: option.$2,
-              groupValue: _datePreset,
-              onChanged: (value) => setState(() => _datePreset = value!),
-              title: Text(option.$1),
-              activeColor: UltraTheme.primary,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-            )),
+        RadioGroup<String>(
+          groupValue: _datePreset,
+          onChanged: (value) => setState(() => _datePreset = value!),
+          child: Column(
+            children: periodOptions
+                .map((option) => RadioListTile<String>(
+                      value: option.$2,
+                      title: Text(option.$1),
+                      activeColor: UltraTheme.primary,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ))
+                .toList(),
+          ),
+        ),
         if (_datePreset == 'custom') ...[
           const SizedBox(height: 8),
           Row(
@@ -573,7 +579,7 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
         style: ElevatedButton.styleFrom(
           backgroundColor: UltraTheme.primary,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: UltraTheme.textMuted.withOpacity(0.15),
+          disabledBackgroundColor: UltraTheme.textMuted.withValues(alpha: 0.15),
           disabledForegroundColor: UltraTheme.textMuted,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),

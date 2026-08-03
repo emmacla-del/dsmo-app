@@ -99,7 +99,6 @@ class _DeclarationWizardScreenState
   Map<String, dynamic>? _companyData;
   Map<String, dynamic>? _savedCompany; // profile fetched from /dsmo/company
 
-  static const _movPrefixes = ['rec', 'pro', 'lic', 'ret', 'dec'];
   static const _movSuffixes = ['1_3', '4_6', '7_9', '10_12', 'nd'];
 
   @override

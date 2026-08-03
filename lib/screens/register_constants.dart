@@ -1,6 +1,7 @@
 // lib/screens/register_constants.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/i18n/localized_text.dart';
 import '../data/minefop_models.dart'; // EntityType lives here — single source of truth
 
 // ─── Step indices ────────────────────────────────────────────
@@ -58,38 +59,71 @@ InputDecoration modernDropdown({bool hasError = false}) =>
     modernInput(hasError: hasError);
 
 // ─── Static option lists ─────────────────────────────────────
-const List<String> kLegalStatusOptions = [
-  'Société unipersonnelle',
-  'SARL',
-  'SA',
-  'SNC',
-  'Autres',
+// `value` is the canonical string stored in form data / submitted to the
+// backend and MUST NOT change with locale — only `text` (the displayed
+// label) is bilingual. See LocalizedOption in core/i18n/localized_text.dart.
+const List<LocalizedOption> kLegalStatusOptions = [
+  LocalizedOption('Société unipersonnelle',
+      LocalizedText(fr: 'Société unipersonnelle', en: 'Sole proprietorship')),
+  LocalizedOption('SARL', LocalizedText.same('SARL')),
+  LocalizedOption('SA', LocalizedText.same('SA')),
+  LocalizedOption('SNC', LocalizedText.same('SNC')),
+  LocalizedOption('Autres', LocalizedText(fr: 'Autres', en: 'Other')),
 ];
 
-const List<String> kCooperativeTypeOptions = [
-  'Coopérative simplifiée',
-  "Coopérative avec conseil d'administration",
-  'Autre',
+const List<LocalizedOption> kCooperativeTypeOptions = [
+  LocalizedOption(
+      'Coopérative simplifiée',
+      LocalizedText(
+          fr: 'Coopérative simplifiée', en: 'Simplified cooperative')),
+  LocalizedOption(
+      "Coopérative avec conseil d'administration",
+      LocalizedText(
+          fr: "Coopérative avec conseil d'administration",
+          en: 'Cooperative with board of directors')),
+  LocalizedOption('Autre', LocalizedText(fr: 'Autre', en: 'Other')),
 ];
 
-const List<String> kCtdTypeOptions = ['Région', 'Commune'];
+const List<LocalizedOption> kCtdTypeOptions = [
+  LocalizedOption('Région', LocalizedText(fr: 'Région', en: 'Region')),
+  LocalizedOption('Commune', LocalizedText(fr: 'Commune', en: 'Municipality')),
+];
 
-const List<String> kAreaOptions = ['Urbain', 'Rural'];
+const List<LocalizedOption> kAreaOptions = [
+  LocalizedOption('Urbain', LocalizedText(fr: 'Urbain', en: 'Urban')),
+  LocalizedOption('Rural', LocalizedText.same('Rural')),
+];
 
 final List<TextInputFormatter> kPhoneFormatters = [
   FilteringTextInputFormatter.digitsOnly,
 ];
 
-const List<String> kRespondentFunctionOptions = [
-  'Directeur Général',
-  'Directeur des Ressources Humaines',
-  'Directeur Administratif et Financier',
-  'Gérant',
-  'Chef du Personnel',
-  'Responsable RH',
-  'Secrétaire Général',
-  "Président du Conseil d'Administration",
-  'Autre',
+const List<LocalizedOption> kRespondentFunctionOptions = [
+  LocalizedOption('Directeur Général',
+      LocalizedText(fr: 'Directeur Général', en: 'Chief Executive Officer')),
+  LocalizedOption(
+      'Directeur des Ressources Humaines',
+      LocalizedText(
+          fr: 'Directeur des Ressources Humaines',
+          en: 'Human Resources Director')),
+  LocalizedOption(
+      'Directeur Administratif et Financier',
+      LocalizedText(
+          fr: 'Directeur Administratif et Financier',
+          en: 'Administrative and Financial Director')),
+  LocalizedOption('Gérant', LocalizedText(fr: 'Gérant', en: 'Manager')),
+  LocalizedOption('Chef du Personnel',
+      LocalizedText(fr: 'Chef du Personnel', en: 'Head of Personnel')),
+  LocalizedOption('Responsable RH',
+      LocalizedText(fr: 'Responsable RH', en: 'HR Manager')),
+  LocalizedOption('Secrétaire Général',
+      LocalizedText(fr: 'Secrétaire Général', en: 'Secretary General')),
+  LocalizedOption(
+      "Président du Conseil d'Administration",
+      LocalizedText(
+          fr: "Président du Conseil d'Administration",
+          en: 'Chairman of the Board')),
+  LocalizedOption('Autre', LocalizedText(fr: 'Autre', en: 'Other')),
 ];
 
 // ─── MINEFOP role options ─────────────────────────────────────
@@ -99,10 +133,13 @@ const List<String> kMinefopRoleOptions = [
   'DIVISIONAL',
 ];
 
-const Map<String, String> kMinefopRoleLabels = {
-  'DIVISIONAL': 'Délégué Départemental',
-  'REGIONAL': 'Délégué Régional',
-  'CENTRAL': 'Administration Centrale',
+const Map<String, LocalizedText> kMinefopRoleLabels = {
+  'DIVISIONAL':
+      LocalizedText(fr: 'Délégué Départemental', en: 'Divisional Delegate'),
+  'REGIONAL':
+      LocalizedText(fr: 'Délégué Régional', en: 'Regional Delegate'),
+  'CENTRAL':
+      LocalizedText(fr: 'Administration Centrale', en: 'Central Administration'),
 };
 
 // NOTE: EntityType enum has been removed from this file.
@@ -116,10 +153,10 @@ class EntityField {
   final String key;
 
   /// Label shown to the user during registration.
-  final String label;
+  final LocalizedText label;
 
   /// Optional hint text.
-  final String? hint;
+  final LocalizedText? hint;
 
   /// Whether the field is mandatory.
   final bool required;
@@ -127,7 +164,7 @@ class EntityField {
   final TextInputType? keyboardType;
 
   /// If non-null the field renders as a dropdown with these choices.
-  final List<String>? options;
+  final List<LocalizedOption>? options;
 
   /// True when the field should use the phone-specific widget.
   final bool isPhone;
@@ -154,7 +191,7 @@ class EntityField {
 // ─── Entity configuration ─────────────────────────────────────
 class EntityConfig {
   final EntityType type;
-  final String title;
+  final LocalizedText title;
   final IconData icon;
   final Color color;
   final List<EntityField> fields;
@@ -215,36 +252,40 @@ const Map<EntityType, EntityConfig> entityConfigs = {
   // ── ENTERPRISE ──────────────────────────────────────────────
   EntityType.enterprise: EntityConfig(
     type: EntityType.enterprise,
-    title: 'Entreprise',
+    title: LocalizedText(fr: 'Entreprise', en: 'Company'),
     icon: Icons.business_outlined,
     color: Colors.teal,
     fields: [
       EntityField(
         key: 'companyName',
-        label: 'Raison sociale',
-        hint: "Nom légal de l'entreprise",
+        label: LocalizedText(fr: 'Raison sociale', en: 'Company name'),
+        hint: LocalizedText(
+            fr: "Nom légal de l'entreprise", en: "Company's legal name"),
         onefopSection: 'S1.Q1',
         dsmoField: 'raisonSociale',
       ),
       EntityField(
         key: 'legalStatus',
-        label: 'Statut juridique',
+        label: LocalizedText(fr: 'Statut juridique', en: 'Legal status'),
         options: kLegalStatusOptions,
         onefopSection: 'S1.Q2',
         dsmoField: 'formeJuridique',
       ),
       EntityField(
         key: 'taxNumber',
-        label: 'N° Contribuable (NIU)',
-        hint: "Numéro d'identification fiscale",
+        label: LocalizedText(fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
+        hint: LocalizedText(
+            fr: "Numéro d'identification fiscale",
+            en: 'Tax identification number'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q3',
         dsmoField: 'niu',
       ),
       EntityField(
         key: 'cnpsNumber',
-        label: "N° d'affiliation CNPS",
-        hint: 'Numéro CNPS',
+        label: LocalizedText(
+            fr: "N° d'affiliation CNPS", en: 'CNPS affiliation No.'),
+        hint: LocalizedText(fr: 'Numéro CNPS', en: 'CNPS number'),
         keyboardType: TextInputType.number,
         required: false,
         onefopSection: 'S1.Q4',
@@ -252,30 +293,34 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'mainActivity',
-        label: 'Activité principale',
-        hint: "Secteur d'activité principal",
+        label: LocalizedText(fr: 'Activité principale', en: 'Main activity'),
+        hint: LocalizedText(
+            fr: "Secteur d'activité principal", en: 'Main business sector'),
         onefopSection: 'S1.Q5',
         dsmoField: 'activitePrincipale',
       ),
       EntityField(
         key: 'branch',
-        label: "Branche d'activité",
-        hint: 'Ex: Commerce, Industrie, Services',
+        label: LocalizedText(fr: "Branche d'activité", en: 'Business branch'),
+        hint: LocalizedText(
+            fr: 'Ex: Commerce, Industrie, Services',
+            en: 'E.g.: Trade, Industry, Services'),
         required: false,
         onefopSection: 'S1.Q6',
         dsmoField: 'brancheActivite',
       ),
       EntityField(
         key: 'address',
-        label: 'Adresse du siège social',
-        hint: 'Adresse complète',
+        label: LocalizedText(
+            fr: 'Adresse du siège social', en: 'Registered office address'),
+        hint: LocalizedText(fr: 'Adresse complète', en: 'Full address'),
         onefopSection: 'S1.Q7',
         dsmoField: 'adresseSiege',
       ),
       EntityField(
         key: 'phone',
-        label: 'Téléphone',
-        hint: '6XXXXXXXX',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
+        hint: LocalizedText.same('6XXXXXXXX'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S0.Q5',
@@ -283,8 +328,8 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'phone2',
-        label: 'Téléphone secondaire',
-        hint: 'Optionnel',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
+        hint: LocalizedText(fr: 'Optionnel', en: 'Optional'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         required: false,
@@ -292,16 +337,16 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'poBox',
-        label: 'Boîte postale',
-        hint: 'BP',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
         required: false,
         onefopSection: 'S1.Q8',
         dsmoField: 'boitePostale',
       ),
       EntityField(
         key: 'socialCapital',
-        label: 'Capital social (XAF)',
-        hint: 'Montant en chiffres',
+        label: LocalizedText(fr: 'Capital social (XAF)', en: 'Share capital (XAF)'),
+        hint: LocalizedText(fr: 'Montant en chiffres', en: 'Amount in figures'),
         keyboardType: TextInputType.number,
         required: false,
         onefopSection: 'S1.Q9',
@@ -309,16 +354,18 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'parentCompany',
-        label: 'Maison mère / Groupe',
-        hint: 'Optionnel',
+        label: LocalizedText(
+            fr: 'Maison mère / Groupe', en: 'Parent company / Group'),
+        hint: LocalizedText(fr: 'Optionnel', en: 'Optional'),
         required: false,
         onefopSection: 'S1.Q10',
         dsmoField: 'maisonMere',
       ),
       EntityField(
         key: 'secondaryActivity',
-        label: 'Activité secondaire',
-        hint: 'Optionnel',
+        label: LocalizedText(
+            fr: 'Activité secondaire', en: 'Secondary activity'),
+        hint: LocalizedText(fr: 'Optionnel', en: 'Optional'),
         required: false,
         onefopSection: 'S1.Q11',
         dsmoField: 'activiteSecondaire',
@@ -329,63 +376,71 @@ const Map<EntityType, EntityConfig> entityConfigs = {
   // ── COOPERATIVE ─────────────────────────────────────────────
   EntityType.cooperative: EntityConfig(
     type: EntityType.cooperative,
-    title: 'Coopérative',
+    title: LocalizedText(fr: 'Coopérative', en: 'Cooperative'),
     icon: Icons.groups_outlined,
     color: Colors.green,
     fields: [
       EntityField(
         key: 'cooperativeName',
-        label: 'Nom de la coopérative',
-        hint: 'Dénomination officielle',
+        label: LocalizedText(
+            fr: 'Nom de la coopérative', en: 'Cooperative name'),
+        hint: LocalizedText(
+            fr: 'Dénomination officielle', en: 'Official name'),
         onefopSection: 'S1.Q1',
         dsmoField: 'raisonSociale',
       ),
       EntityField(
         key: 'cooperativeType',
-        label: 'Type de coopérative',
+        label: LocalizedText(
+            fr: 'Type de coopérative', en: 'Cooperative type'),
         options: kCooperativeTypeOptions,
         onefopSection: 'S1.Q2',
         dsmoField: 'typeCooperative',
       ),
       EntityField(
         key: 'yearOfCreation',
-        label: 'Année de création',
-        hint: 'AAAA',
+        label: LocalizedText(fr: 'Année de création', en: 'Year established'),
+        hint: LocalizedText(fr: 'AAAA', en: 'YYYY'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q3',
         dsmoField: 'anneeCreation',
       ),
       EntityField(
         key: 'taxNumber',
-        label: 'N° Contribuable (NIU)',
-        hint: "Numéro d'identification fiscale",
+        label: LocalizedText(fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
+        hint: LocalizedText(
+            fr: "Numéro d'identification fiscale",
+            en: 'Tax identification number'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q4',
         dsmoField: 'niu',
       ),
       EntityField(
         key: 'mainActivity',
-        label: 'Activité principale',
+        label: LocalizedText(fr: 'Activité principale', en: 'Main activity'),
         onefopSection: 'S1.Q5',
         dsmoField: 'activitePrincipale',
       ),
       EntityField(
         key: 'cooperativeHeadOffice',
-        label: 'Adresse du siège social',
+        label: LocalizedText(
+            fr: 'Adresse du siège social', en: 'Registered office address'),
         onefopSection: 'S1.Q6',
         dsmoField: 'adresseSiege',
       ),
       EntityField(
         key: 'branch',
-        label: "Branche d'activité",
-        hint: 'Ex: Cultures vivrières, Commerce de détail',
+        label: LocalizedText(fr: "Branche d'activité", en: 'Business branch'),
+        hint: LocalizedText(
+            fr: 'Ex: Cultures vivrières, Commerce de détail',
+            en: 'E.g.: Food crops, Retail trade'),
         required: false,
         onefopSection: 'S1.Q7',
         dsmoField: 'brancheActivite',
       ),
       EntityField(
         key: 'phone',
-        label: 'Téléphone',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S0.Q5',
@@ -393,7 +448,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'phone2',
-        label: 'Téléphone secondaire',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         required: false,
@@ -401,8 +456,8 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'poBox',
-        label: 'Boîte postale',
-        hint: 'BP',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
         required: false,
         dsmoField: 'boitePostale',
       ),
@@ -412,47 +467,47 @@ const Map<EntityType, EntityConfig> entityConfigs = {
   // ── CTD ─────────────────────────────────────────────────────
   EntityType.ctd: EntityConfig(
     type: EntityType.ctd,
-    title: 'CTD',
+    title: LocalizedText.same('CTD'),
     icon: Icons.account_balance_outlined,
     color: Colors.indigo,
     fields: [
       EntityField(
         key: 'ctdType',
-        label: 'Type de CTD',
+        label: LocalizedText(fr: 'Type de CTD', en: 'CTD type'),
         options: kCtdTypeOptions,
         onefopSection: 'S1.Q1',
         dsmoField: 'typeCtd',
       ),
       EntityField(
         key: 'ctdName',
-        label: 'Nom de la CTD',
-        hint: 'Région ou Commune',
+        label: LocalizedText(fr: 'Nom de la CTD', en: 'CTD name'),
+        hint: LocalizedText(fr: 'Région ou Commune', en: 'Region or Municipality'),
         onefopSection: 'S1.Q2',
         dsmoField: 'raisonSociale',
       ),
       EntityField(
         key: 'yearOfCreation',
-        label: 'Année de création',
+        label: LocalizedText(fr: 'Année de création', en: 'Year established'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q3',
         dsmoField: 'anneeCreation',
       ),
       EntityField(
         key: 'taxNumber',
-        label: 'N° Contribuable (NIU)',
+        label: LocalizedText(fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q4',
         dsmoField: 'niu',
       ),
       EntityField(
         key: 'address',
-        label: 'Adresse du siège',
+        label: LocalizedText(fr: 'Adresse du siège', en: 'Head office address'),
         onefopSection: 'S1.Q5',
         dsmoField: 'adresseSiege',
       ),
       EntityField(
         key: 'phone',
-        label: 'Téléphone',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S0.Q5',
@@ -460,7 +515,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'phone2',
-        label: 'Téléphone secondaire',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         required: false,
@@ -468,8 +523,8 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'poBox',
-        label: 'Boîte postale',
-        hint: 'BP',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
         required: false,
         dsmoField: 'boitePostale',
       ),
@@ -479,53 +534,55 @@ const Map<EntityType, EntityConfig> entityConfigs = {
   // ── ONG ─────────────────────────────────────────────────────
   EntityType.ong: EntityConfig(
     type: EntityType.ong,
-    title: 'ONG',
+    title: LocalizedText(fr: 'ONG', en: 'NGO'),
     icon: Icons.volunteer_activism_outlined,
     color: Colors.orange,
     fields: [
       EntityField(
         key: 'ngoName',
-        label: "Nom de l'ONG",
+        label: LocalizedText(fr: "Nom de l'ONG", en: 'NGO name'),
         onefopSection: 'S1.Q1',
         dsmoField: 'raisonSociale',
       ),
       EntityField(
         key: 'registrationNumber',
-        label: "N° d'enregistrement",
-        hint: "Numéro d'agrément",
+        label: LocalizedText(fr: "N° d'enregistrement", en: 'Registration No.'),
+        hint: LocalizedText(fr: "Numéro d'agrément", en: 'Approval number'),
         onefopSection: 'S1.Q2',
         dsmoField: 'numeroEnregistrement',
       ),
       EntityField(
         key: 'taxNumber',
-        label: 'N° Contribuable (NIU)',
+        label: LocalizedText(fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q3',
         dsmoField: 'niu',
       ),
       EntityField(
         key: 'yearOfCreation',
-        label: 'Année de création',
+        label: LocalizedText(fr: 'Année de création', en: 'Year established'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q4',
         dsmoField: 'anneeCreation',
       ),
       EntityField(
         key: 'mainMission',
-        label: 'Mission principale',
-        hint: "Objectif principal de l'ONG",
+        label: LocalizedText(fr: 'Mission principale', en: 'Main mission'),
+        hint: LocalizedText(
+            fr: "Objectif principal de l'ONG", en: "NGO's main objective"),
         onefopSection: 'S1.Q5',
         dsmoField: 'activitePrincipale',
       ),
       EntityField(
         key: 'address',
-        label: 'Adresse du siège social',
+        label: LocalizedText(
+            fr: 'Adresse du siège social', en: 'Registered office address'),
         onefopSection: 'S1.Q6',
         dsmoField: 'adresseSiege',
       ),
       EntityField(
         key: 'phone',
-        label: 'Téléphone',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S0.Q5',
@@ -533,7 +590,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'phone2',
-        label: 'Téléphone secondaire',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         required: false,
@@ -541,8 +598,8 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'poBox',
-        label: 'Boîte postale',
-        hint: 'BP',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
         required: false,
         dsmoField: 'boitePostale',
       ),
@@ -552,53 +609,60 @@ const Map<EntityType, EntityConfig> entityConfigs = {
   // ── VOCATIONAL ───────────────────────────────────────────────
   EntityType.vocational: EntityConfig(
     type: EntityType.vocational,
-    title: 'Centre de formation professionnelle',
+    title: LocalizedText(
+        fr: 'Centre de formation professionnelle',
+        en: 'Vocational Training Center'),
     icon: Icons.school_outlined,
     color: Colors.purple,
     fields: [
       EntityField(
         key: 'centerName',
-        label: 'Nom du centre',
+        label: LocalizedText(fr: 'Nom du centre', en: 'Center name'),
         onefopSection: 'S1.Q1',
         dsmoField: 'raisonSociale',
       ),
       EntityField(
         key: 'registrationNumber',
-        label: "N° d'agrément",
-        hint: "Numéro d'agrément ministériel",
+        label: LocalizedText(fr: "N° d'agrément", en: 'Approval No.'),
+        hint: LocalizedText(
+            fr: "Numéro d'agrément ministériel",
+            en: 'Ministerial approval number'),
         onefopSection: 'S1.Q2',
         dsmoField: 'numeroAgrement',
       ),
       EntityField(
         key: 'taxNumber',
-        label: 'N° Contribuable (NIU)',
+        label: LocalizedText(fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q3',
         dsmoField: 'niu',
       ),
       EntityField(
         key: 'yearOfCreation',
-        label: 'Année de création',
+        label: LocalizedText(fr: 'Année de création', en: 'Year established'),
         keyboardType: TextInputType.number,
         onefopSection: 'S1.Q4',
         dsmoField: 'anneeCreation',
       ),
       EntityField(
         key: 'trainingDomains',
-        label: 'Domaines de formation',
-        hint: 'Ex: Maintenance, Hôtellerie, BTP',
+        label: LocalizedText(
+            fr: 'Domaines de formation', en: 'Training fields'),
+        hint: LocalizedText(
+            fr: 'Ex: Maintenance, Hôtellerie, BTP',
+            en: 'E.g.: Maintenance, Hospitality, Construction'),
         onefopSection: 'S1.Q5',
         dsmoField: 'domainesFormation',
       ),
       EntityField(
         key: 'address',
-        label: 'Adresse du centre',
+        label: LocalizedText(fr: 'Adresse du centre', en: "Center's address"),
         onefopSection: 'S1.Q6',
         dsmoField: 'adresseSiege',
       ),
       EntityField(
         key: 'phone',
-        label: 'Téléphone',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S0.Q5',
@@ -606,7 +670,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'phone2',
-        label: 'Téléphone secondaire',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
         required: false,
@@ -614,8 +678,8 @@ const Map<EntityType, EntityConfig> entityConfigs = {
       ),
       EntityField(
         key: 'poBox',
-        label: 'Boîte postale',
-        hint: 'BP',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
         required: false,
         dsmoField: 'boitePostale',
       ),

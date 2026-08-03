@@ -79,7 +79,7 @@ class SpreadsheetCompiler {
     for (final field in fields) {
       cellSpecs['${field.id}_label'] = _labelCell(
         id: '${field.id}_label',
-        label: field.label ?? field.id,
+        label: field.label?.fr ?? field.id,
       );
 
       switch (field.type) {
@@ -106,7 +106,7 @@ class SpreadsheetCompiler {
           cellSpecs[field.id] = _textCell(
             id: field.id,
             editable: true,
-            hint: field.hint,
+            hint: field.hint?.fr,
           );
       }
     }

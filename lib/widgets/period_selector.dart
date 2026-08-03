@@ -217,7 +217,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
   Widget _buildYearSelector() {
     return DropdownButtonFormField<int>(
       isExpanded: true,
-      value: _year,
+      initialValue: _year,
       decoration: const InputDecoration(
         labelText: 'Année',
         border: OutlineInputBorder(),
@@ -242,7 +242,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
         Expanded(
           child: DropdownButtonFormField<int>(
             isExpanded: true,
-            value: _year,
+            initialValue: _year,
             decoration: const InputDecoration(
               labelText: 'Année',
               border: OutlineInputBorder(),
@@ -263,7 +263,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
         Expanded(
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: _quarter,
+            initialValue: _quarter,
             decoration: const InputDecoration(
               labelText: 'Trimestre',
               border: OutlineInputBorder(),
@@ -298,7 +298,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
         Expanded(
           child: DropdownButtonFormField<int>(
             isExpanded: true,
-            value: _year,
+            initialValue: _year,
             decoration: const InputDecoration(
               labelText: 'Année',
               border: OutlineInputBorder(),
@@ -319,7 +319,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
         Expanded(
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: _semester,
+            initialValue: _semester,
             decoration: const InputDecoration(
               labelText: 'Semestre',
               border: OutlineInputBorder(),

@@ -1,4 +1,4 @@
-﻿// lib/features/analytics/widgets/inclusion_tab.dart
+// lib/features/analytics/widgets/inclusion_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -328,7 +328,7 @@ class _InclusionContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.accessible_forward,
+                      const Icon(Icons.accessible_forward,
                           size: 16, color: AccentColor.blue),
                       const SizedBox(width: 6),
                       Text('Personnes handicapées',
@@ -349,7 +349,7 @@ class _InclusionContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.people_outline,
+                      const Icon(Icons.people_outline,
                           size: 16, color: AccentColor.teal),
                       const SizedBox(width: 6),
                       Text('Personnes vulnérables',
@@ -373,7 +373,7 @@ class _InclusionContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Icon(Icons.accessible_forward,
+                const Icon(Icons.accessible_forward,
                     size: 14, color: AccentColor.blue),
                 const SizedBox(width: 6),
                 Text('Handicap par CSP',
@@ -400,7 +400,7 @@ class _InclusionContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Icon(Icons.people_outline, size: 14, color: AccentColor.teal),
+                const Icon(Icons.people_outline, size: 14, color: AccentColor.teal),
                 const SizedBox(width: 6),
                 Text('Nature de la vulnérabilité',
                     style: textMono(10, color: AccentColor.teal)),

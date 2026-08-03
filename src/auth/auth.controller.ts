@@ -258,6 +258,12 @@ export class AuthController {
     );
   }
 
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  async deleteOwnAccount(@Request() req: any) {
+    return this.authService.deactivateOwnAccount(req.user.id);
+  }
+
   @Patch('preferences')
   @UseGuards(JwtAuthGuard)
   async updatePreferences(

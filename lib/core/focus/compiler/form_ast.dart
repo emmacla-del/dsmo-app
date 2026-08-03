@@ -1,5 +1,7 @@
 // lib/core/focus/compiler/form_ast.dart
 
+import '../../i18n/localized_text.dart';
+
 /// ===========================================================
 /// FIELD TYPES ENUM (For type safety)
 /// ===========================================================
@@ -23,14 +25,14 @@ class SectionAst {
   /// Unique section ID (e.g., "section0", "section1_enterprise")
   final String id;
 
-  /// Display title (bilingual from PDF)
-  final String title;
+  /// Display title (French/English)
+  final LocalizedText title;
 
   /// Display order in the form
   final int order;
 
   /// Optional description text
-  final String? description;
+  final LocalizedText? description;
 
   /// Which entity types this section applies to
   /// null = all entity types
@@ -56,7 +58,7 @@ class FormQuestionAst {
   final String? paperCode;
 
   /// Human-readable label from the PDF
-  final String label;
+  final LocalizedText label;
 
   /// Reference to section ID
   final String sectionId;
@@ -67,8 +69,10 @@ class FormQuestionAst {
   /// Field type from AstFieldType enum
   final AstFieldType type;
 
-  /// For radio/select fields
-  final List<String>? options;
+  /// For radio/select fields. Each option's canonical `value` is what gets
+  /// stored/submitted and compared against by BackendMappers/dependsValue —
+  /// only `text` is localized for display.
+  final List<LocalizedOption>? options;
 
   /// For tables/grids later
   final Map<String, dynamic>? tableSpec;
@@ -88,16 +92,13 @@ class FormQuestionAst {
   final String? path;
 
   /// Help text / hint for the user
-  final String? hint;
-
-  /// Question text (e.g. "2.1 DEMANDE D'EMPLOIS")
-  final String? questionText;
+  final LocalizedText? hint;
 
   /// Instruction text (e.g. "Combien de demandes d'emplois...")
-  final String? instruction;
+  final LocalizedText? instruction;
 
   /// Subsection header (e.g., "2.1 DEMANDE D'EMPLOIS/ JOB APPLICATION")
-  final String? subsection;
+  final LocalizedText? subsection;
 
   const FormQuestionAst({
     required this.id,
@@ -114,7 +115,6 @@ class FormQuestionAst {
     this.requiredField = false,
     this.path,
     this.hint,
-    this.questionText,
     this.instruction,
     this.subsection,
   });

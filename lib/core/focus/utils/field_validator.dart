@@ -7,12 +7,21 @@
 //   • Replaces tripled validation logic scattered across:
 //       _hasErr(), _errorText(), _vSec(), _missing()
 //     in onefop_unified_form_screen_v3.dart
-//   • Single source of truth: validate() returns String? (null = valid)
+//   • Single source of truth: validate() returns ValidationError? (null = valid)
 //   • isSectionComplete() and missingLabels() delegate to validate()
 //   • Phone/year/email rules no longer hardcoded in the screen
 //   • Optional override set injected, not hardcoded
+//
+// validate() returns an error CODE rather than resolved text, so callers
+// resolve the message via AppLocalizations at the point they have a
+// BuildContext. This also keeps OnefopFormController's error cache
+// (_valCache) language-neutral — it never needs invalidating on a
+// mid-form language switch.
 // ══════════════════════════════════════════════════════════════
 
+import 'package:flutter/widgets.dart';
+
+import '../../../l10n/generated/app_localizations.dart';
 import '../schema/field_schema.dart';
 import '../schema/section_schema.dart';
 import '../schema/form_schema_v2.dart';
@@ -26,6 +35,24 @@ const Set<String> kYearFieldIds = {
   'CTD_S1Q03',
   'ONG_S1Q03',
 };
+
+enum ValidationErrorCode {
+  required,
+  telLength,
+  telPrefix,
+  email,
+  yearFormat,
+  yearMin,
+  yearMax,
+  requiredConditional,
+}
+
+@immutable
+class ValidationError {
+  final ValidationErrorCode code;
+  final Map<String, Object?> args;
+  const ValidationError(this.code, [this.args = const {}]);
+}
 
 class FieldValidator {
   // ── IDs that are explicitly optional even when FieldSchema.required
@@ -74,7 +101,7 @@ class FieldValidator {
   // [data]    — the full form data map
   // [touched] — if non-null, only validate touched fields
   //             (pass null to validate unconditionally, e.g. in _vSec)
-  static String? validate(
+  static ValidationError? validate(
     FieldSchema f,
     Map<String, dynamic> data, {
     Set<String>? touched,
@@ -92,39 +119,34 @@ class FieldValidator {
     final raw = data[f.id];
     final v = raw?.toString().trim() ?? '';
 
-    if (v.isEmpty) return 'Champ obligatoire / Required field';
+    if (v.isEmpty) return const ValidationError(ValidationErrorCode.required);
 
     switch (f.type) {
       case 'tel':
         if (!isValidPhone(v)) {
           if (v.length != 9) {
-            return 'Le numéro doit contenir exactement 9 chiffres / '
-                'Number must be exactly 9 digits';
+            return const ValidationError(ValidationErrorCode.telLength);
           }
-          return 'Le numéro doit commencer par 2 (fixe) ou 6 (mobile) / '
-              'Number must start with 2 (landline) or 6 (mobile)';
+          return const ValidationError(ValidationErrorCode.telPrefix);
         }
         break;
       case 'email':
         if (!isValidEmail(v)) {
-          return 'Veuillez entrer une adresse e-mail valide'
-              ' (ex: contact@entreprise.com) / '
-              'Please enter a valid email address (e.g. contact@company.com)';
+          return const ValidationError(ValidationErrorCode.email);
         }
         break;
       case 'number':
         if (isYearField(f)) {
           if (int.tryParse(v) == null) {
-            return 'Veuillez entrer une année valide (ex: 1998) / '
-                'Please enter a valid year (e.g. 1998)';
+            return const ValidationError(ValidationErrorCode.yearFormat);
           }
           final year = int.parse(v);
           if (year < 1900) {
-            return "L'année doit être ≥ 1900 / Year must be ≥ 1900";
+            return const ValidationError(ValidationErrorCode.yearMin);
           }
           final current = DateTime.now().year;
           if (year > current) {
-            return "L'année doit être ≤ $current / Year must be ≤ $current";
+            return ValidationError(ValidationErrorCode.yearMax, {'max': current});
           }
         }
         break;
@@ -133,7 +155,7 @@ class FieldValidator {
     // Conditional required: dependsOn / dependsValue
     if (f.dependsOn != null && f.dependsValue != null) {
       if (data[f.dependsOn] == f.dependsValue && v.isEmpty) {
-        return 'Champ obligatoire (conditionnel) / Required field (conditional)';
+        return const ValidationError(ValidationErrorCode.requiredConditional);
       }
     }
 
@@ -163,7 +185,8 @@ class FieldValidator {
   static List<String> missingLabels(
     SectionSchema sec,
     FormSchemaV2 schema,
-    Map<String, dynamic> data, {
+    Map<String, dynamic> data,
+    Locale locale, {
     Set<String> hybridIds = const {},
   }) {
     final out = <String>[];
@@ -172,7 +195,7 @@ class FieldValidator {
       if (f == null) continue;
       if (hybridIds.contains(f.id)) continue;
       if (validate(f, data) != null) {
-        out.add(_label(f));
+        out.add(_label(f, locale));
       }
     }
     return out;
@@ -184,14 +207,36 @@ class FieldValidator {
     return data[f.dependsOn] == f.dependsValue;
   }
 
-  static String _label(FieldSchema f) {
-    if (f.label != null && f.label!.isNotEmpty) return f.label!;
-    if (f.instruction != null && f.instruction!.isNotEmpty) {
-      return f.instruction!;
-    }
+  static String _label(FieldSchema f, Locale locale) {
+    if (f.label != null) return f.label!.of(locale);
+    if (f.instruction != null) return f.instruction!.of(locale);
     if (f.questionText != null && f.questionText!.isNotEmpty) {
       return f.questionText!;
     }
     return f.id;
+  }
+}
+
+/// Resolves a [ValidationError] code to display text via [l10n]. Kept
+/// separate from [FieldValidator.validate] so the validator itself stays
+/// pure and locale-independent (see the class doc comment).
+String validationErrorMessage(AppLocalizations l10n, ValidationError error) {
+  switch (error.code) {
+    case ValidationErrorCode.required:
+      return l10n.requiredField;
+    case ValidationErrorCode.telLength:
+      return l10n.telExactly9Digits;
+    case ValidationErrorCode.telPrefix:
+      return l10n.telMustStartWith2Or6;
+    case ValidationErrorCode.email:
+      return l10n.emailInvalid;
+    case ValidationErrorCode.yearFormat:
+      return l10n.yearInvalid;
+    case ValidationErrorCode.yearMin:
+      return l10n.yearMin;
+    case ValidationErrorCode.yearMax:
+      return l10n.yearMax(error.args['max'] as int);
+    case ValidationErrorCode.requiredConditional:
+      return l10n.requiredFieldConditional;
   }
 }

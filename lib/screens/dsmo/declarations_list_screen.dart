@@ -723,7 +723,7 @@ class _RefreshButton extends StatelessWidget {
                 Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(Icons.refresh_rounded,
+          child: const Icon(Icons.refresh_rounded,
               size: 18, color: UltraTheme.textSecondary),
         ),
       ),

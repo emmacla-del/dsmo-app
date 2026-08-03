@@ -33,7 +33,6 @@ class _State extends State<PdfViewerScreen> {
   bool _ready = false;
   bool _confirming = false;
   bool _downloading = false;
-  String? _downloadMsg;
 
   @override
   void initState() {
@@ -72,7 +71,6 @@ class _State extends State<PdfViewerScreen> {
     if (_tempPath == null) return;
     setState(() {
       _downloading = true;
-      _downloadMsg = null;
     });
     try {
       Directory? destDir;
@@ -86,7 +84,20 @@ class _State extends State<PdfViewerScreen> {
       }
 
       if (destDir == null) {
-        setState(() => _downloadMsg = 'Dossier de téléchargement introuvable.');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dossier de téléchargement introuvable.',
+                  style: TextStyle(
+                      fontFamily: 'Inter', fontSize: 13, color: Colors.white)),
+              backgroundColor: Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12))),
+            ),
+          );
+        }
         return;
       }
 
@@ -94,7 +105,6 @@ class _State extends State<PdfViewerScreen> {
       await File(_tempPath!).copy(dest.path);
 
       if (mounted) {
-        setState(() => _downloadMsg = 'Enregistré dans : ${dest.path}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(children: [
@@ -122,7 +132,6 @@ class _State extends State<PdfViewerScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _downloadMsg = 'Erreur : $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Téléchargement échoué : $e',

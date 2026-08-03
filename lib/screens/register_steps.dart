@@ -5,6 +5,8 @@ import 'register_constants.dart';
 import 'register_widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/email_field_with_availability.dart';
+import '../core/i18n/l10n_ext.dart';
+import '../core/i18n/localized_text.dart';
 import '../data/api_client.dart';
 import '../data/minefop_models.dart';
 
@@ -52,20 +54,19 @@ class _StepRoleState extends State<StepRole> {
                   onPressed: () => setState(() => _pendingMinefopRole = null),
                 ),
                 const SizedBox(width: 4),
-                const Text('Niveau de service',
+                Text(context.l10n.registerServiceLevelTitle,
                     style:
-                        TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                        const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               ]),
               const SizedBox(height: 6),
-              const Text('Sélectionnez votre niveau hiérarchique.',
-                  style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+              Text(context.l10n.registerServiceLevelSubtitle,
+                  style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
               const SizedBox(height: 32),
               _MinefopLevelCard(
                 value: 'CENTRAL',
                 selected: _pendingMinefopRole,
-                title: 'Administration centrale',
-                subtitle:
-                    'Direction centrale, sous-direction ou service central à Yaoundé.',
+                title: context.l10n.registerMinefopCentralTitle,
+                subtitle: context.l10n.registerMinefopCentralSubtitle,
                 icon: Icons.account_balance_outlined,
                 onTap: (v) {
                   setState(() => _pendingMinefopRole = v);
@@ -76,9 +77,8 @@ class _StepRoleState extends State<StepRole> {
               _MinefopLevelCard(
                 value: 'REGIONAL',
                 selected: _pendingMinefopRole,
-                title: 'Service régional',
-                subtitle:
-                    "Délégation régionale de l'emploi et de la formation professionnelle.",
+                title: context.l10n.registerMinefopRegionalTitle,
+                subtitle: context.l10n.registerMinefopRegionalSubtitle,
                 icon: Icons.map_outlined,
                 onTap: (v) {
                   setState(() => _pendingMinefopRole = v);
@@ -89,9 +89,8 @@ class _StepRoleState extends State<StepRole> {
               _MinefopLevelCard(
                 value: 'DIVISIONAL',
                 selected: _pendingMinefopRole,
-                title: 'Service départemental',
-                subtitle:
-                    "Délégation départementale de l'emploi et de la formation professionnelle.",
+                title: context.l10n.registerMinefopDivisionalTitle,
+                subtitle: context.l10n.registerMinefopDivisionalSubtitle,
                 icon: Icons.location_city_outlined,
                 onTap: (v) {
                   setState(() => _pendingMinefopRole = v);
@@ -107,21 +106,19 @@ class _StepRoleState extends State<StepRole> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Créer un compte',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(context.l10n.registerCreateAccountTitle,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        const Text('Sélectionnez votre profil pour commencer.',
-            style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+        Text(context.l10n.registerSelectProfileSubtitle,
+            style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
         const SizedBox(height: 32),
         RoleCard(
           value: 'COMPANY',
           selected: _isCompanySelected ? 'COMPANY' : '',
           icon: Icons.business_outlined,
           color: Colors.teal,
-          title: 'Entreprise / Organisation',
-          subtitle:
-              'Société, coopérative, CTD, ONG ou centre de formation soumis '
-              'à la déclaration ONEFOP / DSMO.',
+          title: context.l10n.registerRoleCompanyTitle,
+          subtitle: context.l10n.registerRoleCompanySubtitle,
           onTap: (_) {
             setState(() => _pendingMinefopRole = null);
             widget.onSelect('COMPANY');
@@ -133,9 +130,8 @@ class _StepRoleState extends State<StepRole> {
           selected: '',
           icon: Icons.account_balance_outlined,
           color: Colors.indigo,
-          title: 'Agent MINEFOP',
-          subtitle:
-              "Inspecteur ou agent du Ministère de l'Emploi et de la Formation Professionnelle.",
+          title: context.l10n.registerRoleMinefopTitle,
+          subtitle: context.l10n.registerRoleMinefopSubtitle,
           onTap: (_) => setState(() => _pendingMinefopRole = ''),
         ),
       ]),
@@ -223,15 +219,16 @@ class StepEntityType extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text("Type d'entité",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(context.l10n.registerStepTitleEntityType,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        const Text("Sélectionnez le type d'entité que vous représentez.",
-            style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+        Text(context.l10n.registerEntityTypeSubtitle,
+            style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
         const SizedBox(height: 32),
         ...EntityType.values.map((type) {
           final config = entityConfigs[type];
           if (config == null) return const SizedBox.shrink();
+          final isEn = context.loc.languageCode == 'en';
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: RoleCard(
@@ -239,8 +236,9 @@ class StepEntityType extends StatelessWidget {
               selected: selected?.toString() ?? '',
               icon: config.icon,
               color: config.color,
-              title: config.title,
-              subtitle: type.formSectionLabel,
+              title: config.title.of(context.loc),
+              subtitle:
+                  isEn ? type.formSectionLabelEn : type.formSectionLabel,
               onTap: (_) => onSelect(type),
             ),
           );
@@ -348,16 +346,15 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(
             widget.isMinefop
-                ? 'Vos informations personnelles'
-                : 'Informations du répondant',
+                ? context.l10n.registerRespondentTitlePersonal
+                : context.l10n.registerStepTitleRespondent,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
             widget.isMinefop
-                ? 'Ces informations seront associées à votre compte agent MINEFOP.'
-                : 'Ces informations pré-rempliront la Section 0 (Répondant) '
-                    'du formulaire ONEFOP et la Partie A de vos déclarations DSMO.',
+                ? context.l10n.registerRespondentSubtitleMinefop
+                : context.l10n.registerRespondentSubtitleStandard,
             style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
           ),
           const SizedBox(height: 28),
@@ -365,43 +362,47 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
             Expanded(
                 child: Field(
                     controller: _firstNameCtrl,
-                    label: 'Prénom *',
+                    label: context.l10n.registerFirstNameLabel,
                     icon: Icons.person_outline,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Requis' : null)),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? context.l10n.requiredShort
+                        : null)),
             const SizedBox(width: 12),
             Expanded(
                 child: Field(
                     controller: _lastNameCtrl,
-                    label: 'Nom *',
+                    label: context.l10n.registerLastNameLabel,
                     icon: Icons.badge_outlined,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Requis' : null)),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? context.l10n.requiredShort
+                        : null)),
           ]),
           const SizedBox(height: 14),
           if (!widget.isMinefop) ...[
-            const FieldLabel(label: 'Fonction *'),
+            FieldLabel(label: context.l10n.registerFunctionLabel),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               initialValue: _function.isNotEmpty ? _function : null,
               isExpanded: true,
               decoration: modernDropdown(),
-              hint: const Text('Sélectionner votre fonction',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+              hint: Text(context.l10n.registerSelectFunctionHint,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
               items: kRespondentFunctionOptions
-                  .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                  .map((o) => DropdownMenuItem(
+                      value: o.value, child: Text(o.text.of(context.loc))))
                   .toList(),
               onChanged: (v) {
                 setState(() => _function = v ?? '');
                 _notify();
               },
-              validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? context.l10n.requiredShort : null,
             ),
           ],
           const SizedBox(height: 14),
           EmailFieldWithAvailability(
             controller: _emailCtrl,
-            label: 'E-mail professionnel *',
+            label: context.l10n.registerProfessionalEmailLabel,
             isRequired: true,
             onEmailValidated: _notify,
             onEmailAvailabilityChanged: widget.onEmailAvailabilityChanged,
@@ -411,23 +412,21 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
             Expanded(
                 child: PhoneField(
                     controller: _phone1Ctrl,
-                    label: 'Téléphone 1 *',
+                    label: context.l10n.registerPhone1Label,
                     isRequired: true)),
             const SizedBox(width: 12),
             Expanded(
                 child: PhoneField(
                     controller: _phone2Ctrl,
-                    label: 'Téléphone 2',
+                    label: context.l10n.registerPhone2Label,
                     isRequired: false)),
           ]),
           const SizedBox(height: 16),
           if (!widget.isMinefop)
-            const InfoBox(
+            InfoBox(
               icon: Icons.auto_fix_high_outlined,
               color: Colors.teal,
-              text: 'Ces informations seront automatiquement pré-remplies dans '
-                  'la Section 0 de vos futurs formulaires ONEFOP et dans '
-                  'la Partie A de vos déclarations DSMO.',
+              text: context.l10n.registerRespondentInfoBox,
             ),
         ]),
       ),
@@ -467,30 +466,32 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
   @override
   Widget build(BuildContext context) {
     if (widget.entityType == null || widget.config == null) {
-      return const Center(
-          child: Text("Veuillez sélectionner un type d'entité"));
+      return Center(
+          child: Text(context.l10n.registerSelectEntityTypeFirst));
     }
     final config = widget.config!;
+    final isEn = context.loc.languageCode == 'en';
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Form(
         key: widget.formKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(config.title,
+          Text(config.title.of(context.loc),
               style:
                   const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          Text(widget.entityType!.formSectionLabel,
+          Text(
+              isEn
+                  ? widget.entityType!.formSectionLabelEn
+                  : widget.entityType!.formSectionLabel,
               style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
           const SizedBox(height: 28),
           ...config.fields.map(_buildField),
           const SizedBox(height: 16),
-          const InfoBox(
+          InfoBox(
             icon: Icons.auto_fix_high_outlined,
             color: Colors.teal,
-            text: 'Ces informations seront automatiquement pré-remplies dans '
-                'la Section 1 de vos futurs formulaires ONEFOP et dans '
-                'la Partie A de vos déclarations DSMO.',
+            text: context.l10n.registerEntityInfoInfoBox,
           ),
         ]),
       ),
@@ -498,24 +499,27 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
   }
 
   Widget _buildField(EntityField field) {
+    final label = field.label.of(context.loc);
     if (field.options != null) {
       final cur = widget.entityData[field.key] as String?;
       return Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          FieldLabel(label: '${field.label}${field.required ? ' *' : ''}'),
+          FieldLabel(label: '$label${field.required ? ' *' : ''}'),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            initialValue:
-                (cur != null && field.options!.contains(cur)) ? cur : null,
+            initialValue: (cur != null &&
+                    field.options!.any((o) => o.value == cur))
+                ? cur
+                : null,
             isExpanded: true,
             decoration: modernDropdown(),
-            hint: const Text('Sélectionner',
-                style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+            hint: Text(context.l10n.selectPlaceholder,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
             items: field.options!
                 .map((o) => DropdownMenuItem(
-                    value: o,
-                    child: Text(o,
+                    value: o.value,
+                    child: Text(o.text.of(context.loc),
                         style: const TextStyle(
                             fontSize: 14, color: Color(0xFF1E293B)))))
                 .toList(),
@@ -524,7 +528,8 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
               setState(() {});
             },
             validator: field.required
-                ? (v) => (v == null || v.isEmpty) ? 'Requis' : null
+                ? (v) =>
+                    (v == null || v.isEmpty) ? context.l10n.requiredShort : null
                 : null,
           ),
         ]),
@@ -537,7 +542,7 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
         padding: const EdgeInsets.only(bottom: 14),
         child: PhoneField(
           controller: ctrl,
-          label: '${field.label}${field.required ? ' *' : ''}',
+          label: '$label${field.required ? ' *' : ''}',
           isRequired: field.required,
         ),
       );
@@ -556,12 +561,14 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
         style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
         decoration: modernInput(
           hasError: false,
-          labelText: '${field.label}${field.required ? ' *' : ''}',
-          hintText: field.hint,
+          labelText: '$label${field.required ? ' *' : ''}',
+          hintText: field.hint?.of(context.loc),
           prefixIcon: Icon(_iconForKey(field.key), size: 20),
         ),
         validator: field.required
-            ? (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null
+            ? (v) => (v == null || v.trim().isEmpty)
+                ? context.l10n.requiredShort
+                : null
             : null,
         onChanged: (_) => widget.onChanged(),
       ),
@@ -693,7 +700,8 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
   bool get _needsLocation =>
       widget.role == 'REGIONAL' || widget.role == 'DIVISIONAL';
   bool get _needsDepartment => widget.role == 'DIVISIONAL';
-  String get _roleLabel => kMinefopRoleLabels[widget.role] ?? widget.role;
+  String get _roleLabel =>
+      kMinefopRoleLabels[widget.role]?.of(context.loc) ?? widget.role;
 
   @override
   void initState() {
@@ -753,7 +761,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
       if (mounted) {
         setState(() {
           _loadingPositionTypes = false;
-          _positionTypesError = 'Impossible de charger les fonctions.';
+          _positionTypesError = context.l10n.registerMinefopLoadFunctionsError;
         });
       }
     }
@@ -1109,10 +1117,10 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Informations MINEFOP',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(context.l10n.registerStepTitleMinefopInfo,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text('Renseignez vos informations en tant que $_roleLabel.',
+            Text(context.l10n.registerInfoAsRole(_roleLabel),
                 style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
             const SizedBox(height: 28),
             _roleBadge(),
@@ -1120,13 +1128,14 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
             // Matricule
             Field(
               controller: _matriculeCtrl,
-              label: 'Matricule *',
+              label: context.l10n.registerMatriculeLabel,
               icon: Icons.badge_outlined,
-              hint: 'Votre matricule de fonctionnaire',
+              hint: context.l10n.registerMatriculeHint,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Matricule requis' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? context.l10n.registerMatriculeRequired
+                  : null,
             ),
             const SizedBox(height: 24),
             const Divider(height: 1),
@@ -1158,49 +1167,49 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
               const SizedBox(height: 24),
               const Divider(height: 1),
               const SizedBox(height: 24),
-              Text('Localisation',
+              Text(context.l10n.registerStepTitleLocation,
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: Colors.indigo.shade700)),
               const SizedBox(height: 4),
-              Text('Indiquez la région et le département de votre affectation.',
+              Text(context.l10n.registerLocalisationSubtitle,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
               const SizedBox(height: 16),
               _LocationFormDropdown(
-                label: 'Région *',
-                hint: 'Sélectionnez votre région',
+                label: context.l10n.registerRegionLabel,
+                hint: context.l10n.registerSelectRegionHint,
                 icon: Icons.location_on_outlined,
                 items: _regions,
                 selectedName: _selectedRegion,
                 loading: _loadingRegions,
                 onChanged: _onRegionChanged,
-                validator: (v) => v == null ? 'Requis' : null,
+                validator: (v) => v == null ? context.l10n.requiredShort : null,
               ),
               if (_needsDepartment) ...[
                 const SizedBox(height: 16),
                 _LocationFormDropdown(
-                  label: 'Département *',
+                  label: context.l10n.registerDepartmentLabel,
                   hint: _selectedRegion == null
-                      ? "Sélectionnez d'abord une région"
-                      : 'Sélectionnez votre département',
+                      ? context.l10n.registerSelectRegionFirst
+                      : context.l10n.registerSelectDepartmentHint,
                   icon: Icons.location_city_outlined,
                   items: _selectedRegion != null ? _departments : [],
                   selectedName: _selectedDepartment,
                   loading: _loadingDepartments,
                   onChanged:
                       _selectedRegion != null ? _onDepartmentChanged : null,
-                  validator: (v) => v == null ? 'Requis' : null,
+                  validator: (v) =>
+                      v == null ? context.l10n.requiredShort : null,
                 ),
               ],
             ],
 
             const SizedBox(height: 24),
-            const InfoBox(
+            InfoBox(
               icon: Icons.info_outline,
               color: Colors.indigo,
-              text: 'Ces informations seront vérifiées lors de la validation '
-                  'de votre compte par un administrateur.',
+              text: context.l10n.registerMinefopInfoBox,
             ),
           ],
         ),
@@ -1233,25 +1242,25 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
   // ── Step 1 widget ──
   Widget _buildPositionTypeDropdown() {
     if (_loadingPositionTypes) {
-      return const LoadingField(label: 'Chargement des fonctions...');
+      return LoadingField(label: context.l10n.registerLoadingFunctions);
     }
     if (_positionTypesError != null) {
       return _errorBox(_positionTypesError!);
     }
     if (_availablePositionTypes.isEmpty) {
-      return _infoBox('Aucune fonction disponible pour votre niveau.');
+      return _infoBox(context.l10n.registerNoFunctionsAvailable);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel(label: 'Fonction / Poste *'),
+        FieldLabel(label: context.l10n.registerFunctionPositionLabel),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: _selectedPositionType,
           isExpanded: true,
           decoration: modernDropdown(),
-          hint: const Text('Sélectionnez votre fonction',
-              style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          hint: Text(context.l10n.registerSelectYourFunction,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
           items: _availablePositionTypes
               .map((e) => DropdownMenuItem<String>(
                     value: e['positionType'] as String,
@@ -1262,7 +1271,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
               .toList(),
           onChanged: _onPositionTypeChanged,
           validator: (v) =>
-              v == null ? 'Veuillez sélectionner une fonction' : null,
+              v == null ? context.l10n.registerSelectFunctionValidator : null,
         ),
       ],
     );
@@ -1271,10 +1280,10 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
   // ── Step 2 widget ──
   Widget _buildParentUnitDropdown() {
     if (_loadingParentUnits) {
-      return const LoadingField(label: 'Chargement des unités parentes...');
+      return LoadingField(label: context.l10n.registerLoadingParentUnits);
     }
     if (_parentUnits.isEmpty) {
-      return _infoBox('Aucune unité parente disponible pour cette fonction.');
+      return _infoBox(context.l10n.registerNoParentUnitsAvailable);
     }
     // Auto-select root-level parent (level 1) when it's the only option
     if (_parentUnits.length == 1 &&
@@ -1287,12 +1296,12 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel(label: 'Unité parente *'),
+        FieldLabel(label: context.l10n.registerParentUnitLabel),
         const SizedBox(height: 4),
         Text(
           _parentUnits.length == 1 && _parentUnits[0]['level'] == 1
-              ? 'Cette fonction est directement rattachée à cette unité.'
-              : 'Sélectionnez le service supérieur hiérarchique direct.',
+              ? context.l10n.registerParentUnitDirectlyAttached
+              : context.l10n.registerSelectDirectSupervisor,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
         ),
         const SizedBox(height: 8),
@@ -1303,8 +1312,8 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
               : null,
           isExpanded: true,
           decoration: modernDropdown(),
-          hint: const Text("Sélectionnez l'unité supérieure",
-              style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          hint: Text(context.l10n.registerSelectParentUnitHint,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
           items: _parentUnits
               .map((e) => DropdownMenuItem<String>(
                     value: e['code'] as String,
@@ -1317,7 +1326,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
                   ))
               .toList(),
           onChanged: _onParentUnitChanged,
-          validator: (v) => v == null ? 'Requis' : null,
+          validator: (v) => v == null ? context.l10n.requiredShort : null,
         ),
       ],
     );
@@ -1326,10 +1335,10 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
   // ── Step 3 widget ──
   Widget _buildServiceUnitDropdown() {
     if (_loadingServiceUnits) {
-      return const LoadingField(label: 'Chargement de vos services...');
+      return LoadingField(label: context.l10n.registerLoadingServiceUnits);
     }
     if (_serviceUnits.isEmpty) {
-      return _infoBox('Aucun service trouvé sous cette unité parente.');
+      return _infoBox(context.l10n.registerNoServiceUnitsFound);
     }
     // Auto-select when only one service unit is available
     if (_serviceUnits.length == 1 && _selectedServiceUnit == null) {
@@ -1340,10 +1349,10 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel(label: 'Votre service *'),
+        FieldLabel(label: context.l10n.registerYourServiceLabel),
         const SizedBox(height: 4),
         Text(
-          "Sélectionnez l'unité dans laquelle vous exercez.",
+          context.l10n.registerSelectYourUnit,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
         ),
         const SizedBox(height: 8),
@@ -1354,8 +1363,8 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
               : null,
           isExpanded: true,
           decoration: modernDropdown(),
-          hint: const Text('Sélectionnez votre service',
-              style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          hint: Text(context.l10n.registerSelectYourServiceHint,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
           items: _serviceUnits
               .map((e) => DropdownMenuItem<String>(
                     value: e['code'] as String,
@@ -1368,7 +1377,7 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
                   ))
               .toList(),
           onChanged: _onServiceUnitChanged,
-          validator: (v) => v == null ? 'Requis' : null,
+          validator: (v) => v == null ? context.l10n.requiredShort : null,
         ),
       ],
     );
@@ -1389,8 +1398,8 @@ class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Intitulé du poste',
-                  style: TextStyle(
+              Text(context.l10n.registerJobTitleLabel,
+                  style: const TextStyle(
                       fontSize: 11,
                       color: Colors.teal,
                       fontWeight: FontWeight.w500)),
@@ -1601,34 +1610,33 @@ class _StepLocationState extends State<StepLocation> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Localisation',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(context.l10n.registerStepTitleLocation,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        const Text(
-          'Ces informations pré-rempliront la localisation dans les formulaires '
-          'ONEFOP (Section 1) et DSMO (Partie A).',
-          style: TextStyle(color: Color(0xFF666666), fontSize: 14),
+        Text(
+          context.l10n.registerLocationSubtitle,
+          style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
         ),
         const SizedBox(height: 28),
         widget.loadingRegions
-            ? const LoadingField(label: 'Région *')
+            ? LoadingField(label: context.l10n.registerRegionLabel)
             : LocationDropdown(
-                label: 'Région *',
+                label: context.l10n.registerRegionLabel,
                 icon: Icons.map_outlined,
-                hint: 'Sélectionner une région',
+                hint: context.l10n.registerSelectRegionShort,
                 items: widget.regions,
                 selected: widget.selectedRegion,
                 onChanged: widget.onRegionChanged,
               ),
         const SizedBox(height: 16),
         widget.loadingDepartments
-            ? const LoadingField(label: 'Département *')
+            ? LoadingField(label: context.l10n.registerDepartmentLabel)
             : LocationDropdown(
-                label: 'Département *',
+                label: context.l10n.registerDepartmentLabel,
                 icon: Icons.location_city_outlined,
                 hint: widget.selectedRegion == null
-                    ? "Sélectionnez d'abord une région"
-                    : 'Sélectionner un département',
+                    ? context.l10n.registerSelectRegionFirst
+                    : context.l10n.registerSelectDepartmentShort,
                 items: widget.departments,
                 selected: widget.selectedDepartment,
                 onChanged: widget.selectedRegion == null
@@ -1637,15 +1645,15 @@ class _StepLocationState extends State<StepLocation> {
               ),
         const SizedBox(height: 16),
         widget.loadingSubdivisions
-            ? const LoadingField(label: 'Arrondissement')
+            ? LoadingField(label: context.l10n.registerArrondissementLabel)
             : LocationDropdown(
-                label: 'Arrondissement',
+                label: context.l10n.registerArrondissementLabel,
                 icon: Icons.place_outlined,
                 hint: widget.selectedDepartment == null
-                    ? "Sélectionnez d'abord un département"
+                    ? context.l10n.registerSelectDepartmentFirst
                     : widget.subdivisions.isEmpty
-                        ? 'Aucun arrondissement disponible'
-                        : 'Sélectionner un arrondissement',
+                        ? context.l10n.registerNoSubdivisionAvailable
+                        : context.l10n.registerSelectSubdivisionShort,
                 items: widget.subdivisions,
                 selected: widget.selectedSubdivision,
                 onChanged: widget.selectedDepartment == null
@@ -1654,18 +1662,18 @@ class _StepLocationState extends State<StepLocation> {
                 required: false,
               ),
         const SizedBox(height: 16),
-        const FieldLabel(label: 'Milieu'),
+        FieldLabel(label: context.l10n.registerMilieuLabel),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: widget.selectedArea,
           isExpanded: true,
           decoration: modernDropdown(),
-          hint: const Text('Urbain ou Rural',
-              style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          hint: Text(context.l10n.registerUrbanOrRuralHint,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
           items: kAreaOptions
               .map((o) => DropdownMenuItem(
-                  value: o,
-                  child: Text(o,
+                  value: o.value,
+                  child: Text(o.text.of(context.loc),
                       style: const TextStyle(
                           fontSize: 14, color: Color(0xFF1E293B)))))
               .toList(),
@@ -1673,20 +1681,20 @@ class _StepLocationState extends State<StepLocation> {
         ),
         const SizedBox(height: 16),
         widget.loadingSectors
-            ? const LoadingField(label: "Secteur d'activité")
+            ? LoadingField(label: context.l10n.registerSectorLabel)
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const FieldLabel(label: "Secteur d'activité"),
+                  FieldLabel(label: context.l10n.registerSectorLabel),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<Map<String, dynamic>>(
                     initialValue: widget.selectedSector,
                     isExpanded: true,
                     decoration: modernDropdown().copyWith(
                         prefixIcon: const Icon(Icons.work_outline, size: 20)),
-                    hint: const Text('Sélectionner un secteur',
+                    hint: Text(context.l10n.registerSelectSectorHint,
                         style:
-                            TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+                            const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
                     items: widget.sectors
                         .map((s) => DropdownMenuItem<Map<String, dynamic>>(
                               value: s as Map<String, dynamic>,
@@ -1778,12 +1786,12 @@ class _StepSecurityState extends State<StepSecurity> {
           : Colors.green;
 
   String _strengthLabel(double s) => s < 0.35
-      ? 'Faible'
+      ? context.l10n.registerStrengthWeak
       : s < 0.65
-          ? 'Moyen'
+          ? context.l10n.registerStrengthMedium
           : s < 0.9
-              ? 'Fort'
-              : 'Très fort';
+              ? context.l10n.registerStrengthStrong
+              : context.l10n.registerStrengthVeryStrong;
 
   @override
   Widget build(BuildContext context) {
@@ -1793,11 +1801,11 @@ class _StepSecurityState extends State<StepSecurity> {
       child: Form(
         key: widget.formKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Sécurisez votre compte',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(context.l10n.registerSecureAccountTitle,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          const Text('Choisissez un mot de passe robuste.',
-              style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+          Text(context.l10n.registerChooseStrongPassword,
+              style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
           const SizedBox(height: 28),
           TextFormField(
             controller: _pwCtrl,
@@ -1806,7 +1814,7 @@ class _StepSecurityState extends State<StepSecurity> {
             style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
             decoration: modernInput(
               hasError: false,
-              labelText: 'Mot de passe *',
+              labelText: context.l10n.registerPasswordLabel,
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
                 icon: Icon(_obscurePw
@@ -1816,10 +1824,12 @@ class _StepSecurityState extends State<StepSecurity> {
               ),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Mot de passe requis';
-              if (v.length < 8) return 'Minimum 8 caractères';
+              if (v == null || v.isEmpty) {
+                return context.l10n.registerPasswordRequired;
+              }
+              if (v.length < 8) return context.l10n.registerPasswordMinChars;
               if (_calcStrength(v) < 0.35) {
-                return 'Trop faible — ajoutez des chiffres ou symboles';
+                return context.l10n.registerPasswordTooWeak;
               }
               return null;
             },
@@ -1854,7 +1864,7 @@ class _StepSecurityState extends State<StepSecurity> {
             style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
             decoration: modernInput(
               hasError: false,
-              labelText: 'Confirmer le mot de passe *',
+              labelText: context.l10n.registerConfirmPasswordLabel,
               prefixIcon: const Icon(Icons.lock_clock_outlined),
               suffixIcon: IconButton(
                 icon: Icon(_obscureConfirm
@@ -1865,9 +1875,11 @@ class _StepSecurityState extends State<StepSecurity> {
               ),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Confirmation requise';
+              if (v == null || v.isEmpty) {
+                return context.l10n.registerConfirmationRequired;
+              }
               if (v != _pwCtrl.text) {
-                return 'Les mots de passe ne correspondent pas';
+                return context.l10n.registerPasswordsDontMatch;
               }
               return null;
             },
@@ -1885,10 +1897,12 @@ class _PasswordTips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tips = [
-      ('8 caractères minimum', password.length >= 8),
-      ('Une lettre majuscule', password.contains(RegExp(r'[A-Z]'))),
-      ('Un chiffre', password.contains(RegExp(r'[0-9]'))),
-      ('Un caractère spécial', password.contains(RegExp(r'[!@#\$%^&*]'))),
+      (context.l10n.registerTip8Chars, password.length >= 8),
+      (context.l10n.registerTipUppercase,
+          password.contains(RegExp(r'[A-Z]'))),
+      (context.l10n.registerTipDigit, password.contains(RegExp(r'[0-9]'))),
+      (context.l10n.registerTipSpecialChar,
+          password.contains(RegExp(r'[!@#\$%^&*]'))),
     ];
     return Wrap(
       spacing: 8,
@@ -1970,34 +1984,38 @@ class StepReview extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Récapitulatif',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(context.l10n.registerStepTitleReview,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        const Text('Vérifiez vos informations avant de créer le compte.',
-            style: TextStyle(color: Color(0xFF666666), fontSize: 14)),
+        Text(context.l10n.registerReviewSubtitle,
+            style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
         const SizedBox(height: 24),
-        _roleBadge(),
+        _roleBadge(context),
         const SizedBox(height: 16),
         ReviewCard(
           title: isMinefop
-              ? 'Informations personnelles'
-              : 'Répondant — Section 0 ONEFOP / Partie A DSMO',
+              ? context.l10n.registerReviewPersonalInfoTitle
+              : context.l10n.registerReviewRespondentTitle,
           icon: Icons.person_outline,
           rows: [
-            ('Nom complet', '$respondentFirstName $respondentLastName'),
+            (context.l10n.registerFullNameLabel,
+                '$respondentFirstName $respondentLastName'),
             if (!isMinefop && respondentFunction.isNotEmpty)
-              ('Fonction', respondentFunction),
-            ('Email', respondentEmail),
-            ('Téléphone 1', respondentPhone1),
-            if (respondentPhone2.isNotEmpty) ('Téléphone 2', respondentPhone2),
+              (context.l10n.registerFunctionRowLabel, respondentFunction),
+            (context.l10n.registerEmailRowLabel, respondentEmail),
+            (context.l10n.registerPhone1RowLabel, respondentPhone1),
+            if (respondentPhone2.isNotEmpty)
+              (context.l10n.registerPhone2RowLabel, respondentPhone2),
           ],
         ),
         if (!isMinefop && _entityConfig != null) ...[
           const SizedBox(height: 12),
           ReviewCard(
-            title: entityType!.formSectionLabel,
+            title: context.loc.languageCode == 'en'
+                ? entityType!.formSectionLabelEn
+                : entityType!.formSectionLabel,
             icon: _entityConfig!.icon,
-            rows: _buildEntityRows(),
+            rows: _buildEntityRows(context),
           ),
         ],
         if (isMinefop) ...[
@@ -2012,21 +2030,33 @@ class StepReview extends StatelessWidget {
         if (selectedRegion != null || selectedDepartment != null) ...[
           const SizedBox(height: 12),
           ReviewCard(
-            title: 'Localisation',
+            title: context.l10n.registerStepTitleLocation,
             icon: Icons.map_outlined,
             rows: [
               if (selectedRegion != null)
-                ('Région', selectedRegion!['name'] as String? ?? ''),
+                (context.l10n.registerRegionRowLabel,
+                    selectedRegion!['name'] as String? ?? ''),
               if (selectedDepartment != null)
-                ('Département', selectedDepartment!['name'] as String? ?? ''),
+                (context.l10n.registerDepartmentRowLabel,
+                    selectedDepartment!['name'] as String? ?? ''),
               if (!isMinefop && selectedSubdivision != null)
                 (
-                  'Arrondissement',
+                  context.l10n.registerArrondissementLabel,
                   selectedSubdivision!['name'] as String? ?? ''
                 ),
-              if (!isMinefop && selectedArea != null) ('Milieu', selectedArea!),
+              if (!isMinefop && selectedArea != null)
+                (
+                  context.l10n.registerMilieuLabel,
+                  kAreaOptions
+                      .firstWhere((o) => o.value == selectedArea,
+                          orElse: () => LocalizedOption(
+                              selectedArea!, LocalizedText.same(selectedArea!)))
+                      .text
+                      .of(context.loc)
+                ),
               if (!isMinefop && selectedSector != null)
-                ('Secteur', selectedSector!['name'] as String? ?? ''),
+                (context.l10n.registerSectorRowLabel,
+                    selectedSector!['name'] as String? ?? ''),
             ],
           ),
         ],
@@ -2037,15 +2067,14 @@ class StepReview extends StatelessWidget {
               : Icons.check_circle_outline,
           color: isMinefop ? Colors.orange : Colors.green,
           text: isMinefop
-              ? 'Votre compte sera activé après validation par un administrateur MINEFOP.'
-              : 'Ces informations pré-rempliront automatiquement les Sections 0 et 1 '
-                  'de vos formulaires ONEFOP et la Partie A de vos déclarations DSMO.',
+              ? context.l10n.registerMinefopPendingInfoBox
+              : context.l10n.registerCompanyPendingInfoBox,
         ),
       ]),
     );
   }
 
-  Widget _roleBadge() {
+  Widget _roleBadge(BuildContext context) {
     if (_entityConfig != null) {
       return Container(
         width: double.infinity,
@@ -2058,7 +2087,7 @@ class StepReview extends StatelessWidget {
         child: Row(children: [
           Icon(_entityConfig!.icon, color: _entityConfig!.color),
           const SizedBox(width: 10),
-          Text(_entityConfig!.title,
+          Text(_entityConfig!.title.of(context.loc),
               style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -2079,7 +2108,8 @@ class StepReview extends StatelessWidget {
           const Icon(Icons.account_balance_outlined, color: Colors.indigo),
           const SizedBox(width: 10),
           Text(
-            'Agent MINEFOP — ${kMinefopRoleLabels[role] ?? role}',
+            context.l10n.registerAgentMinefopPrefix(
+                kMinefopRoleLabels[role]?.of(context.loc) ?? role),
             style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
@@ -2091,14 +2121,14 @@ class StepReview extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  List<(String, String)> _buildEntityRows() {
+  List<(String, String)> _buildEntityRows(BuildContext context) {
     if (_entityConfig == null) return [];
     final rows = <(String, String)>[];
     for (final field in _entityConfig!.fields) {
       final raw = entityData[field.key];
       final value = raw?.toString().trim() ?? '';
       if (value.isEmpty) continue;
-      rows.add((field.label, value));
+      rows.add((field.label.of(context.loc), value));
     }
     return rows;
   }
@@ -2131,7 +2161,7 @@ class _MinefopReviewCard extends StatelessWidget {
           child: Row(children: [
             Icon(Icons.badge_outlined, size: 18, color: Colors.indigo.shade400),
             const SizedBox(width: 8),
-            Text('Informations MINEFOP',
+            Text(context.l10n.registerStepTitleMinefopInfo,
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -2142,13 +2172,15 @@ class _MinefopReviewCard extends StatelessWidget {
         const Divider(height: 1, indent: 16, endIndent: 16),
         const SizedBox(height: 12),
         if (matricule.isNotEmpty)
-          _ReviewRow(label: 'Matricule', value: matricule),
+          _ReviewRow(
+              label: context.l10n.registerMatriculeRowLabel, value: matricule),
         if (poste.isNotEmpty)
-          _ReviewRow(label: 'Intitulé du poste', value: poste),
+          _ReviewRow(
+              label: context.l10n.registerJobTitleLabel, value: poste),
         if (servicePath.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            child: Text('Chemin hiérarchique',
+            child: Text(context.l10n.registerHierarchicalPathLabel,
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -2190,7 +2222,9 @@ class _MinefopReviewCard extends StatelessWidget {
             ),
           ),
         ] else if (serviceCode.isNotEmpty)
-          _ReviewRow(label: 'Code service', value: serviceCode),
+          _ReviewRow(
+              label: context.l10n.registerServiceCodeRowLabel,
+              value: serviceCode),
         const SizedBox(height: 4),
       ]),
     );

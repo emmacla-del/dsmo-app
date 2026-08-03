@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/i18n/l10n_ext.dart';
 
 class RegistrationReceipt extends StatelessWidget {
   final String establishmentId;
@@ -24,7 +25,7 @@ class RegistrationReceipt extends StatelessWidget {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label copié dans le presse-papier'),
+        content: Text(context.l10n.registerReceiptCopiedSnackbar(label)),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.teal,
@@ -39,8 +40,8 @@ class RegistrationReceipt extends StatelessWidget {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Impossible d'ouvrir l'attestation."),
+        SnackBar(
+          content: Text(context.l10n.registerReceiptCannotOpenAttestation),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red,
         ),
@@ -93,10 +94,10 @@ class RegistrationReceipt extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Compte créé avec succès !',
+            Text(
+              context.l10n.registerSuccessTitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1E293B),
@@ -134,7 +135,7 @@ class RegistrationReceipt extends StatelessWidget {
                                     color: Colors.teal.shade700, size: 18),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'REÇU D\'ENREGISTREMENT',
+                                  context.l10n.registerReceiptTitle,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -155,15 +156,16 @@ class RegistrationReceipt extends StatelessWidget {
                                 // Company name
                                 _buildReceiptRow(
                                   icon: Icons.business_outlined,
-                                  label: 'Entreprise',
+                                  label: context.l10n.registerReceiptCompanyLabel,
                                   value: companyName,
                                 ),
                                 const Divider(height: 20),
 
                                 // Establishment ID (highlighted)
                                 GestureDetector(
-                                  onTap: () => _copyToClipboard(
-                                      context, establishmentId, 'Identifiant'),
+                                  onTap: () => _copyToClipboard(context,
+                                      establishmentId,
+                                      context.l10n.registerReceiptIdCopyLabel),
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
@@ -174,16 +176,16 @@ class RegistrationReceipt extends StatelessWidget {
                                     ),
                                     child: Column(
                                       children: [
-                                        const Row(
+                                        Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            Icon(Icons.badge_outlined,
+                                            const Icon(Icons.badge_outlined,
                                                 size: 14, color: Colors.teal),
-                                            SizedBox(width: 6),
+                                            const SizedBox(width: 6),
                                             Text(
-                                              'IDENTIFIANT ÉTABLISSEMENT',
-                                              style: TextStyle(
+                                              context.l10n.establishmentIdLabel,
+                                              style: const TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w600,
                                                 color: Colors.teal,
@@ -220,7 +222,8 @@ class RegistrationReceipt extends StatelessWidget {
                                                   color: Colors.teal.shade700),
                                               const SizedBox(width: 3),
                                               Text(
-                                                'Cliquer pour copier',
+                                                context.l10n
+                                                    .registerReceiptClickToCopy,
                                                 style: TextStyle(
                                                   fontSize: 9,
                                                   color: Colors.teal.shade700,
@@ -239,14 +242,15 @@ class RegistrationReceipt extends StatelessWidget {
                                 if (email != null && email!.isNotEmpty)
                                   _buildReceiptRow(
                                     icon: Icons.email_outlined,
-                                    label: 'Email',
+                                    label: context.l10n.registerEmailRowLabel,
                                     value: email!,
                                   ),
 
                                 // Registration date
                                 _buildReceiptRow(
                                   icon: Icons.calendar_today_outlined,
-                                  label: "Date d'enregistrement",
+                                  label: context
+                                      .l10n.registerReceiptRegistrationDateLabel,
                                   value:
                                       '${registrationDate.day.toString().padLeft(2, '0')}/${registrationDate.month.toString().padLeft(2, '0')}/${registrationDate.year} à ${registrationDate.hour.toString().padLeft(2, '0')}:${registrationDate.minute.toString().padLeft(2, '0')}',
                                 ),
@@ -273,7 +277,7 @@ class RegistrationReceipt extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Conservez cet identifiant. Il vous sera demandé pour accéder à vos formulaires ONEFOP, et peut aussi être utilisé à la place de votre e-mail pour vous connecter.',
+                              context.l10n.registerReceiptKeepIdNote,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.amber.shade800,
@@ -293,9 +297,9 @@ class RegistrationReceipt extends StatelessWidget {
                           onPressed: () => _downloadAttestation(context),
                           icon: const Icon(Icons.picture_as_pdf_outlined,
                               size: 16, color: Color(0xFF006B5E)),
-                          label: const Text(
-                            "Télécharger l'attestation",
-                            style: TextStyle(
+                          label: Text(
+                            context.l10n.registerReceiptDownloadAttestation,
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: Color(0xFF006B5E),
@@ -330,9 +334,9 @@ class RegistrationReceipt extends StatelessWidget {
                               ),
                               side: const BorderSide(color: Color(0xFF006B5E)),
                             ),
-                            child: const Text(
-                              'Fermer',
-                              style: TextStyle(
+                            child: Text(
+                              context.l10n.registerReceiptCloseButton,
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF006B5E),
@@ -355,9 +359,9 @@ class RegistrationReceipt extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: const Text(
-                              'Accéder',
-                              style: TextStyle(
+                            child: Text(
+                              context.l10n.registerAccessButton,
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
 import '../../theme/ultra_theme.dart';
 import 'campaign_constants.dart';
@@ -127,39 +128,39 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
         () async {
           await _api.post('/campaigns/$_id/activate');
         },
-        successMessage: 'Campagne activée.',
+        successMessage: context.l10n.campaignActivatedMsg,
       );
 
   Future<void> _pause() => _runAction(
         () async {
           await _api.post('/campaigns/$_id/pause');
         },
-        successMessage: 'Campagne mise en pause.',
+        successMessage: context.l10n.campaignPausedMsg,
       );
 
   Future<void> _close() => _runAction(
         () async {
           await _api.post('/campaigns/$_id/close');
         },
-        successMessage: 'Campagne clôturée.',
+        successMessage: context.l10n.campaignClosedMsg,
       );
 
   Future<void> _confirmDelete() async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Supprimer la campagne ?'),
-        content: const Text(
-            'Cette action est irréversible et supprimera également toutes les soumissions associées.'),
+        title: Text(l10n.deleteCampaignTitle),
+        content: Text(l10n.deleteCampaignBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancelButton),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
@@ -172,6 +173,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   Future<void> _extendDeadline() async {
+    final l10n = context.l10n;
     final current =
         DateTime.tryParse(_campaign['deadline']?.toString() ?? '') ??
             DateTime.now();
@@ -187,23 +189,24 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
         await _api.post('/campaigns/$_id/extend',
             data: {'newDeadline': picked.toIso8601String()});
       },
-      successMessage: 'Échéance prolongée.',
+      successMessage: l10n.deadlineExtendedMsg,
     );
   }
 
   Future<void> _sendReminder() async {
+    final l10n = context.l10n;
     String selected = reminderTypes.first;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Envoyer un rappel'),
+          title: Text(l10n.sendReminderAction),
           content: DropdownButtonFormField<String>(
-            value: selected,
+            initialValue: selected,
             items: reminderTypes
                 .map((t) => DropdownMenuItem(
                       value: t,
-                      child: Text(reminderTypeLabels[t] ?? t),
+                      child: Text(reminderTypeLabels[t]?.of(context.loc) ?? t),
                     ))
                 .toList(),
             onChanged: (v) => setDialogState(() => selected = v ?? selected),
@@ -211,11 +214,11 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Annuler'),
+              child: Text(l10n.cancelButton),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Envoyer'),
+              child: Text(l10n.sendButton),
             ),
           ],
         ),
@@ -226,7 +229,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       () async {
         await _api.post('/campaigns/$_id/remind', data: {'type': selected});
       },
-      successMessage: 'Rappel envoyé.',
+      successMessage: l10n.reminderSentMsg,
     );
   }
 
@@ -254,7 +257,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(_changed),
         ),
-        title: Text(_campaign['name'] as String? ?? 'Campagne'),
+        title: Text(_campaign['name'] as String? ?? context.l10n.campaignFallbackName),
         backgroundColor: UltraTheme.surface,
         elevation: 0,
         bottom: _loadingDetail
@@ -304,7 +307,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
             child: Text(message,
                 style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Réessayer')),
+          TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
         ],
       ),
     );
@@ -319,6 +322,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   // ── Visible action bar (was hidden in an AppBar overflow menu) ──────────
 
   Widget _buildActionBar(String status) {
+    final l10n = context.l10n;
     final canActivate = status == 'DRAFT' || status == 'PAUSED';
     final canDeactivate = status == 'ACTIVE';
     final canEdit = status != 'ARCHIVED';
@@ -336,31 +340,31 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           FilledButton.icon(
             onPressed: _actionInProgress ? null : _activate,
             icon: const Icon(Icons.play_arrow_rounded, size: 18),
-            label: const Text('Activer'),
+            label: Text(l10n.activateTooltip),
           ),
         if (canDeactivate)
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: _actionInProgress ? null : _pause,
             icon: const Icon(Icons.pause_rounded, size: 18),
-            label: const Text('Désactiver'),
+            label: Text(l10n.deactivateTooltip),
           ),
         if (canEdit)
           OutlinedButton.icon(
             onPressed: _actionInProgress ? null : _openEditDialog,
             icon: const Icon(Icons.edit_outlined, size: 18),
-            label: const Text('Modifier'),
+            label: Text(l10n.editTooltip),
           ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
           onPressed: _actionInProgress ? null : _confirmDelete,
           icon: const Icon(Icons.delete_outline, size: 18),
-          label: const Text('Supprimer'),
+          label: Text(l10n.deleteButton),
         ),
         if (hasMoreActions)
           PopupMenuButton<String>(
             enabled: !_actionInProgress,
-            tooltip: "Plus d'actions",
+            tooltip: l10n.moreActionsTooltip,
             onSelected: (action) {
               switch (action) {
                 case 'close':
@@ -376,13 +380,13 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
             },
             itemBuilder: (ctx) => [
               if (canClose)
-                const PopupMenuItem(value: 'close', child: Text('Clôturer')),
+                PopupMenuItem(value: 'close', child: Text(l10n.closeAction)),
               if (canExtend)
-                const PopupMenuItem(
-                    value: 'extend', child: Text("Prolonger l'échéance")),
+                PopupMenuItem(
+                    value: 'extend', child: Text(l10n.extendDeadlineAction)),
               if (canRemind)
-                const PopupMenuItem(
-                    value: 'remind', child: Text('Envoyer un rappel')),
+                PopupMenuItem(
+                    value: 'remind', child: Text(l10n.sendReminderAction)),
             ],
             icon: const Icon(Icons.more_horiz_rounded),
           ),
@@ -397,6 +401,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   Widget _buildInfoCard(String status) {
+    final l10n = context.l10n;
     final color = _statusColor(status);
     final creator = _campaign['creator'] as Map<String, dynamic>?;
     String? creatorLabel;
@@ -413,12 +418,12 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           Row(
             children: [
               Chip(
-                label: Text(campaignStatusLabels[status] ?? status,
+                label: Text(campaignStatusLabels[status]?.of(context.loc) ?? status,
                     style: TextStyle(color: color, fontSize: 12)),
                 backgroundColor: color.withValues(alpha: 0.1),
               ),
               const SizedBox(width: 8),
-              Text('Code: ${_campaign['code'] ?? '—'}',
+              Text(l10n.codeLabelPrefix('${_campaign['code'] ?? '—'}'),
                   style: UltraTheme.labelMedium),
             ],
           ),
@@ -429,19 +434,19 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
             const SizedBox(height: 12),
           ],
           _infoRow(
-              'Type',
-              campaignTypeLabels[_campaign['type']] ??
+              l10n.typeLabel,
+              campaignTypeLabels[_campaign['type']]?.of(context.loc) ??
                   (_campaign['type'] as String? ?? '—')),
           _infoRow(
-              'Collecte',
-              collectionTypeLabels[_campaign['collectionType']] ??
+              l10n.collectionLabel,
+              collectionTypeLabels[_campaign['collectionType']]?.of(context.loc) ??
                   (_campaign['collectionType'] as String? ?? '—')),
-          _infoRow('Début', _formatDate(_campaign['startDate'])),
-          _infoRow('Échéance', _formatDate(_campaign['deadline'])),
+          _infoRow(l10n.startLabel, _formatDate(_campaign['startDate'])),
+          _infoRow(l10n.deadlineInfoLabel, _formatDate(_campaign['deadline'])),
           if (_campaign['extendedDeadline'] != null)
-            _infoRow('Échéance prolongée',
+            _infoRow(l10n.extendedDeadlineLabel,
                 _formatDate(_campaign['extendedDeadline'])),
-          if (creatorLabel != null) _infoRow('Créée par', creatorLabel),
+          if (creatorLabel != null) _infoRow(l10n.createdByLabel, creatorLabel),
         ],
       ),
     );
@@ -480,11 +485,12 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
     final notStarted = p['notStarted'] as int? ?? 0;
     final inProgress = p['inProgress'] as int? ?? 0;
     final rate = double.tryParse('${p['completionRate']}') ?? 0;
+    final l10n = context.l10n;
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Progression', style: UltraTheme.titleMedium),
+          Text(l10n.progressTitle, style: UltraTheme.titleMedium),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -496,15 +502,15 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          Text('${rate.toStringAsFixed(1)}% complété',
+          Text(l10n.completedPercent(rate.toStringAsFixed(1)),
               style: UltraTheme.labelMedium),
           const SizedBox(height: 16),
           Row(
             children: [
-              _statTile('Total', total, UltraTheme.textSecondary),
-              _statTile('Soumises', submitted, UltraTheme.success),
-              _statTile('En cours', inProgress, UltraTheme.info),
-              _statTile('Non commencées', notStarted, UltraTheme.warning),
+              _statTile(l10n.total, total, UltraTheme.textSecondary),
+              _statTile(l10n.submittedLabel, submitted, UltraTheme.success),
+              _statTile(l10n.inProgressLabel, inProgress, UltraTheme.info),
+              _statTile(l10n.notStartedLabel, notStarted, UltraTheme.warning),
             ],
           ),
         ],
@@ -529,6 +535,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   Widget _buildTargetingCard() {
+    final l10n = context.l10n;
     final regions = (_campaign['targetRegions'] as List?)?.cast<String>() ?? [];
     final departments =
         (_campaign['targetDepartments'] as List?)?.cast<String>() ?? [];
@@ -537,24 +544,30 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
     final autoReminders = _campaign['autoReminders'] as bool? ?? false;
     final reminderDays =
         (_campaign['reminderDays'] as List?)?.cast<int>() ?? [];
+    final dayPrefix = l10n.dayPrefix;
 
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Ciblage', style: UltraTheme.titleMedium),
+          Text(l10n.targetingTitle, style: UltraTheme.titleMedium),
           const SizedBox(height: 12),
-          _chipGroup('Régions', regions, 'Toutes (aucune restriction)'),
+          _chipGroup(l10n.regionsLabel, regions, l10n.allNoRestriction),
           const SizedBox(height: 8),
-          _chipGroup('Départements', departments, 'Aucun'),
+          _chipGroup(l10n.departmentsLabel, departments, l10n.noneLabel),
           const SizedBox(height: 8),
-          _chipGroup('Types d\'entités',
-              entities.map((e) => entityTypeLabels[e] ?? e).toList(), 'Tous'),
+          _chipGroup(
+              l10n.entityTypesLabel,
+              entities
+                  .map((e) => entityTypeLabels[e]?.of(context.loc) ?? e)
+                  .toList(),
+              l10n.allMasculine),
           const SizedBox(height: 12),
           Text(
             autoReminders
-                ? 'Rappels automatiques activés (J-${reminderDays.join(', J-')})'
-                : 'Rappels automatiques désactivés',
+                ? l10n.autoRemindersEnabled(
+                    reminderDays.map((d) => '$dayPrefix$d').join(', '))
+                : l10n.autoRemindersDisabled,
             style: UltraTheme.bodyMedium,
           ),
         ],
@@ -585,16 +598,16 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   Widget _buildRemindersCard() {
+    final l10n = context.l10n;
     final reminders = (_campaign['reminders'] as List?) ?? [];
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Historique des rappels', style: UltraTheme.titleMedium),
+          Text(l10n.reminderHistoryTitle, style: UltraTheme.titleMedium),
           const SizedBox(height: 8),
           if (reminders.isEmpty)
-            Text('Aucun rappel envoyé pour le moment.',
-                style: UltraTheme.bodyMedium)
+            Text(l10n.noRemindersYet, style: UltraTheme.bodyMedium)
           else
             ...reminders.map((r) {
               final reminder = r as Map<String, dynamic>;
@@ -615,13 +628,16 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(reminderTypeLabels[type] ?? type,
+                      child: Text(
+                          reminderTypeLabels[type]?.of(context.loc) ?? type,
                           style: UltraTheme.bodyMedium),
                     ),
                     Text(
                       hasFailures
-                          ? '$sentCount destinataires · $failedCount échecs · ${_formatDate(reminder['sentAt'])}'
-                          : '$sentCount destinataires · ${_formatDate(reminder['sentAt'])}',
+                          ? l10n.reminderStatsWithFailures(sentCount,
+                              failedCount, _formatDate(reminder['sentAt']))
+                          : l10n.reminderStatsNoFailures(
+                              sentCount, _formatDate(reminder['sentAt'])),
                       style: UltraTheme.labelMedium.copyWith(
                         color: hasFailures ? UltraTheme.warning : null,
                         fontWeight: hasFailures ? FontWeight.w600 : null,
@@ -637,22 +653,23 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   Widget _buildSubmissionsCard() {
+    final l10n = context.l10n;
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Soumissions', style: UltraTheme.titleMedium),
+          Text(l10n.submissionsTitle, style: UltraTheme.titleMedium),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _submissionFilterChip(null, 'Toutes'),
+                _submissionFilterChip(null, l10n.allFilter),
                 for (final s in submissionStatuses)
                   Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: _submissionFilterChip(
-                        s, submissionStatusLabels[s] ?? s),
+                        s, submissionStatusLabels[s]?.of(context.loc) ?? s),
                   ),
               ],
             ),
@@ -668,7 +685,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           else if (_submissions.isEmpty)
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Text('Aucune soumission.', style: UltraTheme.bodyMedium),
+              child: Text(l10n.noSubmissions, style: UltraTheme.bodyMedium),
             )
           else
             Column(
@@ -679,14 +696,16 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   title: Text(
-                      sub['companyName'] as String? ?? 'Entreprise inconnue'),
+                      sub['companyName'] as String? ?? l10n.unknownCompany),
                   subtitle: Text(
                       [sub['region'], sub['department']]
                           .where((v) => v != null)
                           .join(' · '),
                       style: UltraTheme.labelMedium),
                   trailing: Chip(
-                    label: Text(submissionStatusLabels[subStatus] ?? subStatus,
+                    label: Text(
+                        submissionStatusLabels[subStatus]?.of(context.loc) ??
+                            subStatus,
                         style: const TextStyle(fontSize: 11)),
                     visualDensity: VisualDensity.compact,
                   ),
@@ -727,7 +746,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   String _formatDate(dynamic date) {
-    if (date == null) return 'Non définie';
+    if (date == null) return context.l10n.dateUndefined;
     try {
       final dt = DateTime.parse(date.toString());
       return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
@@ -785,7 +804,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_deadline == null) {
-      setState(() => _submitError = 'Veuillez sélectionner une échéance.');
+      setState(() => _submitError = context.l10n.deadlineRequiredError);
       return;
     }
 
@@ -815,6 +834,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: ConstrainedBox(
@@ -833,10 +853,10 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                   const Icon(Icons.edit_outlined,
                       color: Colors.white, size: 22),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Modifier la campagne',
-                      style: TextStyle(
+                      l10n.editCampaignTitle,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 17,
                           fontWeight: FontWeight.w600),
@@ -856,8 +876,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                   padding: const EdgeInsets.all(20),
                   children: [
                     Text(
-                      'Le nom, le type de campagne, le type de collecte et la '
-                      'date de début ne sont pas modifiables après création.',
+                      l10n.editCampaignHelper,
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
@@ -871,7 +890,8 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                         border: Border.all(color: Colors.grey.shade300),
                       ),
                       child: Text(
-                        widget.campaign['name'] as String? ?? 'Sans nom',
+                        widget.campaign['name'] as String? ??
+                            l10n.unnamedCampaign,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -879,22 +899,22 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                     TextFormField(
                       controller: _descCtrl,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (optionnel)',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.notes_outlined),
+                      decoration: InputDecoration(
+                        labelText: l10n.descriptionOptionalLabel,
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.notes_outlined),
                       ),
                     ),
                     const SizedBox(height: 16),
                     DatePickerField(
-                      label: 'Échéance *',
+                      label: l10n.deadlineFieldLabel,
                       value: _deadline,
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2040),
                       onPicked: (d) => setState(() => _deadline = d),
                     ),
                     const SizedBox(height: 16),
-                    Text('Types d\'entités ciblées',
+                    Text(l10n.targetEntityTypesSection,
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -905,7 +925,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                       runSpacing: 4,
                       children: [
                         FilterChip(
-                          label: const Text('Toutes'),
+                          label: Text(l10n.allFilter),
                           selected: _selectedEntityTypes.isEmpty,
                           onSelected: (v) {
                             if (v) setState(() => _selectedEntityTypes.clear());
@@ -914,7 +934,8 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                         ...entityTypes.map((et) {
                           final selected = _selectedEntityTypes.contains(et);
                           return FilterChip(
-                            label: Text(entityTypeLabels[et] ?? et),
+                            label: Text(
+                                entityTypeLabels[et]?.of(context.loc) ?? et),
                             selected: selected,
                             onSelected: (v) => setState(() {
                               if (v) {
@@ -928,7 +949,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Text('Régions & Départements ciblés',
+                    Text(l10n.targetRegionsSection,
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -942,7 +963,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                       onDepartmentsChanged: (s) => _selectedDepartmentNames = s,
                     ),
                     const SizedBox(height: 16),
-                    Text('Jours de rappel (J-)',
+                    Text(l10n.reminderDaysLabel,
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -953,7 +974,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                       children: [1, 3, 7, 14, 30].map((day) {
                         final active = _reminderDays.contains(day);
                         return FilterChip(
-                          label: Text('$day j'),
+                          label: Text('$day${l10n.daySuffix}'),
                           selected: active,
                           onSelected: (v) => setState(() {
                             if (v) {
@@ -1007,7 +1028,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                     onPressed: _submitting
                         ? null
                         : () => Navigator.of(context).pop(false),
-                    child: const Text('Annuler'),
+                    child: Text(context.l10n.cancelButton),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
@@ -1020,7 +1041,7 @@ class EditCampaignDialogState extends State<EditCampaignDialog> {
                                 strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.check_rounded, size: 18),
-                    label: const Text('Enregistrer'),
+                    label: Text(l10n.saveButton),
                   ),
                 ],
               ),

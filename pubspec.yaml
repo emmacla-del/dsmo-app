@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   shared_preferences: ^2.2.2
 
   # --- Layout & Grid ---
@@ -28,7 +30,7 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # --- Utilities ---
-  intl: ^0.18.0
+  intl: ^0.20.2
   url_launcher: ^6.1.0
 
   # --- File handling & export ---
@@ -41,7 +43,7 @@ dependencies:
   fl_chart: ^0.63.0
   pdf: ^3.10.4
   printing: ^5.9.0
-  syncfusion_flutter_pdfviewer: ^23.2.7
+  syncfusion_flutter_pdfviewer: ^28.2.12
 
   # --- UI / Fonts & Animations ---
   shimmer: ^3.0.0
@@ -54,6 +56,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
 
   assets:
     - assets/images/onefop_logo.png

@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../core/i18n/localized_text.dart';
 import '../../theme/app_colors.dart';
 
 const String kOnefopBaseUrl = 'https://dsmo-app-2.onrender.com/api';
@@ -168,7 +169,7 @@ class BackendMappers {
 class HTDef {
   final List<String> rowKeys;
   final String textSuffix;
-  final List<String> rowLabels;
+  final List<LocalizedText> rowLabels;
   const HTDef(
       {required this.rowKeys,
       required this.textSuffix,
@@ -177,31 +178,40 @@ class HTDef {
 
 // ── Sidebar metadata ──────────────────────────────────────────
 class SidebarMeta {
-  final String label;
+  final LocalizedText label;
   final IconData icon;
   const SidebarMeta(this.label, this.icon);
 }
 
 // ── Static maps ─────────────────────────────────────────────
 const Map<String, SidebarMeta> kSidebarMeta = {
-  'section0': SidebarMeta('Répondant', Icons.person_outline),
-  'section1': SidebarMeta('Entité', Icons.corporate_fare_outlined),
-  'section1_cooperative':
-      SidebarMeta('Coopérative', Icons.corporate_fare_outlined),
-  'section1_entreprise': SidebarMeta('Entreprise', Icons.business_outlined),
-  'section1_ctd': SidebarMeta('CTD', Icons.account_balance_outlined),
-  'section1_ong': SidebarMeta('ONG', Icons.volunteer_activism_outlined),
-  'section2': SidebarMeta('Emploi', Icons.work_outline),
-  'section3': SidebarMeta('Départs', Icons.exit_to_app_outlined),
-  'section4': SidebarMeta('Formation', Icons.school_outlined),
+  'section0': SidebarMeta(
+      LocalizedText(fr: 'Répondant', en: 'Respondent'), Icons.person_outline),
+  'section1': SidebarMeta(
+      LocalizedText(fr: 'Entité', en: 'Entity'), Icons.corporate_fare_outlined),
+  'section1_cooperative': SidebarMeta(
+      LocalizedText(fr: 'Coopérative', en: 'Cooperative'),
+      Icons.corporate_fare_outlined),
+  'section1_entreprise': SidebarMeta(
+      LocalizedText(fr: 'Entreprise', en: 'Company'), Icons.business_outlined),
+  'section1_ctd': SidebarMeta(
+      LocalizedText.same('CTD'), Icons.account_balance_outlined),
+  'section1_ong': SidebarMeta(
+      LocalizedText(fr: 'ONG', en: 'NGO'), Icons.volunteer_activism_outlined),
+  'section2': SidebarMeta(
+      LocalizedText(fr: 'Emploi', en: 'Employment'), Icons.work_outline),
+  'section3': SidebarMeta(
+      LocalizedText(fr: 'Départs', en: 'Departures'), Icons.exit_to_app_outlined),
+  'section4': SidebarMeta(
+      LocalizedText(fr: 'Formation', en: 'Training'), Icons.school_outlined),
 };
 
-const Map<String, String> kDividers = {
-  'S0Q03': 'Contacts',
-  'S1Q04': 'Localisation',
-  'S1Q06': 'Coordonnées',
-  'S1Q07': 'Activité',
-  'S1Q10': 'Structure',
+const Map<String, LocalizedText> kDividers = {
+  'S0Q03': LocalizedText(fr: 'Contacts', en: 'Contacts'),
+  'S1Q04': LocalizedText(fr: 'Localisation', en: 'Location'),
+  'S1Q06': LocalizedText(fr: 'Coordonnées', en: 'Contact details'),
+  'S1Q07': LocalizedText(fr: 'Activité', en: 'Activity'),
+  'S1Q10': LocalizedText(fr: 'Structure', en: 'Structure'),
 };
 
 const Set<String> kHybridAstIds = {
@@ -216,34 +226,38 @@ const Set<String> kHybridAstIds = {
   'S4Q03_DOMAIN_3_TEXT',
 };
 
-const Map<String, String> kHybridColumnHeaders = {
-  's3q02': 'Motif / Reason',
-  's4q02': 'Compétence / Skill',
-  's4q03': 'Domaine / Domain',
+const Map<String, LocalizedText> kHybridColumnHeaders = {
+  's3q02': LocalizedText(fr: 'Motif', en: 'Reason'),
+  's4q02': LocalizedText(fr: 'Compétence', en: 'Skill'),
+  's4q03': LocalizedText(fr: 'Domaine', en: 'Domain'),
 };
 
 const Map<String, HTDef> kHybridTables = {
   's3q02': HTDef(
     rowKeys: ['reason_1', 'reason_2', 'reason_3'],
     textSuffix: 'text',
-    rowLabels: ['Motif 1/Reason 1', 'Motif 2/Reason 2', 'Motif 3/Reason 3'],
+    rowLabels: [
+      LocalizedText(fr: 'Motif 1', en: 'Reason 1'),
+      LocalizedText(fr: 'Motif 2', en: 'Reason 2'),
+      LocalizedText(fr: 'Motif 3', en: 'Reason 3'),
+    ],
   ),
   's4q02': HTDef(
     rowKeys: ['skill_1', 'skill_2', 'skill_3'],
     textSuffix: 'text',
     rowLabels: [
-      'Compétence 1/Skill 1',
-      'Compétence 2/Skill 2',
-      'Compétence 3/Skill 3'
+      LocalizedText(fr: 'Compétence 1', en: 'Skill 1'),
+      LocalizedText(fr: 'Compétence 2', en: 'Skill 2'),
+      LocalizedText(fr: 'Compétence 3', en: 'Skill 3'),
     ],
   ),
   's4q03': HTDef(
     rowKeys: ['domain_1', 'domain_2', 'domain_3'],
     textSuffix: 'text',
     rowLabels: [
-      'Domaine 1/Domain 1',
-      'Domaine 2/Domain 2',
-      'Domaine 3/Domain 3'
+      LocalizedText(fr: 'Domaine 1', en: 'Domain 1'),
+      LocalizedText(fr: 'Domaine 2', en: 'Domain 2'),
+      LocalizedText(fr: 'Domaine 3', en: 'Domain 3'),
     ],
   ),
 };
@@ -289,16 +303,16 @@ String entityTypeForSchema(EntityType t) {
 }
 
 /// Returns the display title for UI (human readable)
-String entityTypeTitle(EntityType t) {
+LocalizedText entityTypeTitle(EntityType t) {
   switch (t) {
     case EntityType.enterprise:
-      return 'ENTREPRISE';
+      return const LocalizedText(fr: 'ENTREPRISE', en: 'COMPANY');
     case EntityType.cooperative:
-      return 'COOPÉRATIVE';
+      return const LocalizedText(fr: 'COOPÉRATIVE', en: 'COOPERATIVE');
     case EntityType.ctd:
-      return 'CTD';
+      return const LocalizedText.same('CTD');
     case EntityType.ong:
-      return 'ONG';
+      return const LocalizedText(fr: 'ONG', en: 'NGO');
   }
 }
 

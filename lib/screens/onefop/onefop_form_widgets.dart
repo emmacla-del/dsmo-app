@@ -6,13 +6,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/i18n/l10n_ext.dart';
+import '../../core/i18n/localized_text.dart';
 import '../../core/focus/schema/field_schema.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/renderers/table_renderer.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
 import '../../core/focus/utils/field_validator.dart';
-import '../../core/focus/compiler/section_title_lookup.dart';
 
 import 'onefop_form_constants.dart';
 import 'onefop_form_controller.dart';
@@ -22,20 +24,19 @@ import 'onefop_form_controller.dart';
 // ══════════════════════════════════════════════════════════════
 
 class FieldGroup {
-  final String? sub;
+  final LocalizedText? sub;
   final List<FieldSchema> fields;
   const FieldGroup({required this.sub, required this.fields});
 }
 
 List<FieldGroup> groupFields(List<FieldSchema> fields) {
   final groups = <FieldGroup>[];
-  String? cSub;
+  LocalizedText? cSub;
   final cF = <FieldSchema>[];
   for (final f in fields) {
-    final sub =
-        (f.type == 'table' && f.subsection != null && f.subsection!.isNotEmpty)
-            ? f.subsection
-            : null;
+    final sub = (f.type == 'table' && f.subsection != null)
+        ? f.subsection
+        : null;
     if (sub != cSub) {
       if (cF.isNotEmpty) {
         groups.add(FieldGroup(sub: cSub, fields: List.from(cF)));
@@ -53,8 +54,8 @@ List<FieldGroup> groupFields(List<FieldSchema> fields) {
 // LABEL / DECORATION HELPERS
 // ══════════════════════════════════════════════════════════════
 
-String buildFieldLabel(OnefopFormController ctrl, FieldSchema f) {
-  String label = ctrl.fieldLabel(f);
+String buildFieldLabel(OnefopFormController ctrl, FieldSchema f, Locale locale) {
+  String label = ctrl.fieldLabel(f, locale);
   final currentSectionId = ctrl.primarySection(ctrl.currentPage)?.id ?? '';
   final isSimple = ctrl.isSimpleSection(currentSectionId);
   if (isSimple &&
@@ -130,11 +131,9 @@ InputDecoration dropdownDecoration(bool hasError) => InputDecoration(
 
 /// Upfront hint for fields capped by an input formatter, so hitting the
 /// limit doesn't look like a dead keystroke with no explanation.
-String? fieldHelperText(FieldSchema f) {
-  if (f.type == 'tel') {
-    return '9 chiffres, sans le 0 initial / 9 digits, no leading 0';
-  }
-  if (FieldValidator.isYearField(f)) return '4 chiffres / 4-digit year';
+String? fieldHelperText(FieldSchema f, AppLocalizations l10n) {
+  if (f.type == 'tel') return l10n.telHelper;
+  if (FieldValidator.isYearField(f)) return l10n.yearHelper;
   return null;
 }
 
@@ -167,6 +166,8 @@ class SimpleField extends StatelessWidget {
     final c = ctrl.ctrl[field.id]!;
     final fn = ctrl.fm.getNode(field.id);
     final e = ctrl.hasError(field);
+    final locale = context.loc;
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
@@ -177,7 +178,7 @@ class SimpleField extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             OnefopFieldLabel(
-              label: buildFieldLabel(ctrl, field),
+              label: buildFieldLabel(ctrl, field, locale),
               required: field.required,
               optional: FieldValidator.kOptionalOverrides.contains(field.id),
             ),
@@ -204,7 +205,7 @@ class SimpleField extends StatelessWidget {
                     focused: fn.hasFocus,
                     hasError: e,
                     hint: field.type == 'number' ? '0' : null,
-                    helperText: fieldHelperText(field)),
+                    helperText: fieldHelperText(field, l10n)),
                 onTapOutside: (_) => ctrl.onBlur(field.id),
                 onFieldSubmitted: (_) {
                   ctrl.onBlur(field.id);
@@ -212,7 +213,7 @@ class SimpleField extends StatelessWidget {
                 },
               ),
             ),
-            if (e) errorRow(ctrl.errorText(field)!),
+            if (e) errorRow(ctrl.errorText(field, l10n)),
           ],
         ),
       ),
@@ -227,10 +228,12 @@ class RadioField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opts = field.options ?? [];
+    final opts = field.optionsI18n ?? [];
     final cur = ctrl.data[field.id] as String?;
     final e = ctrl.hasError(field);
     final horizontal = opts.length == 2;
+    final locale = context.loc;
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
@@ -241,7 +244,7 @@ class RadioField extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             OnefopFieldLabel(
-              label: buildFieldLabel(ctrl, field),
+              label: buildFieldLabel(ctrl, field, locale),
               required: field.required,
               optional: FieldValidator.kOptionalOverrides.contains(field.id),
             ),
@@ -253,11 +256,11 @@ class RadioField extends StatelessWidget {
                 builder: (context, _) {
                   final optWidgets = opts
                       .map((o) => RadioOption(
-                            label: o,
-                            isSelected: cur == o,
+                            label: o.text.of(locale),
+                            isSelected: cur == o.value,
                             onTap: () {
                               ctrl.fm.focus(field.id);
-                              ctrl.setRadioValue(field, o);
+                              ctrl.setRadioValue(field, o.value);
                             },
                           ))
                       .toList();
@@ -284,8 +287,7 @@ class RadioField extends StatelessWidget {
             ),
             if (e) ...[
               const SizedBox(height: 6),
-              errorRow(
-                  'Veuillez sélectionner une option / Please select an option'),
+              errorRow(l10n.selectAnOption),
             ],
           ],
         ),
@@ -303,9 +305,11 @@ class SelectField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opts = field.options ?? [];
+    final opts = field.optionsI18n ?? [];
     final cur = ctrl.data[field.id] as String?;
     final e = ctrl.hasError(field);
+    final locale = context.loc;
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
@@ -316,7 +320,7 @@ class SelectField extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             OnefopFieldLabel(
-              label: buildFieldLabel(ctrl, field),
+              label: buildFieldLabel(ctrl, field, locale),
               required: field.required,
               optional: FieldValidator.kOptionalOverrides.contains(field.id),
             ),
@@ -325,14 +329,14 @@ class SelectField extends StatelessWidget {
               focusNode: ctrl.fm.getNode(field.id),
               child: DropdownButtonFormField<String>(
                 initialValue: cur,
-                hint: const Text('Sélectionner / Select',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+                hint: Text(l10n.selectPlaceholder,
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
                 isExpanded: true,
                 style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
                 items: opts
                     .map((o) => DropdownMenuItem(
-                          value: o,
-                          child: Text(o,
+                          value: o.value,
+                          child: Text(o.text.of(locale),
                               style: const TextStyle(
                                   fontSize: 14, color: Color(0xFF1E293B))),
                         ))
@@ -342,8 +346,7 @@ class SelectField extends StatelessWidget {
               ),
             ),
             if (e && (cur == null || cur.isEmpty))
-              errorRow(
-                  'Veuillez sélectionner une option / Please select an option'),
+              errorRow(l10n.selectAnOption),
           ],
         ),
       ),
@@ -368,6 +371,7 @@ class TableFieldWidget extends StatelessWidget {
       onExitPrevious: () => ctrl.exitTablePrevious(field.id),
       hybridController: ctrl.hybridController,
       mobile: MediaQuery.of(context).size.width < OL.pageWidth,
+      locale: context.loc,
     );
   }
 }
@@ -379,6 +383,7 @@ class HybridTableWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.loc;
     final sp = field.tableSpec!;
     final pfx = (sp['prefix'] as String).toLowerCase();
     final def = kHybridTables[pfx];
@@ -397,7 +402,7 @@ class HybridTableWidget extends StatelessWidget {
       children: [
         OnefopQuestionHeader(
           paperCode: field.paperCode,
-          questionText: field.questionText ?? field.label,
+          questionText: field.label?.of(locale) ?? field.questionText,
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: OL.questionGapV),
@@ -407,7 +412,7 @@ class HybridTableWidget extends StatelessWidget {
                 ctrl: ctrl,
                 pfx: pfx,
                 def: def,
-                tableLabel: kHybridColumnHeaders[pfx] ?? '',
+                tableLabel: kHybridColumnHeaders[pfx]?.of(locale) ?? '',
                 allCells: allCells,
                 fieldId: field.id,
                 availableWidth: constraints.maxWidth,
@@ -441,6 +446,7 @@ class _HybridTableBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.loc;
     const nc = kHybridNumWidth;
     const double outerBorder = 1.0;
 
@@ -480,7 +486,7 @@ class _HybridTableBody extends StatelessWidget {
               mid: '${pfx}_${def.rowKeys[i]}_male',
               fid: '${pfx}_${def.rowKeys[i]}_female',
               tot: ctrl.aGrid['${pfx}_${def.rowKeys[i]}_total'] ?? 0,
-              rowLabel: def.rowLabels[i],
+              rowLabel: def.rowLabels[i].of(locale),
               allCells: allCells,
               fieldId: fieldId,
               ctrl: ctrl,
@@ -510,7 +516,11 @@ class _HybridTableBody extends StatelessWidget {
                 style: kTableHeaderStyle, overflow: TextOverflow.ellipsis),
           ),
         ),
-        for (final col in ['Homme / Male', 'Femme / Female', 'Total'])
+        for (final col in [
+          context.l10n.male,
+          context.l10n.female,
+          context.l10n.total
+        ])
           Container(
             width: nc,
             height: OL.headerRowHeight,
@@ -540,7 +550,7 @@ class _HybridTableBody extends StatelessWidget {
         mid: mid,
         fid: fid,
         tot: tot,
-        rowLabel: def.rowLabels[i],
+        rowLabel: def.rowLabels[i].of(locale),
         isEven: i % 2 == 0,
         allCells: allCells,
         fieldId: fieldId,
@@ -824,7 +834,7 @@ class _HybridMobileDataCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _HybridMobileNumField(
-                  label: 'Homme / Male',
+                  label: context.l10n.male,
                   cellId: mid,
                   value: ctrl.aGrid[mid] ?? 0,
                   ctrl: ctrl,
@@ -837,7 +847,7 @@ class _HybridMobileDataCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _HybridMobileNumField(
-                  label: 'Femme / Female',
+                  label: context.l10n.female,
                   cellId: fid,
                   value: ctrl.aGrid[fid] ?? 0,
                   ctrl: ctrl,
@@ -1384,14 +1394,14 @@ class SectionCompletionBadge extends StatelessWidget {
           color: kSuccess,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check, color: Colors.white, size: 12),
-            SizedBox(width: 4),
+            const Icon(Icons.check, color: Colors.white, size: 12),
+            const SizedBox(width: 4),
             Text(
-              'Complet / Done',
-              style: TextStyle(
+              context.l10n.sectionComplete,
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
@@ -1408,14 +1418,14 @@ class SectionCompletionBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: kWarning.withValues(alpha: 0.4), width: 0.5),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.pending, color: kWarning, size: 12),
-          SizedBox(width: 4),
+          const Icon(Icons.pending, color: kWarning, size: 12),
+          const SizedBox(width: 4),
           Text(
-            'En cours / Pending',
-            style: TextStyle(
+            context.l10n.sectionInProgress,
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: kWarning,
@@ -1455,7 +1465,7 @@ class Sidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _toggleButton(),
+                  _toggleButton(context),
                   if (ctrl.sidebarMode == 2) ...[
                     _progressHeader(),
                     _progressBar(),
@@ -1474,7 +1484,7 @@ class Sidebar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (ctrl.sidebarMode == 2) _autosaveIndicator(),
+                  if (ctrl.sidebarMode == 2) _autosaveIndicator(context),
                 ],
               ),
             ),
@@ -1495,21 +1505,22 @@ class Sidebar extends StatelessWidget {
     }
   }
 
-  Widget _toggleButton() {
+  Widget _toggleButton(BuildContext context) {
+    final l10n = context.l10n;
     IconData icon;
     String tooltip;
     switch (ctrl.sidebarMode) {
       case 2:
         icon = Icons.chevron_left;
-        tooltip = 'Réduire la barre / Collapse sidebar';
+        tooltip = l10n.collapseSidebar;
         break;
       case 1:
         icon = Icons.last_page;
-        tooltip = 'Masquer la barre / Hide sidebar';
+        tooltip = l10n.hideSidebar;
         break;
       default:
         icon = Icons.menu;
-        tooltip = 'Afficher la barre / Show sidebar';
+        tooltip = l10n.showSidebar;
     }
     return Align(
       alignment: Alignment.topRight,
@@ -1570,50 +1581,53 @@ class Sidebar extends StatelessWidget {
     );
   }
 
-  Widget _autosaveIndicator() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: kBorder, width: 1))),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          transitionBuilder: (child, anim) =>
-              FadeTransition(opacity: anim, child: child),
-          child: ctrl.saving
-              ? const Row(key: ValueKey('s'), children: [
-                  SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: kInkFaint)),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Sauvegarde… / Saving…',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: kInkFaint)),
-                  ),
-                ])
-              : ctrl.dirty
-                  ? const Row(key: ValueKey('d'), children: [
-                      Icon(Icons.circle, size: 8, color: kWarning),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text('Non sauvegardé / Unsaved',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: kWarning)),
-                      ),
-                    ])
-                  : const Row(key: ValueKey('ok'), children: [
-                      Icon(Icons.check_circle_outline,
-                          size: 14, color: kSuccess),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text('Sauvegardé / Saved',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: kSuccess)),
-                      ),
-                    ]),
-        ),
-      );
+  Widget _autosaveIndicator(BuildContext context) {
+    final l10n = context.l10n;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: kBorder, width: 1))),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        transitionBuilder: (child, anim) =>
+            FadeTransition(opacity: anim, child: child),
+        child: ctrl.saving
+            ? Row(key: const ValueKey('s'), children: [
+                const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: kInkFaint)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l10n.saving,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: kInkFaint)),
+                ),
+              ])
+            : ctrl.dirty
+                ? Row(key: const ValueKey('d'), children: [
+                    const Icon(Icons.circle, size: 8, color: kWarning),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l10n.unsaved,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: kWarning)),
+                    ),
+                  ])
+                : Row(key: const ValueKey('ok'), children: [
+                    const Icon(Icons.check_circle_outline,
+                        size: 14, color: kSuccess),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(l10n.saved,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: kSuccess)),
+                    ),
+                  ]),
+      ),
+    );
+  }
 }
 
 class _SidebarPageItem extends StatelessWidget {
@@ -1623,20 +1637,18 @@ class _SidebarPageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.loc;
     final idxs = ctrl.sectionIndicesForPage(page);
     final allDone =
         idxs.every((i) => ctrl.valid[ctrl.schema!.sections[i].id] ?? false);
     final isActive = page == ctrl.currentPage;
     int missingCount = 0;
     for (final i in idxs) {
-      missingCount += ctrl.missingLabels(ctrl.schema!.sections[i]).length;
+      missingCount += ctrl.missingLabels(ctrl.schema!.sections[i], locale).length;
     }
     final firstSec = idxs.isNotEmpty ? ctrl.schema!.sections[idxs.first] : null;
     final meta = firstSec != null ? kSidebarMeta[firstSec.id] : null;
-    final label = meta?.label ?? 'Section ${page + 1}';
-    final subtitle = idxs.isNotEmpty
-        ? SectionTitleLookup.getTitle(ctrl.schema!.sections[idxs.first].id)
-        : '';
+    final label = meta?.label.of(locale) ?? context.l10n.sectionFallback(page + 1);
 
     return InkWell(
       onTap: () => ctrl.goto(page),
@@ -1692,11 +1704,6 @@ class _SidebarPageItem extends StatelessWidget {
                           color: isActive ? kInk : kInkSoft),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
-                  if (subtitle.isNotEmpty)
-                    Text(subtitle,
-                        style: const TextStyle(fontSize: 11, color: kInkFaint),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
                   if (!allDone && missingCount > 0)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -1709,7 +1716,9 @@ class _SidebarPageItem extends StatelessWidget {
                               color: kWarning.withValues(alpha: 0.4),
                               width: 0.5)),
                       child: Text(
-                          '$missingCount manquant${missingCount > 1 ? 's' : ''} / missing',
+                          missingCount == 1
+                              ? context.l10n.missingFieldTitle
+                              : context.l10n.missingFieldsTitle(missingCount),
                           style: const TextStyle(
                               fontSize: 10,
                               color: kWarning,
@@ -1767,7 +1776,7 @@ class NavBar extends StatelessWidget {
       maintainAnimation: true,
       maintainState: true,
       child: NavButton(
-        label: 'Précédent / Back',
+        label: context.l10n.previousButton,
         icon: Icons.arrow_back_rounded,
         iconLeading: true,
         primary: false,
@@ -1775,7 +1784,7 @@ class NavBar extends StatelessWidget {
       ),
     );
     final nextButton = NavButton(
-      label: isLast ? 'Aperçu PDF / Preview' : 'Suivant / Next',
+      label: isLast ? context.l10n.previewPdf : context.l10n.next,
       icon: Icons.arrow_forward_rounded,
       primary: canProceed,
       onPressed: canProceed ? onNextOrPreview : null,
@@ -1921,8 +1930,9 @@ class MobileContextHeader extends StatelessWidget {
     final page = ctrl.currentPage + 1;
     final total = ctrl.pageCount;
     final sectionId = ctrl.primarySection(ctrl.currentPage)?.id;
-    final sectionLabel =
-        sectionId == null ? null : kSidebarMeta[sectionId]?.label;
+    final sectionLabel = sectionId == null
+        ? null
+        : kSidebarMeta[sectionId]?.label.of(context.loc);
     final positionText = sectionLabel == null
         ? 'Section $page / $total'
         : '$sectionLabel  ·  $page / $total';
@@ -1998,7 +2008,9 @@ class MobileContextHeader extends StatelessWidget {
 // APP BAR
 // ══════════════════════════════════════════════════════════════
 
-const double kSectionHeaderRowHeight = 52.0;
+const double kSectionHeaderRowHeight = 32.0;
+const double kAppBarToolbarHeight = 40.0;
+const double _kSectionRowPaddingV = 4.0;
 
 class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -2023,8 +2035,8 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(
-      kToolbarHeight + (sectionTitle == null ? 0 : kSectionHeaderRowHeight));
+  Size get preferredSize => Size.fromHeight(kAppBarToolbarHeight +
+      (sectionTitle == null ? 0 : kSectionHeaderRowHeight));
 
   @override
   Widget build(BuildContext context) {
@@ -2034,6 +2046,7 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: kNavy,
       foregroundColor: Colors.white,
       elevation: 0,
+      toolbarHeight: kAppBarToolbarHeight,
       bottom: sectionTitle == null
           ? null
           : PreferredSize(
@@ -2048,7 +2061,15 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: OL.sectionHeaderPaddingH,
-                    vertical: OL.sectionHeaderPaddingV,
+                    vertical: _kSectionRowPaddingV,
+                  ),
+                  // Hairline separator from the title row above — same
+                  // background color otherwise reads as one merged block,
+                  // and this row's weight is dialed below the title's so it
+                  // reads as subordinate context, not a second headline.
+                  decoration: const BoxDecoration(
+                    border: Border(
+                        top: BorderSide(color: Colors.white24, width: 1)),
                   ),
                   // NavigationToolbar (the same widget AppBar uses
                   // internally) measures the leading/trailing slots and
@@ -2060,13 +2081,17 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
                     centerMiddle: true,
                     leading: sectionIcon == null
                         ? null
-                        : Icon(sectionIcon, color: Colors.white, size: 18),
+                        : Icon(sectionIcon, color: Colors.white70, size: 16),
                     middle: Text(
                       sectionTitle!,
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: OL.shStyle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white70,
+                      ),
                     ),
                     trailing:
                         SectionCompletionBadge(isComplete: sectionComplete),
@@ -2105,8 +2130,8 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (onCancel != null)
           TextButton(
             onPressed: onCancel,
-            child: const Text('ANNULER / CANCEL',
-                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            child: Text(context.l10n.cancelButton,
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
           ),
         const SizedBox(width: 8),
       ],

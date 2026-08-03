@@ -1,5 +1,8 @@
 // lib/core/focus/renderers/table_spec_builder.dart
 
+import 'package:flutter/widgets.dart' show Locale;
+
+import '../../i18n/localized_text.dart';
 import 'grid_render_spec.dart';
 import 'grid_theme.dart';
 
@@ -12,44 +15,45 @@ class TableSpecBuilder {
     required Map<String, int> gridValues,
     required void Function(String, int) onCellChanged,
     required String entityType,
+    required Locale locale,
   }) {
     switch (template) {
       case 'csp_gender_age_table':
       case 'csp_table':
-        return _buildCspGenderAge(prefix);
+        return _buildCspGenderAge(prefix, locale);
 
       case 'diploma_gender_age_table':
       case 'diploma_table':
-        return _buildDiploma(prefix);
+        return _buildDiploma(prefix, locale);
 
       case 'csp_status_gender_table':
       case 'disability_table':
-        return _buildCspStatusGender(prefix);
+        return _buildCspStatusGender(prefix, locale);
 
       case 'vulnerable_table':
       case 'vulnerable_named_rows_table':
-        return _buildVulnerableNamedRows(prefix);
+        return _buildVulnerableNamedRows(prefix, locale);
 
       case 'departure_table':
-        return _buildDeparture(prefix);
+        return _buildDeparture(prefix, locale);
 
       case 'dismissal_unemployment_table':
-        return _buildDismissalUnemployment(prefix);
+        return _buildDismissalUnemployment(prefix, locale);
 
       case 'first_time_workers_table':
-        return _buildFirstTimeWorkers(prefix);
+        return _buildFirstTimeWorkers(prefix, locale);
 
       case 'internship_table':
-        return _buildInternship(prefix);
+        return _buildInternship(prefix, locale);
 
       case 'reasons_table':
-        return _buildReasons(prefix);
+        return _buildReasons(prefix, locale);
 
       case 'skills_table':
-        return _buildSkills(prefix);
+        return _buildSkills(prefix, locale);
 
       case 'training_table':
-        return _buildTraining(prefix);
+        return _buildTraining(prefix, locale);
 
       default:
         return GridRenderSpec(
@@ -66,12 +70,15 @@ class TableSpecBuilder {
 
   static const _cspDataRows = ['cadres', 'foremen', 'workers'];
 
-  static const _cspRowLabels = [
-    'Cadres / Executives',
-    'Agents de Maîtrise / Foremen',
-    "Agents d'exécution / Field workers",
-    'Total',
+  static const _cspRowLabelsI18n = [
+    LocalizedText(fr: 'Cadres', en: 'Executives'),
+    LocalizedText(fr: 'Agents de Maîtrise', en: 'Foremen'),
+    LocalizedText(fr: "Agents d'exécution", en: 'Field workers'),
+    LocalizedText.same('Total'),
   ];
+
+  static List<String> _cspRowLabels(Locale locale) =>
+      _cspRowLabelsI18n.map((t) => t.of(locale)).toList();
 
   // ─────────────────────────────────────────────────────────────
   // SHARED HELPERS
@@ -89,12 +96,12 @@ class TableSpecBuilder {
 
   // ── Header trees ─────────────────────────────────────────────
 
-  static List<HeaderNode> _genderAgeHeaders() {
+  static List<HeaderNode> _genderAgeHeaders(Locale locale) {
     const ages = ['15–24', '25–34', '35+', 'Total'];
     return [
-      HeaderNode('Homme / Male',
+      HeaderNode(const LocalizedText(fr: 'Homme', en: 'Male').of(locale),
           children: [for (final a in ages) HeaderNode(a)]),
-      HeaderNode('Femme / Female',
+      HeaderNode(const LocalizedText(fr: 'Femme', en: 'Female').of(locale),
           children: [for (final a in ages) HeaderNode(a)]),
       HeaderNode('Total', children: [for (final a in ages) HeaderNode(a)]),
     ];
@@ -106,16 +113,16 @@ class TableSpecBuilder {
         HeaderNode('Total'),
       ];
 
-  static List<HeaderNode> _statusGenderHeaders() => [
+  static List<HeaderNode> _statusGenderHeaders(Locale locale) => [
         for (final s in [
-          'Permanent / Permanent',
-          'Temporaire / Temporary',
+          const LocalizedText(fr: 'Permanent', en: 'Permanent').of(locale),
+          const LocalizedText(fr: 'Temporaire', en: 'Temporary').of(locale),
           'Total',
         ])
-          HeaderNode(s, children: const [
-            HeaderNode('Homme / Male'),
-            HeaderNode('Femme / Female'),
-            HeaderNode('Total'),
+          HeaderNode(s, children: [
+            HeaderNode(const LocalizedText(fr: 'Homme', en: 'Male').of(locale)),
+            HeaderNode(const LocalizedText(fr: 'Femme', en: 'Female').of(locale)),
+            const HeaderNode('Total'),
           ]),
       ];
 
@@ -144,18 +151,20 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S21Q01 / S22Q01 / S22Q02 / S23Q01
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildCspGenderAge(String prefix) {
+  static GridRenderSpec _buildCspGenderAge(String prefix, Locale locale) {
     final matrix = [
       for (final r in _cspDataRows) _genderAgeRow(prefix, r),
       _genderAgeRow(prefix, 'total'),
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: _cspRowLabels,
+      rowLabels: _cspRowLabels(locale),
       matrix: matrix,
-      headers: _genderAgeHeaders(),
-      cornerLabel: 'Sexe / Sex',
-      cornerLabel2: "Tranche d'âge (ans) / Age group (years)",
+      headers: _genderAgeHeaders(locale),
+      cornerLabel: const LocalizedText(fr: 'Sexe', en: 'Sex').of(locale),
+      cornerLabel2: const LocalizedText(
+              fr: "Tranche d'âge (ans)", en: 'Age group (years)')
+          .of(locale),
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );
@@ -164,7 +173,7 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S22Q03
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildDiploma(String prefix) {
+  static GridRenderSpec _buildDiploma(String prefix, Locale locale) {
     const dataRows = [
       'cep',
       'bepc',
@@ -179,20 +188,22 @@ class TableSpecBuilder {
       'autres',
       'sans_diplome',
     ];
-    const labels = [
-      'CEP / CEPE / FSLC',
-      'BEPC / CAP / GCE-OL',
-      'Probatoire / Lower sixth',
-      'BAC / GCE-AL',
-      'BTS / DUT / HND',
-      'Licence (Bac+3) / Bachelor',
-      'Maîtrise (Bac+4) / Master 1',
-      'Master (Bac+5) / Master 2',
-      'DQP / PQD',
-      'CQP / CPQ',
-      'Autres / Others',
-      'Sans diplôme / Without diploma',
-      'Total',
+    // Diploma acronyms — mostly language-neutral certificate names shared
+    // across the FR/EN education systems; a few carry a short qualifier.
+    const labelsI18n = [
+      LocalizedText.same('CEP / CEPE / FSLC'),
+      LocalizedText.same('BEPC / CAP / GCE-OL'),
+      LocalizedText(fr: 'Probatoire', en: 'Lower sixth'),
+      LocalizedText.same('BAC / GCE-AL'),
+      LocalizedText.same('BTS / DUT / HND'),
+      LocalizedText(fr: 'Licence (Bac+3)', en: 'Bachelor'),
+      LocalizedText(fr: 'Maîtrise (Bac+4)', en: 'Master 1'),
+      LocalizedText(fr: 'Master (Bac+5)', en: 'Master 2'),
+      LocalizedText.same('DQP / PQD'),
+      LocalizedText.same('CQP / CPQ'),
+      LocalizedText(fr: 'Autres', en: 'Others'),
+      LocalizedText(fr: 'Sans diplôme', en: 'Without diploma'),
+      LocalizedText.same('Total'),
     ];
     final matrix = [
       for (final r in dataRows) _genderAgeRow(prefix, r),
@@ -200,11 +211,13 @@ class TableSpecBuilder {
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: labels,
+      rowLabels: labelsI18n.map((t) => t.of(locale)).toList(),
       matrix: matrix,
-      headers: _genderAgeHeaders(),
-      cornerLabel: 'Sexe / Sex',
-      cornerLabel2: "Tranche d'âge (ans) / Age group (years)",
+      headers: _genderAgeHeaders(locale),
+      cornerLabel: const LocalizedText(fr: 'Sexe', en: 'Sex').of(locale),
+      cornerLabel2: const LocalizedText(
+              fr: "Tranche d'âge (ans)", en: 'Age group (years)')
+          .of(locale),
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );
@@ -213,16 +226,16 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S22Q04
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildCspStatusGender(String prefix) {
+  static GridRenderSpec _buildCspStatusGender(String prefix, Locale locale) {
     final matrix = [
       for (final r in _cspDataRows) _statusGenderRow(prefix, r),
       _statusGenderRow(prefix, 'total'),
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: _cspRowLabels,
+      rowLabels: _cspRowLabels(locale),
       matrix: matrix,
-      headers: _statusGenderHeaders(),
+      headers: _statusGenderHeaders(locale),
       cornerLabel: 'CSP / SPC',
       cellSpec: _cell,
       isTotalCell: _isTotal,
@@ -232,13 +245,13 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S22Q05
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildVulnerableNamedRows(String prefix) {
+  static GridRenderSpec _buildVulnerableNamedRows(String prefix, Locale locale) {
     const dataRows = ['deplaces_internes', 'refugies', 'orphelins'];
-    const rowLabels = [
-      'Déplacés internes / Internal displaced',
-      'Réfugiés / Refugees',
-      'Orphelins / Orphans',
-      'Total',
+    const rowLabelsI18n = [
+      LocalizedText(fr: 'Déplacés internes', en: 'Internal displaced'),
+      LocalizedText(fr: 'Réfugiés', en: 'Refugees'),
+      LocalizedText(fr: 'Orphelins', en: 'Orphans'),
+      LocalizedText.same('Total'),
     ];
     final matrix = [
       for (final r in dataRows) _statusGenderRow(prefix, r),
@@ -246,10 +259,12 @@ class TableSpecBuilder {
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: rowLabels,
+      rowLabels: rowLabelsI18n.map((t) => t.of(locale)).toList(),
       matrix: matrix,
-      headers: _statusGenderHeaders(),
-      cornerLabel: 'Nature de vulnérabilité / Nature of vulnerability',
+      headers: _statusGenderHeaders(locale),
+      cornerLabel: const LocalizedText(
+              fr: 'Nature de vulnérabilité', en: 'Nature of vulnerability')
+          .of(locale),
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );
@@ -258,7 +273,7 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S3Q01
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildDeparture(String prefix) {
+  static GridRenderSpec _buildDeparture(String prefix, Locale locale) {
     const types = [
       'dismissal',
       'resignation',
@@ -266,12 +281,12 @@ class TableSpecBuilder {
       'other',
       'ensemble'
     ];
-    const typeLabels = [
-      'Licenciements / Dismissal',
-      'Démissions / Resignation',
-      'Départ à la retraite / Retirement',
-      'Autres départs / Other departure',
-      'Ensemble / Whole',
+    const typeLabelsI18n = [
+      LocalizedText(fr: 'Licenciements', en: 'Dismissal'),
+      LocalizedText(fr: 'Démissions', en: 'Resignation'),
+      LocalizedText(fr: 'Départ à la retraite', en: 'Retirement'),
+      LocalizedText(fr: 'Autres départs', en: 'Other departure'),
+      LocalizedText(fr: 'Ensemble', en: 'Whole'),
     ];
     List<String> typeGenderRow(String rowKey) => [
           for (final t in types)
@@ -284,11 +299,11 @@ class TableSpecBuilder {
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: _cspRowLabels,
+      rowLabels: _cspRowLabels(locale),
       matrix: matrix,
       headers: [
-        for (final tl in typeLabels)
-          HeaderNode(tl, children: const [
+        for (final tl in typeLabelsI18n)
+          HeaderNode(tl.of(locale), children: const [
             HeaderNode('M'),
             HeaderNode('F'),
             HeaderNode('Total'),
@@ -303,12 +318,13 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S3Q03
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildDismissalUnemployment(String prefix) {
+  static GridRenderSpec _buildDismissalUnemployment(
+      String prefix, Locale locale) {
     const types = ['dismissal', 'technical_unemployment', 'total'];
-    const typeLabels = [
-      'Licenciement / Dismissal',
-      'Chômage technique / Technical unemployment',
-      'Total',
+    const typeLabelsI18n = [
+      LocalizedText(fr: 'Licenciement', en: 'Dismissal'),
+      LocalizedText(fr: 'Chômage technique', en: 'Technical unemployment'),
+      LocalizedText.same('Total'),
     ];
     List<String> typeGenderRow(String rowKey) => [
           for (final t in types)
@@ -321,11 +337,11 @@ class TableSpecBuilder {
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: _cspRowLabels,
+      rowLabels: _cspRowLabels(locale),
       matrix: matrix,
       headers: [
-        for (final tl in typeLabels)
-          HeaderNode(tl, children: const [
+        for (final tl in typeLabelsI18n)
+          HeaderNode(tl.of(locale), children: const [
             HeaderNode('M'),
             HeaderNode('F'),
             HeaderNode('Total'),
@@ -340,16 +356,11 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S23Q02
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildFirstTimeWorkers(String prefix) {
+  static GridRenderSpec _buildFirstTimeWorkers(String prefix, Locale locale) {
     const contracts = ['permanent', 'temporary'];
-    const contractLabels = [
-      'Permanent\nPermanent',
-      'Temporaire\nTemporary',
-    ];
-    const cspSubLabels = [
-      'Cadres\nExecutives',
-      'Agents de Maîtrise\nForemen',
-      "Agents d'exécution\nField workers",
+    const contractLabelsI18n = [
+      LocalizedText.same('Permanent'),
+      LocalizedText(fr: 'Temporaire', en: 'Temporary'),
     ];
     final matrix = <List<String>>[];
     final rowLabels = <String>[];
@@ -357,7 +368,7 @@ class TableSpecBuilder {
       final c = contracts[ci];
       for (int ri = 0; ri < _cspDataRows.length; ri++) {
         matrix.add(_genderAgeRow(prefix, '${c}_${_cspDataRows[ri]}'));
-        rowLabels.add(cspSubLabels[ri]);
+        rowLabels.add(_cspRowLabelsI18n[ri].of(locale));
       }
       matrix.add(_genderAgeRow(prefix, '${c}_total'));
       rowLabels.add('Total');
@@ -366,16 +377,18 @@ class TableSpecBuilder {
       id: prefix,
       rowLabels: rowLabels,
       matrix: matrix,
-      headers: _genderAgeHeaders(),
-      leadingGroupHeader: 'Statut\nStatus',
-      leadingGroupLabels: contractLabels,
+      headers: _genderAgeHeaders(locale),
+      leadingGroupHeader: const LocalizedText(fr: 'Statut', en: 'Status').of(locale),
+      leadingGroupLabels:
+          contractLabelsI18n.map((t) => t.of(locale)).toList(),
       leadingGroupRowCounts: [
         _cspDataRows.length + 1,
         _cspDataRows.length + 1,
       ],
       leadingGroupColWidth: GridTheme.leadingGroupColWidth,
-      cornerLabel: 'Sexe / Sex',
-      cornerLabel2: "Tranche d'âge / Age group",
+      cornerLabel: const LocalizedText(fr: 'Sexe', en: 'Sex').of(locale),
+      cornerLabel2:
+          const LocalizedText(fr: "Tranche d'âge", en: 'Age group').of(locale),
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );
@@ -384,14 +397,14 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S4Q01
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildInternship(String prefix) {
+  static GridRenderSpec _buildInternship(String prefix, Locale locale) {
     const dataRows = ['vacation', 'academic', 'professional', 'pre_employment'];
-    const labels = [
-      'Stage de vacance / Holiday jobs',
-      'Stage académique / Academic internship',
-      'Stage professionnel / Professional internship',
-      'Stage pré-emploi / Pre-work internship',
-      'Total',
+    const labelsI18n = [
+      LocalizedText(fr: 'Stage de vacance', en: 'Holiday jobs'),
+      LocalizedText(fr: 'Stage académique', en: 'Academic internship'),
+      LocalizedText(fr: 'Stage professionnel', en: 'Professional internship'),
+      LocalizedText(fr: 'Stage pré-emploi', en: 'Pre-work internship'),
+      LocalizedText.same('Total'),
     ];
     final matrix = [
       for (final r in dataRows) _genderRow(prefix, r),
@@ -399,10 +412,12 @@ class TableSpecBuilder {
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: labels,
+      rowLabels: labelsI18n.map((t) => t.of(locale)).toList(),
       matrix: matrix,
       headers: _genderOnlyHeadersShort(),
-      cornerLabel: 'Nature du stage / Nature of internship',
+      cornerLabel: const LocalizedText(
+              fr: 'Nature du stage', en: 'Nature of internship')
+          .of(locale),
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );
@@ -411,20 +426,16 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S3Q02 — editable first column (reasons)
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildReasons(String prefix) {
+  static GridRenderSpec _buildReasons(String prefix, Locale locale) {
     const dataRows = ['reason_1', 'reason_2', 'reason_3'];
-    const labels = [
-      'Motif 1 / Reason 1',
-      'Motif 2 / Reason 2',
-      'Motif 3 / Reason 3',
-      'Total',
-    ];
     // One hint per row — matches the specific row number.
-    const hints = [
-      'Motif 1 / Reason 1',
-      'Motif 2 / Reason 2',
-      'Motif 3 / Reason 3',
+    const hintsI18n = [
+      LocalizedText(fr: 'Motif 1', en: 'Reason 1'),
+      LocalizedText(fr: 'Motif 2', en: 'Reason 2'),
+      LocalizedText(fr: 'Motif 3', en: 'Reason 3'),
     ];
+    final hints = hintsI18n.map((t) => t.of(locale)).toList();
+    final cornerLabel = const LocalizedText(fr: 'Motif', en: 'Reason').of(locale);
 
     final matrix = [
       for (final r in dataRows) _genderRow(prefix, r),
@@ -433,10 +444,10 @@ class TableSpecBuilder {
 
     return GridRenderSpec(
       id: prefix,
-      rowLabels: labels,
+      rowLabels: [...hints, 'Total'],
       matrix: matrix,
       headers: _genderOnlyHeadersShort(),
-      cornerLabel: 'Motif / Reason',
+      cornerLabel: cornerLabel,
       isTotalCell: _isTotal,
       firstColWidthOverride: 220,
       rowLabelCellIds: [
@@ -450,7 +461,7 @@ class TableSpecBuilder {
             id: id,
             type: CellType.text,
             editable: true,
-            hint: idx >= 0 ? hints[idx] : 'Motif / Reason',
+            hint: idx >= 0 ? hints[idx] : cornerLabel,
           );
         }
         return _cell(id);
@@ -461,20 +472,17 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S4Q02 — editable first column (skills)
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildSkills(String prefix) {
+  static GridRenderSpec _buildSkills(String prefix, Locale locale) {
     const dataRows = ['skill_1', 'skill_2', 'skill_3'];
-    const labels = [
-      'Compétence 1 / Skill 1',
-      'Compétence 2 / Skill 2',
-      'Compétence 3 / Skill 3',
-      'Total',
-    ];
     // One hint per row — matches the specific row number.
-    const hints = [
-      'Compétence 1 / Skill 1',
-      'Compétence 2 / Skill 2',
-      'Compétence 3 / Skill 3',
+    const hintsI18n = [
+      LocalizedText(fr: 'Compétence 1', en: 'Skill 1'),
+      LocalizedText(fr: 'Compétence 2', en: 'Skill 2'),
+      LocalizedText(fr: 'Compétence 3', en: 'Skill 3'),
     ];
+    final hints = hintsI18n.map((t) => t.of(locale)).toList();
+    final cornerLabel =
+        const LocalizedText(fr: 'Compétence', en: 'Skill').of(locale);
 
     final matrix = [
       for (final r in dataRows) _genderRow(prefix, r),
@@ -483,10 +491,10 @@ class TableSpecBuilder {
 
     return GridRenderSpec(
       id: prefix,
-      rowLabels: labels,
+      rowLabels: [...hints, 'Total'],
       matrix: matrix,
       headers: _genderOnlyHeadersShort(),
-      cornerLabel: 'Compétence / Skill',
+      cornerLabel: cornerLabel,
       isTotalCell: _isTotal,
       firstColWidthOverride: 220,
       rowLabelCellIds: [
@@ -500,7 +508,7 @@ class TableSpecBuilder {
             id: id,
             type: CellType.text,
             editable: true,
-            hint: idx >= 0 ? hints[idx] : 'Compétence / Skill',
+            hint: idx >= 0 ? hints[idx] : cornerLabel,
           );
         }
         return _cell(id);
@@ -511,20 +519,18 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S4Q03 — editable first column (training domains)
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildTraining(String prefix) {
+  static GridRenderSpec _buildTraining(String prefix, Locale locale) {
     const dataRows = ['domain_1', 'domain_2', 'domain_3'];
-    const labels = [
-      'Domaine 1 / Domain 1',
-      'Domaine 2 / Domain 2',
-      'Domaine 3 / Domain 3',
-      'Total',
-    ];
     // One hint per row — matches the specific row number.
-    const hints = [
-      'Domaine 1 / Domain 1',
-      'Domaine 2 / Domain 2',
-      'Domaine 3 / Domain 3',
+    const hintsI18n = [
+      LocalizedText(fr: 'Domaine 1', en: 'Domain 1'),
+      LocalizedText(fr: 'Domaine 2', en: 'Domain 2'),
+      LocalizedText(fr: 'Domaine 3', en: 'Domain 3'),
     ];
+    final hints = hintsI18n.map((t) => t.of(locale)).toList();
+    final cornerLabel = const LocalizedText(
+            fr: 'Domaine de formation', en: 'Domain of training')
+        .of(locale);
 
     final matrix = [
       for (final r in dataRows) _genderRow(prefix, r),
@@ -533,10 +539,10 @@ class TableSpecBuilder {
 
     return GridRenderSpec(
       id: prefix,
-      rowLabels: labels,
+      rowLabels: [...hints, 'Total'],
       matrix: matrix,
       headers: _genderOnlyHeadersShort(),
-      cornerLabel: 'Domaine de formation / Domain of training',
+      cornerLabel: cornerLabel,
       firstColWidthOverride: 220,
       isTotalCell: _isTotal,
       rowLabelCellIds: [
@@ -550,9 +556,7 @@ class TableSpecBuilder {
             id: id,
             type: CellType.text,
             editable: true,
-            hint: idx >= 0
-                ? hints[idx]
-                : 'Domaine de formation / Domain of training',
+            hint: idx >= 0 ? hints[idx] : cornerLabel,
           );
         }
         return _cell(id);

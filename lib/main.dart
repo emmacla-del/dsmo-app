@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
+import 'l10n/generated/app_localizations.dart';
 import 'models/employee_adapter.dart';
 import 'providers/connectivity_provider.dart';
+import 'providers/locale_provider.dart';
 import 'providers/sync_queue_provider.dart';
 import 'widgets/offline_banner.dart';
 import 'screens/change_password_screen.dart';
@@ -120,10 +122,15 @@ class _MyAppState extends ConsumerState<MyApp> {
       }
     });
 
+    final locale = ref.watch(localeProvider);
+
     return MaterialApp.router(
       routerConfig: router,
       title: 'DSMO Cameroon',
       theme: AppTheme.lightTheme(context), // Just use the theme directly
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return Column(

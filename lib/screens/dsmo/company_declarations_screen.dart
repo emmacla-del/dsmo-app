@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/common_widgets.dart' show StatusBadge;
 
@@ -18,9 +20,9 @@ class _HistoryEntry {
   final String id;
   final String stream; // 'DSMO' | 'ONEFOP'
   final String status;
-  final String statusLabel;
+  final _Group group;
   final Color color;
-  final String title;
+  final String period; // year for DSMO, quarter code for ONEFOP
   final String? subtitle;
   final DateTime? date;
   final Map<String, dynamic> raw;
@@ -29,9 +31,9 @@ class _HistoryEntry {
     required this.id,
     required this.stream,
     required this.status,
-    required this.statusLabel,
+    required this.group,
     required this.color,
-    required this.title,
+    required this.period,
     this.subtitle,
     this.date,
     required this.raw,
@@ -51,33 +53,69 @@ const _tableCellStyle =
     TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary);
 
 const _dsmoStatusMeta = {
-  'DRAFT': (label: 'Brouillon', color: UltraTheme.textMuted, group: _Group.draft),
-  'SUBMITTED': (label: 'Soumise', color: UltraTheme.info, group: _Group.pending),
-  'DIVISION_APPROVED': (
-    label: 'Approuvée (division)',
-    color: Color(0xFF8B5CF6),
-    group: _Group.pending
-  ),
-  'REGION_APPROVED': (
-    label: 'Approuvée (région)',
-    color: UltraTheme.warning,
-    group: _Group.pending
-  ),
-  'FINAL_APPROVED': (label: 'Approuvée', color: UltraTheme.success, group: _Group.approved),
-  'REJECTED': (label: 'Rejetée', color: UltraTheme.error, group: _Group.rejected),
+  'DRAFT': (color: UltraTheme.textMuted, group: _Group.draft),
+  'SUBMITTED': (color: UltraTheme.info, group: _Group.pending),
+  'DIVISION_APPROVED': (color: Color(0xFF8B5CF6), group: _Group.pending),
+  'REGION_APPROVED': (color: UltraTheme.warning, group: _Group.pending),
+  'FINAL_APPROVED': (color: UltraTheme.success, group: _Group.approved),
+  'REJECTED': (color: UltraTheme.error, group: _Group.rejected),
 };
 
 const _onefopStatusMeta = {
-  'DRAFT': (label: 'Brouillon', color: UltraTheme.textMuted, group: _Group.draft),
-  'PENDING_REVIEW': (label: 'En révision', color: UltraTheme.info, group: _Group.pending),
-  'CORRECTION_REQUESTED': (
-    label: 'Corrections requises',
-    color: UltraTheme.warning,
-    group: _Group.pending
-  ),
-  'APPROVED': (label: 'Approuvé', color: UltraTheme.success, group: _Group.approved),
-  'REJECTED': (label: 'Rejeté', color: UltraTheme.error, group: _Group.rejected),
+  'DRAFT': (color: UltraTheme.textMuted, group: _Group.draft),
+  'PENDING_REVIEW': (color: UltraTheme.info, group: _Group.pending),
+  'CORRECTION_REQUESTED': (color: UltraTheme.warning, group: _Group.pending),
+  'APPROVED': (color: UltraTheme.success, group: _Group.approved),
+  'REJECTED': (color: UltraTheme.error, group: _Group.rejected),
 };
+
+String _dsmoStatusLabel(AppLocalizations l10n, String status) {
+  switch (status) {
+    case 'DRAFT':
+      return l10n.dsmoDraftBadge;
+    case 'SUBMITTED':
+      return l10n.dsmoSubmittedBadge;
+    case 'DIVISION_APPROVED':
+      return l10n.companyDeclStatusDivisionApproved;
+    case 'REGION_APPROVED':
+      return l10n.companyDeclStatusRegionApproved;
+    case 'FINAL_APPROVED':
+      return l10n.dsmoApprovedBadge;
+    case 'REJECTED':
+      return l10n.dsmoRejectedBadge;
+    default:
+      return status;
+  }
+}
+
+String _onefopStatusLabel(AppLocalizations l10n, String status) {
+  switch (status) {
+    case 'DRAFT':
+      return l10n.dsmoDraftBadge;
+    case 'PENDING_REVIEW':
+      return l10n.onefopUnderReview;
+    case 'CORRECTION_REQUESTED':
+      return l10n.companyDeclStatusCorrectionRequested;
+    case 'APPROVED':
+      return l10n.onefopApproved;
+    case 'REJECTED':
+      return l10n.onefopRejected;
+    default:
+      return status;
+  }
+}
+
+String _statusLabel(AppLocalizations l10n, _HistoryEntry e) {
+  return e.stream == 'DSMO'
+      ? _dsmoStatusLabel(l10n, e.status)
+      : _onefopStatusLabel(l10n, e.status);
+}
+
+String _entryTitle(AppLocalizations l10n, _HistoryEntry e) {
+  return e.stream == 'DSMO'
+      ? l10n.companyDeclDsmoTitle(e.period)
+      : l10n.companyDeclOnefopTitle(e.period);
+}
 
 class CompanyDeclarationsScreen extends ConsumerStatefulWidget {
   const CompanyDeclarationsScreen({super.key, this.onNewSubmission});
@@ -133,7 +171,7 @@ class _CompanyDeclarationsScreenState
         final d = raw as Map<String, dynamic>;
         final status = (d['status'] as String?) ?? 'SUBMITTED';
         final meta = _dsmoStatusMeta[status] ??
-            (label: status, color: UltraTheme.textMuted, group: _Group.pending);
+            (color: UltraTheme.textMuted, group: _Group.pending);
         final year = d['year']?.toString() ?? '';
         final date = DateTime.tryParse(
             (d['submittedAt'] ?? d['updatedAt'] ?? d['createdAt'] ?? '')
@@ -143,9 +181,9 @@ class _CompanyDeclarationsScreenState
           id: d['id'] as String? ?? '',
           stream: 'DSMO',
           status: status,
-          statusLabel: meta.label,
+          group: meta.group,
           color: meta.color,
-          title: 'Déclaration DSMO $year',
+          period: year,
           subtitle: d['region'] != null
               ? [d['region'], d['department']]
                   .where((e) => e != null)
@@ -160,16 +198,16 @@ class _CompanyDeclarationsScreenState
         final s = raw as Map<String, dynamic>;
         final status = (s['status'] as String?) ?? 'PENDING_REVIEW';
         final meta = _onefopStatusMeta[status] ??
-            (label: status, color: UltraTheme.textMuted, group: _Group.pending);
+            (color: UltraTheme.textMuted, group: _Group.pending);
         final quarter = s['quarterCode']?.toString() ?? '';
         final date = DateTime.tryParse((s['submittedAt'] ?? '') as String? ?? '');
         entries.add(_HistoryEntry(
           id: s['id'] as String? ?? '',
           stream: 'ONEFOP',
           status: status,
-          statusLabel: meta.label,
+          group: meta.group,
           color: meta.color,
-          title: 'Questionnaire ONEFOP $quarter',
+          period: quarter,
           subtitle: s['entityTypeLabel'] as String?,
           date: date,
           raw: s,
@@ -200,12 +238,7 @@ class _CompanyDeclarationsScreenState
     setState(() {
       _filtered = _groupFilter == null
           ? _entries
-          : _entries.where((e) {
-              final meta = e.stream == 'DSMO'
-                  ? _dsmoStatusMeta[e.status]
-                  : _onefopStatusMeta[e.status];
-              return meta?.group == _groupFilter;
-            }).toList();
+          : _entries.where((e) => e.group == _groupFilter).toList();
     });
   }
 
@@ -217,7 +250,7 @@ class _CompanyDeclarationsScreenState
     if (uri == null || !await canLaunchUrl(uri)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir le PDF')),
+          SnackBar(content: Text(context.l10n.companyDeclDownloadPdfError)),
         );
       }
       return;
@@ -231,12 +264,13 @@ class _CompanyDeclarationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: UltraTheme.background,
       body: Column(children: [
-        if (!_loading && _error == null) _buildStatStrip(),
-        if (!_loading && _error == null) _buildFilterChips(),
-        Expanded(child: _buildBody()),
+        if (!_loading && _error == null) _buildStatStrip(l10n),
+        if (!_loading && _error == null) _buildFilterChips(l10n),
+        Expanded(child: _buildBody(l10n)),
       ]),
       floatingActionButton: widget.onNewSubmission != null
           ? FloatingActionButton.extended(
@@ -245,36 +279,38 @@ class _CompanyDeclarationsScreenState
               foregroundColor: Colors.white,
               elevation: 2,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Nouvelle',
-                  style: TextStyle(
+              label: Text(l10n.companyDeclNewButton,
+                  style: const TextStyle(
                       fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             )
           : null,
     );
   }
 
-  Widget _buildStatStrip() {
+  Widget _buildStatStrip(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Row(children: [
         _StatPill(
-            value: _entries.length, label: 'Total', color: UltraTheme.primary),
+            value: _entries.length, label: l10n.total, color: UltraTheme.primary),
         const SizedBox(width: 8),
         _StatPill(
-            value: _draftCount, label: 'Brouillons', color: UltraTheme.textSecondary),
+            value: _draftCount,
+            label: l10n.companyDeclDraftsFilter,
+            color: UltraTheme.textSecondary),
         const Spacer(),
-        _RefreshButton(onTap: _load),
+        _RefreshButton(onTap: _load, tooltip: l10n.refreshTooltip),
       ]),
     );
   }
 
-  Widget _buildFilterChips() {
+  Widget _buildFilterChips(AppLocalizations l10n) {
     final chips = <(_Group?, String, Color)>[
-      (null, 'Tous', UltraTheme.primary),
-      (_Group.draft, 'Brouillons', UltraTheme.textSecondary),
-      (_Group.pending, 'En cours', UltraTheme.info),
-      (_Group.approved, 'Approuvées', UltraTheme.success),
-      (_Group.rejected, 'Rejetées', UltraTheme.error),
+      (null, l10n.allMasculine, UltraTheme.primary),
+      (_Group.draft, l10n.companyDeclDraftsFilter, UltraTheme.textSecondary),
+      (_Group.pending, l10n.inProgressLabel, UltraTheme.info),
+      (_Group.approved, l10n.companyDeclApprovedFilter, UltraTheme.success),
+      (_Group.rejected, l10n.companyDeclRejectedFilter, UltraTheme.error),
     ];
     return SizedBox(
       height: 52,
@@ -316,25 +352,25 @@ class _CompanyDeclarationsScreenState
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AppLocalizations l10n) {
     if (_loading) {
       return const Center(
           child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation(UltraTheme.primary)));
     }
-    if (_error != null) return _buildError();
-    if (_filtered.isEmpty) return _buildEmpty();
+    if (_error != null) return _buildError(l10n);
+    if (_filtered.isEmpty) return _buildEmpty(l10n);
 
     return FadeTransition(
       opacity: _animCtrl,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-        child: _buildTable(),
+        child: _buildTable(l10n),
       ),
     );
   }
 
-  Widget _buildTable() {
+  Widget _buildTable(AppLocalizations l10n) {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -349,30 +385,40 @@ class _CompanyDeclarationsScreenState
           columnSpacing: 20,
           horizontalMargin: 16,
           showCheckboxColumn: false,
-          columns: const [
-            DataColumn(label: Text('Filière', style: _tableHeaderStyle)),
-            DataColumn(label: Text('Déclaration', style: _tableHeaderStyle)),
-            DataColumn(label: Text('Détails', style: _tableHeaderStyle)),
-            DataColumn(label: Text('Date', style: _tableHeaderStyle)),
-            DataColumn(label: Text('Statut', style: _tableHeaderStyle)),
-            DataColumn(label: Text('PDF', style: _tableHeaderStyle)),
+          columns: [
+            DataColumn(
+                label:
+                    Text(l10n.companyDeclFiliereColumn, style: _tableHeaderStyle)),
+            DataColumn(
+                label: Text(l10n.companyDeclDeclarationColumn,
+                    style: _tableHeaderStyle)),
+            DataColumn(
+                label:
+                    Text(l10n.companyDeclDetailsColumn, style: _tableHeaderStyle)),
+            DataColumn(
+                label: Text(l10n.companyDeclDateColumn, style: _tableHeaderStyle)),
+            DataColumn(
+                label: Text(l10n.statusColumnHeader, style: _tableHeaderStyle)),
+            DataColumn(
+                label: Text(l10n.companyDeclPdfColumn, style: _tableHeaderStyle)),
           ],
-          rows: _filtered.map(_buildRow).toList(),
+          rows: _filtered.map((e) => _buildRow(l10n, e)).toList(),
         ),
       ),
     );
   }
 
-  DataRow _buildRow(_HistoryEntry e) {
+  DataRow _buildRow(AppLocalizations l10n, _HistoryEntry e) {
     final dateStr = e.date != null
         ? '${e.date!.day.toString().padLeft(2, '0')}/${e.date!.month.toString().padLeft(2, '0')}/${e.date!.year}'
-        : 'Date inconnue';
+        : l10n.dateUnknown;
     final streamColor =
         e.stream == 'DSMO' ? UltraTheme.primary : UltraTheme.accent;
     final pdfUrl = e.raw['pdfUrl'] as String?;
+    final statusLabel = _statusLabel(l10n, e);
 
     return DataRow(
-      onSelectChanged: (_) => _showDetailSheet(e),
+      onSelectChanged: (_) => _showDetailSheet(l10n, e),
       cells: [
         DataCell(Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -389,7 +435,7 @@ class _CompanyDeclarationsScreenState
         )),
         DataCell(SizedBox(
           width: 220,
-          child: Text(e.title,
+          child: Text(_entryTitle(l10n, e),
               style: _tableCellStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
@@ -408,7 +454,7 @@ class _CompanyDeclarationsScreenState
             color: e.color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Text(e.statusLabel,
+          child: Text(statusLabel,
               style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 11,
@@ -421,7 +467,7 @@ class _CompanyDeclarationsScreenState
                   onPressed: () => _downloadPdf(pdfUrl),
                   icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                   color: UltraTheme.primary,
-                  tooltip: 'Télécharger le PDF',
+                  tooltip: l10n.companyDeclDownloadPdfTooltip,
                 )
               : const Text('—', style: _tableCellStyle),
         ),
@@ -430,7 +476,7 @@ class _CompanyDeclarationsScreenState
   }
 
   // ── Detail sheet (read-only, no approve/reject) ────────────
-  void _showDetailSheet(_HistoryEntry e) {
+  void _showDetailSheet(AppLocalizations l10n, _HistoryEntry e) {
     const hiddenKeys = {
       'id',
       'company',
@@ -441,6 +487,8 @@ class _CompanyDeclarationsScreenState
       '__v',
     };
     final pdfUrl = e.raw['pdfUrl'] as String?;
+    final title = _entryTitle(l10n, e);
+    final statusLabel = _statusLabel(l10n, e);
 
     showModalBottomSheet(
       context: context,
@@ -472,11 +520,11 @@ class _CompanyDeclarationsScreenState
                 children: [
                   Row(children: [
                     Expanded(
-                      child: Text(e.title,
+                      child: Text(title,
                           style: UltraTheme.displayMedium
                               .copyWith(fontSize: 20)),
                     ),
-                    StatusBadge(label: e.statusLabel, color: e.color),
+                    StatusBadge(label: statusLabel, color: e.color),
                   ]),
                   if (pdfUrl != null && pdfUrl.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -485,7 +533,7 @@ class _CompanyDeclarationsScreenState
                       child: OutlinedButton.icon(
                         onPressed: () => _downloadPdf(pdfUrl),
                         icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                        label: const Text('Télécharger le PDF'),
+                        label: Text(l10n.companyDeclDownloadPdfTooltip),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: UltraTheme.primary,
                           side: const BorderSide(color: UltraTheme.primary),
@@ -535,7 +583,7 @@ class _CompanyDeclarationsScreenState
                           widget.onNewSubmission!();
                         },
                         icon: const Icon(Icons.edit_rounded, size: 16),
-                        label: const Text('Reprendre le brouillon'),
+                        label: Text(l10n.companyDeclResumeDraft),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: UltraTheme.primary,
                           foregroundColor: Colors.white,
@@ -557,7 +605,7 @@ class _CompanyDeclarationsScreenState
   }
 
   // ── Empty / Error states ──────────────────────────────────
-  Widget _buildEmpty() {
+  Widget _buildEmpty(AppLocalizations l10n) {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(
@@ -573,8 +621,8 @@ class _CompanyDeclarationsScreenState
         const SizedBox(height: 20),
         Text(
             _groupFilter != null
-                ? 'Aucun résultat'
-                : 'Aucune déclaration pour le moment',
+                ? l10n.companyDeclNoResultsTitle
+                : l10n.companyDeclEmptyTitle,
             style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
@@ -583,8 +631,8 @@ class _CompanyDeclarationsScreenState
         const SizedBox(height: 8),
         Text(
             _groupFilter != null
-                ? "Essayez un autre filtre"
-                : 'Vos déclarations DSMO et questionnaires ONEFOP\napparaîtront ici, y compris les brouillons.',
+                ? l10n.companyDeclTryDifferentFilter
+                : l10n.companyDeclEmptySubtitle,
             style: const TextStyle(
                 fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
             textAlign: TextAlign.center),
@@ -595,14 +643,14 @@ class _CompanyDeclarationsScreenState
               _groupFilter = null;
               _applyFilter();
             },
-            child: const Text('Effacer le filtre'),
+            child: Text(l10n.companyDeclClearFilter),
           ),
         ],
       ]),
     );
   }
 
-  Widget _buildError() {
+  Widget _buildError(AppLocalizations l10n) {
     return Center(
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(
@@ -616,8 +664,8 @@ class _CompanyDeclarationsScreenState
               size: 36, color: UltraTheme.error),
         ),
         const SizedBox(height: 16),
-        const Text('Erreur de chargement',
-            style: TextStyle(
+        Text(l10n.loadingErrorTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -633,7 +681,7 @@ class _CompanyDeclarationsScreenState
         ElevatedButton.icon(
           onPressed: _load,
           icon: const Icon(Icons.refresh_rounded, size: 16),
-          label: const Text('Réessayer'),
+          label: Text(l10n.retry),
           style: ElevatedButton.styleFrom(
             backgroundColor: UltraTheme.primary,
             foregroundColor: Colors.white,
@@ -695,26 +743,30 @@ class _StatPill extends StatelessWidget {
 }
 
 class _RefreshButton extends StatelessWidget {
-  const _RefreshButton({required this.onTap});
+  const _RefreshButton({required this.onTap, required this.tooltip});
   final VoidCallback onTap;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: UltraTheme.surface,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: UltraTheme.surface,
         borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            border:
-                Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
-            borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              border: Border.all(
+                  color: UltraTheme.textMuted.withValues(alpha: 0.2)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.refresh_rounded,
+                size: 18, color: UltraTheme.textSecondary),
           ),
-          child: const Icon(Icons.refresh_rounded,
-              size: 18, color: UltraTheme.textSecondary),
         ),
       ),
     );

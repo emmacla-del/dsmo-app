@@ -19,7 +19,16 @@
 //          named vulnerability rows (Déplacés internes / Réfugiés / Orphelins).
 //          "vulnerable_csp_rows_table" no longer exists in TableSpecBuilder;
 //          all four entity types now use the same named-rows layout per the PDFs.
+//   FIX-10 All display text (titles, labels, hints, instructions, subsections,
+//          options) split from combined "French/ English" literals into
+//          LocalizedText/LocalizedOption pairs for FR/EN localization. Option
+//          *values* are byte-identical to the pre-split combined strings —
+//          BackendMappers and dependsValue checks compare against these
+//          stored values, so they must never change. tableSpec content
+//          (including any "rows" string lists) is untouched: those strings
+//          generate grid cell IDs, they are never rendered.
 
+import '../../i18n/localized_text.dart';
 import 'form_ast.dart';
 
 // ============================================================
@@ -37,66 +46,81 @@ const section0 = SectionAst(
   // IDENTIFICATION OF COOPERATIVE RESPONDENT" — that was the Cooperative-specific
   // title. Section 0 is shared across ALL entity types so the title must be
   // entity-neutral.
-  title: "SECTION 0. IDENTIFICATION DU RÉPONDANT / RESPONDENT IDENTIFICATION",
+  title: LocalizedText(
+    fr: "SECTION 0. IDENTIFICATION DU RÉPONDANT",
+    en: "SECTION 0. RESPONDENT IDENTIFICATION",
+  ),
   order: 0,
-  description: "Identification du répondant / Respondent identification",
+  description: LocalizedText(
+    fr: "Identification du répondant",
+    en: "Respondent identification",
+  ),
 );
 
 const section0Questions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S0Q01",
     paperCode: "S0Q01",
-    label: "Noms, prénoms du répondant/ Respondent's full name",
+    label: LocalizedText(
+      fr: "Noms, prénoms du répondant",
+      en: "Respondent's full name",
+    ),
     sectionId: "section0",
     order: 1,
     type: AstFieldType.text,
     requiredField: true,
     path: "respondent.name",
-    hint: "Ex: Jean Dupont",
+    hint: LocalizedText(fr: "Ex: Jean Dupont", en: "E.g. Jean Dupont"),
   ),
   FormQuestionAst(
     id: "S0Q02",
     paperCode: "S0Q02",
-    label: "Fonction du répondant/ Respondent's function",
+    label: LocalizedText(
+      fr: "Fonction du répondant",
+      en: "Respondent's function",
+    ),
     sectionId: "section0",
     order: 2,
     type: AstFieldType.text,
     requiredField: true,
     path: "respondent.function",
-    hint: "Ex: DRH",
+    hint: LocalizedText(fr: "Ex: DRH", en: "E.g. HR Manager"),
   ),
   FormQuestionAst(
     id: "S0Q03_TEL1",
     paperCode: "S0Q03",
-    label: "Téléphone 1/ Tel 1",
+    label: LocalizedText(fr: "Téléphone 1", en: "Tel 1"),
     sectionId: "section0",
     order: 3,
     type: AstFieldType.tel,
     requiredField: true,
     path: "respondent.phone1",
-    hint: "Ex: 677123456",
+    hint: LocalizedText.same("Ex: 677123456"),
   ),
   FormQuestionAst(
     id: "S0Q03_TEL2",
     paperCode: "S0Q03",
-    label: "Téléphone 2/ Tel 2",
+    label: LocalizedText(fr: "Téléphone 2", en: "Tel 2"),
     sectionId: "section0",
     order: 4,
     type: AstFieldType.tel,
     // NO requiredField - phone2 is optional
     path: "respondent.phone2",
-    hint: "Ex: 699123456",
+    hint: LocalizedText.same("Ex: 699123456"),
   ),
   FormQuestionAst(
     id: "S0Q03_EMAIL",
     paperCode: "S0Q03",
-    label: "E-mail",
+    label: LocalizedText.same("E-mail"),
     sectionId: "section0",
     order: 5,
     type: AstFieldType.email,
     requiredField: true, // FIX-7: Added required
     path: "respondent.email",
-    hint: "Ex: contact@entreprise.com",
+    hint: LocalizedText(
+      fr: "Ex: contact@entreprise.com",
+      en: "E.g. contact@company.com",
+    ),
   ),
 ];
 
@@ -120,7 +144,10 @@ const section0Questions = <FormQuestionAst>[
 
 const section1Enterprise = SectionAst(
   id: "section1_entreprise",
-  title: "SECTION 1. IDENTIFICATION DE L'ENTREPRISE/ COMPANY DETAILS",
+  title: LocalizedText(
+    fr: "SECTION 1. IDENTIFICATION DE L'ENTREPRISE",
+    en: "SECTION 1. COMPANY DETAILS",
+  ),
   order: 1,
   entityTypes: ["enterprise"],
 );
@@ -129,15 +156,18 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q01",
     paperCode: "S1Q01",
-    label: "Régime/statut juridique/ Legal status",
+    label: LocalizedText(fr: "Régime/statut juridique", en: "Legal status"),
     sectionId: "section1_entreprise",
     order: 1,
     type: AstFieldType.select,
     options: [
-      "Société unipersonnelle/ Single-member company",
-      "SARL/ LLC",
-      "SA/ PLC",
-      "Autres/ Others",
+      LocalizedOption(
+        "Société unipersonnelle/ Single-member company",
+        LocalizedText(fr: "Société unipersonnelle", en: "Single-member company"),
+      ),
+      LocalizedOption("SARL/ LLC", LocalizedText(fr: "SARL", en: "LLC")),
+      LocalizedOption("SA/ PLC", LocalizedText(fr: "SA", en: "PLC")),
+      LocalizedOption("Autres/ Others", LocalizedText(fr: "Autres", en: "Others")),
     ],
     requiredField: true,
     path: "enterprise.legalStatus",
@@ -145,7 +175,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q02",
     paperCode: "S1Q02",
-    label: "Nom de l'entreprise/ Company name",
+    label: LocalizedText(fr: "Nom de l'entreprise", en: "Company name"),
     sectionId: "section1_entreprise",
     order: 2,
     type: AstFieldType.text,
@@ -155,18 +185,21 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q03",
     paperCode: "S1Q03",
-    label: "Milieu de résidence/ Area",
+    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
     sectionId: "section1_entreprise",
     order: 3,
     type: AstFieldType.radio,
-    options: ["Urbain/ Urban", "Rural/ Rural"],
+    options: [
+      LocalizedOption("Urbain/ Urban", LocalizedText(fr: "Urbain", en: "Urban")),
+      LocalizedOption("Rural/ Rural", LocalizedText(fr: "Rural", en: "Rural")),
+    ],
     requiredField: true,
     path: "enterprise.area",
   ),
   FormQuestionAst(
     id: "S1Q04_REGION",
     paperCode: "S1Q04",
-    label: "Région/ Region",
+    label: LocalizedText(fr: "Région", en: "Region"),
     sectionId: "section1_entreprise",
     order: 4,
     type: AstFieldType.text,
@@ -176,7 +209,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q04_DEPT",
     paperCode: "S1Q04",
-    label: "Département/ Division",
+    label: LocalizedText(fr: "Département", en: "Division"),
     sectionId: "section1_entreprise",
     order: 5,
     type: AstFieldType.text,
@@ -186,7 +219,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q04_SUBDIV",
     paperCode: "S1Q04",
-    label: "Arrondissement/ Subdivision",
+    label: LocalizedText(fr: "Arrondissement", en: "Subdivision"),
     sectionId: "section1_entreprise",
     order: 6,
     type: AstFieldType.text,
@@ -196,7 +229,10 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q04_LOCALITY",
     paperCode: "S1Q04",
-    label: "Quartier/Village/Localité/ Neighborhood/Village/Locality",
+    label: LocalizedText(
+      fr: "Quartier/Village/Localité",
+      en: "Neighborhood/Village/Locality",
+    ),
     sectionId: "section1_entreprise",
     order: 7,
     type: AstFieldType.text,
@@ -206,7 +242,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q05_TEL1",
     paperCode: "S1Q05",
-    label: "Téléphone 1/ Tel 1",
+    label: LocalizedText(fr: "Téléphone 1", en: "Tel 1"),
     sectionId: "section1_entreprise",
     order: 8,
     type: AstFieldType.tel,
@@ -216,7 +252,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q05_TEL2",
     paperCode: "S1Q05",
-    label: "Téléphone 2/ Tel 2",
+    label: LocalizedText(fr: "Téléphone 2", en: "Tel 2"),
     sectionId: "section1_entreprise",
     order: 9,
     type: AstFieldType.tel,
@@ -226,7 +262,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q05_BP",
     paperCode: "S1Q05",
-    label: "Boîte postale/ PO Box",
+    label: LocalizedText(fr: "Boîte postale", en: "PO Box"),
     sectionId: "section1_entreprise",
     order: 10,
     type: AstFieldType.text,
@@ -236,14 +272,16 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q06",
     paperCode: "S1Q06",
-    label: "Secteur d'activité/ Business sector",
+    label: LocalizedText(fr: "Secteur d'activité", en: "Business sector"),
     sectionId: "section1_entreprise",
     order: 11,
     type: AstFieldType.radio,
     options: [
-      "Primaire/ Primary",
-      "Secondaire/ Secondary",
-      "Tertiaire/ Tertiary",
+      LocalizedOption("Primaire/ Primary", LocalizedText(fr: "Primaire", en: "Primary")),
+      LocalizedOption(
+          "Secondaire/ Secondary", LocalizedText(fr: "Secondaire", en: "Secondary")),
+      LocalizedOption(
+          "Tertiaire/ Tertiary", LocalizedText(fr: "Tertiaire", en: "Tertiary")),
     ],
     requiredField: true,
     path: "enterprise.sector",
@@ -251,7 +289,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q07",
     paperCode: "S1Q07",
-    label: "Branche d'activité/ Branch of activity",
+    label: LocalizedText(fr: "Branche d'activité", en: "Branch of activity"),
     sectionId: "section1_entreprise",
     order: 12,
     type: AstFieldType.text,
@@ -261,7 +299,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q08",
     paperCode: "S1Q08",
-    label: "Activité principale/ Main activity",
+    label: LocalizedText(fr: "Activité principale", en: "Main activity"),
     sectionId: "section1_entreprise",
     order: 13,
     type: AstFieldType.text,
@@ -271,7 +309,10 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q09",
     paperCode: "S1Q09",
-    label: "Siège social de l'entreprise/ Company's head office",
+    label: LocalizedText(
+      fr: "Siège social de l'entreprise",
+      en: "Company's head office",
+    ),
     sectionId: "section1_entreprise",
     order: 14,
     type: AstFieldType.text,
@@ -281,7 +322,10 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q10",
     paperCode: "S1Q10",
-    label: "Nombre d'employés permanents/ Number of permanent workers",
+    label: LocalizedText(
+      fr: "Nombre d'employés permanents",
+      en: "Number of permanent workers",
+    ),
     sectionId: "section1_entreprise",
     order: 15,
     type: AstFieldType.number,
@@ -291,7 +335,10 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q11",
     paperCode: "S1Q11",
-    label: "Nombre de postes vacants/ Number of vacancies",
+    label: LocalizedText(
+      fr: "Nombre de postes vacants",
+      en: "Number of vacancies",
+    ),
     sectionId: "section1_entreprise",
     order: 16,
     type: AstFieldType.number,
@@ -302,15 +349,17 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "S1Q12",
     paperCode: "S1Q12",
-    label: "Taille de l'entreprise/ Enterprise size",
+    label: LocalizedText(fr: "Taille de l'entreprise", en: "Enterprise size"),
     sectionId: "section1_entreprise",
     order: 17,
     type: AstFieldType.radio,
     options: [
-      "TPE/ Very small enterprise",
-      "PE/ Small enterprise",
-      "ME/ Medium-sized enterprise",
-      "GE/ Large enterprise",
+      LocalizedOption(
+          "TPE/ Very small enterprise", LocalizedText(fr: "TPE", en: "Very small enterprise")),
+      LocalizedOption("PE/ Small enterprise", LocalizedText(fr: "PE", en: "Small enterprise")),
+      LocalizedOption(
+          "ME/ Medium-sized enterprise", LocalizedText(fr: "ME", en: "Medium-sized enterprise")),
+      LocalizedOption("GE/ Large enterprise", LocalizedText(fr: "GE", en: "Large enterprise")),
     ],
     requiredField: true,
     path: "enterprise.size",
@@ -337,7 +386,10 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
 
 const section1Cooperative = SectionAst(
   id: "section1_cooperative",
-  title: "SECTION 1. IDENTIFICATION DE LA COOPERATIVE/ COOPERATIVE DETAILS",
+  title: LocalizedText(
+    fr: "SECTION 1. IDENTIFICATION DE LA COOPERATIVE",
+    en: "SECTION 1. COOPERATIVE DETAILS",
+  ),
   order: 1,
   entityTypes: ["cooperative"],
 );
@@ -346,7 +398,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q01",
     paperCode: "S1Q01",
-    label: "Nom de la coopérative/ Cooperative name",
+    label: LocalizedText(fr: "Nom de la coopérative", en: "Cooperative name"),
     sectionId: "section1_cooperative",
     order: 1,
     type: AstFieldType.text,
@@ -356,7 +408,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q02",
     paperCode: "S1Q02",
-    label: "Siège social/ Head office",
+    label: LocalizedText(fr: "Siège social", en: "Head office"),
     sectionId: "section1_cooperative",
     order: 2,
     type: AstFieldType.text,
@@ -368,29 +420,35 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q03",
     paperCode: "S1Q03",
-    label: "Année de création de la coopérative/ Year of creation",
+    label: LocalizedText(
+      fr: "Année de création de la coopérative",
+      en: "Year of creation",
+    ),
     sectionId: "section1_cooperative",
     order: 3,
     type: AstFieldType.number,
     requiredField: true, // FIX-7: Added required
     path: "cooperative.yearCreated",
-    hint: "Ex: 2010",
+    hint: LocalizedText.same("Ex: 2010"),
   ),
   FormQuestionAst(
     id: "COOP_S1Q04",
     paperCode: "S1Q04",
-    label: "Milieu de résidence/ Area",
+    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
     sectionId: "section1_cooperative",
     order: 4,
     type: AstFieldType.radio,
-    options: ["Urbain/ Urban", "Rural/ Rural"],
+    options: [
+      LocalizedOption("Urbain/ Urban", LocalizedText(fr: "Urbain", en: "Urban")),
+      LocalizedOption("Rural/ Rural", LocalizedText(fr: "Rural", en: "Rural")),
+    ],
     requiredField: true, // FIX-7: Added required
     path: "cooperative.area",
   ),
   FormQuestionAst(
     id: "COOP_S1Q05_REGION",
     paperCode: "S1Q05",
-    label: "Région/ Region",
+    label: LocalizedText(fr: "Région", en: "Region"),
     sectionId: "section1_cooperative",
     order: 5,
     type: AstFieldType.text,
@@ -400,7 +458,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q05_DEPT",
     paperCode: "S1Q05",
-    label: "Département/ Division",
+    label: LocalizedText(fr: "Département", en: "Division"),
     sectionId: "section1_cooperative",
     order: 6,
     type: AstFieldType.text,
@@ -410,7 +468,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q05_SUBDIV",
     paperCode: "S1Q05",
-    label: "Arrondissement/ Subdivision",
+    label: LocalizedText(fr: "Arrondissement", en: "Subdivision"),
     sectionId: "section1_cooperative",
     order: 7,
     type: AstFieldType.text,
@@ -420,7 +478,10 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q05_LOCALITY",
     paperCode: "S1Q05",
-    label: "Quartier/Village/Localité/ Neighborhood/Village/Locality",
+    label: LocalizedText(
+      fr: "Quartier/Village/Localité",
+      en: "Neighborhood/Village/Locality",
+    ),
     sectionId: "section1_cooperative",
     order: 8,
     type: AstFieldType.text,
@@ -430,7 +491,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q06_TEL1",
     paperCode: "S1Q06",
-    label: "Téléphone 1/ Tel 1",
+    label: LocalizedText(fr: "Téléphone 1", en: "Tel 1"),
     sectionId: "section1_cooperative",
     order: 9,
     type: AstFieldType.tel,
@@ -440,7 +501,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q06_TEL2",
     paperCode: "S1Q06",
-    label: "Téléphone 2/ Tel 2",
+    label: LocalizedText(fr: "Téléphone 2", en: "Tel 2"),
     sectionId: "section1_cooperative",
     order: 10,
     type: AstFieldType.tel,
@@ -450,7 +511,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q06_BP",
     paperCode: "S1Q06",
-    label: "Boîte postale/ PO Box",
+    label: LocalizedText(fr: "Boîte postale", en: "PO Box"),
     sectionId: "section1_cooperative",
     order: 11,
     type: AstFieldType.text,
@@ -460,14 +521,16 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q07",
     paperCode: "S1Q07",
-    label: "Secteur d'activité/ Business sector",
+    label: LocalizedText(fr: "Secteur d'activité", en: "Business sector"),
     sectionId: "section1_cooperative",
     order: 12,
     type: AstFieldType.radio,
     options: [
-      "Primaire/ Primary",
-      "Secondaire/ Secondary",
-      "Tertiaire/ Tertiary",
+      LocalizedOption("Primaire/ Primary", LocalizedText(fr: "Primaire", en: "Primary")),
+      LocalizedOption(
+          "Secondaire/ Secondary", LocalizedText(fr: "Secondaire", en: "Secondary")),
+      LocalizedOption(
+          "Tertiaire/ Tertiary", LocalizedText(fr: "Tertiaire", en: "Tertiary")),
     ],
     requiredField: true, // FIX-7: Added required
     path: "cooperative.sector",
@@ -475,7 +538,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q08",
     paperCode: "S1Q08",
-    label: "Branche d'activité/ Branch of activity",
+    label: LocalizedText(fr: "Branche d'activité", en: "Branch of activity"),
     sectionId: "section1_cooperative",
     order: 13,
     type: AstFieldType.text,
@@ -485,7 +548,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q09",
     paperCode: "S1Q09",
-    label: "Activité principale/ Main activity",
+    label: LocalizedText(fr: "Activité principale", en: "Main activity"),
     sectionId: "section1_cooperative",
     order: 14,
     type: AstFieldType.text,
@@ -495,14 +558,29 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q10",
     paperCode: "S1Q10",
-    label: "Type de la coopérative/ Type of cooperative",
+    label: LocalizedText(fr: "Type de la coopérative", en: "Type of cooperative"),
     sectionId: "section1_cooperative",
     order: 15,
     type: AstFieldType.radio,
     options: [
-      "Coopérative à comptabilité simplifiée",
-      "Coopérative avec conseil d'administration",
-      "Autre (à préciser)/ Other (specify)",
+      LocalizedOption(
+        "Coopérative à comptabilité simplifiée",
+        LocalizedText(
+          fr: "Coopérative à comptabilité simplifiée",
+          en: "Cooperative with simplified accounting",
+        ),
+      ),
+      LocalizedOption(
+        "Coopérative avec conseil d'administration",
+        LocalizedText(
+          fr: "Coopérative avec conseil d'administration",
+          en: "Cooperative with a board of directors",
+        ),
+      ),
+      LocalizedOption(
+        "Autre (à préciser)/ Other (specify)",
+        LocalizedText(fr: "Autre (à préciser)", en: "Other (specify)"),
+      ),
     ],
     requiredField: true, // FIX-7: Added required
     path: "cooperative.type",
@@ -510,7 +588,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q10_OTHER",
     paperCode: "S1Q10",
-    label: "Précisez/ Specify",
+    label: LocalizedText(fr: "Précisez", en: "Specify"),
     sectionId: "section1_cooperative",
     order: 16,
     type: AstFieldType.text,
@@ -522,7 +600,10 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q11",
     paperCode: "S1Q11",
-    label: "Nombre d'employés permanents/ Number of permanent workers",
+    label: LocalizedText(
+      fr: "Nombre d'employés permanents",
+      en: "Number of permanent workers",
+    ),
     sectionId: "section1_cooperative",
     order: 17,
     type: AstFieldType.number,
@@ -532,7 +613,10 @@ const section1CooperativeQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "COOP_S1Q12",
     paperCode: "S1Q12",
-    label: "Nombre de postes vacants/ Number of vacancies",
+    label: LocalizedText(
+      fr: "Nombre de postes vacants",
+      en: "Number of vacancies",
+    ),
     sectionId: "section1_cooperative",
     order: 18,
     type: AstFieldType.number,
@@ -560,7 +644,10 @@ const section1CooperativeQuestions = <FormQuestionAst>[
 
 const section1Ctd = SectionAst(
   id: "section1_ctd",
-  title: "SECTION 1. IDENTIFICATION DE LA CTD/ RLA DETAILS",
+  title: LocalizedText(
+    fr: "SECTION 1. IDENTIFICATION DE LA CTD",
+    en: "SECTION 1. RLA DETAILS",
+  ),
   order: 1,
   entityTypes: ["ctd"],
 );
@@ -569,24 +656,36 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q01",
     paperCode: "S1Q01",
-    label: "Type de CTD/ Type of RLA",
+    label: LocalizedText(fr: "Type de CTD", en: "Type of RLA"),
     sectionId: "section1_ctd",
     order: 1,
     type: AstFieldType.radio,
-    options: ["Région/ Region", "Commune/ Council"],
+    options: [
+      LocalizedOption("Région/ Region", LocalizedText(fr: "Région", en: "Region")),
+      LocalizedOption("Commune/ Council", LocalizedText(fr: "Commune", en: "Council")),
+    ],
     requiredField: true,
     path: "ctd.type",
   ),
   FormQuestionAst(
     id: "CTD_S1Q02",
     paperCode: "S1Q02",
-    label: "Si 2, Quel est le type de Commune/ If 2, what type of council",
+    label: LocalizedText(
+      fr: "Si 2, Quel est le type de Commune",
+      en: "If 2, what type of council",
+    ),
     sectionId: "section1_ctd",
     order: 2,
     type: AstFieldType.radio,
     options: [
-      "Commune d'Arrondissement/ Local Council",
-      "Communauté Urbaine/ Urban Council",
+      LocalizedOption(
+        "Commune d'Arrondissement/ Local Council",
+        LocalizedText(fr: "Commune d'Arrondissement", en: "Local Council"),
+      ),
+      LocalizedOption(
+        "Communauté Urbaine/ Urban Council",
+        LocalizedText(fr: "Communauté Urbaine", en: "Urban Council"),
+      ),
     ],
     dependsOn: "CTD_S1Q01",
     dependsValue: "Commune/ Council",
@@ -596,29 +695,35 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q03",
     paperCode: "S1Q03",
-    label: "Année de création de la CTD/ Year of creation of RLA",
+    label: LocalizedText(
+      fr: "Année de création de la CTD",
+      en: "Year of creation of RLA",
+    ),
     sectionId: "section1_ctd",
     order: 3,
     type: AstFieldType.number,
     requiredField: true, // FIX-7: Added required
     path: "ctd.yearCreated",
-    hint: "Ex: 2005",
+    hint: LocalizedText.same("Ex: 2005"),
   ),
   FormQuestionAst(
     id: "CTD_S1Q04",
     paperCode: "S1Q04",
-    label: "Milieu de résidence/ Area",
+    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
     sectionId: "section1_ctd",
     order: 4,
     type: AstFieldType.radio,
-    options: ["Urbain/ Urban", "Rural/ Rural"],
+    options: [
+      LocalizedOption("Urbain/ Urban", LocalizedText(fr: "Urbain", en: "Urban")),
+      LocalizedOption("Rural/ Rural", LocalizedText(fr: "Rural", en: "Rural")),
+    ],
     requiredField: true, // FIX-7: Added required
     path: "ctd.area",
   ),
   FormQuestionAst(
     id: "CTD_S1Q05_REGION",
     paperCode: "S1Q05",
-    label: "Région/ Region",
+    label: LocalizedText(fr: "Région", en: "Region"),
     sectionId: "section1_ctd",
     order: 5,
     type: AstFieldType.text,
@@ -628,7 +733,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q05_DEPT",
     paperCode: "S1Q05",
-    label: "Département/ Division",
+    label: LocalizedText(fr: "Département", en: "Division"),
     sectionId: "section1_ctd",
     order: 6,
     type: AstFieldType.text,
@@ -638,7 +743,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q05_SUBDIV",
     paperCode: "S1Q05",
-    label: "Arrondissement/ Subdivision",
+    label: LocalizedText(fr: "Arrondissement", en: "Subdivision"),
     sectionId: "section1_ctd",
     order: 7,
     type: AstFieldType.text,
@@ -648,7 +753,10 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q05_LOCALITY",
     paperCode: "S1Q05",
-    label: "Quartier/Village/Localité/ Neighborhood/Village/Locality",
+    label: LocalizedText(
+      fr: "Quartier/Village/Localité",
+      en: "Neighborhood/Village/Locality",
+    ),
     sectionId: "section1_ctd",
     order: 8,
     type: AstFieldType.text,
@@ -658,7 +766,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q06_TEL1",
     paperCode: "S1Q06",
-    label: "Téléphone 1/ Tel 1",
+    label: LocalizedText(fr: "Téléphone 1", en: "Tel 1"),
     sectionId: "section1_ctd",
     order: 9,
     type: AstFieldType.tel,
@@ -668,7 +776,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q06_TEL2",
     paperCode: "S1Q06",
-    label: "Téléphone 2/ Tel 2",
+    label: LocalizedText(fr: "Téléphone 2", en: "Tel 2"),
     sectionId: "section1_ctd",
     order: 10,
     type: AstFieldType.tel,
@@ -678,7 +786,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q06_BP",
     paperCode: "S1Q06",
-    label: "Boîte postale/ PO Box",
+    label: LocalizedText(fr: "Boîte postale", en: "PO Box"),
     sectionId: "section1_ctd",
     order: 11,
     type: AstFieldType.text,
@@ -688,14 +796,16 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q07",
     paperCode: "S1Q07",
-    label: "Secteur d'activité/ Business sector",
+    label: LocalizedText(fr: "Secteur d'activité", en: "Business sector"),
     sectionId: "section1_ctd",
     order: 12,
     type: AstFieldType.radio,
     options: [
-      "Primaire/ Primary",
-      "Secondaire/ Secondary",
-      "Tertiaire/ Tertiary",
+      LocalizedOption("Primaire/ Primary", LocalizedText(fr: "Primaire", en: "Primary")),
+      LocalizedOption(
+          "Secondaire/ Secondary", LocalizedText(fr: "Secondaire", en: "Secondary")),
+      LocalizedOption(
+          "Tertiaire/ Tertiary", LocalizedText(fr: "Tertiaire", en: "Tertiary")),
     ],
     requiredField: true, // FIX-7: Added required
     path: "ctd.sector",
@@ -703,7 +813,7 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q08",
     paperCode: "S1Q08",
-    label: "Branche d'activité/ Branch of activity",
+    label: LocalizedText(fr: "Branche d'activité", en: "Branch of activity"),
     sectionId: "section1_ctd",
     order: 13,
     type: AstFieldType.text,
@@ -714,7 +824,10 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q09",
     paperCode: "S1Q09",
-    label: "Nombre d'employé permanent/ Number of permanent workers",
+    label: LocalizedText(
+      fr: "Nombre d'employé permanent",
+      en: "Number of permanent workers",
+    ),
     sectionId: "section1_ctd",
     order: 14,
     type: AstFieldType.number,
@@ -724,7 +837,10 @@ const section1CtdQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "CTD_S1Q10",
     paperCode: "S1Q10",
-    label: "Nombre de poste vacant/ Number of vacancies",
+    label: LocalizedText(
+      fr: "Nombre de poste vacant",
+      en: "Number of vacancies",
+    ),
     sectionId: "section1_ctd",
     order: 15,
     type: AstFieldType.number,
@@ -752,7 +868,10 @@ const section1CtdQuestions = <FormQuestionAst>[
 
 const section1Ong = SectionAst(
   id: "section1_ong",
-  title: "SECTION 1. IDENTIFICATION DE L'ONG/ NGO DETAILS",
+  title: LocalizedText(
+    fr: "SECTION 1. IDENTIFICATION DE L'ONG",
+    en: "SECTION 1. NGO DETAILS",
+  ),
   order: 1,
   entityTypes: ["ong"],
 );
@@ -761,7 +880,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q01",
     paperCode: "S1Q01",
-    label: "Nom de l'ONG/ NGO's name",
+    label: LocalizedText(fr: "Nom de l'ONG", en: "NGO's name"),
     sectionId: "section1_ong",
     order: 1,
     type: AstFieldType.text,
@@ -771,7 +890,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q02",
     paperCode: "S1Q02",
-    label: "Siège social/ NGO head office",
+    label: LocalizedText(fr: "Siège social", en: "NGO head office"),
     sectionId: "section1_ong",
     order: 2,
     type: AstFieldType.text,
@@ -781,29 +900,35 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q03",
     paperCode: "S1Q03",
-    label: "Année de création de l'ONG/ Year of creation of NGO",
+    label: LocalizedText(
+      fr: "Année de création de l'ONG",
+      en: "Year of creation of NGO",
+    ),
     sectionId: "section1_ong",
     order: 3,
     type: AstFieldType.number,
     requiredField: true, // FIX-7: Added required
     path: "ong.yearCreated",
-    hint: "Ex: 2008",
+    hint: LocalizedText.same("Ex: 2008"),
   ),
   FormQuestionAst(
     id: "ONG_S1Q04",
     paperCode: "S1Q04",
-    label: "Milieu de résidence/ Area",
+    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
     sectionId: "section1_ong",
     order: 4,
     type: AstFieldType.radio,
-    options: ["Urbain/ Urban", "Rural/ Rural"],
+    options: [
+      LocalizedOption("Urbain/ Urban", LocalizedText(fr: "Urbain", en: "Urban")),
+      LocalizedOption("Rural/ Rural", LocalizedText(fr: "Rural", en: "Rural")),
+    ],
     requiredField: true, // FIX-7: Added required
     path: "ong.area",
   ),
   FormQuestionAst(
     id: "ONG_S1Q05_REGION",
     paperCode: "S1Q05",
-    label: "Région/ Region",
+    label: LocalizedText(fr: "Région", en: "Region"),
     sectionId: "section1_ong",
     order: 5,
     type: AstFieldType.text,
@@ -813,7 +938,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q05_DEPT",
     paperCode: "S1Q05",
-    label: "Département/ Division",
+    label: LocalizedText(fr: "Département", en: "Division"),
     sectionId: "section1_ong",
     order: 6,
     type: AstFieldType.text,
@@ -823,7 +948,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q05_SUBDIV",
     paperCode: "S1Q05",
-    label: "Arrondissement/ Subdivision",
+    label: LocalizedText(fr: "Arrondissement", en: "Subdivision"),
     sectionId: "section1_ong",
     order: 7,
     type: AstFieldType.text,
@@ -833,7 +958,10 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q05_LOCALITY",
     paperCode: "S1Q05",
-    label: "Quartier/Village/Localité/ Neighborhood/Village/Locality",
+    label: LocalizedText(
+      fr: "Quartier/Village/Localité",
+      en: "Neighborhood/Village/Locality",
+    ),
     sectionId: "section1_ong",
     order: 8,
     type: AstFieldType.text,
@@ -843,7 +971,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q06_TEL1",
     paperCode: "S1Q06",
-    label: "Téléphone 1/ Tel 1",
+    label: LocalizedText(fr: "Téléphone 1", en: "Tel 1"),
     sectionId: "section1_ong",
     order: 9,
     type: AstFieldType.tel,
@@ -853,7 +981,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q06_TEL2",
     paperCode: "S1Q06",
-    label: "Téléphone 2/ Tel 2",
+    label: LocalizedText(fr: "Téléphone 2", en: "Tel 2"),
     sectionId: "section1_ong",
     order: 10,
     type: AstFieldType.tel,
@@ -863,7 +991,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q06_BP",
     paperCode: "S1Q06",
-    label: "Boîte postale/ PO Box",
+    label: LocalizedText(fr: "Boîte postale", en: "PO Box"),
     sectionId: "section1_ong",
     order: 11,
     type: AstFieldType.text,
@@ -873,14 +1001,16 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q07",
     paperCode: "S1Q07",
-    label: "Secteur d'activité/ Business sector",
+    label: LocalizedText(fr: "Secteur d'activité", en: "Business sector"),
     sectionId: "section1_ong",
     order: 12,
     type: AstFieldType.radio,
     options: [
-      "Primaire/ Primary",
-      "Secondaire/ Secondary",
-      "Tertiaire/ Tertiary",
+      LocalizedOption("Primaire/ Primary", LocalizedText(fr: "Primaire", en: "Primary")),
+      LocalizedOption(
+          "Secondaire/ Secondary", LocalizedText(fr: "Secondaire", en: "Secondary")),
+      LocalizedOption(
+          "Tertiaire/ Tertiary", LocalizedText(fr: "Tertiaire", en: "Tertiary")),
     ],
     requiredField: true, // FIX-7: Added required
     path: "ong.sector",
@@ -888,7 +1018,7 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q08",
     paperCode: "S1Q08",
-    label: "Branche d'activité/ Branch of activity",
+    label: LocalizedText(fr: "Branche d'activité", en: "Branch of activity"),
     sectionId: "section1_ong",
     order: 13,
     type: AstFieldType.text,
@@ -899,7 +1029,10 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q09",
     paperCode: "S1Q09",
-    label: "Quelle est votre mission principale ?/ What is your main mission ?",
+    label: LocalizedText(
+      fr: "Quelle est votre mission principale ?",
+      en: "What is your main mission ?",
+    ),
     sectionId: "section1_ong",
     order: 14,
     type: AstFieldType.text,
@@ -909,7 +1042,10 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q10",
     paperCode: "S1Q10",
-    label: "Nombre d'employé permanent/ Number of permanent workers",
+    label: LocalizedText(
+      fr: "Nombre d'employé permanent",
+      en: "Number of permanent workers",
+    ),
     sectionId: "section1_ong",
     order: 15,
     type: AstFieldType.number,
@@ -919,7 +1055,10 @@ const section1OngQuestions = <FormQuestionAst>[
   FormQuestionAst(
     id: "ONG_S1Q11",
     paperCode: "S1Q11",
-    label: "Nombre de poste vacant/ Number of vacancies",
+    label: LocalizedText(
+      fr: "Nombre de poste vacant",
+      en: "Number of vacancies",
+    ),
     sectionId: "section1_ong",
     order: 16,
     type: AstFieldType.number,
@@ -937,7 +1076,10 @@ const section1OngQuestions = <FormQuestionAst>[
 
 const section2 = SectionAst(
   id: "section2",
-  title: "SECTION 2. EMPLOI ET TRAVAIL/ EMPLOYMENT AND LABOUR",
+  title: LocalizedText(
+    fr: "SECTION 2. EMPLOI ET TRAVAIL",
+    en: "SECTION 2. EMPLOYMENT AND LABOUR",
+  ),
   order: 2,
 );
 
@@ -948,10 +1090,18 @@ const section2 = SectionAst(
 const s21q01 = FormQuestionAst(
   id: "S21Q01",
   paperCode: "S21Q01",
-  subsection: "2.1 DEMANDE D'EMPLOIS/ JOB APPLICATION",
-  label:
-      "Combien de demandes d'emplois avez-vous enregistré selon la catégorie socioprofessionnelle, le sexe et la tranche d'âge du premier Janvier 2025 à ce jour ?/ "
-      "How many job applications per socio-professional category, gender and age group did you register from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(
+    fr: "2.1 DEMANDE D'EMPLOIS",
+    en: "2.1 JOB APPLICATION",
+  ),
+  label: LocalizedText(
+    fr: "Combien de demandes d'emplois avez-vous enregistré selon la "
+        "catégorie socioprofessionnelle, le sexe et la tranche d'âge du "
+        "premier Janvier 2025 à ce jour ?",
+    en: "How many job applications per socio-professional category, gender "
+        "and age group did you register from the 1st of January 2025 to "
+        "the present day?",
+  ),
   sectionId: "section2",
   order: 1,
   type: AstFieldType.table,
@@ -971,10 +1121,15 @@ const s21q01 = FormQuestionAst(
 const s22q01 = FormQuestionAst(
   id: "S22Q01",
   paperCode: "S22Q01",
-  subsection: "2.2 RECRUTEMENTS/ RECRUITMENTS",
-  label:
-      "Combien de permanents avez-vous recruté selon la catégorie socioprofessionnelle, le sexe et la tranche d'âge du premier Janvier 2025 à ce jour?/ "
-      "How many permanent workers per socio-professional category, gender and age group did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(fr: "2.2 RECRUTEMENTS", en: "2.2 RECRUITMENTS"),
+  label: LocalizedText(
+    fr: "Combien de permanents avez-vous recruté selon la catégorie "
+        "socioprofessionnelle, le sexe et la tranche d'âge du premier "
+        "Janvier 2025 à ce jour?",
+    en: "How many permanent workers per socio-professional category, "
+        "gender and age group did you recruit from the 1st of January "
+        "2025 to the present day?",
+  ),
   sectionId: "section2",
   order: 2,
   type: AstFieldType.table,
@@ -990,10 +1145,15 @@ const s22q01 = FormQuestionAst(
 const s22q02 = FormQuestionAst(
   id: "S22Q02",
   paperCode: "S22Q02",
-  subsection: "2.2 RECRUTEMENTS/ RECRUITMENTS",
-  label:
-      "Combien de temporaires avez-vous recruté selon la catégorie socioprofessionnelle, le sexe et la tranche d'âge du premier Janvier 2025 à ce jour?/ "
-      "How many temporary workers per socio-professional category, gender and age group did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(fr: "2.2 RECRUTEMENTS", en: "2.2 RECRUITMENTS"),
+  label: LocalizedText(
+    fr: "Combien de temporaires avez-vous recruté selon la catégorie "
+        "socioprofessionnelle, le sexe et la tranche d'âge du premier "
+        "Janvier 2025 à ce jour?",
+    en: "How many temporary workers per socio-professional category, "
+        "gender and age group did you recruit from the 1st of January "
+        "2025 to the present day?",
+  ),
   sectionId: "section2",
   order: 3,
   type: AstFieldType.table,
@@ -1009,14 +1169,23 @@ const s22q02 = FormQuestionAst(
 const s22q03 = FormQuestionAst(
   id: "S22Q03",
   paperCode: "S22Q03",
-  subsection: "2.2 RECRUTEMENTS/ RECRUITMENTS",
-  label:
-      "Combien de personnes avez-vous recruté selon la catégorie socioprofessionnelle, le sexe, le diplôme et la tranche d'âge du premier Janvier 2025 à ce jour?/ "
-      "How many workers per socio-professional category, gender, and diploma did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(fr: "2.2 RECRUTEMENTS", en: "2.2 RECRUITMENTS"),
+  label: LocalizedText(
+    fr: "Combien de personnes avez-vous recruté selon la catégorie "
+        "socioprofessionnelle, le sexe, le diplôme et la tranche d'âge du "
+        "premier Janvier 2025 à ce jour?",
+    en: "How many workers per socio-professional category, gender, and "
+        "diploma did you recruit from the 1st of January 2025 to the "
+        "present day?",
+  ),
   sectionId: "section2",
   order: 4,
   type: AstFieldType.table,
   tableSpec: {
+    // NOTE: these row strings are NOT rendered — TableSpecBuilder is the
+    // live renderer for this table and defines its own localized diploma
+    // labels. This list only feeds grid cell-ID generation and must stay
+    // untouched (changing it would change stored data keys).
     "template": "diploma_gender_age_table",
     "rows": [
       "CEP/ CEPE/ FSLC",
@@ -1040,10 +1209,15 @@ const s22q03 = FormQuestionAst(
 const s22q04 = FormQuestionAst(
   id: "S22Q04",
   paperCode: "S22Q04",
-  subsection: "2.2 RECRUTEMENTS/ RECRUITMENTS",
-  label:
-      "Combien de personnes en situation de handicap avez-vous recruté selon la catégorie socio professionnelle, le sexe et le statut du 1er Janvier 2025 à ce jour?/ "
-      "How many workers with a disability per socio-professional category, gender, and status did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(fr: "2.2 RECRUTEMENTS", en: "2.2 RECRUITMENTS"),
+  label: LocalizedText(
+    fr: "Combien de personnes en situation de handicap avez-vous recruté "
+        "selon la catégorie socio professionnelle, le sexe et le statut "
+        "du 1er Janvier 2025 à ce jour?",
+    en: "How many workers with a disability per socio-professional "
+        "category, gender, and status did you recruit from the 1st of "
+        "January 2025 to the present day?",
+  ),
   sectionId: "section2",
   order: 5,
   type: AstFieldType.table,
@@ -1061,10 +1235,15 @@ const s22q04 = FormQuestionAst(
 const s22q05Enterprise = FormQuestionAst(
   id: "S22Q05_ENTERPRISE",
   paperCode: "S22Q05",
-  subsection: "2.2 RECRUTEMENTS/ RECRUITMENTS",
-  label:
-      "Combien de personnes vulnérables avez-vous recruté selon le statut et la nature de la vulnérabilité du 1er Janvier 2025 à ce jour?/ "
-      "How many vulnerable workers per status and nature of vulnerability did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(fr: "2.2 RECRUTEMENTS", en: "2.2 RECRUITMENTS"),
+  label: LocalizedText(
+    fr: "Combien de personnes vulnérables avez-vous recruté selon le "
+        "statut et la nature de la vulnérabilité du 1er Janvier 2025 à ce "
+        "jour?",
+    en: "How many vulnerable workers per status and nature of "
+        "vulnerability did you recruit from the 1st of January 2025 to "
+        "the present day?",
+  ),
   sectionId: "section2",
   order: 6,
   type: AstFieldType.table,
@@ -1092,10 +1271,15 @@ const s22q05Enterprise = FormQuestionAst(
 const s22q05Other = FormQuestionAst(
   id: "S22Q05_OTHER",
   paperCode: "S22Q05",
-  subsection: "2.2 RECRUTEMENTS/ RECRUITMENTS",
-  label:
-      "Combien de personnes vulnérables avez-vous recruté selon le statut et la nature de la vulnérabilité du 1er Janvier 2025 à ce jour?/ "
-      "How many vulnerable workers per status and nature of vulnerability did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(fr: "2.2 RECRUTEMENTS", en: "2.2 RECRUITMENTS"),
+  label: LocalizedText(
+    fr: "Combien de personnes vulnérables avez-vous recruté selon le "
+        "statut et la nature de la vulnérabilité du 1er Janvier 2025 à ce "
+        "jour?",
+    en: "How many vulnerable workers per status and nature of "
+        "vulnerability did you recruit from the 1st of January 2025 to "
+        "the present day?",
+  ),
   sectionId: "section2",
   order: 6,
   type: AstFieldType.table,
@@ -1121,11 +1305,18 @@ const s22q05Other = FormQuestionAst(
 const s23q01 = FormQuestionAst(
   id: "S23Q01",
   paperCode: "S23Q01",
-  subsection:
-      "2.3 PRIMO DEMANDEUR (personne à la recherche de son premier emploi)/ FIRST-TIME JOB SEEKER",
-  label:
-      "Combien de personnes recherchant leur premier emploi avez-vous enregistré selon la catégorie socioprofessionnelle, le sexe et la tranche d'âge du premier Janvier 2025 à ce jour?/ "
-      "How many people looking for their first job per socio-professional category, gender and age group did you register from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(
+    fr: "2.3 PRIMO DEMANDEUR (personne à la recherche de son premier emploi)",
+    en: "2.3 FIRST-TIME JOB SEEKER",
+  ),
+  label: LocalizedText(
+    fr: "Combien de personnes recherchant leur premier emploi avez-vous "
+        "enregistré selon la catégorie socioprofessionnelle, le sexe et "
+        "la tranche d'âge du premier Janvier 2025 à ce jour?",
+    en: "How many people looking for their first job per "
+        "socio-professional category, gender and age group did you "
+        "register from the 1st of January 2025 to the present day?",
+  ),
   sectionId: "section2",
   order: 7,
   type: AstFieldType.table,
@@ -1141,11 +1332,18 @@ const s23q01 = FormQuestionAst(
 const s23q02 = FormQuestionAst(
   id: "S23Q02",
   paperCode: "S23Q02",
-  subsection:
-      "2.3 PRIMO DEMANDEUR (personne à la recherche de son premier emploi)/ FIRST-TIME JOB SEEKER",
-  label:
-      "Combien de personnes travaillant pour la première fois avez-vous recrutées selon la catégorie socioprofessionnelle et la tranche d'âge du premier Janvier 2025 à ce jour?/ "
-      "How many people Working for their first time per socio-professional category, gender and age group did you recruit from the 1st of January 2025 to the present day?",
+  subsection: LocalizedText(
+    fr: "2.3 PRIMO DEMANDEUR (personne à la recherche de son premier emploi)",
+    en: "2.3 FIRST-TIME JOB SEEKER",
+  ),
+  label: LocalizedText(
+    fr: "Combien de personnes travaillant pour la première fois avez-vous "
+        "recrutées selon la catégorie socioprofessionnelle et la tranche "
+        "d'âge du premier Janvier 2025 à ce jour?",
+    en: "How many people Working for their first time per "
+        "socio-professional category, gender and age group did you "
+        "recruit from the 1st of January 2025 to the present day?",
+  ),
   sectionId: "section2",
   order: 8,
   type: AstFieldType.table,
@@ -1165,16 +1363,19 @@ const s23q02 = FormQuestionAst(
 
 const section3 = SectionAst(
   id: "section3",
-  title: "SECTION 3. DÉPARTS/ DEPARTURES",
+  title: LocalizedText(fr: "SECTION 3. DÉPARTS", en: "SECTION 3. DEPARTURES"),
   order: 3,
 );
 
 const s3q01 = FormQuestionAst(
   id: "S3Q01",
   paperCode: "S3Q01",
-  label:
-      "Combien de départs avez-vous enregistrés du 1er Janvier 2025 à ce jour?/ "
-      "How many departures did you register from the 1st of January 2025 to the present day?",
+  label: LocalizedText(
+    fr: "Combien de départs avez-vous enregistrés du 1er Janvier 2025 à "
+        "ce jour?",
+    en: "How many departures did you register from the 1st of January "
+        "2025 to the present day?",
+  ),
   sectionId: "section3",
   order: 1,
   type: AstFieldType.table,
@@ -1198,8 +1399,10 @@ const s3q01 = FormQuestionAst(
 const s3q02 = FormQuestionAst(
   id: "S3Q02",
   paperCode: "S3Q02",
-  label: "Quels sont les principaux motifs de licenciement ?/ "
-      "What are the main grounds for dismissal?",
+  label: LocalizedText(
+    fr: "Quels sont les principaux motifs de licenciement ?",
+    en: "What are the main grounds for dismissal?",
+  ),
   sectionId: "section3",
   order: 2,
   type: AstFieldType.table,
@@ -1217,48 +1420,71 @@ const s3q02 = FormQuestionAst(
 const s3q02_reason_1_text = FormQuestionAst(
   id: "S3Q02_REASON_1_TEXT",
   paperCode: "S3Q02",
-  label: "Motif de licenciement 1/ Dismissal reason 1",
+  label: LocalizedText(fr: "Motif de licenciement 1", en: "Dismissal reason 1"),
   sectionId: "section3",
   order: 2,
   type: AstFieldType.text,
   requiredField: true,
   path: "section3.dismissalReasons.reason1.text",
-  hint: "Décrivez le motif de licenciement",
-  instruction: "Précisez la raison du licenciement",
+  hint: LocalizedText(
+    fr: "Décrivez le motif de licenciement",
+    en: "Describe the reason for dismissal",
+  ),
+  instruction: LocalizedText(
+    fr: "Précisez la raison du licenciement",
+    en: "Specify the reason for dismissal",
+  ),
 );
 
+// ignore: constant_identifier_names
 const s3q02_reason_2_text = FormQuestionAst(
   id: "S3Q02_REASON_2_TEXT",
   paperCode: "S3Q02",
-  label: "Motif de licenciement 2/ Dismissal reason 2",
+  label: LocalizedText(fr: "Motif de licenciement 2", en: "Dismissal reason 2"),
   sectionId: "section3",
   order: 2,
   type: AstFieldType.text,
   requiredField: true,
   path: "section3.dismissalReasons.reason2.text",
-  hint: "Décrivez le motif de licenciement",
-  instruction: "Précisez la raison du licenciement",
+  hint: LocalizedText(
+    fr: "Décrivez le motif de licenciement",
+    en: "Describe the reason for dismissal",
+  ),
+  instruction: LocalizedText(
+    fr: "Précisez la raison du licenciement",
+    en: "Specify the reason for dismissal",
+  ),
 );
 
+// ignore: constant_identifier_names
 const s3q02_reason_3_text = FormQuestionAst(
   id: "S3Q02_REASON_3_TEXT",
   paperCode: "S3Q02",
-  label: "Motif de licenciement 3/ Dismissal reason 3",
+  label: LocalizedText(fr: "Motif de licenciement 3", en: "Dismissal reason 3"),
   sectionId: "section3",
   order: 2,
   type: AstFieldType.text,
   requiredField: true,
   path: "section3.dismissalReasons.reason3.text",
-  hint: "Décrivez le motif de licenciement",
-  instruction: "Précisez la raison du licenciement",
+  hint: LocalizedText(
+    fr: "Décrivez le motif de licenciement",
+    en: "Describe the reason for dismissal",
+  ),
+  instruction: LocalizedText(
+    fr: "Précisez la raison du licenciement",
+    en: "Specify the reason for dismissal",
+  ),
 );
 
 const s3q03 = FormQuestionAst(
   id: "S3Q03",
   paperCode: "S3Q03",
-  label:
-      "Combien de personnes avez-vous licenciées ou mises en chômage technique du 1er Janvier 2025 à ce jour?/ "
-      "How many people did you dismiss or put on technical unemployment from the 1st of January 2025 to the present day?",
+  label: LocalizedText(
+    fr: "Combien de personnes avez-vous licenciées ou mises en chômage "
+        "technique du 1er Janvier 2025 à ce jour?",
+    en: "How many people did you dismiss or put on technical unemployment "
+        "from the 1st of January 2025 to the present day?",
+  ),
   sectionId: "section3",
   order: 3,
   type: AstFieldType.table,
@@ -1277,16 +1503,22 @@ const s3q03 = FormQuestionAst(
 
 const section4 = SectionAst(
   id: "section4",
-  title: "SECTION 4. STAGE ET FORMATION/ INTERNSHIP AND TRAINING",
+  title: LocalizedText(
+    fr: "SECTION 4. STAGE ET FORMATION",
+    en: "SECTION 4. INTERNSHIP AND TRAINING",
+  ),
   order: 4,
 );
 
 const s4q01 = FormQuestionAst(
   id: "S4Q01",
   paperCode: "S4Q01",
-  label:
-      "Combien de stagiaires avez-vous recrutés du 1er Janvier 2025 à ce jour?/ "
-      "How many interns did you recruit from the 1st of January 2025 to the present day?",
+  label: LocalizedText(
+    fr: "Combien de stagiaires avez-vous recrutés du 1er Janvier 2025 à "
+        "ce jour?",
+    en: "How many interns did you recruit from the 1st of January 2025 "
+        "to the present day?",
+  ),
   sectionId: "section4",
   order: 1,
   type: AstFieldType.table,
@@ -1306,9 +1538,12 @@ const s4q01 = FormQuestionAst(
 const s4q02 = FormQuestionAst(
   id: "S4Q02",
   paperCode: "S4Q02",
-  label:
-      "Quels sont les besoins en compétence de votre entreprise? (énumérer les 3 compétences prioritaires)/ "
-      "What are the skills needs of your company? (list the 3 priority skills)",
+  label: LocalizedText(
+    fr: "Quels sont les besoins en compétence de votre entreprise? "
+        "(énumérer les 3 compétences prioritaires)",
+    en: "What are the skills needs of your company? (list the 3 priority "
+        "skills)",
+  ),
   sectionId: "section4",
   order: 2,
   type: AstFieldType.table,
@@ -1320,51 +1555,75 @@ const s4q02 = FormQuestionAst(
   },
 );
 
+// ignore: constant_identifier_names
 const s4q02_domain_1_text = FormQuestionAst(
   id: "S4Q02_DOMAIN_1_TEXT",
   paperCode: "S4Q02",
-  label: "Domaine de compétence 1/ Skill domain 1",
+  label: LocalizedText(fr: "Domaine de compétence 1", en: "Skill domain 1"),
   sectionId: "section4",
   order: 2,
   type: AstFieldType.text,
   requiredField: true,
   path: "section4.skills.domain1.text",
-  hint: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
-  instruction: "Nommez le domaine de compétence prioritaire",
+  hint: LocalizedText(
+    fr: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
+    en: "E.g. Management, Accounting, Marketing, HR, Technical...",
+  ),
+  instruction: LocalizedText(
+    fr: "Nommez le domaine de compétence prioritaire",
+    en: "Name the priority skill domain",
+  ),
 );
 
+// ignore: constant_identifier_names
 const s4q02_domain_2_text = FormQuestionAst(
   id: "S4Q02_DOMAIN_2_TEXT",
   paperCode: "S4Q02",
-  label: "Domaine de compétence 2/ Skill domain 2",
+  label: LocalizedText(fr: "Domaine de compétence 2", en: "Skill domain 2"),
   sectionId: "section4",
   order: 2,
   type: AstFieldType.text,
   requiredField: true,
   path: "section4.skills.domain2.text",
-  hint: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
-  instruction: "Nommez le domaine de compétence prioritaire",
+  hint: LocalizedText(
+    fr: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
+    en: "E.g. Management, Accounting, Marketing, HR, Technical...",
+  ),
+  instruction: LocalizedText(
+    fr: "Nommez le domaine de compétence prioritaire",
+    en: "Name the priority skill domain",
+  ),
 );
 
+// ignore: constant_identifier_names
 const s4q02_domain_3_text = FormQuestionAst(
   id: "S4Q02_DOMAIN_3_TEXT",
   paperCode: "S4Q02",
-  label: "Domaine de compétence 3/ Skill domain 3",
+  label: LocalizedText(fr: "Domaine de compétence 3", en: "Skill domain 3"),
   sectionId: "section4",
   order: 2,
   type: AstFieldType.text,
   requiredField: true,
   path: "section4.skills.domain3.text",
-  hint: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
-  instruction: "Nommez le domaine de compétence prioritaire",
+  hint: LocalizedText(
+    fr: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
+    en: "E.g. Management, Accounting, Marketing, HR, Technical...",
+  ),
+  instruction: LocalizedText(
+    fr: "Nommez le domaine de compétence prioritaire",
+    en: "Name the priority skill domain",
+  ),
 );
 
 const s4q03 = FormQuestionAst(
   id: "S4Q03",
   paperCode: "S4Q03",
-  label:
-      "Quels sont les besoins en formation des personnels de votre entreprise? (énumérer les 3 domaines de formation prioritaires)/ "
-      "What are the training needs of your company's staff? (list the 3 priority fields of training)",
+  label: LocalizedText(
+    fr: "Quels sont les besoins en formation des personnels de votre "
+        "entreprise? (énumérer les 3 domaines de formation prioritaires)",
+    en: "What are the training needs of your company's staff? (list the "
+        "3 priority fields of training)",
+  ),
   sectionId: "section4",
   order: 3,
   type: AstFieldType.table,
@@ -1376,43 +1635,64 @@ const s4q03 = FormQuestionAst(
   },
 );
 
+// ignore: constant_identifier_names
 const s4q03_domain_1_text = FormQuestionAst(
   id: "S4Q03_DOMAIN_1_TEXT",
   paperCode: "S4Q03",
-  label: "Domaine de formation 1/ Training domain 1",
+  label: LocalizedText(fr: "Domaine de formation 1", en: "Training domain 1"),
   sectionId: "section4",
   order: 3,
   type: AstFieldType.text,
   requiredField: true,
   path: "section4.training.domain1.text",
-  hint: "Ex: Leadership, Techniques de vente, Gestion de projet...",
-  instruction: "Nommez le domaine de formation prioritaire",
+  hint: LocalizedText(
+    fr: "Ex: Leadership, Techniques de vente, Gestion de projet...",
+    en: "E.g. Leadership, Sales techniques, Project management...",
+  ),
+  instruction: LocalizedText(
+    fr: "Nommez le domaine de formation prioritaire",
+    en: "Name the priority training domain",
+  ),
 );
 
+// ignore: constant_identifier_names
 const s4q03_domain_2_text = FormQuestionAst(
   id: "S4Q03_DOMAIN_2_TEXT",
   paperCode: "S4Q03",
-  label: "Domaine de formation 2/ Training domain 2",
+  label: LocalizedText(fr: "Domaine de formation 2", en: "Training domain 2"),
   sectionId: "section4",
   order: 3,
   type: AstFieldType.text,
   requiredField: true,
   path: "section4.training.domain2.text",
-  hint: "Ex: Leadership, Techniques de vente, Gestion de projet...",
-  instruction: "Nommez le domaine de formation prioritaire",
+  hint: LocalizedText(
+    fr: "Ex: Leadership, Techniques de vente, Gestion de projet...",
+    en: "E.g. Leadership, Sales techniques, Project management...",
+  ),
+  instruction: LocalizedText(
+    fr: "Nommez le domaine de formation prioritaire",
+    en: "Name the priority training domain",
+  ),
 );
 
+// ignore: constant_identifier_names
 const s4q03_domain_3_text = FormQuestionAst(
   id: "S4Q03_DOMAIN_3_TEXT",
   paperCode: "S4Q03",
-  label: "Domaine de formation 3/ Training domain 3",
+  label: LocalizedText(fr: "Domaine de formation 3", en: "Training domain 3"),
   sectionId: "section4",
   order: 3,
   type: AstFieldType.text,
   requiredField: true,
   path: "section4.training.domain3.text",
-  hint: "Ex: Leadership, Techniques de vente, Gestion de projet...",
-  instruction: "Nommez le domaine de formation prioritaire",
+  hint: LocalizedText(
+    fr: "Ex: Leadership, Techniques de vente, Gestion de projet...",
+    en: "E.g. Leadership, Sales techniques, Project management...",
+  ),
+  instruction: LocalizedText(
+    fr: "Nommez le domaine de formation prioritaire",
+    en: "Name the priority training domain",
+  ),
 );
 
 // ============================================================

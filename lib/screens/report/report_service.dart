@@ -1,4 +1,4 @@
-// lib/screens/report/report_service.dart
+﻿// lib/screens/report/report_service.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api_client.dart';
@@ -14,7 +14,7 @@ class ReportService {
 
   ReportService({required ApiClient apiClient}) : _apiClient = apiClient;
 
-  // ── Reports ─────────────────────────────────────────────────
+  // â”€â”€ Reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<List<GeneratedReport>> getReports() async {
     try {
       final response = await _apiClient.get('/reports/history');
@@ -23,7 +23,7 @@ class ReportService {
           .map((e) => GeneratedReport.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Get reports error: $e');
+      debugPrint('Get reports error: $e');
       return [];
     }
   }
@@ -33,12 +33,12 @@ class ReportService {
       await _apiClient.post('/reports/dynamic', data: payload);
       return true;
     } catch (e) {
-      print('Generate report error: $e');
+      debugPrint('Generate report error: $e');
       return false;
     }
   }
 
-  // ── Approvals ──────────────────────────────────────────────
+  // â”€â”€ Approvals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<List<GeneratedReport>> getPendingApprovals() async {
     try {
       final response = await _apiClient.get('/reports/pending-approval');
@@ -47,7 +47,7 @@ class ReportService {
           .map((e) => GeneratedReport.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Get pending approvals error: $e');
+      debugPrint('Get pending approvals error: $e');
       return [];
     }
   }
@@ -62,12 +62,12 @@ class ReportService {
       });
       return true;
     } catch (e) {
-      print('Approve report error: $e');
+      debugPrint('Approve report error: $e');
       return false;
     }
   }
 
-  // ── Batch Jobs ─────────────────────────────────────────────
+  // â”€â”€ Batch Jobs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<List<BatchJob>> getBatchJobs() async {
     try {
       final response = await _apiClient.get('/reports/batch-jobs');
@@ -91,7 +91,7 @@ class ReportService {
               ))
           .toList();
     } catch (e) {
-      print('Get batch jobs error: $e');
+      debugPrint('Get batch jobs error: $e');
       return [];
     }
   }
@@ -101,7 +101,7 @@ class ReportService {
       await _apiClient.post('/reports/batch', data: payload);
       return true;
     } catch (e) {
-      print('Generate batch error: $e');
+      debugPrint('Generate batch error: $e');
       return false;
     }
   }
@@ -111,23 +111,23 @@ class ReportService {
       await _apiClient.post('/reports/retry/$jobId');
       return true;
     } catch (e) {
-      print('Retry batch job error: $e');
+      debugPrint('Retry batch job error: $e');
       return false;
     }
   }
 
-  // ── Comparison ─────────────────────────────────────────────
+  // â”€â”€ Comparison â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<Map<String, dynamic>> getReportData(String reportId) async {
     try {
       final response = await _apiClient.get('/reports/$reportId/data');
       return response.data as Map<String, dynamic>? ?? {};
     } catch (e) {
-      print('Get report data error: $e');
+      debugPrint('Get report data error: $e');
       return {};
     }
   }
 
-  // ── Distribution ───────────────────────────────────────────
+  // â”€â”€ Distribution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<List<DistributionList>> getDistributionLists() async {
     try {
       final response = await _apiClient.get('/distribution/lists');
@@ -141,7 +141,7 @@ class ReportService {
               ))
           .toList();
     } catch (e) {
-      print('Get distribution lists error: $e');
+      debugPrint('Get distribution lists error: $e');
       return [];
     }
   }
@@ -154,12 +154,12 @@ class ReportService {
       });
       return true;
     } catch (e) {
-      print('Send distribution error: $e');
+      debugPrint('Send distribution error: $e');
       return false;
     }
   }
 
-  // ── Audit ──────────────────────────────────────────────────
+  // â”€â”€ Audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<List<AuditEntry>> getAuditLog() async {
     try {
       final response = await _apiClient.get('/audit/reports');
@@ -177,18 +177,18 @@ class ReportService {
               ))
           .toList();
     } catch (e) {
-      print('Get audit log error: $e');
+      debugPrint('Get audit log error: $e');
       return [];
     }
   }
 
-  // ── Geo Structure ──────────────────────────────────────────
+  // â”€â”€ Geo Structure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<List<Map<String, dynamic>>> getLocationStructure() async {
     try {
       final response = await _apiClient.getLocationStructure();
       return response.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e) {
-      print('Get location structure error: $e');
+      debugPrint('Get location structure error: $e');
       return [];
     }
   }

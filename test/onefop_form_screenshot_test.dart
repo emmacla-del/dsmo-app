@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:dsmo_app/l10n/generated/app_localizations.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_constants.dart';
 import 'package:dsmo_app/screens/onefop/onefop_unified_form_screen_v4.dart';
 
@@ -18,6 +19,9 @@ Future<void> _capture(WidgetTester tester, String name,
   await tester.pumpWidget(
     ProviderScope(
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: OnefopUnifiedFormScreenV4(
           entityType: EntityType.enterprise,
           initialData: const {},

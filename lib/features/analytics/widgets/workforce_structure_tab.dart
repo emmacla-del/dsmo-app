@@ -1,4 +1,4 @@
-﻿// lib/features/analytics/widgets/workforce_structure_tab.dart
+// lib/features/analytics/widgets/workforce_structure_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -442,7 +442,7 @@ class _CspPyramidCard extends StatelessWidget {
                 ),
                 gridData: FlGridData(
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (_) => FlLine(
+                  getDrawingHorizontalLine: (_) => const FlLine(
                     color: InkColor.border,
                     strokeWidth: 1,
                   ),
@@ -572,7 +572,7 @@ class _GenderByCspCard extends StatelessWidget {
                         Text('${formatNumber(female)} F',
                             style: textMono(9, color: AccentColor.rose)),
                         const Spacer(),
-                        Text('${formatNumber(total)}',
+                        Text(formatNumber(total),
                             style: textMono(9,
                                 color: TextColor.muted,
                                 weight: FontWeight.bold)),
@@ -633,7 +633,7 @@ class _DiplomaStructureCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: pct,
                         backgroundColor: Colors.white.withAlpha(12),
-                        valueColor: AlwaysStoppedAnimation(AccentColor.teal),
+                        valueColor: const AlwaysStoppedAnimation(AccentColor.teal),
                         minHeight: 6,
                         borderRadius: BorderRadius.circular(3),
                       ),
@@ -641,7 +641,7 @@ class _DiplomaStructureCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     SizedBox(
                       width: 60,
-                      child: Text('${formatNumber(count)}',
+                      child: Text(formatNumber(count),
                           style: textMono(10,
                               color: AccentColor.teal, weight: FontWeight.bold),
                           textAlign: TextAlign.right),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../theme/ultra_theme.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -234,8 +235,8 @@ Future<bool?> showAdminConfirmSheet(
                 side: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.3)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Annuler',
-                  style: TextStyle(
+              child: Text(ctx.l10n.cancelButton,
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w600,
                       color: UltraTheme.textMuted)),

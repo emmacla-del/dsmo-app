@@ -26,6 +26,7 @@ class TableRenderer {
     // MobileCardTable. Matrix-layout tables have no uniform row/column
     // shape to card-ize and always use GenericSpreadsheetTable.
     bool mobile = false,
+    required Locale locale,
   }) {
     final spec = field.tableSpec;
     if (spec == null) {
@@ -41,6 +42,7 @@ class TableRenderer {
       gridValues: gridValues,
       onCellChanged: onCellChanged,
       entityType: entityType,
+      locale: locale,
     );
 
     // ← BUILD textValues from hybrid controllers for row label cells
@@ -92,7 +94,7 @@ class TableRenderer {
           );
 
     final paperCode = field.paperCode;
-    final questionText = field.questionText;
+    final questionText = field.label?.of(locale) ?? field.questionText;
     final hasHeader = (paperCode != null && paperCode.isNotEmpty) ||
         (questionText != null && questionText.isNotEmpty);
 

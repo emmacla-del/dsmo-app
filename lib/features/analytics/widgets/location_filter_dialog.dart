@@ -1,6 +1,7 @@
 // lib/features/analytics/widgets/location_filter_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/i18n/l10n_ext.dart';
 import '../providers/geo_provider.dart';
 
 Future<(String? region, String? department, String? subdivision)?>
@@ -41,7 +42,7 @@ Future<(String? region, String? department, String? subdivision)?>
                 children: [
                   // Region dropdown
                   DropdownButtonFormField<String?>(
-                    value: tempRegion,
+                    initialValue: tempRegion,
                     decoration: const InputDecoration(labelText: 'Région'),
                     items: [
                       const DropdownMenuItem(
@@ -60,7 +61,7 @@ Future<(String? region, String? department, String? subdivision)?>
                   if (tempRegion != null && departments.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: tempDepartment,
+                      initialValue: tempDepartment,
                       decoration:
                           const InputDecoration(labelText: 'Département'),
                       items: [
@@ -80,7 +81,7 @@ Future<(String? region, String? department, String? subdivision)?>
                   if (tempDepartment != null && subdivisions.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: tempSubdivision,
+                      initialValue: tempSubdivision,
                       decoration:
                           const InputDecoration(labelText: 'Arrondissement'),
                       items: [
@@ -100,7 +101,7 @@ Future<(String? region, String? department, String? subdivision)?>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Annuler'),
+                child: Text(ctx.l10n.cancelButton),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(

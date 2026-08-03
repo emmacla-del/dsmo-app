@@ -4,13 +4,12 @@
 // ══════════════════════════════════════════════════════════════
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 
 import '../../core/focus/onefop_form_loader.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/form_schema_v2.dart';
 import '../../core/focus/schema/navigation_engine.dart';
@@ -116,7 +115,7 @@ class OnefopFormController extends ChangeNotifier {
   final Map<String, bool> _valid = {};
   Map<String, dynamic>? _submissionSnapshot;
   int _sidebarMode = 2;
-  final Map<String, String?> _valCache = {};
+  final Map<String, ValidationError?> _valCache = {};
   List<String> _visibleFieldIds = [];
   final Map<String, VoidCallback> _ctrlListeners = {};
 
@@ -455,12 +454,13 @@ class OnefopFormController extends ChangeNotifier {
         null;
   }
 
-  String? errorText(FieldSchema f) {
-    return _valCache.putIfAbsent(
+  String errorText(FieldSchema f, AppLocalizations l10n) {
+    final error = _valCache.putIfAbsent(
           f.id,
           () => FieldValidator.validate(f, _data, touched: _touched),
         ) ??
-        'Champ obligatoire / Required field';
+        const ValidationError(ValidationErrorCode.required);
+    return validationErrorMessage(l10n, error);
   }
 
   bool validateSection(SectionSchema s) {
@@ -473,12 +473,13 @@ class OnefopFormController extends ChangeNotifier {
     );
   }
 
-  List<String> missingLabels(SectionSchema s) {
+  List<String> missingLabels(SectionSchema s, Locale locale) {
     if (_schema == null) return [];
     return FieldValidator.missingLabels(
       s,
       _schema!,
       _data,
+      locale,
       hybridIds: kHybridAstIds,
     );
   }
@@ -870,47 +871,49 @@ class OnefopFormController extends ChangeNotifier {
 // ─────────────────────────────────────────────────────────────
 // REPLACE the preview() method with this:
 // ─────────────────────────────────────────────────────────────
-  Future<PreviewResult> preview() async {
+  Future<PreviewResult> preview(AppLocalizations l10n) async {
     final snapshot = collectAndMapData();
     _submissionSnapshot = snapshot;
 
     try {
       final apiClient = ApiClient();
-      final pdfBytes = await apiClient.previewQuestionnaire({
-        'data': snapshot,
-        'entityType': entityTypeString(entityType),
-        'userId': userId ?? 'unknown',
-        'companyId': companyId,
-        'establishmentId': _metaEstablishmentId,
-        'quarterCode': _metaQuarterCode,
-        'formId':
-            'PREVIEW_${_metaEstablishmentId}_${DateTime.now().millisecondsSinceEpoch}',
-        '__meta': {
+      final pdfBytes = await apiClient.previewQuestionnaire(
+        {
+          'data': snapshot,
+          'entityType': entityTypeString(entityType),
+          'userId': userId ?? 'unknown',
+          'companyId': companyId,
           'establishmentId': _metaEstablishmentId,
-          'taxNumber': _metaTaxNumber,
-          'cnpsNumber': _metaCnpsNumber,
-          'registrationNumber': _metaRegistrationNumber,
+          'quarterCode': _metaQuarterCode,
+          'formId':
+              'PREVIEW_${_metaEstablishmentId}_${DateTime.now().millisecondsSinceEpoch}',
+          '__meta': {
+            'establishmentId': _metaEstablishmentId,
+            'taxNumber': _metaTaxNumber,
+            'cnpsNumber': _metaCnpsNumber,
+            'registrationNumber': _metaRegistrationNumber,
+          },
+          'isDraft': true,
         },
-        'isDraft': true,
-      });
+        languageCode: l10n.localeName,
+      );
 
       final fn = 'onefop_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
       return PreviewResult(
           success: true, bytes: Uint8List.fromList(pdfBytes), fileName: fn);
     } catch (e) {
-      print('❌ Preview error: $e');
-      return PreviewResult(success: false, error: friendlySubmitError(e));
+      debugPrint('❌ Preview error: $e');
+      return PreviewResult(success: false, error: friendlySubmitError(e, l10n));
     }
   }
 
 // ─────────────────────────────────────────────────────────────
 // REPLACE the submit() method with this:
 // ─────────────────────────────────────────────────────────────
-  Future<SubmitResult> submit() async {
+  Future<SubmitResult> submit(AppLocalizations l10n) async {
     final snapshot = _submissionSnapshot;
     if (snapshot == null) {
-      return const SubmitResult(
-          success: false, error: 'Erreur interne : aperçu non disponible');
+      return SubmitResult(success: false, error: l10n.previewUnavailableError);
     }
 
     final apiClient = ApiClient();
@@ -935,7 +938,7 @@ class OnefopFormController extends ChangeNotifier {
     try {
       // Debug: Check if token exists
       final token = await apiClient.getStoredToken();
-      print('🔑 Submit - Token present: ${token != null}');
+      debugPrint('🔑 Submit - Token present: ${token != null}');
 
       await apiClient.submitQuestionnaire(payload);
 
@@ -960,11 +963,11 @@ class OnefopFormController extends ChangeNotifier {
         onSubmitSuccess?.call();
         return const SubmitResult(success: true, wasQueued: true);
       }
-      print('❌ Submit error: $e');
-      return SubmitResult(success: false, error: friendlySubmitError(e));
+      debugPrint('❌ Submit error: $e');
+      return SubmitResult(success: false, error: friendlySubmitError(e, l10n));
     } catch (e) {
-      print('❌ Submit error: $e');
-      return SubmitResult(success: false, error: friendlySubmitError(e));
+      debugPrint('❌ Submit error: $e');
+      return SubmitResult(success: false, error: friendlySubmitError(e, l10n));
     }
   }
 
@@ -972,10 +975,9 @@ class OnefopFormController extends ChangeNotifier {
   /// from [ApiClient]'s error handling. Anything else (a codec error, a
   /// dropped connection Dio didn't wrap, etc.) falls back to a generic
   /// sentence instead of surfacing the raw exception/stack-trace text.
-  String friendlySubmitError(Object e) {
+  String friendlySubmitError(Object e, AppLocalizations l10n) {
     if (e is ApiException) return e.message;
-    return 'Une erreur est survenue. Veuillez réessayer. / '
-        'Something went wrong. Please try again.';
+    return l10n.genericSubmitError;
   }
 
   void onSelectChanged(FieldSchema f, String? value) {
@@ -993,35 +995,35 @@ class OnefopFormController extends ChangeNotifier {
   // HELPERS
   // ═══════════════════════════════════════════════════════════
 
-  String pageLabel(int page) {
+  String pageLabel(int page, Locale locale) {
     final idxs = sectionIndicesForPage(page);
     if (idxs.isNotEmpty) {
-      return kSidebarMeta[_schema!.sections[idxs.first].id]?.label ??
-          'Pg ${page + 1}';
+      return kSidebarMeta[_schema!.sections[idxs.first].id]?.label.of(locale) ??
+          '${page + 1}';
     }
-    return 'Pg ${page + 1}';
+    return '${page + 1}';
   }
 
-  String sectionTitle(int page) {
+  String sectionTitle(int page, Locale locale) {
     final idxs = sectionIndicesForPage(page);
     if (idxs.isNotEmpty) {
-      return SectionTitleLookup.getTitle(_schema!.sections[idxs.first].id);
+      return SectionTitleLookup.getTitle(
+          _schema!.sections[idxs.first].id, locale);
     }
     return '';
   }
 
-  String fieldLabel(FieldSchema f) {
-    if (f.label != null && f.label!.isNotEmpty) return f.label!;
-    if (f.instruction != null && f.instruction!.isNotEmpty) {
-      return f.instruction!;
-    }
+  String fieldLabel(FieldSchema f, Locale locale) {
+    if (f.label != null) return f.label!.of(locale);
+    if (f.instruction != null) return f.instruction!.of(locale);
     if (f.questionText != null && f.questionText!.isNotEmpty) {
       return f.questionText!;
     }
     return f.id;
   }
 
-  String? dividerLabel(String fieldId) => kDividers[fieldId];
+  String? dividerLabel(String fieldId, Locale locale) =>
+      kDividers[fieldId]?.of(locale);
 
   // Currently focused field — drives the mobile compact header's question-
   // code chip. Table cells report the individual cell id (e.g. "s21q01_r0_c1"),

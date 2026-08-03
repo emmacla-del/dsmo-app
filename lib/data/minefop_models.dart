@@ -58,7 +58,7 @@ enum EntityType {
 
   // ── ONEFOP form ───────────────────────────────────────────────
 
-  /// Header shown above Section 1 of the ONEFOP questionnaire.
+  /// Header shown above Section 1 of the ONEFOP questionnaire (French).
   String get formSectionLabel {
     switch (this) {
       case EntityType.enterprise:
@@ -71,6 +71,24 @@ enum EntityType {
         return "Section 1 — Identification de l'ONG";
       case EntityType.vocational:
         return 'Section 1 — Identification du centre de formation';
+    }
+  }
+
+  /// English counterpart of [formSectionLabel]. Kept as a separate getter
+  /// (rather than a LocalizedText) because this file is pure Dart with no
+  /// Flutter dependency — callers pick between the two based on locale.
+  String get formSectionLabelEn {
+    switch (this) {
+      case EntityType.enterprise:
+        return 'Section 1 — Company identification';
+      case EntityType.cooperative:
+        return 'Section 1 — Cooperative identification';
+      case EntityType.ctd:
+        return 'Section 1 — CTD identification';
+      case EntityType.ong:
+        return 'Section 1 — NGO identification';
+      case EntityType.vocational:
+        return 'Section 1 — Training center identification';
     }
   }
 

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 import 'report_service.dart';
-import 'report_widgets.dart';
 
 class ReportApprovalsTab extends ConsumerStatefulWidget {
   final List<GeneratedReport> pendingApprovals;

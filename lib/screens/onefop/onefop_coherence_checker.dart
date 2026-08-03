@@ -9,12 +9,15 @@
 // at submit time and stored on OnefopSubmission.flags.
 // ══════════════════════════════════════════════════════════════
 
+import '../../core/i18n/localized_text.dart';
 import 'onefop_form_constants.dart' show EntityType;
 
 class CoherenceFlag {
-  const CoherenceFlag(this.code, this.message);
+  const CoherenceFlag(this.code, this.message, this.fieldId);
   final String code;
-  final String message;
+  final LocalizedText message;
+  // The field the message names first — where a tap should jump to.
+  final String fieldId;
 }
 
 class OnefopCoherenceChecker {
@@ -24,6 +27,14 @@ class OnefopCoherenceChecker {
     if (v is num) return v.toInt();
     return int.tryParse(v.toString()) ?? 0;
   }
+
+  // Raw data keys are 'male'/'female'/'total' — kept as the map key but
+  // given a display label per language when interpolated into messages.
+  static const _genderLabels = {
+    'male': LocalizedText(fr: 'Homme', en: 'Male'),
+    'female': LocalizedText(fr: 'Femme', en: 'Female'),
+    'total': LocalizedText.same('Total'),
+  };
 
   static List<CoherenceFlag> check(
       Map<String, dynamic> data, EntityType entityType) {
@@ -48,11 +59,19 @@ class OnefopCoherenceChecker {
       final a = byAge[gender]!;
       final b = byDiploma[gender]!;
       if (a != b && (a > 0 || b > 0)) {
+        final gFr = _genderLabels[gender]!.fr;
+        final gEn = _genderLabels[gender]!.en;
         flags.add(CoherenceFlag(
           'S22Q03_DIPLOMA_MISMATCH',
-          'Répartition des recrutements par diplôme (S22Q03: $b, $gender) '
-              'ne correspond pas au total des recrutements permanents + '
-              'temporaires (S22Q01+S22Q02: $a, $gender).',
+          LocalizedText(
+            fr: 'Répartition des recrutements par diplôme (S22Q03: $b, '
+                '$gFr) ne correspond pas au total des recrutements '
+                'permanents + temporaires (S22Q01+S22Q02: $a, $gFr).',
+            en: 'Recruitment breakdown by diploma (S22Q03: $b, $gEn) does '
+                'not match the total permanent + temporary recruitments '
+                '(S22Q01+S22Q02: $a, $gEn).',
+          ),
+          'S22Q03',
         ));
       }
     }
@@ -66,10 +85,17 @@ class OnefopCoherenceChecker {
       final b = n('s3q02_total_$gender');
       final c = n('s3q03_total_dismissal_$gender');
       if ({a, b, c}.length > 1 && (a > 0 || b > 0 || c > 0)) {
+        final gFr = _genderLabels[gender]!.fr;
+        final gEn = _genderLabels[gender]!.en;
         flags.add(CoherenceFlag(
           'S3_DISMISSAL_MISMATCH',
-          'Le nombre de licenciements ($gender) diffère entre S3Q01 ($a), '
-              'S3Q02 ($b) et S3Q03 ($c).',
+          LocalizedText(
+            fr: 'Le nombre de licenciements ($gFr) diffère entre S3Q01 '
+                '($a), S3Q02 ($b) et S3Q03 ($c).',
+            en: 'The number of dismissals ($gEn) differs between S3Q01 '
+                '($a), S3Q02 ($b) and S3Q03 ($c).',
+          ),
+          'S3Q01',
         ));
       }
     }
@@ -82,7 +108,12 @@ class OnefopCoherenceChecker {
     // recruits overall even if it's offset by fewer on the temporary side.
     final vulnPrefix =
         entityType == EntityType.enterprise ? 's22q05_ent' : 's22q05_oth';
+    final vulnFieldId = entityType == EntityType.enterprise
+        ? 'S22Q05_ENTERPRISE'
+        : 'S22Q05_OTHER';
     for (final gender in ['male', 'female']) {
+      final gFr = _genderLabels[gender]!.fr;
+      final gEn = _genderLabels[gender]!.en;
       final permanentRecruits = n('s22q01_total_${gender}_total');
       final temporaryRecruits = n('s22q02_total_${gender}_total');
 
@@ -91,19 +122,33 @@ class OnefopCoherenceChecker {
       if (disabilityPermanent > permanentRecruits) {
         flags.add(CoherenceFlag(
           'S22Q04_PERMANENT_EXCEEDS_TOTAL',
-          'Recrutements permanents de personnes en situation de handicap '
-              '(S22Q04: $disabilityPermanent, $gender) supérieurs au total '
-              'des recrutements permanents (S22Q01: $permanentRecruits, '
-              '$gender).',
+          LocalizedText(
+            fr: 'Recrutements permanents de personnes en situation de '
+                'handicap (S22Q04: $disabilityPermanent, $gFr) supérieurs '
+                'au total des recrutements permanents (S22Q01: '
+                '$permanentRecruits, $gFr).',
+            en: 'Permanent recruitments of people with disabilities '
+                '(S22Q04: $disabilityPermanent, $gEn) exceed the total '
+                'permanent recruitments (S22Q01: $permanentRecruits, '
+                '$gEn).',
+          ),
+          'S22Q04',
         ));
       }
       if (disabilityTemporary > temporaryRecruits) {
         flags.add(CoherenceFlag(
           'S22Q04_TEMPORARY_EXCEEDS_TOTAL',
-          'Recrutements temporaires de personnes en situation de handicap '
-              '(S22Q04: $disabilityTemporary, $gender) supérieurs au total '
-              'des recrutements temporaires (S22Q02: $temporaryRecruits, '
-              '$gender).',
+          LocalizedText(
+            fr: 'Recrutements temporaires de personnes en situation de '
+                'handicap (S22Q04: $disabilityTemporary, $gFr) supérieurs '
+                'au total des recrutements temporaires (S22Q02: '
+                '$temporaryRecruits, $gFr).',
+            en: 'Temporary recruitments of people with disabilities '
+                '(S22Q04: $disabilityTemporary, $gEn) exceed the total '
+                'temporary recruitments (S22Q02: $temporaryRecruits, '
+                '$gEn).',
+          ),
+          'S22Q04',
         ));
       }
 
@@ -112,19 +157,31 @@ class OnefopCoherenceChecker {
       if (vulnerablePermanent > permanentRecruits) {
         flags.add(CoherenceFlag(
           'S22Q05_PERMANENT_EXCEEDS_TOTAL',
-          'Recrutements permanents de personnes vulnérables (S22Q05: '
-              '$vulnerablePermanent, $gender) supérieurs au total des '
-              'recrutements permanents (S22Q01: $permanentRecruits, '
-              '$gender).',
+          LocalizedText(
+            fr: 'Recrutements permanents de personnes vulnérables '
+                '(S22Q05: $vulnerablePermanent, $gFr) supérieurs au total '
+                'des recrutements permanents (S22Q01: $permanentRecruits, '
+                '$gFr).',
+            en: 'Permanent recruitments of vulnerable people (S22Q05: '
+                '$vulnerablePermanent, $gEn) exceed the total permanent '
+                'recruitments (S22Q01: $permanentRecruits, $gEn).',
+          ),
+          vulnFieldId,
         ));
       }
       if (vulnerableTemporary > temporaryRecruits) {
         flags.add(CoherenceFlag(
           'S22Q05_TEMPORARY_EXCEEDS_TOTAL',
-          'Recrutements temporaires de personnes vulnérables (S22Q05: '
-              '$vulnerableTemporary, $gender) supérieurs au total des '
-              'recrutements temporaires (S22Q02: $temporaryRecruits, '
-              '$gender).',
+          LocalizedText(
+            fr: 'Recrutements temporaires de personnes vulnérables '
+                '(S22Q05: $vulnerableTemporary, $gFr) supérieurs au total '
+                'des recrutements temporaires (S22Q02: $temporaryRecruits, '
+                '$gFr).',
+            en: 'Temporary recruitments of vulnerable people (S22Q05: '
+                '$vulnerableTemporary, $gEn) exceed the total temporary '
+                'recruitments (S22Q02: $temporaryRecruits, $gEn).',
+          ),
+          vulnFieldId,
         ));
       }
 
@@ -139,19 +196,33 @@ class OnefopCoherenceChecker {
       if (firstTimePermanent > permanentRecruits) {
         flags.add(CoherenceFlag(
           'S23Q02_PERMANENT_EXCEEDS_TOTAL',
-          'Primo-demandeurs recrutés en permanent (S23Q02: '
-              '$firstTimePermanent, $gender) supérieurs au total des '
-              'recrutements permanents (S22Q01: $permanentRecruits, '
-              '$gender).',
+          LocalizedText(
+            fr: 'Primo-demandeurs recrutés en permanent (S23Q02: '
+                '$firstTimePermanent, $gFr) supérieurs au total des '
+                'recrutements permanents (S22Q01: $permanentRecruits, '
+                '$gFr).',
+            en: 'First-time job seekers recruited as permanent staff '
+                '(S23Q02: $firstTimePermanent, $gEn) exceed the total '
+                'permanent recruitments (S22Q01: $permanentRecruits, '
+                '$gEn).',
+          ),
+          'S23Q02',
         ));
       }
       if (firstTimeTemporary > temporaryRecruits) {
         flags.add(CoherenceFlag(
           'S23Q02_TEMPORARY_EXCEEDS_TOTAL',
-          'Primo-demandeurs recrutés en temporaire (S23Q02: '
-              '$firstTimeTemporary, $gender) supérieurs au total des '
-              'recrutements temporaires (S22Q02: $temporaryRecruits, '
-              '$gender).',
+          LocalizedText(
+            fr: 'Primo-demandeurs recrutés en temporaire (S23Q02: '
+                '$firstTimeTemporary, $gFr) supérieurs au total des '
+                'recrutements temporaires (S22Q02: $temporaryRecruits, '
+                '$gFr).',
+            en: 'First-time job seekers recruited as temporary staff '
+                '(S23Q02: $firstTimeTemporary, $gEn) exceed the total '
+                'temporary recruitments (S22Q02: $temporaryRecruits, '
+                '$gEn).',
+          ),
+          'S23Q02',
         ));
       }
     }
@@ -174,15 +245,25 @@ class OnefopCoherenceChecker {
     if (workers > 50000) {
       flags.add(CoherenceFlag(
         'PERMANENT_WORKERS_IMPLAUSIBLE',
-        'Effectif permanent déclaré très élevé ($workers) — merci de '
-            'vérifier.',
+        LocalizedText(
+          fr: 'Effectif permanent déclaré très élevé ($workers) — merci '
+              'de vérifier.',
+          en: 'Declared permanent headcount is very high ($workers) — '
+              'please double-check.',
+        ),
+        workersFieldId,
       ));
     }
     if (vacancies > 50000) {
       flags.add(CoherenceFlag(
         'VACANCIES_IMPLAUSIBLE',
-        'Nombre de postes vacants déclaré très élevé ($vacancies) — merci '
-            'de vérifier.',
+        LocalizedText(
+          fr: 'Nombre de postes vacants déclaré très élevé ($vacancies) — '
+              'merci de vérifier.',
+          en: 'Declared number of vacancies is very high ($vacancies) — '
+              'please double-check.',
+        ),
+        vacanciesFieldId,
       ));
     }
 

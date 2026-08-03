@@ -501,6 +501,19 @@ class ApiClient {
     }
   }
 
+  /// Deactivates the caller's own account (soft delete — see backend
+  /// AuthService.deactivateOwnAccount). Blocks future logins immediately.
+  Future<void> deleteMyAccount() async {
+    try {
+      await dio.delete('/auth/me');
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   // ==================== ADMIN: SYSTEM SETTINGS (SUPER_ADMIN only) ====================
 
   Future<Map<String, dynamic>> getSystemSettings() async {
@@ -1036,12 +1049,24 @@ class ApiClient {
 
 // ==================== ONEFOP PREVIEW ====================
 
-  Future<List<int>> previewQuestionnaire(Map<String, dynamic> data) async {
+  /// [languageCode] is sent as an `Accept-Language` header only — a
+  /// forward-compatible hook the backend can adopt later to localize the
+  /// generated PDF. It's additive and harmless if ignored; the PDF's actual
+  /// language won't change until server-side support exists.
+  Future<List<int>> previewQuestionnaire(
+    Map<String, dynamic> data, {
+    String? languageCode,
+  }) async {
     try {
       final response = await dio.post(
         '/onefop/preview',
         data: data,
-        options: Options(responseType: ResponseType.bytes),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: languageCode == null
+              ? null
+              : {'Accept-Language': languageCode},
+        ),
       );
       return response.data;
     } on DioException catch (e) {
@@ -1066,8 +1091,9 @@ class ApiClient {
     try {
       final query = <String, dynamic>{};
       if (status != null && status != 'Tous') query['status'] = status;
-      if (entityType != null && entityType != 'Tous')
+      if (entityType != null && entityType != 'Tous') {
         query['entityType'] = entityType;
+      }
       if (region != null && region != 'Toutes') query['region'] = region;
       if (establishmentId != null) query['establishmentId'] = establishmentId;
       if (quarterCode != null) query['quarterCode'] = quarterCode;
@@ -1097,12 +1123,21 @@ class ApiClient {
     }
   }
 
-  /// Get the generated PDF bytes for a submitted ONEFOP questionnaire
-  Future<List<int>> getOnefopSubmissionPdf(String submissionId) async {
+  /// Get the generated PDF bytes for a submitted ONEFOP questionnaire.
+  /// See [previewQuestionnaire] for the [languageCode]/Accept-Language note.
+  Future<List<int>> getOnefopSubmissionPdf(
+    String submissionId, {
+    String? languageCode,
+  }) async {
     try {
       final response = await dio.get(
         '/onefop/submissions/$submissionId/pdf',
-        options: Options(responseType: ResponseType.bytes),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: languageCode == null
+              ? null
+              : {'Accept-Language': languageCode},
+        ),
       );
       return response.data;
     } on DioException catch (e) {

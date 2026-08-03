@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/i18n/l10n_ext.dart';
 import '../providers/auth_provider.dart';
 import '../providers/providers.dart';
 import '../data/api_client.dart' show ApiException;
@@ -46,7 +47,6 @@ import '../features/analytics/screens/onefop_dashboard_screen.dart';
 import '../features/analytics/screens/company_analytics_screen.dart';
 
 // ── Dashboards ───────────────────────────────────────────────
-import 'dashboards/regional_agent_dashboard.dart';
 import 'dashboards/company_workspace_dashboard.dart';
 
 // Add these imports with the other ONEFOP imports
@@ -147,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 'COMPANY':
         return [
           _Tab(
-            'Accueil',
+            context.l10n.homeTabLabel,
             Icons.home_outlined,
             CompanyWorkspaceDashboard(
               onNewSubmission: onNewSubmission,
@@ -155,19 +155,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           _Tab(
-            'Declarations',
+            context.l10n.declarationsTabLabel,
             Icons.folder_open_outlined,
             CompanyDeclarationsScreen(onNewSubmission: onNewSubmission),
           ),
-          const _Tab(
-            'Analytics',
+          _Tab(
+            context.l10n.analyticsTabLabel,
             Icons.show_chart_outlined,
-            CompanyAnalyticsScreen(),
+            const CompanyAnalyticsScreen(),
           ),
-          const _Tab(
-            'Parametres',
+          _Tab(
+            context.l10n.settingsTabLabel,
             Icons.settings_outlined,
-            ParametresScreen(),
+            const ParametresScreen(),
           ),
         ];
 
@@ -207,17 +207,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Entreprises) — see lib/screens/superadmin/ and
         // lib/screens/admin/annuaire_screen.dart.
         return [
-          _Tab('Analytics DSMO', Icons.bar_chart_outlined,
-              const OnefopDashboardScreen()),
-          _Tab('Reports', Icons.description_outlined, ReportScreen()),
-          _Tab('Data Mgmt', Icons.storage_outlined, DataManagementScreen()),
-          _Tab('Communication', Icons.campaign_outlined,
-              const CommunicationScreen()),
+          const _Tab('Analytics DSMO', Icons.bar_chart_outlined,
+              OnefopDashboardScreen()),
+          const _Tab('Reports', Icons.description_outlined, ReportScreen()),
+          const _Tab('Data Mgmt', Icons.storage_outlined, DataManagementScreen()),
+          const _Tab('Communication', Icons.campaign_outlined,
+              CommunicationScreen()),
           _Tab('Soumissions', Icons.assignment_outlined,
               SoumissionsScreen(onNewSubmission: onNewSubmission)),
-          _Tab('Annuaire', Icons.contacts_outlined, const AnnuaireScreen()),
-          _Tab('Paramètres', Icons.settings_outlined,
-              const SystemSettingsScreen()),
+          const _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
+          const _Tab('Paramètres', Icons.settings_outlined,
+              SystemSettingsScreen()),
         ];
       case 'SUPER_ADMIN_DSMO':
         // DSMO-only admin without vetting
@@ -262,8 +262,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ═══════════════════════════════════════════════════════════
 
   String _roleLabel(String role) {
+    if (role == 'COMPANY') return context.l10n.roleLabelCompany;
     const labels = {
-      'COMPANY': 'Etablissement',
       'DIVISIONAL': 'Division du Travail',
       'REGIONAL': 'Delegation Regionale',
       'CENTRAL': 'Direction Nationale',
@@ -754,8 +754,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (company == null) {
         if (!context.mounted) return;
         _snack(context,
-            message:
-                "Profil entreprise introuvable. Contactez l'administrateur.",
+            message: context.l10n.companyProfileNotFoundError,
             type: SnackBarType.error);
         return;
       }
@@ -771,18 +770,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (establishmentId == null || establishmentId.isEmpty) {
         if (!context.mounted) return;
         _snack(context,
-            message:
-                "ID établissement manquant. Veuillez contacter l'administrateur.",
+            message: context.l10n.missingEstablishmentIdError,
             type: SnackBarType.error);
         return;
       }
 
       final activeQuarter = await api.getActiveQuarter();
+      if (!mounted) return;
       if (activeQuarter['isOpen'] != true) {
-        if (!context.mounted) return;
         _snack(context,
             message: activeQuarter['message'] as String? ??
-                "Aucune période de soumission n'est actuellement ouverte.",
+                context.l10n.noOpenSubmissionPeriodError,
             type: SnackBarType.warning);
         return;
       }
@@ -811,7 +809,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
 
       final parsedType = _parseEntityType(entityType);
-      final userId = user?.id ?? 'guest';
       final entityTypeStr = _entityTypeString(parsedType);
 
       // ═══════════════════════════════════════════════════════════
@@ -859,8 +856,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (!hasAcknowledged && user != null) {
                 await prefs.setBool('onefop_ack_${user.id}', true);
               }
-              // ignore: use_build_context_synchronously
-              if (!context.mounted) return;
+              if (!mounted) return;
               Navigator.pushReplacement(
                 context,
                 _route(OnefopUnifiedFormScreenV4(
@@ -894,7 +890,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
       if (!context.mounted) return;
       _snack(context,
-          message: 'Erreur lors du chargement du profil : $e',
+          message: context.l10n.profileLoadError('$e'),
           type: SnackBarType.error);
     }
   }
@@ -917,25 +913,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _dialogIcon(Icons.restore_page_outlined, UltraTheme.primary),
               const SizedBox(height: 20),
-              Text('Brouillon trouvé',
+              Text(context.l10n.draftFoundTitle,
                   style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
               const SizedBox(height: 8),
-              Text(
-                  'Vous avez un formulaire ONEFOP en cours de saisie. '
-                  'Voulez-vous reprendre ou vous vous êtes arrêté ?',
-                  style: UltraTheme.bodyMedium),
+              Text(context.l10n.draftFoundBody, style: UltraTheme.bodyMedium),
               const SizedBox(height: 24),
               SubmissionOptionCard(
                   icon: Icons.restore,
-                  title: 'Reprendre le brouillon',
-                  subtitle: 'Continuer avec vos données précédentes',
+                  title: context.l10n.companyDeclResumeDraft,
+                  subtitle: context.l10n.resumeDraftSubtitle,
                   color: UltraTheme.primary,
                   onTap: () => Navigator.pop(ctx, true)),
               const SizedBox(height: 12),
               SubmissionOptionCard(
                   icon: Icons.refresh,
-                  title: 'Recommencer',
-                  subtitle: 'Effacer le brouillon et partir à zéro',
+                  title: context.l10n.startOverTitle,
+                  subtitle: context.l10n.startOverSubtitle,
                   color: UltraTheme.warning,
                   onTap: () async {
                     await DraftService.clearDraft(
@@ -960,35 +953,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Type d'entité",
+              Text(context.l10n.entityTypeDialogTitle,
                   style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
               const SizedBox(height: 4),
-              Text(
-                  "Sélectionnez le type de votre entité pour "
-                  'accéder au formulaire ONEFOP.',
+              Text(context.l10n.entityTypeDialogBody,
                   style: UltraTheme.bodyMedium),
               const SizedBox(height: 24),
               EntityTypeCard(
                   icon: Icons.business,
-                  label: 'Entreprise',
+                  label: context.l10n.entityTypeEnterprise,
                   value: 'ENTREPRISE',
                   onTap: () => Navigator.pop(ctx, 'ENTREPRISE')),
               const SizedBox(height: 8),
               EntityTypeCard(
                   icon: Icons.groups,
-                  label: 'Coopérative',
+                  label: context.l10n.entityTypeCooperative,
                   value: 'COOPERATIVE',
                   onTap: () => Navigator.pop(ctx, 'COOPERATIVE')),
               const SizedBox(height: 8),
               EntityTypeCard(
                   icon: Icons.account_balance,
-                  label: 'CTD',
+                  label: context.l10n.entityTypeCtd,
                   value: 'CTD',
                   onTap: () => Navigator.pop(ctx, 'CTD')),
               const SizedBox(height: 8),
               EntityTypeCard(
                   icon: Icons.volunteer_activism,
-                  label: 'ONG',
+                  label: context.l10n.entityTypeOng,
                   value: 'ONG',
                   onTap: () => Navigator.pop(ctx, 'ONG')),
               const SizedBox(height: 16),
@@ -1007,23 +998,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Nouvelle soumission',
+              Text(context.l10n.newSubmissionDialogTitle,
                   style: UltraTheme.displayMedium.copyWith(fontSize: 24)),
               const SizedBox(height: 4),
-              Text('Choisissez le type de document à créer',
+              Text(context.l10n.newSubmissionDialogBody,
                   style: UltraTheme.bodyMedium),
               const SizedBox(height: 28),
               SubmissionOptionCard(
                   icon: Icons.assignment_outlined,
-                  title: 'Déclaration DSMO',
-                  subtitle: "Déclaration sociale des main-d'œuvre",
+                  title: context.l10n.dsmoDeclarationOptionTitle,
+                  subtitle: context.l10n.dsmoDeclarationOptionSubtitle,
                   color: UltraTheme.primary,
                   onTap: () => Navigator.pop(ctx, 'dsmo')),
               const SizedBox(height: 12),
               SubmissionOptionCard(
                   icon: Icons.bar_chart_outlined,
-                  title: 'Questionnaire ONEFOP',
-                  subtitle: 'Information sur le marché du travail',
+                  title: context.l10n.onefopQuestionnaireOptionTitle,
+                  subtitle: context.l10n.onefopQuestionnaireOptionSubtitle,
                   color: UltraTheme.accent,
                   onTap: () => Navigator.pop(ctx, 'onefop')),
               const SizedBox(height: 24),
@@ -1045,11 +1036,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _openDsmoFormForCompany() async {
     final api = ref.read(apiClientProvider);
     final activePeriod = await api.getActiveDsmoPeriod();
+    if (!mounted) return;
     if (activePeriod['isOpen'] != true) {
-      if (!context.mounted) return;
       _snack(context,
           message: activePeriod['message'] as String? ??
-              "Aucune période de déclaration DSMO n'est actuellement ouverte.",
+              context.l10n.noOpenDsmoPeriodError,
           type: SnackBarType.warning);
       return;
     }
@@ -1076,8 +1067,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
           ),
-          child: const Text('Annuler',
-              style: TextStyle(
+          child: Text(ctx.l10n.cancelButton,
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1485,8 +1476,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: UltraTheme.displayMedium.copyWith(fontSize: 20),
               ),
               const SizedBox(width: 12),
-              const StatusBadge(
-                  label: 'En ligne',
+              StatusBadge(
+                  label: context.l10n.onlineStatusLabel,
                   color: UltraTheme.success,
                   icon: Icons.circle),
             ]),
@@ -1528,7 +1519,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       if (!launched && mounted) {
         _snack(context,
-            message: "Impossible d'ouvrir l'attestation.",
+            message: context.l10n.attestationOpenError,
             type: SnackBarType.error);
       }
     } catch (e) {
@@ -1536,7 +1527,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _snack(context,
           message: e is ApiException
               ? e.message
-              : "Aucune attestation n'est disponible pour ce compte.",
+              : context.l10n.attestationUnavailableError,
           type: SnackBarType.error);
     }
   }
@@ -1609,10 +1600,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     color: UltraTheme.primary, size: 18),
               ),
               const SizedBox(width: 12),
-              const Flexible(
-                child: Text("Mon attestation d'inscription",
+              Flexible(
+                child: Text(context.l10n.attestationMenuLabel,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

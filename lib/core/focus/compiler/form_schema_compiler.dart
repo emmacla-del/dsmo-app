@@ -75,14 +75,18 @@ class FormSchemaCompiler {
               path: q.path ?? '${q.sectionId}.${q.id}',
               type: _getFieldTypeString(q.type),
               label: q.label,
-              options: q.options,
+              optionsI18n: q.options,
               required: q.requiredField,
               hint: q.hint,
               paperCode: q.paperCode,
               tableSpec: q.tableSpec,
               dependsOn: q.dependsOn,
               dependsValue: q.dependsValue,
-              questionText: q.label,
+              // questionText stays a plain (French) String as a last-resort
+              // fallback only — every render site now prefers the
+              // locale-aware `label` (LocalizedText) and falls back to this
+              // only when label is null.
+              questionText: q.label.fr,
               instruction: q.instruction,
               subsection: q.subsection,
             ))

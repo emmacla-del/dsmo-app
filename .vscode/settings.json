@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/win/dsmo_app/linux"
+    "cmake.sourceDirectory": "C:/Users/win/dsmo_app/linux",
+    "json.schemaDownload.enable": false
 }

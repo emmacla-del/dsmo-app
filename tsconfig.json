@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "Node16", // ← Changed from "commonjs"
+    "module": "Node16",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -9,7 +9,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "rootDir": "./src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
@@ -17,14 +17,9 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "moduleResolution": "Node16", // ← Already set
+    "moduleResolution": "Node16",
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "paths": {
-      "src/*": [
-        "./src/*"
-      ]
-    }
+    "resolveJsonModule": true
   },
   "files": [
     "./src/services/pdf-data-mapper.service.ts",

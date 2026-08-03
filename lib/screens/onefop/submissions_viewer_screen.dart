@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart' as shimmer_pkg;
 
+import '../../core/i18n/l10n_ext.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/onefop_form_loader.dart';
 import '../../core/focus/schema/form_schema_v2.dart';
@@ -2285,6 +2286,7 @@ class _SubmissionDetailScreenState
     final schema = _schema;
     if (schema == null) return [];
 
+    final locale = context.loc;
     final rawData = (detail['rawData'] as Map?)?.cast<String, dynamic>() ?? {};
     final widgets = <Widget>[];
 
@@ -2299,13 +2301,14 @@ class _SubmissionDetailScreenState
         final value = rawData[fieldId];
         if (_isEmptyValue(value)) continue;
 
-        if (field.subsection != null && field.subsection != currentSubsection) {
-          currentSubsection = field.subsection;
-          rows.add(_buildSubsectionHeader(currentSubsection!));
+        final subsection = field.subsection?.of(locale);
+        if (subsection != null && subsection != currentSubsection) {
+          currentSubsection = subsection;
+          rows.add(_buildSubsectionHeader(currentSubsection));
         }
 
         rows.add(_buildAnswerRow(
-          field.label ?? field.questionText ?? field.id,
+          field.label?.of(locale) ?? field.questionText ?? field.id,
           _formatValue(value),
         ));
       }
@@ -2315,7 +2318,7 @@ class _SubmissionDetailScreenState
       widgets.add(Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: _buildSectionCard(
-            SectionTitleLookup.getTitle(section.id), rows, rows.length),
+            SectionTitleLookup.getTitle(section.id, locale), rows, rows.length),
       ));
     }
 
@@ -2575,8 +2578,8 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
                   side: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.3)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Annuler',
-                    style: TextStyle(
+                child: Text(context.l10n.cancelButton,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.textMuted)),

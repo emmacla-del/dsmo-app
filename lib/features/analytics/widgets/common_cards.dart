@@ -1,4 +1,4 @@
-﻿// lib/features/analytics/widgets/common_cards.dart
+// lib/features/analytics/widgets/common_cards.dart
 //
 // Single design system for the ONEFOP analytics dashboard: palette,
 // type scale, spacing scale, chart theming, and shared empty/loading
@@ -368,7 +368,7 @@ class _KpiCardState extends State<KpiCard> {
                     children: [
                       Text(
                         widget.value,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: TextColor.primary,

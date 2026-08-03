@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 // ── Core schema imports ──────────────────────────────────────
+import '../../core/i18n/l10n_ext.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
@@ -108,7 +109,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
 
   @override
   Widget build(BuildContext context) {
-    final title = 'ONEFOP — ${entityTypeTitle(widget.entityType)}';
+    final locale = context.loc;
+    final title = 'ONEFOP — ${entityTypeTitle(widget.entityType).of(locale)}';
     final desktop = MediaQuery.of(context).size.width >= OL.pageWidth;
 
     if (_ctrl.loading) {
@@ -143,7 +145,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
               const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text('Erreur / Error : ${_ctrl.error}',
+                child: Text('${context.l10n.errorLabel} : ${_ctrl.error}',
                     style: const TextStyle(color: kDanger, fontSize: 14),
                     textAlign: TextAlign.center),
               ),
@@ -157,8 +159,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
-                child: const Text('Réessayer / Retry',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                child: Text(context.l10n.retry,
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
               ),
             ],
           ),
@@ -179,8 +181,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         saving: _ctrl.saving,
         dirty: _ctrl.dirty,
         onCancel: widget.onCancel,
-        sectionTitle:
-            headerSec == null ? null : kSidebarMeta[headerSec.id]?.label,
+        sectionTitle: headerSec == null
+            ? null
+            : kSidebarMeta[headerSec.id]?.label.of(locale),
         sectionIcon:
             headerSec == null ? null : kSidebarMeta[headerSec.id]?.icon,
         sectionComplete:
@@ -233,7 +236,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                         top: 12,
                         left: 12,
                         child: Tooltip(
-                          message: 'Afficher la barre / Show sidebar',
+                          message: context.l10n.showSidebar,
                           child: InkWell(
                             onTap: () => _ctrl.setSidebarMode(2),
                             borderRadius: BorderRadius.circular(8),
@@ -314,9 +317,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                     const SizedBox(width: 8),
                     Text(
                       flags.length == 1
-                          ? 'Incohérence détectée / Inconsistency detected'
-                          : '${flags.length} incohérences détectées / '
-                              'inconsistencies detected',
+                          ? context.l10n.inconsistencyDetectedTitle
+                          : context.l10n
+                              .inconsistenciesDetectedTitle(flags.length),
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -330,7 +333,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      '• ${flag.message}',
+                      '• ${flag.message.of(context.loc)}',
                       style: const TextStyle(fontSize: 12, color: kInkSoft),
                     ),
                   ),
@@ -348,7 +351,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // no indication of *what's* still missing. Mirrors the sidebar chip's
   // own data source (ctrl.missingLabels) so the two never disagree.
   Widget _validationBanner(SectionSchema sec) {
-    final missing = _ctrl.missingLabels(sec);
+    final missing = _ctrl.missingLabels(sec, context.loc);
     return SliverToBoxAdapter(
       child: Center(
         child: ConstrainedBox(
@@ -370,9 +373,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                     const SizedBox(width: 8),
                     Text(
                       missing.length == 1
-                          ? 'Champ manquant / Missing field'
-                          : '${missing.length} champs manquants / '
-                              'missing fields',
+                          ? context.l10n.missingFieldTitle
+                          : context.l10n.missingFieldsTitle(missing.length),
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -430,7 +432,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                     const Icon(Icons.verified_outlined, size: 16, color: kAccent),
                     const SizedBox(width: 8),
                     Text(
-                      'ID Établissement: ${widget.establishmentId}',
+                      context.l10n
+                          .establishmentIdInline(widget.establishmentId!),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -440,7 +443,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                     ),
                     const Spacer(),
                     Text(
-                      entityTypeTitle(widget.entityType),
+                      entityTypeTitle(widget.entityType).of(context.loc),
                       style: TextStyle(
                         fontSize: 11,
                         color: kAccent.withValues(alpha: 0.75),
@@ -486,6 +489,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // ═══════════════════════════════════════════════════════════
 
   Widget _sectionBody(SectionSchema sec, {required bool pairFields}) {
+    final locale = context.loc;
     final fields = sec.fieldIds
         .map((id) => _ctrl.schema!.getField(id))
         .whereType<FieldSchema>()
@@ -495,8 +499,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
 
     Widget buildGroupContent(FieldGroup g) {
       final children = <Widget>[];
-      if (g.sub != null && g.sub!.isNotEmpty) {
-        children.add(OnefopSubsectionHeader(title: g.sub!));
+      if (g.sub != null) {
+        children.add(OnefopSubsectionHeader(title: g.sub!.of(locale)));
       }
 
       if (isSimple) {
@@ -504,7 +508,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         int i = 0;
         while (i < visible.length) {
           final f = visible[i];
-          final div = _ctrl.dividerLabel(f.id);
+          final div = _ctrl.dividerLabel(f.id, locale);
           if (div != null) children.add(OnefopDividerLabel(label: div));
 
           final canPair = pairFields &&
@@ -539,7 +543,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         }
       } else {
         for (final f in g.fields) {
-          final div = _ctrl.dividerLabel(f.id);
+          final div = _ctrl.dividerLabel(f.id, locale);
           if (div != null) children.add(OnefopDividerLabel(label: div));
           children.add(_buildField(f));
         }
@@ -573,14 +577,13 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     final currentSectionId = _ctrl.primarySection(_ctrl.currentPage)?.id ?? '';
     final isSimple = _ctrl.isSimpleSection(currentSectionId);
 
+    // questionText is always sourced from f.label (see the l10n-debt note on
+    // FormSchemaCompiler.compile()), so a secondary subLabel is never shown —
+    // matches prior behavior, where the two were always the same value.
     final Widget? qh = (f.type != 'table' && !isSimple)
         ? OnefopQuestionHeader(
             paperCode: f.paperCode,
-            questionText: f.questionText ?? f.label,
-            subLabel:
-                (f.label != null && (f.questionText ?? f.label) != f.label)
-                    ? f.label
-                    : null,
+            questionText: f.label?.of(context.loc),
           )
         : null;
 
@@ -648,7 +651,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         isLast: isLast,
         canProceed: canProceed,
         allValid: allValid,
-        pageLabel: _ctrl.pageLabel(_ctrl.currentPage),
+        pageLabel: _ctrl.pageLabel(_ctrl.currentPage, context.loc),
         currentPage: _ctrl.currentPage,
         totalPages: _ctrl.pageCount,
         onPrevious: _ctrl.currentPage > 0 ? _ctrl.prev : null,
@@ -672,14 +675,13 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         _ctrl.flagBlockedPage(failPage);
         _ctrl.goto(failPage);
       }
-      _snack(
-          'Veuillez remplir tous les champs obligatoires avant de soumettre / '
-          'Please fill in all required fields before submitting');
+      _snack(context.l10n.fillRequiredFields);
       return;
     }
 
-    _showProgress("Génération de l'aperçu PDF… / Generating PDF preview…");
-    final result = await _ctrl.preview();
+    final l10n = context.l10n;
+    _showProgress(l10n.generatingPdfPreview);
+    final result = await _ctrl.preview(l10n);
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -701,6 +703,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         final td = await getTemporaryDirectory();
         final ff = File('${td.path}/$fn');
         await ff.writeAsBytes(result.bytes!);
+        if (!mounted) return;
         Navigator.push(
             context,
             MaterialPageRoute(
@@ -716,8 +719,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   }
 
   Future<void> _submitForm() async {
-    _showProgress('Soumission en cours… / Submitting…');
-    final result = await _ctrl.submit();
+    final l10n = context.l10n;
+    _showProgress(l10n.submittingInProgress);
+    final result = await _ctrl.submit(l10n);
 
     if (!mounted) return;
     Navigator.of(context).pop(); // dismiss loading dialog
@@ -802,16 +806,13 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   void _successDialog({bool wasQueued = false}) {
     final accentColor = wasQueued ? kWarning : kSuccess;
     final icon = wasQueued ? Icons.cloud_off : Icons.check_circle;
+    final l10n = context.l10n;
     final title = wasQueued
-        ? 'Connexion indisponible / Connection unavailable'
-        : 'Soumission réussie ! / Submission successful!';
+        ? l10n.connectionUnavailableTitle
+        : l10n.submissionSuccessTitle;
     final subtitle = wasQueued
-        ? 'Votre formulaire a été enregistré sur cet appareil et sera '
-            'envoyé automatiquement dès le retour de la connexion. / '
-            'Your form was saved on this device and will be sent '
-            'automatically once you\'re back online.'
-        : 'Votre formulaire ONEFOP a été soumis avec succès. / '
-            'Your ONEFOP form has been submitted successfully.';
+        ? l10n.queuedOfflineSubtitle
+        : l10n.submissionSuccessSubtitle;
 
     showDialog(
       context: context,
@@ -866,9 +867,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Terminer / Done',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                child: Text(l10n.doneButton,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
               ),
             ),
           ],

@@ -77,7 +77,7 @@ class _CompetencesFormationContent extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.psychology_outlined,
+                        const Icon(Icons.psychology_outlined,
                             size: 14, color: AccentColor.blue),
                         const SizedBox(width: 6),
                         Text('COMPÉTENCES RECHERCHÉES',
@@ -161,7 +161,7 @@ class _CompetencesFormationContent extends StatelessWidget {
                                                   flex: demand,
                                                   child: Container(
                                                     height: 6,
-                                                    decoration: BoxDecoration(
+                                                    decoration: const BoxDecoration(
                                                         borderRadius:
                                                             BorderRadius.only(
                                                           topLeft:
@@ -230,7 +230,7 @@ class _CompetencesFormationContent extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.school_outlined,
+                        const Icon(Icons.school_outlined,
                             size: 14, color: AccentColor.teal),
                         const SizedBox(width: 6),
                         Text('FORMATIONS DEMANDÉES',
@@ -316,7 +316,7 @@ class _CompetencesFormationContent extends StatelessWidget {
                                                   flex: demand,
                                                   child: Container(
                                                     height: 6,
-                                                    decoration: BoxDecoration(
+                                                    decoration: const BoxDecoration(
                                                         borderRadius:
                                                             BorderRadius.only(
                                                           topLeft:
@@ -386,7 +386,7 @@ class _CompetencesFormationContent extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.work_history_outlined,
+                  const Icon(Icons.work_history_outlined,
                       size: 14, color: AccentColor.gold),
                   const SizedBox(width: 6),
                   Text('PIPELINE DE STAGES',

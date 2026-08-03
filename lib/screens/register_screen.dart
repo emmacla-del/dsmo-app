@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../data/minefop_models.dart';
 import '../data/api_client.dart';
 import '../providers/auth_provider.dart';
+import '../core/i18n/l10n_ext.dart';
 import 'register_constants.dart';
 import 'register_widgets.dart';
 import 'register_receipt.dart';
@@ -240,11 +241,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         if (mounted && _step > kStepRole) {
           _pageCtrl.jumpToPage(_pageIndexForStep(_step));
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Brouillon restauré — vous pouvez reprendre votre inscription.'),
+            SnackBar(
+              content: Text(context.l10n.registerDraftRestored),
               backgroundColor: Colors.teal,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -323,7 +323,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     switch (_step) {
       case kStepRole:
         if (_role.isEmpty) {
-          _showSnack('Veuillez choisir un type de compte', error: true);
+          _showSnack(context.l10n.registerSelectAccountType, error: true);
           return;
         }
         _next();
@@ -331,7 +331,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
       case kStepEntityType:
         if (_selectedEntityType == null) {
-          _showSnack("Veuillez sélectionner le type d'entité", error: true);
+          _showSnack(context.l10n.registerSelectEntityType, error: true);
           return;
         }
         _initEntityControllers();
@@ -341,7 +341,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       case kStepRespondent:
         if (!_respondentKey.currentState!.validate()) return;
         if (!_emailIsAvailable) {
-          _showSnack('Cet email est déjà utilisé.', error: true);
+          _showSnack(context.l10n.registerEmailAlreadyUsed, error: true);
           return;
         }
         _respondentKey.currentState!.save();
@@ -362,11 +362,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
       case kStepLocation:
         if (_selectedRegion == null) {
-          _showSnack('Veuillez sélectionner une région', error: true);
+          _showSnack(context.l10n.registerSelectRegion, error: true);
           return;
         }
         if (_isCompany && _selectedDepartment == null) {
-          _showSnack('Veuillez sélectionner un département', error: true);
+          _showSnack(context.l10n.registerSelectDepartment, error: true);
           return;
         }
         _next();
@@ -394,8 +394,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     } catch (e) {
       debugPrint('getRegions failed: $e');
       if (mounted) {
-        _showSnack('Impossible de charger les régions. Réessayez.',
-            error: true);
+        _showSnack(context.l10n.registerLoadRegionsError, error: true);
       }
     } finally {
       if (mounted) setState(() => _loadingRegions = false);
@@ -416,8 +415,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     } catch (e) {
       debugPrint('getDepartments failed: $e');
       if (mounted) {
-        _showSnack('Impossible de charger les départements. Réessayez.',
-            error: true);
+        _showSnack(context.l10n.registerLoadDepartmentsError, error: true);
       }
     } finally {
       if (mounted) setState(() => _loadingDepartments = false);
@@ -437,8 +435,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     } catch (e) {
       debugPrint('getSubdivisions failed: $e');
       if (mounted) {
-        _showSnack('Impossible de charger les arrondissements. Réessayez.',
-            error: true);
+        _showSnack(context.l10n.registerLoadSubdivisionsError, error: true);
       }
     } finally {
       if (mounted) setState(() => _loadingSubdivisions = false);
@@ -454,8 +451,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     } catch (e) {
       debugPrint('getSectors failed: $e');
       if (mounted) {
-        _showSnack('Impossible de charger les secteurs. Réessayez.',
-            error: true);
+        _showSnack(context.l10n.registerLoadSectorsError, error: true);
       }
     } finally {
       if (mounted) setState(() => _loadingSectors = false);
@@ -482,13 +478,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               const Icon(Icons.hourglass_top_rounded,
                   size: 64, color: Colors.orange),
               const SizedBox(height: 16),
-              const Text(
-                'Demande soumise !',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                context.l10n.registerPendingApprovalTitle,
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text(
-                "Votre demande d'accès MINEFOP est en attente d'approbation par un administrateur.",
+              Text(
+                context.l10n.registerPendingApprovalBody,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -502,7 +499,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 ),
-                child: const Text('Compris'),
+                child: Text(context.l10n.registerUnderstoodButton),
               ),
             ],
           ),
@@ -533,14 +530,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             children: [
               const Icon(Icons.check_circle, size: 64, color: Colors.green),
               const SizedBox(height: 16),
-              const Text('Compte créé avec succès !'),
+              Text(context.l10n.registerSuccessTitle),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(ctx).pop();
                   if (mounted) context.go('/home');
                 },
-                child: const Text('Accéder'),
+                child: Text(context.l10n.registerAccessButton),
               ),
             ],
           ),
@@ -562,7 +559,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       if (!mounted) return;
       if (e is DioException) {
         if (e.response?.statusCode == 409) {
-          String msg = 'Cet email ou ce numéro NIU est déjà utilisé.';
+          String msg = context.l10n.registerDuplicateEmailOrNiu;
           try {
             final data = e.response?.data;
             if (data is Map && data['message'] != null) {
@@ -571,12 +568,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           } catch (_) {}
           _showSnack(msg, error: true);
         } else {
-          _showSnack("Erreur lors de l'inscription: ${e.message}", error: true);
+          _showSnack(
+              context.l10n.registerSubmitErrorWithMessage('${e.message}'),
+              error: true);
         }
       } else if (e is ApiException) {
         _showSnack(e.message, error: true);
       } else {
-        _showSnack("Erreur lors de l'inscription: $e", error: true);
+        _showSnack(context.l10n.registerSubmitErrorWithMessage('$e'),
+            error: true);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -1017,13 +1017,13 @@ class _BottomNav extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.arrow_back_rounded, size: 18),
-                      SizedBox(width: 8),
-                      Text('Précédent',
-                          style: TextStyle(
+                      const Icon(Icons.arrow_back_rounded, size: 18),
+                      const SizedBox(width: 8),
+                      Text(context.l10n.previousButton,
+                          style: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600)),
                     ],
                   ),
@@ -1056,8 +1056,8 @@ class _BottomNav extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 step == kStepReview
-                                    ? 'Créer mon compte'
-                                    : 'Continuer',
+                                    ? context.l10n.registerCreateAccountButton
+                                    : context.l10n.registerContinueButton,
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                                 softWrap: false,

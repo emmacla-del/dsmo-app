@@ -15,9 +15,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../data/api_client.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
+import '../providers/locale_provider.dart';
 import '../widgets/responsive_helpers.dart';
 import '../main.dart' show router;
 
@@ -35,12 +37,11 @@ Future<void> _launchSupportWhatsApp(BuildContext context, String message) async 
   } catch (_) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: _C.red,
         content: Text(
-          "WhatsApp est introuvable sur cet appareil. "
-          "Composez directement le $_supportPhoneDisplay.",
+          context.l10n.portalWhatsappNotFound(_supportPhoneDisplay),
         ),
       ),
     );
@@ -161,8 +162,8 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
     final bool isBusy = _submitting || authState.isLoading;
     final String? authError = authState.hasError && !isBusy
         ? (twoFactorToken != null
-            ? 'Code incorrect ou expiré. Réessayez.'
-            : 'Identifiants incorrects. Vérifiez et réessayez.')
+            ? context.l10n.portalTwoFactorCodeError
+            : context.l10n.portalCredentialsError)
         : null;
 
     return Scaffold(
@@ -268,9 +269,9 @@ class _MinefopPortalScreenState extends ConsumerState<MinefopPortalScreen>
 // BANNER (full width, fixed height)
 // ═══════════════════════════════════════════════════════════
 
-class _Banner extends StatelessWidget {
+class _Banner extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mobile = context.isMobile;
     final logoSize = mobile ? 46.0 : 60.0;
     return Center(
@@ -348,7 +349,7 @@ class _Banner extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Ministère de l'Emploi et de la Formation Professionnelle",
+                            context.l10n.ministryFullName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -374,11 +375,103 @@ class _Banner extends StatelessWidget {
                         ],
                       ),
                     ),
+                    _LanguageToggle(
+                      current: ref.watch(localeProvider),
+                      onChanged: (l) =>
+                          ref.read(localeProvider.notifier).setLocale(l),
+                      compact: mobile,
+                    ),
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Language toggle — dropdown pill in the banner ─────────
+
+class _LanguageToggle extends StatelessWidget {
+  final Locale current;
+  final ValueChanged<Locale> onChanged;
+  final bool compact;
+
+  const _LanguageToggle({
+    required this.current,
+    required this.onChanged,
+    required this.compact,
+  });
+
+  static const Map<String, String> _shortLabels = {'fr': 'FR', 'en': 'EN'};
+  static const Map<String, String> _fullLabels = {
+    'fr': 'Français',
+    'en': 'English',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _shortLabels[current.languageCode] ?? 'FR';
+
+    // Solid backing (not just a translucent border) so this stays legible
+    // wherever it lands in the banner — including the right-hand zone where
+    // the gradient overlay fades to fully transparent over the coat-of-arms
+    // watermark image, which made a border-only pill nearly invisible there.
+    return PopupMenuButton<Locale>(
+      initialValue: current,
+      onSelected: onChanged,
+      tooltip: '',
+      color: Colors.white,
+      offset: const Offset(0, 36),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      itemBuilder: (context) => _shortLabels.keys
+          .map((code) => PopupMenuItem<Locale>(
+                value: Locale(code),
+                child: Text(
+                  '${_fullLabels[code]} (${_shortLabels[code]})',
+                  style: TextStyle(
+                    fontWeight:
+                        code == current.languageCode ? FontWeight.w800 : FontWeight.w500,
+                    color: const Color(0xFF003D35),
+                  ),
+                ),
+              ))
+          .toList(),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 10, vertical: compact ? 5 : 7),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 6,
+                offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.language,
+                size: compact ? 13 : 15,
+                color: Colors.white.withValues(alpha: 0.85)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: compact ? 12 : 13,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            Icon(Icons.arrow_drop_down,
+                size: compact ? 16 : 18,
+                color: Colors.white.withValues(alpha: 0.85)),
+          ],
         ),
       ),
     );
@@ -540,14 +633,13 @@ class _TwoFactorPaneState extends State<_TwoFactorPane> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Vérification en deux étapes',
-              style: TextStyle(
+          Text(context.l10n.twoFactorTitle,
+              style: const TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w800, color: _C.gray900)),
           const SizedBox(height: 6),
-          const Text(
-            'Un code de vérification a été envoyé à votre adresse e-mail. '
-            'Saisissez-le ci-dessous pour terminer la connexion.',
-            style: TextStyle(fontSize: 13, color: _C.gray700, height: 1.4),
+          Text(
+            context.l10n.twoFactorBody,
+            style: const TextStyle(fontSize: 13, color: _C.gray700, height: 1.4),
           ),
           const SizedBox(height: 18),
 
@@ -570,7 +662,7 @@ class _TwoFactorPaneState extends State<_TwoFactorPane> {
           ],
 
           _FieldRow(
-            label: 'Code',
+            label: context.l10n.codeLabel,
             child: TextFormField(
               controller: widget.codeCtrl,
               keyboardType: TextInputType.number,
@@ -582,7 +674,7 @@ class _TwoFactorPaneState extends State<_TwoFactorPane> {
               decoration: _dgiInput(hint: '000000').copyWith(counterText: ''),
               validator: (v) {
                 if (v == null || v.trim().length != 6) {
-                  return 'Code à 6 chiffres requis';
+                  return context.l10n.codeRequired;
                 }
                 return null;
               },
@@ -599,15 +691,15 @@ class _TwoFactorPaneState extends State<_TwoFactorPane> {
               _ConnectButton(
                 isBusy: widget.isBusy,
                 onTap: _handleSubmit,
-                label: 'Vérifier',
+                label: context.l10n.verifyButton,
               ),
               GestureDetector(
                 onTap: widget.isBusy ? null : widget.onCancel,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                   child: Text(
-                    "Retour à la connexion",
-                    style: TextStyle(
+                    context.l10n.backToLogin,
+                    style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: _C.green),
@@ -631,10 +723,10 @@ class _DgiTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = [
-      'Ouvrir une session',
-      'Créer un compte',
-      'Identifiant oublié'
+    final labels = [
+      context.l10n.tabSignIn,
+      context.l10n.tabCreateAccount,
+      context.l10n.tabForgotId,
     ];
     return Container(
       decoration: const BoxDecoration(
@@ -742,7 +834,7 @@ class _LoginPaneState extends State<_LoginPane> {
           // Login field (label | input) — accepts either the account
           // email or a company's establishmentId, see AuthService.validateUser.
           _FieldRow(
-            label: 'Login',
+            label: context.l10n.loginLabel,
             child: TextFormField(
               controller: widget.emailCtrl,
               keyboardType: TextInputType.text,
@@ -750,7 +842,7 @@ class _LoginPaneState extends State<_LoginPane> {
               style: const TextStyle(fontSize: 14, color: _C.gray900),
               decoration: _dgiInput(hint: 'nom@entreprise.cm ou EN26000112'),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Requis';
+                if (v == null || v.trim().isEmpty) return context.l10n.requiredShort;
                 return null;
               },
             ),
@@ -759,7 +851,7 @@ class _LoginPaneState extends State<_LoginPane> {
 
           // Password field
           _FieldRow(
-            label: 'Mot de passe',
+            label: context.l10n.passwordLabel,
             child: TextFormField(
               controller: widget.passwordCtrl,
               obscureText: widget.obscure,
@@ -782,7 +874,7 @@ class _LoginPaneState extends State<_LoginPane> {
                       const BoxConstraints(minWidth: 44, minHeight: 44),
                 ),
               ),
-              validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
+              validator: (v) => (v == null || v.isEmpty) ? context.l10n.requiredShort : null,
             ),
           ),
           const SizedBox(height: 18),
@@ -804,8 +896,8 @@ class _LoginPaneState extends State<_LoginPane> {
           side: const BorderSide(color: _C.gray400),
         ),
         const SizedBox(width: 6),
-        const Text('Rester connecté',
-            style: TextStyle(fontSize: 13, color: _C.gray700)),
+        Text(context.l10n.rememberMe,
+            style: const TextStyle(fontSize: 13, color: _C.gray700)),
       ],
     );
 
@@ -813,11 +905,11 @@ class _LoginPaneState extends State<_LoginPane> {
     // flow (see ForgotPasswordScreen).
     final forgotLink = GestureDetector(
       onTap: () => router.go('/forgot-password'),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         child: Text(
-          'Mot de passe oublié ?',
-          style: TextStyle(
+          context.l10n.forgotPassword,
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: _C.green,
@@ -865,11 +957,9 @@ class _RegisterPane extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SoonPane(
       icon: Icons.person_add_outlined,
-      title: 'Création de compte',
-      body:
-          'Inscrivez votre entreprise, coopérative, ONG ou centre de formation '
-          'pour accéder à la plateforme DSMO et soumettre vos déclarations ONEFOP.',
-      buttonLabel: "Commencer l'inscription",
+      title: context.l10n.registerTitle,
+      body: context.l10n.registerBody,
+      buttonLabel: context.l10n.registerButton,
       onTap: () => router.go('/register'),
     );
   }
@@ -923,7 +1013,7 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _error =
-          e is ApiException ? e.message : 'Une erreur est survenue.');
+          e is ApiException ? e.message : context.l10n.genericErrorShort);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -944,10 +1034,10 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
     if (id == null) return;
     Clipboard.setData(ClipboardData(text: id));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: _C.green,
-        content: Text('Identifiant copié dans le presse-papier'),
+        content: Text(context.l10n.idCopiedSnackbar),
       ),
     );
   }
@@ -963,11 +1053,9 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Indiquez le nom de votre organisation, son numéro contribuable "
-            "(NIU) et le numéro de téléphone enregistré pour retrouver "
-            "votre identifiant.",
-            style: TextStyle(fontSize: 12.5, color: _C.gray500, height: 1.5),
+          Text(
+            context.l10n.forgotIntro,
+            style: const TextStyle(fontSize: 12.5, color: _C.gray500, height: 1.5),
           ),
           const SizedBox(height: 16),
           if (_error != null) ...[
@@ -988,31 +1076,31 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
             ),
           ],
           _FieldRow(
-            label: 'Organisation',
+            label: context.l10n.organizationLabel,
             child: TextFormField(
               controller: _nameCtrl,
               textInputAction: TextInputAction.next,
               style: const TextStyle(fontSize: 14, color: _C.gray900),
-              decoration: _dgiInput(hint: "Nom de l'organisation"),
+              decoration: _dgiInput(hint: context.l10n.organizationHint),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                  (v == null || v.trim().isEmpty) ? context.l10n.requiredShort : null,
             ),
           ),
           const SizedBox(height: 12),
           _FieldRow(
-            label: 'NIU',
+            label: context.l10n.niuLabel,
             child: TextFormField(
               controller: _niuCtrl,
               textInputAction: TextInputAction.next,
               style: const TextStyle(fontSize: 14, color: _C.gray900),
-              decoration: _dgiInput(hint: 'Numéro contribuable'),
+              decoration: _dgiInput(hint: context.l10n.niuHint),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                  (v == null || v.trim().isEmpty) ? context.l10n.requiredShort : null,
             ),
           ),
           const SizedBox(height: 12),
           _FieldRow(
-            label: 'Téléphone',
+            label: context.l10n.phoneLabel,
             child: TextFormField(
               controller: _phoneCtrl,
               keyboardType: TextInputType.phone,
@@ -1023,7 +1111,7 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
               style: const TextStyle(fontSize: 14, color: _C.gray900),
               decoration: _dgiInput(hint: '6XXXXXXXX'),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                  (v == null || v.trim().isEmpty) ? context.l10n.requiredShort : null,
             ),
           ),
           const SizedBox(height: 20),
@@ -1032,7 +1120,7 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
             child: _ConnectButton(
               isBusy: _submitting,
               onTap: _submit,
-              label: 'Rechercher',
+              label: context.l10n.searchButton,
             ),
           ),
           const SizedBox(height: 16),
@@ -1040,11 +1128,11 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
             child: GestureDetector(
               onTap: () => _launchSupportWhatsApp(
                 context,
-                "Bonjour, je n'arrive pas à retrouver mon identifiant DSMO.",
+                context.l10n.supportWhatsappMessage,
               ),
-              child: const Text(
-                'Toujours introuvable ? Contactez le support',
-                style: TextStyle(
+              child: Text(
+                context.l10n.supportContactLink,
+                style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: _C.green),
@@ -1070,9 +1158,9 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
               color: _C.green, size: 26),
         ),
         const SizedBox(height: 14),
-        const Text(
-          'Identifiant retrouvé',
-          style: TextStyle(
+        Text(
+          context.l10n.idFoundTitle,
+          style: const TextStyle(
               fontSize: 14, fontWeight: FontWeight.w700, color: _C.gray700),
         ),
         const SizedBox(height: 14),
@@ -1088,9 +1176,9 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
             ),
             child: Column(
               children: [
-                const Text(
-                  'IDENTIFIANT ÉTABLISSEMENT',
-                  style: TextStyle(
+                Text(
+                  context.l10n.establishmentIdLabel,
+                  style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: _C.green,
@@ -1106,8 +1194,8 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
                       letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
-                const Text('Touchez pour copier',
-                    style: TextStyle(fontSize: 11, color: _C.green)),
+                Text(context.l10n.tapToCopy,
+                    style: const TextStyle(fontSize: 11, color: _C.green)),
               ],
             ),
           ),
@@ -1115,9 +1203,9 @@ class _ForgotPaneState extends ConsumerState<_ForgotPane> {
         const SizedBox(height: 16),
         TextButton(
           onPressed: _reset,
-          child: const Text(
-            'Nouvelle recherche',
-            style: TextStyle(color: _C.gray500, fontWeight: FontWeight.w700),
+          child: Text(
+            context.l10n.newSearchButton,
+            style: const TextStyle(color: _C.gray500, fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -1191,17 +1279,21 @@ class _Footer extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
-              'DSMO Digital v2.4.1-stable  ·  © 2026 MINEFOP · République du Cameroun',
-              style: TextStyle(
+              context.l10n.footerVersionLine,
+              style: const TextStyle(
                   fontSize: 11, color: _C.gray400, fontFamily: 'monospace'),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 16),
           Row(
-            children: ['Aide', 'Confidentialité', 'Contact']
+            children: [
+              context.l10n.footerHelp,
+              context.l10n.footerPrivacy,
+              context.l10n.footerContact
+            ]
                 .map((l) => GestureDetector(
                       onTap: () {},
                       child: Padding(
@@ -1310,11 +1402,11 @@ InputDecoration _dgiInput({required String hint, Widget? suffix}) {
 class _ConnectButton extends StatelessWidget {
   final bool isBusy;
   final VoidCallback onTap;
-  final String label;
+  final String? label;
   const _ConnectButton({
     required this.isBusy,
     required this.onTap,
-    this.label = 'Connexion',
+    this.label,
   });
 
   @override
@@ -1338,7 +1430,7 @@ class _ConnectButton extends StatelessWidget {
                       strokeWidth: 2, color: Colors.white),
                 )
               : Text(
-                  label,
+                  label ?? context.l10n.connectButton,
                   style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,

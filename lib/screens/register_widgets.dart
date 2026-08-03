@@ -19,6 +19,7 @@ import 'register_constants.dart'
 // kPhoneFormatters is resolved exclusively from cameroon_phone_validator
 // to avoid the ambiguous-import conflict with register_constants.dart.
 import '../core/focus/utils/cameroon_phone_validator.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../data/minefop_models.dart' show EntityType;
 
 // ════════════════════════════════════════════════════════════════
@@ -37,24 +38,24 @@ class RegisterHeader extends StatelessWidget {
     required this.onBack,
   });
 
-  String get _title {
+  String _title(BuildContext context) {
     switch (step) {
       case kStepRole:
-        return 'Type de compte';
+        return context.l10n.registerStepTitleRole;
       case kStepEntityType:
-        return "Type d'entité";
+        return context.l10n.registerStepTitleEntityType;
       case kStepRespondent:
-        return 'Informations du répondant';
+        return context.l10n.registerStepTitleRespondent;
       case kStepEntityInfo:
-        return "Informations de l'entité";
+        return context.l10n.registerStepTitleEntityInfo;
       case kStepLocation:
-        return 'Localisation';
+        return context.l10n.registerStepTitleLocation;
       case kStepMinefopInfo:
-        return 'Informations MINEFOP';
+        return context.l10n.registerStepTitleMinefopInfo;
       case kStepSecurity:
-        return 'Sécurité';
+        return context.l10n.registerStepTitleSecurity;
       case kStepReview:
-        return 'Récapitulatif';
+        return context.l10n.registerStepTitleReview;
       default:
         return '';
     }
@@ -83,7 +84,7 @@ class RegisterHeader extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      _title,
+                      _title(context),
                       style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -215,18 +216,18 @@ class EntityTypeCard extends StatelessWidget {
     required this.onTap,
   });
 
-  String _subtitle(EntityType type) {
+  String _subtitle(BuildContext context, EntityType type) {
     switch (type) {
       case EntityType.enterprise:
-        return 'Société commerciale, SA, SARL, établissement à but lucratif.';
+        return context.l10n.registerEntitySubtitleEnterprise;
       case EntityType.cooperative:
-        return "Société coopérative ou groupement d'intérêt économique.";
+        return context.l10n.registerEntitySubtitleCooperative;
       case EntityType.ctd:
-        return 'Collectivité Territoriale Décentralisée (commune, région).';
+        return context.l10n.registerEntitySubtitleCtd;
       case EntityType.ong:
-        return 'Organisation Non Gouvernementale ou association.';
+        return context.l10n.registerEntitySubtitleOng;
       case EntityType.vocational:
-        return 'Centre de formation technique et professionnelle agréé.';
+        return context.l10n.registerEntitySubtitleVocational;
     }
   }
 
@@ -272,13 +273,13 @@ class EntityTypeCard extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(config.title,
+                    Text(config.title.of(context.loc),
                         style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                             color: isSelected ? config.color : Colors.black87)),
                     const SizedBox(height: 3),
-                    Text(_subtitle(type),
+                    Text(_subtitle(context, type),
                         style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF666666),
@@ -390,7 +391,7 @@ class _PhoneFieldState extends State<PhoneField> {
       decoration: modernInput(
         hasError: _hasError,
         labelText: widget.label,
-        hintText: widget.isRequired ? '6XXXXXXXX' : 'Optionnel',
+        hintText: widget.isRequired ? '6XXXXXXXX' : context.l10n.optional,
         prefixIcon: Icon(
           Icons.phone_outlined,
           size: 20,
@@ -461,7 +462,9 @@ class Field extends StatelessWidget {
         ),
         validator: required
             ? validator ??
-                (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null
+                (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.requiredShort
+                    : null
             : validator,
       ),
     );
@@ -581,7 +584,9 @@ class LocationDropdown extends StatelessWidget {
                 ))
             .toList(),
         onChanged: onChanged,
-        validator: required ? (v) => v == null ? 'Requis' : null : null,
+        validator: required
+            ? (v) => v == null ? context.l10n.requiredShort : null
+            : null,
       ),
     ]);
   }

@@ -43,10 +43,12 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
         );
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erreur: $e'), backgroundColor: UltraTheme.error),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Erreur: $e'), backgroundColor: UltraTheme.error),
+        );
+      }
     } finally {
       setState(() => _comparing = false);
     }
@@ -92,7 +94,7 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
           child: Column(
             children: [
               DropdownButtonFormField<String>(
-                value: _baselineId,
+                initialValue: _baselineId,
                 hint: const Text('Sélectionner un rapport'),
                 items: approvedReports
                     .map((r) =>
@@ -104,7 +106,7 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _targetId,
+                initialValue: _targetId,
                 hint: const Text('Sélectionner un rapport'),
                 items: approvedReports
                     .where((r) => r.id != _baselineId)
@@ -170,7 +172,7 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
                                 ),
                                 child: Column(
                                   children: [
-                                    Text('Référence',
+                                    const Text('Référence',
                                         style: TextStyle(
                                             fontSize: 10,
                                             color: UltraTheme.textMuted)),
@@ -196,7 +198,7 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
                                 ),
                                 child: Column(
                                   children: [
-                                    Text('Comparé',
+                                    const Text('Comparé',
                                         style: TextStyle(
                                             fontSize: 10,
                                             color: UltraTheme.textMuted)),

@@ -831,6 +831,7 @@ class _SchemaRendererState extends State<SchemaRenderer> {
                   onCellChanged: _handleCellChange,
                   focusManager: widget.focusManager,
                   entityType: widget.entityType,
+                  locale: Localizations.localeOf(context),
                 );
               } else {
                 return _renderSimpleField(field);
@@ -864,7 +865,7 @@ class _SchemaRendererState extends State<SchemaRenderer> {
                 ),
               ),
             const SizedBox(height: 4),
-            Text(field.label ?? field.id, style: const TextStyle(fontSize: 16)),
+            Text(field.label?.fr ?? field.id, style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
             _buildInputForField(field),
           ],
@@ -892,7 +893,7 @@ class _SchemaRendererState extends State<SchemaRenderer> {
             tableId: field.id,
             width: 300,
             height: 38,
-            hintText: field.hint,
+            hintText: field.hint?.fr,
             // Single-cell list: indexOf always returns 0, so arrow/tab
             // navigation is a no-op (exits immediately via onExitTable /
             // onExitPrevious, both null here). rowWidth=1 keeps the

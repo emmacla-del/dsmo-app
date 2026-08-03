@@ -764,6 +764,26 @@ export class AuthService {
   }
 
   /**
+   * Self-service account deletion — soft only. Deactivates the account
+   * (the same isActive flag admin suspend uses) rather than hard-deleting,
+   * since most accounts carry FK-linked declarations/submissions that must
+   * be retained for regulatory record-keeping (see deleteUser below).
+   * Deactivation blocks future logins immediately (checked in validateUser)
+   * but does not revoke an already-issued JWT, which stays valid until it
+   * expires — the same limitation admin suspend already has, since this
+   * codebase has no token blacklist.
+   */
+  async deactivateOwnAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+    return { message: 'Compte désactivé avec succès.' };
+  }
+
+  /**
    * Admin break-glass: force-disables 2FA on another account, for when the
    * user is locked out because the OTP email never arrived (email delivery
    * on this deployment is known to be unreliable — see NotificationService).
