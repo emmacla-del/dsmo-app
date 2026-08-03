@@ -360,3 +360,13 @@ final bilanRhProvider = FutureProvider.family<BilanRh?, int>((ref, year) async {
     rethrow;
   }
 });
+
+/// Years the company has an approved Bilan RH for, most recent first.
+/// Backs the year selector — an empty list means never approved (locked
+/// state regardless of which year is selected).
+final bilanAvailableYearsProvider = FutureProvider<List<int>>((ref) async {
+  final api = ref.read(apiClientProvider);
+  final response = await api.get('/dsmo/analytics/bilan/years');
+  final years = (response.data as Map<String, dynamic>)['years'] as List<dynamic>?;
+  return (years ?? const []).map((e) => (e as num).toInt()).toList();
+});

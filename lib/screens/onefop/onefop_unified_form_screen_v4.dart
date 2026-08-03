@@ -398,6 +398,33 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     );
   }
 
+  // Only worth showing once a section stacks more than one table — a
+  // single-table section has nothing to jump past.
+  Widget? _tableJumpNavSliver(SectionSchema sec) {
+    final loc = context.loc;
+    final tableFields = sec.fieldIds
+        .map((id) => _ctrl.schema!.getField(id))
+        .whereType<FieldSchema>()
+        .where((f) => f.type == 'table' && _ctrl.isFieldVisible(f))
+        .toList();
+    if (tableFields.length < 2) return null;
+
+    final targets = tableFields
+        .map((f) => JumpTarget(
+              id: f.id,
+              label: f.paperCode ?? f.id,
+              groupLabel: f.subsection?.of(loc),
+            ))
+        .toList();
+
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: TableJumpNavDelegate(
+        child: TableJumpNav(targets: targets, onJump: _ctrl.scrollToField),
+      ),
+    );
+  }
+
   List<Widget> _sectionSlivers({required bool pairFields, required bool mobile}) {
     final idxs = _ctrl.sectionIndicesForPage(_ctrl.currentPage);
     if (idxs.isEmpty) return const <Widget>[];
@@ -408,11 +435,13 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     final showValidationBanner = mobile &&
         _ctrl.advanceBlockedPage == _ctrl.currentPage &&
         !_ctrl.validatePage(_ctrl.currentPage);
+    final jumpNav = mobile ? null : _tableJumpNavSliver(sec);
     _tableStagger = 0;
 
     return [
       if (showValidationBanner) _validationBanner(sec),
       if (_ctrl.coherenceFlags.isNotEmpty) _coherenceBanner(),
+      if (jumpNav != null) jumpNav,
       if (isSection1 && widget.establishmentId != null)
         SliverToBoxAdapter(
           child: Center(

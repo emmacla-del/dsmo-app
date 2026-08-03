@@ -202,6 +202,27 @@ function pct(numerator: number, denominator: number): number {
 export class BilanService {
     constructor(private readonly prisma: PrismaService) { }
 
+    /**
+     * Years for which this company has an APPROVED ONEFOP submission,
+     * most recent first. Backs the Flutter Bilan RH year selector so it
+     * only ever offers years getBilan() can actually serve.
+     */
+    async getAvailableYears(userId: string): Promise<number[]> {
+        const company = await (this.prisma as any).company.findUnique({
+            where: { userId },
+            select: { id: true },
+        });
+        if (!company) return [];
+
+        const rows = await (this.prisma as any).onefopSubmission.findMany({
+            where: { companyId: company.id, status: 'APPROVED' },
+            select: { surveyYear: true },
+            distinct: ['surveyYear'],
+            orderBy: { surveyYear: 'desc' },
+        });
+        return rows.map((r: any) => r.surveyYear as number);
+    }
+
     async getBilan(userId: string, year: number): Promise<BilanRhResponse> {
         // ── 1. Find the company for this user ─────────────────────
         const company = await (this.prisma as any).company.findUnique({

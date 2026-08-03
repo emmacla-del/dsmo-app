@@ -220,7 +220,12 @@ class CompanyAnalyticsScreen extends ConsumerStatefulWidget {
 class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
-  final int _currentYear = DateTime.now().year;
+
+  // Null until the user explicitly picks a year — the effective year
+  // (below) defaults to the most recent one with an approved Bilan RH
+  // once `bilanAvailableYearsProvider` resolves, rather than assuming
+  // the current calendar year always has one.
+  int? _selectedYear;
 
   @override
   void initState() {
@@ -241,10 +246,15 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
     final hasBenchmarking = user?.features.onefopBenchmarking ?? false;
     final submissionStatus = user?.features.onefopSubmissionStatus;
 
-    final bilanAsync = ref.watch(bilanRhProvider(_currentYear));
-    final summaryAsync = ref.watch(companySummaryProvider(_currentYear));
+    final availableYearsAsync = ref.watch(bilanAvailableYearsProvider);
+    final availableYears = availableYearsAsync.valueOrNull ?? const <int>[];
+    final currentYear = _selectedYear ??
+        (availableYears.isNotEmpty ? availableYears.first : DateTime.now().year);
+
+    final bilanAsync = ref.watch(bilanRhProvider(currentYear));
+    final summaryAsync = ref.watch(companySummaryProvider(currentYear));
     final benchmarksAsync = hasBenchmarking
-        ? ref.watch(companyBenchmarksProvider(_currentYear))
+        ? ref.watch(companyBenchmarksProvider(currentYear))
         : const AsyncValue<BenchmarkData?>.data(null);
 
     return Scaffold(
@@ -254,33 +264,48 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
           // ── Tab Bar ──────────────────────────────────────
           Container(
             color: UltraTheme.surface,
-            child: TabBar(
-              controller: _tabs,
-              labelColor: UltraTheme.primary,
-              unselectedLabelColor: UltraTheme.textMuted,
-              indicatorColor: UltraTheme.primary,
-              indicatorWeight: 2,
-              labelStyle:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: const TextStyle(fontSize: 13),
-              tabs: [
-                Tab(text: l10n.companyAnalyticsTabBilanRh),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(l10n.companyAnalyticsTabBenchmarking),
-                      if (hasBenchmarking) ...[
-                        const SizedBox(width: 6),
-                        _ActiveBadge(
-                            label: l10n.companyAnalyticsBadgeActive,
-                            color: Colors.green,
-                            mini: true),
-                      ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabs,
+                    labelColor: UltraTheme.primary,
+                    unselectedLabelColor: UltraTheme.textMuted,
+                    indicatorColor: UltraTheme.primary,
+                    indicatorWeight: 2,
+                    labelStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                    unselectedLabelStyle: const TextStyle(fontSize: 13),
+                    tabs: [
+                      Tab(text: l10n.companyAnalyticsTabBilanRh),
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(l10n.companyAnalyticsTabBenchmarking),
+                            if (hasBenchmarking) ...[
+                              const SizedBox(width: 6),
+                              _ActiveBadge(
+                                  label: l10n.companyAnalyticsBadgeActive,
+                                  color: Colors.green,
+                                  mini: true),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Tab(text: l10n.companyAnalyticsTabOpportunities),
                     ],
                   ),
                 ),
-                Tab(text: l10n.companyAnalyticsTabOpportunities),
+                if (availableYears.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: _YearDropdown(
+                      years: availableYears,
+                      selected: currentYear,
+                      onChanged: (y) => setState(() => _selectedYear = y),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -293,14 +318,15 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
                 // ── Tab 1: Bilan RH (v2 BilanRh + v1 CompanySummary) ──
                 RefreshIndicator(
                   onRefresh: () async {
-                    ref.invalidate(bilanRhProvider(_currentYear));
-                    ref.invalidate(companySummaryProvider(_currentYear));
+                    ref.invalidate(bilanRhProvider(currentYear));
+                    ref.invalidate(companySummaryProvider(currentYear));
+                    ref.invalidate(bilanAvailableYearsProvider);
                   },
                   child: _BilanTabContent(
                     bilanAsync: bilanAsync,
                     summaryAsync: summaryAsync,
                     submissionStatus: submissionStatus,
-                    currentYear: _currentYear,
+                    currentYear: currentYear,
                   ),
                 ),
 
@@ -308,7 +334,7 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
                 RefreshIndicator(
                   onRefresh: () async {
                     if (hasBenchmarking) {
-                      ref.invalidate(companyBenchmarksProvider(_currentYear));
+                      ref.invalidate(companyBenchmarksProvider(currentYear));
                     }
                   },
                   child: _BenchmarkingTabContent(
@@ -329,6 +355,63 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// YEAR DROPDOWN  (picks which approved Bilan RH year is shown)
+// ═══════════════════════════════════════════════════════════
+
+class _YearDropdown extends StatelessWidget {
+  final List<int> years;
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  const _YearDropdown({
+    required this.years,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<int>(
+      initialValue: selected,
+      onSelected: onChanged,
+      itemBuilder: (context) => years
+          .map((y) => PopupMenuItem(
+                value: y,
+                child: Text('$y',
+                    style: TextStyle(
+                        fontWeight:
+                            y == selected ? FontWeight.w700 : FontWeight.w400,
+                        color: y == selected
+                            ? UltraTheme.primary
+                            : UltraTheme.textPrimary)),
+              ))
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: UltraTheme.background,
+          borderRadius: BorderRadius.circular(UltraTheme.radiusSmall),
+          border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$selected',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: UltraTheme.textPrimary)),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down,
+                size: 16, color: UltraTheme.textMuted),
+          ],
+        ),
       ),
     );
   }
@@ -1711,6 +1794,15 @@ class _LockedBilanView extends StatelessWidget {
         icon = Icons.edit_note;
         message = l10n.companyAnalyticsBilanLockedDraft;
         color = UltraTheme.info;
+        break;
+      case 'APPROVED':
+        // The company has an approved submission, just not for the
+        // currently-selected year (the year dropdown only ever offers
+        // years that do have one, so this is a transient/edge case,
+        // e.g. while bilanAvailableYearsProvider is still loading).
+        icon = Icons.event_busy_outlined;
+        message = l10n.companyAnalyticsBilanLockedWrongYear;
+        color = UltraTheme.textMuted;
         break;
       default:
         icon = Icons.lock_outline;

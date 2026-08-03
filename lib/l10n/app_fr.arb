@@ -831,6 +831,7 @@
   "companyAnalyticsBilanLockedUnderReview": "Votre déclaration ONEFOP est en cours de révision. Votre bilan RH sera disponible après approbation.",
   "companyAnalyticsBilanLockedDraft": "Vous avez un brouillon en cours. Finalisez et soumettez votre déclaration pour accéder à votre bilan.",
   "companyAnalyticsBilanLockedDefault": "Soumettez votre déclaration ONEFOP pour accéder à votre bilan RH personnalisé.",
+  "companyAnalyticsBilanLockedWrongYear": "Aucun bilan RH approuvé pour cette année. Choisissez une autre année ci-dessus.",
   "companyAnalyticsInsufficientDataTitle": "Données insuffisantes pour le benchmarking",
   "companyAnalyticsInsufficientDataDetail": "{count} entreprise(s) dans votre groupe (minimum {min} requis).",
   "@companyAnalyticsInsufficientDataDetail": {

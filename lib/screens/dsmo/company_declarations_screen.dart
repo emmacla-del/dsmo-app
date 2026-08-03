@@ -1,6 +1,9 @@
 // lib/screens/dsmo/company_declarations_screen.dart
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
@@ -245,17 +248,47 @@ class _CompanyDeclarationsScreenState
   int get _draftCount =>
       _entries.where((e) => e.isDraft).length;
 
-  Future<void> _downloadPdf(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !await canLaunchUrl(uri)) {
+  // DSMO declarations carry a pre-signed `pdfUrl` straight on the record, so
+  // opening it is just a launchUrl. ONEFOP submissions don't store one —
+  // the PDF is generated/cached on demand behind an authenticated endpoint —
+  // so we fetch the bytes through the API client and hand them to the
+  // system print/save dialog, same as submissions_viewer_screen.dart does
+  // for reviewer roles.
+  bool _hasPdf(_HistoryEntry e) {
+    if (e.stream == 'DSMO') {
+      final url = e.raw['pdfUrl'] as String?;
+      return url != null && url.isNotEmpty;
+    }
+    return !e.isDraft;
+  }
+
+  Future<void> _downloadPdf(_HistoryEntry e) async {
+    if (e.stream == 'DSMO') {
+      final url = e.raw['pdfUrl'] as String?;
+      final uri = url == null ? null : Uri.tryParse(url);
+      if (uri == null || !await canLaunchUrl(uri)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.companyDeclDownloadPdfError)),
+          );
+        }
+        return;
+      }
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final bytes = await api.getOnefopSubmissionPdf(e.id);
+      await Printing.layoutPdf(onLayout: (_) => Uint8List.fromList(bytes));
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.companyDeclDownloadPdfError)),
         );
       }
-      return;
     }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -414,7 +447,7 @@ class _CompanyDeclarationsScreenState
         : l10n.dateUnknown;
     final streamColor =
         e.stream == 'DSMO' ? UltraTheme.primary : UltraTheme.accent;
-    final pdfUrl = e.raw['pdfUrl'] as String?;
+    final hasPdf = _hasPdf(e);
     final statusLabel = _statusLabel(l10n, e);
 
     return DataRow(
@@ -462,9 +495,9 @@ class _CompanyDeclarationsScreenState
                   color: e.color)),
         )),
         DataCell(
-          (pdfUrl != null && pdfUrl.isNotEmpty)
+          hasPdf
               ? IconButton(
-                  onPressed: () => _downloadPdf(pdfUrl),
+                  onPressed: () => _downloadPdf(e),
                   icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                   color: UltraTheme.primary,
                   tooltip: l10n.companyDeclDownloadPdfTooltip,
@@ -486,7 +519,7 @@ class _CompanyDeclarationsScreenState
       'pdfUrl',
       '__v',
     };
-    final pdfUrl = e.raw['pdfUrl'] as String?;
+    final hasPdf = _hasPdf(e);
     final title = _entryTitle(l10n, e);
     final statusLabel = _statusLabel(l10n, e);
 
@@ -526,12 +559,12 @@ class _CompanyDeclarationsScreenState
                     ),
                     StatusBadge(label: statusLabel, color: e.color),
                   ]),
-                  if (pdfUrl != null && pdfUrl.isNotEmpty) ...[
+                  if (hasPdf) ...[
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => _downloadPdf(pdfUrl),
+                        onPressed: () => _downloadPdf(e),
                         icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
                         label: Text(l10n.companyDeclDownloadPdfTooltip),
                         style: OutlinedButton.styleFrom(

@@ -2110,6 +2110,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Soumettez votre déclaration ONEFOP pour accéder à votre bilan RH personnalisé.';
 
   @override
+  String get companyAnalyticsBilanLockedWrongYear =>
+      'Aucun bilan RH approuvé pour cette année. Choisissez une autre année ci-dessus.';
+
+  @override
   String get companyAnalyticsInsufficientDataTitle =>
       'Données insuffisantes pour le benchmarking';
 

@@ -3874,6 +3874,12 @@ abstract class AppLocalizations {
   /// **'Soumettez votre déclaration ONEFOP pour accéder à votre bilan RH personnalisé.'**
   String get companyAnalyticsBilanLockedDefault;
 
+  /// No description provided for @companyAnalyticsBilanLockedWrongYear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun bilan RH approuvé pour cette année. Choisissez une autre année ci-dessus.'**
+  String get companyAnalyticsBilanLockedWrongYear;
+
   /// No description provided for @companyAnalyticsInsufficientDataTitle.
   ///
   /// In fr, this message translates to:

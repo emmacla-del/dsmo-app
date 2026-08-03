@@ -2277,3 +2277,128 @@ class TableSkeleton extends StatelessWidget {
         ),
       );
 }
+
+// ══════════════════════════════════════════════════════════════
+// TABLE JUMP NAV  (desktop only)
+//
+// A pinned chip bar shown above sections that stack several tables
+// (e.g. section2 "Employment" has 8), so a user can hop straight to
+// the one they need instead of scrolling past every table to find it.
+// Chips are grouped by the field's `subsection` (e.g. "2.2
+// RECRUTEMENTS") with a thin divider between groups.
+// ══════════════════════════════════════════════════════════════
+
+class JumpTarget {
+  final String id;
+  final String label;
+  final String? groupLabel;
+  const JumpTarget({required this.id, required this.label, this.groupLabel});
+}
+
+class TableJumpNav extends StatelessWidget {
+  final List<JumpTarget> targets;
+  final ValueChanged<String> onJump;
+
+  const TableJumpNav({super.key, required this.targets, required this.onJump});
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <Widget>[];
+    String? lastGroup;
+    for (final t in targets) {
+      if (lastGroup != null && t.groupLabel != lastGroup) {
+        chips.add(const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6),
+          child: SizedBox(
+            height: 16,
+            child: VerticalDivider(width: 1, thickness: 1, color: kBorder),
+          ),
+        ));
+      }
+      lastGroup = t.groupLabel;
+      chips.add(Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: _JumpChip(label: t.label, onTap: () => onJump(t.id)),
+      ));
+    }
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: kCanvas,
+        border: Border(bottom: BorderSide(color: kBorder, width: 1)),
+      ),
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kScrollChildWidth),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: OL.sectionBodyPaddingH, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.table_chart_outlined, size: 15, color: kInkFaint),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: chips),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _JumpChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _JumpChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: kFieldFill,
+            border: Border.all(color: kBorder, width: 1),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: kInkSoft,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TableJumpNavDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  const TableJumpNavDelegate({required this.child, this.height = 44});
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
+
+  @override
+  bool shouldRebuild(covariant TableJumpNavDelegate oldDelegate) => true;
+}

@@ -2091,6 +2091,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Submit your ONEFOP declaration to access your personalized HR report.';
 
   @override
+  String get companyAnalyticsBilanLockedWrongYear =>
+      'No approved HR report for this year. Pick another year above.';
+
+  @override
   String get companyAnalyticsInsufficientDataTitle =>
       'Insufficient data for benchmarking';
 

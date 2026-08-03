@@ -664,6 +664,7 @@
   "companyAnalyticsBilanLockedUnderReview": "Your ONEFOP declaration is under review. Your HR report will be available after approval.",
   "companyAnalyticsBilanLockedDraft": "You have a draft in progress. Finalize and submit your declaration to access your report.",
   "companyAnalyticsBilanLockedDefault": "Submit your ONEFOP declaration to access your personalized HR report.",
+  "companyAnalyticsBilanLockedWrongYear": "No approved HR report for this year. Pick another year above.",
   "companyAnalyticsInsufficientDataTitle": "Insufficient data for benchmarking",
   "companyAnalyticsInsufficientDataDetail": "{count} companies in your group (minimum {min} required).",
   "companyAnalyticsPercentileTop": "Top {percentile}%",

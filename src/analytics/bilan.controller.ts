@@ -51,6 +51,21 @@ export class BilanController {
     ) {
         return this.bilanService.getBilan(req.user.id, year);
     }
+
+    /**
+     * GET /dsmo/analytics/bilan/years
+     *
+     * Years the authenticated company has an approved Bilan RH for,
+     * most recent first. Lets the Flutter screen offer a year selector
+     * instead of assuming the current calendar year always has one.
+     */
+    @UseGuards(JwtAuthGuard)
+    @Get('bilan/years')
+    @HttpCode(HttpStatus.OK)
+    async getBilanYears(@Req() req: Request & { user: { id: string } }) {
+        const years = await this.bilanService.getAvailableYears(req.user.id);
+        return { years };
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
