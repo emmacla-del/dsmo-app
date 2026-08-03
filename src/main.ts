@@ -15,6 +15,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Render sends SIGTERM on every deploy/restart. Without this, Nest never
+  // calls each module's onModuleDestroy() (e.g. PrismaService.$disconnect())
+  // before the process is killed, so in-flight DB work can be cut off
+  // mid-request instead of draining cleanly.
+  app.enableShutdownHooks();
+
   // Render terminates TLS and proxies to this app, so without trusting the
   // proxy, req.ip resolves to Render's internal address instead of the real
   // client IP. Account lockout, audit logs, and the admin IP allowlist all
