@@ -18,25 +18,27 @@ export class ValidationService {
         if (!declaration) throw new Error('Declaration not found');
 
         const errors: string[] = [];
+        const employees = declaration.employees;
+        const movements = declaration.movements;
 
         // 1. Gender sum validation
-        const genderCheck = await this.validateGenderSum(declaration);
+        const genderCheck = this.validateGenderSum(employees);
         if (!genderCheck.valid && genderCheck.message) errors.push(genderCheck.message);
 
         // 2. Category sum validation
-        const categoryCheck = await this.validateCategorySum(declaration);
+        const categoryCheck = this.validateCategorySum(employees);
         if (!categoryCheck.valid && categoryCheck.message) errors.push(categoryCheck.message);
 
         // 3. Movement consistency
-        const movementCheck = await this.validateMovementConsistency(declaration);
+        const movementCheck = this.validateMovementConsistency(movements, employees.length);
         if (!movementCheck.valid && movementCheck.message) errors.push(movementCheck.message);
 
         // 4. Workforce growth check
-        const growthCheck = await this.validateWorkforceGrowth(declaration);
+        const growthCheck = await this.validateWorkforceGrowth(declaration, employees.length);
         if (!growthCheck.valid && growthCheck.message) errors.push(growthCheck.message);
 
         // 5. Employee data validation
-        const employeeCheck = await this.validateEmployees(declaration);
+        const employeeCheck = this.validateEmployees(employees);
         if (!employeeCheck.valid) errors.push(...employeeCheck.messages);
 
         // Log validation steps
@@ -48,11 +50,7 @@ export class ValidationService {
         };
     }
 
-    private async validateGenderSum(declaration: any): Promise<{ valid: boolean; message?: string }> {
-        const employees = await this.prisma.employee.findMany({
-            where: { declarationId: declaration.id },
-        });
-
+    private validateGenderSum(employees: any[]): { valid: boolean; message?: string } {
         const totalEmployees = employees.length;
         const males = employees.filter((e: any) => e.gender === 'M').length;
         const females = employees.filter((e: any) => e.gender === 'F').length;
@@ -67,11 +65,7 @@ export class ValidationService {
         return { valid: true };
     }
 
-    private async validateCategorySum(declaration: any): Promise<{ valid: boolean; message?: string }> {
-        const employees = await this.prisma.employee.findMany({
-            where: { declarationId: declaration.id },
-        });
-
+    private validateCategorySum(employees: any[]): { valid: boolean; message?: string } {
         const totalEmployees = employees.length;
         if (totalEmployees === 0) return { valid: true };
 
@@ -97,11 +91,7 @@ export class ValidationService {
         return { valid: true };
     }
 
-    private async validateMovementConsistency(declaration: any): Promise<{ valid: boolean; message?: string }> {
-        const movements = await this.prisma.declarationMovement.findMany({
-            where: { declarationId: declaration.id },
-        });
-
+    private validateMovementConsistency(movements: any[], employeeCount: number): { valid: boolean; message?: string } {
         const dismissals = movements.find((m: any) => m.movementType === 'DISMISSAL');
         const recruitments = movements.find((m: any) => m.movementType === 'RECRUITMENT');
 
@@ -112,22 +102,18 @@ export class ValidationService {
             ? recruitments.cat1_3 + recruitments.cat4_6 + recruitments.cat7_9 + recruitments.cat10_12 + recruitments.catNonDeclared
             : 0;
 
-        const employees = await this.prisma.employee.count({
-            where: { declarationId: declaration.id },
-        });
-
         // Movements should be reasonable relative to workforce size
-        if (totalDismissals > employees * 2 || totalRecruitments > employees * 2) {
+        if (totalDismissals > employeeCount * 2 || totalRecruitments > employeeCount * 2) {
             return {
                 valid: false,
-                message: `Movement inconsistency: Total movements exceed 2x current workforce (${employees} employees)`,
+                message: `Movement inconsistency: Total movements exceed 2x current workforce (${employeeCount} employees)`,
             };
         }
 
         return { valid: true };
     }
 
-    private async validateWorkforceGrowth(declaration: any): Promise<{ valid: boolean; message?: string }> {
+    private async validateWorkforceGrowth(declaration: any, employeeCount: number): Promise<{ valid: boolean; message?: string }> {
         const company = await this.prisma.company.findUnique({
             where: { id: declaration.companyId },
         });
@@ -136,11 +122,7 @@ export class ValidationService {
             return { valid: true };
         }
 
-        const currentEmployees = await this.prisma.employee.count({
-            where: { declarationId: declaration.id },
-        });
-
-        const growthRate = Math.abs(currentEmployees - company.lastYearTotal) / company.lastYearTotal;
+        const growthRate = Math.abs(employeeCount - company.lastYearTotal) / company.lastYearTotal;
 
         // Flag if growth exceeds 50% (should be reviewed)
         if (growthRate > 0.5) {
@@ -153,11 +135,7 @@ export class ValidationService {
         return { valid: true };
     }
 
-    private async validateEmployees(declaration: any): Promise<{ valid: boolean; messages: string[] }> {
-        const employees = await this.prisma.employee.findMany({
-            where: { declarationId: declaration.id },
-        });
-
+    private validateEmployees(employees: any[]): { valid: boolean; messages: string[] } {
         const messages: string[] = [];
 
         for (const emp of employees) {
@@ -188,15 +166,13 @@ export class ValidationService {
             { type: ValidationStepType.EMPLOYEE_VALIDATION, hasError: errors.some((e) => e.includes('Employee')) },
         ];
 
-        for (const step of steps) {
-            await this.prisma.validationStep.create({
-                data: {
-                    declarationId,
-                    stepType: step.type,
-                    isValid: !step.hasError,
-                    message: step.hasError ? errors.find((e) => e.includes(step.type)) : undefined,
-                },
-            });
-        }
+        await this.prisma.validationStep.createMany({
+            data: steps.map((step) => ({
+                declarationId,
+                stepType: step.type,
+                isValid: !step.hasError,
+                message: step.hasError ? errors.find((e) => e.includes(step.type)) : undefined,
+            })),
+        });
     }
 }
