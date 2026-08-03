@@ -279,74 +279,21 @@ export class QuestionnairesService {
         geoSector,
       );
 
-    let result: { submissionId: string };
-    try {
-      result = await (this.prisma as any).$transaction(async (tx: TxClient) => {
-      const respondent = questionnaireData.respondent;
+    // Every child table below is written via a single nested Prisma `create`
+    // call (one round trip to the query engine) instead of ~19 sequential
+    // awaits inside an interactive transaction. Prisma binds an interactive
+    // transaction to one connection, so those awaits can't run concurrently
+    // anyway (Promise.all on the same `tx` risks "transaction already
+    // closed" errors) — a nested write is the supported way to cut both the
+    // round-trip count and how long the pooled connection is checked out.
+    const respondent = questionnaireData.respondent;
 
-      let entityRegion: string | null = null;
-      let entityDepartment: string | null = null;
-      let entitySubdivision: string | null = null;
-
-      if ('enterprise' in questionnaireData && questionnaireData.enterprise) {
-        entityRegion = questionnaireData.enterprise.region ?? null;
-        entityDepartment = questionnaireData.enterprise.department ?? null;
-        entitySubdivision = questionnaireData.enterprise.subdivision ?? null;
-      } else if ('cooperative' in questionnaireData && questionnaireData.cooperative) {
-        entityRegion = questionnaireData.cooperative.region ?? null;
-        entityDepartment = questionnaireData.cooperative.department ?? null;
-        entitySubdivision = questionnaireData.cooperative.subdivision ?? null;
-      } else if ('ctd' in questionnaireData && questionnaireData.ctd) {
-        entityRegion = questionnaireData.ctd.region ?? null;
-        entityDepartment = questionnaireData.ctd.department ?? null;
-        entitySubdivision = questionnaireData.ctd.subdivision ?? null;
-      } else if ('ong' in questionnaireData && questionnaireData.ong) {
-        entityRegion = questionnaireData.ong.region ?? null;
-        entityDepartment = questionnaireData.ong.department ?? null;
-        entitySubdivision = questionnaireData.ong.subdivision ?? null;
-      }
-
-      const submission = await tx.onefopSubmission.create({
-        data: {
-          submissionId: dto.formId || randomUUID(),
-          formType: normalizedEntityType,
-          rawData: dto.data as any,
-          surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
-          submissionDate: new Date(),
-          establishmentId: dto.establishmentId,
-          quarterCode: dto.quarterCode ?? this.getCurrentQuarter(),
-          region: geoRegion,
-          department: geoDept,
-          subdivision: geoSubdiv,
-          status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
-          flags: coherenceFlags.length ? (coherenceFlags as any) : undefined,
-          user: dto.userId ? { connect: { id: dto.userId } } : undefined,
-          company: dto.companyId ? { connect: { id: dto.companyId } } : undefined,
-          regionRef: regionId ? { connect: { id: regionId } } : undefined,
-          departmentRef: departmentId ? { connect: { id: departmentId } } : undefined,
-          subdivisionRef: subdivisionId ? { connect: { id: subdivisionId } } : undefined,
-        },
-      });
-      const sid: string = submission.id;
-
-      if (respondent) {
-        await tx.onefopRespondent.create({
-          data: {
-            submissionId: sid,
-            respondentName: respondent.name ?? '',
-            respondentFunction: respondent.function ?? '',
-            phone1: respondent.phone1 ?? '',
-            phone2: respondent.phone2 ?? null,
-            email: respondent.email ?? null,
-          },
-        });
-      }
-
-      if (normalizedEntityType === 'ENTREPRISE' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
-        const e = questionnaireData.enterprise;
-        await tx.onefopEnterpriseDetail.create({
-          data: {
-            submissionId: sid,
+    let entityDetailRelation: Record<string, any> = {};
+    if (normalizedEntityType === 'ENTREPRISE' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
+      const e = questionnaireData.enterprise;
+      entityDetailRelation = {
+        enterpriseDetail: {
+          create: {
             legalStatus: this.mapLegalStatus(e.legalStatus as 1 | 2 | 3 | 4),
             companyName: e.name ?? '',
             area: this.mapArea(e.area as 1 | 2),
@@ -366,14 +313,13 @@ export class QuestionnairesService {
             vacancies: e.vacancies ?? 0,
             enterpriseSize: this.mapCompanySize(e.size as 1 | 2 | 3 | 4),
           },
-        });
-      }
-
-      if (normalizedEntityType === 'COOPERATIVE' && 'cooperative' in questionnaireData && questionnaireData.cooperative) {
-        const c = questionnaireData.cooperative;
-        await tx.onefopCooperativeDetail.create({
-          data: {
-            submissionId: sid,
+        },
+      };
+    } else if (normalizedEntityType === 'COOPERATIVE' && 'cooperative' in questionnaireData && questionnaireData.cooperative) {
+      const c = questionnaireData.cooperative;
+      entityDetailRelation = {
+        cooperativeDetail: {
+          create: {
             cooperativeName: c.name ?? '',
             headOffice: c.headOffice ?? null,
             yearCreated: c.yearCreated ?? null,
@@ -394,14 +340,13 @@ export class QuestionnairesService {
             permanentWorkers: c.permanentWorkers ?? null,
             vacancies: c.vacancies ?? null,
           },
-        });
-      }
-
-      if (normalizedEntityType === 'CTD' && 'ctd' in questionnaireData && questionnaireData.ctd) {
-        const ct = questionnaireData.ctd;
-        await tx.onefopCtdDetail.create({
-          data: {
-            submissionId: sid,
+        },
+      };
+    } else if (normalizedEntityType === 'CTD' && 'ctd' in questionnaireData && questionnaireData.ctd) {
+      const ct = questionnaireData.ctd;
+      entityDetailRelation = {
+        ctdDetail: {
+          create: {
             ctdType: this.mapCtdType(ct.type as 1 | 2),
             councilType: ct.councilType ? this.mapCouncilType(ct.councilType as 1 | 2) : null,
             yearCreated: ct.yearCreated ?? null,
@@ -419,14 +364,13 @@ export class QuestionnairesService {
             permanentWorkers: ct.permanentWorkers ?? null,
             vacancies: ct.vacancies ?? null,
           },
-        });
-      }
-
-      if (normalizedEntityType === 'ONG' && 'ong' in questionnaireData && questionnaireData.ong) {
-        const o = questionnaireData.ong;
-        await tx.onefopOngDetail.create({
-          data: {
-            submissionId: sid,
+        },
+      };
+    } else if (normalizedEntityType === 'ONG' && 'ong' in questionnaireData && questionnaireData.ong) {
+      const o = questionnaireData.ong;
+      entityDetailRelation = {
+        ongDetail: {
+          create: {
             ongName: o.name ?? '',
             headOffice: o.headOffice ?? null,
             yearCreated: o.yearCreated ?? null,
@@ -445,39 +389,80 @@ export class QuestionnairesService {
             permanentWorkers: o.permanentWorkers ?? null,
             vacancies: o.vacancies ?? null,
           },
-        });
-      }
+        },
+      };
+    }
 
-      for (const t of [
-        { prefix: 's21q01' },
-        { prefix: 's22q01' },
-        { prefix: 's22q02' },
-        { prefix: 's23q01' },
-      ]) {
-        await this.saveCspGenderAgeFlat(tx, sid, flat, t.prefix, t.prefix);
-      }
+    // The four csp/gender/age prefixes previously ran as four separate
+    // createMany round trips against the same table — they only differ by
+    // the `tableName` discriminator column, so one combined createMany call
+    // produces identical rows.
+    const cspGenderAgeRows = this.buildCspGenderAgeRows(flat, [
+      { prefix: 's21q01', tableName: 's21q01' },
+      { prefix: 's22q01', tableName: 's22q01' },
+      { prefix: 's22q02', tableName: 's22q02' },
+      { prefix: 's23q01', tableName: 's23q01' },
+    ]);
+    const diplomaRows = this.buildDiplomaRows(flat);
+    const disabilityRows = this.buildDisabilityRows(flat, 's22q04');
+    const vulnerableRows = normalizedEntityType === 'ENTREPRISE'
+      ? this.buildVulnerableEnterpriseRows(flat)
+      : this.buildVulnerableOtherRows(flat);
+    const firstTimeWorkerRows = this.buildFirstTimeWorkerRows(flat);
+    const jobApplicationRows = this.buildJobApplicationRows(flat);
+    const registeredSeekerRows = this.buildRegisteredSeekerRows(flat);
+    const departureRows = this.buildDepartureRows(flat);
+    const dismissalReasonRows = this.buildDismissalReasonRows(flat);
+    const dismissalUnemploymentRows = this.buildDismissalUnemploymentRows(flat);
+    const internshipRows = this.buildInternshipRows(flat);
+    const skillNeedRows = this.buildSkillNeedRows(flat);
+    const trainingNeedRows = this.buildTrainingNeedRows(flat);
 
-      await this.saveDiplomaFlat(tx, sid, flat);
-      await this.saveDisabilityFlat(tx, sid, flat, 's22q04');
-
-      if (normalizedEntityType === 'ENTREPRISE') {
-        await this.saveVulnerableEnterpriseFlat(tx, sid, flat);
-      } else {
-        await this.saveVulnerableOtherFlat(tx, sid, flat);
-      }
-
-      // Inside the transaction, add these lines after saveFirstTimeWorkersFlat
-      await this.saveFirstTimeWorkersFlat(tx, sid, flat);
-      await this.saveJobApplicationData(tx, sid, flat);        // ← ADD THIS
-      await this.saveRegisteredSeekerData(tx, sid, flat);      // ← ADD THIS
-      await this.saveDepartureFlat(tx, sid, flat);
-      await this.saveDismissalReasonsFlat(tx, sid, flat);
-      await this.saveDismissalUnemploymentFlat(tx, sid, flat);
-      await this.saveInternshipFlat(tx, sid, flat);
-      await this.saveSkillsFlat(tx, sid, flat);
-      await this.saveTrainingFlat(tx, sid, flat);
-
-      return submission;
+    let result: { submissionId: string };
+    try {
+      result = await this.prisma.onefopSubmission.create({
+        data: {
+          submissionId: dto.formId || randomUUID(),
+          formType: normalizedEntityType,
+          rawData: dto.data as any,
+          surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
+          submissionDate: new Date(),
+          establishmentId: dto.establishmentId,
+          quarterCode: dto.quarterCode ?? this.getCurrentQuarter(),
+          region: geoRegion,
+          department: geoDept,
+          subdivision: geoSubdiv,
+          status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
+          flags: coherenceFlags.length ? (coherenceFlags as any) : undefined,
+          user: dto.userId ? { connect: { id: dto.userId } } : undefined,
+          company: dto.companyId ? { connect: { id: dto.companyId } } : undefined,
+          regionRef: regionId ? { connect: { id: regionId } } : undefined,
+          departmentRef: departmentId ? { connect: { id: departmentId } } : undefined,
+          subdivisionRef: subdivisionId ? { connect: { id: subdivisionId } } : undefined,
+          respondent: respondent ? {
+            create: {
+              respondentName: respondent.name ?? '',
+              respondentFunction: respondent.function ?? '',
+              phone1: respondent.phone1 ?? '',
+              phone2: respondent.phone2 ?? null,
+              email: respondent.email ?? null,
+            },
+          } : undefined,
+          ...entityDetailRelation,
+          cspGenderAge: cspGenderAgeRows.length ? { createMany: { data: cspGenderAgeRows as any, skipDuplicates: true } } : undefined,
+          diplomaData: diplomaRows.length ? { createMany: { data: diplomaRows as any, skipDuplicates: true } } : undefined,
+          disabilityData: disabilityRows.length ? { createMany: { data: disabilityRows as any, skipDuplicates: true } } : undefined,
+          vulnerableData: vulnerableRows.length ? { createMany: { data: vulnerableRows as any, skipDuplicates: true } } : undefined,
+          firstTimeWorkers: firstTimeWorkerRows.length ? { createMany: { data: firstTimeWorkerRows as any, skipDuplicates: true } } : undefined,
+          jobApplicationData: jobApplicationRows.length ? { createMany: { data: jobApplicationRows as any, skipDuplicates: true } } : undefined,
+          registeredSeekers: registeredSeekerRows.length ? { createMany: { data: registeredSeekerRows as any, skipDuplicates: true } } : undefined,
+          departureData: departureRows.length ? { createMany: { data: departureRows as any, skipDuplicates: true } } : undefined,
+          dismissalReasons: dismissalReasonRows.length ? { createMany: { data: dismissalReasonRows as any, skipDuplicates: true } } : undefined,
+          dismissalUnemployment: dismissalUnemploymentRows.length ? { createMany: { data: dismissalUnemploymentRows as any, skipDuplicates: true } } : undefined,
+          internshipData: internshipRows.length ? { createMany: { data: internshipRows as any, skipDuplicates: true } } : undefined,
+          skillNeeds: skillNeedRows.length ? { createMany: { data: skillNeedRows as any, skipDuplicates: true } } : undefined,
+          trainingNeeds: trainingNeedRows.length ? { createMany: { data: trainingNeedRows as any, skipDuplicates: true } } : undefined,
+        },
       });
     } catch (err: any) {
       if (err.code === 'P2002' && dto.formId) {
@@ -704,21 +689,42 @@ export class QuestionnairesService {
     return ageBandMap[ageKey] || ageKey;
   }
 
-  private async saveCspGenderAgeFlat(tx: TxClient, submissionId: string, flat: FlatFormData, prefix: string, tableName: string): Promise<void> {
+  // The methods below build row arrays for nested `createMany` writes (see
+  // submitQuestionnaire) instead of executing their own createMany against a
+  // `tx` — same field mappings as before, just no `submissionId` column
+  // since Prisma sets that FK itself from the parent create.
+
+  private buildCspGenderAgeRows(flat: FlatFormData, prefixes: { prefix: string; tableName: string }[]): object[] {
     const cspRows = ['cadres', 'foremen', 'workers'];
     const genders = ['male', 'female', 'total'];
     const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const rows: object[] = [];
 
-    for (const csp of cspRows) {
+    for (const { prefix, tableName } of prefixes) {
+      for (const csp of cspRows) {
+        for (const gender of genders) {
+          for (const ageKey of ageBandKeys) {
+            const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${ageKey}`);
+            if (value !== 0) {
+              rows.push({
+                tableName,
+                cspCategory: this.up(csp),
+                gender: this.up(gender),
+                ageBand: this.mapAgeBand(ageKey),
+                value
+              });
+            }
+          }
+        }
+      }
+
       for (const gender of genders) {
         for (const ageKey of ageBandKeys) {
-          const value = this.flatInt(flat, `${prefix}_${csp}_${gender}_${ageKey}`);
+          const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
           if (value !== 0) {
             rows.push({
-              submissionId,
               tableName,
-              cspCategory: this.up(csp),
+              cspCategory: 'TOTAL',
               gender: this.up(gender),
               ageBand: this.mapAgeBand(ageKey),
               value
@@ -728,28 +734,10 @@ export class QuestionnairesService {
       }
     }
 
-    for (const gender of genders) {
-      for (const ageKey of ageBandKeys) {
-        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
-        if (value !== 0) {
-          rows.push({
-            submissionId,
-            tableName,
-            cspCategory: 'TOTAL',
-            gender: this.up(gender),
-            ageBand: this.mapAgeBand(ageKey),
-            value
-          });
-        }
-      }
-    }
-
-    if (rows.length > 0) {
-      await tx.onefopCspGenderAge.createMany({ data: rows, skipDuplicates: true });
-    }
+    return rows;
   }
 
-  private async saveDiplomaFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildDiplomaRows(flat: FlatFormData): object[] {
     const diplomas = ['cep', 'bepc', 'probatoire', 'bac', 'bts', 'licence', 'maitrise', 'master', 'dqp', 'cqp', 'autres', 'sans_diplome'];
     const genders = ['male', 'female', 'total'];
     const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
@@ -762,7 +750,6 @@ export class QuestionnairesService {
           const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${ageKey}`);
           if (value !== 0) {
             rows.push({
-              submissionId,
               diploma: this.up(diploma),
               gender: this.up(gender),
               ageBand: this.mapAgeBand(ageKey),
@@ -778,7 +765,6 @@ export class QuestionnairesService {
         const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
         if (value !== 0) {
           rows.push({
-            submissionId,
             diploma: 'TOTAL',
             gender: this.up(gender),
             ageBand: this.mapAgeBand(ageKey),
@@ -788,12 +774,10 @@ export class QuestionnairesService {
       }
     }
 
-    if (rows.length > 0) {
-      await tx.onefopDiplomaData.createMany({ data: rows, skipDuplicates: true });
-    }
+    return rows;
   }
 
-  private async saveDisabilityFlat(tx: TxClient, submissionId: string, flat: FlatFormData, prefix: string): Promise<void> {
+  private buildDisabilityRows(flat: FlatFormData, prefix: string): object[] {
     const rows = ['cadres', 'foremen', 'workers', 'total'];
     const statuses = ['permanent', 'temporary', 'total'];
     const genders = ['male', 'female', 'total'];
@@ -802,13 +786,14 @@ export class QuestionnairesService {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
-          if (value !== 0) records.push({ submissionId, cspCategory: this.up(row), status: this.up(status), gender: this.up(gender), value });
+          if (value !== 0) records.push({ cspCategory: this.up(row), status: this.up(status), gender: this.up(gender), value });
         }
       }
     }
-    if (records.length > 0) await tx.onefopDisabilityData.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
-  private async saveVulnerableEnterpriseFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+
+  private buildVulnerableEnterpriseRows(flat: FlatFormData): object[] {
     const prefix = 's22q05_ent';
     const vulnerableRows = ['deplaces_internes', 'refugies', 'orphelins', 'total'];
     const statuses = ['permanent', 'temporary', 'total'];
@@ -827,7 +812,6 @@ export class QuestionnairesService {
             }
 
             records.push({
-              submissionId,
               vulnerableType: vulnerableType,
               status: this.up(status),
               gender: this.up(gender),
@@ -838,16 +822,10 @@ export class QuestionnairesService {
       }
     }
 
-    if (records.length > 0) {
-      await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
-    }
+    return records;
   }
 
-  private async saveVulnerableOtherFlat(
-    tx: TxClient,
-    submissionId: string,
-    flat: FlatFormData,
-  ): Promise<void> {
+  private buildVulnerableOtherRows(flat: FlatFormData): object[] {
     const prefix = 's22q05_oth';
     const vulnerableRows = ['deplaces_internes', 'refugies', 'orphelins', 'total'];
     const statuses = ['permanent', 'temporary', 'total'];
@@ -860,7 +838,6 @@ export class QuestionnairesService {
           const value = this.flatInt(flat, `${prefix}_${vRow}_${status}_${gender}`);
           if (value !== 0) {
             records.push({
-              submissionId,
               vulnerableType: vRow === 'total' ? 'TOTAL_VULN' : this.up(vRow),
               status: this.up(status),
               gender: this.up(gender),
@@ -871,11 +848,10 @@ export class QuestionnairesService {
       }
     }
 
-    if (records.length > 0) {
-      await tx.onefopVulnerableData.createMany({ data: records, skipDuplicates: true });
-    }
+    return records;
   }
-  private async saveFirstTimeWorkersFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+
+  private buildFirstTimeWorkerRows(flat: FlatFormData): object[] {
     const prefix = 's23q02';
     const contracts = ['permanent', 'temporary'];
     const cspRows = ['cadres', 'foremen', 'workers'];
@@ -890,7 +866,6 @@ export class QuestionnairesService {
             const value = this.flatInt(flat, `${prefix}_${contract}_${csp}_${gender}_${ageKey}`);
             if (value !== 0) {
               records.push({
-                submissionId,
                 contractType: this.up(contract),
                 cspCategory: this.up(csp),
                 gender: this.up(gender),
@@ -911,7 +886,6 @@ export class QuestionnairesService {
           const value = this.flatInt(flat, `${prefix}_${contract}_subtotal_${gender}_${ageKey}`);
           if (value !== 0) {
             records.push({
-              submissionId,
               contractType: this.up(contract),
               cspCategory: 'TOTAL',
               gender: this.up(gender),
@@ -929,7 +903,6 @@ export class QuestionnairesService {
         const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
         if (value !== 0) {
           records.push({
-            submissionId,
             contractType: 'TOTAL',
             cspCategory: 'TOTAL',
             gender: this.up(gender),
@@ -940,12 +913,10 @@ export class QuestionnairesService {
       }
     }
 
-    // single save after everything is collected
-    if (records.length > 0) {
-      await tx.onefopFirstTimeWorker.createMany({ data: records, skipDuplicates: true });
-    }
+    return records;
   }
-  private async saveDepartureFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+
+  private buildDepartureRows(flat: FlatFormData): object[] {
     const prefix = 's3q01';
     const cspRows = ['cadres', 'foremen', 'workers', 'total'];
     const departureTypes = ['dismissal', 'resignation', 'retirement', 'other', 'ensemble'];
@@ -955,14 +926,14 @@ export class QuestionnairesService {
       for (const type of departureTypes) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${csp}_${type}_${gender}`);
-          if (value !== 0) records.push({ submissionId, cspCategory: this.up(csp), departureType: this.up(type), gender: this.up(gender), value });
+          if (value !== 0) records.push({ cspCategory: this.up(csp), departureType: this.up(type), gender: this.up(gender), value });
         }
       }
     }
-    if (records.length > 0) await tx.onefopDepartureData.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
 
-  private async saveDismissalReasonsFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildDismissalReasonRows(flat: FlatFormData): object[] {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
       const reasonText = this.flatStr(flat, `s3q02_reason_${i}_text`);
@@ -970,13 +941,13 @@ export class QuestionnairesService {
       const female = this.flatInt(flat, `s3q02_reason_${i}_female`);
       const total = this.flatInt(flat, `s3q02_reason_${i}_total`);
       if (reasonText || male !== 0 || female !== 0) {
-        records.push({ submissionId, reasonIndex: i, reasonText, maleCount: male, femaleCount: female, totalCount: total > 0 ? total : male + female });
+        records.push({ reasonIndex: i, reasonText, maleCount: male, femaleCount: female, totalCount: total > 0 ? total : male + female });
       }
     }
-    if (records.length > 0) await tx.onefopDismissalReason.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
 
-  private async saveDismissalUnemploymentFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildDismissalUnemploymentRows(flat: FlatFormData): object[] {
     const prefix = 's3q03';
     const cspRows = ['cadres', 'foremen', 'workers', 'total'];
     const types = ['dismissal', 'technical_unemployment', 'total'];
@@ -986,14 +957,14 @@ export class QuestionnairesService {
       for (const type of types) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${csp}_${type}_${gender}`);
-          if (value !== 0) records.push({ submissionId, cspCategory: this.up(csp), type: this.up(type), gender: this.up(gender), value });
+          if (value !== 0) records.push({ cspCategory: this.up(csp), type: this.up(type), gender: this.up(gender), value });
         }
       }
     }
-    if (records.length > 0) await tx.onefopDismissalUnemployment.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
 
-  private async saveInternshipFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildInternshipRows(flat: FlatFormData): object[] {
     const prefix = 's4q01';
     const internshipTypes = ['vacation', 'academic', 'professional', 'pre_employment', 'total'];
     const genders = ['male', 'female', 'total'];
@@ -1001,13 +972,13 @@ export class QuestionnairesService {
     for (const type of internshipTypes) {
       for (const gender of genders) {
         const value = this.flatInt(flat, `${prefix}_${type}_${gender}`);
-        if (value !== 0) records.push({ submissionId, internshipType: this.up(type), gender: this.up(gender), value });
+        if (value !== 0) records.push({ internshipType: this.up(type), gender: this.up(gender), value });
       }
     }
-    if (records.length > 0) await tx.onefopInternshipData.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
 
-  private async saveSkillsFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildSkillNeedRows(flat: FlatFormData): object[] {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
       const description = this.flatStr(flat, `s4q02_skill_${i}_text`);
@@ -1015,13 +986,13 @@ export class QuestionnairesService {
       const female = this.flatInt(flat, `s4q02_skill_${i}_female`);
       const total = this.flatInt(flat, `s4q02_skill_${i}_total`);
       if (description || male !== 0 || female !== 0) {
-        records.push({ submissionId, skillIndex: i, skillDescription: description, maleCount: male, femaleCount: female, totalCount: total > 0 ? total : male + female });
+        records.push({ skillIndex: i, skillDescription: description, maleCount: male, femaleCount: female, totalCount: total > 0 ? total : male + female });
       }
     }
-    if (records.length > 0) await tx.onefopSkillNeed.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
 
-  private async saveTrainingFlat(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildTrainingNeedRows(flat: FlatFormData): object[] {
     const records: object[] = [];
     for (let i = 1; i <= 3; i++) {
       const domain = this.flatStr(flat, `s4q03_domain_${i}_text`);
@@ -1029,14 +1000,13 @@ export class QuestionnairesService {
       const female = this.flatInt(flat, `s4q03_domain_${i}_female`);
       const total = this.flatInt(flat, `s4q03_domain_${i}_total`);
       if (domain || male !== 0 || female !== 0) {
-        records.push({ submissionId, domainIndex: i, trainingDomain: domain, maleCount: male, femaleCount: female, totalCount: total > 0 ? total : male + female });
+        records.push({ domainIndex: i, trainingDomain: domain, maleCount: male, femaleCount: female, totalCount: total > 0 ? total : male + female });
       }
     }
-    if (records.length > 0) await tx.onefopTrainingNeed.createMany({ data: records, skipDuplicates: true });
+    return records;
   }
-  // Add after saveTrainingFlat() method
 
-  private async saveJobApplicationData(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildJobApplicationRows(flat: FlatFormData): object[] {
     const prefix = 's21q01';
     const cspRows = ['cadres', 'foremen', 'workers', 'total'];
     const genders = ['male', 'female', 'total'];
@@ -1051,7 +1021,6 @@ export class QuestionnairesService {
           if (value !== 0) {
             rows.push({
               id: randomUUID(),
-              submissionId,
               cspCategory: this.up(csp),
               gender: this.up(gender),
               ageBand: this.mapAgeBand(ageKey),
@@ -1063,15 +1032,13 @@ export class QuestionnairesService {
       }
     }
 
-    if (rows.length > 0) {
-      await tx.onefopJobApplicationData.createMany({ data: rows, skipDuplicates: true });
-    }
+    return rows;
   }
 
-  private async saveRegisteredSeekerData(tx: TxClient, submissionId: string, flat: FlatFormData): Promise<void> {
+  private buildRegisteredSeekerRows(flat: FlatFormData): object[] {
     // S23Q01 has no contract-type dimension in the form (only S23Q02 does) --
     // the flat keys are `s23q01_${csp}_${gender}_${ageKey}`, with 'total' used
-    // as a real csp value for the CSP-total row, mirroring saveCspGenderAgeFlat.
+    // as a real csp value for the CSP-total row, mirroring buildCspGenderAgeRows.
     // contractType is set to the constant 'TOTAL' since this table's schema
     // requires a value but the section was never broken down by contract.
     const prefix = 's23q01';
@@ -1088,7 +1055,6 @@ export class QuestionnairesService {
           if (value !== 0) {
             rows.push({
               id: randomUUID(),
-              submissionId,
               contractType: 'TOTAL',
               cspCategory: this.up(csp),
               gender: this.up(gender),
@@ -1107,7 +1073,6 @@ export class QuestionnairesService {
         if (value !== 0) {
           rows.push({
             id: randomUUID(),
-            submissionId,
             contractType: 'TOTAL',
             cspCategory: 'TOTAL',
             gender: this.up(gender),
@@ -1119,9 +1084,7 @@ export class QuestionnairesService {
       }
     }
 
-    if (rows.length > 0) {
-      await tx.onefopRegisteredSeeker.createMany({ data: rows, skipDuplicates: true });
-    }
+    return rows;
   }
   private mapLegalStatus(value?: 1 | 2 | 3 | 4): string {
     const map: Record<number, string> = { 1: 'Société unipersonnelle/ Single-member company', 2: 'SARL/ LLC', 3: 'SA/ PLC', 4: 'Autres/ Others' };
