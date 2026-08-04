@@ -696,6 +696,9 @@ model OnefopEnterpriseDetail {
   phone1           String
   phone2           String?
   poBox            String?
+  // Case-insensitive-filtered by analytics (resolveSubmissionIdsBySector) —
+  // backed by a functional index (LOWER(sector)) added via raw migration
+  // 20260804170000_add_sector_lower_indexes, not expressible as @@index here.
   sector           String
   branch           String?
   mainActivity     String
@@ -725,6 +728,9 @@ model OnefopCooperativeDetail {
   phone1               String?
   phone2               String?
   poBox                String?
+  // Case-insensitive-filtered by analytics (resolveSubmissionIdsBySector) —
+  // backed by a functional index (LOWER(sector)) added via raw migration
+  // 20260804170000_add_sector_lower_indexes, not expressible as @@index here.
   sector               String?
   sectorId             String?
   branch               String?
@@ -754,6 +760,9 @@ model OnefopCtdDetail {
   phone1           String?
   phone2           String?
   poBox            String?
+  // Case-insensitive-filtered by analytics (resolveSubmissionIdsBySector) —
+  // backed by a functional index (LOWER(sector)) added via raw migration
+  // 20260804170000_add_sector_lower_indexes, not expressible as @@index here.
   sector           String?
   sectorId         String?
   branch           String?
@@ -780,6 +789,9 @@ model OnefopOngDetail {
   phone1           String?
   phone2           String?
   poBox            String?
+  // Case-insensitive-filtered by analytics (resolveSubmissionIdsBySector) —
+  // backed by a functional index (LOWER(sector)) added via raw migration
+  // 20260804170000_add_sector_lower_indexes, not expressible as @@index here.
   sector           String?
   sectorId         String?
   branch           String?
