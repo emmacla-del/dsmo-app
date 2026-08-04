@@ -154,37 +154,49 @@ export class QuestionnairesService {
     // Normalize entityType to uppercase
     const normalizedEntityType = normalizeEntityType(dto.entityType);
 
-    console.log('\n╔══════════════════════════════════════════════════╗');
-    console.log('║         ONEFOP SUBMIT — DEBUG                    ║');
-    console.log('╚══════════════════════════════════════════════════╝');
-    console.log('entityType (original) :', dto.entityType);
-    console.log('entityType (normalized):', normalizedEntityType);
-    console.log('isDraft    :', isDraft);
-    console.log('userId     :', dto.userId);
-    console.log('companyId  :', dto.companyId);
-    console.log('establishmentId:', dto.establishmentId);
-    console.log('formId     :', dto.formId);
-    console.log('data keys  :', Object.keys(dto.data).length);
-    debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
+    // Verbose per-submission dumps (several JSON.stringify calls over full
+    // nested payloads) are dev-only: Node writes console.log synchronously
+    // when stdout is piped rather than a TTY, which is exactly how Render
+    // captures logs — so this was blocking the event loop on every single
+    // submission in production for output nobody was reading.
+    const debugSubmit = process.env.NODE_ENV !== 'production';
+    if (debugSubmit) {
+      console.log('\n╔══════════════════════════════════════════════════╗');
+      console.log('║         ONEFOP SUBMIT — DEBUG                    ║');
+      console.log('╚══════════════════════════════════════════════════╝');
+      console.log('entityType (original) :', dto.entityType);
+      console.log('entityType (normalized):', normalizedEntityType);
+      console.log('isDraft    :', isDraft);
+      console.log('userId     :', dto.userId);
+      console.log('companyId  :', dto.companyId);
+      console.log('establishmentId:', dto.establishmentId);
+      console.log('formId     :', dto.formId);
+      console.log('data keys  :', Object.keys(dto.data).length);
+      debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
+    }
 
     const normalized = normalizeFlatKeys(dto.data, normalizedEntityType.toLowerCase());
 
-    debugLog('🔄 Normalized keys sample (S0/S1):', {
-      S0Q01: normalized['S0Q01'],
-      S0Q02: normalized['S0Q02'],
-      COOP_S1Q01: normalized['COOP_S1Q01'],
-      COOP_S1Q10: normalized['COOP_S1Q10'],
-      COOP_S1Q11: normalized['COOP_S1Q11'],
-      COOP_S1Q12: normalized['COOP_S1Q12'],
-    });
+    if (debugSubmit) {
+      debugLog('🔄 Normalized keys sample (S0/S1):', {
+        S0Q01: normalized['S0Q01'],
+        S0Q02: normalized['S0Q02'],
+        COOP_S1Q01: normalized['COOP_S1Q01'],
+        COOP_S1Q10: normalized['COOP_S1Q10'],
+        COOP_S1Q11: normalized['COOP_S1Q11'],
+        COOP_S1Q12: normalized['COOP_S1Q12'],
+      });
+    }
 
     const nestedData = buildNestedDto(normalized, normalizedEntityType.toLowerCase());
 
-    debugLog('🔄 respondent :', nestedData['respondent']);
-    debugLog('🔄 cooperative:', nestedData['cooperative']);
-    debugLog('🔄 enterprise :', nestedData['enterprise']);
-    debugLog('🔄 ctd        :', nestedData['ctd']);
-    debugLog('🔄 ong        :', nestedData['ong']);
+    if (debugSubmit) {
+      debugLog('🔄 respondent :', nestedData['respondent']);
+      debugLog('🔄 cooperative:', nestedData['cooperative']);
+      debugLog('🔄 enterprise :', nestedData['enterprise']);
+      debugLog('🔄 ctd        :', nestedData['ctd']);
+      debugLog('🔄 ong        :', nestedData['ong']);
+    }
 
     let questionnaireData: AnyQuestionnaireDto;
     switch (normalizedEntityType) {
