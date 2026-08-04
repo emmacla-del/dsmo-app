@@ -316,14 +316,17 @@ export class PdfService {
   // ── Generate PDFs and upload to Supabase ───────────────────────────────────
 
   async generateDeclarationPdfs(data: PdfData): Promise<{ urls: string[]; hashes: string[] }> {
-    const urls: string[] = [];
-    const hashes: string[] = [];
+    // The 3 copies are fully independent (own buildPdf() document, own
+    // storage path) and hit two different systems — local PDFKit rendering
+    // and the Supabase Storage API — not a shared Postgres connection, so
+    // running them concurrently is safe and cuts wall-clock time to roughly
+    // the slowest single copy instead of the sum of all three.
+    const copies: (1 | 2 | 3)[] = [1, 2, 3];
 
-    for (let copy = 1 as 1 | 2 | 3; copy <= 3; copy++) {
+    const results = await Promise.all(copies.map(async (copy) => {
       const storagePath = this.getStoragePath(data.trackingNumber, data.year, copy);
       const buffer = await this.buildPdf(data, copy);
       const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-      hashes.push(`sha256:${hash}`);
 
       const { error: uploadError } = await this.supabase.storage
         .from(this.bucketName)
@@ -344,10 +347,13 @@ export class PdfService {
         throw new Error(`Failed to create signed URL for copy ${copy}: ${signedUrlError?.message}`);
       }
 
-      urls.push(signedUrlData.signedUrl);
-    }
+      return { url: signedUrlData.signedUrl, hash: `sha256:${hash}` };
+    }));
 
-    return { urls, hashes };
+    return {
+      urls: results.map((r) => r.url),
+      hashes: results.map((r) => r.hash),
+    };
   }
 
   // ── Get signed URL for an existing PDF ─────────────────────────────────────
