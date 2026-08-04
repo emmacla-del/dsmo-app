@@ -164,6 +164,7 @@ model User {
 
   @@index([role])
   @@index([serviceCode])
+  @@index([status])
   @@map("users")
 }
 
@@ -255,6 +256,15 @@ model Declaration {
   qualitativeQuestions QualitativeQuestion[]
   validationSteps      ValidationStep[]
 
+  // (companyId, year, status) covers the existence/draft lookups that run on
+  // every DSMO declaration submission (see DsmoService.submitDeclaration).
+  @@index([companyId, year, status])
+  @@index([status])
+  @@index([region])
+  @@index([division])
+  @@index([year])
+  @@index([createdAt])
+  @@index([submittedAt])
   @@map("declarations")
 }
 
@@ -273,6 +283,7 @@ model Employee {
   salary         Int?
   declaration    Declaration @relation(fields: [declarationId], references: [id])
 
+  @@index([declarationId])
   @@map("employees")
 }
 
@@ -289,6 +300,7 @@ model DeclarationMovement {
   updatedAt      DateTime     @updatedAt
   declaration    Declaration  @relation(fields: [declarationId], references: [id])
 
+  @@index([declarationId])
   @@map("declaration_movements")
 }
 
@@ -304,6 +316,7 @@ model ValidationStep {
   createdAt     DateTime           @default(now())
   declaration   Declaration        @relation(fields: [declarationId], references: [id])
 
+  @@index([declarationId])
   @@map("validation_steps")
 }
 
@@ -329,6 +342,7 @@ model QualitativeQuestion {
   tempAgencyDetails     String?
   declaration           Declaration @relation(fields: [declarationId], references: [id])
 
+  @@index([declarationId])
   @@map("qualitative_questions")
 }
 
@@ -347,6 +361,8 @@ model Notification {
   recipients       NotificationRecipient[]
   senderUser       User                    @relation(fields: [sentBy], references: [id])
 
+  @@index([regionFilter])
+  @@index([sentAt])
   @@map("notifications")
 }
 
@@ -363,6 +379,8 @@ model NotificationRecipient {
   company        Company            @relation(fields: [companyId], references: [id])
   notification   Notification       @relation(fields: [notificationId], references: [id])
 
+  @@index([notificationId])
+  @@index([companyId])
   @@map("notification_recipients")
 }
 
