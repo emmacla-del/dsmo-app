@@ -11,7 +11,38 @@ export class OnefopPuppeteerService {
     private browser: any = null;
     private helpersRegistered = false;  // ← guard: prevents "Helper already registered" error
 
+    // The browser is launched with --single-process (see initializeBrowser),
+    // which can't safely juggle many concurrent pages/tabs — an unbounded
+    // burst of preview/submit requests could crash or OOM the one shared
+    // Chrome process, taking down every in-flight PDF generation with it.
+    // Capping concurrent renders makes a burst queue briefly instead.
+    private readonly maxConcurrentRenders = 2;
+    private activeRenders = 0;
+    private renderQueue: (() => void)[] = [];
+
+    private acquireRenderSlot(): Promise<void> {
+        if (this.activeRenders < this.maxConcurrentRenders) {
+            this.activeRenders++;
+            return Promise.resolve();
+        }
+        return new Promise<void>((resolve) => this.renderQueue.push(resolve));
+    }
+
+    private releaseRenderSlot(): void {
+        // Hand the slot directly to the next waiter rather than decrementing
+        // then letting it re-increment — avoids a race where a slot freed
+        // here is grabbed by a brand-new call before the queued one resumes,
+        // which would let activeRenders exceed maxConcurrentRenders.
+        const next = this.renderQueue.shift();
+        if (next) {
+            next();
+        } else {
+            this.activeRenders--;
+        }
+    }
+
     async generate(data: any): Promise<Buffer> {
+        await this.acquireRenderSlot();
         try {
             console.log(`📄 Generating PDF for: ${data.formType}`);
 
@@ -51,6 +82,8 @@ export class OnefopPuppeteerService {
         } catch (error) {
             console.error('❌ PDF generation error:', error);
             throw error;
+        } finally {
+            this.releaseRenderSlot();
         }
     }
 
