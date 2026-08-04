@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import compression from 'compression';
 import * as dns from 'dns';
 import { AppModule } from './app.module';
 
@@ -28,6 +29,12 @@ async function bootstrap() {
   app.set('trust proxy', 1);
 
   app.use(helmet());
+
+  // Gzips JSON responses (analytics/report/listing payloads can be large).
+  // compression's default filter already skips small bodies and already-
+  // compressed content types (e.g. the PDF endpoints), so this is a no-op
+  // for those responses rather than wasted CPU.
+  app.use(compression());
 
   app.setGlobalPrefix('api'); // ← added
 
