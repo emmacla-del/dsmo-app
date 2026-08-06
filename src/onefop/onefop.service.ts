@@ -97,6 +97,50 @@ export class OnefopService {
         return { success: true, message: 'Preview ready', data: dto.data };
     }
 
+    /**
+     * Autosave / resume support for OnefopUnifiedFormScreenV4, wired up
+     * through home_screen.dart. One slot per establishment+quarter (see
+     * SubmissionDraft's @@unique) — a fresh autosave overwrites the
+     * previous one. Deliberately independent of OnefopSubmission/its
+     * DRAFT status (that's a legacy marker on already-submitted rows, see
+     * `getSubmissions`' status filter), so this can't interfere with the
+     * real submit flow in `submitForm`.
+     */
+    async saveDraft(userId: string, params: { quarterCode: string; entityType: string; draftData: any }) {
+        const company = await this.prisma.company.findFirst({ where: { userId } });
+        if (!company) throw new ForbiddenException('No company profile found');
+
+        const { quarterCode, entityType, draftData } = params;
+        return this.prisma.submissionDraft.upsert({
+            where: { establishmentId_quarterCode: { establishmentId: company.establishmentId, quarterCode } },
+            update: { entityType: entityType?.toUpperCase() as any, draftData, lastSavedAt: new Date(), savedByUserId: userId },
+            create: {
+                establishmentId: company.establishmentId,
+                quarterCode,
+                entityType: entityType?.toUpperCase() as any,
+                draftData,
+                savedByUserId: userId,
+            },
+        });
+    }
+
+    async getDrafts(userId: string) {
+        const company = await this.prisma.company.findFirst({ where: { userId } });
+        if (!company) return [];
+        return this.prisma.submissionDraft.findMany({
+            where: { establishmentId: company.establishmentId },
+            orderBy: { lastSavedAt: 'desc' },
+        });
+    }
+
+    async deleteDraft(userId: string, quarterCode: string) {
+        const company = await this.prisma.company.findFirst({ where: { userId } });
+        if (!company) return;
+        await this.prisma.submissionDraft.deleteMany({
+            where: { establishmentId: company.establishmentId, quarterCode },
+        });
+    }
+
     async getSubmissions(user: any, filters: {
         status?: string;
         entityType?: string;

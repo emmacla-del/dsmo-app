@@ -2,6 +2,9 @@
 import {
     Controller,
     Get,
+    Post,
+    Delete,
+    Body,
     UseGuards,
     Req,
     Res,
@@ -55,5 +58,29 @@ export class OnefopController {
     @Get('active-quarter')
     async getActiveQuarter() {
         return this.onefopService.getActiveQuarter();
+    }
+
+    @Post('draft')
+    @Roles('COMPANY')
+    async saveDraft(
+        @Req() req: any,
+        @Body('quarterCode') quarterCode: string,
+        @Body('entityType') entityType: string,
+        @Body('draftData') draftData: any,
+    ) {
+        return this.onefopService.saveDraft(req.user.id, { quarterCode, entityType, draftData });
+    }
+
+    @Get('draft')
+    @Roles('COMPANY')
+    async getDrafts(@Req() req: any) {
+        return this.onefopService.getDrafts(req.user.id);
+    }
+
+    @Delete('draft/:quarterCode')
+    @Roles('COMPANY')
+    async deleteDraft(@Req() req: any, @Param('quarterCode') quarterCode: string) {
+        await this.onefopService.deleteDraft(req.user.id, quarterCode);
+        return { success: true };
     }
 }

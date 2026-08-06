@@ -227,9 +227,29 @@ model Company {
   declarations               Declaration[]
   notificationRecipients     NotificationRecipient[]
   onefopSubmissions          OnefopSubmission[]
+  dsmoDeclarationDraft       DsmoDeclarationDraft?
 
   @@index([establishmentId], map: "idx_companies_establishmentId")
   @@map("companies")
+}
+
+/// In-progress DSMO declaration data, saved client-side (autosave + explicit
+/// "resume draft" flow in DeclarationWizardScreen) before the company
+/// completes the real POST /dsmo/declaration submission. One per company —
+/// a fresh draft overwrites the previous one. Mirrors OneFOP's
+/// SubmissionDraft, but does not touch the Declaration/DeclarationStatus
+/// pipeline at all, so it can't interfere with the legally-binding submit
+/// flow in DsmoService.submitDeclaration.
+model DsmoDeclarationDraft {
+  id        String   @id @default(uuid())
+  companyId String   @unique
+  year      Int
+  draftData Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@map("dsmo_declaration_drafts")
 }
 
 model Declaration {

@@ -533,6 +533,13 @@ export class DsmoService {
     });
 
     await this.auditService.log(userId, 'SUBMIT_DECLARATION', 'Declaration', submitted.id, trackingNumber);
+    // Best-effort — a leftover draft after a successful submit is a stale-UI
+    // annoyance, not a reason to fail a legally-binding declaration.
+    try {
+      await this.deleteDraft(userId);
+    } catch {
+      // ignored
+    }
     return {
       success: true,
       declaration: { id: submitted.id },
@@ -540,6 +547,36 @@ export class DsmoService {
       pdfUrls: urls,
       fileHashes: hashes,
     };
+  }
+
+  /**
+   * Autosave / resume support for the DeclarationWizardScreen + EmployeeListScreen
+   * flow. Deliberately independent of the Declaration/DeclarationStatus
+   * pipeline (see DsmoDeclarationDraft doc comment in schema.prisma) — a
+   * draft is just an opaque JSON blob the client can round-trip, one per
+   * company, overwritten on every autosave.
+   */
+  async saveDraft(userId: string, year: number, draftData: any) {
+    const company = await this.prisma.company.findUnique({ where: { userId } });
+    if (!company) throw new NotFoundException('Aucun profil entreprise trouvé.');
+
+    return this.prisma.dsmoDeclarationDraft.upsert({
+      where: { companyId: company.id },
+      update: { year, draftData },
+      create: { companyId: company.id, year, draftData },
+    });
+  }
+
+  async getDraft(userId: string) {
+    const company = await this.prisma.company.findUnique({ where: { userId } });
+    if (!company) return null;
+    return this.prisma.dsmoDeclarationDraft.findUnique({ where: { companyId: company.id } });
+  }
+
+  async deleteDraft(userId: string) {
+    const company = await this.prisma.company.findUnique({ where: { userId } });
+    if (!company) return;
+    await this.prisma.dsmoDeclarationDraft.deleteMany({ where: { companyId: company.id } });
   }
 
   async getPendingDeclarations(user: any) {

@@ -1,5 +1,5 @@
 ﻿import {
-  Controller, Post, Body, UseGuards, Req, Get, Patch,
+  Controller, Post, Body, UseGuards, Req, Get, Patch, Delete,
   Param, Query, Res, ParseIntPipe, NotFoundException
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -61,6 +61,29 @@ export class DsmoController {
   @Roles('COMPANY')
   async submitDeclaration(@Req() req: any, @Body() dto: SubmitDeclarationDto) {
     return this.dsmoService.submitDeclaration(req.user.id, dto);
+  }
+
+  @Post('declaration/draft')
+  @Roles('COMPANY')
+  async saveDraft(
+    @Req() req: any,
+    @Body('year') year: number,
+    @Body('draftData') draftData: any,
+  ) {
+    return this.dsmoService.saveDraft(req.user.id, year, draftData);
+  }
+
+  @Get('declaration/draft')
+  @Roles('COMPANY')
+  async getDraft(@Req() req: any) {
+    return this.dsmoService.getDraft(req.user.id);
+  }
+
+  @Delete('declaration/draft')
+  @Roles('COMPANY')
+  async deleteDraft(@Req() req: any) {
+    await this.dsmoService.deleteDraft(req.user.id);
+    return { success: true };
   }
 
   @Post('declaration/preview')
