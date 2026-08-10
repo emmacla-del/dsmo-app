@@ -449,14 +449,12 @@ class DrillSheet extends StatelessWidget {
   final String title;
   final String value;
   final String desc;
-  final List<Map<String, dynamic>> rows;
 
   const DrillSheet({
     super.key,
     required this.title,
     required this.value,
     required this.desc,
-    required this.rows,
   });
 
   @override
@@ -514,34 +512,6 @@ class DrillSheet extends StatelessWidget {
             desc,
             style: const TextStyle(fontSize: 11, color: TextColor.muted),
           ),
-          if (rows.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(color: InkColor.border),
-            const SizedBox(height: 8),
-            ...rows.map(
-              (r) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      r['label']?.toString() ?? '',
-                      style: const TextStyle(
-                          fontSize: 12, color: TextColor.secondary),
-                    ),
-                    Text(
-                      r['value']?.toString() ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: TextColor.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

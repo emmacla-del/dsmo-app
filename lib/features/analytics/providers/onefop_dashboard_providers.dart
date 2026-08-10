@@ -57,6 +57,42 @@ Future<T?> _safeProviderFuture<T>(Future<T> future) async {
   }
 }
 
+/// Parses a `/onefop-analytics/departure-summary` response into its four
+/// raw categories. Shared by [_fetchDepartureTotals] and
+/// [onefopEmploymentBalanceProvider] so both a) the KPI/YoY departures total
+/// and b) the "Dynamique du travail" jobs-lost figure are always derived
+/// from the same categories — previously the latter re-parsed the same
+/// endpoint without an `OTHER` case, so the two could disagree whenever
+/// OTHER-type departures existed.
+({int dismissals, int resignations, int retirements, int other})
+    _parseDepartureBreakdown(dynamic responseData) {
+  int dismissals = 0, resignations = 0, retirements = 0, other = 0;
+  for (final item in _safeList(responseData).map((e) => _safeMap(e))) {
+    final type = (item['departureType'] as String? ?? '').toUpperCase();
+    final count = (item['total'] as num?)?.toInt() ?? 0;
+    switch (type) {
+      case 'DISMISSAL':
+        dismissals = count;
+        break;
+      case 'RESIGNATION':
+        resignations = count;
+        break;
+      case 'RETIREMENT':
+        retirements = count;
+        break;
+      case 'OTHER':
+        other = count;
+        break;
+    }
+  }
+  return (
+    dismissals: dismissals,
+    resignations: resignations,
+    retirements: retirements,
+    other: other,
+  );
+}
+
 /// Shared by [onefopDashboardSummaryProvider] and
 /// [onefopPreviousYearSummaryProvider] — both need real departure totals
 /// (dismissals + resignations + retirements + other) to compute an honest
@@ -83,30 +119,11 @@ Future<({int dismissals, int retirements, int total})> _fetchDepartureTotals(
     },
   );
 
-  int dismissals = 0, resignations = 0, retirements = 0, other = 0;
-  for (final item in _safeList(response.data).map((e) => _safeMap(e))) {
-    final type = (item['departureType'] as String? ?? '').toUpperCase();
-    final count = (item['total'] as num?)?.toInt() ?? 0;
-    switch (type) {
-      case 'DISMISSAL':
-        dismissals = count;
-        break;
-      case 'RESIGNATION':
-        resignations = count;
-        break;
-      case 'RETIREMENT':
-        retirements = count;
-        break;
-      case 'OTHER':
-        other = count;
-        break;
-    }
-  }
-
+  final b = _parseDepartureBreakdown(response.data);
   return (
-    dismissals: dismissals + resignations + other,
-    retirements: retirements,
-    total: dismissals + resignations + retirements + other,
+    dismissals: b.dismissals + b.resignations + b.other,
+    retirements: b.retirements,
+    total: b.dismissals + b.resignations + b.retirements + b.other,
   );
 }
 
@@ -1332,27 +1349,12 @@ final onefopEmploymentBalanceProvider =
   }
   final jobsCreated = permanent + temporary;
 
-  final departureList =
-      _safeList(results[1].data).map((e) => _safeMap(e)).toList();
-  int dismissals = 0;
-  int resignations = 0;
-  int retirements = 0;
-  for (final d in departureList) {
-    final type = (d['departureType'] as String? ?? '').toUpperCase();
-    final count = (d['total'] as num?)?.toInt() ?? 0;
-    switch (type) {
-      case 'DISMISSAL':
-        dismissals = count;
-        break;
-      case 'RESIGNATION':
-        resignations = count;
-        break;
-      case 'RETIREMENT':
-        retirements = count;
-        break;
-    }
-  }
-  final jobsLost = dismissals + resignations + retirements;
+  final departures = _parseDepartureBreakdown(results[1].data);
+  final dismissals = departures.dismissals;
+  final resignations = departures.resignations;
+  final retirements = departures.retirements;
+  final other = departures.other;
+  final jobsLost = dismissals + resignations + retirements + other;
 
   final techList = _safeList(results[2].data).map((e) => _safeMap(e)).toList();
   int techUnemployment = 0;
@@ -1375,6 +1377,7 @@ final onefopEmploymentBalanceProvider =
     'dismissals': dismissals,
     'resignations': resignations,
     'retirements': retirements,
+    'other': other,
     'technicalUnemployment': techUnemployment,
   });
 });

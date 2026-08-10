@@ -1,43 +1,43 @@
 // lib/core/theme/app_theme.dart
-// Government-professional Material 3 theme for ONEFOP
+// Government-professional Material 3 theme, shared across DSMO and ONEFOP
 
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary palette — MINEFOP institutional blue
-  static const Color primary = Color(0xFF1E3A5F);
-  static const Color primaryLight = Color(0xFF2E5A8F);
-  static const Color primaryDark = Color(0xFF0F1F33);
+  // Primary palette — Emerald & Gold (MINEFOP institutional identity)
+  static const Color primary = Color(0xFF0A6640);
+  static const Color primaryLight = Color(0xFF2FA89F);
+  static const Color primaryDark = Color(0xFF063D27);
 
-  // Secondary — teal accent
-  static const Color secondary = Color(0xFF0D7377);
-  static const Color secondaryLight = Color(0xFF14A085);
+  // Secondary — gold accent
+  static const Color secondary = Color(0xFFC9920A);
+  static const Color secondaryLight = Color(0xFF2FA89F);
 
   // Semantic colors
-  static const Color success = Color(0xFF27AE60);
-  static const Color warning = Color(0xFFF39C12);
-  static const Color danger = Color(0xFFE74C3C);
-  static const Color info = Color(0xFF3498DB);
+  static const Color success = Color(0xFF0A6640);
+  static const Color warning = Color(0xFFC9920A);
+  static const Color danger = Color(0xFFE8500A);
+  static const Color info = Color(0xFF1A3A6E);
 
   // Neutral palette
-  static const Color background = Color(0xFFF5F7FA);
+  static const Color background = Color(0xFFFAFAF7);
   static const Color surface = Colors.white;
   static const Color cardBg = Colors.white;
-  static const Color divider = Color(0xFFE8ECF1);
-  static const Color textPrimary = Color(0xFF1A1A2E);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textMuted = Color(0xFF9CA3AF);
+  static const Color divider = Color(0xFFECE7D8);
+  static const Color textPrimary = Color(0xFF0D0D0D);
+  static const Color textSecondary = Color(0xFF4A4A4A);
+  static const Color textMuted = Color(0xFF8A8A8A);
 
   // Chart palette
   static const List<Color> chartColors = [
-    Color(0xFF1E3A5F),
-    Color(0xFF0D7377),
-    Color(0xFF27AE60),
-    Color(0xFFF39C12),
-    Color(0xFFE74C3C),
-    Color(0xFF9B59B6),
-    Color(0xFF3498DB),
-    Color(0xFF1ABC9C),
+    Color(0xFF0A6640),
+    Color(0xFFC9920A),
+    Color(0xFF1A3A6E),
+    Color(0xFF2FA89F),
+    Color(0xFFE8500A),
+    Color(0xFF8A8368),
+    Color(0xFF063D27),
+    Color(0xFFB0B0B0),
   ];
 }
 

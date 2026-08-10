@@ -278,6 +278,7 @@ class EmploymentBalance {
   final int dismissals;
   final int resignations;
   final int retirements;
+  final int other;
   final int technicalUnemployment;
 
   EmploymentBalance({
@@ -288,6 +289,7 @@ class EmploymentBalance {
     required this.dismissals,
     required this.resignations,
     required this.retirements,
+    required this.other,
     required this.technicalUnemployment,
   });
 
@@ -300,6 +302,7 @@ class EmploymentBalance {
       dismissals: (json['dismissals'] as num?)?.toInt() ?? 0,
       resignations: (json['resignations'] as num?)?.toInt() ?? 0,
       retirements: (json['retirements'] as num?)?.toInt() ?? 0,
+      other: (json['other'] as num?)?.toInt() ?? 0,
       technicalUnemployment:
           (json['technicalUnemployment'] as num?)?.toInt() ?? 0,
     );

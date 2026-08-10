@@ -5,8 +5,9 @@ class AppColors {
   AppColors._();
 
   // Brand
-  static const deepEmerald   = Color(0xFF0A6640);
-  static const lightEmerald  = Color(0xFF2FA89F);
+  static const deepEmerald     = Color(0xFF0A6640);
+  static const deepEmeraldDark = Color(0xFF063D27);
+  static const lightEmerald    = Color(0xFF2FA89F);
   static const richGold      = Color(0xFFC9920A);
   static const sunsetOrange  = Color(0xFFE8500A);
   static const deepSapphire  = Color(0xFF1A3A6E);

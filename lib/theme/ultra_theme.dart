@@ -4,28 +4,28 @@ import 'package:flutter/material.dart';
 class UltraTheme {
   UltraTheme._();
 
-  // ── Landing page greens ─────────────────────────────────────
-  static const Color primary = Color(0xFF005F54); // main green
-  static const Color primaryDark = Color(0xFF003D35); // darker
-  static const Color primaryLight = Color(0xFF007A6A); // lighter
-  static const Color primaryLightBg = Color(0xFFEAF6F4); // very light
-  static const Color primaryMid = Color(0xFFD0EDE9); // mid tone
+  // ── Emerald & Gold ───────────────────────────────────────────
+  static const Color primary = Color(0xFF0A6640); // deep emerald
+  static const Color primaryDark = Color(0xFF063D27); // darker
+  static const Color primaryLight = Color(0xFF2FA89F); // lighter
+  static const Color primaryLightBg = Color(0xFFE5F0E9); // very light
+  static const Color primaryMid = Color(0xFFCFE6D9); // mid tone
 
-  // ── Accent (kept from original) ────────────────────────────
-  static const Color accent = Color(0xFF00D9C0);
+  // ── Accent — gold ─────────────────────────────────────────────
+  static const Color accent = Color(0xFFC9920A);
 
   // ── Neutrals ───────────────────────────────────────────────
-  static const Color background = Color(0xFFF9FAFB);
+  static const Color background = Color(0xFFFAFAF7);
   static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF1E293B);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color textPrimary = Color(0xFF0D0D0D);
+  static const Color textSecondary = Color(0xFF4A4A4A);
+  static const Color textMuted = Color(0xFF8A8A8A);
 
   // ── Status ─────────────────────────────────────────────────
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color success = Color(0xFF0A6640);
+  static const Color warning = Color(0xFFC9920A);
+  static const Color error = Color(0xFFE8500A);
+  static const Color info = Color(0xFF1A3A6E);
 
   // ── Shadows ────────────────────────────────────────────────
   static List<BoxShadow> get softShadow => [

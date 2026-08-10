@@ -232,7 +232,6 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
   void _drillDown(BuildContext context, String key, DashboardSummary cur,
       DashboardSummary? prev, DashboardSummary? national) {
     String title, value, desc;
-    final List<Map<String, dynamic>> rows = [];
     switch (key) {
       case 'totalDeclarations':
         title = 'Entreprises déclarantes';
@@ -296,8 +295,7 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          DrillSheet(title: title, value: value, desc: desc, rows: rows),
+      builder: (_) => DrillSheet(title: title, value: value, desc: desc),
     );
   }
 
@@ -558,11 +556,11 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
           child: Row(
             children: [
               Expanded(
-                flex: g.male.round().clamp(1, 1000),
+                flex: g.male.round().clamp(0, 1000),
                 child: Container(height: 8, color: ChartTheme.comparison),
               ),
               Expanded(
-                flex: g.female.round().clamp(1, 1000),
+                flex: g.female.round().clamp(0, 1000),
                 child: Container(height: 8, color: ChartTheme.negative),
               ),
             ],
@@ -637,6 +635,7 @@ class _EmploymentBalanceCompact extends StatelessWidget {
       ('Licenciements', b.dismissals, AccentColor.rose),
       ('Démissions', b.resignations, AccentColor.gold),
       ('Retraites', b.retirements, AccentColor.blue),
+      ('Autres', b.other, TextColor.muted),
     ].where((e) => e.$2 > 0).toList();
 
     return Column(
