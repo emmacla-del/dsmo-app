@@ -1,15 +1,258 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'employee_list_screen.dart';
 import '../../../data/api_client.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../providers/sync_queue_provider.dart';
+import '../../services/draft_service.dart';
+import '../../widgets/drafts_drawer.dart';
 import 'dsmo_form_style.dart';
 
 // Persists chosen language across the session
 final languageProvider = StateProvider<String>((ref) => 'fr');
 
+/// FR/EN copy for the DSMO declaration wizard, keyed by translation key.
+const Map<String, Map<String, String>> _kDsmoWizardStrings = {
+  'appBarTitle': {'fr': 'Déclaration DSMO', 'en': 'DSMO Declaration'},
+  'btnSubmit': {'fr': 'SOUMETTRE', 'en': 'SUBMIT'},
+  'btnContinue': {'fr': 'CONTINUER', 'en': 'CONTINUE'},
+  'btnBack': {'fr': 'RETOUR', 'en': 'BACK'},
+  'step1Title': {
+    'fr': "1. Identité de l'établissement",
+    'en': '1. Establishment identity',
+  },
+  'step2Title': {
+    'fr': '2. Effectifs et mouvements',
+    'en': '2. Workforce and movements',
+  },
+  'step3Title': {
+    'fr': '3. Informations supplémentaires',
+    'en': '3. Additional information',
+  },
+  'sectionIdentification': {
+    'fr': "Identification de l'établissement",
+    'en': 'Establishment identification',
+  },
+  'sectionLocalisation': {'fr': 'Localisation', 'en': 'Location'},
+  'sectionCoordonnees': {
+    'fr': 'Coordonnées administratives',
+    'en': 'Administrative details',
+  },
+  'sectionWorkforceCurrent': {
+    'fr': 'Effectifs au 31 décembre — Année en cours',
+    'en': 'Staff as of Dec 31 — Current year',
+  },
+  'sectionWorkforcePrevious': {
+    'fr': 'Effectifs au 31 décembre — Année précédente',
+    'en': 'Staff as of Dec 31 — Previous year',
+  },
+  'sectionMovements': {
+    'fr': 'Mouvements par catégories de salaire',
+    'en': 'Movements by salary category',
+  },
+  'sectionQualitative': {
+    'fr': 'Informations supplémentaires',
+    'en': 'Additional information',
+  },
+  'fieldBudgetYear': {'fr': 'Année budgétaire', 'en': 'Budget year'},
+  'fieldFillingDate': {'fr': 'Date de remplissage', 'en': 'Filing date'},
+  'fieldCompanyName': {'fr': 'Raison sociale', 'en': 'Company name'},
+  'fieldParentCompany': {
+    'fr': "Raison sociale de l'entreprise mère (si applicable)",
+    'en': 'Parent company name (if applicable)',
+  },
+  'fieldMainActivity': {
+    'fr': 'Activité principale / Secteur',
+    'en': 'Main activity / Sector',
+  },
+  'fieldSecondaryActivity': {
+    'fr': 'Activité secondaire',
+    'en': 'Secondary activity',
+  },
+  'fieldRegion': {'fr': 'Région', 'en': 'Region'},
+  'fieldDepartment': {'fr': 'Département', 'en': 'Department'},
+  'fieldSubdivision': {'fr': 'Arrondissement', 'en': 'Subdivision'},
+  'fieldAddress': {'fr': 'Adresse complète', 'en': 'Full address'},
+  'fieldFax': {'fr': 'Fax', 'en': 'Fax'},
+  'fieldTaxNumber': {
+    'fr': 'N° Contribuable (NIU)',
+    'en': 'Taxpayer No. (NIU)',
+  },
+  'fieldCapital': {
+    'fr': 'Capital social (XAF)',
+    'en': 'Share capital (XAF)',
+  },
+  'fieldCnps': {
+    'fr': 'N° Affiliation CNPS',
+    'en': 'CNPS Affiliation No.',
+  },
+  'fieldMen': {'fr': 'Hommes', 'en': 'Men'},
+  'fieldWomen': {'fr': 'Femmes', 'en': 'Women'},
+  'fieldTotal': {'fr': 'Total', 'en': 'Total'},
+  'hintChooseRegionFirst': {
+    'fr': "Choisissez d'abord une région",
+    'en': 'Choose a region first',
+  },
+  'hintChooseDeptFirst': {
+    'fr': "Choisissez d'abord un département",
+    'en': 'Choose a department first',
+  },
+  'hintLoading': {'fr': 'Chargement...', 'en': 'Loading...'},
+  'hintSelect': {'fr': 'Sélectionner', 'en': 'Select'},
+  'helperCurrentWorkforce': {
+    'fr': 'Saisissez Hommes et Femmes — le Total se calcule automatiquement.',
+    'en': 'Enter Men and Women — the Total is calculated automatically.',
+  },
+  'helperOptionalTotal': {
+    'fr': 'Facultatif — le Total se calcule automatiquement.',
+    'en': 'Optional — the Total is calculated automatically.',
+  },
+  'helperMovementTable': {
+    'fr':
+        'Remplissez les cellules — les totaux par ligne et colonne se calculent automatiquement.',
+    'en':
+        'Fill in the cells — row and column totals are calculated automatically.',
+  },
+  'colMovement': {'fr': 'Mouvement', 'en': 'Movement'},
+  'colCat13': {'fr': 'Cat. 1–3', 'en': 'Cat. 1–3'},
+  'colCat46': {'fr': 'Cat. 4–6', 'en': 'Cat. 4–6'},
+  'colCat79': {'fr': 'Cat. 7–9', 'en': 'Cat. 7–9'},
+  'colCat1012': {'fr': 'Cat. 10–12', 'en': 'Cat. 10–12'},
+  'colNd': {'fr': 'Non Déclaré', 'en': 'Not declared'},
+  'colTotal': {'fr': 'TOTAL', 'en': 'TOTAL'},
+  'rowRecruitment': {'fr': 'Recrutement', 'en': 'Recruitment'},
+  'rowPromotion': {'fr': 'Avancement', 'en': 'Promotion'},
+  'rowDismissal': {'fr': 'Licenciement', 'en': 'Dismissal'},
+  'rowRetirement': {'fr': 'Retraite', 'en': 'Retirement'},
+  'rowDeath': {'fr': 'Décès', 'en': 'Death'},
+  'tooltipAutoCalc': {
+    'fr': 'Calculé automatiquement',
+    'en': 'Automatically calculated',
+  },
+  'errRequired': {'fr': 'Champ requis', 'en': 'Required field'},
+  'errGenderSum': {'fr': 'Total ≠ H + F', 'en': 'Total ≠ M + F'},
+  'errLoadRegions': {
+    'fr': 'Erreur chargement régions',
+    'en': 'Error loading regions',
+  },
+  'errLoadDepartments': {
+    'fr': 'Erreur chargement départements',
+    'en': 'Error loading departments',
+  },
+  'errLoadSubdivisions': {
+    'fr': 'Erreur chargement arrondissements',
+    'en': 'Error loading subdivisions',
+  },
+  'errLoadSectors': {
+    'fr': 'Erreur chargement secteurs',
+    'en': 'Error loading sectors',
+  },
+  'errFillRequired': {
+    'fr': 'Veuillez remplir tous les champs obligatoires',
+    'en': 'Please fill in all required fields',
+  },
+  'errSelectSector': {
+    'fr': 'Veuillez sélectionner un secteur socioprofessionnel',
+    'en': 'Please select a socio-professional sector',
+  },
+  'errSelectRegion': {
+    'fr': 'Veuillez sélectionner une région',
+    'en': 'Please select a region',
+  },
+  'errSelectDepartment': {
+    'fr': 'Veuillez sélectionner un département',
+    'en': 'Please select a department',
+  },
+  'errSelectSubdivision': {
+    'fr': 'Veuillez sélectionner un arrondissement',
+    'en': 'Please select a subdivision',
+  },
+  'errCheckWorkforce': {
+    'fr': 'Veuillez vérifier les effectifs',
+    'en': 'Please check the workforce figures',
+  },
+  'errTotalGtZero': {
+    'fr': 'Le total des employés doit être supérieur à 0',
+    'en': 'Total employees must be greater than 0',
+  },
+  'warnNoMovements': {
+    'fr': 'Aucun mouvement saisi. Vérifiez vos données.',
+    'en': 'No movement entered. Please check your data.',
+  },
+  'qTraining': {
+    'fr': "Votre établissement dispose-t-il d'un centre de formation ?",
+    'en': 'Does your establishment have a training center?',
+  },
+  'qRecruitmentNext': {
+    'fr':
+        "Votre établissement prévoit-il des recrutements l'année prochaine ?",
+    'en': 'Does your establishment plan to recruit next year?',
+  },
+  'qCamerounisation': {
+    'fr':
+        "Votre établissement dispose-t-il d'un plan de camerounisation ?",
+    'en': 'Does your establishment have a Cameroonization plan?',
+  },
+  'qTempAgencies': {
+    'fr':
+        "Votre établissement a-t-il recours aux entreprises de travail temporaire ?",
+    'en': 'Does your establishment use temporary employment agencies?',
+  },
+  'qTempAgencyDetails': {
+    'fr':
+        'Précisez (nom(s) de(s) entreprise(s) de travail temporaire)',
+    'en':
+        'Please specify (name(s) of the temporary employment agency/agencies)',
+  },
+  'draftFoundTitle': {'fr': 'Brouillon trouvé', 'en': 'Draft found'},
+  'draftFoundBody': {
+    'fr':
+        "Une déclaration inachevée a été trouvée. Voulez-vous reprendre là où vous vous étiez arrêté(e) ou recommencer ?",
+    'en':
+        'An unfinished declaration was found. Do you want to resume where you left off, or start over?',
+  },
+  'btnResumeDraft': {'fr': 'Reprendre', 'en': 'Resume'},
+  'btnStartOver': {'fr': 'Recommencer', 'en': 'Start over'},
+  'draftResumedMsg': {
+    'fr': 'Brouillon restauré',
+    'en': 'Draft restored',
+  },
+  'draftsDrawerTitle': {'fr': 'Brouillon', 'en': 'Draft'},
+  'draftConflictTitle': {
+    'fr': 'Brouillon plus récent trouvé',
+    'en': 'A newer draft was found',
+  },
+  'draftConflictBody': {
+    'fr':
+        "Un autre appareil a enregistré une version plus récente de ce brouillon. Laquelle voulez-vous utiliser ?",
+    'en':
+        'Another device saved a newer version of this draft. Which one do you want to use?',
+  },
+  'draftConflictKeepThisDevice': {
+    'fr': 'Garder cet appareil',
+    'en': 'Keep this device',
+  },
+  'draftConflictUseOther': {
+    'fr': "Utiliser l'autre version",
+    'en': 'Use the other version',
+  },
+  'offlinePeriodBanner': {
+    'fr':
+        "Période vérifiée hors ligne — sera revalidée lors de l'envoi.",
+    'en': 'Period checked offline — will be re-verified on submit.',
+  },
+};
+
 class DeclarationWizardScreen extends ConsumerStatefulWidget {
-  const DeclarationWizardScreen({super.key});
+  /// True when the "is the declaration period open" check that gated
+  /// entry to this screen (home_screen.dart) had to fall back to a
+  /// cached/stale result instead of a live one — surfaced so the user
+  /// knows the real check happens at submit, not now.
+  final bool periodCheckedOffline;
+
+  const DeclarationWizardScreen({super.key, this.periodCheckedOffline = false});
 
   @override
   ConsumerState<DeclarationWizardScreen> createState() =>
@@ -99,7 +342,15 @@ class _DeclarationWizardScreenState
   Map<String, dynamic>? _companyData;
   Map<String, dynamic>? _savedCompany; // profile fetched from /dsmo/company
 
+  Timer? _autosaveTimer;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   static const _movSuffixes = ['1_3', '4_6', '7_9', '10_12', 'nd'];
+
+  /// Translates [key] using the currently selected form language.
+  /// Safe to call from build methods and event handlers alike.
+  String _t(String key) =>
+      _kDsmoWizardStrings[key]?[ref.read(languageProvider)] ?? key;
 
   @override
   void initState() {
@@ -112,6 +363,346 @@ class _DeclarationWizardScreenState
     _lastYearWomen.addListener(_autoCalcLastYearTotal);
     for (final c in _movements.values) {
       c.addListener(_onMovementChanged);
+    }
+    for (final c in [
+      _nameController,
+      _parentCompanyController,
+      _secondaryActivityController,
+      _addressController,
+      _faxController,
+      _taxNumberController,
+      _cnpsController,
+      _capitalController,
+      _totalEmp,
+      _menCount,
+      _womenCount,
+      _lastYearTotal,
+      _lastYearMen,
+      _lastYearWomen,
+      _tempAgencyDetailsCtrl,
+      ..._movements.values,
+    ]) {
+      c.addListener(_scheduleAutosave);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForDraft());
+  }
+
+  // ── Draft autosave / resume ────────────────────────────────────────────────
+
+  /// Debounces autosave so rapid keystrokes don't fire a request per
+  /// character — mirrors OnefopFormController.schedAS().
+  void _scheduleAutosave() {
+    _autosaveTimer?.cancel();
+    _autosaveTimer = Timer(const Duration(seconds: 2), _saveDraftNow);
+  }
+
+  Map<String, dynamic> _buildDraftSnapshot() => {
+        'currentStep': _currentStep,
+        'budgetYear': _budgetYear,
+        'fillingDate': _fillingDate.toIso8601String(),
+        'name': _nameController.text,
+        'parentCompany': _parentCompanyController.text,
+        'secondaryActivity': _secondaryActivityController.text,
+        'address': _addressController.text,
+        'fax': _faxController.text,
+        'taxNumber': _taxNumberController.text,
+        'cnpsNumber': _cnpsController.text,
+        'socialCapital': _capitalController.text,
+        'sectorId': _selectedSectorId,
+        'mainActivity': _selectedSectorName,
+        'regionId': _selectedRegionId,
+        'region': _selectedRegionName,
+        'departmentId': _selectedDepartmentId,
+        'department': _selectedDepartmentName,
+        'subdivisionId': _selectedSubdivisionId,
+        'subdivision': _selectedSubdivisionName,
+        'totalEmployees': _totalEmp.text,
+        'menCount': _menCount.text,
+        'womenCount': _womenCount.text,
+        'lastYearTotal': _lastYearTotal.text,
+        'lastYearMenCount': _lastYearMen.text,
+        'lastYearWomenCount': _lastYearWomen.text,
+        'movements': {for (final e in _movements.entries) e.key: e.value.text},
+        'hasTrainingCenter': _hasTrainingCenter,
+        'recruitmentPlansNext': _recruitmentPlansNext,
+        'camerounisationPlan': _camerounisationPlan,
+        'usesTempAgencies': _usesTempAgencies,
+        'tempAgencyDetails': _tempAgencyDetailsCtrl.text,
+      };
+
+  /// Resolves the current company's id, which local drafts are keyed on.
+  /// `_savedCompany` is usually already populated by the time this runs
+  /// (fetched in `_fetchRegionsAndAutoFill`), but that call races with
+  /// `_checkForDraft` at startup, so this re-fetches on a miss — cheap,
+  /// since `ApiClient.getMyCompany` has its own offline cache fallback.
+  Future<String?> _resolveCompanyId() async {
+    final cached = _savedCompany?['id'] as String?;
+    if (cached != null) return cached;
+    try {
+      final api = ref.read(apiClientProvider);
+      final company = await api.getMyCompany();
+      if (mounted && company != null) setState(() => _savedCompany = company);
+      return company?['id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Local storage is the primary draft copy (instant, works offline); the
+  /// server copy (ApiClient.saveDsmoDraft) is a best-effort sync target for
+  /// cross-device resume.
+  Future<void> _saveDraftNow() async {
+    final snapshot = _buildDraftSnapshot();
+    final companyId = await _resolveCompanyId();
+    if (companyId != null) {
+      await DraftService.saveDraft(companyId: companyId, data: snapshot);
+    }
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.saveDsmoDraft(year: _budgetYear, draftData: snapshot);
+    } catch (_) {
+      // Offline — local copy already saved above; the isOnlineProvider
+      // listener in build() pushes it once connectivity returns.
+    }
+  }
+
+  /// Feeds the drafts drawer — DSMO only ever has one slot per company,
+  /// so this is a 0-1 element list, sourced locally first.
+  Future<List<DraftSummary>> _fetchDraftSummaries() async {
+    final companyId = await _resolveCompanyId();
+    if (companyId != null) {
+      final local = await DraftService.loadDraft(companyId: companyId);
+      if (local != null) {
+        final year = local['budgetYear'] as int?;
+        final updatedAt =
+            await DraftService.getSavedAt(companyId: companyId) ??
+                DateTime.now();
+        return [
+          DraftSummary(
+            key: 'current',
+            label: year?.toString() ?? _t('appBarTitle'),
+            updatedAt: updatedAt,
+          ),
+        ];
+      }
+    }
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final draft = await api.getDsmoDraft();
+      if (draft == null) return const [];
+      final year = draft['year'] as int?;
+      final updatedAt =
+          DateTime.tryParse(draft['updatedAt'] as String? ?? '') ??
+              DateTime.now();
+      return [
+        DraftSummary(
+          key: 'current',
+          label: year?.toString() ?? _t('appBarTitle'),
+          updatedAt: updatedAt,
+        ),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _discardDraft() async {
+    final companyId = await _resolveCompanyId();
+    if (companyId != null) {
+      await DraftService.clearDraft(companyId: companyId);
+    }
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.deleteDsmoDraft();
+    } on ApiException catch (e) {
+      // No connectivity — queue the delete so a stale draft doesn't linger
+      // server-side forever; the local copy is already gone either way.
+      if (e.statusCode == null) {
+        await ref.read(syncQueueServiceProvider).enqueue(
+              method: 'delete',
+              path: '/dsmo/declaration/draft',
+              payload: const {},
+              label: 'Suppression brouillon DSMO',
+            );
+      }
+    } catch (_) {
+      // Best-effort — the local copy is already gone.
+    }
+  }
+
+  Future<void> _checkForDraft() async {
+    try {
+      final companyId = await _resolveCompanyId();
+      Map<String, dynamic>? draftData;
+      DateTime? localSavedAt;
+      if (companyId != null) {
+        draftData = await DraftService.loadDraft(companyId: companyId);
+        if (draftData != null) {
+          localSavedAt = await DraftService.getSavedAt(companyId: companyId);
+        }
+      }
+
+      Map<String, dynamic>? serverDraft;
+      try {
+        final api = ref.read(apiClientProvider);
+        serverDraft = await api.getDsmoDraft();
+      } catch (_) {
+        // Offline — proceed with whatever's local.
+      }
+
+      if (serverDraft != null) {
+        final serverDraftData =
+            serverDraft['draftData'] as Map<String, dynamic>?;
+        if (draftData == null) {
+          draftData = serverDraftData;
+        } else {
+          // A >10s buffer so this device's own just-synced push (the
+          // reconnect listener, or a background best-effort save) never
+          // reads back as a "conflict" against itself.
+          final serverUpdatedAt =
+              DateTime.tryParse(serverDraft['updatedAt'] as String? ?? '');
+          if (serverUpdatedAt != null &&
+              localSavedAt != null &&
+              serverUpdatedAt
+                  .isAfter(localSavedAt.add(const Duration(seconds: 10)))) {
+            if (!mounted) return;
+            final useServer = await _showConflictDialog();
+            if (useServer == true) draftData = serverDraftData;
+          }
+        }
+      }
+
+      if (draftData == null || draftData.isEmpty || !mounted) return;
+
+      final resume = await _showDraftDialog();
+      if (!mounted) return;
+      if (resume == true) {
+        await _restoreFromDraft(draftData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_t('draftResumedMsg')),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (resume == false) {
+        await _discardDraft();
+      }
+    } catch (_) {
+      // Best-effort — a failed draft lookup shouldn't block starting the form.
+    }
+  }
+
+  Future<bool?> _showDraftDialog() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(_t('draftFoundTitle')),
+        content: Text(_t('draftFoundBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_t('btnStartOver')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: kAccent, foregroundColor: Colors.white),
+            child: Text(_t('btnResumeDraft')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown when the server has a newer draft than this device's local
+  /// copy — i.e. another device saved one more recently. Returns true to
+  /// use the server's version, false to keep this device's.
+  Future<bool?> _showConflictDialog() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(_t('draftConflictTitle')),
+        content: Text(_t('draftConflictBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_t('draftConflictKeepThisDevice')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: kAccent, foregroundColor: Colors.white),
+            child: Text(_t('draftConflictUseOther')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _restoreFromDraft(Map<String, dynamic> d) async {
+    setState(() {
+      _currentStep = ((d['currentStep'] as int?) ?? 0).clamp(0, 2);
+      _budgetYear = d['budgetYear'] as int? ?? _budgetYear;
+      final fd = d['fillingDate'] as String?;
+      if (fd != null) _fillingDate = DateTime.tryParse(fd) ?? _fillingDate;
+      _nameController.text = d['name'] as String? ?? '';
+      _parentCompanyController.text = d['parentCompany'] as String? ?? '';
+      _secondaryActivityController.text =
+          d['secondaryActivity'] as String? ?? '';
+      _addressController.text = d['address'] as String? ?? '';
+      _faxController.text = d['fax'] as String? ?? '';
+      _taxNumberController.text = d['taxNumber'] as String? ?? '';
+      _cnpsController.text = d['cnpsNumber'] as String? ?? '';
+      _capitalController.text = d['socialCapital']?.toString() ?? '';
+      _totalEmp.text = d['totalEmployees']?.toString() ?? '';
+      _menCount.text = d['menCount']?.toString() ?? '';
+      _womenCount.text = d['womenCount']?.toString() ?? '';
+      _lastYearTotal.text = d['lastYearTotal']?.toString() ?? '';
+      _lastYearMen.text = d['lastYearMenCount']?.toString() ?? '';
+      _lastYearWomen.text = d['lastYearWomenCount']?.toString() ?? '';
+      final movs = d['movements'] as Map<String, dynamic>? ?? {};
+      for (final key in _movements.keys) {
+        _movements[key]!.text = movs[key]?.toString() ?? '0';
+      }
+      _hasTrainingCenter = d['hasTrainingCenter'] as bool? ?? false;
+      _recruitmentPlansNext = d['recruitmentPlansNext'] as bool? ?? false;
+      _camerounisationPlan = d['camerounisationPlan'] as bool? ?? false;
+      _usesTempAgencies = d['usesTempAgencies'] as bool? ?? false;
+      _tempAgencyDetailsCtrl.text = d['tempAgencyDetails'] as String? ?? '';
+    });
+
+    final sectorName = d['mainActivity'] as String?;
+    if (sectorName != null) _autoSelectSector(sectorName);
+
+    final regionId = d['regionId'] as String?;
+    if (regionId != null && mounted) {
+      setState(() {
+        _selectedRegionId = regionId;
+        _selectedRegionName = d['region'] as String?;
+      });
+      await _fetchDepartments(regionId);
+
+      final deptId = d['departmentId'] as String?;
+      if (deptId != null && mounted) {
+        setState(() {
+          _selectedDepartmentId = deptId;
+          _selectedDepartmentName = d['department'] as String?;
+        });
+        await _fetchSubdivisions(deptId);
+
+        final subId = d['subdivisionId'] as String?;
+        if (subId != null && mounted) {
+          setState(() {
+            _selectedSubdivisionId = subId;
+            _selectedSubdivisionName = d['subdivision'] as String?;
+          });
+        }
+      }
     }
   }
 
@@ -153,19 +744,23 @@ class _DeclarationWizardScreenState
   int _movGrandTotal() =>
       _movements.values.fold(0, (s, c) => s + (int.tryParse(c.text) ?? 0));
 
-  /// Fetches regions and the company profile in parallel, then cascades
+  /// Fetches regions and the company profile independently, then cascades
   /// auto-fill: region → department → subdivision.
   Future<void> _fetchRegionsAndAutoFill() async {
     setState(() => _isLoadingRegions = true);
     try {
       final api = ref.read(apiClientProvider);
-      final results = await Future.wait([
-        api.getRegions(),
-        api.getMyCompany(),
-      ]);
-
-      final regions = results[0] as List<dynamic>;
-      final company = results[1] as Map<String, dynamic>?;
+      // Fetched independently — regions are long-lived reference data and
+      // near-always cached, so a company-profile fetch that fails (e.g. no
+      // connectivity and no cached profile yet) must not also block the
+      // region dropdown from populating.
+      final regions = await api.getRegions();
+      Map<String, dynamic>? company;
+      try {
+        company = await api.getMyCompany();
+      } catch (_) {
+        company = null;
+      }
 
       if (!mounted) return;
 
@@ -183,7 +778,7 @@ class _DeclarationWizardScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingRegions = false);
-        _showError('Erreur chargement régions: $e');
+        _showError('${_t('errLoadRegions')}: $e');
       }
     }
   }
@@ -303,7 +898,7 @@ class _DeclarationWizardScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingDepartments = false);
-        _showError('Erreur chargement départements: $e');
+        _showError('${_t('errLoadDepartments')}: $e');
       }
     }
   }
@@ -345,7 +940,7 @@ class _DeclarationWizardScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingSubdivisions = false);
-        _showError('Erreur chargement arrondissements: $e');
+        _showError('${_t('errLoadSubdivisions')}: $e');
       }
     }
   }
@@ -372,7 +967,7 @@ class _DeclarationWizardScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingDepartments = false);
-        _showError('Erreur chargement départements: $e');
+        _showError('${_t('errLoadDepartments')}: $e');
       }
     }
   }
@@ -396,7 +991,7 @@ class _DeclarationWizardScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingSubdivisions = false);
-        _showError('Erreur chargement arrondissements: $e');
+        _showError('${_t('errLoadSubdivisions')}: $e');
       }
     }
   }
@@ -418,7 +1013,7 @@ class _DeclarationWizardScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingSectors = false);
-        _showError('Erreur chargement secteurs: $e');
+        _showError('${_t('errLoadSectors')}: $e');
       }
     }
   }
@@ -435,7 +1030,7 @@ class _DeclarationWizardScreenState
     final total = int.tryParse(_totalEmp.text) ?? 0;
     final men = int.tryParse(_menCount.text) ?? 0;
     final women = int.tryParse(_womenCount.text) ?? 0;
-    if (total > 0 && total != (men + women)) return 'Total ≠ H + F';
+    if (total > 0 && total != (men + women)) return _t('errGenderSum');
     return null;
   }
 
@@ -444,23 +1039,23 @@ class _DeclarationWizardScreenState
 
   void _saveStep1() {
     if (!_step1FormKey.currentState!.validate()) {
-      _showError('Veuillez remplir tous les champs obligatoires');
+      _showError(_t('errFillRequired'));
       return;
     }
     if (_selectedSectorId == null) {
-      _showError('Veuillez sélectionner un secteur socioprofessionnel');
+      _showError(_t('errSelectSector'));
       return;
     }
     if (_selectedRegionId == null) {
-      _showError('Veuillez sélectionner une région');
+      _showError(_t('errSelectRegion'));
       return;
     }
     if (_selectedDepartmentId == null) {
-      _showError('Veuillez sélectionner un département');
+      _showError(_t('errSelectDepartment'));
       return;
     }
     if (_selectedSubdivisionId == null) {
-      _showError('Veuillez sélectionner un arrondissement');
+      _showError(_t('errSelectSubdivision'));
       return;
     }
 
@@ -491,22 +1086,24 @@ class _DeclarationWizardScreenState
       };
       _currentStep = 1;
     });
+    _saveDraftNow();
   }
 
   void _saveStep2() {
     if (!_step2FormKey.currentState!.validate()) {
-      _showError('Veuillez vérifier les effectifs');
+      _showError(_t('errCheckWorkforce'));
       return;
     }
     // Total is auto-calculated; guard against empty (e.g. men+women both blank)
     if ((int.tryParse(_totalEmp.text) ?? 0) <= 0) {
-      _showError('Le total des employés doit être supérieur à 0');
+      _showError(_t('errTotalGtZero'));
       return;
     }
     if (!_validateMovements()) {
-      _showWarning('Aucun mouvement saisi. Vérifiez vos données.');
+      _showWarning(_t('warnNoMovements'));
     }
     setState(() => _currentStep = 2);
+    _saveDraftNow();
   }
 
   void _saveStep3AndGoToEmployees() {
@@ -546,6 +1143,8 @@ class _DeclarationWizardScreenState
           _usesTempAgencies ? _tempAgencyDetailsCtrl.text.trim() : null,
     };
 
+    _saveDraftNow();
+
     if (mounted) {
       Navigator.push(
         context,
@@ -578,14 +1177,32 @@ class _DeclarationWizardScreenState
   Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
 
+    // Local draft writes always succeed; this pushes the current one to
+    // the server as soon as connectivity returns, for cross-device resume.
+    ref.listen<bool>(isOnlineProvider, (previous, next) {
+      if (previous == false && next == true) _saveDraftNow();
+    });
+
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: kCanvas,
+      endDrawer: DraftsDrawer(
+        title: _t('draftsDrawerTitle'),
+        fetchDrafts: _fetchDraftSummaries,
+        onSaveNow: _saveDraftNow,
+        onDelete: (_) => _discardDraft(),
+      ),
       appBar: AppBar(
-        title: const Text('Déclaration DSMO'),
+        title: Text(_t('appBarTitle')),
         backgroundColor: kAccent,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.drafts_outlined),
+            tooltip: _t('draftsDrawerTitle'),
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: ToggleButtons(
@@ -604,13 +1221,17 @@ class _DeclarationWizardScreenState
           ),
         ],
       ),
-      body: Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme:
-              Theme.of(context).colorScheme.copyWith(primary: kAccent),
-        ),
-        child: Center(
-          child: ConstrainedBox(
+      body: Column(
+        children: [
+          if (widget.periodCheckedOffline) _offlinePeriodBanner(),
+          Expanded(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme:
+                    Theme.of(context).colorScheme.copyWith(primary: kAccent),
+              ),
+              child: Center(
+                child: ConstrainedBox(
             // Matches the 480px form-width convention used by the ONEFOP
             // registration wizard (register_screen.dart) and MinefopPortalScreen.
             constraints: const BoxConstraints(maxWidth: 480),
@@ -632,7 +1253,7 @@ class _DeclarationWizardScreenState
                 children: [
                   Expanded(
                     child: DsmoPrimaryButton(
-                      label: isLast ? 'SOUMETTRE' : 'CONTINUER',
+                      label: isLast ? _t('btnSubmit') : _t('btnContinue'),
                       onPressed: details.onStepContinue,
                       icon: isLast
                           ? Icons.send_outlined
@@ -644,7 +1265,7 @@ class _DeclarationWizardScreenState
                     TextButton(
                       onPressed: details.onStepCancel,
                       style: TextButton.styleFrom(foregroundColor: kInkSoft),
-                      child: const Text('RETOUR'),
+                      child: Text(_t('btnBack')),
                     ),
                   ],
                 ],
@@ -653,7 +1274,7 @@ class _DeclarationWizardScreenState
           },
           steps: [
             Step(
-              title: const Text("1. Identité de l'établissement"),
+              title: Text(_t('step1Title')),
               content: Form(
                 key: _step1FormKey,
                 child: SingleChildScrollView(child: _buildIdentityStep()),
@@ -662,7 +1283,7 @@ class _DeclarationWizardScreenState
               state: _currentStep > 0 ? StepState.complete : StepState.indexed,
             ),
             Step(
-              title: const Text('2. Effectifs et mouvements'),
+              title: Text(_t('step2Title')),
               content: Form(
                 key: _step2FormKey,
                 child: _buildWorkforceStep(),
@@ -671,18 +1292,41 @@ class _DeclarationWizardScreenState
               state: _currentStep > 1 ? StepState.complete : StepState.indexed,
             ),
             Step(
-              title: const Text('3. Informations supplémentaires'),
+              title: Text(_t('step3Title')),
               content: _buildQualitativeStep(),
               isActive: _currentStep >= 2,
               state: StepState.indexed,
             ),
           ],
         ),
+              ),
+            ),
+              ),
           ),
-        ),
+        ],
       ),
     );
   }
+
+  /// Shown when the entry-point period check (home_screen.dart) had to
+  /// fall back to a cached result instead of a live one.
+  Widget _offlinePeriodBanner() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: kAccentDeep.withValues(alpha: 0.08),
+        child: Row(
+          children: [
+            const Icon(Icons.wifi_off, color: kAccentDeep, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _t('offlinePeriodBanner'),
+                style: const TextStyle(fontSize: 12.5, color: kAccentDeep),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _buildIdentityStep() {
     final currentYear = DateTime.now().year;
@@ -697,18 +1341,20 @@ class _DeclarationWizardScreenState
           children: [
             Expanded(
               child: _buildDropdown<int>(
-                label: 'Année budgétaire',
+                label: _t('fieldBudgetYear'),
                 value: _budgetYear,
                 items: years,
-                onChanged: (v) =>
-                    setState(() => _budgetYear = v ?? currentYear),
+                onChanged: (v) {
+                  setState(() => _budgetYear = v ?? currentYear);
+                  _scheduleAutosave();
+                },
                 displayName: (v) => v.toString(),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: DsmoField(
-                label: 'Date de remplissage',
+                label: _t('fieldFillingDate'),
                 input: InkWell(
                   borderRadius: BorderRadius.circular(kRadiusSm),
                   onTap: () async {
@@ -720,6 +1366,7 @@ class _DeclarationWizardScreenState
                     );
                     if (picked != null) {
                       setState(() => _fillingDate = picked);
+                      _scheduleAutosave();
                     }
                   },
                   child: InputDecorator(
@@ -741,42 +1388,45 @@ class _DeclarationWizardScreenState
         ),
 
         // ── Section: Identification ──────────────────────────────────────────
-        _sectionHeader("Identification de l'établissement"),
+        _sectionHeader(_t('sectionIdentification')),
 
         _buildTextField(
           _nameController,
-          'Raison sociale',
+          _t('fieldCompanyName'),
           isRequired: true,
           validator: (v) =>
-              v == null || v.trim().isEmpty ? 'Champ requis' : null,
+              v == null || v.trim().isEmpty ? _t('errRequired') : null,
         ),
         _buildTextField(
           _parentCompanyController,
-          "Raison sociale de l'entreprise mère (si applicable)",
+          _t('fieldParentCompany'),
         ),
 
         _buildCascadingDropdown(
-          label: 'Activité principale / Secteur',
+          label: _t('fieldMainActivity'),
           items: _sectors,
           isLoading: _isLoadingSectors,
           selectedId: _selectedSectorId,
           displayName: (item) =>
               item['name'] ?? item['label'] ?? item.toString(),
-          onChanged: (id, name) => setState(() {
-            _selectedSectorId = id;
-            _selectedSectorName = name;
-          }),
+          onChanged: (id, name) {
+            setState(() {
+              _selectedSectorId = id;
+              _selectedSectorName = name;
+            });
+            _scheduleAutosave();
+          },
         ),
         _buildTextField(
           _secondaryActivityController,
-          'Activité secondaire',
+          _t('fieldSecondaryActivity'),
         ),
 
         // ── Section: Localisation ────────────────────────────────────────────
-        _sectionHeader('Localisation'),
+        _sectionHeader(_t('sectionLocalisation')),
 
         _buildCascadingDropdown(
-          label: 'Région',
+          label: _t('fieldRegion'),
           items: _regions,
           isLoading: _isLoadingRegions,
           selectedId: _selectedRegionId,
@@ -794,10 +1444,11 @@ class _DeclarationWizardScreenState
               _subdivisions = [];
             });
             if (id != null) _fetchDepartments(id);
+            _scheduleAutosave();
           },
         ),
         _buildCascadingDropdown(
-          label: 'Département',
+          label: _t('fieldDepartment'),
           items: _departments,
           isLoading: _isLoadingDepartments,
           selectedId: _selectedDepartmentId,
@@ -805,7 +1456,7 @@ class _DeclarationWizardScreenState
               item['name'] ?? item['label'] ?? item.toString(),
           enabled: _selectedRegionId != null,
           hint: _selectedRegionId == null
-              ? "Choisissez d'abord une région"
+              ? _t('hintChooseRegionFirst')
               : null,
           onChanged: (id, name) {
             setState(() {
@@ -816,10 +1467,11 @@ class _DeclarationWizardScreenState
               _subdivisions = [];
             });
             if (id != null) _fetchSubdivisions(id);
+            _scheduleAutosave();
           },
         ),
         _buildCascadingDropdown(
-          label: 'Arrondissement',
+          label: _t('fieldSubdivision'),
           items: _subdivisions,
           isLoading: _isLoadingSubdivisions,
           selectedId: _selectedSubdivisionId,
@@ -827,40 +1479,43 @@ class _DeclarationWizardScreenState
               item['name'] ?? item['label'] ?? item.toString(),
           enabled: _selectedDepartmentId != null,
           hint: _selectedDepartmentId == null
-              ? "Choisissez d'abord un département"
+              ? _t('hintChooseDeptFirst')
               : null,
-          onChanged: (id, name) => setState(() {
-            _selectedSubdivisionId = id;
-            _selectedSubdivisionName = name;
-          }),
+          onChanged: (id, name) {
+            setState(() {
+              _selectedSubdivisionId = id;
+              _selectedSubdivisionName = name;
+            });
+            _scheduleAutosave();
+          },
         ),
 
         // ── Section: Coordonnées administratives ─────────────────────────────
-        _sectionHeader('Coordonnées administratives'),
+        _sectionHeader(_t('sectionCoordonnees')),
 
         _buildTextField(
           _addressController,
-          'Adresse complète',
+          _t('fieldAddress'),
           isRequired: true,
           validator: (v) =>
-              v == null || v.trim().isEmpty ? 'Champ requis' : null,
+              v == null || v.trim().isEmpty ? _t('errRequired') : null,
         ),
 
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _buildTextField(_faxController, 'Fax'),
+              child: _buildTextField(_faxController, _t('fieldFax')),
             ),
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
               child: _buildTextField(
                 _taxNumberController,
-                'N° Contribuable (NIU)',
+                _t('fieldTaxNumber'),
                 isRequired: true,
                 validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Champ requis' : null,
+                    v == null || v.trim().isEmpty ? _t('errRequired') : null,
               ),
             ),
           ],
@@ -870,12 +1525,12 @@ class _DeclarationWizardScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _buildTextField(_capitalController, 'Capital social (XAF)',
+              child: _buildTextField(_capitalController, _t('fieldCapital'),
                   isNumber: true),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField(_cnpsController, 'N° Affiliation CNPS'),
+              child: _buildTextField(_cnpsController, _t('fieldCnps')),
             ),
           ],
         ),
@@ -891,13 +1546,12 @@ class _DeclarationWizardScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const OnefopSubsectionHeader(
-            title: 'Effectifs au 31 décembre — Année en cours'),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
+        OnefopSubsectionHeader(title: _t('sectionWorkforceCurrent')),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
           child: Text(
-            'Saisissez Hommes et Femmes — le Total se calcule automatiquement.',
-            style: TextStyle(fontSize: 11, color: kInkFaint),
+            _t('helperCurrentWorkforce'),
+            style: const TextStyle(fontSize: 11, color: kInkFaint),
           ),
         ),
         Row(
@@ -906,7 +1560,7 @@ class _DeclarationWizardScreenState
             Expanded(
               child: _buildTextField(
                 _menCount,
-                'Hommes',
+                _t('fieldMen'),
                 isNumber: true,
                 isRequired: true,
                 validator: _validateGenderSum,
@@ -916,7 +1570,7 @@ class _DeclarationWizardScreenState
             Expanded(
               child: _buildTextField(
                 _womenCount,
-                'Femmes',
+                _t('fieldWomen'),
                 isNumber: true,
                 isRequired: true,
                 validator: _validateGenderSum,
@@ -924,19 +1578,18 @@ class _DeclarationWizardScreenState
             ),
             const SizedBox(width: 10),
             Expanded(
-              child:
-                  _buildAutoCalcField(_totalEmp, 'Total', isRequired: true),
+              child: _buildAutoCalcField(_totalEmp, _t('fieldTotal'),
+                  isRequired: true),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        const OnefopSubsectionHeader(
-            title: 'Effectifs au 31 décembre — Année précédente'),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
+        OnefopSubsectionHeader(title: _t('sectionWorkforcePrevious')),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
           child: Text(
-            'Facultatif — le Total se calcule automatiquement.',
-            style: TextStyle(fontSize: 11, color: kInkFaint),
+            _t('helperOptionalTotal'),
+            style: const TextStyle(fontSize: 11, color: kInkFaint),
           ),
         ),
         Row(
@@ -945,7 +1598,7 @@ class _DeclarationWizardScreenState
             Expanded(
               child: _buildTextField(
                 _lastYearMen,
-                'Hommes',
+                _t('fieldMen'),
                 isNumber: true,
               ),
             ),
@@ -953,24 +1606,23 @@ class _DeclarationWizardScreenState
             Expanded(
               child: _buildTextField(
                 _lastYearWomen,
-                'Femmes',
+                _t('fieldWomen'),
                 isNumber: true,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _buildAutoCalcField(_lastYearTotal, 'Total'),
+              child: _buildAutoCalcField(_lastYearTotal, _t('fieldTotal')),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        const OnefopSubsectionHeader(
-            title: 'Mouvements par catégories de salaire'),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
+        OnefopSubsectionHeader(title: _t('sectionMovements')),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
           child: Text(
-            'Remplissez les cellules — les totaux par ligne et colonne se calculent automatiquement.',
-            style: TextStyle(fontSize: 11, color: kInkFaint),
+            _t('helperMovementTable'),
+            style: const TextStyle(fontSize: 11, color: kInkFaint),
           ),
         ),
         _buildMovementTable(),
@@ -999,9 +1651,9 @@ class _DeclarationWizardScreenState
             borderRadius: BorderRadius.circular(kRadiusSm),
             borderSide: const BorderSide(color: kAccent, width: 1),
           ),
-          suffixIcon: const Tooltip(
-            message: 'Calculé automatiquement',
-            child: Icon(
+          suffixIcon: Tooltip(
+            message: _t('tooltipAutoCalc'),
+            child: const Icon(
               Icons.calculate_outlined,
               color: kAccent,
               size: 18,
@@ -1011,7 +1663,7 @@ class _DeclarationWizardScreenState
         validator: isRequired
             ? (v) {
                 if (v == null || v.trim().isEmpty || v == '0') {
-                  return 'Champ requis';
+                  return _t('errRequired');
                 }
                 return null;
               }
@@ -1024,52 +1676,64 @@ class _DeclarationWizardScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const OnefopSubsectionHeader(title: 'Informations supplémentaires'),
+        OnefopSubsectionHeader(title: _t('sectionQualitative')),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           activeThumbColor: kAccent,
-          title: const Text(
-            "Votre établissement dispose-t-il d'un centre de formation ?",
-            style: TextStyle(fontSize: 14, color: kInk),
+          title: Text(
+            _t('qTraining'),
+            style: const TextStyle(fontSize: 14, color: kInk),
           ),
           value: _hasTrainingCenter,
-          onChanged: (v) => setState(() => _hasTrainingCenter = v),
+          onChanged: (v) {
+            setState(() => _hasTrainingCenter = v);
+            _scheduleAutosave();
+          },
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           activeThumbColor: kAccent,
-          title: const Text(
-            "Votre établissement prévoit-il des recrutements l'année prochaine ?",
-            style: TextStyle(fontSize: 14, color: kInk),
+          title: Text(
+            _t('qRecruitmentNext'),
+            style: const TextStyle(fontSize: 14, color: kInk),
           ),
           value: _recruitmentPlansNext,
-          onChanged: (v) => setState(() => _recruitmentPlansNext = v),
+          onChanged: (v) {
+            setState(() => _recruitmentPlansNext = v);
+            _scheduleAutosave();
+          },
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           activeThumbColor: kAccent,
-          title: const Text(
-            "Votre établissement dispose-t-il d'un plan de camerounisation ?",
-            style: TextStyle(fontSize: 14, color: kInk),
+          title: Text(
+            _t('qCamerounisation'),
+            style: const TextStyle(fontSize: 14, color: kInk),
           ),
           value: _camerounisationPlan,
-          onChanged: (v) => setState(() => _camerounisationPlan = v),
+          onChanged: (v) {
+            setState(() => _camerounisationPlan = v);
+            _scheduleAutosave();
+          },
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           activeThumbColor: kAccent,
-          title: const Text(
-            "Votre établissement a-t-il recours aux entreprises de travail temporaire ?",
-            style: TextStyle(fontSize: 14, color: kInk),
+          title: Text(
+            _t('qTempAgencies'),
+            style: const TextStyle(fontSize: 14, color: kInk),
           ),
           value: _usesTempAgencies,
-          onChanged: (v) => setState(() => _usesTempAgencies = v),
+          onChanged: (v) {
+            setState(() => _usesTempAgencies = v);
+            _scheduleAutosave();
+          },
         ),
         if (_usesTempAgencies) ...[
           const SizedBox(height: 4),
           _buildTextField(
             _tempAgencyDetailsCtrl,
-            "Précisez (nom(s) de(s) entreprise(s) de travail temporaire)",
+            _t('qTempAgencyDetails'),
           ),
         ],
       ],
@@ -1096,7 +1760,7 @@ class _DeclarationWizardScreenState
         decoration: dsmoInputDecoration(),
         validator: validator ??
             (v) => (isRequired && (v == null || v.trim().isEmpty))
-                ? 'Champ requis'
+                ? _t('errRequired')
                 : null,
       ),
     );
@@ -1126,7 +1790,7 @@ class _DeclarationWizardScreenState
                 .toList()
             : [],
         onChanged: enabled ? onChanged : null,
-        validator: (v) => v == null ? 'Champ requis' : null,
+        validator: (v) => v == null ? _t('errRequired') : null,
       ),
     );
   }
@@ -1151,18 +1815,18 @@ class _DeclarationWizardScreenState
         decoration: dsmoInputDecoration().copyWith(enabled: isEnabled),
         initialValue: selectedId,
         hint: isLoading
-            ? const Text(
-                'Chargement...',
-                style: TextStyle(color: kInkFaint),
+            ? Text(
+                _t('hintLoading'),
+                style: const TextStyle(color: kInkFaint),
               )
             : (hint != null
                 ? Text(
                     hint,
                     style: const TextStyle(color: kInkFaint),
                   )
-                : const Text(
-                    'Sélectionner',
-                    style: TextStyle(color: kInkFaint),
+                : Text(
+                    _t('hintSelect'),
+                    style: const TextStyle(color: kInkFaint),
                   )),
         items: isLoading
             ? null
@@ -1185,7 +1849,7 @@ class _DeclarationWizardScreenState
               }
             : null,
         validator: (v) =>
-            (isEnabled && (v == null || v.isEmpty)) ? 'Champ requis' : null,
+            (isEnabled && (v == null || v.isEmpty)) ? _t('errRequired') : null,
       ),
     );
   }
@@ -1200,27 +1864,27 @@ class _DeclarationWizardScreenState
           border: TableBorder.all(color: kBorder),
           defaultColumnWidth: const IntrinsicColumnWidth(),
           children: [
-            const TableRow(
-              decoration: BoxDecoration(color: kFieldFill),
+            TableRow(
+              decoration: const BoxDecoration(color: kFieldFill),
               children: [
-                _Cell('Mouvement', isHeader: true),
-                _Cell('Cat. 1–3', isHeader: true),
-                _Cell('Cat. 4–6', isHeader: true),
-                _Cell('Cat. 7–9', isHeader: true),
-                _Cell('Cat. 10–12', isHeader: true),
-                _Cell('Non Déclaré', isHeader: true),
-                _Cell('TOTAL', isHeader: true),
+                _Cell(_t('colMovement'), isHeader: true),
+                _Cell(_t('colCat13'), isHeader: true),
+                _Cell(_t('colCat46'), isHeader: true),
+                _Cell(_t('colCat79'), isHeader: true),
+                _Cell(_t('colCat1012'), isHeader: true),
+                _Cell(_t('colNd'), isHeader: true),
+                _Cell(_t('colTotal'), isHeader: true),
               ],
             ),
-            _buildMovementRow('Recrutement', 'rec', isEven: true),
-            _buildMovementRow('Avancement', 'pro', isEven: false),
-            _buildMovementRow('Licenciement', 'lic', isEven: true),
-            _buildMovementRow('Retraite', 'ret', isEven: false),
-            _buildMovementRow('Décès', 'dec', isEven: true),
+            _buildMovementRow(_t('rowRecruitment'), 'rec', isEven: true),
+            _buildMovementRow(_t('rowPromotion'), 'pro', isEven: false),
+            _buildMovementRow(_t('rowDismissal'), 'lic', isEven: true),
+            _buildMovementRow(_t('rowRetirement'), 'ret', isEven: false),
+            _buildMovementRow(_t('rowDeath'), 'dec', isEven: true),
             TableRow(
               decoration: const BoxDecoration(color: kAccentSoft),
               children: [
-                const _Cell('TOTAL', isHeader: true),
+                _Cell(_t('colTotal'), isHeader: true),
                 _TotalDisplayCell(_movColTotal('1_3')),
                 _TotalDisplayCell(_movColTotal('4_6')),
                 _TotalDisplayCell(_movColTotal('7_9')),
@@ -1251,6 +1915,7 @@ class _DeclarationWizardScreenState
 
   @override
   void dispose() {
+    _autosaveTimer?.cancel();
     _nameController.dispose();
     _parentCompanyController.dispose();
     _secondaryActivityController.dispose();

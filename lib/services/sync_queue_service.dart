@@ -60,9 +60,15 @@ class SyncQueueService {
   /// - 2xx → removed from the queue.
   /// - Network/server-class failure (statusCode null or >= 500) → kept,
   ///   attemptCount bumped, lastError recorded for the next flush().
-  /// - Definitive 4xx → kept but no longer auto-retried (resending an
-  ///   unmodified rejection will never succeed) — flagged via lastError
-  ///   rather than silently dropped, so the data isn't lost.
+  /// - Definitive 4xx on a submission → first checked against
+  ///   [_alreadySucceeded], since this exact failure shape (409/403
+  ///   "already exists") is what a genuinely-successful submit looks like
+  ///   on retry, if the original success response never reached the
+  ///   device. If confirmed, silently dropped rather than left showing as
+  ///   a stuck error for a declaration that actually went through.
+  /// - Any other definitive 4xx → kept but no longer auto-retried
+  ///   (resending an unmodified rejection will never succeed) — flagged
+  ///   via lastError rather than silently dropped, so the data isn't lost.
   ///
   /// Mutates entries in place (never calls enqueue()), so a failed flush
   /// can never create a duplicate queue entry.
@@ -82,11 +88,18 @@ class SyncQueueService {
           case 'put':
             await _api.put(item.path, data: item.payload);
             break;
+          case 'delete':
+            await _api.delete(item.path);
+            break;
         }
         await box.delete(item.id);
       } on ApiException catch (e) {
-        item.attemptCount++;
         final retryEligible = e.statusCode == null || e.statusCode! >= 500;
+        if (!retryEligible && await _alreadySucceeded(item)) {
+          await box.delete(item.id);
+          continue;
+        }
+        item.attemptCount++;
         item.lastError =
             retryEligible ? e.message : '${e.statusCode}: ${e.message}';
         await box.put(item.id, item.toMap());
@@ -96,5 +109,36 @@ class SyncQueueService {
         await box.put(item.id, item.toMap());
       }
     }
+  }
+
+  /// True if a queued *submission* (not other request types) that just
+  /// failed with a definitive rejection actually already exists on the
+  /// server — i.e. it previously succeeded and this replay is a harmless
+  /// duplicate, not a real failure. Best-effort: any error checking is
+  /// treated as "can't confirm", so the item stays queued and visible
+  /// rather than being dropped on a guess.
+  Future<bool> _alreadySucceeded(PendingSubmission item) async {
+    try {
+      if (item.path == '/dsmo/declaration') {
+        final year = item.payload['year'];
+        final declarations = await _api.getDeclarations();
+        return declarations.any((d) =>
+            d is Map &&
+            d['year'] == year &&
+            d['status'] != 'DRAFT' &&
+            d['status'] != 'REJECTED');
+      }
+      if (item.path == '/onefop/submit') {
+        final quarterCode = item.payload['quarterCode'];
+        final submissions = await _api.getMyOnefopSubmissions();
+        return submissions.any((s) =>
+            s is Map &&
+            s['quarterCode'] == quarterCode &&
+            s['status'] != 'DRAFT');
+      }
+    } catch (_) {
+      // Can't confirm either way — leave it queued rather than guess.
+    }
+    return false;
   }
 }

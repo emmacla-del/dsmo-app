@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -100,15 +102,36 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
+  Timer? _backstopTimer;
+
   @override
   void initState() {
     super.initState();
     // Replay anything left over from a previous session as soon as the
     // app has a live ApiClient, without blocking the first frame.
     Future.microtask(() => _flushQueue());
+
+    // Backstop for the reconnect listener below: that only fires on a
+    // clean offline→online transition, so it misses the case where the OS
+    // reports "online" (wifi connected) but the API host itself is
+    // unreachable (bad DNS, captive portal, host cold-starting) — nothing
+    // would otherwise retry until some other connectivity blip happens.
+    // Only does real work when there's something queued and the device
+    // currently looks online.
+    _backstopTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (ref.read(isOnlineProvider)) _flushQueue();
+    });
+  }
+
+  @override
+  void dispose() {
+    _backstopTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _flushQueue() async {
+    final count0 = await ref.read(syncQueueServiceProvider).pendingCount();
+    if (count0 == 0) return;
     await ref.read(syncQueueServiceProvider).flush();
     final count = await ref.read(syncQueueServiceProvider).pendingCount();
     if (mounted) ref.read(pendingSubmissionCountProvider.notifier).state = count;

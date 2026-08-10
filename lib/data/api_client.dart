@@ -94,6 +94,25 @@ class ApiClient {
     await box.delete('access_token');
   }
 
+  static const String _userCacheBox = 'userCacheBox';
+
+  /// Last-known `/auth/me` response, used by AuthNotifier._tryRestore() to
+  /// keep a returning user signed in when the cold-start restore call
+  /// can't reach the server (no connectivity) — otherwise a valid stored
+  /// token would still get the user logged out just because the app
+  /// happened to open offline.
+  Future<void> cacheUser(Map<String, dynamic> userJson) async {
+    final box = await Hive.openBox(_userCacheBox);
+    await box.put('value', userJson);
+  }
+
+  Future<Map<String, dynamic>?> getCachedUser() async {
+    final box = await Hive.openBox(_userCacheBox);
+    final cached = box.get('value');
+    if (cached is Map) return Map<String, dynamic>.from(cached);
+    return null;
+  }
+
   // ==================== GENERIC HTTP METHODS ====================
 
   Future<Response<T>> get<T>(String path,
@@ -345,6 +364,12 @@ class ApiClient {
 
   Future<void> logout() async {
     await _clearToken();
+    // Prevent the next login on this device (possibly a different user)
+    // from momentarily seeing the previous session's cached profile.
+    final userBox = await Hive.openBox(_userCacheBox);
+    await userBox.delete('value');
+    final companyBox = await Hive.openBox(_myCompanyCacheBox);
+    await companyBox.delete('value');
   }
 
   /// Self-service "identifiant oublié": resolves the establishmentId from
@@ -875,14 +900,36 @@ class ApiClient {
     }
   }
 
+  static const String _myCompanyCacheBox = 'myCompanyCacheBox';
+  static const String _myDeclarationsCacheBox = 'myDeclarationsCacheBox';
+  static const String _myOnefopSubmissionsCacheBox =
+      'myOnefopSubmissionsCacheBox';
+  static const String _activeCampaignsCacheBox = 'activeCampaignsCacheBox';
+
+  /// Network-first (not stale-while-revalidate like [ReferenceCacheService]
+  /// — this is user-mutable data that must reflect the latest write, not
+  /// static reference data). Only falls back to the last-known profile when
+  /// the request never reached the server at all, so the DSMO wizard can
+  /// still open and auto-fill with the last-synced profile when offline.
   Future<Map<String, dynamic>?> getMyCompany() async {
+    final box = await Hive.openBox(_myCompanyCacheBox);
     try {
       final response = await dio.get('/dsmo/company');
       final data = response.data;
-      if (data is Map<String, dynamic>) return data;
+      if (data is Map<String, dynamic>) {
+        await box.put('value', data);
+        return data;
+      }
       return null;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
+      if (e.response?.statusCode == 404) {
+        await box.delete('value');
+        return null;
+      }
+      if (e.response == null) {
+        final cached = box.get('value');
+        if (cached is Map) return Map<String, dynamic>.from(cached);
+      }
       throw ApiException(
         statusCode: e.response?.statusCode,
         message: _handleError(e),
@@ -892,11 +939,19 @@ class ApiClient {
 
   // ==================== CAMPAIGN METHODS ====================
 
+  /// Network-first + Hive-fallback — see [getMyCompany].
   Future<List<dynamic>> getActiveCampaigns() async {
+    final box = await Hive.openBox(_activeCampaignsCacheBox);
     try {
       final response = await dio.get('/campaigns/active/current');
-      return response.data as List<dynamic>? ?? [];
+      final data = response.data as List<dynamic>? ?? [];
+      await box.put('value', data);
+      return data;
     } on DioException catch (e) {
+      if (e.response == null) {
+        final cached = box.get('value');
+        if (cached is List) return cached;
+      }
       throw ApiException(
         statusCode: e.response?.statusCode,
         message: _handleError(e),
@@ -933,11 +988,120 @@ class ApiClient {
     }
   }
 
+  /// Autosaves in-progress DSMO declaration data so the wizard can be
+  /// resumed later (from this device or another). Mirrors the ONEFOP
+  /// draft flow (saveOnefopDraft) — both persist server-side, one slot
+  /// per declaration.
+  Future<void> saveDsmoDraft({
+    required int year,
+    required Map<String, dynamic> draftData,
+  }) async {
+    try {
+      await dio.post('/dsmo/declaration/draft', data: {
+        'year': year,
+        'draftData': draftData,
+      });
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Returns `{ year, draftData, updatedAt }` for the caller's saved DSMO
+  /// draft, or null if none exists.
+  Future<Map<String, dynamic>?> getDsmoDraft() async {
+    try {
+      final response = await dio.get('/dsmo/declaration/draft');
+      final data = response.data;
+      if (data is Map<String, dynamic>) return data;
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<void> deleteDsmoDraft() async {
+    try {
+      await dio.delete('/dsmo/declaration/draft');
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Autosaves in-progress ONEFOP questionnaire data so the wizard can be
+  /// resumed later. One slot per establishment+quarter — a fresh autosave
+  /// overwrites the previous one for that quarter.
+  Future<void> saveOnefopDraft({
+    required String quarterCode,
+    required String entityType,
+    required Map<String, dynamic> draftData,
+  }) async {
+    try {
+      await dio.post('/onefop/draft', data: {
+        'quarterCode': quarterCode,
+        'entityType': entityType,
+        'draftData': draftData,
+      });
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Returns every saved ONEFOP draft for the caller's establishment
+  /// (each entry has `{ quarterCode, entityType, draftData, lastSavedAt }`).
+  Future<List<Map<String, dynamic>>> getOnefopDrafts() async {
+    try {
+      final response = await dio.get('/onefop/draft');
+      final data = response.data;
+      if (data is List) return data.cast<Map<String, dynamic>>();
+      return [];
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  Future<void> deleteOnefopDraft(String quarterCode) async {
+    try {
+      await dio.delete('/onefop/draft/$quarterCode');
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Network-first + Hive-fallback, same pattern as [getMyCompany] — only
+  /// falls back when the request never reached the server, so the company
+  /// dashboard/declarations list can still render offline from the last
+  /// successful fetch.
   Future<List<dynamic>> getDeclarations() async {
+    final box = await Hive.openBox(_myDeclarationsCacheBox);
     try {
       final response = await dio.get('/dsmo/declarations');
-      return response.data;
+      final data = response.data as List<dynamic>? ?? [];
+      await box.put('value', data);
+      return data;
     } on DioException catch (e) {
+      if (e.response == null) {
+        final cached = box.get('value');
+        if (cached is List) return cached;
+      }
       throw ApiException(
         statusCode: e.response?.statusCode,
         message: _handleError(e),
@@ -1102,6 +1266,30 @@ class ApiClient {
           await dio.get('/onefop/submissions', queryParameters: query);
       return response.data;
     } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Company-scoped, cached variant of [getOnefopSubmissions] — the server
+  /// already restricts a COMPANY-role caller to their own submissions, so
+  /// this takes no filters. Network-first + Hive-fallback, same pattern as
+  /// [getMyCompany]/[getDeclarations], so the company's declarations screen
+  /// can still render offline from the last successful fetch.
+  Future<List<dynamic>> getMyOnefopSubmissions() async {
+    final box = await Hive.openBox(_myOnefopSubmissionsCacheBox);
+    try {
+      final response = await dio.get('/onefop/submissions');
+      final data = response.data as List<dynamic>? ?? [];
+      await box.put('value', data);
+      return data;
+    } on DioException catch (e) {
+      if (e.response == null) {
+        final cached = box.get('value');
+        if (cached is List) return cached;
+      }
       throw ApiException(
         statusCode: e.response?.statusCode,
         message: _handleError(e),

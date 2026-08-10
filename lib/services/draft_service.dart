@@ -19,7 +19,11 @@ class DraftService {
     String? quarterCode,
     String? userId,
     String? entityType,
+    String? companyId,
   }) {
+    if (companyId != null) {
+      return '${_prefix}company_$companyId';
+    }
     if (establishmentId != null && quarterCode != null) {
       return '${_prefix}est_${establishmentId}_$quarterCode';
     }
@@ -27,7 +31,7 @@ class DraftService {
       return '${_prefix}user_${userId}_$entityType';
     }
     throw ArgumentError(
-        'Either (establishmentId+quarterCode) or (userId+entityType) must be provided');
+        'Either companyId, (establishmentId+quarterCode), or (userId+entityType) must be provided');
   }
 
   static String _getTimestampKey(String storageKey) =>
@@ -39,6 +43,7 @@ class DraftService {
     String? quarterCode,
     String? userId,
     String? entityType,
+    String? companyId,
     required Map<String, dynamic> data,
   }) async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,6 +52,7 @@ class DraftService {
       quarterCode: quarterCode,
       userId: userId,
       entityType: entityType,
+      companyId: companyId,
     );
 
     final cleanData = Map<String, dynamic>.fromEntries(
@@ -70,6 +76,7 @@ class DraftService {
     String? quarterCode,
     String? userId,
     String? entityType,
+    String? companyId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final key = _getStorageKey(
@@ -77,6 +84,7 @@ class DraftService {
       quarterCode: quarterCode,
       userId: userId,
       entityType: entityType,
+      companyId: companyId,
     );
 
     final json = prefs.getString(key);
@@ -92,6 +100,7 @@ class DraftService {
           quarterCode: quarterCode,
           userId: userId,
           entityType: entityType,
+          companyId: companyId,
         );
         return null;
       }
@@ -111,6 +120,7 @@ class DraftService {
     String? quarterCode,
     String? userId,
     String? entityType,
+    String? companyId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final key = _getStorageKey(
@@ -118,9 +128,30 @@ class DraftService {
       quarterCode: quarterCode,
       userId: userId,
       entityType: entityType,
+      companyId: companyId,
     );
     await prefs.remove(key);
     await prefs.remove(_getTimestampKey(key));
+  }
+
+  /// When the current draft was last saved, for display in a drafts UI.
+  static Future<DateTime?> getSavedAt({
+    String? establishmentId,
+    String? quarterCode,
+    String? userId,
+    String? entityType,
+    String? companyId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _getStorageKey(
+      establishmentId: establishmentId,
+      quarterCode: quarterCode,
+      userId: userId,
+      entityType: entityType,
+      companyId: companyId,
+    );
+    final ts = prefs.getInt(_getTimestampKey(key));
+    return ts == null ? null : DateTime.fromMillisecondsSinceEpoch(ts);
   }
 
   /// Check if a draft exists (for showing resume prompts / badges).
@@ -129,6 +160,7 @@ class DraftService {
     String? quarterCode,
     String? userId,
     String? entityType,
+    String? companyId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final key = _getStorageKey(
@@ -136,6 +168,7 @@ class DraftService {
       quarterCode: quarterCode,
       userId: userId,
       entityType: entityType,
+      companyId: companyId,
     );
     return prefs.containsKey(key);
   }

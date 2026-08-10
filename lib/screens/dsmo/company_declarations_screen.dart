@@ -161,12 +161,12 @@ class _CompanyDeclarationsScreenState
     try {
       final api = ref.read(apiClientProvider);
       final results = await Future.wait([
-        api.get('/dsmo/declarations'),
-        api.get('/onefop/submissions'),
+        api.getDeclarations(),
+        api.getMyOnefopSubmissions(),
       ]);
 
-      final dsmoList = (results[0].data as List?) ?? [];
-      final onefopList = (results[1].data as List?) ?? [];
+      final dsmoList = results[0];
+      final onefopList = results[1];
 
       final entries = <_HistoryEntry>[];
 

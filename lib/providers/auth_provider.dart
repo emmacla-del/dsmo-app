@@ -43,8 +43,25 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         return;
       }
       final response = await _api.get('/auth/me');
-      final user = User.fromJson(response.data as Map<String, dynamic>);
-      state = AsyncValue.data(user);
+      final json = response.data as Map<String, dynamic>;
+      await _api.cacheUser(json);
+      state = AsyncValue.data(User.fromJson(json));
+    } on ApiException catch (e) {
+      // statusCode null means the request never reached the server — the
+      // stored token may still be perfectly valid, we just can't confirm
+      // it right now. Restore the last-known profile instead of logging
+      // the user out, so a returning user with no connectivity can still
+      // open the app rather than getting stranded on the login screen
+      // (which itself requires network and so can't get them back in).
+      if (e.statusCode == null) {
+        final cached = await _api.getCachedUser();
+        if (cached != null) {
+          state = AsyncValue.data(User.fromJson(cached));
+          return;
+        }
+      }
+      await _api.logout();
+      state = const AsyncValue.data(null);
     } catch (_) {
       await _api.logout();
       state = const AsyncValue.data(null);
@@ -71,7 +88,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   Future<void> refreshUser() async {
     try {
       final response = await _api.get('/auth/me');
-      state = AsyncValue.data(User.fromJson(response.data as Map<String, dynamic>));
+      final json = response.data as Map<String, dynamic>;
+      await _api.cacheUser(json);
+      state = AsyncValue.data(User.fromJson(json));
     } catch (_) {
       // Best-effort — keep the existing cached user on failure.
     }
@@ -98,8 +117,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       }
       final token = response.data['access_token'];
       await _api.setToken(token, persist: remember);
-      final user = User.fromJson(response.data['user']);
-      state = AsyncValue.data(user);
+      final userJson = response.data['user'] as Map<String, dynamic>;
+      await _api.cacheUser(userJson);
+      state = AsyncValue.data(User.fromJson(userJson));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -119,9 +139,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       );
       final token = response.data['access_token'];
       await _api.setToken(token, persist: _pendingRemember);
-      final user = User.fromJson(response.data['user']);
+      final userJson = response.data['user'] as Map<String, dynamic>;
+      await _api.cacheUser(userJson);
       _ref.read(twoFactorChallengeProvider.notifier).state = null;
-      state = AsyncValue.data(user);
+      state = AsyncValue.data(User.fromJson(userJson));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -254,8 +275,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       final token = response.data['access_token'] as String?;
       if (token == null) throw 'Aucun token reçu après inscription.';
       await _api.setToken(token);
-      final user = User.fromJson(response.data['user'] as Map<String, dynamic>);
-      state = AsyncValue.data(user);
+      final userJson = response.data['user'] as Map<String, dynamic>;
+      await _api.cacheUser(userJson);
+      state = AsyncValue.data(User.fromJson(userJson));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -348,8 +370,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       final token = response.data['access_token'] as String?;
       if (token == null) throw 'Aucun token reçu après inscription.';
       await _api.setToken(token);
-      final user = User.fromJson(response.data['user'] as Map<String, dynamic>);
-      state = AsyncValue.data(user);
+      final userJson = response.data['user'] as Map<String, dynamic>;
+      await _api.cacheUser(userJson);
+      state = AsyncValue.data(User.fromJson(userJson));
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

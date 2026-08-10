@@ -36,6 +36,9 @@ import '../data/api_client.dart' show ApiException;
 import '../models/user.dart';
 import '../theme/ultra_theme.dart';
 import '../services/draft_service.dart';
+import '../services/reference_cache_service.dart';
+import '../providers/connectivity_provider.dart';
+import '../providers/sync_queue_provider.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/responsive_helpers.dart';
 
@@ -67,7 +70,7 @@ import 'dsmo/send_notification_screen.dart';
 import 'onefop/onefop_unified_form_screen_v4.dart';
 import 'onefop/onefop_legal_acknowledgment_screen.dart';
 import 'onefop/submissions_viewer_screen.dart'; // NEW: read-only viewer
-import 'onefop/onefop_form_constants.dart' show EntityType;
+import 'onefop/onefop_form_constants.dart' show EntityType, entityTypeString;
 
 // ── Admin ────────────────────────────────────────────────────
 import 'admin/admin_reset_password_screen.dart';
@@ -114,6 +117,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
   bool _railExpanded = true;
+
+  // Short-TTL cache for "is the submission period open" — offline, this
+  // lets a wizard reopen against the last-known window instead of hard
+  // failing; the server re-validates for real at submit time.
+  final _periodCache = ReferenceCacheService();
 
   // Filter state variables
   String? _filterRegion;
@@ -775,12 +783,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
 
-      final activeQuarter = await api.getActiveQuarter();
+      // Cached so a device that's opened the wizard online at least once
+      // can still open it offline — real enforcement happens server-side
+      // at submit (see OnefopService.submitForm).
+      Map<String, dynamic>? activeQuarter;
+      try {
+        activeQuarter = await _periodCache.getCached(
+          key: 'onefop_active_quarter',
+          ttl: const Duration(minutes: 15),
+          fetch: () => api.getActiveQuarter(),
+        );
+      } catch (_) {
+        activeQuarter = null;
+      }
+      final periodCheckedOffline = !ref.read(isOnlineProvider);
       if (!mounted) return;
-      if (activeQuarter['isOpen'] != true) {
+      if (activeQuarter == null || activeQuarter['isOpen'] != true) {
+        if (!context.mounted) return;
         _snack(context,
-            message: activeQuarter['message'] as String? ??
-                context.l10n.noOpenSubmissionPeriodError,
+            message: context.l10n.noOpenSubmissionPeriodError,
             type: SnackBarType.warning);
         return;
       }
@@ -812,14 +833,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final entityTypeStr = _entityTypeString(parsedType);
 
       // ═══════════════════════════════════════════════════════════
-      // UPDATED: Draft keys now use establishmentId + quarterCode
+      // Local storage is the primary draft copy (instant, works offline).
+      // The server copy (ApiClient.saveOnefopDraft) is a best-effort sync
+      // target for cross-device resume.
       // ═══════════════════════════════════════════════════════════
-      final hasDraft = await DraftService.hasDraft(
+      var localDraft = await DraftService.loadDraft(
           establishmentId: establishmentId, quarterCode: activeQuarterCode);
-      if (hasDraft && mounted) {
+      final localSavedAt = localDraft == null
+          ? null
+          : await DraftService.getSavedAt(
+              establishmentId: establishmentId, quarterCode: activeQuarterCode);
+
+      Map<String, dynamic>? matchingServerDraft;
+      try {
+        final serverDrafts = await api.getOnefopDrafts();
+        for (final d in serverDrafts) {
+          if (d['quarterCode'] == activeQuarterCode) {
+            matchingServerDraft = d;
+            break;
+          }
+        }
+      } catch (_) {
+        // Offline — proceed with whatever's local.
+      }
+
+      if (matchingServerDraft != null) {
+        final serverDraftData =
+            matchingServerDraft['draftData'] as Map<String, dynamic>?;
+        if (localDraft == null) {
+          localDraft = serverDraftData;
+        } else {
+          // A >10s buffer so this device's own just-synced push never
+          // reads back as a "conflict" against itself.
+          final serverUpdatedAt = DateTime.tryParse(
+              matchingServerDraft['lastSavedAt'] as String? ?? '');
+          if (serverUpdatedAt != null &&
+              localSavedAt != null &&
+              serverUpdatedAt
+                  .isAfter(localSavedAt.add(const Duration(seconds: 10)))) {
+            if (!mounted) return;
+            final useServer = await _showConflictDialog();
+            if (useServer == true) localDraft = serverDraftData;
+          }
+        }
+      }
+
+      bool resumeDraft = false;
+      if (localDraft != null && mounted) {
         final resume = await _showDraftDialog(
             establishmentId: establishmentId, quarterCode: activeQuarterCode);
         if (resume == null) return;
+        resumeDraft = resume;
       }
 
       var initialData = _companyToInitialData(company, parsedType, user);
@@ -832,8 +896,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       initialData['__meta_entity_type'] = entityTypeStr;
       initialData['__meta_quarter_code'] = activeQuarterCode;
 
-      final existingDraft = await DraftService.loadDraft(
-          establishmentId: establishmentId, quarterCode: activeQuarterCode);
+      final existingDraft = resumeDraft ? localDraft : null;
       final merged = {...?existingDraft, ...initialData};
 
       final prefs = await SharedPreferences.getInstance();
@@ -866,11 +929,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   companyId: companyId,
                   quarterCode: activeQuarterCode,
                   userId: user?.id,
+                  periodCheckedOffline: periodCheckedOffline,
                   onSave: (data) async {
                     await DraftService.saveDraft(
                         establishmentId: establishmentId,
                         quarterCode: activeQuarterCode,
                         data: data);
+                    try {
+                      await api.saveOnefopDraft(
+                          quarterCode: activeQuarterCode,
+                          entityType: entityTypeString(parsedType),
+                          draftData: data);
+                    } catch (_) {
+                      // Offline — local copy already saved above; the
+                      // reconnect listener in OnefopUnifiedFormScreenV4
+                      // pushes it once connectivity returns.
+                    }
                   },
                   onCancel: () {
                     if (context.mounted) Navigator.pop(context);
@@ -879,6 +953,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     await DraftService.clearDraft(
                         establishmentId: establishmentId,
                         quarterCode: activeQuarterCode);
+                    try {
+                      await api.deleteOnefopDraft(activeQuarterCode);
+                    } catch (_) {
+                      // Best-effort — a leftover server draft after a
+                      // successful submit is a stale-UI nuisance, not data
+                      // loss (the local copy is already gone).
+                    }
                   },
                 )),
               );
@@ -898,6 +979,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ═══════════════════════════════════════════════════════════
   // SECTION 7 — DIALOGS (UPDATED for new draft keys)
   // ═══════════════════════════════════════════════════════════
+
+  /// Shown when the server has a newer draft than this device's local
+  /// copy — i.e. another device saved one more recently. Returns true to
+  /// use the server's version, false to keep this device's. Plain
+  /// bilingual literals rather than the .arb-generated l10n strings used
+  /// elsewhere in this dialog, matching the precedent in OfflineBanner —
+  /// keeps this addition from depending on a `flutter gen-l10n` run.
+  Future<bool?> _showConflictDialog() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ResponsiveDialogBox(
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _dialogIcon(Icons.sync_problem_outlined, UltraTheme.warning),
+              const SizedBox(height: 20),
+              Text(
+                  'Brouillon plus récent trouvé / A newer draft was found',
+                  style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
+              const SizedBox(height: 8),
+              Text(
+                  "Un autre appareil a enregistré une version plus récente. / "
+                  'Another device saved a newer version.',
+                  style: UltraTheme.bodyMedium),
+              const SizedBox(height: 24),
+              SubmissionOptionCard(
+                  icon: Icons.cloud_download_outlined,
+                  title: "Utiliser l'autre version / Use the other version",
+                  subtitle: 'Depuis un autre appareil / From another device',
+                  color: UltraTheme.primary,
+                  onTap: () => Navigator.pop(ctx, true)),
+              const SizedBox(height: 12),
+              SubmissionOptionCard(
+                  icon: Icons.smartphone_outlined,
+                  title: 'Garder cet appareil / Keep this device',
+                  subtitle: 'Votre version actuelle / Your current version',
+                  color: UltraTheme.warning,
+                  onTap: () => Navigator.pop(ctx, false)),
+            ]),
+      ),
+    );
+  }
 
   Future<bool?> _showDraftDialog({
     required String establishmentId,
@@ -934,6 +1059,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     await DraftService.clearDraft(
                         establishmentId: establishmentId,
                         quarterCode: quarterCode);
+                    try {
+                      await ref
+                          .read(apiClientProvider)
+                          .deleteOnefopDraft(quarterCode);
+                    } on ApiException catch (e) {
+                      // No connectivity — queue the delete so a stale
+                      // draft doesn't linger server-side forever; the
+                      // local copy is already cleared either way.
+                      if (e.statusCode == null) {
+                        await ref.read(syncQueueServiceProvider).enqueue(
+                              method: 'delete',
+                              path: '/onefop/draft/$quarterCode',
+                              payload: const {},
+                              label: 'Suppression brouillon ONEFOP $quarterCode',
+                            );
+                      }
+                    } catch (_) {
+                      // Best-effort — local copy is already cleared.
+                    }
                     if (!ctx.mounted) return;
                     Navigator.pop(ctx, false);
                   }),
@@ -1035,17 +1179,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// mirrors _openOnefopFormForCompany()'s active-quarter check below.
   Future<void> _openDsmoFormForCompany() async {
     final api = ref.read(apiClientProvider);
-    final activePeriod = await api.getActiveDsmoPeriod();
+    // Same cache-with-fallback pattern as the ONEFOP flow above — lets a
+    // device that's opened the wizard online at least once still open it
+    // offline. DsmoService.submitDeclaration re-validates for real.
+    Map<String, dynamic>? activePeriod;
+    try {
+      activePeriod = await _periodCache.getCached(
+        key: 'dsmo_active_period',
+        ttl: const Duration(minutes: 15),
+        fetch: () => api.getActiveDsmoPeriod(),
+      );
+    } catch (_) {
+      activePeriod = null;
+    }
     if (!mounted) return;
-    if (activePeriod['isOpen'] != true) {
+    if (activePeriod == null || activePeriod['isOpen'] != true) {
       _snack(context,
-          message: activePeriod['message'] as String? ??
-              context.l10n.noOpenDsmoPeriodError,
+          message: context.l10n.noOpenDsmoPeriodError,
           type: SnackBarType.warning);
       return;
     }
     if (!mounted) return;
-    _push(const DeclarationWizardScreen());
+    _push(DeclarationWizardScreen(
+        periodCheckedOffline: !ref.read(isOnlineProvider)));
   }
 
   Widget _dialogIcon(IconData icon, Color color) => Container(

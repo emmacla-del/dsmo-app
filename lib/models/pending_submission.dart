@@ -12,7 +12,7 @@ import 'dart:convert';
 /// has to be JSON-serializable today to be POSTed as a request body.
 class PendingSubmission {
   final String id;
-  final String method; // post | patch | put
+  final String method; // post | patch | put | delete
   final String path;
   final Map<String, dynamic> payload;
   final String label;

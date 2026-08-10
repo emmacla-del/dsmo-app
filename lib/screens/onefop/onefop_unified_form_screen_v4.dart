@@ -27,7 +27,12 @@ import '../../core/focus/renderers/onefop_layout_constants.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
 
 // ── App-wide widgets ─────────────────────────────────────────
+import '../../data/api_client.dart';
+import '../../services/draft_service.dart';
+import '../../services/sync_queue_service.dart';
 import '../../widgets/pdf_viewer_screen.dart';
+import '../../widgets/drafts_drawer.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/sync_queue_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../dashboards/company_workspace_dashboard.dart' show companyWorkspaceProvider;
@@ -49,6 +54,12 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
   final String? userId;
   final VoidCallback? onSubmitSuccess;
 
+  /// True when the "is the submission period open" check that gated entry
+  /// to this screen (home_screen.dart) had to fall back to a cached/stale
+  /// result instead of a live one — surfaced so the user knows the real
+  /// check happens server-side at submit, not now.
+  final bool periodCheckedOffline;
+
   const OnefopUnifiedFormScreenV4({
     super.key,
     required this.entityType,
@@ -60,6 +71,7 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
     this.onCancel,
     this.userId,
     this.onSubmitSuccess,
+    this.periodCheckedOffline = false,
   });
 
   @override
@@ -68,6 +80,7 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
 
 class _State extends State<OnefopUnifiedFormScreenV4> {
   late final OnefopFormController _ctrl;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Reset per section build; staggers each table field's reveal so a
   // heavy page (many big tables) doesn't build them all in one frame.
@@ -101,6 +114,77 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
 
   void _onControllerChange() {
     if (mounted) setState(() {});
+  }
+
+  /// The current quarter's draft comes from local storage first (instant,
+  /// works offline). When online, other quarters' server-side drafts are
+  /// merged in too, so the drawer doubles as cleanup for drafts left behind
+  /// from earlier, now-closed submission rounds.
+  Future<List<DraftSummary>> _fetchDraftSummaries() async {
+    final result = <DraftSummary>[];
+    final establishmentId = widget.establishmentId;
+    final quarterCode = widget.quarterCode;
+
+    if (establishmentId != null && quarterCode != null) {
+      final local = await DraftService.loadDraft(
+          establishmentId: establishmentId, quarterCode: quarterCode);
+      if (local != null) {
+        final updatedAt = await DraftService.getSavedAt(
+                establishmentId: establishmentId, quarterCode: quarterCode) ??
+            DateTime.now();
+        result.add(DraftSummary(
+          key: quarterCode,
+          label: '$quarterCode · ${entityTypeString(widget.entityType)}',
+          updatedAt: updatedAt,
+        ));
+      }
+    }
+
+    final hasLocalForCurrentQuarter = result.isNotEmpty;
+    try {
+      final serverDrafts = await ApiClient().getOnefopDrafts();
+      for (final d in serverDrafts) {
+        final code = d['quarterCode'] as String? ?? '';
+        if (hasLocalForCurrentQuarter && code == quarterCode) continue;
+        final entityType = d['entityType'] as String? ?? '';
+        final updatedAt =
+            DateTime.tryParse(d['lastSavedAt'] as String? ?? '') ??
+                DateTime.now();
+        result.add(DraftSummary(
+          key: code,
+          label: '$code · $entityType',
+          updatedAt: updatedAt,
+        ));
+      }
+    } catch (_) {
+      // Offline — only the local entry (if any) is shown.
+    }
+    return result;
+  }
+
+  Future<void> _deleteDraft(String quarterCode) async {
+    final establishmentId = widget.establishmentId;
+    if (establishmentId != null) {
+      await DraftService.clearDraft(
+          establishmentId: establishmentId, quarterCode: quarterCode);
+    }
+    final api = ApiClient();
+    try {
+      await api.deleteOnefopDraft(quarterCode);
+    } on ApiException catch (e) {
+      // No connectivity — queue the delete so a stale draft doesn't linger
+      // server-side forever; the local copy is already gone either way.
+      if (e.statusCode == null) {
+        await SyncQueueService(api).enqueue(
+          method: 'delete',
+          path: '/onefop/draft/$quarterCode',
+          payload: const {},
+          label: 'Suppression brouillon ONEFOP $quarterCode',
+        );
+      }
+    } catch (_) {
+      // Best-effort — the local copy is already gone.
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -173,25 +257,71 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     // ~52px of chrome on an already-tight phone viewport — only render it
     // on desktop, where there's no compact header.
     final headerSec = desktop ? _currentSection : null;
-    return Scaffold(
-      backgroundColor: kCanvas,
-      appBar: OnefopAppBar(
-        title: title,
-        loading: false,
-        saving: _ctrl.saving,
-        dirty: _ctrl.dirty,
-        onCancel: widget.onCancel,
-        sectionTitle: headerSec == null
-            ? null
-            : kSidebarMeta[headerSec.id]?.label.of(locale),
-        sectionIcon:
-            headerSec == null ? null : kSidebarMeta[headerSec.id]?.icon,
-        sectionComplete:
-            headerSec == null ? false : (_ctrl.valid[headerSec.id] ?? false),
-      ),
-      body: desktop ? _desktopLayout() : _mobileLayout(),
+    // Consumer rather than converting the whole State to ConsumerState —
+    // this is the only spot that needs ref, to push the local draft to the
+    // server as soon as connectivity returns (local writes always succeed
+    // via _ctrl's autosave; this is just the best-effort sync half).
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.listen<bool>(isOnlineProvider, (previous, next) {
+          if (previous == false && next == true) _ctrl.flushPendingSave();
+        });
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: kCanvas,
+          endDrawer: DraftsDrawer(
+            title: 'Brouillon / Draft',
+            fetchDrafts: _fetchDraftSummaries,
+            onSaveNow: () async => _ctrl.flushPendingSave(),
+            onDelete: (draft) => _deleteDraft(draft.key),
+          ),
+          appBar: OnefopAppBar(
+            title: title,
+            loading: false,
+            saving: _ctrl.saving,
+            dirty: _ctrl.dirty,
+            onCancel: widget.onCancel,
+            onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
+            sectionTitle: headerSec == null
+                ? null
+                : kSidebarMeta[headerSec.id]?.label.of(locale),
+            sectionIcon:
+                headerSec == null ? null : kSidebarMeta[headerSec.id]?.icon,
+            sectionComplete: headerSec == null
+                ? false
+                : (_ctrl.valid[headerSec.id] ?? false),
+          ),
+          body: Column(
+            children: [
+              if (widget.periodCheckedOffline) _offlinePeriodBanner(),
+              Expanded(child: desktop ? _desktopLayout() : _mobileLayout()),
+            ],
+          ),
+        );
+      },
     );
   }
+
+  /// Shown when the entry-point period check (home_screen.dart) had to
+  /// fall back to a cached result instead of a live one.
+  Widget _offlinePeriodBanner() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: kAccent.withValues(alpha: 0.08),
+        child: const Row(
+          children: [
+            Icon(Icons.wifi_off, color: kAccent, size: 16),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Période vérifiée hors ligne — sera revalidée lors de l\'envoi. '
+                '/ Period checked offline — will be re-verified on submit.',
+                style: TextStyle(fontSize: 12.5, color: kAccent),
+              ),
+            ),
+          ],
+        ),
+      );
 
   // ═══════════════════════════════════════════════════════════
   // CURRENT SECTION  (drives the app bar's fused section row)

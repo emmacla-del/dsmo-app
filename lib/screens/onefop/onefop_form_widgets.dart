@@ -2018,6 +2018,7 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool saving;
   final bool dirty;
   final VoidCallback? onCancel;
+  final VoidCallback? onOpenDrafts;
   final String? sectionTitle;
   final IconData? sectionIcon;
   final bool sectionComplete;
@@ -2029,6 +2030,7 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.saving,
     required this.dirty,
     this.onCancel,
+    this.onOpenDrafts,
     this.sectionTitle,
     this.sectionIcon,
     this.sectionComplete = false,
@@ -2126,6 +2128,11 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
                             color: Colors.white70),
               ),
             ),
+          ),
+        if (onOpenDrafts != null)
+          IconButton(
+            icon: const Icon(Icons.drafts_outlined, color: Colors.white70),
+            onPressed: onOpenDrafts,
           ),
         if (onCancel != null)
           TextButton(
