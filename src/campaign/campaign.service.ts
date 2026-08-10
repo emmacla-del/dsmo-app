@@ -89,6 +89,18 @@ export class CampaignService {
             orderBy: { createdAt: 'desc' },
         });
 
+        // Self-heal: the nightly scheduler is the only other thing that
+        // flips a passed-deadline campaign from ACTIVE to CLOSED, so without
+        // this a campaign can sit here showing "Active" for up to 24h after
+        // it has already stopped appearing in the company workspace (which
+        // filters live by deadline on every request). Reconcile eagerly so
+        // the two views never disagree.
+        await Promise.all(
+            campaigns
+                .filter(c => this._isPastDeadline(c))
+                .map(async (c) => Object.assign(c, await this.expireCampaign(c.id))),
+        );
+
         // FIX N+1: fetch all campaign progress in a single grouped query
         // instead of one DB roundtrip per campaign.
         const campaignIds = campaigns.map(c => c.id);
@@ -242,6 +254,23 @@ export class CampaignService {
         });
         await this._closeCollectionRound(id, actorUserId ?? campaign.createdBy ?? undefined);
         return campaign;
+    }
+
+    // Shared by the nightly deadline scheduler and listCampaigns' eager
+    // reconciliation, so a campaign expires the same way (one expiry
+    // notification, then closed) regardless of which of the two notices
+    // the passed deadline first.
+    async expireCampaign(id: string) {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const alreadyNotified = await this.prisma.campaignReminder.findFirst({
+            where: { campaignId: id, reminderType: 'CAMPAIGN_EXPIRED', sentAt: { gte: startOfToday } },
+        });
+        if (!alreadyNotified) {
+            await this.sendReminders(id, 'CAMPAIGN_EXPIRED');
+        }
+        return this.closeCampaign(id);
     }
 
     async extendDeadline(id: string, newDeadline: Date) {
@@ -493,6 +522,15 @@ export class CampaignService {
                 },
             });
         });
+    }
+
+    // Mirrors the date filter getActiveCampaignsForCompany uses (deadline
+    // strictly before now), so a campaign can't linger as "Active" in the
+    // admin list after it has already stopped being returned to companies.
+    private _isPastDeadline(campaign: DataCampaign): boolean {
+        if (campaign.status !== 'ACTIVE') return false;
+        const deadline = campaign.extendedDeadline ?? campaign.deadline;
+        return !!deadline && deadline.getTime() < Date.now();
     }
 
     /** Closes the SubmissionRound tied to this campaign, if one is open. */

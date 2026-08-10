@@ -32,7 +32,7 @@ export class CampaignSchedulerService {
 
             try {
                 if (daysRemaining < 0) {
-                    await this._handleExpiry(campaign.id, startOfToday);
+                    await this._handleExpiry(campaign.id);
                 } else if (campaign.reminderDays.includes(daysRemaining)) {
                     const reminderType = daysRemaining <= 1 ? 'FINAL_REMINDER' : 'DEADLINE_APPROACHING';
                     await this._sendIfNotAlreadySentToday(campaign.id, reminderType, startOfToday);
@@ -58,13 +58,7 @@ export class CampaignSchedulerService {
         await this.campaignService.sendReminders(campaignId, reminderType);
     }
 
-    private async _handleExpiry(campaignId: string, startOfToday: Date) {
-        const alreadyNotified = await this.prisma.campaignReminder.findFirst({
-            where: { campaignId, reminderType: 'CAMPAIGN_EXPIRED', sentAt: { gte: startOfToday } },
-        });
-        if (!alreadyNotified) {
-            await this.campaignService.sendReminders(campaignId, 'CAMPAIGN_EXPIRED');
-        }
-        await this.campaignService.closeCampaign(campaignId);
+    private async _handleExpiry(campaignId: string) {
+        await this.campaignService.expireCampaign(campaignId);
     }
 }
