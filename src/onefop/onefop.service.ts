@@ -4,6 +4,7 @@ import {
     ForbiddenException,
     ConflictException,
     NotFoundException,
+    BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -18,6 +19,18 @@ export class OnefopService {
 
     async submitForm(userId: string, dto: OnefopSubmissionDto) {
         const { data, entityType, isDraft, formId, establishmentId, quarterCode, __meta } = dto;
+
+        // Re-validated here (not just client-side) so an offline-queued
+        // submission that fires after the round has since closed is
+        // rejected rather than silently accepted late. Only gates the real
+        // submission — the isDraft write is just an autosave-adjacent status,
+        // not a legal filing.
+        if (!isDraft) {
+            const activeQuarter = await this.getActiveQuarter();
+            if (!activeQuarter.isOpen) {
+                throw new BadRequestException(activeQuarter.message);
+            }
+        }
 
         // NORMALIZE entityType to uppercase (database expects ENTREPRISE, COOPERATIVE, CTD, ONG)
         const normalizedEntityType = entityType?.toUpperCase() || 'ENTREPRISE';
