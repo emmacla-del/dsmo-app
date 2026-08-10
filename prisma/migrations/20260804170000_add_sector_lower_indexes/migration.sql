@@ -12,10 +12,15 @@
 -- however, tracked here in the normal migrations folder so it's applied the
 -- same way as every other migration in this project.
 --
--- CONCURRENTLY avoids a table lock while building the index; Prisma Migrate
--- detects CONCURRENTLY and runs this file outside a transaction
--- automatically — do not wrap these statements in BEGIN/COMMIT.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "onefop_enterprise_details_sector_lower_idx" ON "onefop_enterprise_details" (LOWER("sector"));
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "onefop_cooperative_details_sector_lower_idx" ON "onefop_cooperative_details" (LOWER("sector"));
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "onefop_ctd_details_sector_lower_idx" ON "onefop_ctd_details" (LOWER("sector"));
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "onefop_ong_details_sector_lower_idx" ON "onefop_ong_details" (LOWER("sector"));
+-- Originally written with CONCURRENTLY to avoid a table lock during
+-- deploy, but Prisma only runs a migration file outside a transaction
+-- when it contains a single statement — with 4 statements in one file, it
+-- got wrapped in a transaction anyway and CONCURRENTLY is rejected
+-- outright by Postgres in that context (error 25001). Dropped
+-- CONCURRENTLY rather than splitting into 4 files; these are small
+-- lookup tables, so the brief lock during a plain CREATE INDEX is an
+-- acceptable trade for keeping this as one file.
+CREATE INDEX IF NOT EXISTS "onefop_enterprise_details_sector_lower_idx" ON "onefop_enterprise_details" (LOWER("sector"));
+CREATE INDEX IF NOT EXISTS "onefop_cooperative_details_sector_lower_idx" ON "onefop_cooperative_details" (LOWER("sector"));
+CREATE INDEX IF NOT EXISTS "onefop_ctd_details_sector_lower_idx" ON "onefop_ctd_details" (LOWER("sector"));
+CREATE INDEX IF NOT EXISTS "onefop_ong_details_sector_lower_idx" ON "onefop_ong_details" (LOWER("sector"));
