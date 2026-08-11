@@ -51,6 +51,32 @@ class ReferenceCacheService {
     return value;
   }
 
+  /// Network-first with cache fallback — for time-sensitive gates (e.g. "is
+  /// a submission period currently open") where getCached()'s
+  /// return-stale-immediately behavior would wrongly block a real
+  /// submission window as soon as one entity's device had ever cached a
+  /// "closed" answer. Always attempts a live fetch first; the cache is
+  /// only read when that fetch itself fails (offline), and is refreshed on
+  /// every successful fetch.
+  Future<T> getFresh<T>({
+    required String key,
+    required Future<T> Function() fetch,
+  }) async {
+    final box = await _openBox();
+    try {
+      final value = await fetch();
+      await box.put(key, {
+        'value': value,
+        'fetchedAt': DateTime.now().toIso8601String(),
+      });
+      return value;
+    } catch (_) {
+      final cached = box.get(key) as Map?;
+      if (cached == null) rethrow;
+      return cached['value'] as T;
+    }
+  }
+
   Future<void> _refreshInBackground<T>(
     String key,
     Future<T> Function() fetch,

@@ -788,9 +788,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // at submit (see OnefopService.submitForm).
       Map<String, dynamic>? activeQuarter;
       try {
-        activeQuarter = await _periodCache.getCached(
+        activeQuarter = await _periodCache.getFresh(
           key: 'onefop_active_quarter',
-          ttl: const Duration(minutes: 15),
           fetch: () => api.getActiveQuarter(),
         );
       } catch (_) {
@@ -1184,9 +1183,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // offline. DsmoService.submitDeclaration re-validates for real.
     Map<String, dynamic>? activePeriod;
     try {
-      activePeriod = await _periodCache.getCached(
+      activePeriod = await _periodCache.getFresh(
         key: 'dsmo_active_period',
-        ttl: const Duration(minutes: 15),
         fetch: () => api.getActiveDsmoPeriod(),
       );
     } catch (_) {

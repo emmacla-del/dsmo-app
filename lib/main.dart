@@ -87,9 +87,23 @@ final GoRouter router = GoRouter(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Hive.initFlutter();
-  Hive.registerAdapter(EmployeeAdapter());
-  await Hive.openBox('tokenBox');
+  // A corrupt/locked local box must never block runApp() — that's the
+  // difference between "logged out" and "app won't open" for whichever
+  // device has a bad tokenBox on disk.
+  try {
+    await Hive.initFlutter();
+    Hive.registerAdapter(EmployeeAdapter());
+    await Hive.openBox('tokenBox');
+  } catch (_) {
+    try {
+      await Hive.deleteBoxFromDisk('tokenBox');
+      await Hive.openBox('tokenBox');
+    } catch (_) {
+      // Local storage still unavailable — proceed without it. ApiClient
+      // and other Hive.openBox('tokenBox') call sites already re-open it
+      // lazily and tolerate a missing/empty box.
+    }
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
