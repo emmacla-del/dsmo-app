@@ -19,6 +19,8 @@ const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const TWO_FACTOR_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const TWO_FACTOR_CHALLENGE_JWT_TTL = '10m';
+const MAX_LOGIN_ATTEMPTS = 8; // consecutive failures before lockout
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 // Demo-grade self-service reset: fixed pool of 4 questions answered
 // against existing Company fields. No new table — see
@@ -70,8 +72,39 @@ export class AuthService {
       }
     }
     if (!user) return null;
+
+    // Account lockout: the global ThrottlerGuard (60 req/60s per IP) doesn't
+    // stop credential stuffing against one specific account from rotating
+    // IPs, since it isn't keyed by the account being attacked. This counter
+    // is keyed by the account itself, so it holds regardless of source IP.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
+      throw new UnauthorizedException(
+        `Trop de tentatives échouées. Réessayez dans ${minutesLeft} minute(s).`,
+      );
+    }
+
     const passwordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!passwordValid) return null;
+    if (!passwordValid) {
+      const attempts = user.failedLoginAttempts + 1;
+      const shouldLock = attempts >= MAX_LOGIN_ATTEMPTS;
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: shouldLock
+          ? {
+              failedLoginAttempts: 0,
+              lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
+            }
+          : { failedLoginAttempts: attempts },
+      });
+      return null;
+    }
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
+    }
     if (user.status === 'PENDING_APPROVAL') {
       throw new UnauthorizedException(
         "Votre compte est en attente d'approbation par un administrateur.",

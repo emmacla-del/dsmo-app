@@ -1,5 +1,5 @@
 // src/questionnaires/questionnaires.service.ts
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
 import { OnefopResponseDto } from '../dto/onefop-response.dto';
@@ -151,6 +151,27 @@ export class QuestionnairesService {
     if (!isDraft) {
       await this.assertOnefopRoundOpen();
     }
+
+    // dto.companyId / dto.establishmentId are client-supplied and must
+    // never be trusted for attribution — the controller only overrides
+    // dto.userId from req.user.id, so without this a caller could edit the
+    // request body to attach their submission to a rival company's ID.
+    // dto.userId itself IS trustworthy (server-set), so the caller's own
+    // Company row — resolved from it — is the only valid source for both
+    // fields. Mirrors the same lookup already used by
+    // OnefopService.submitForm.
+    if (!dto.userId) {
+      throw new ForbiddenException('Authentification requise.');
+    }
+    const submittingCompany = await this.prisma.company.findFirst({
+      where: { userId: dto.userId },
+    });
+    if (!submittingCompany) {
+      throw new ForbiddenException("Aucun profil d'entreprise associé à ce compte.");
+    }
+    const resolvedCompanyId = submittingCompany.id;
+    const resolvedEstablishmentId = submittingCompany.establishmentId;
+
     // Normalize entityType to uppercase
     const normalizedEntityType = normalizeEntityType(dto.entityType);
 
@@ -168,8 +189,8 @@ export class QuestionnairesService {
       console.log('entityType (normalized):', normalizedEntityType);
       console.log('isDraft    :', isDraft);
       console.log('userId     :', dto.userId);
-      console.log('companyId  :', dto.companyId);
-      console.log('establishmentId:', dto.establishmentId);
+      console.log('companyId (resolved):', resolvedCompanyId);
+      console.log('establishmentId (resolved):', resolvedEstablishmentId);
       console.log('formId     :', dto.formId);
       console.log('data keys  :', Object.keys(dto.data).length);
       debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
@@ -439,15 +460,15 @@ export class QuestionnairesService {
           rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
           submissionDate: new Date(),
-          establishmentId: dto.establishmentId,
+          establishmentId: resolvedEstablishmentId,
           quarterCode: dto.quarterCode ?? this.getCurrentQuarter(),
           region: geoRegion,
           department: geoDept,
           subdivision: geoSubdiv,
           status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
           flags: coherenceFlags.length ? (coherenceFlags as any) : undefined,
-          user: dto.userId ? { connect: { id: dto.userId } } : undefined,
-          company: dto.companyId ? { connect: { id: dto.companyId } } : undefined,
+          user: { connect: { id: dto.userId } },
+          company: { connect: { id: resolvedCompanyId } },
           regionRef: regionId ? { connect: { id: regionId } } : undefined,
           departmentRef: departmentId ? { connect: { id: departmentId } } : undefined,
           subdivisionRef: subdivisionId ? { connect: { id: subdivisionId } } : undefined,

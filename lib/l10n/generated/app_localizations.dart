@@ -4009,7 +4009,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsFieldSiret.
   ///
   /// In fr, this message translates to:
-  /// **'Numéro SIRET'**
+  /// **'Numéro d\'identifiant unique (NIU)'**
   String get settingsFieldSiret;
 
   /// No description provided for @settingsFieldPhone.
@@ -4227,6 +4227,48 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Enregistrer'**
   String get settingsSaveButton;
+
+  /// No description provided for @settingsProfileSaved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les informations de votre établissement ont été mises à jour.'**
+  String get settingsProfileSaved;
+
+  /// No description provided for @settingsProfileSaveError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d\'enregistrer vos modifications : {error}'**
+  String settingsProfileSaveError(Object error);
+
+  /// No description provided for @settingsPasswordChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre mot de passe a été modifié.'**
+  String get settingsPasswordChanged;
+
+  /// No description provided for @settingsPasswordChangeError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de modifier le mot de passe : {error}'**
+  String settingsPasswordChangeError(Object error);
+
+  /// No description provided for @settingsPasswordFieldsRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renseignez votre mot de passe actuel et le nouveau.'**
+  String get settingsPasswordFieldsRequired;
+
+  /// No description provided for @settingsContactEmailReadOnlyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Il s\'agit de votre email de connexion. Contactez un administrateur pour le modifier.'**
+  String get settingsContactEmailReadOnlyHint;
+
+  /// No description provided for @settingsRegistrationNumberReadOnlyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Attribué lors de l\'inscription, non modifiable ici.'**
+  String get settingsRegistrationNumberReadOnlyHint;
 
   /// No description provided for @declarationsTabLabel.
   ///

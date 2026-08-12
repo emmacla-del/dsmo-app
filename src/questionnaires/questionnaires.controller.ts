@@ -22,6 +22,8 @@ import {
 } from '../services/pdf-data-mapper.service';
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 // Normalize any casing Flutter sends → lowercase key used internally
 function normalizeEntityTypeForPreview(raw: string): string {
@@ -44,6 +46,7 @@ export class QuestionnairesController {
   ) { }
 
   @Post('preview')
+  @UseGuards(JwtAuthGuard)
   @UsePipes(
     new ValidationPipe({
       transform: false,
@@ -158,7 +161,8 @@ export class QuestionnairesController {
   }
 
   @Post('submit')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COMPANY')
   @UsePipes(
     new ValidationPipe({
       transform: false,

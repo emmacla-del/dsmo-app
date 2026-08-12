@@ -526,6 +526,26 @@ class ApiClient {
     }
   }
 
+  /// Changes the caller's own password (see backend
+  /// AuthService.changePassword). Throws ApiException with the backend's
+  /// message (e.g. wrong current password) on failure.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await dio.patch('/auth/change-password', data: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      });
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   /// Deactivates the caller's own account (soft delete — see backend
   /// AuthService.deactivateOwnAccount). Blocks future logins immediately.
   Future<void> deleteMyAccount() async {

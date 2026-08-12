@@ -205,13 +205,13 @@ export class DsmoService {
       department: dto.department,
       subdivision: subdivisionValue,
       address: dto.address,
+      phone: dto.phone,
       parentCompany: dto.parentCompany,
       secondaryActivity: dto.secondaryActivity,
       cnpsNumber: dto.cnpsNumber,
       fax: dto.fax,
       socialCapital: dto.socialCapital,
       ...(dto.entityType ? { entityType: dto.entityType as any } : {}),
-      totalEmployees: 0,
       ...(establishmentId ? {
         establishmentId,
         establishmentIdGeneratedAt: new Date()
@@ -219,13 +219,20 @@ export class DsmoService {
     };
 
     try {
+      // totalEmployees is intentionally NOT in the shared `data` object
+      // above: it used to be hardcoded to 0 there and applied to every
+      // upsert including `update`, so any profile save (e.g. the Settings
+      // screen, or picking an entity type before a first ONEFOP
+      // submission — see home_screen.dart) silently wiped out the real
+      // headcount the dashboard displays. It should only ever default to 0
+      // when the Company row is first created.
       const company = await this.prisma.company.upsert({
         where: { userId },
         update: {
           ...data,
           establishmentId: existing?.establishmentId || establishmentId,
         },
-        create: { userId, ...data },
+        create: { userId, totalEmployees: 0, ...data },
       });
       await this.auditService.log(userId, 'CREATE_COMPANY_PROFILE', 'Company', company.id, dto.name);
       return company;

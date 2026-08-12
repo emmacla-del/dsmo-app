@@ -2188,7 +2188,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsFieldContactEmail => 'Email de contact';
 
   @override
-  String get settingsFieldSiret => 'Numéro SIRET';
+  String get settingsFieldSiret => 'Numéro d\'identifiant unique (NIU)';
 
   @override
   String get settingsFieldPhone => 'Téléphone';
@@ -2315,6 +2315,35 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsSaveButton => 'Enregistrer';
+
+  @override
+  String get settingsProfileSaved =>
+      'Les informations de votre établissement ont été mises à jour.';
+
+  @override
+  String settingsProfileSaveError(Object error) {
+    return 'Impossible d\'enregistrer vos modifications : $error';
+  }
+
+  @override
+  String get settingsPasswordChanged => 'Votre mot de passe a été modifié.';
+
+  @override
+  String settingsPasswordChangeError(Object error) {
+    return 'Impossible de modifier le mot de passe : $error';
+  }
+
+  @override
+  String get settingsPasswordFieldsRequired =>
+      'Renseignez votre mot de passe actuel et le nouveau.';
+
+  @override
+  String get settingsContactEmailReadOnlyHint =>
+      'Il s\'agit de votre email de connexion. Contactez un administrateur pour le modifier.';
+
+  @override
+  String get settingsRegistrationNumberReadOnlyHint =>
+      'Attribué lors de l\'inscription, non modifiable ici.';
 
   @override
   String get declarationsTabLabel => 'Déclarations';

@@ -2295,6 +2295,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSaveButton => 'Save';
 
   @override
+  String get settingsProfileSaved =>
+      'Your organization\'s information has been updated.';
+
+  @override
+  String settingsProfileSaveError(Object error) {
+    return 'Couldn\'t save your changes: $error';
+  }
+
+  @override
+  String get settingsPasswordChanged => 'Your password has been changed.';
+
+  @override
+  String settingsPasswordChangeError(Object error) {
+    return 'Couldn\'t change your password: $error';
+  }
+
+  @override
+  String get settingsPasswordFieldsRequired =>
+      'Enter your current password and a new one.';
+
+  @override
+  String get settingsContactEmailReadOnlyHint =>
+      'This is your sign-in email. Contact an administrator to change it.';
+
+  @override
+  String get settingsRegistrationNumberReadOnlyHint =>
+      'Assigned during registration — can\'t be edited here.';
+
+  @override
   String get declarationsTabLabel => 'Declarations';
 
   @override

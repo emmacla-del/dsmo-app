@@ -19,9 +19,17 @@ function toDate(val: any): Date | undefined {
     }
 }
 
+// COMPANY is deliberately absent from this list. Every handler below builds
+// its Prisma query from region/department/sector/entityType filters only —
+// none of them scope by the caller's own companyId — so a COMPANY-role JWT
+// previously got unrestricted nationwide access, including other companies'
+// respondent PII via getSubmissions(). Companies' own analytics are served
+// by the separately-scoped `/dsmo/analytics/company-summary` and
+// `/dsmo/analytics/company-benchmarks` endpoints in AnalyticsController,
+// which do derive companyId from the authenticated user server-side.
 @Controller('onefop-analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP', 'COMPANY')
+@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
 export class OnefopAnalyticsController {
     constructor(private readonly analytics: OnefopAnalyticsFacade) { }
 

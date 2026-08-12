@@ -39,8 +39,21 @@ async function bootstrap() {
   app.setGlobalPrefix('api'); // ← added
 
   // ALLOWED_ORIGINS lets production be locked down to known frontend origins
-  // without breaking it before that env var is configured.
+  // without breaking it before that env var is configured. The '*' fallback
+  // is intentionally NOT hardened into a startup failure the way the JWT
+  // secret is (see jwt-secret.ts) — unlike that fallback, this one may
+  // already be silently in effect in the live environment, and forcing a
+  // crash-on-boot here risks an unannounced production outage. Flagging
+  // loudly instead: if this warning is showing up in production logs,
+  // set ALLOWED_ORIGINS to a comma-separated list of the real frontend
+  // origins (e.g. the deployed Flutter web origin).
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean);
+  if (!allowedOrigins || allowedOrigins.length === 0) {
+    console.warn(
+      '⚠️  ALLOWED_ORIGINS is not set — CORS is wide open (origin: "*"). ' +
+        'Set ALLOWED_ORIGINS to a comma-separated allowlist before relying on this in production.',
+    );
+  }
   app.enableCors({
     origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

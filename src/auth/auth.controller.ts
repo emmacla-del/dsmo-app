@@ -1,9 +1,21 @@
 ﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
+
+// The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
+// credential/account-recovery endpoints — it doesn't stop someone rotating
+// IPs from grinding through security-question answers or spamming
+// registrations. These routes get a tighter, endpoint-specific override.
+const AUTH_THROTTLE = { default: { limit: 8, ttl: 60_000 } };
+const RECOVERY_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
+// reset/verify is the actual account-takeover surface flagged in the audit
+// (security-question answers are low-entropy and partly public) — tightest
+// limit of the group.
+const SECURITY_ANSWER_THROTTLE = { default: { limit: 5, ttl: 15 * 60_000 } };
 
 @Controller('auth')
 export class AuthController {
@@ -16,6 +28,7 @@ export class AuthController {
   }
 
   @UseGuards(LocalAuthGuard)
+  @Throttle(AUTH_THROTTLE)
   @Post('login')
   async login(@Request() req: any) {
     if (req.user.twoFactorEnabled) {
@@ -25,6 +38,7 @@ export class AuthController {
   }
 
   // Step 2 of 2FA login — see AuthService.initiateTwoFactorChallenge.
+  @Throttle(AUTH_THROTTLE)
   @Post('2fa/verify')
   async verifyTwoFactor(@Body() body: { challengeToken: string; code: string }) {
     return this.authService.verifyTwoFactorCode(body.challengeToken, body.code);
@@ -37,6 +51,7 @@ export class AuthController {
     return this.authService.getMe(req.user.id);
   }
 
+  @Throttle(RECOVERY_THROTTLE)
   @Post('register')
   async register(@Body() body: {
     email: string;
@@ -72,6 +87,7 @@ export class AuthController {
     }
   }
 
+  @Throttle(RECOVERY_THROTTLE)
   @Post('register-company')
   async registerCompany(@Body() body: {
     email: string;
@@ -291,23 +307,30 @@ export class AuthController {
     return { available };
   }
 
+  @Throttle(RECOVERY_THROTTLE)
   @Post('forgot-password')
   async forgotPassword(@Body('email') email: string) {
     return this.authService.forgotPassword(email);
   }
 
+  @Throttle(RECOVERY_THROTTLE)
   @Post('reset-password')
   async resetPassword(@Body() body: { token: string; newPassword: string }) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }
 
-  // Self-service reset via security questions — demo-grade, no rate
-  // limiting. See AuthService.getSecurityQuestions for details.
+  // Self-service reset via security questions — demo-grade (low-entropy,
+  // partly-public answers), so this and reset/verify below now carry the
+  // tightest throttle in the controller rather than relying on the app-wide
+  // default, which a rotating-IP attacker could otherwise use to grind
+  // through answer guesses.
+  @Throttle(RECOVERY_THROTTLE)
   @Post('reset/questions')
   async getResetSecurityQuestions(@Body('login') login: string) {
     return this.authService.getSecurityQuestions(login);
   }
 
+  @Throttle(SECURITY_ANSWER_THROTTLE)
   @Post('reset/verify')
   async verifyResetSecurityAnswers(
     @Body()
@@ -332,6 +355,7 @@ export class AuthController {
   // Self-service "identifiant oublié" — public, mirrors the reset/questions
   // and reset/verify security-question flow above but recovers the
   // establishmentId instead of resetting the password.
+  @Throttle(RECOVERY_THROTTLE)
   @Post('identifier/find')
   async findIdentifier(
     @Body() body: { companyName: string; taxNumber: string; phone: string },

@@ -132,6 +132,8 @@ model User {
   rejectedAt                 DateTime?
   passwordResetTokenHash     String?
   passwordResetExpires       DateTime?
+  failedLoginAttempts        Int                @default(0)
+  lockedUntil                DateTime?
   mustChangePassword         Boolean            @default(false)
   emailVerified              Boolean            @default(true)
   emailVerificationTokenHash String?
@@ -686,6 +688,7 @@ model OnefopSubmission {
   @@index([quarterCode], map: "idx_onefop_submissions_quarterCode")
   @@index([taxNumber])
   @@index([cnpsNumber])
+  @@index([companyId], map: "idx_onefop_submissions_companyId")
   @@map("onefop_submissions")
 }
 

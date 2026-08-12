@@ -9,11 +9,18 @@ export class OnefopSubmissionDto {
     @IsString()
     userId?: string;  // ← CHANGE: add ?
 
-    @IsString()  // ← ADD THIS - required field
-    companyId: string;  // ← ADD THIS
+    // companyId/establishmentId are accepted for backward compatibility with
+    // existing clients but are never trusted: QuestionnairesService always
+    // re-resolves both from the authenticated user's own Company row, so a
+    // caller cannot attribute a submission to another company by editing
+    // these fields.
+    @IsOptional()
+    @IsString()
+    companyId?: string;
 
-    @IsString()  // ← ADD THIS - required field  
-    establishmentId: string;  // ← ADD THIS
+    @IsOptional()
+    @IsString()
+    establishmentId?: string;
 
     @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'])
     entityType: 'ENTREPRISE' | 'COOPERATIVE' | 'CTD' | 'ONG';

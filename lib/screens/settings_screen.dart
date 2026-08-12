@@ -32,20 +32,112 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   int _selectedTab = 0;
 
   // ── Controllers ─────────────────────────────────────────────
-  final _companyNameCtrl = TextEditingController(text: 'DSMO Intelligence');
-  final _emailCtrl = TextEditingController(text: 'contact@dsmo.fr');
-  final _siretCtrl = TextEditingController(text: '123 456 789 00012');
-  final _phoneCtrl = TextEditingController(text: '+33 1 23 45 67 89');
-  final _addressCtrl =
-      TextEditingController(text: '12 Rue de la Paix, 75002 Paris');
+  // Populated from the real company profile / logged-in user in
+  // _loadCompany() below — previously hardcoded to fake demo data that
+  // never matched the signed-in company.
+  final _companyNameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _siretCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
   final _currentPassCtrl = TextEditingController();
   final _newPassCtrl = TextEditingController();
+
+  Map<String, dynamic>? _company;
+  bool _loadingCompany = true;
+  bool _savingGeneral = false;
+  bool _savingPassword = false;
 
   // ── Toggle state ─────────────────────────────────────────────
   // Values themselves come from authProvider's User (the source of
   // truth) — this just tracks which toggle has an in-flight request so
   // its Switch can be disabled and reverted on failure.
   final Set<String> _savingPrefs = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompany();
+  }
+
+  Future<void> _loadCompany() async {
+    _emailCtrl.text = ref.read(authProvider).value?.email ?? '';
+    try {
+      final company = await ref.read(apiClientProvider).getMyCompany();
+      if (!mounted) return;
+      setState(() {
+        _company = company;
+        _applyCompanyToFields(company);
+        _loadingCompany = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingCompany = false);
+    }
+  }
+
+  void _applyCompanyToFields(Map<String, dynamic>? company) {
+    _companyNameCtrl.text = company?['name'] as String? ?? '';
+    _siretCtrl.text = company?['taxNumber'] as String? ?? '';
+    _phoneCtrl.text = company?['phone'] as String? ?? '';
+    _addressCtrl.text = company?['address'] as String? ?? '';
+  }
+
+  Future<void> _saveGeneral() async {
+    if (_savingGeneral) return;
+    setState(() => _savingGeneral = true);
+    try {
+      final updated = await ref.read(apiClientProvider).saveCompanyProfile({
+        'name': _companyNameCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+      });
+      if (!mounted) return;
+      setState(() => _company = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.settingsProfileSaved)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.settingsProfileSaveError('$e'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingGeneral = false);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    if (_savingPassword) return;
+    if (_currentPassCtrl.text.isEmpty || _newPassCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.settingsPasswordFieldsRequired)),
+      );
+      return;
+    }
+    setState(() => _savingPassword = true);
+    try {
+      await ref.read(apiClientProvider).changePassword(
+            currentPassword: _currentPassCtrl.text,
+            newPassword: _newPassCtrl.text,
+          );
+      if (!mounted) return;
+      _currentPassCtrl.clear();
+      _newPassCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.settingsPasswordChanged)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.settingsPasswordChangeError('$e'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingPassword = false);
+    }
+  }
 
   Future<void> _updatePreference(
     String key,
@@ -278,27 +370,47 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           icon: Icons.business_outlined,
           title: l10n.settingsGeneralCardTitle,
           subtitle: l10n.settingsGeneralCardSubtitle,
-          child: Column(
-            children: [
-              _buildFormRow([
-                _buildField(l10n.settingsFieldEstablishmentName, _companyNameCtrl),
-                _buildField(l10n.settingsFieldContactEmail, _emailCtrl,
-                    type: TextInputType.emailAddress,
-                    prefix: Icons.mail_outline),
-              ]),
-              const SizedBox(height: 20),
-              _buildFormRow([
-                _buildField(l10n.settingsFieldSiret, _siretCtrl),
-                _buildField(l10n.settingsFieldPhone, _phoneCtrl,
-                    type: TextInputType.phone, prefix: Icons.phone_outlined),
-              ]),
-              const SizedBox(height: 20),
-              _buildField(l10n.settingsFieldAddress, _addressCtrl,
-                  prefix: Icons.location_on_outlined),
-              const SizedBox(height: 28),
-              _buildFormActions(),
-            ],
-          ),
+          child: _loadingCompany
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                      child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2))),
+                )
+              : Column(
+                  children: [
+                    _buildFormRow([
+                      _buildField(
+                          l10n.settingsFieldEstablishmentName, _companyNameCtrl),
+                      _buildField(l10n.settingsFieldContactEmail, _emailCtrl,
+                          type: TextInputType.emailAddress,
+                          prefix: Icons.mail_outline,
+                          readOnly: true,
+                          helperText: l10n.settingsContactEmailReadOnlyHint),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildFormRow([
+                      _buildField(l10n.settingsFieldSiret, _siretCtrl,
+                          readOnly: true,
+                          helperText: l10n.settingsRegistrationNumberReadOnlyHint),
+                      _buildField(l10n.settingsFieldPhone, _phoneCtrl,
+                          type: TextInputType.phone,
+                          prefix: Icons.phone_outlined),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildField(l10n.settingsFieldAddress, _addressCtrl,
+                        prefix: Icons.location_on_outlined),
+                    const SizedBox(height: 28),
+                    _buildFormActions(
+                      saving: _savingGeneral,
+                      onSave: _saveGeneral,
+                      onCancel: () =>
+                          setState(() => _applyCompanyToFields(_company)),
+                    ),
+                  ],
+                ),
         ),
         const SizedBox(height: 20),
         _SettingsCard(
@@ -464,7 +576,14 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           const SizedBox(height: 8),
           _buildSecurityInfo(),
           const SizedBox(height: 28),
-          _buildFormActions(),
+          _buildFormActions(
+            saving: _savingPassword,
+            onSave: _changePassword,
+            onCancel: () => setState(() {
+              _currentPassCtrl.clear();
+              _newPassCtrl.clear();
+            }),
+          ),
         ],
       ),
     );
@@ -785,7 +904,9 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
     TextEditingController controller, {
     TextInputType? type,
     bool obscure = false,
+    bool readOnly = false,
     String? hint,
+    String? helperText,
     IconData? prefix,
   }) {
     return Column(
@@ -802,8 +923,11 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
           controller: controller,
           keyboardType: type,
           obscureText: obscure,
-          style: const TextStyle(
-              fontFamily: 'Inter', fontSize: 14, color: UltraTheme.textPrimary),
+          readOnly: readOnly,
+          style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: readOnly ? UltraTheme.textMuted : UltraTheme.textPrimary),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(
@@ -812,7 +936,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
                 ? Icon(prefix, size: 18, color: UltraTheme.textMuted)
                 : null,
             filled: true,
-            fillColor: UltraTheme.background,
+            fillColor:
+                readOnly ? UltraTheme.background.withValues(alpha: 0.6) : UltraTheme.background,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             border: OutlineInputBorder(
@@ -832,6 +957,12 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
             ),
           ),
         ),
+        if (helperText != null) ...[
+          const SizedBox(height: 6),
+          Text(helperText,
+              style: const TextStyle(
+                  fontFamily: 'Inter', fontSize: 11.5, color: UltraTheme.textMuted)),
+        ],
       ],
     );
   }
@@ -999,12 +1130,16 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
     );
   }
 
-  Widget _buildFormActions() {
+  Widget _buildFormActions({
+    required bool saving,
+    required VoidCallback? onSave,
+    VoidCallback? onCancel,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         OutlinedButton(
-          onPressed: () {},
+          onPressed: saving ? null : onCancel,
           style: OutlinedButton.styleFrom(
             foregroundColor: UltraTheme.textSecondary,
             side:
@@ -1019,8 +1154,15 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
         ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.check_rounded, size: 17),
+          onPressed: saving ? null : onSave,
+          icon: saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.check_rounded, size: 17),
           label: Text(context.l10n.settingsSaveButton),
           style: ElevatedButton.styleFrom(
             backgroundColor: UltraTheme.primary,
