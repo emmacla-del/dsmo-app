@@ -94,6 +94,13 @@ export class DataManagementService {
                 _count: {
                     select: { companies: true, departments: true },
                 },
+                // Needed by the frontend's export filter (Région → Département
+                // cascade) — cheap to include since a region has at most a few
+                // dozen departments.
+                departments: {
+                    select: { id: true, name: true },
+                    orderBy: { name: 'asc' },
+                },
             },
         });
     }

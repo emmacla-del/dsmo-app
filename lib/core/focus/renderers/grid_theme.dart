@@ -41,6 +41,17 @@ class GridTheme {
   static const Color borderColor = Color(0xFFE7E9F0);
   static const double borderWidth = 1.0;
 
+  // ── Active-cell focus ring — same brand green as the plain-field
+  // focus glow (kAccent in onefop_form_constants.dart), so tabbing from
+  // a simple field into a grid cell reads as one continuous focus
+  // language instead of two different interaction styles. A border only
+  // (no fill) — an Excel-style highlighted outline around the active
+  // cell rather than a colored background, which read as an unwanted
+  // "shadow" on numeric cells (see number_field.dart).
+  static const Color focusRingColor = AppColors.deepEmerald;
+  static const double focusRingWidth = 1.5;
+  static const Duration focusRingDuration = Duration(milliseconds: 140);
+
   // ── Background colours ("quiet luxury" — kept in sync with
   // onefop_form_constants.dart's token set) ──────────────────
   static const Color headerBg = Color(0xFFF5F6F9);

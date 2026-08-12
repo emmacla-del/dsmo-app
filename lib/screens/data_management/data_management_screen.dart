@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../theme/ultra_theme.dart';
 import '../../data/api_client.dart';
 import '../../widgets/responsive_helpers.dart';
@@ -36,6 +38,37 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
   bool _isLoading = true;
   bool _exporting = false;
 
+  // ── Export filters ──────────────────────────────────────────
+  String? _filterRegion;
+  String? _filterDepartment;
+  DateTimeRange? _filterDateRange;
+  final _yearController = TextEditingController();
+
+  List<dynamic> get _departmentsForSelectedRegion {
+    if (_filterRegion == null) return const [];
+    final region = _regions.firstWhere(
+      (r) => r['name'] == _filterRegion,
+      orElse: () => null,
+    );
+    return (region?['departments'] as List?)?.cast<dynamic>() ?? const [];
+  }
+
+  int get _activeFilterCount => [
+        _filterRegion,
+        _filterDepartment,
+        _yearController.text.trim().isNotEmpty ? _yearController.text : null,
+        _filterDateRange,
+      ].whereType<Object>().length;
+
+  void _resetFilters() {
+    setState(() {
+      _filterRegion = null;
+      _filterDepartment = null;
+      _filterDateRange = null;
+      _yearController.clear();
+    });
+  }
+
   final List<Map<String, dynamic>> _tabs = [
     {'label': 'Régions', 'icon': Icons.map_outlined},
     {'label': 'Secteurs', 'icon': Icons.business_outlined},
@@ -54,6 +87,7 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _yearController.dispose();
     super.dispose();
   }
 
@@ -85,7 +119,14 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
     setState(() => _exporting = true);
     try {
       final api = ref.read(apiClientProvider);
-      final bytes = await api.exportOnefopSubmissionsExcel();
+      final year = int.tryParse(_yearController.text.trim());
+      final bytes = await api.exportOnefopSubmissionsExcel(
+        region: _filterRegion,
+        department: _filterDepartment,
+        year: year,
+        fromDate: _filterDateRange?.start.toIso8601String(),
+        toDate: _filterDateRange?.end.toIso8601String(),
+      );
       final date = DateTime.now();
       final filename =
           'onefop_submissions_${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}.xlsx';
@@ -174,33 +215,41 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
         subtitle: 'Les régions configurées apparaîtront ici.',
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      itemCount: _regions.length,
-      itemBuilder: (context, index) {
-        final region = _regions[index];
-        final counts = region['_count'] as Map?;
-        return _EntityCard(
-          icon: Icons.location_on_outlined,
-          iconColor: UltraTheme.info,
-          title: region['name'] ?? 'Sans nom',
-          subtitle: 'Code : ${region['code'] ?? '—'}',
-          pills: counts == null
-              ? const []
-              : [
-                  StatPill(
-                      value: (counts['companies'] ?? 0) as int,
-                      label: 'Entreprises',
-                      color: UltraTheme.info),
-                  StatPill(
-                      value: (counts['departments'] ?? 0) as int,
-                      label: 'Départements',
-                      color: UltraTheme.primary),
-                ],
-          onEdit: () => _editRegion(region),
-          onDelete: () => _deleteRegion(region),
-        );
-      },
+    return Column(
+      children: [
+        _buildListHeader(
+            '${_regions.length} région${_regions.length > 1 ? 's' : ''}'),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+            itemCount: _regions.length,
+            itemBuilder: (context, index) {
+              final region = _regions[index];
+              final counts = region['_count'] as Map?;
+              return _EntityCard(
+                icon: Icons.location_on_outlined,
+                iconColor: UltraTheme.info,
+                title: region['name'] ?? 'Sans nom',
+                subtitle: 'Code : ${region['code'] ?? '—'}',
+                pills: counts == null
+                    ? const []
+                    : [
+                        StatPill(
+                            value: (counts['companies'] ?? 0) as int,
+                            label: 'Entreprises',
+                            color: UltraTheme.info),
+                        StatPill(
+                            value: (counts['departments'] ?? 0) as int,
+                            label: 'Départements',
+                            color: UltraTheme.primary),
+                      ],
+                onEdit: () => _editRegion(region),
+                onDelete: () => _deleteRegion(region),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -216,31 +265,56 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
         subtitle: 'Les secteurs configurés apparaîtront ici.',
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      itemCount: _sectors.length,
-      itemBuilder: (context, index) {
-        final sector = _sectors[index];
-        final counts = sector['_count'] as Map?;
-        return _EntityCard(
-          icon: Icons.business_outlined,
-          iconColor: UltraTheme.success,
-          title: sector['name'] ?? 'Sans nom',
-          subtitle: (sector['category'] as String?)?.isNotEmpty == true
-              ? sector['category']
-              : null,
-          pills: counts == null
-              ? const []
-              : [
-                  StatPill(
-                      value: (counts['companies'] ?? 0) as int,
-                      label: 'Entreprises',
-                      color: UltraTheme.success),
-                ],
-          onEdit: () => _editSector(sector),
-          onDelete: () => _deleteSector(sector),
-        );
-      },
+    return Column(
+      children: [
+        _buildListHeader(
+            '${_sectors.length} secteur${_sectors.length > 1 ? 's' : ''}'),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+            itemCount: _sectors.length,
+            itemBuilder: (context, index) {
+              final sector = _sectors[index];
+              final counts = sector['_count'] as Map?;
+              return _EntityCard(
+                icon: Icons.business_outlined,
+                iconColor: UltraTheme.success,
+                title: sector['name'] ?? 'Sans nom',
+                subtitle: (sector['category'] as String?)?.isNotEmpty == true
+                    ? sector['category']
+                    : null,
+                pills: counts == null
+                    ? const []
+                    : [
+                        StatPill(
+                            value: (counts['companies'] ?? 0) as int,
+                            label: 'Entreprises',
+                            color: UltraTheme.success),
+                      ],
+                onEdit: () => _editSector(sector),
+                onDelete: () => _deleteSector(sector),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListHeader(String countLabel) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+      child: Row(
+        children: [
+          Text(countLabel,
+              style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: UltraTheme.textMuted,
+                  letterSpacing: 0.2)),
+        ],
+      ),
     );
   }
 
@@ -291,7 +365,7 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
         (_stats?['companiesByRegion'] as List?)?.cast<dynamic>() ?? [];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -323,7 +397,7 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
             if (!wide) {
               return Column(
                 children: [
-                  for (final c in cards) ...[c, const SizedBox(height: 14)]
+                  for (final c in cards) ...[c, const SizedBox(height: 16)]
                 ],
               );
             }
@@ -331,21 +405,21 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
               crossAxisCount: 2,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              childAspectRatio: 2.6,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 2.5,
               children: cards,
             );
           }),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
           if (onefopByStatus.isNotEmpty)
             _buildStatusBreakdownCard(
                 'Soumissions ONEFOP par statut', onefopByStatus),
-          if (onefopByStatus.isNotEmpty) const SizedBox(height: 16),
+          if (onefopByStatus.isNotEmpty) const SizedBox(height: 20),
           if (declarationsByStatus.isNotEmpty)
             _buildStatusBreakdownCard(
                 'Déclarations DSMO par statut', declarationsByStatus),
-          if (declarationsByStatus.isNotEmpty) const SizedBox(height: 16),
+          if (declarationsByStatus.isNotEmpty) const SizedBox(height: 20),
           if (companiesByRegion.isNotEmpty)
             _buildTopRegionsCard(companiesByRegion),
         ],
@@ -356,17 +430,18 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
   Widget _sectionCard({required String title, required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: UltraTheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
+        boxShadow: UltraTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: UltraTheme.titleMedium),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           child,
         ],
       ),
@@ -469,11 +544,12 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
   Widget _buildDataCard(String title, dynamic value, IconData icon, Color color,
       String description) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: UltraTheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
+        boxShadow: UltraTheme.softShadow,
       ),
       child: Row(
         children: [
@@ -564,6 +640,8 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
                       color: UltraTheme.textSecondary,
                       height: 1.5)),
               const SizedBox(height: 28),
+              _buildFilterCard(),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -612,6 +690,283 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
           ),
         ),
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // EXPORT FILTERS
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildFilterCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: UltraTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
+        boxShadow: UltraTheme.softShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _activeFilterCount > 0
+                      ? 'Filtres ($_activeFilterCount actif${_activeFilterCount > 1 ? 's' : ''})'
+                      : 'Filtres (optionnel)',
+                  style: UltraTheme.titleMedium,
+                ),
+              ),
+              if (_activeFilterCount > 0)
+                TextButton(
+                  onPressed: _resetFilters,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Réinitialiser',
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: UltraTheme.primary)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+              'Restreint l\'export à une région, un département, une année '
+              'd\'enquête et/ou une période précises.',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: UltraTheme.textMuted,
+                  height: 1.4)),
+          const SizedBox(height: 18),
+          LayoutBuilder(builder: (context, constraints) {
+            final wide = constraints.maxWidth > 380;
+            final region = _buildRegionDropdown();
+            final department = _buildDepartmentDropdown();
+            final year = _buildYearField();
+            final dateRange = _buildDateRangeField();
+            if (!wide) {
+              return Column(children: [
+                region,
+                const SizedBox(height: 14),
+                department,
+                const SizedBox(height: 14),
+                year,
+                const SizedBox(height: 14),
+                dateRange,
+              ]);
+            }
+            return Column(children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: region),
+                  const SizedBox(width: 12),
+                  Expanded(child: department),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: year),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 2, child: dateRange),
+                ],
+              ),
+            ]);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(text,
+            style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: UltraTheme.textMuted)),
+      );
+
+  BoxDecoration _filterFieldDecoration({bool enabled = true}) => BoxDecoration(
+        color: enabled
+            ? UltraTheme.background
+            : UltraTheme.textMuted.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
+      );
+
+  Widget _buildRegionDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _filterLabel('Région'),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: _filterFieldDecoration(),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _filterRegion,
+              isExpanded: true,
+              hint: const Text('Toutes les régions',
+                  style: TextStyle(
+                      fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
+              style: const TextStyle(
+                  fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: UltraTheme.textMuted),
+              items: _regions
+                  .map((r) => DropdownMenuItem(
+                        value: r['name'] as String,
+                        child: Text(r['name'] as String,
+                            overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() {
+                _filterRegion = v;
+                _filterDepartment = null;
+              }),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDepartmentDropdown() {
+    final departments = _departmentsForSelectedRegion;
+    final enabled = _filterRegion != null && departments.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _filterLabel('Département'),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: _filterFieldDecoration(enabled: enabled),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _filterDepartment,
+              isExpanded: true,
+              hint: Text(
+                  _filterRegion == null
+                      ? 'Choisir une région d\'abord'
+                      : 'Tous les départements',
+                  style: const TextStyle(
+                      fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
+              style: const TextStyle(
+                  fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                  color: UltraTheme.textMuted),
+              items: departments
+                  .map((d) => DropdownMenuItem(
+                        value: d['name'] as String,
+                        child: Text(d['name'] as String,
+                            overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: enabled
+                  ? (v) => setState(() => _filterDepartment = v)
+                  : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYearField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _filterLabel('Année d\'enquête'),
+        Container(
+          decoration: _filterFieldDecoration(),
+          child: TextField(
+            controller: _yearController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+            ],
+            style: const TextStyle(
+                fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Ex. ${DateTime.now().year}',
+              hintStyle: const TextStyle(
+                  fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
+              border: InputBorder.none,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateRangeField() {
+    final hasRange = _filterDateRange != null;
+    final fmt = DateFormat('dd/MM/yyyy');
+    final label = hasRange
+        ? '${fmt.format(_filterDateRange!.start)} → ${fmt.format(_filterDateRange!.end)}'
+        : 'Toute la période';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _filterLabel('Période de soumission'),
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () async {
+            final now = DateTime.now();
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime(now.year - 10),
+              lastDate: now,
+              initialDateRange: _filterDateRange,
+            );
+            if (picked != null) setState(() => _filterDateRange = picked);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: _filterFieldDecoration(),
+            child: Row(
+              children: [
+                const Icon(Icons.date_range_rounded,
+                    size: 16, color: UltraTheme.textMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: hasRange
+                              ? UltraTheme.textPrimary
+                              : UltraTheme.textMuted)),
+                ),
+                if (hasRange)
+                  InkWell(
+                    onTap: () => setState(() => _filterDateRange = null),
+                    child: const Icon(Icons.close_rounded,
+                        size: 16, color: UltraTheme.textMuted),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -814,12 +1169,13 @@ class _EntityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: UltraTheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
+        boxShadow: UltraTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

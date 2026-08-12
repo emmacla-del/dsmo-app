@@ -189,43 +189,56 @@ class _NumberFieldState extends State<NumberField> {
         // Without this the caret sits near the top of the cell instead of
         // vertically centered.
         return Center(
-          child: TextField(
-            controller: _ctrl,
-            focusNode: _node,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            // Flutter's default onTapOutside unfocuses on the touch that
-            // *starts* a scroll gesture when running as a mobile web app
-            // (EditableText._EditableTextTapOutsideAction special-cases
-            // kIsWeb + PointerDeviceKind.touch) — the keyboard was closing
-            // the instant the user began dragging to scroll. A no-op
-            // override matches native-app mobile behavior, where tapping/
-            // scrolling outside a field never auto-dismisses the keyboard.
-            onTapOutside: (_) {},
-            textAlign: TextAlign.center,
-            textAlignVertical: TextAlignVertical.center,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: GridTheme.dataStyle,
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              hintText: focused ? '0' : null,
-              hintStyle: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFFCBD5E1),
-              ),
+          child: AnimatedContainer(
+            duration: GridTheme.focusRingDuration,
+            curve: Curves.easeOut,
+            margin: EdgeInsets.all(focused ? 2 : 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: focused
+                  ? Border.all(
+                      color: GridTheme.focusRingColor,
+                      width: GridTheme.focusRingWidth)
+                  : null,
             ),
-            onChanged: (v) =>
-                widget.onChanged(widget.fieldId, int.tryParse(v) ?? 0),
-            onSubmitted: (_) => _handleKey(
-              _node,
-              const KeyDownEvent(
-                physicalKey: PhysicalKeyboardKey.enter,
-                logicalKey: LogicalKeyboardKey.enter,
-                timeStamp: Duration.zero,
+            child: TextField(
+              controller: _ctrl,
+              focusNode: _node,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.next,
+              // Flutter's default onTapOutside unfocuses on the touch that
+              // *starts* a scroll gesture when running as a mobile web app
+              // (EditableText._EditableTextTapOutsideAction special-cases
+              // kIsWeb + PointerDeviceKind.touch) — the keyboard was closing
+              // the instant the user began dragging to scroll. A no-op
+              // override matches native-app mobile behavior, where tapping/
+              // scrolling outside a field never auto-dismisses the keyboard.
+              onTapOutside: (_) {},
+              textAlign: TextAlign.center,
+              textAlignVertical: TextAlignVertical.center,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: GridTheme.dataStyle,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                hintText: focused ? '0' : null,
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFCBD5E1),
+                ),
+              ),
+              onChanged: (v) =>
+                  widget.onChanged(widget.fieldId, int.tryParse(v) ?? 0),
+              onSubmitted: (_) => _handleKey(
+                _node,
+                const KeyDownEvent(
+                  physicalKey: PhysicalKeyboardKey.enter,
+                  logicalKey: LogicalKeyboardKey.enter,
+                  timeStamp: Duration.zero,
+                ),
               ),
             ),
           ),

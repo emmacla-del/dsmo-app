@@ -196,6 +196,7 @@ class _FormTextFieldState extends State<FormTextField> {
     return ListenableBuilder(
       listenable: _node,
       builder: (ctx, _) {
+        final focused = _node.hasFocus;
         return SizedBox(
             width: widget.width,
             height: widget.height,
@@ -205,39 +206,53 @@ class _FormTextFieldState extends State<FormTextField> {
             // that collapsed box, not the box itself within the cell. See
             // number_field.dart for the same fix and how it was verified.
             child: Center(
-              child: TextField(
-                controller: _ctrl,
-                focusNode: _node,
-                keyboardType: TextInputType.text,
-                textInputAction: TextInputAction.next,
-                // See the matching comment in number_field.dart: Flutter's
-                // default onTapOutside would unfocus (closing the keyboard)
-                // on the touch that starts a scroll gesture when running as
-                // mobile web. No-op keeps focus through scrolling, matching
-                // native-app mobile behavior.
-                onTapOutside: (_) {},
-                textAlign: TextAlign.left,
-                textAlignVertical: TextAlignVertical.center,
-                style: GridTheme.dataStyle,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 9),
-                  hintText: widget.hintText,
-                  hintStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFFCBD5E1),
-                  ),
+              child: AnimatedContainer(
+                duration: GridTheme.focusRingDuration,
+                curve: Curves.easeOut,
+                margin: EdgeInsets.symmetric(
+                    horizontal: focused ? 2 : 4, vertical: focused ? 2 : 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  border: focused
+                      ? Border.all(
+                          color: GridTheme.focusRingColor,
+                          width: GridTheme.focusRingWidth)
+                      : null,
                 ),
-                onChanged: widget.onChanged,
-                onSubmitted: (_) => _handleKey(
-                  _node,
-                  const KeyDownEvent(
-                    physicalKey: PhysicalKeyboardKey.enter,
-                    logicalKey: LogicalKeyboardKey.enter,
-                    timeStamp: Duration.zero,
+                child: TextField(
+                  controller: _ctrl,
+                  focusNode: _node,
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
+                  // See the matching comment in number_field.dart: Flutter's
+                  // default onTapOutside would unfocus (closing the keyboard)
+                  // on the touch that starts a scroll gesture when running as
+                  // mobile web. No-op keeps focus through scrolling, matching
+                  // native-app mobile behavior.
+                  onTapOutside: (_) {},
+                  textAlign: TextAlign.left,
+                  textAlignVertical: TextAlignVertical.center,
+                  style: GridTheme.dataStyle,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 7),
+                    hintText: widget.hintText,
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  onChanged: widget.onChanged,
+                  onSubmitted: (_) => _handleKey(
+                    _node,
+                    const KeyDownEvent(
+                      physicalKey: PhysicalKeyboardKey.enter,
+                      logicalKey: LogicalKeyboardKey.enter,
+                      timeStamp: Duration.zero,
+                    ),
                   ),
                 ),
               ),

@@ -257,7 +257,6 @@ class GenericSpreadsheetTable extends StatelessWidget {
   List<GridCell> _buildLabelDataCells(List<double> colWidths) {
     final cells = <GridCell>[];
     final dataStart = _headerDepth;
-    debugPrint('TABLE: ${spec.id} | rowLabelCellIds: ${spec.rowLabelCellIds}');
     if (spec.hasLeadingGroup) {
       final labels = spec.leadingGroupLabels!;
       final counts = spec.leadingGroupRowCounts!;

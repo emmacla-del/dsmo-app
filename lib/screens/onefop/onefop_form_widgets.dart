@@ -82,6 +82,20 @@ Widget errorRow(String m) => Padding(
       ),
     );
 
+// A soft colored glow around the field on focus — the "modern app" cue
+// that a border-color change alone doesn't give you. Kept off by default
+// (calm, flat idle state) and faded in via the AnimatedContainer wrapping
+// each field in SimpleField/SelectField, matching kShadowCard/kShadowFloating's
+// existing shadow-based elevation language instead of a heavier border.
+List<BoxShadow>? fieldFocusGlow(bool focused) => focused
+    ? [
+        BoxShadow(
+            color: kAccent.withValues(alpha: 0.16),
+            blurRadius: 12,
+            spreadRadius: 1),
+      ]
+    : null;
+
 InputDecoration inputDecoration(
     {required bool focused,
     required bool hasError,
@@ -98,16 +112,16 @@ InputDecoration inputDecoration(
     helperStyle: const TextStyle(fontSize: 11, color: kInkFaint),
     helperMaxLines: 2,
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderRadius: BorderRadius.circular(kRadiusMd),
         borderSide: const BorderSide(color: kBorder, width: 1)),
     enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderRadius: BorderRadius.circular(kRadiusMd),
         borderSide: BorderSide(color: hasError ? kDanger : kBorder, width: 1)),
     focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderRadius: BorderRadius.circular(kRadiusMd),
         borderSide: const BorderSide(color: kAccent, width: 1.5)),
     errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kRadiusSm),
+        borderRadius: BorderRadius.circular(kRadiusMd),
         borderSide: const BorderSide(color: kDanger, width: 1)),
   );
 }
@@ -118,14 +132,14 @@ InputDecoration dropdownDecoration(bool hasError) => InputDecoration(
       filled: true,
       fillColor: hasError ? kDangerSoft : kFieldFill,
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderRadius: BorderRadius.circular(kRadiusMd),
           borderSide: const BorderSide(color: kBorder, width: 1)),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderRadius: BorderRadius.circular(kRadiusMd),
           borderSide:
               BorderSide(color: hasError ? kDanger : kBorder, width: 1)),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(kRadiusSm),
+          borderRadius: BorderRadius.circular(kRadiusMd),
           borderSide: const BorderSide(color: kAccent, width: 1.5)),
     );
 
@@ -185,32 +199,41 @@ class SimpleField extends StatelessWidget {
             const SizedBox(height: OL.labelGapV),
             ListenableBuilder(
               listenable: fn,
-              builder: (ctx, _) => TextFormField(
-                controller: c,
-                focusNode: fn,
-                keyboardType: keyboardType(field.type),
-                textInputAction: TextInputAction.next,
-                inputFormatters: [
-                  if (field.type == 'number')
-                    FilteringTextInputFormatter.digitsOnly,
-                  if (FieldValidator.isYearField(field))
-                    LengthLimitingTextInputFormatter(4),
-                  if (field.type == 'tel') ...[
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(9),
+              builder: (ctx, _) => AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(kRadiusMd),
+                  boxShadow: fieldFocusGlow(fn.hasFocus),
+                ),
+                child: TextFormField(
+                  controller: c,
+                  focusNode: fn,
+                  keyboardType: keyboardType(field.type),
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: [
+                    if (field.type == 'number')
+                      FilteringTextInputFormatter.digitsOnly,
+                    if (FieldValidator.isYearField(field))
+                      LengthLimitingTextInputFormatter(4),
+                    if (field.type == 'tel') ...[
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(9),
+                    ],
                   ],
-                ],
-                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-                decoration: inputDecoration(
-                    focused: fn.hasFocus,
-                    hasError: e,
-                    hint: field.type == 'number' ? '0' : null,
-                    helperText: fieldHelperText(field, l10n)),
-                onTapOutside: (_) => ctrl.onBlur(field.id),
-                onFieldSubmitted: (_) {
-                  ctrl.onBlur(field.id);
-                  ctrl.focusFieldOffset(1);
-                },
+                  style:
+                      const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                  decoration: inputDecoration(
+                      focused: fn.hasFocus,
+                      hasError: e,
+                      hint: field.type == 'number' ? '0' : null,
+                      helperText: fieldHelperText(field, l10n)),
+                  onTapOutside: (_) => ctrl.onBlur(field.id),
+                  onFieldSubmitted: (_) {
+                    ctrl.onBlur(field.id);
+                    ctrl.focusFieldOffset(1);
+                  },
+                ),
               ),
             ),
             if (e) errorRow(ctrl.errorText(field, l10n)),
@@ -325,24 +348,38 @@ class SelectField extends StatelessWidget {
               optional: FieldValidator.kOptionalOverrides.contains(field.id),
             ),
             const SizedBox(height: OL.labelGapV),
-            Focus(
-              focusNode: ctrl.fm.getNode(field.id),
-              child: DropdownButtonFormField<String>(
-                initialValue: cur,
-                hint: Text(l10n.selectPlaceholder,
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-                isExpanded: true,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-                items: opts
-                    .map((o) => DropdownMenuItem(
-                          value: o.value,
-                          child: Text(o.text.of(locale),
-                              style: const TextStyle(
-                                  fontSize: 14, color: Color(0xFF1E293B))),
-                        ))
-                    .toList(),
-                onChanged: (v) => ctrl.onSelectChanged(field, v),
-                decoration: dropdownDecoration(e),
+            ListenableBuilder(
+              listenable: ctrl.fm.getNode(field.id),
+              builder: (ctx, _) => AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(kRadiusMd),
+                  boxShadow:
+                      fieldFocusGlow(ctrl.fm.getNode(field.id).hasFocus),
+                ),
+                child: Focus(
+                  focusNode: ctrl.fm.getNode(field.id),
+                  child: DropdownButtonFormField<String>(
+                    initialValue: cur,
+                    hint: Text(l10n.selectPlaceholder,
+                        style: const TextStyle(
+                            fontSize: 14, color: Color(0xFF94A3B8))),
+                    isExpanded: true,
+                    style:
+                        const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                    items: opts
+                        .map((o) => DropdownMenuItem(
+                              value: o.value,
+                              child: Text(o.text.of(locale),
+                                  style: const TextStyle(
+                                      fontSize: 14, color: Color(0xFF1E293B))),
+                            ))
+                        .toList(),
+                    onChanged: (v) => ctrl.onSelectChanged(field, v),
+                    decoration: dropdownDecoration(e),
+                  ),
+                ),
               ),
             ),
             if (e && (cur == null || cur.isEmpty))
@@ -1167,41 +1204,52 @@ class _HybridNumericCellState extends State<HybridNumericCell> {
           // near the top of the cell instead of vertically centered without
           // this wrapper.
           return Center(
-            child: TextField(
-              controller: _c,
-              focusNode: _n,
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
-              // See number_field.dart: default onTapOutside would close the
-              // keyboard on the touch that starts a scroll gesture on
-              // mobile web.
-              onTapOutside: (_) {},
-              textAlign: TextAlign.center,
-              textAlignVertical: TextAlignVertical.center,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: const TextStyle(
-                  fontSize: kNumCellFontSize,
-                  fontWeight: FontWeight.w500,
-                  color: kInk),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                hintText: focused ? '0' : null,
-                hintStyle: const TextStyle(
-                    fontSize: kNumCellFontSize, color: kBorderStrong),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOut,
+              margin: EdgeInsets.all(focused ? 2 : 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                border: focused
+                    ? Border.all(color: kAccent, width: 1.5)
+                    : null,
               ),
-              onChanged: (v) =>
-                  widget.onChanged(widget.cellId, int.tryParse(v) ?? 0),
-              onSubmitted: (_) => _key(
-                  _n,
-                  const KeyDownEvent(
-                    physicalKey: PhysicalKeyboardKey.enter,
-                    logicalKey: LogicalKeyboardKey.enter,
-                    timeStamp: Duration.zero,
-                  )),
+              child: TextField(
+                controller: _c,
+                focusNode: _n,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                // See number_field.dart: default onTapOutside would close the
+                // keyboard on the touch that starts a scroll gesture on
+                // mobile web.
+                onTapOutside: (_) {},
+                textAlign: TextAlign.center,
+                textAlignVertical: TextAlignVertical.center,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: const TextStyle(
+                    fontSize: kNumCellFontSize,
+                    fontWeight: FontWeight.w500,
+                    color: kInk),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: focused ? '0' : null,
+                  hintStyle: const TextStyle(
+                      fontSize: kNumCellFontSize, color: kBorderStrong),
+                ),
+                onChanged: (v) =>
+                    widget.onChanged(widget.cellId, int.tryParse(v) ?? 0),
+                onSubmitted: (_) => _key(
+                    _n,
+                    const KeyDownEvent(
+                      physicalKey: PhysicalKeyboardKey.enter,
+                      logicalKey: LogicalKeyboardKey.enter,
+                      timeStamp: Duration.zero,
+                    )),
+              ),
             ),
           );
         },
