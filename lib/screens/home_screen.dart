@@ -224,17 +224,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const _Tab('Reports', Icons.description_outlined, ReportScreen()),
           const _Tab('Communication', Icons.campaign_outlined,
               CommunicationScreen()),
-          _Tab('Soumissions', Icons.assignment_outlined,
-              SoumissionsScreen(onNewSubmission: onNewSubmission)),
+          const _Tab(
+              'Soumissions', Icons.assignment_outlined, SoumissionsScreen()),
           const _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
           const _Tab('Paramètres', Icons.settings_outlined,
               SystemSettingsScreen()),
         ];
       case 'SUPER_ADMIN_DSMO':
-        // DSMO-only admin without vetting
+        // DSMO-only admin without vetting. No "new declaration" FAB here —
+        // this role reviews companies' declarations, it doesn't file its own.
         return [
-          _Tab('Déclarations', Icons.folder_open_outlined,
-              DeclarationsListScreen(onNewSubmission: onNewSubmission)),
+          const _Tab('Déclarations', Icons.folder_open_outlined,
+              DeclarationsListScreen()),
           const _Tab('Analytique DSMO', Icons.bar_chart_outlined,
               OnefopDashboardScreen()),
           const _Tab('Annuaire', Icons.contacts_outlined,

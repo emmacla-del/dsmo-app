@@ -11,14 +11,17 @@ import 'onefop_export_panel.dart';
 // SUPER_ADMIN_DSMO/SUPER_ADMIN_ONEFOP roles only ever have one
 // of the two, so they keep their single dedicated tab.
 //
+// No "new declaration" affordance here (and none passed down to
+// DeclarationsListScreen) — this is a reviewer's view of everyone
+// else's submissions, not a company filing its own.
+//
 // Also hosts the bulk ONEFOP export panel (Excel/SPSS) — this used
 // to live in a separate "Data Mgmt" tab, which just duplicated the
 // submission data already listed here.
 // ══════════════════════════════════════════════════════════════
 
 class SoumissionsScreen extends StatefulWidget {
-  const SoumissionsScreen({super.key, this.onNewSubmission});
-  final VoidCallback? onNewSubmission;
+  const SoumissionsScreen({super.key});
 
   @override
   State<SoumissionsScreen> createState() => _SoumissionsScreenState();
@@ -35,8 +38,17 @@ class _SoumissionsScreenState extends State<SoumissionsScreen> {
       // uncapped panel above the Expanded tab content below can squeeze it
       // to near-zero height and overflow — same reasoning as the toolbar
       // bound in submissions_viewer_screen.dart.
-      final panelMaxHeight =
-          constraints.maxHeight.isFinite ? constraints.maxHeight * 0.55 : 420.0;
+      //
+      // A flat percentage cap (e.g. 55%) still fails on a short-enough
+      // window — it shifts the threshold rather than removing it. Instead,
+      // reserve a fixed minimum for the tab content (its own AppBar +
+      // toolbar + pagination bar need real space to not overflow
+      // themselves) and give the panel whatever's left above that.
+      const kMinTabContentHeight = 360.0;
+      final panelMaxHeight = constraints.maxHeight.isFinite
+          ? (constraints.maxHeight - kMinTabContentHeight)
+              .clamp(0.0, double.infinity)
+          : 420.0;
       return Column(children: [
         if (_exportPanelOpen)
           ConstrainedBox(
@@ -62,13 +74,9 @@ class _SoumissionsScreenState extends State<SoumissionsScreen> {
                 tooltip: 'Exporter',
               ),
             ],
-            tabs: [
-              (
-                label: 'DSMO',
-                child: DeclarationsListScreen(
-                    onNewSubmission: widget.onNewSubmission)
-              ),
-              (label: 'ONEFOP', child: const SubmissionsViewerScreen()),
+            tabs: const [
+              (label: 'DSMO', child: DeclarationsListScreen()),
+              (label: 'ONEFOP', child: SubmissionsViewerScreen()),
             ],
           ),
         ),

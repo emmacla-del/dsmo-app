@@ -68,6 +68,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
     try {
       final api = ref.read(apiClientProvider);
       final resp = await api.get('/dsmo/declarations');
+      if (!mounted) return;
       setState(() {
         _declarations = resp.data as List? ?? [];
         _loading = false;
@@ -75,6 +76,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
       });
       _animCtrl.forward(from: 0);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
