@@ -7,6 +7,7 @@ import {
     UseGuards,
     ForbiddenException,
     BadRequestException,
+    ParseIntPipe,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AnalyticsService } from './analytics.service';
@@ -30,15 +31,15 @@ export class AnalyticsController {
 
     @Get('employment-by-region')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
-    async getEmploymentByRegion(@Query('year') year: number) {
+    async getEmploymentByRegion(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getEmploymentByRegion(year);
     }
 
     @Get('employment-trends')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getEmploymentTrends(
-        @Query('startYear') startYear: number,
-        @Query('endYear') endYear: number,
+        @Query('startYear', ParseIntPipe) startYear: number,
+        @Query('endYear', ParseIntPipe) endYear: number,
         @Query('region') region?: string,
         @Query('granularity') granularity?: 'year' | 'semester' | 'quarter',
     ) {
@@ -53,7 +54,7 @@ export class AnalyticsController {
     @Get('sector-distribution')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getSectorDistribution(
-        @Query('year') year: number,
+        @Query('year', ParseIntPipe) year: number,
         @Query('region') region?: string,
     ) {
         return this.analyticsService.getSectorDistribution(year, region);
@@ -62,7 +63,7 @@ export class AnalyticsController {
     @Get('gender-distribution')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getGenderDistribution(
-        @Query('year') year: number,
+        @Query('year', ParseIntPipe) year: number,
         @Query('region') region?: string,
     ) {
         return this.analyticsService.getGenderDistribution(year, region);
@@ -70,36 +71,36 @@ export class AnalyticsController {
 
     @Get('category-distribution')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
-    async getCategoryDistribution(@Query('year') year: number) {
+    async getCategoryDistribution(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getCategoryDistribution(year);
     }
 
     @Get('recruitment-forecast')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getRecruitmentForecast(
-        @Query('years') years?: number,
-        @Query('forecastYears') forecastYears?: number,
+        @Query('years', new ParseIntPipe({ optional: true })) years?: number,
+        @Query('forecastYears', new ParseIntPipe({ optional: true })) forecastYears?: number,
     ) {
         return this.analyticsService.getRecruitmentForecast(years, forecastYears);
     }
 
     @Get('unemployment-risk-regions')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
-    async getUnemploymentRiskRegions(@Query('year') year: number) {
+    async getUnemploymentRiskRegions(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getUnemploymentRiskRegions(year);
     }
 
     @Get('sector-labor-shortages')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
-    async getSectorLaborShortages(@Query('year') year: number) {
+    async getSectorLaborShortages(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getSectorLaborShortages(year);
     }
 
     @Get('companies-with-recruitment-plans')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getCompaniesWithRecruitmentPlans(
-        @Query('year') year: number,
-        @Query('limit') limit?: number,
+        @Query('year', ParseIntPipe) year: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     ) {
         return this.analyticsService.getCompaniesWithRecruitmentPlans(year, limit);
     }
@@ -107,7 +108,7 @@ export class AnalyticsController {
     @Get('dashboard-summary')
     @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
     async getDashboardSummary(
-        @Query('year') year: number,
+        @Query('year', ParseIntPipe) year: number,
         @Query('region') region?: string,
     ) {
         return this.analyticsService.getDashboardSummary(year, region);
@@ -130,7 +131,7 @@ export class AnalyticsController {
     @Get('company-benchmarks')
     @Roles('COMPANY')
     async getCompanyBenchmarks(
-        @Query('year') year: number,
+        @Query('year', ParseIntPipe) year: number,
         @Query('groupBy') groupBy: 'sector' | 'size' | 'region',
         @Req() req: any,
     ) {
