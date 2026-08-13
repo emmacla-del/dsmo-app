@@ -156,6 +156,15 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    // user.features (hasBenchmarking, onefopSubmissionStatus, ...) is only
+    // ever set at login/register/2FA and otherwise goes stale for the rest
+    // of the session — e.g. an ONEFOP submission approved after login would
+    // leave this screen showing the "not submitted yet" gate indefinitely.
+    // Refresh it on open so the gates reflect current server state without
+    // requiring a logout/login.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(authProvider.notifier).refreshUser();
+    });
   }
 
   @override
