@@ -191,7 +191,13 @@ export class AuthService {
       );
     }
     const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
-    return safeUser;
+    // Never computed here before -- harmless while nothing re-fetched /me
+    // after login, but AuthNotifier.refreshUser() (Flutter) now calls this
+    // on screen opens to pick up server-side changes mid-session, and
+    // without `features` here it silently overwrote the correct login-time
+    // value with UserFeatures' all-false default.
+    const features = await this.buildFeatures(user.id, user.role);
+    return { ...safeUser, features };
   }
 
   /**
