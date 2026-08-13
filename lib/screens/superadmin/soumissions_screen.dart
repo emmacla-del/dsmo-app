@@ -29,36 +29,50 @@ class _SoumissionsScreenState extends State<SoumissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      if (_exportPanelOpen)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: OnefopExportPanel(
-            onClose: () => setState(() => _exportPanelOpen = false),
+    return LayoutBuilder(builder: (context, constraints) {
+      // Capped + scrollable rather than sized to its natural height: the
+      // panel's filter card grows with content, and on a short window an
+      // uncapped panel above the Expanded tab content below can squeeze it
+      // to near-zero height and overflow — same reasoning as the toolbar
+      // bound in submissions_viewer_screen.dart.
+      final panelMaxHeight =
+          constraints.maxHeight.isFinite ? constraints.maxHeight * 0.55 : 420.0;
+      return Column(children: [
+        if (_exportPanelOpen)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: panelMaxHeight),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: OnefopExportPanel(
+                  onClose: () => setState(() => _exportPanelOpen = false),
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: TabContainer(
+            actions: [
+              IconButton(
+                icon: Icon(_exportPanelOpen
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.download_rounded),
+                onPressed: () =>
+                    setState(() => _exportPanelOpen = !_exportPanelOpen),
+                tooltip: 'Exporter',
+              ),
+            ],
+            tabs: [
+              (
+                label: 'DSMO',
+                child: DeclarationsListScreen(
+                    onNewSubmission: widget.onNewSubmission)
+              ),
+              (label: 'ONEFOP', child: const SubmissionsViewerScreen()),
+            ],
           ),
         ),
-      Expanded(
-        child: TabContainer(
-          actions: [
-            IconButton(
-              icon: Icon(_exportPanelOpen
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.download_rounded),
-              onPressed: () =>
-                  setState(() => _exportPanelOpen = !_exportPanelOpen),
-              tooltip: 'Exporter',
-            ),
-          ],
-          tabs: [
-            (
-              label: 'DSMO',
-              child: DeclarationsListScreen(
-                  onNewSubmission: widget.onNewSubmission)
-            ),
-            (label: 'ONEFOP', child: const SubmissionsViewerScreen()),
-          ],
-        ),
-      ),
-    ]);
+      ]);
+    });
   }
 }
