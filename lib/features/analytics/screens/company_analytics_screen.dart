@@ -25,6 +25,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 import '../../../core/i18n/l10n_ext.dart';
+import '../../../widgets/common_widgets.dart' show GlassCard;
 import '../data/bilan_rh.dart';
 
 Map<String, dynamic> _safeMap(dynamic value) {
@@ -772,28 +773,21 @@ class _DeadlinesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.event_outlined, size: 18, color: UltraTheme.primary),
-              const SizedBox(width: 8),
-              Text(l10n.opportunitiesDeadlinesTitle,
-                  style:
-                      UltraTheme.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
-            ]),
-            const SizedBox(height: 12),
-            ...campaigns.map((c) => _buildRow(context, c)),
-          ],
-        ),
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.event_outlined, size: 18, color: UltraTheme.primary),
+            const SizedBox(width: 8),
+            Text(l10n.opportunitiesDeadlinesTitle,
+                style:
+                    UltraTheme.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 12),
+          ...campaigns.map((c) => _buildRow(context, c)),
+        ],
       ),
     );
   }
@@ -1097,16 +1091,10 @@ class _BenchmarkRow extends StatelessWidget {
       percentileText = l10n.companyAnalyticsPercentileBottom(100 - rank);
     }
 
-    return Card(
+    return GlassCard(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1155,7 +1143,6 @@ class _BenchmarkRow extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
@@ -1231,15 +1218,9 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = color ?? UltraTheme.textPrimary;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(icon, size: 18, color: c),
             const Spacer(),
@@ -1266,7 +1247,6 @@ class _MetricCard extends StatelessWidget {
               style: UltraTheme.bodyMedium
                   .copyWith(color: UltraTheme.textMuted, fontSize: 12)),
         ]),
-      ),
     );
   }
 }
@@ -1285,15 +1265,9 @@ class _CspRecruitmentCard extends StatelessWidget {
     ];
     final grandTotal = breakdown.total.total;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
@@ -1356,7 +1330,6 @@ class _CspRecruitmentCard extends StatelessWidget {
             ]),
           ],
         ),
-      ),
     );
   }
 }
@@ -1421,30 +1394,17 @@ class _DeparturesCard extends StatelessWidget {
     ].where((r) => r.$2.total > 0).toList();
 
     if (rows.isEmpty) {
-      return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-          side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(l10n.companyAnalyticsNoDeparturesRecorded,
-              style:
-                  UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
-        ),
+      return GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Text(l10n.companyAnalyticsNoDeparturesRecorded,
+            style:
+                UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
       );
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
           ...rows.map((r) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(children: [
@@ -1483,7 +1443,6 @@ class _DeparturesCard extends StatelessWidget {
                     color: UltraTheme.primary)),
           ]),
         ]),
-      ),
     );
   }
 }
@@ -1502,40 +1461,33 @@ class _InternshipCard extends StatelessWidget {
       (l10n.companyAnalyticsInternshipPreWork, internships.preWork),
     ].where((r) => r.$2 > 0).toList();
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          ...rows.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(children: [
-                  Expanded(
-                      child: Text(r.$1,
-                          style: UltraTheme.bodyMedium.copyWith(fontSize: 13))),
-                  Text(r.$2.toString(),
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                ]),
-              )),
-          const Divider(),
-          Row(children: [
-            Expanded(
-                child: Text(l10n.companyAnalyticsTotalInterns,
-                    style: UltraTheme.bodyMedium
-                        .copyWith(fontWeight: FontWeight.w600))),
-            Text(internships.total.toString(),
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: UltraTheme.primary)),
-          ]),
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        ...rows.map((r) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                Expanded(
+                    child: Text(r.$1,
+                        style: UltraTheme.bodyMedium.copyWith(fontSize: 13))),
+                Text(r.$2.toString(),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+              ]),
+            )),
+        const Divider(),
+        Row(children: [
+          Expanded(
+              child: Text(l10n.companyAnalyticsTotalInterns,
+                  style: UltraTheme.bodyMedium
+                      .copyWith(fontWeight: FontWeight.w600))),
+          Text(internships.total.toString(),
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: UltraTheme.primary)),
         ]),
-      ),
+      ]),
     );
   }
 }
@@ -1549,43 +1501,36 @@ class _SkillsTrainingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (skillNeeds.isNotEmpty) ...[
-              Text(l10n.companyAnalyticsSkillNeeds,
-                  style: UltraTheme.bodyMedium.copyWith(
-                      color: UltraTheme.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              ...skillNeeds.map((s) => _SkillRow(
-                  index: s.index,
-                  label: s.description,
-                  color: UltraTheme.primary)),
-            ],
-            if (skillNeeds.isNotEmpty && trainingNeeds.isNotEmpty)
-              const Divider(height: 20),
-            if (trainingNeeds.isNotEmpty) ...[
-              Text(l10n.companyAnalyticsTrainingNeeds,
-                  style: UltraTheme.bodyMedium.copyWith(
-                      color: UltraTheme.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              ...trainingNeeds.map((t) => _SkillRow(
-                  index: t.index, label: t.domain, color: Colors.indigo)),
-            ],
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (skillNeeds.isNotEmpty) ...[
+            Text(l10n.companyAnalyticsSkillNeeds,
+                style: UltraTheme.bodyMedium.copyWith(
+                    color: UltraTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ...skillNeeds.map((s) => _SkillRow(
+                index: s.index,
+                label: s.description,
+                color: UltraTheme.primary)),
           ],
-        ),
+          if (skillNeeds.isNotEmpty && trainingNeeds.isNotEmpty)
+            const Divider(height: 20),
+          if (trainingNeeds.isNotEmpty) ...[
+            Text(l10n.companyAnalyticsTrainingNeeds,
+                style: UltraTheme.bodyMedium.copyWith(
+                    color: UltraTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ...trainingNeeds.map((t) => _SkillRow(
+                index: t.index, label: t.domain, color: Colors.indigo)),
+          ],
+        ],
       ),
     );
   }
@@ -1704,13 +1649,8 @@ class _LockedBenchmarkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
       child: Column(
         children: [
           const Icon(Icons.lock_outline, size: 40, color: UltraTheme.textMuted),
@@ -1785,13 +1725,8 @@ class _InsufficientDataCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
       child: Column(
         children: [
           const Icon(Icons.bar_chart, size: 40, color: UltraTheme.textMuted),
@@ -1820,13 +1755,8 @@ class _NoOwnDataCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
       child: Column(
         children: [
           const Icon(Icons.fact_check_outlined,
