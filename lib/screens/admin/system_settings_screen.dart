@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api_client.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/admin_kit.dart';
+import 'regions_sectors_screen.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SystemSettingsScreen — SUPER_ADMIN-only platform configuration.
@@ -195,6 +196,39 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 filled: true,
                                 fillColor: UltraTheme.background,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _SettingsSection(
+                          title: 'Données de référence',
+                          icon: Icons.map_outlined,
+                          children: [
+                            const Text(
+                              'Gérer la taxonomie régions/secteurs utilisée par les '
+                              'filtres et formulaires de toute la plateforme.',
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12.5,
+                                  color: UltraTheme.textMuted,
+                                  height: 1.4),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => const RegionsSectorsScreen()),
+                              ),
+                              icon: const Icon(Icons.tune_rounded, size: 18),
+                              label: const Text('Gérer les régions et secteurs'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: UltraTheme.primary,
+                                side: const BorderSide(color: UltraTheme.primary),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ],

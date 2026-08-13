@@ -54,7 +54,6 @@ import 'dashboards/company_workspace_dashboard.dart';
 
 // Add these imports with the other ONEFOP imports
 import 'report/report_screen.dart';
-import 'data_management/data_management_screen.dart';
 
 // ── Super admin tab merges ──────────────────────────────────────
 import 'superadmin/soumissions_screen.dart';
@@ -213,12 +212,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Merged tabs: Soumissions (DSMO + ONEFOP), Communication
         // (Campagnes + Notifications), Annuaire (Utilisateurs +
         // Entreprises) — see lib/screens/superadmin/ and
-        // lib/screens/admin/annuaire_screen.dart.
+        // lib/screens/admin/annuaire_screen.dart. The standalone
+        // "Data Mgmt" tab was removed: its bulk ONEFOP export moved into
+        // the Soumissions tab (see onefop_export_panel.dart), and its
+        // region/sector taxonomy management moved into Paramètres (see
+        // regions_sectors_screen.dart) — both duplicated screens that
+        // already existed elsewhere instead of having their own home.
         return [
           const _Tab('Analytics DSMO', Icons.bar_chart_outlined,
               OnefopDashboardScreen()),
           const _Tab('Reports', Icons.description_outlined, ReportScreen()),
-          const _Tab('Data Mgmt', Icons.storage_outlined, DataManagementScreen()),
           const _Tab('Communication', Icons.campaign_outlined,
               CommunicationScreen()),
           _Tab('Soumissions', Icons.assignment_outlined,
