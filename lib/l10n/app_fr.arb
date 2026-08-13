@@ -738,6 +738,13 @@
       "median": { "type": "String" }
     }
   },
+  "opportunitiesBenchmarkGapTurnover": "Votre taux de rotation ({mine}%) est supérieur à la médiane de votre secteur ({median}%).",
+  "@opportunitiesBenchmarkGapTurnover": {
+    "placeholders": {
+      "mine": { "type": "String" },
+      "median": { "type": "String" }
+    }
+  },
   "opportunitiesDeadlinesTitle": "Échéances à venir",
   "opportunitiesDeadlineInDays": "{date} · dans {days, plural, =0{moins d'un jour} =1{1 jour} other{{days} jours}}",
   "@opportunitiesDeadlineInDays": {

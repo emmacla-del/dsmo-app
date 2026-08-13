@@ -2,6 +2,19 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DeclarationStatus } from '../types/prisma.types';
 
+// Minimal field set needed by aggregateOnefopBenchmarkMetrics() — kept out
+// of the class since it's shared by both the caller's own submissions and
+// every peer's, and re-declaring it per query risked the two drifting.
+const ONEFOP_BENCHMARK_SELECT = {
+    enterpriseDetail: { select: { permanentWorkers: true } },
+    cooperativeDetail: { select: { permanentWorkers: true } },
+    ctdDetail: { select: { permanentWorkers: true } },
+    ongDetail: { select: { permanentWorkers: true } },
+    departureData: {
+        select: { cspCategory: true, departureType: true, gender: true, value: true },
+    },
+} as const;
+
 @Injectable()
 export class AnalyticsService {
     constructor(private prisma: PrismaService) { }
@@ -408,23 +421,21 @@ export class AnalyticsService {
         });
         if (!company) throw new BadRequestException('Entreprise non trouvée');
 
-        // Checked before the peer-count query below: this endpoint's own
-        // gate (onefopBenchmarking) is ONEFOP-submission-based, but the
-        // comparison itself reads DSMO Declaration data, a separate
-        // approval workflow. A company can clear the ONEFOP gate with zero
-        // approved DSMO declarations for `year` — that used to fall
-        // through to "your company: 0 employees, 0th percentile" against a
-        // real peer median, which reads as a bug rather than what it is
-        // (no data on your side yet). Reported as its own reason, distinct
-        // from INSUFFICIENT_DATA (which is about the peer group, not you),
-        // since it's the more specific and more actionable message either
-        // way — no point telling someone "not enough peers" when the real
-        // gap is their own missing declaration.
-        const myDeclarations = await this.prisma.declaration.findMany({
-            where: { year, status: DeclarationStatus.FINAL_APPROVED, companyId },
-            include: { employees: true },
+        // Reads ONEFOP submissions rather than DSMO declarations — the
+        // gate (onefopBenchmarking) is already ONEFOP-based, and DSMO is a
+        // separate approval workflow a company can clear the gate without
+        // ever having filed, which used to surface as NO_OWN_DATA despite
+        // the company having real, approved data on file (just under the
+        // other form). ONEFOP also has no per-employee gender field for the
+        // current workforce (only flow data on recruitments/departures), so
+        // the gender-parity metric below is replaced with turnover rate,
+        // which ONEFOP's departure data supports directly.
+        const mySubmissions: any[] = await (this.prisma as any).onefopSubmission.findMany({
+            where: { surveyYear: year, status: 'APPROVED', companyId },
+            orderBy: { createdAt: 'desc' },
+            select: ONEFOP_BENCHMARK_SELECT,
         });
-        if (myDeclarations.length === 0) {
+        if (mySubmissions.length === 0) {
             return {
                 available: false,
                 reason: 'NO_OWN_DATA',
@@ -432,13 +443,11 @@ export class AnalyticsService {
                 minRequired: 5,
             };
         }
-        const myEmployees = myDeclarations.flatMap((d) => d.employees);
-        const myTotal = myEmployees.length;
-        const myFemalePct = myTotal > 0 ? (myEmployees.filter((e) => e.gender === 'F').length / myTotal) * 100 : 0;
+        const mine = this.aggregateOnefopBenchmarkMetrics(mySubmissions);
 
         const peerWhere: any = {
-            year,
-            status: DeclarationStatus.FINAL_APPROVED,
+            surveyYear: year,
+            status: 'APPROVED',
             companyId: { not: companyId },
         };
         if (groupBy === 'sector') {
@@ -446,13 +455,24 @@ export class AnalyticsService {
         } else if (groupBy === 'size') {
             peerWhere.company = { enterpriseSize: company.enterpriseSize };
         } else if (groupBy === 'region') {
-            peerWhere.region = company.region;
+            peerWhere.company = { region: company.region };
         }
 
-        const peers = await this.prisma.declaration.findMany({
+        const peerSubmissions: any[] = await (this.prisma as any).onefopSubmission.findMany({
             where: peerWhere,
-            include: { employees: true, company: true },
+            orderBy: { createdAt: 'desc' },
+            select: { ...ONEFOP_BENCHMARK_SELECT, companyId: true },
         });
+
+        const byCompany = new Map<string, any[]>();
+        for (const s of peerSubmissions) {
+            const list = byCompany.get(s.companyId as string);
+            if (list) list.push(s);
+            else byCompany.set(s.companyId as string, [s]);
+        }
+        const peers = Array.from(byCompany.values()).map((subs) =>
+            this.aggregateOnefopBenchmarkMetrics(subs),
+        );
 
         if (peers.length < 5) {
             return {
@@ -463,18 +483,11 @@ export class AnalyticsService {
             };
         }
 
-        const peerEmployeeCounts = peers.map((p) => p.employees.length).sort((a, b) => a - b);
-        const medianEmployees = peerEmployeeCounts[Math.floor(peerEmployeeCounts.length / 2)];
+        const peerWorkforce = peers.map((p) => p.permanentWorkers).sort((a, b) => a - b);
+        const medianWorkforce = peerWorkforce[Math.floor(peerWorkforce.length / 2)];
 
-        const peerGenderRatios = peers
-            .map((p) => {
-                const total = p.employees.length;
-                if (total === 0) return 0;
-                const female = p.employees.filter((e) => e.gender === 'F').length;
-                return (female / total) * 100;
-            })
-            .sort((a, b) => a - b);
-        const medianFemalePct = peerGenderRatios[Math.floor(peerGenderRatios.length / 2)];
+        const peerTurnover = peers.map((p) => p.turnoverRate).sort((a, b) => a - b);
+        const medianTurnover = peerTurnover[Math.floor(peerTurnover.length / 2)];
 
         return {
             available: true,
@@ -482,17 +495,57 @@ export class AnalyticsService {
             peerCount: peers.length,
             metrics: {
                 totalEmployees: {
-                    mine: myTotal,
-                    median: medianEmployees,
-                    percentile: this.calculatePercentile(peerEmployeeCounts, myTotal),
+                    mine: mine.permanentWorkers,
+                    median: medianWorkforce,
+                    percentile: this.calculatePercentile(peerWorkforce, mine.permanentWorkers),
                 },
-                femalePercentage: {
-                    mine: +myFemalePct.toFixed(1),
-                    median: +medianFemalePct.toFixed(1),
-                    percentile: this.calculatePercentile(peerGenderRatios, myFemalePct),
+                turnoverRate: {
+                    mine: mine.turnoverRate,
+                    median: medianTurnover,
+                    percentile: this.calculatePercentile(peerTurnover, mine.turnoverRate),
                 },
             },
         };
+    }
+
+    /**
+     * Workforce snapshot (from the most recently approved submission) +
+     * turnover rate (departures summed across every approved submission for
+     * the year, same "flow vs. snapshot" split BilanService uses) for one
+     * company's set of approved ONEFOP submissions.
+     */
+    private aggregateOnefopBenchmarkMetrics(
+        submissions: any[],
+    ): { permanentWorkers: number; turnoverRate: number } {
+        // submissions is sorted createdAt desc by the caller, so [0] is the
+        // most recent — same snapshot-vs-flow rationale as BilanService.
+        const latest = submissions[0];
+        const permanentWorkers =
+            latest.enterpriseDetail?.permanentWorkers ??
+            latest.cooperativeDetail?.permanentWorkers ??
+            latest.ctdDetail?.permanentWorkers ??
+            latest.ongDetail?.permanentWorkers ??
+            0;
+
+        let totalDepartures = 0;
+        for (const submission of submissions) {
+            for (const row of submission.departureData) {
+                if (
+                    row.cspCategory === 'TOTAL' &&
+                    row.departureType === 'ENSEMBLE' &&
+                    row.gender === 'TOTAL'
+                ) {
+                    totalDepartures += row.value;
+                }
+            }
+        }
+
+        const turnoverRate =
+            permanentWorkers > 0
+                ? Math.round((totalDepartures / permanentWorkers) * 1000) / 10
+                : 0;
+
+        return { permanentWorkers, turnoverRate };
     }
 
     private calculatePercentile(sortedArray: number[], value: number): number {

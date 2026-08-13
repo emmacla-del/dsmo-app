@@ -1888,6 +1888,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String opportunitiesBenchmarkGapTurnover(String mine, String median) {
+    return 'Votre taux de rotation ($mine%) est supérieur à la médiane de votre secteur ($median%).';
+  }
+
+  @override
   String get opportunitiesDeadlinesTitle => 'Échéances à venir';
 
   @override

@@ -1869,6 +1869,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String opportunitiesBenchmarkGapTurnover(String mine, String median) {
+    return 'Your turnover rate ($mine%) is higher than your sector\'s median ($median%).';
+  }
+
+  @override
   String get opportunitiesDeadlinesTitle => 'Upcoming deadlines';
 
   @override

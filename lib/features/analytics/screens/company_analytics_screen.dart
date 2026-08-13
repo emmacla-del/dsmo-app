@@ -714,13 +714,16 @@ class _BenchmarkGapCard extends StatelessWidget {
           _safeInt(empMetrics['mine']), _safeInt(empMetrics['median'])));
     }
 
-    final genderMetrics = metrics['femalePercentage'] is Map
-        ? Map<String, dynamic>.from(metrics['femalePercentage'] as Map)
+    // Turnover is the inverse of the other metrics here: a HIGH percentile
+    // means more departures relative to peers than most of them, i.e. worse
+    // retention — so the gap fires above the median, not below it.
+    final turnoverMetrics = metrics['turnoverRate'] is Map
+        ? Map<String, dynamic>.from(metrics['turnoverRate'] as Map)
         : <String, dynamic>{};
-    if (genderMetrics.isNotEmpty && _safeInt(genderMetrics['percentile']) < 50) {
-      gaps.add(l10n.opportunitiesBenchmarkGapFeminization(
-          _safeDouble(genderMetrics['mine']).toStringAsFixed(1),
-          _safeDouble(genderMetrics['median']).toStringAsFixed(1)));
+    if (turnoverMetrics.isNotEmpty && _safeInt(turnoverMetrics['percentile']) > 50) {
+      gaps.add(l10n.opportunitiesBenchmarkGapTurnover(
+          _safeDouble(turnoverMetrics['mine']).toStringAsFixed(1),
+          _safeDouble(turnoverMetrics['median']).toStringAsFixed(1)));
     }
 
     if (gaps.isEmpty) return const SizedBox.shrink();
@@ -832,8 +835,8 @@ class _BenchmarkCards extends StatelessWidget {
     final empMetrics = metrics['totalEmployees'] is Map
         ? Map<String, dynamic>.from(metrics['totalEmployees'] as Map)
         : <String, dynamic>{};
-    final genderMetrics = metrics['femalePercentage'] is Map
-        ? Map<String, dynamic>.from(metrics['femalePercentage'] as Map)
+    final turnoverMetrics = metrics['turnoverRate'] is Map
+        ? Map<String, dynamic>.from(metrics['turnoverRate'] as Map)
         : <String, dynamic>{};
 
     return Column(
@@ -846,14 +849,15 @@ class _BenchmarkCards extends StatelessWidget {
             percentile: _safeInt(empMetrics['percentile']),
             unit: l10n.companyAnalyticsUnitEmployees,
           ),
-        if (genderMetrics.isNotEmpty)
+        if (turnoverMetrics.isNotEmpty)
           _BenchmarkRow(
-            label: l10n.companyAnalyticsFeminizationRate,
-            mine: _safeDouble(genderMetrics['mine']),
-            median: _safeDouble(genderMetrics['median']),
-            percentile: _safeInt(genderMetrics['percentile']),
+            label: l10n.companyAnalyticsTurnoverRate,
+            mine: _safeDouble(turnoverMetrics['mine']),
+            median: _safeDouble(turnoverMetrics['median']),
+            percentile: _safeInt(turnoverMetrics['percentile']),
             unit: '%',
             isPercentage: true,
+            higherIsBetter: false,
           ),
       ],
     );
@@ -1044,6 +1048,11 @@ class _BenchmarkRow extends StatelessWidget {
   final int percentile;
   final String unit;
   final bool isPercentage;
+  // Workforce size: a higher raw percentile (more peers below you) reads as
+  // "better" as-is. Turnover is the opposite — a higher percentile means
+  // more departures than most peers, i.e. worse retention — so that case
+  // passes false to flip which end of the scale counts as "top".
+  final bool higherIsBetter;
 
   const _BenchmarkRow({
     required this.label,
@@ -1052,6 +1061,7 @@ class _BenchmarkRow extends StatelessWidget {
     required this.percentile,
     required this.unit,
     this.isPercentage = false,
+    this.higherIsBetter = true,
   });
 
   @override
@@ -1061,18 +1071,21 @@ class _BenchmarkRow extends StatelessWidget {
     final medianStr =
         isPercentage ? median.toStringAsFixed(1) : median.toString();
 
+    // Normalized so 100 always means "best possible standing", regardless
+    // of which raw direction this particular metric's percentile runs.
+    final rank = higherIsBetter ? percentile : 100 - percentile;
+
     Color percentileColor;
     String percentileText;
-    if (percentile >= 75) {
+    if (rank >= 75) {
       percentileColor = Colors.green;
-      percentileText = l10n.companyAnalyticsPercentileTop(percentile);
-    } else if (percentile >= 50) {
+      percentileText = l10n.companyAnalyticsPercentileTop(rank);
+    } else if (rank >= 50) {
       percentileColor = Colors.orange;
       percentileText = l10n.companyAnalyticsPercentileMedianPlus;
     } else {
       percentileColor = Colors.red;
-      percentileText =
-          l10n.companyAnalyticsPercentileBottom(100 - percentile);
+      percentileText = l10n.companyAnalyticsPercentileBottom(100 - rank);
     }
 
     return Card(

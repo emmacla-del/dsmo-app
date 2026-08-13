@@ -3488,6 +3488,12 @@ abstract class AppLocalizations {
   /// **'Votre taux de féminisation ({mine}%) est inférieur à la médiane de votre secteur ({median}%).'**
   String opportunitiesBenchmarkGapFeminization(String mine, String median);
 
+  /// No description provided for @opportunitiesBenchmarkGapTurnover.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre taux de rotation ({mine}%) est supérieur à la médiane de votre secteur ({median}%).'**
+  String opportunitiesBenchmarkGapTurnover(String mine, String median);
+
   /// No description provided for @opportunitiesDeadlinesTitle.
   ///
   /// In fr, this message translates to:

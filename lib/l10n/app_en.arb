@@ -618,6 +618,13 @@
       "median": { "type": "String" }
     }
   },
+  "opportunitiesBenchmarkGapTurnover": "Your turnover rate ({mine}%) is higher than your sector's median ({median}%).",
+  "@opportunitiesBenchmarkGapTurnover": {
+    "placeholders": {
+      "mine": { "type": "String" },
+      "median": { "type": "String" }
+    }
+  },
   "opportunitiesDeadlinesTitle": "Upcoming deadlines",
   "opportunitiesDeadlineInDays": "{date} · in {days, plural, =0{less than a day} =1{1 day} other{{days} days}}",
   "@opportunitiesDeadlineInDays": {
