@@ -1348,6 +1348,28 @@ class ApiClient {
     }
   }
 
+  /// Get the generated PDF bytes for a submitted DSMO declaration.
+  /// Goes through the backend (which always mints a fresh signed URL and
+  /// regenerates the file if missing) rather than reusing the `pdfUrl`
+  /// stored on the declaration record at submission time — that stored
+  /// URL is a Supabase signed link that expires after 7 days
+  /// (PdfService.signedUrlExpirySeconds), so opening it directly once a
+  /// declaration is older than that fails with an expired-token error.
+  Future<List<int>> getDeclarationPdf(String declarationId, {int copy = 1}) async {
+    try {
+      final response = await dio.get(
+        '/dsmo/declarations/$declarationId/pdf/$copy',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   /// Get the generated PDF bytes for a submitted ONEFOP questionnaire.
   /// See [previewQuestionnaire] for the [languageCode]/Accept-Language note.
   Future<List<int>> getOnefopSubmissionPdf(

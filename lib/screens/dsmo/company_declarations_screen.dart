@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -248,12 +247,10 @@ class _CompanyDeclarationsScreenState
   int get _draftCount =>
       _entries.where((e) => e.isDraft).length;
 
-  // DSMO declarations carry a pre-signed `pdfUrl` straight on the record, so
-  // opening it is just a launchUrl. ONEFOP submissions don't store one —
-  // the PDF is generated/cached on demand behind an authenticated endpoint —
-  // so we fetch the bytes through the API client and hand them to the
-  // system print/save dialog, same as submissions_viewer_screen.dart does
-  // for reviewer roles.
+  // `pdfUrl` being set on the record is a proxy for "this declaration was
+  // submitted with a PDF" — the actual bytes are always fetched fresh
+  // through the API (see _downloadPdf) rather than opening that stored URL
+  // directly, since it's a Supabase signed link that expires after 7 days.
   bool _hasPdf(_HistoryEntry e) {
     if (e.stream == 'DSMO') {
       final url = e.raw['pdfUrl'] as String?;
@@ -263,24 +260,11 @@ class _CompanyDeclarationsScreenState
   }
 
   Future<void> _downloadPdf(_HistoryEntry e) async {
-    if (e.stream == 'DSMO') {
-      final url = e.raw['pdfUrl'] as String?;
-      final uri = url == null ? null : Uri.tryParse(url);
-      if (uri == null || !await canLaunchUrl(uri)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.companyDeclDownloadPdfError)),
-          );
-        }
-        return;
-      }
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      return;
-    }
-
     try {
       final api = ref.read(apiClientProvider);
-      final bytes = await api.getOnefopSubmissionPdf(e.id);
+      final bytes = e.stream == 'DSMO'
+          ? await api.getDeclarationPdf(e.id)
+          : await api.getOnefopSubmissionPdf(e.id);
       await Printing.layoutPdf(onLayout: (_) => Uint8List.fromList(bytes));
     } catch (_) {
       if (mounted) {
