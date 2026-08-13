@@ -163,18 +163,45 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
 
   Widget _buildActiveCampaigns(BuildContext context,
       List<dynamic> campaigns, VoidCallback? onNewSubmission) {
+    const spacing = 16.0;
+    final mobile = context.isMobile;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(context.l10n.activeCampaignsTitle, style: UltraTheme.titleMedium),
         const SizedBox(height: 12),
-        for (final c in campaigns)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _CampaignCard(
-              campaign: c as Map<String, dynamic>,
-              onNewSubmission: onNewSubmission,
-            ),
+        if (mobile)
+          for (final c in campaigns)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _CampaignCard(
+                campaign: c as Map<String, dynamic>,
+                onNewSubmission: onNewSubmission,
+              ),
+            )
+        else
+          // Cards are capped at half the row's width rather than divided by
+          // count, so two fit side by side and a single active campaign
+          // still sits at half width instead of stretching the full line.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - spacing) / 2;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final c in campaigns)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _CampaignCard(
+                        campaign: c as Map<String, dynamic>,
+                        onNewSubmission: onNewSubmission,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
       ],
     );
