@@ -62,4 +62,3 @@ secrets.json
 
 dist/
 *.tsbuildinfo
-src/auth/jwt-secret.ts
