@@ -592,36 +592,59 @@
   "companyAnalyticsTabOpportunities": "Opportunities",
   "companyAnalyticsBadgeActive": "Active",
   "companyAnalyticsBadgePending": "Pending",
-  "companyAnalyticsOpportunitiesTitle": "Actionable opportunities",
-  "companyAnalyticsOpportunitiesDescription": "Subsidized training programs, candidates matching your open positions, and tax incentives detected from your data.",
+  "companyAnalyticsOpportunitiesTitle": "Opportunities",
+  "companyAnalyticsOpportunitiesDescription": "Signals drawn from your own reported data: open positions, gaps versus your sector, training needs, and upcoming deadlines.",
   "companyAnalyticsComingSoonBadge": "Coming soon",
+  "opportunitiesVacancyTitle": "Open positions",
+  "opportunitiesVacancyDetail": "{vacancies, plural, =0{No open positions declared.} =1{1 open position declared,} other{{vacancies} open positions declared,}} {rate}% of your permanent workforce.",
+  "@opportunitiesVacancyDetail": {
+    "placeholders": {
+      "vacancies": { "type": "int" },
+      "rate": { "type": "String" }
+    }
+  },
+  "opportunitiesBenchmarkGapTitle": "Gaps versus your sector",
+  "opportunitiesBenchmarkGapWorkforce": "Your workforce ({mine}) is below your sector's median ({median}).",
+  "@opportunitiesBenchmarkGapWorkforce": {
+    "placeholders": {
+      "mine": { "type": "int" },
+      "median": { "type": "int" }
+    }
+  },
+  "opportunitiesBenchmarkGapFeminization": "Your feminization rate ({mine}%) is below your sector's median ({median}%).",
+  "@opportunitiesBenchmarkGapFeminization": {
+    "placeholders": {
+      "mine": { "type": "String" },
+      "median": { "type": "String" }
+    }
+  },
+  "opportunitiesDeadlinesTitle": "Upcoming deadlines",
+  "opportunitiesDeadlineInDays": "{date} · in {days, plural, =0{less than a day} =1{1 day} other{{days} days}}",
+  "@opportunitiesDeadlineInDays": {
+    "placeholders": {
+      "date": { "type": "String" },
+      "days": { "type": "int" }
+    }
+  },
+  "opportunitiesDeadlinePassed": "{date} · past due",
+  "@opportunitiesDeadlinePassed": {
+    "placeholders": { "date": { "type": "String" } }
+  },
   "companyAnalyticsHeaderYear": "Analytics {year}",
-  "companyAnalyticsBilanSubtitle": "Data drawn from your approved ONEFOP declarations",
-  "companyAnalyticsSectionMySituation": "My Situation",
-  "companyAnalyticsLoadError": "Loading error: {error}",
-  "companyAnalyticsSectionBilanDetailed": "Detailed HR Report",
   "companyAnalyticsSectionBenchmarking": "Sector Benchmarking",
   "companyAnalyticsBenchmarkingComingTitle": "Sector benchmarking",
   "companyAnalyticsBenchmarkingComingDescription": "Compare your HR indicators with companies in your sector and region. Available once your file is approved and enough companies have submitted their declaration.",
   "companyAnalyticsPeerGroupCount": "{count} companies in your comparison group",
   "companyAnalyticsBenchmarkError": "Benchmarking error: {error}",
   "companyAnalyticsTotalWorkforce": "Total workforce",
-  "companyAnalyticsVsPreviousYearLabel": "{value} vs previous year",
-  "companyAnalyticsFemaleCountLabel": "{count} female employees",
-  "companyAnalyticsMaleCountLabel": "{count} male employees",
   "companyAnalyticsRecruitmentsLabel": "Recruitments",
-  "companyAnalyticsNetLabel": "Net: {value}",
   "companyAnalyticsDeparturesLabel": "Departures",
-  "companyAnalyticsDismissalsRetirementsLabel": "{dismissals} dismissals · {retirements} retirements",
-  "companyAnalyticsCategoryBreakdownTitle": "Breakdown by category",
-  "companyAnalyticsCatExecutives": "Executives (1-3)",
-  "companyAnalyticsCatSupervisors": "Supervisors (4-6)",
-  "companyAnalyticsCatWorkers": "Workers (7-9)",
-  "companyAnalyticsCatOthers": "Others (10-12)",
-  "companyAnalyticsCatUndeclared": "Undeclared",
   "companyAnalyticsUnitEmployees": "employees",
   "companyAnalyticsFeminizationRate": "Feminization rate",
   "companyAnalyticsBilanDeclarationSubtitle": "Data drawn from your approved ONEFOP declaration",
+  "companyAnalyticsBilanAggregatedSubtitle": "Data combined across {quarterCount} approved ONEFOP declarations this year",
+  "companyAnalyticsExportPdfButton": "Export as PDF",
+  "companyAnalyticsBilanPdfExportError": "Couldn't generate the PDF. Please try again.",
   "companyAnalyticsSectionEffectifs": "Workforce",
   "companyAnalyticsPermanentEmployees": "Permanent employees",
   "companyAnalyticsVacantPositions": "Vacant positions",
@@ -655,12 +678,9 @@
   "companyAnalyticsVulnerableWorkersRecruited": "{count} vulnerable workers recruited ({displaced} displaced, {refugees} refugees, {orphans} orphans)",
   "companyAnalyticsDisabledWorkersRecruited": "{count} people with disabilities recruited",
   "companyAnalyticsPriorityProfilesShare": "{pct}% of your recruitments involve priority profiles.",
-  "companyAnalyticsLockedUnderReview": "Your ONEFOP questionnaire is under review. Analytics will be available after approval.",
-  "companyAnalyticsLockedDraft": "You have an ONEFOP draft in progress. Finalize and submit it to access your analytics.",
-  "companyAnalyticsLockedDefault": "Submit the ONEFOP questionnaire to access your personal analytics.",
-  "companyAnalyticsBenchmarkLockedSubmitted": "Your questionnaire is under review by MINEFOP. Sector comparisons will be unlocked after approval.",
-  "companyAnalyticsBenchmarkLockedUnderReview": "Your questionnaire is being analyzed. Benchmarks are coming soon.",
   "companyAnalyticsBenchmarkLockedDefault": "Submit the ONEFOP questionnaire to access comparative analytics.",
+  "companyAnalyticsNoOwnDataTitle": "Missing DSMO declaration",
+  "companyAnalyticsNoOwnDataDetail": "Benchmarking needs an approved annual DSMO declaration for {year}. Your ONEFOP questionnaire is approved — the DSMO declaration for the same year is what's missing.",
   "companyAnalyticsBilanLockedUnderReview": "Your ONEFOP declaration is under review. Your HR report will be available after approval.",
   "companyAnalyticsBilanLockedDraft": "You have a draft in progress. Finalize and submit your declaration to access your report.",
   "companyAnalyticsBilanLockedDefault": "Submit your ONEFOP declaration to access your personalized HR report.",

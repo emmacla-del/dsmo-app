@@ -1331,6 +1331,23 @@ class ApiClient {
     }
   }
 
+  /// Get the company's own Bilan RH for [year] rendered as a PDF.
+  Future<List<int>> getBilanPdf(int year) async {
+    try {
+      final response = await dio.get(
+        '/dsmo/analytics/bilan/pdf',
+        queryParameters: {'year': year},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   /// Get the generated PDF bytes for a submitted ONEFOP questionnaire.
   /// See [previewQuestionnaire] for the [languageCode]/Accept-Language note.
   Future<List<int>> getOnefopSubmissionPdf(

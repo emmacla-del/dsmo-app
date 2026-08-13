@@ -1831,34 +1831,67 @@ class AppLocalizationsEn extends AppLocalizations {
   String get companyAnalyticsBadgePending => 'Pending';
 
   @override
-  String get companyAnalyticsOpportunitiesTitle => 'Actionable opportunities';
+  String get companyAnalyticsOpportunitiesTitle => 'Opportunities';
 
   @override
   String get companyAnalyticsOpportunitiesDescription =>
-      'Subsidized training programs, candidates matching your open positions, and tax incentives detected from your data.';
+      'Signals drawn from your own reported data: open positions, gaps versus your sector, training needs, and upcoming deadlines.';
 
   @override
   String get companyAnalyticsComingSoonBadge => 'Coming soon';
 
   @override
+  String get opportunitiesVacancyTitle => 'Open positions';
+
+  @override
+  String opportunitiesVacancyDetail(int vacancies, String rate) {
+    String _temp0 = intl.Intl.pluralLogic(
+      vacancies,
+      locale: localeName,
+      other: '$vacancies open positions declared,',
+      one: '1 open position declared,',
+      zero: 'No open positions declared.',
+    );
+    return '$_temp0 $rate% of your permanent workforce.';
+  }
+
+  @override
+  String get opportunitiesBenchmarkGapTitle => 'Gaps versus your sector';
+
+  @override
+  String opportunitiesBenchmarkGapWorkforce(int mine, int median) {
+    return 'Your workforce ($mine) is below your sector\'s median ($median).';
+  }
+
+  @override
+  String opportunitiesBenchmarkGapFeminization(String mine, String median) {
+    return 'Your feminization rate ($mine%) is below your sector\'s median ($median%).';
+  }
+
+  @override
+  String get opportunitiesDeadlinesTitle => 'Upcoming deadlines';
+
+  @override
+  String opportunitiesDeadlineInDays(String date, int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+      zero: 'less than a day',
+    );
+    return '$date · in $_temp0';
+  }
+
+  @override
+  String opportunitiesDeadlinePassed(String date) {
+    return '$date · past due';
+  }
+
+  @override
   String companyAnalyticsHeaderYear(int year) {
     return 'Analytics $year';
   }
-
-  @override
-  String get companyAnalyticsBilanSubtitle =>
-      'Data drawn from your approved ONEFOP declarations';
-
-  @override
-  String get companyAnalyticsSectionMySituation => 'My Situation';
-
-  @override
-  String companyAnalyticsLoadError(String error) {
-    return 'Loading error: $error';
-  }
-
-  @override
-  String get companyAnalyticsSectionBilanDetailed => 'Detailed HR Report';
 
   @override
   String get companyAnalyticsSectionBenchmarking => 'Sector Benchmarking';
@@ -1884,54 +1917,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get companyAnalyticsTotalWorkforce => 'Total workforce';
 
   @override
-  String companyAnalyticsVsPreviousYearLabel(String value) {
-    return '$value vs previous year';
-  }
-
-  @override
-  String companyAnalyticsFemaleCountLabel(int count) {
-    return '$count female employees';
-  }
-
-  @override
-  String companyAnalyticsMaleCountLabel(int count) {
-    return '$count male employees';
-  }
-
-  @override
   String get companyAnalyticsRecruitmentsLabel => 'Recruitments';
 
   @override
-  String companyAnalyticsNetLabel(String value) {
-    return 'Net: $value';
-  }
-
-  @override
   String get companyAnalyticsDeparturesLabel => 'Departures';
-
-  @override
-  String companyAnalyticsDismissalsRetirementsLabel(
-      int dismissals, int retirements) {
-    return '$dismissals dismissals · $retirements retirements';
-  }
-
-  @override
-  String get companyAnalyticsCategoryBreakdownTitle => 'Breakdown by category';
-
-  @override
-  String get companyAnalyticsCatExecutives => 'Executives (1-3)';
-
-  @override
-  String get companyAnalyticsCatSupervisors => 'Supervisors (4-6)';
-
-  @override
-  String get companyAnalyticsCatWorkers => 'Workers (7-9)';
-
-  @override
-  String get companyAnalyticsCatOthers => 'Others (10-12)';
-
-  @override
-  String get companyAnalyticsCatUndeclared => 'Undeclared';
 
   @override
   String get companyAnalyticsUnitEmployees => 'employees';
@@ -1942,6 +1931,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get companyAnalyticsBilanDeclarationSubtitle =>
       'Data drawn from your approved ONEFOP declaration';
+
+  @override
+  String companyAnalyticsBilanAggregatedSubtitle(int quarterCount) {
+    return 'Data combined across $quarterCount approved ONEFOP declarations this year';
+  }
+
+  @override
+  String get companyAnalyticsExportPdfButton => 'Export as PDF';
+
+  @override
+  String get companyAnalyticsBilanPdfExportError =>
+      'Couldn\'t generate the PDF. Please try again.';
 
   @override
   String get companyAnalyticsSectionEffectifs => 'Workforce';
@@ -2055,28 +2056,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get companyAnalyticsLockedUnderReview =>
-      'Your ONEFOP questionnaire is under review. Analytics will be available after approval.';
-
-  @override
-  String get companyAnalyticsLockedDraft =>
-      'You have an ONEFOP draft in progress. Finalize and submit it to access your analytics.';
-
-  @override
-  String get companyAnalyticsLockedDefault =>
-      'Submit the ONEFOP questionnaire to access your personal analytics.';
-
-  @override
-  String get companyAnalyticsBenchmarkLockedSubmitted =>
-      'Your questionnaire is under review by MINEFOP. Sector comparisons will be unlocked after approval.';
-
-  @override
-  String get companyAnalyticsBenchmarkLockedUnderReview =>
-      'Your questionnaire is being analyzed. Benchmarks are coming soon.';
-
-  @override
   String get companyAnalyticsBenchmarkLockedDefault =>
       'Submit the ONEFOP questionnaire to access comparative analytics.';
+
+  @override
+  String get companyAnalyticsNoOwnDataTitle => 'Missing DSMO declaration';
+
+  @override
+  String companyAnalyticsNoOwnDataDetail(int year) {
+    return 'Benchmarking needs an approved annual DSMO declaration for $year. Your ONEFOP questionnaire is approved — the DSMO declaration for the same year is what\'s missing.';
+  }
 
   @override
   String get companyAnalyticsBilanLockedUnderReview =>

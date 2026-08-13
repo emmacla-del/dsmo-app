@@ -3443,13 +3443,13 @@ abstract class AppLocalizations {
   /// No description provided for @companyAnalyticsOpportunitiesTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Opportunités actionnables'**
+  /// **'Opportunités'**
   String get companyAnalyticsOpportunitiesTitle;
 
   /// No description provided for @companyAnalyticsOpportunitiesDescription.
   ///
   /// In fr, this message translates to:
-  /// **'Formations éligibles à des subventions, candidats correspondant à vos postes vacants, et incitatifs fiscaux détectés à partir de vos données.'**
+  /// **'Signaux tirés de vos propres données déclarées : postes à pourvoir, écarts par rapport à votre secteur, besoins en formation et échéances à venir.'**
   String get companyAnalyticsOpportunitiesDescription;
 
   /// No description provided for @companyAnalyticsComingSoonBadge.
@@ -3458,35 +3458,59 @@ abstract class AppLocalizations {
   /// **'Bientôt disponible'**
   String get companyAnalyticsComingSoonBadge;
 
+  /// No description provided for @opportunitiesVacancyTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Postes à pourvoir'**
+  String get opportunitiesVacancyTitle;
+
+  /// No description provided for @opportunitiesVacancyDetail.
+  ///
+  /// In fr, this message translates to:
+  /// **'{vacancies, plural, =0{Aucun poste vacant déclaré.} =1{1 poste vacant déclaré,} other{{vacancies} postes vacants déclarés,}} soit {rate}% de votre effectif permanent.'**
+  String opportunitiesVacancyDetail(int vacancies, String rate);
+
+  /// No description provided for @opportunitiesBenchmarkGapTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écarts par rapport à votre secteur'**
+  String get opportunitiesBenchmarkGapTitle;
+
+  /// No description provided for @opportunitiesBenchmarkGapWorkforce.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre effectif ({mine}) est inférieur à la médiane de votre secteur ({median}).'**
+  String opportunitiesBenchmarkGapWorkforce(int mine, int median);
+
+  /// No description provided for @opportunitiesBenchmarkGapFeminization.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre taux de féminisation ({mine}%) est inférieur à la médiane de votre secteur ({median}%).'**
+  String opportunitiesBenchmarkGapFeminization(String mine, String median);
+
+  /// No description provided for @opportunitiesDeadlinesTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échéances à venir'**
+  String get opportunitiesDeadlinesTitle;
+
+  /// No description provided for @opportunitiesDeadlineInDays.
+  ///
+  /// In fr, this message translates to:
+  /// **'{date} · dans {days, plural, =0{moins d\'un jour} =1{1 jour} other{{days} jours}}'**
+  String opportunitiesDeadlineInDays(String date, int days);
+
+  /// No description provided for @opportunitiesDeadlinePassed.
+  ///
+  /// In fr, this message translates to:
+  /// **'{date} · échéance dépassée'**
+  String opportunitiesDeadlinePassed(String date);
+
   /// No description provided for @companyAnalyticsHeaderYear.
   ///
   /// In fr, this message translates to:
   /// **'Analytique {year}'**
   String companyAnalyticsHeaderYear(int year);
-
-  /// No description provided for @companyAnalyticsBilanSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Données issues de vos déclarations ONEFOP approuvées'**
-  String get companyAnalyticsBilanSubtitle;
-
-  /// No description provided for @companyAnalyticsSectionMySituation.
-  ///
-  /// In fr, this message translates to:
-  /// **'Ma Situation'**
-  String get companyAnalyticsSectionMySituation;
-
-  /// No description provided for @companyAnalyticsLoadError.
-  ///
-  /// In fr, this message translates to:
-  /// **'Erreur chargement : {error}'**
-  String companyAnalyticsLoadError(String error);
-
-  /// No description provided for @companyAnalyticsSectionBilanDetailed.
-  ///
-  /// In fr, this message translates to:
-  /// **'Bilan RH Détaillé'**
-  String get companyAnalyticsSectionBilanDetailed;
 
   /// No description provided for @companyAnalyticsSectionBenchmarking.
   ///
@@ -3524,84 +3548,17 @@ abstract class AppLocalizations {
   /// **'Effectif total'**
   String get companyAnalyticsTotalWorkforce;
 
-  /// No description provided for @companyAnalyticsVsPreviousYearLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'{value} vs N-1'**
-  String companyAnalyticsVsPreviousYearLabel(String value);
-
-  /// No description provided for @companyAnalyticsFemaleCountLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'{count} employées'**
-  String companyAnalyticsFemaleCountLabel(int count);
-
-  /// No description provided for @companyAnalyticsMaleCountLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'{count} employés'**
-  String companyAnalyticsMaleCountLabel(int count);
-
   /// No description provided for @companyAnalyticsRecruitmentsLabel.
   ///
   /// In fr, this message translates to:
   /// **'Recrutements'**
   String get companyAnalyticsRecruitmentsLabel;
 
-  /// No description provided for @companyAnalyticsNetLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Net : {value}'**
-  String companyAnalyticsNetLabel(String value);
-
   /// No description provided for @companyAnalyticsDeparturesLabel.
   ///
   /// In fr, this message translates to:
   /// **'Départs'**
   String get companyAnalyticsDeparturesLabel;
-
-  /// No description provided for @companyAnalyticsDismissalsRetirementsLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'{dismissals} licenciements · {retirements} retraites'**
-  String companyAnalyticsDismissalsRetirementsLabel(
-      int dismissals, int retirements);
-
-  /// No description provided for @companyAnalyticsCategoryBreakdownTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Répartition par catégorie'**
-  String get companyAnalyticsCategoryBreakdownTitle;
-
-  /// No description provided for @companyAnalyticsCatExecutives.
-  ///
-  /// In fr, this message translates to:
-  /// **'Cadres (1-3)'**
-  String get companyAnalyticsCatExecutives;
-
-  /// No description provided for @companyAnalyticsCatSupervisors.
-  ///
-  /// In fr, this message translates to:
-  /// **'Maîtrise (4-6)'**
-  String get companyAnalyticsCatSupervisors;
-
-  /// No description provided for @companyAnalyticsCatWorkers.
-  ///
-  /// In fr, this message translates to:
-  /// **'Ouvriers (7-9)'**
-  String get companyAnalyticsCatWorkers;
-
-  /// No description provided for @companyAnalyticsCatOthers.
-  ///
-  /// In fr, this message translates to:
-  /// **'Autres (10-12)'**
-  String get companyAnalyticsCatOthers;
-
-  /// No description provided for @companyAnalyticsCatUndeclared.
-  ///
-  /// In fr, this message translates to:
-  /// **'Non-déclaré'**
-  String get companyAnalyticsCatUndeclared;
 
   /// No description provided for @companyAnalyticsUnitEmployees.
   ///
@@ -3620,6 +3577,24 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Données issues de votre déclaration ONEFOP approuvée'**
   String get companyAnalyticsBilanDeclarationSubtitle;
+
+  /// No description provided for @companyAnalyticsBilanAggregatedSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données cumulées sur {quarterCount} déclarations ONEFOP approuvées cette année'**
+  String companyAnalyticsBilanAggregatedSubtitle(int quarterCount);
+
+  /// No description provided for @companyAnalyticsExportPdfButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Exporter en PDF'**
+  String get companyAnalyticsExportPdfButton;
+
+  /// No description provided for @companyAnalyticsBilanPdfExportError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de générer le PDF. Veuillez réessayer.'**
+  String get companyAnalyticsBilanPdfExportError;
 
   /// No description provided for @companyAnalyticsSectionEffectifs.
   ///
@@ -3820,41 +3795,23 @@ abstract class AppLocalizations {
   /// **'{pct}% de vos recrutements concernent des profils prioritaires.'**
   String companyAnalyticsPriorityProfilesShare(String pct);
 
-  /// No description provided for @companyAnalyticsLockedUnderReview.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre questionnaire ONEFOP est en cours de révision. Les analyses seront disponibles après approbation.'**
-  String get companyAnalyticsLockedUnderReview;
-
-  /// No description provided for @companyAnalyticsLockedDraft.
-  ///
-  /// In fr, this message translates to:
-  /// **'Vous avez un brouillon ONEFOP en cours. Finalisez et soumettez pour accéder à vos analyses.'**
-  String get companyAnalyticsLockedDraft;
-
-  /// No description provided for @companyAnalyticsLockedDefault.
-  ///
-  /// In fr, this message translates to:
-  /// **'Soumettez le questionnaire ONEFOP pour accéder à vos analyses personnelles.'**
-  String get companyAnalyticsLockedDefault;
-
-  /// No description provided for @companyAnalyticsBenchmarkLockedSubmitted.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre questionnaire est en cours de révision par MINEFOP. Les comparaisons sectorielles seront débloquées après approbation.'**
-  String get companyAnalyticsBenchmarkLockedSubmitted;
-
-  /// No description provided for @companyAnalyticsBenchmarkLockedUnderReview.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre questionnaire est en cours d\'analyse. Les benchmarks arrivent bientôt.'**
-  String get companyAnalyticsBenchmarkLockedUnderReview;
-
   /// No description provided for @companyAnalyticsBenchmarkLockedDefault.
   ///
   /// In fr, this message translates to:
   /// **'Soumettez le questionnaire ONEFOP pour accéder aux analyses comparatives.'**
   String get companyAnalyticsBenchmarkLockedDefault;
+
+  /// No description provided for @companyAnalyticsNoOwnDataTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déclaration DSMO manquante'**
+  String get companyAnalyticsNoOwnDataTitle;
+
+  /// No description provided for @companyAnalyticsNoOwnDataDetail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le benchmarking nécessite une déclaration DSMO annuelle approuvée pour {year}. Votre questionnaire ONEFOP est bien approuvé — il manque la déclaration DSMO de la même année.'**
+  String companyAnalyticsNoOwnDataDetail(int year);
 
   /// No description provided for @companyAnalyticsBilanLockedUnderReview.
   ///

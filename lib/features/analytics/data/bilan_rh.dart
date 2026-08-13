@@ -259,6 +259,12 @@ class BilanRh {
   final int year;
   final String submissionId;
   final String entityType;
+  // Number of approved ONEFOP submissions (quarters) this response
+  // aggregates. ONEFOP is filed quarterly, so a company filing every
+  // quarter can have up to 4 in one year — flow metrics below (recruitments,
+  // departures, ...) are summed across all of them. quarterCount > 1 means
+  // this is a genuine annual aggregate, not a single quarter's numbers.
+  final int quarterCount;
 
   final int permanentWorkers;
   final int vacancies;
@@ -281,6 +287,7 @@ class BilanRh {
     required this.year,
     required this.submissionId,
     required this.entityType,
+    this.quarterCount = 1,
     required this.permanentWorkers,
     required this.vacancies,
     required this.vacancyRate,
@@ -300,6 +307,7 @@ class BilanRh {
         year: (j['year'] as num).toInt(),
         submissionId: j['submissionId'] as String,
         entityType: j['entityType'] as String,
+        quarterCount: (j['quarterCount'] as num?)?.toInt() ?? 1,
         permanentWorkers: (j['permanentWorkers'] as num).toInt(),
         vacancies: (j['vacancies'] as num?)?.toInt() ?? 0,
         vacancyRate: (j['vacancyRate'] as num?)?.toDouble() ?? 0.0,

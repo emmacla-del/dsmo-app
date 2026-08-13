@@ -1,23 +1,26 @@
 // lib/features/analytics/screens/company_analytics_screen.dart
 //
-// HYBRID — merges v1 + v2 completely:
-//
-// Structure  : TabController (v2) — 3 tabs: Bilan RH · Benchmarking · Opportunités
-// Tab 1      : BilanRh (bilanRhProvider, v2 widgets) + CompanySummary cards
-//              (companySummaryProvider, v1 widgets) stacked in one scrollable view
-// Tab 2      : Real benchmarking via companyBenchmarksProvider (v1 logic) when
-//              hasBenchmarking=true; _ComingSoonView (v2) otherwise
-// Tab 3      : _ComingSoonView (v2)
-// Shimmer    : Animated _ShimmerLoading with AnimationController (v1)
-// Data models: All v1 models (CompanySummary, GenderBreakdown, MovementSummary,
-//              BenchmarkData) + v2 BilanRh models via bilan_rh.dart
-// Providers  : companySummaryProvider + companyBenchmarksProvider (v1) +
-//              bilanRhProvider (v2) — all present
-// Widgets    : Every widget from both versions preserved
+// Structure  : TabController — 3 tabs: Bilan RH · Benchmarking · Opportunités
+// Tab 1      : Bilan RH — a single source (bilanRhProvider, ONEFOP-derived).
+//              Used to also stack a second, DSMO-Declaration-derived
+//              "Ma situation" summary (companySummaryProvider) on top, but
+//              that read from a different approval workflow than the one
+//              gating this tab, showed a separately-locked card next to
+//              already-real data for the same year, and had no other
+//              consumer — removed rather than kept in sync with two
+//              approval pipelines going forward.
+// Tab 2      : Real benchmarking via companyBenchmarksProvider, unlocked as
+//              soon as the ONEFOP questionnaire is submitted (not full
+//              approval — see computeOnefopFeatures).
+// Tab 3      : Real "Opportunités" cards computed from data already
+//              collected (skill/training gaps, vacancy signal, benchmark
+//              gaps, upcoming deadlines) — see _OpportunitiesTabContent.
 
+import 'dart:typed_data' show Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import 'package:printing/printing.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
@@ -50,88 +53,8 @@ bool _safeBool(dynamic value) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// DATA MODELS  (v1)
+// DATA MODELS
 // ═══════════════════════════════════════════════════════════
-
-class CompanySummary {
-  final int year;
-  final int totalEmployees;
-  final GenderBreakdown gender;
-  final Map<String, int> categories;
-  final MovementSummary movements;
-  final double growthRate;
-
-  CompanySummary({
-    required this.year,
-    required this.totalEmployees,
-    required this.gender,
-    required this.categories,
-    required this.movements,
-    required this.growthRate,
-  });
-
-  factory CompanySummary.fromJson(Map<String, dynamic> json) {
-    final data = _safeMap(json);
-    return CompanySummary(
-      year: _safeInt(data['year']),
-      totalEmployees: _safeInt(data['totalEmployees']),
-      gender: GenderBreakdown.fromJson(_safeMap(data['gender'])),
-      categories: _safeMap(data['categories']).map(
-        (k, v) => MapEntry(k.toString(), _safeInt(v)),
-      ),
-      movements: MovementSummary.fromJson(_safeMap(data['movements'])),
-      growthRate: _safeDouble(data['growthRate']),
-    );
-  }
-}
-
-class GenderBreakdown {
-  final int male;
-  final int female;
-  final double malePct;
-  final double femalePct;
-
-  GenderBreakdown({
-    required this.male,
-    required this.female,
-    required this.malePct,
-    required this.femalePct,
-  });
-
-  factory GenderBreakdown.fromJson(Map<String, dynamic> json) {
-    final data = _safeMap(json);
-    return GenderBreakdown(
-      male: _safeInt(data['male']),
-      female: _safeInt(data['female']),
-      malePct: _safeDouble(data['malePct']),
-      femalePct: _safeDouble(data['femalePct']),
-    );
-  }
-}
-
-class MovementSummary {
-  final int recruitments;
-  final int dismissals;
-  final int retirements;
-  final int netChange;
-
-  MovementSummary({
-    required this.recruitments,
-    required this.dismissals,
-    required this.retirements,
-    required this.netChange,
-  });
-
-  factory MovementSummary.fromJson(Map<String, dynamic> json) {
-    final data = _safeMap(json);
-    return MovementSummary(
-      recruitments: _safeInt(data['recruitments']),
-      dismissals: _safeInt(data['dismissals']),
-      retirements: _safeInt(data['retirements']),
-      netChange: _safeInt(data['netChange']),
-    );
-  }
-}
 
 class BenchmarkData {
   final bool available;
@@ -165,27 +88,10 @@ class BenchmarkData {
 }
 
 // ═══════════════════════════════════════════════════════════
-// PROVIDERS  (v1 + v2 — all kept)
+// PROVIDERS
 // ═══════════════════════════════════════════════════════════
 
-/// v1 — company overview aggregated from DSMO
-final companySummaryProvider =
-    FutureProvider.family<CompanySummary?, int>((ref, year) async {
-  final api = ref.read(apiClientProvider);
-  try {
-    final response = await api.get('/dsmo/analytics/company-summary',
-        queryParameters: {'year': year});
-    return CompanySummary.fromJson(_safeMap(response.data));
-  } on DioException catch (e) {
-    // Treat 403 (forbidden) and 404 (not found) as "no data available"
-    if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
-      return null;
-    }
-    rethrow;
-  }
-});
-
-/// v1 — sectoral benchmarks (gated behind feature flag)
+/// Sectoral benchmarks (gated behind feature flag)
 final companyBenchmarksProvider =
     FutureProvider.family<BenchmarkData?, int>((ref, year) async {
   final api = ref.read(apiClientProvider);
@@ -204,6 +110,25 @@ final companyBenchmarksProvider =
 });
 
 // bilanRhProvider is defined in ../data/bilan_rh.dart (v2)
+
+/// Opportunités tab — "deadlines" card. Reuses the same
+/// GET /campaigns/active/current endpoint already driving the Home tab's
+/// active-campaign banner (company_workspace_dashboard.dart); this is just
+/// a second, independent read of the same real data; no new backend
+/// endpoint needed.
+final companyOpportunityCampaignsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final api = ref.read(apiClientProvider);
+  try {
+    final campaigns = await api.getActiveCampaigns();
+    return campaigns.cast<Map<String, dynamic>>();
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 403 || e.response?.statusCode == 404) {
+      return const [];
+    }
+    rethrow;
+  }
+});
 
 // ═══════════════════════════════════════════════════════════
 // SCREEN
@@ -252,7 +177,6 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
         (availableYears.isNotEmpty ? availableYears.first : DateTime.now().year);
 
     final bilanAsync = ref.watch(bilanRhProvider(currentYear));
-    final summaryAsync = ref.watch(companySummaryProvider(currentYear));
     final benchmarksAsync = hasBenchmarking
         ? ref.watch(companyBenchmarksProvider(currentYear))
         : const AsyncValue<BenchmarkData?>.data(null);
@@ -315,16 +239,14 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
             child: TabBarView(
               controller: _tabs,
               children: [
-                // ── Tab 1: Bilan RH (v2 BilanRh + v1 CompanySummary) ──
+                // ── Tab 1: Bilan RH ─────────────────────────
                 RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(bilanRhProvider(currentYear));
-                    ref.invalidate(companySummaryProvider(currentYear));
                     ref.invalidate(bilanAvailableYearsProvider);
                   },
                   child: _BilanTabContent(
                     bilanAsync: bilanAsync,
-                    summaryAsync: summaryAsync,
                     submissionStatus: submissionStatus,
                     currentYear: currentYear,
                   ),
@@ -341,15 +263,25 @@ class _CompanyAnalyticsScreenState extends ConsumerState<CompanyAnalyticsScreen>
                     hasBenchmarking: hasBenchmarking,
                     benchmarksAsync: benchmarksAsync,
                     submissionStatus: submissionStatus,
+                    year: currentYear,
                   ),
                 ),
 
                 // ── Tab 3: Opportunités ────────────────────
-                _ComingSoonView(
-                  icon: Icons.lightbulb_outline,
-                  title: l10n.companyAnalyticsOpportunitiesTitle,
-                  description: l10n.companyAnalyticsOpportunitiesDescription,
-                  badgeLabel: l10n.companyAnalyticsComingSoonBadge,
+                RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(bilanRhProvider(currentYear));
+                    if (hasBenchmarking) {
+                      ref.invalidate(companyBenchmarksProvider(currentYear));
+                    }
+                    ref.invalidate(companyOpportunityCampaignsProvider);
+                  },
+                  child: _OpportunitiesTabContent(
+                    bilanAsync: bilanAsync,
+                    hasBenchmarking: hasBenchmarking,
+                    benchmarksAsync: benchmarksAsync,
+                    submissionStatus: submissionStatus,
+                  ),
                 ),
               ],
             ),
@@ -418,79 +350,94 @@ class _YearDropdown extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB 1 — BILAN RH  (v2 BilanRh stacked above v1 CompanySummary)
+// TAB 1 — BILAN RH
 // ═══════════════════════════════════════════════════════════
 
-class _BilanTabContent extends StatelessWidget {
+class _BilanTabContent extends ConsumerStatefulWidget {
   final AsyncValue<BilanRh?> bilanAsync;
-  final AsyncValue<CompanySummary?> summaryAsync;
   final String? submissionStatus;
   final int currentYear;
 
   const _BilanTabContent({
     required this.bilanAsync,
-    required this.summaryAsync,
     required this.submissionStatus,
     required this.currentYear,
   });
 
   @override
+  ConsumerState<_BilanTabContent> createState() => _BilanTabContentState();
+}
+
+class _BilanTabContentState extends ConsumerState<_BilanTabContent> {
+  bool _exportingPdf = false;
+
+  Future<void> _exportPdf() async {
+    if (_exportingPdf) return;
+    setState(() => _exportingPdf = true);
+    try {
+      final bytes =
+          await ref.read(apiClientProvider).getBilanPdf(widget.currentYear);
+      await Printing.layoutPdf(onLayout: (_) => Uint8List.fromList(bytes));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.companyAnalyticsBilanPdfExportError)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exportingPdf = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    // ── Gate on bilan only — summary is secondary/optional ──
 
-    // Still loading the primary data source
-    if (bilanAsync.isLoading) {
+    if (widget.bilanAsync.isLoading) {
       return const _ShimmerBilan();
     }
-
-    // Hard error on bilan (network failure, 5xx, etc.)
-    if (bilanAsync.hasError) {
-      return _ErrorView(message: bilanAsync.error.toString());
+    if (widget.bilanAsync.hasError) {
+      return _ErrorView(message: widget.bilanAsync.error.toString());
     }
 
-    final bilan = bilanAsync.valueOrNull;
-
-    // Bilan came back null → not yet approved / not submitted
-    // A 404 on company-summary alone must NOT trigger this path.
+    final bilan = widget.bilanAsync.valueOrNull;
     if (bilan == null) {
-      return _LockedBilanView(status: submissionStatus);
+      return _LockedBilanView(status: widget.submissionStatus);
     }
 
-    // ── Bilan is available — render everything ──
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // ── Header ────────────────────────────────────────
-        Text(
-          l10n.companyAnalyticsHeaderYear(currentYear),
-          style: UltraTheme.displayMedium.copyWith(fontSize: 24),
+        // ── Header + PDF export ─────────────────────────────
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                l10n.companyAnalyticsHeaderYear(widget.currentYear),
+                style: UltraTheme.displayMedium.copyWith(fontSize: 24),
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: _exportingPdf ? null : _exportPdf,
+              icon: _exportingPdf
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.picture_as_pdf_outlined, size: 16),
+              label: Text(l10n.companyAnalyticsExportPdfButton),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: UltraTheme.primary,
+                side: BorderSide(color: UltraTheme.primary.withValues(alpha: 0.4)),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.companyAnalyticsBilanSubtitle,
-          style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
-        ),
-        const SizedBox(height: 24),
-
-        // ── v1 CompanySummary section (optional — 404 → locked card) ──
-        _SectionTitle(l10n.companyAnalyticsSectionMySituation),
-        summaryAsync.when(
-          data: (s) {
-            if (s == null) {
-              return _LockedAnalyticsCard(status: submissionStatus);
-            }
-            return _SummaryCards(summary: s);
-          },
-          loading: () => const _ShimmerSummary(),
-          error: (e, _) =>
-              _ErrorCard(message: l10n.companyAnalyticsLoadError('$e')),
-        ),
-        const SizedBox(height: 32),
-
-        // ── v2 BilanRh section (guaranteed non-null here) ──
-        _SectionTitle(l10n.companyAnalyticsSectionBilanDetailed),
-        _BilanRhView(bilan: bilan, year: currentYear),
+        const SizedBox(height: 20),
+        _BilanRhView(bilan: bilan, year: widget.currentYear),
         const SizedBox(height: 8),
       ],
     );
@@ -505,11 +452,13 @@ class _BenchmarkingTabContent extends StatelessWidget {
   final bool hasBenchmarking;
   final AsyncValue<BenchmarkData?> benchmarksAsync;
   final String? submissionStatus;
+  final int year;
 
   const _BenchmarkingTabContent({
     required this.hasBenchmarking,
     required this.benchmarksAsync,
     required this.submissionStatus,
+    required this.year,
   });
 
   @override
@@ -525,7 +474,7 @@ class _BenchmarkingTabContent extends StatelessWidget {
                 label: l10n.companyAnalyticsBadgePending,
                 color: UltraTheme.warning),
           ),
-          _LockedBenchmarkCard(status: submissionStatus),
+          const _LockedBenchmarkCard(),
           const SizedBox(height: 32),
           _ComingSoonView(
             icon: Icons.bar_chart_outlined,
@@ -541,6 +490,14 @@ class _BenchmarkingTabContent extends StatelessWidget {
       data: (benchmarks) {
         if (benchmarks == null) return const SizedBox.shrink();
         if (!benchmarks.available) {
+          // This tab's unlock gate (hasBenchmarking, ONEFOP-based) is
+          // separate from what the comparison itself is computed from (an
+          // approved DSMO declaration for `year`) — a company can clear
+          // the gate with no DSMO declaration on file. NO_OWN_DATA names
+          // that case explicitly instead of folding it into the generic
+          // "not enough peer companies" message, which would be both
+          // wrong and unhelpful here.
+          final isOwnDataMissing = benchmarks.reason == 'NO_OWN_DATA';
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -550,10 +507,13 @@ class _BenchmarkingTabContent extends StatelessWidget {
                     label: l10n.companyAnalyticsBadgeActive,
                     color: Colors.green),
               ),
-              _InsufficientDataCard(
-                peerCount: benchmarks.peerCount ?? 0,
-                minRequired: 5,
-              ),
+              if (isOwnDataMissing)
+                _NoOwnDataCard(year: year)
+              else
+                _InsufficientDataCard(
+                  peerCount: benchmarks.peerCount ?? 0,
+                  minRequired: 5,
+                ),
             ],
           );
         }
@@ -585,67 +545,278 @@ class _BenchmarkingTabContent extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-// v1 SUMMARY CARDS  (extracted into own widget)
+// TAB 3 — OPPORTUNITÉS  (real, computed from data already collected —
+// no candidate matching / training-provider directory / tax-incentive
+// engine, since none of those have a data source today; see
+// companyOpportunityCampaignsProvider above and the cards below)
 // ═══════════════════════════════════════════════════════════
 
-class _SummaryCards extends StatelessWidget {
-  final CompanySummary summary;
-  const _SummaryCards({required this.summary});
+/// Only campaigns the company hasn't already dealt with, nearest deadline
+/// first, capped at 3 — this is a "what needs attention" list, not a full
+/// campaign history (that already exists on the Home tab).
+List<Map<String, dynamic>> _actionableCampaigns(
+    List<Map<String, dynamic>> campaigns) {
+  const done = {'SUBMITTED', 'VALIDATED'};
+  final actionable = campaigns.where((c) {
+    final mySubmission = c['mySubmission'] as String? ?? 'NOT_STARTED';
+    if (done.contains(mySubmission)) return false;
+    return DateTime.tryParse(c['deadline']?.toString() ?? '') != null;
+  }).toList();
+  actionable.sort((a, b) {
+    final da = DateTime.parse(a['deadline'].toString());
+    final db = DateTime.parse(b['deadline'].toString());
+    return da.compareTo(db);
+  });
+  return actionable.take(3).toList();
+}
+
+class _OpportunitiesTabContent extends ConsumerWidget {
+  final AsyncValue<BilanRh?> bilanAsync;
+  final bool hasBenchmarking;
+  final AsyncValue<BenchmarkData?> benchmarksAsync;
+  final String? submissionStatus;
+
+  const _OpportunitiesTabContent({
+    required this.bilanAsync,
+    required this.hasBenchmarking,
+    required this.benchmarksAsync,
+    required this.submissionStatus,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    return Column(
+
+    if (bilanAsync.isLoading) return const _ShimmerBilan();
+    if (bilanAsync.hasError) {
+      return _ErrorView(message: bilanAsync.error.toString());
+    }
+
+    final bilan = bilanAsync.valueOrNull;
+    // Two of the four cards below (skill/training gaps, vacancy signal)
+    // read the company's own approved ONEFOP data — without it there's
+    // nothing yet to surface, so this reuses the Bilan RH tab's locked
+    // state rather than showing a half-empty screen on a brand-new account.
+    if (bilan == null) {
+      return _LockedBilanView(status: submissionStatus);
+    }
+
+    final campaignsAsync = ref.watch(companyOpportunityCampaignsProvider);
+    final hasSkillGaps =
+        bilan.skillNeeds.isNotEmpty || bilan.trainingNeeds.isNotEmpty;
+    final hasVacancies = bilan.vacancies > 0;
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
       children: [
-        _StatCard(
-          title: l10n.companyAnalyticsTotalWorkforce,
-          value: summary.totalEmployees.toString(),
-          subtitle: l10n.companyAnalyticsVsPreviousYearLabel(
-              summary.growthRate >= 0
-                  ? '+${summary.growthRate.toStringAsFixed(1)}%'
-                  : '${summary.growthRate.toStringAsFixed(1)}%'),
-          subtitleColor: summary.growthRate >= 0 ? Colors.green : Colors.red,
-          icon: Icons.people_outline,
+        Text(l10n.companyAnalyticsOpportunitiesTitle,
+            style: UltraTheme.displayMedium.copyWith(fontSize: 24)),
+        const SizedBox(height: 4),
+        Text(l10n.companyAnalyticsOpportunitiesDescription,
+            style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
+        const SizedBox(height: 24),
+        if (hasVacancies) ...[
+          _VacancyOpportunityCard(bilan: bilan),
+          const SizedBox(height: 16),
+        ],
+        if (hasBenchmarking)
+          benchmarksAsync.when(
+            data: (b) => (b == null || !b.available)
+                ? const SizedBox.shrink()
+                : _BenchmarkGapCard(benchmarks: b),
+            loading: () => const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: _ShimmerCard(height: 90, borderRadius: 16),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        campaignsAsync.when(
+          data: (campaigns) {
+            final actionable = _actionableCampaigns(campaigns);
+            return actionable.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _DeadlinesCard(campaigns: actionable),
+                  );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: _ShimmerCard(height: 90, borderRadius: 16),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
         ),
-        _StatCard(
-          title: l10n.womenLabel,
-          value: '${summary.gender.femalePct.toStringAsFixed(0)}%',
-          subtitle: l10n.companyAnalyticsFemaleCountLabel(summary.gender.female),
-          icon: Icons.woman,
-          color: Colors.pink,
-        ),
-        _StatCard(
-          title: l10n.menLabel,
-          value: '${summary.gender.malePct.toStringAsFixed(0)}%',
-          subtitle: l10n.companyAnalyticsMaleCountLabel(summary.gender.male),
-          icon: Icons.man,
-          color: Colors.blue,
-        ),
-        _StatCard(
-          title: l10n.companyAnalyticsRecruitmentsLabel,
-          value: summary.movements.recruitments.toString(),
-          subtitle: l10n.companyAnalyticsNetLabel(
-              '${summary.movements.netChange > 0 ? '+' : ''}${summary.movements.netChange}'),
-          subtitleColor:
-              summary.movements.netChange >= 0 ? Colors.green : Colors.red,
-          icon: Icons.person_add_alt,
-        ),
-        _StatCard(
-          title: l10n.companyAnalyticsDeparturesLabel,
-          value: (summary.movements.dismissals + summary.movements.retirements)
-              .toString(),
-          subtitle: l10n.companyAnalyticsDismissalsRetirementsLabel(
-              summary.movements.dismissals, summary.movements.retirements),
-          icon: Icons.person_remove,
-        ),
-        _CategoryBreakdown(categories: summary.categories),
+        if (hasSkillGaps) ...[
+          _SectionLabel(l10n.companyAnalyticsSectionSkillsTraining),
+          _SkillsTrainingCard(
+              skillNeeds: bilan.skillNeeds, trainingNeeds: bilan.trainingNeeds),
+        ],
       ],
     );
   }
 }
 
+class _VacancyOpportunityCard extends StatelessWidget {
+  final BilanRh bilan;
+  const _VacancyOpportunityCard({required this.bilan});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: UltraTheme.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+        border: Border.all(color: UltraTheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.work_outline, color: UltraTheme.primary, size: 22),
+        const SizedBox(width: 12),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(l10n.opportunitiesVacancyTitle,
+              style: UltraTheme.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w700, color: UltraTheme.primary)),
+          const SizedBox(height: 4),
+          Text(
+            l10n.opportunitiesVacancyDetail(
+                bilan.vacancies, bilan.vacancyRate.toStringAsFixed(1)),
+            style: UltraTheme.bodyMedium.copyWith(fontSize: 13),
+          ),
+        ])),
+      ]),
+    );
+  }
+}
+
+class _BenchmarkGapCard extends StatelessWidget {
+  final BenchmarkData benchmarks;
+  const _BenchmarkGapCard({required this.benchmarks});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final metrics = benchmarks.metrics;
+    if (metrics == null) return const SizedBox.shrink();
+
+    // Only reports metrics where the company is BELOW the sector median —
+    // a "gap" here means something to close, not a fabricated one when
+    // the company is already at or above par.
+    final gaps = <String>[];
+
+    final empMetrics = metrics['totalEmployees'] is Map
+        ? Map<String, dynamic>.from(metrics['totalEmployees'] as Map)
+        : <String, dynamic>{};
+    if (empMetrics.isNotEmpty && _safeInt(empMetrics['percentile']) < 50) {
+      gaps.add(l10n.opportunitiesBenchmarkGapWorkforce(
+          _safeInt(empMetrics['mine']), _safeInt(empMetrics['median'])));
+    }
+
+    final genderMetrics = metrics['femalePercentage'] is Map
+        ? Map<String, dynamic>.from(metrics['femalePercentage'] as Map)
+        : <String, dynamic>{};
+    if (genderMetrics.isNotEmpty && _safeInt(genderMetrics['percentile']) < 50) {
+      gaps.add(l10n.opportunitiesBenchmarkGapFeminization(
+          _safeDouble(genderMetrics['mine']).toStringAsFixed(1),
+          _safeDouble(genderMetrics['median']).toStringAsFixed(1)));
+    }
+
+    if (gaps.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: UltraTheme.warning.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+          border: Border.all(color: UltraTheme.warning.withValues(alpha: 0.2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.bar_chart_outlined,
+                color: UltraTheme.warning, size: 20),
+            const SizedBox(width: 10),
+            Text(l10n.opportunitiesBenchmarkGapTitle,
+                style: UltraTheme.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 8),
+          ...gaps.map((g) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(g, style: UltraTheme.bodyMedium.copyWith(fontSize: 13)),
+              )),
+        ]),
+      ),
+    );
+  }
+}
+
+class _DeadlinesCard extends StatelessWidget {
+  final List<Map<String, dynamic>> campaigns;
+  const _DeadlinesCard({required this.campaigns});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.event_outlined, size: 18, color: UltraTheme.primary),
+              const SizedBox(width: 8),
+              Text(l10n.opportunitiesDeadlinesTitle,
+                  style:
+                      UltraTheme.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 12),
+            ...campaigns.map((c) => _buildRow(context, c)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, Map<String, dynamic> c) {
+    final l10n = context.l10n;
+    final name = c['name'] as String? ?? '';
+    final deadline = DateTime.parse(c['deadline'].toString());
+    final daysLeft = deadline.difference(DateTime.now()).inDays;
+    final dateStr =
+        '${deadline.day.toString().padLeft(2, '0')}/${deadline.month.toString().padLeft(2, '0')}/${deadline.year}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        Expanded(
+            child: Text(name,
+                style: UltraTheme.bodyMedium.copyWith(fontSize: 13),
+                overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 8),
+        Text(
+          daysLeft >= 0
+              ? l10n.opportunitiesDeadlineInDays(dateStr, daysLeft)
+              : l10n.opportunitiesDeadlinePassed(dateStr),
+          style: UltraTheme.bodyMedium.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: daysLeft <= 7 ? UltraTheme.warning : UltraTheme.textMuted),
+        ),
+      ]),
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════
-// v1 BENCHMARK CARDS  (extracted into own widget)
+// BENCHMARK CARDS
 // ═══════════════════════════════════════════════════════════
 
 class _BenchmarkCards extends StatelessWidget {
@@ -704,7 +875,10 @@ class _BilanRhView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l10n.companyAnalyticsBilanDeclarationSubtitle,
+        Text(
+            bilan.quarterCount > 1
+                ? l10n.companyAnalyticsBilanAggregatedSubtitle(bilan.quarterCount)
+                : l10n.companyAnalyticsBilanDeclarationSubtitle,
             style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
         const SizedBox(height: 20),
         _SectionLabel(l10n.companyAnalyticsSectionEffectifs),
@@ -857,192 +1031,6 @@ class _ActiveBadge extends StatelessWidget {
                   fontSize: mini ? 10 : 11,
                   fontWeight: FontWeight.w600,
                   color: color)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final String? subtitle;
-  final Color? subtitleColor;
-  final IconData icon;
-  final Color? color;
-
-  const _StatCard({
-    required this.title,
-    required this.value,
-    this.subtitle,
-    this.subtitleColor,
-    required this.icon,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: (color ?? UltraTheme.primary).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color ?? UltraTheme.primary),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: UltraTheme.bodyMedium
-                          .copyWith(color: UltraTheme.textMuted)),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: UltraTheme.titleLarge
-                        .copyWith(fontWeight: FontWeight.bold, fontSize: 22),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style:
-                          UltraTheme.bodyMedium.copyWith(fontSize: 12).copyWith(
-                                color: subtitleColor ?? UltraTheme.textMuted,
-                                fontWeight: FontWeight.w500,
-                              ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryBreakdown extends StatelessWidget {
-  final Map<String, int> categories;
-  const _CategoryBreakdown({required this.categories});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final total = categories.values.fold(0, (a, b) => a + b);
-    if (total == 0) return const SizedBox.shrink();
-
-    final entries = [
-      _CatEntry(l10n.companyAnalyticsCatExecutives, categories['cat1_3'] ?? 0,
-          UltraTheme.primary),
-      _CatEntry(l10n.companyAnalyticsCatSupervisors, categories['cat4_6'] ?? 0,
-          Colors.orange),
-      _CatEntry(
-          l10n.companyAnalyticsCatWorkers, categories['cat7_9'] ?? 0, Colors.teal),
-      _CatEntry(l10n.companyAnalyticsCatOthers, categories['cat10_12'] ?? 0,
-          Colors.purple),
-      _CatEntry(l10n.companyAnalyticsCatUndeclared,
-          categories['nonDeclared'] ?? 0, Colors.grey),
-    ].where((e) => e.count > 0).toList();
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        side: BorderSide(color: Colors.grey.shade300.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.companyAnalyticsCategoryBreakdownTitle,
-                style: UltraTheme.bodyMedium
-                    .copyWith(color: UltraTheme.textMuted)),
-            const SizedBox(height: 12),
-            ...entries.map((e) => _CategoryBar(entry: e, total: total)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CatEntry {
-  final String label;
-  final int count;
-  final Color color;
-  _CatEntry(this.label, this.count, this.color);
-}
-
-class _CategoryBar extends StatelessWidget {
-  final _CatEntry entry;
-  final int total;
-  const _CategoryBar({required this.entry, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = total > 0 ? (entry.count / total) * 100 : 0.0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(entry.label,
-                style: UltraTheme.bodyMedium.copyWith(fontSize: 12),
-                overflow: TextOverflow.ellipsis),
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                Container(
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: pct / 100,
-                  child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: entry.color,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 40,
-            child: Text(
-              '${pct.toStringAsFixed(0)}%',
-              style: UltraTheme.bodyMedium
-                  .copyWith(fontSize: 12)
-                  .copyWith(fontWeight: FontWeight.w600),
-              textAlign: TextAlign.right,
-            ),
-          ),
         ],
       ),
     );
@@ -1683,76 +1671,17 @@ class _InclusionInsightCard extends StatelessWidget {
 // LOCKED / ERROR / COMING SOON STATES  (both versions)
 // ═══════════════════════════════════════════════════════════
 
-class _LockedAnalyticsCard extends StatelessWidget {
-  final String? status;
-  const _LockedAnalyticsCard({this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    String message;
-    IconData icon;
-    Color color;
-
-    switch (status) {
-      case 'SUBMITTED':
-      case 'PENDING_REVIEW':
-        message = l10n.companyAnalyticsLockedUnderReview;
-        icon = Icons.hourglass_top;
-        color = UltraTheme.warning;
-        break;
-      case 'DRAFT':
-        message = l10n.companyAnalyticsLockedDraft;
-        icon = Icons.edit_note;
-        color = UltraTheme.info;
-        break;
-      default:
-        message = l10n.companyAnalyticsLockedDefault;
-        icon = Icons.lock_outline;
-        color = UltraTheme.textMuted;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 48, color: color),
-          const SizedBox(height: 16),
-          Text(message,
-              textAlign: TextAlign.center, style: UltraTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
 class _LockedBenchmarkCard extends StatelessWidget {
-  final String? status;
-  const _LockedBenchmarkCard({this.status});
+  // hasBenchmarking now unlocks as soon as ONEFOP is submitted (see
+  // computeOnefopFeatures), so this card is only ever reachable pre-
+  // submission — there's no longer a distinct "submitted, awaiting
+  // approval" state to show here, since that state already has real
+  // benchmark content by the time it's reached.
+  const _LockedBenchmarkCard();
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    String message;
-    IconData icon;
-
-    switch (status) {
-      case 'SUBMITTED':
-        message = l10n.companyAnalyticsBenchmarkLockedSubmitted;
-        icon = Icons.hourglass_top;
-      case 'UNDER_REVIEW':
-        message = l10n.companyAnalyticsBenchmarkLockedUnderReview;
-        icon = Icons.reviews_outlined;
-      default:
-        message = l10n.companyAnalyticsBenchmarkLockedDefault;
-        icon = Icons.lock_outline;
-    }
-
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -1762,9 +1691,9 @@ class _LockedBenchmarkCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 40, color: UltraTheme.textMuted),
+          const Icon(Icons.lock_outline, size: 40, color: UltraTheme.textMuted),
           const SizedBox(height: 12),
-          Text(message,
+          Text(l10n.companyAnalyticsBenchmarkLockedDefault,
               textAlign: TextAlign.center, style: UltraTheme.bodyMedium),
         ],
       ),
@@ -1862,6 +1791,42 @@ class _InsufficientDataCard extends StatelessWidget {
   }
 }
 
+class _NoOwnDataCard extends StatelessWidget {
+  final int year;
+  const _NoOwnDataCard({required this.year});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: UltraTheme.surface,
+        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.fact_check_outlined,
+              size: 40, color: UltraTheme.textMuted),
+          const SizedBox(height: 12),
+          Text(l10n.companyAnalyticsNoOwnDataTitle,
+              textAlign: TextAlign.center,
+              style:
+                  UltraTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+              l10n.companyAnalyticsNoOwnDataDetail(year),
+              textAlign: TextAlign.center,
+              style: UltraTheme.bodyMedium
+                  .copyWith(fontSize: 12)
+                  .copyWith(color: UltraTheme.textMuted)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ComingSoonView extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1910,33 +1875,6 @@ class _ComingSoonView extends StatelessWidget {
   }
 }
 
-class _ErrorCard extends StatelessWidget {
-  final String message;
-  const _ErrorCard({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: UltraTheme.error.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-        border: Border.all(color: UltraTheme.error.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: UltraTheme.error),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Text(message,
-                  style:
-                      const TextStyle(color: UltraTheme.error, fontSize: 13))),
-        ],
-      ),
-    );
-  }
-}
-
 class _ErrorView extends StatelessWidget {
   final String message;
   const _ErrorView({required this.message});
@@ -1960,24 +1898,8 @@ class _ErrorView extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SHIMMER PLACEHOLDERS  (v1 animated + v2 static, both kept)
+// SHIMMER PLACEHOLDERS
 // ═══════════════════════════════════════════════════════════
-
-class _ShimmerSummary extends StatelessWidget {
-  const _ShimmerSummary();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-          5,
-          (i) => const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: _ShimmerCard(height: 80, borderRadius: 16),
-              )),
-    );
-  }
-}
 
 class _ShimmerBenchmarkFull extends StatelessWidget {
   const _ShimmerBenchmarkFull();
