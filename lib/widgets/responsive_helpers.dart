@@ -104,8 +104,9 @@ class RailNavItem extends StatelessWidget {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            gradient: isSelected ? UltraTheme.primaryGradient : null,
-            color: isSelected ? null : Colors.transparent,
+            color: isSelected
+                ? UltraTheme.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
           ),
           // When collapsed: center the icon to avoid overflow.
@@ -114,7 +115,9 @@ class RailNavItem extends StatelessWidget {
               ? Row(children: [
                   Icon(icon,
                       size: 20,
-                      color: isSelected ? Colors.white : UltraTheme.textMuted),
+                      color: isSelected
+                          ? UltraTheme.primary
+                          : UltraTheme.textMuted),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -125,7 +128,7 @@ class RailNavItem extends StatelessWidget {
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.w500,
                         color: isSelected
-                            ? Colors.white
+                            ? UltraTheme.primary
                             : UltraTheme.textSecondary,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -135,7 +138,9 @@ class RailNavItem extends StatelessWidget {
               : Center(
                   child: Icon(icon,
                       size: 20,
-                      color: isSelected ? Colors.white : UltraTheme.textMuted),
+                      color: isSelected
+                          ? UltraTheme.primary
+                          : UltraTheme.textMuted),
                 ),
         ),
       ),
@@ -588,6 +593,7 @@ class ContentShell extends StatelessWidget {
       decoration: BoxDecoration(
         color: UltraTheme.surface,
         borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
+        border: Border.all(color: UltraTheme.border, width: 1),
         boxShadow: UltraTheme.softShadow,
       ),
       child: ClipRRect(

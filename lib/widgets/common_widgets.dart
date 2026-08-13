@@ -31,7 +31,7 @@ class GlassCard extends StatelessWidget {
         color: backgroundColor ?? UltraTheme.surface,
         borderRadius:
             BorderRadius.circular(borderRadius ?? UltraTheme.radiusLarge),
-        border: Border.all(color: const Color(0x0D000000), width: 1),
+        border: Border.all(color: UltraTheme.border, width: 1),
         boxShadow: shadows ?? UltraTheme.softShadow,
       ),
       child: ClipRRect(
