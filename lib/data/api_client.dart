@@ -1425,6 +1425,35 @@ class ApiClient {
     }
   }
 
+  /// Export all approved ONEFOP submissions as a CSV + SPSS (.sps) syntax
+  /// pair (Super Admin only). Returns {'csv': String, 'sps': String}.
+  Future<Map<String, dynamic>> exportOnefopSubmissionsSpss({
+    String? region,
+    String? department,
+    int? year,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final response = await dio.post(
+        '/data-management/export/submissions/spss',
+        data: {
+          if (region != null) 'region': region,
+          if (department != null) 'department': department,
+          if (year != null) 'year': year,
+          if (fromDate != null) 'fromDate': fromDate,
+          if (toDate != null) 'toDate': toDate,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   /// Get the currently active quarter for ONEFOP submissions
   Future<Map<String, dynamic>> getActiveQuarter() async {
     try {

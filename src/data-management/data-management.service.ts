@@ -262,8 +262,39 @@ export class DataManagementService {
         }
 
         // ONEFOP submissions — compiled into a real, downloadable Excel workbook.
-        // Only APPROVED submissions are exported: these are the validated records
-        // entities have submitted through the ONEFOP questionnaire.
+        const submissions = await this.fetchApprovedOnefopSubmissions(filters);
+        return this.buildOnefopWorkbook(submissions);
+    }
+
+    /// A flat CSV + SPSS (.sps) syntax pair of the same approved ONEFOP
+    /// submissions used by the Excel export, collapsed into a single table
+    /// (one row per submission, all entity types unioned) since SPSS analyses
+    /// are done at that unit of observation rather than per-form-type sheets.
+    async exportSubmissionsSpss(filters: {
+        region?: string;
+        department?: string;
+        year?: number;
+        fromDate?: string;
+        toDate?: string;
+    }): Promise<{ csv: string; sps: string }> {
+        const submissions = await this.fetchApprovedOnefopSubmissions(filters);
+        const { columns, rows } = this.buildFlatOnefopTable(submissions);
+        const csvFilename = 'onefop_submissions.csv';
+        return {
+            csv: this.rowsToCsv(columns, rows),
+            sps: this.buildSpssSyntax(columns, rows, csvFilename),
+        };
+    }
+
+    // Only APPROVED submissions are exported: these are the validated records
+    // entities have submitted through the ONEFOP questionnaire.
+    private async fetchApprovedOnefopSubmissions(filters: {
+        region?: string;
+        department?: string;
+        year?: number;
+        fromDate?: string;
+        toDate?: string;
+    }) {
         const where: any = { status: 'APPROVED' };
         if (filters.region) where.region = filters.region;
         if (filters.department) where.department = filters.department;
@@ -274,7 +305,7 @@ export class DataManagementService {
             if (filters.toDate) where.createdAt.lte = new Date(filters.toDate);
         }
 
-        const submissions = await this.prisma.onefopSubmission.findMany({
+        return this.prisma.onefopSubmission.findMany({
             where,
             include: {
                 company: {
@@ -309,8 +340,6 @@ export class DataManagementService {
             },
             orderBy: { createdAt: 'desc' },
         });
-
-        return this.buildOnefopWorkbook(submissions);
     }
 
     private commonColumns(): Partial<ExcelJS.Column>[] {
@@ -351,17 +380,13 @@ export class DataManagementService {
         };
     }
 
-    private async buildOnefopWorkbook(submissions: any[]): Promise<Buffer> {
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'MINEFOP';
-        workbook.created = new Date();
-
-        const sheetDefs: Array<{
-            formType: string;
-            title: string;
-            detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail';
-            columns: Partial<ExcelJS.Column>[];
-        }> = [
+    private onefopSheetDefs(): Array<{
+        formType: string;
+        title: string;
+        detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail';
+        columns: Partial<ExcelJS.Column>[];
+    }> {
+        return [
             {
                 formType: 'ENTREPRISE',
                 title: 'Entreprises',
@@ -445,6 +470,14 @@ export class DataManagementService {
                 ],
             },
         ];
+    }
+
+    private async buildOnefopWorkbook(submissions: any[]): Promise<Buffer> {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'MINEFOP';
+        workbook.created = new Date();
+
+        const sheetDefs = this.onefopSheetDefs();
 
         for (const def of sheetDefs) {
             const rows = submissions.filter((s) => s.formType === def.formType);
@@ -612,6 +645,173 @@ export class DataManagementService {
 
         const buffer = await workbook.xlsx.writeBuffer();
         return Buffer.from(buffer);
+    }
+
+    // Collapses the per-form-type sheets used by the Excel export into one
+    // flat table: same submissions, same section 1-4 columns, but every
+    // entity type unioned onto a single row shape (blank where a column
+    // doesn't apply to that submission's form type). Where a form-type's
+    // column key collides with a differently-meaning column already claimed
+    // (e.g. ENTREPRISE's self-reported "Raison sociale" vs. the common
+    // "Entreprise (fiche)" pulled from the linked Company record), the
+    // later one is suffixed with its form type rather than silently merged.
+    private buildFlatOnefopTable(submissions: any[]): {
+        columns: { key: string; header: string }[];
+        rows: Record<string, unknown>[];
+    } {
+        const sheetDefs = this.onefopSheetDefs();
+        const usedKeys = new Set<string>();
+        const columns: { key: string; header: string }[] = [];
+        const remapByFormType = new Map<string, Map<string, string>>();
+
+        for (const c of this.commonColumns()) {
+            usedKeys.add(c.key as string);
+            columns.push({ key: c.key as string, header: c.header as string });
+        }
+        usedKeys.add('formType');
+        columns.push({ key: 'formType', header: 'Type de formulaire' });
+
+        for (const def of sheetDefs) {
+            const remap = new Map<string, string>();
+            for (const c of def.columns) {
+                const origKey = c.key as string;
+                const collided = usedKeys.has(origKey);
+                const finalKey = collided ? `${origKey}_${def.formType.toLowerCase()}` : origKey;
+                usedKeys.add(finalKey);
+                columns.push({
+                    key: finalKey,
+                    header: collided ? `${c.header} (${def.title})` : (c.header as string),
+                });
+                if (collided) remap.set(origKey, finalKey);
+            }
+            remapByFormType.set(def.formType, remap);
+        }
+
+        const pivots = ENUM_PIVOT_CONFIGS.map((cfg) => this.pivotColumnsAndValues(submissions, cfg));
+        const indexedPivots = INDEXED_PIVOT_CONFIGS.map((cfg) => this.indexedPivotColumnsAndValues(submissions, cfg));
+        for (const p of [...pivots, ...indexedPivots]) {
+            for (const c of p.columns) {
+                if (usedKeys.has(c.key as string)) continue;
+                usedKeys.add(c.key as string);
+                columns.push({ key: c.key as string, header: c.header as string });
+            }
+        }
+
+        const detailKeyByFormType = new Map(sheetDefs.map((d) => [d.formType, d.detailKey]));
+        const rows = submissions.map((s) => {
+            const detailKey = detailKeyByFormType.get(s.formType);
+            const detail = detailKey ? (s[detailKey] ?? {}) : {};
+            const remap = remapByFormType.get(s.formType);
+            const remappedDetail: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(detail)) {
+                remappedDetail[remap?.get(k) ?? k] = v;
+            }
+
+            const row: Record<string, unknown> = { ...this.commonRow(s), formType: s.formType, ...remappedDetail };
+            for (const p of pivots) Object.assign(row, p.valuesBySubmission.get(s.id) ?? {});
+            for (const p of indexedPivots) Object.assign(row, p.valuesBySubmission.get(s.id) ?? {});
+            return row;
+        });
+
+        return { columns, rows };
+    }
+
+    private csvEscape(value: unknown): string {
+        if (value === null || value === undefined) return '';
+        const str = value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
+        return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    }
+
+    private rowsToCsv(columns: { key: string; header: string }[], rows: Record<string, unknown>[]): string {
+        const lines = [columns.map((c) => this.csvEscape(c.header)).join(',')];
+        for (const row of rows) {
+            lines.push(columns.map((c) => this.csvEscape(row[c.key])).join(','));
+        }
+        // Leading BOM so SPSS/Excel autodetect UTF-8 and render accented
+        // French headers ("Année d'enquête", etc.) correctly on Windows.
+        return '﻿' + lines.join('\r\n') + '\r\n';
+    }
+
+    private sanitizeSpssVarName(header: string, index: number, used: Set<string>): string {
+        const reserved = new Set(['ALL', 'AND', 'BY', 'EQ', 'GE', 'GT', 'LE', 'LT', 'NE', 'NOT', 'OR', 'TO', 'WITH']);
+        let base = header
+            .normalize('NFD').replace(/\p{Mn}/gu, '')
+            .replace(/[^A-Za-z0-9_]/g, '_')
+            .replace(/^_+/, '')
+            .slice(0, 64);
+        if (!base || /^[0-9]/.test(base)) base = `v${index}_${base}`;
+        if (reserved.has(base.toUpperCase())) base = `${base}_`;
+
+        let name = base;
+        let n = 2;
+        while (used.has(name.toUpperCase())) {
+            name = `${base}_${n++}`;
+        }
+        used.add(name.toUpperCase());
+        return name;
+    }
+
+    private spssQuote(value: string): string {
+        return `'${value.replace(/'/g, "''")}'`;
+    }
+
+    // A GET DATA TYPE=TXT syntax block that, run against the sibling CSV in
+    // SPSS, produces a fully labeled dataset — the standard way to hand SPSS
+    // users a dataset without a binary .sav writer (none exist for Node.js).
+    // Column order is positional (FIRSTCASE=2 skips the CSV's own header
+    // row), so this only has to agree with rowsToCsv on column order, not
+    // on names.
+    private buildSpssSyntax(
+        columns: { key: string; header: string }[],
+        rows: Record<string, unknown>[],
+        csvFilename: string,
+    ): string {
+        const used = new Set<string>();
+        const varNames = columns.map((c, i) => this.sanitizeSpssVarName(c.header, i + 1, used));
+
+        const formats = columns.map((c) => {
+            const values = rows.map((r) => r[c.key]).filter((v) => v !== null && v !== undefined);
+            const allNumeric = values.length > 0 && values.every((v) => typeof v === 'number' && Number.isFinite(v));
+            if (allNumeric) {
+                const hasDecimals = values.some((v) => !Number.isInteger(v as number));
+                return hasDecimals ? 'F10.2' : 'F10.0';
+            }
+            let maxLen = 8;
+            for (const v of values) maxLen = Math.max(maxLen, String(v).length);
+            return `A${Math.min(254, maxLen)}`;
+        });
+
+        const variableLines = varNames.map((name, i) => `  ${name} ${formats[i]}`).join('\n');
+        const labelLines = columns
+            .map((c, i) => `  ${varNames[i]} ${this.spssQuote(c.header)}`)
+            .join('\n');
+
+        return [
+            '* Encoding: UTF-8.',
+            '* Généré par DSMO — export SPSS des soumissions ONEFOP.',
+            `* Placez ce fichier dans le même dossier que "${csvFilename}", puis exécutez-le`,
+            '* entièrement (Exécuter > Tout) dans SPSS pour charger les données étiquetées.',
+            '',
+            'GET DATA',
+            '  /TYPE=TXT',
+            `  /FILE=${this.spssQuote(csvFilename)}`,
+            "  /ENCODING='UTF8'",
+            '  /ARRANGEMENT=DELIMITED',
+            '  /FIRSTCASE=2',
+            "  /DELIMITERS=','",
+            '  /QUALIFIER=\'"\'',
+            '  /VARIABLES=',
+            variableLines,
+            '  /MAP.',
+            'CACHE.',
+            'EXECUTE.',
+            '',
+            'VARIABLE LABELS',
+            labelLines,
+            '  .',
+            'EXECUTE.',
+            '',
+        ].join('\n');
     }
 
     private identityColumns(): Partial<ExcelJS.Column>[] {

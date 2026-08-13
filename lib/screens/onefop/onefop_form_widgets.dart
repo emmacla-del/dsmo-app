@@ -2090,106 +2090,115 @@ class OnefopAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      title: Text(title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-      backgroundColor: kNavy,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      toolbarHeight: kAppBarToolbarHeight,
-      bottom: sectionTitle == null
-          ? null
-          : PreferredSize(
-              preferredSize: const Size.fromHeight(kSectionHeaderRowHeight),
-              // AppBar lays out `bottom` as a non-flexible child of an
-              // internal Column, which hands it an unbounded height
-              // constraint. PreferredSize only pins its own size, not its
-              // child's, so without this explicit height NavigationToolbar
-              // below receives Infinity and throws during layout.
-              child: SizedBox(
-                height: kSectionHeaderRowHeight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: OL.sectionHeaderPaddingH,
-                    vertical: _kSectionRowPaddingV,
-                  ),
-                  // Hairline separator from the title row above — same
-                  // background color otherwise reads as one merged block,
-                  // and this row's weight is dialed below the title's so it
-                  // reads as subordinate context, not a second headline.
-                  decoration: const BoxDecoration(
-                    border: Border(
-                        top: BorderSide(color: Colors.white24, width: 1)),
-                  ),
-                  // NavigationToolbar (the same widget AppBar uses
-                  // internally) measures the leading/trailing slots and
-                  // centers the middle title in the true remaining space,
-                  // so the title stays centered even though the icon and
-                  // the completion badge are different widths (and the
-                  // badge's width changes between "En cours" and "Complet").
-                  child: NavigationToolbar(
-                    centerMiddle: true,
-                    leading: sectionIcon == null
-                        ? null
-                        : Icon(sectionIcon, color: Colors.white70, size: 16),
-                    middle: Text(
-                      sectionTitle!,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white70,
-                      ),
+    // Flat, bordered chrome (matches UltraTheme.border/ContentShell app-wide)
+    // rather than a solid brand-color fill — the AppBar itself stays
+    // transparent and this wrapping Container supplies the surface,
+    // color, and hairline bottom border.
+    return Container(
+      decoration: const BoxDecoration(
+        color: kSurface,
+        border: Border(bottom: BorderSide(color: kBorder, width: 1)),
+      ),
+      child: AppBar(
+        title: Text(title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.transparent,
+        foregroundColor: kInk,
+        elevation: 0,
+        toolbarHeight: kAppBarToolbarHeight,
+        bottom: sectionTitle == null
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(kSectionHeaderRowHeight),
+                // AppBar lays out `bottom` as a non-flexible child of an
+                // internal Column, which hands it an unbounded height
+                // constraint. PreferredSize only pins its own size, not its
+                // child's, so without this explicit height NavigationToolbar
+                // below receives Infinity and throws during layout.
+                child: SizedBox(
+                  height: kSectionHeaderRowHeight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: OL.sectionHeaderPaddingH,
+                      vertical: _kSectionRowPaddingV,
                     ),
-                    trailing:
-                        SectionCompletionBadge(isComplete: sectionComplete),
+                    // Hairline separator from the title row above — same
+                    // background color otherwise reads as one merged block,
+                    // and this row's weight is dialed below the title's so it
+                    // reads as subordinate context, not a second headline.
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: kBorder, width: 1)),
+                    ),
+                    // NavigationToolbar (the same widget AppBar uses
+                    // internally) measures the leading/trailing slots and
+                    // centers the middle title in the true remaining space,
+                    // so the title stays centered even though the icon and
+                    // the completion badge are different widths (and the
+                    // badge's width changes between "En cours" and "Complet").
+                    child: NavigationToolbar(
+                      centerMiddle: true,
+                      leading: sectionIcon == null
+                          ? null
+                          : Icon(sectionIcon, color: kInkFaint, size: 16),
+                      middle: Text(
+                        sectionTitle!,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: kInkSoft,
+                        ),
+                      ),
+                      trailing:
+                          SectionCompletionBadge(isComplete: sectionComplete),
+                    ),
                   ),
                 ),
               ),
-            ),
-      actions: [
-        if (!loading)
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: saving
-                    ? const SizedBox(
-                        key: ValueKey('s'),
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white70))
-                    : dirty
-                        ? const Icon(
-                            key: ValueKey('d'),
-                            Icons.circle,
-                            size: 8,
-                            color: Color(0xFFD9B274))
-                        : const Icon(
-                            key: ValueKey('ok'),
-                            Icons.cloud_done_outlined,
-                            size: 18,
-                            color: Colors.white70),
+        actions: [
+          if (!loading)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: saving
+                      ? const SizedBox(
+                          key: ValueKey('s'),
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: kAccent))
+                      : dirty
+                          ? const Icon(
+                              key: ValueKey('d'),
+                              Icons.circle,
+                              size: 8,
+                              color: Color(0xFFD9B274))
+                          : const Icon(
+                              key: ValueKey('ok'),
+                              Icons.cloud_done_outlined,
+                              size: 18,
+                              color: kInkFaint),
+                ),
               ),
             ),
-          ),
-        if (onOpenDrafts != null)
-          IconButton(
-            icon: const Icon(Icons.drafts_outlined, color: Colors.white70),
-            onPressed: onOpenDrafts,
-          ),
-        if (onCancel != null)
-          TextButton(
-            onPressed: onCancel,
-            child: Text(context.l10n.cancelButton,
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ),
-        const SizedBox(width: 8),
-      ],
+          if (onOpenDrafts != null)
+            IconButton(
+              icon: const Icon(Icons.drafts_outlined, color: kInkSoft),
+              onPressed: onOpenDrafts,
+            ),
+          if (onCancel != null)
+            TextButton(
+              onPressed: onCancel,
+              child: Text(context.l10n.cancelButton,
+                  style: const TextStyle(color: kInkSoft, fontSize: 12)),
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
     );
   }
 }

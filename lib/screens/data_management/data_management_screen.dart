@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,19 +9,6 @@ import '../../widgets/responsive_helpers.dart';
 import '../../widgets/file_saver.dart';
 import '../../widgets/admin_kit.dart';
 
-Color _statusColor(String status) {
-  final s = status.toUpperCase();
-  if (s.contains('APPROV') || s.contains('VALID')) return UltraTheme.success;
-  if (s.contains('REJECT')) return UltraTheme.error;
-  if (s.contains('PENDING') || s.contains('CORRECTION')) return UltraTheme.warning;
-  if (s.contains('DRAFT')) return UltraTheme.textMuted;
-  return UltraTheme.info;
-}
-
-String _statusLabel(String status) =>
-    status.replaceAll('_', ' ').toLowerCase().replaceFirstMapped(
-        RegExp('^.'), (m) => m.group(0)!.toUpperCase());
-
 class DataManagementScreen extends ConsumerStatefulWidget {
   const DataManagementScreen({super.key});
 
@@ -29,14 +17,18 @@ class DataManagementScreen extends ConsumerStatefulWidget {
       _DataManagementScreenState();
 }
 
-class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _DataManagementScreenState extends ConsumerState<DataManagementScreen> {
   List<dynamic> _regions = [];
   List<dynamic> _sectors = [];
   Map<String, dynamic>? _stats;
   bool _isLoading = true;
   bool _exporting = false;
+  bool _exportingSpss = false;
+  bool _exportPanelOpen = false;
+
+  // ── Table search/filter ─────────────────────────────────────
+  String _searchQuery = '';
+  String _typeFilter = 'ALL'; // ALL | REGION | SECTOR
 
   // ── Export filters ──────────────────────────────────────────
   String? _filterRegion;
@@ -69,24 +61,14 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
     });
   }
 
-  final List<Map<String, dynamic>> _tabs = [
-    {'label': 'Régions', 'icon': Icons.map_outlined},
-    {'label': 'Secteurs', 'icon': Icons.business_outlined},
-    {'label': 'Données', 'icon': Icons.data_usage_outlined},
-    {'label': 'Export', 'icon': Icons.download_outlined},
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    _tabController.addListener(() => setState(() {}));
     _loadData();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _yearController.dispose();
     super.dispose();
   }
@@ -149,6 +131,50 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
     }
   }
 
+  Future<void> _exportSpss() async {
+    setState(() => _exportingSpss = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final year = int.tryParse(_yearController.text.trim());
+      final result = await api.exportOnefopSubmissionsSpss(
+        region: _filterRegion,
+        department: _filterDepartment,
+        year: year,
+        fromDate: _filterDateRange?.start.toIso8601String(),
+        toDate: _filterDateRange?.end.toIso8601String(),
+      );
+      // Filenames must match exactly what the .sps syntax's GET DATA /FILE=
+      // references (see buildSpssSyntax on the backend) — no date stamp,
+      // so the two downloads stay a matched pair regardless of when the
+      // user later places them together and runs the syntax in SPSS.
+      await saveBytesAsFile(
+        utf8.encode(result['csv'] as String),
+        'onefop_submissions.csv',
+        mimeType: 'text/csv',
+      );
+      final spsPath = await saveBytesAsFile(
+        utf8.encode(result['sps'] as String),
+        'onefop_submissions.sps',
+        mimeType: 'text/plain',
+      );
+
+      if (!mounted) return;
+      showAdminToast(
+          context,
+          'Fichiers SPSS téléchargés (CSV + syntaxe .sps) : $spsPath. '
+          'Placez les deux fichiers dans le même dossier puis exécutez le '
+          '.sps dans SPSS.',
+          UltraTheme.success,
+          Icons.check_circle_outline_rounded);
+    } catch (e) {
+      if (!mounted) return;
+      showAdminToast(context, 'Erreur lors de l\'export SPSS : $e',
+          UltraTheme.error, Icons.error_outline_rounded);
+    } finally {
+      if (mounted) setState(() => _exportingSpss = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,162 +185,278 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
         backgroundColor: UltraTheme.surface,
         elevation: 0,
         actions: [
-          if (_tabController.index == 3)
-            IconButton(
-              icon: const Icon(Icons.download_rounded),
-              onPressed: _exporting ? null : _exportData,
-              tooltip: 'Exporter',
-            ),
+          IconButton(
+            icon: Icon(_exportPanelOpen
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.download_rounded),
+            onPressed: () => setState(() => _exportPanelOpen = !_exportPanelOpen),
+            tooltip: 'Exporter',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: UltraTheme.primary,
-          unselectedLabelColor: UltraTheme.textMuted,
-          indicatorColor: UltraTheme.primary,
-          labelStyle: const TextStyle(
-              fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600),
-          unselectedLabelStyle:
-              const TextStyle(fontFamily: 'Inter', fontSize: 13),
-          tabs: _tabs
-              .map((tab) => Tab(
-                    icon: Icon(tab['icon'] as IconData, size: 20),
-                    text: tab['label'] as String,
-                  ))
-              .toList(),
-        ),
       ),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation(UltraTheme.primary)))
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                _buildRegionsTab(),
-                _buildSectorsTab(),
-                _buildDataTab(),
-                _buildExportTab(),
+                if (_exportPanelOpen)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: _buildExportPanel(),
+                  ),
+                Expanded(child: _buildUnifiedTable()),
               ],
             ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════
-  // RÉGIONS
+  // UNIFIED RÉGIONS + SECTEURS TABLE
   // ═══════════════════════════════════════════════════════════
 
-  Widget _buildRegionsTab() {
-    if (_regions.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.map_outlined,
-        title: 'Aucune région trouvée',
-        subtitle: 'Les régions configurées apparaîtront ici.',
-      );
-    }
-    return Column(
-      children: [
-        _buildListHeader(
-            '${_regions.length} région${_regions.length > 1 ? 's' : ''}'),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-            itemCount: _regions.length,
-            itemBuilder: (context, index) {
-              final region = _regions[index];
-              final counts = region['_count'] as Map?;
-              return _EntityCard(
-                icon: Icons.location_on_outlined,
-                iconColor: UltraTheme.info,
-                title: region['name'] ?? 'Sans nom',
-                subtitle: 'Code : ${region['code'] ?? '—'}',
-                pills: counts == null
-                    ? const []
-                    : [
-                        StatPill(
-                            value: (counts['companies'] ?? 0) as int,
-                            label: 'Entreprises',
-                            color: UltraTheme.info),
-                        StatPill(
-                            value: (counts['departments'] ?? 0) as int,
-                            label: 'Départements',
-                            color: UltraTheme.primary),
-                      ],
-                onEdit: () => _editRegion(region),
-                onDelete: () => _deleteRegion(region),
-              );
-            },
+  List<_ManagedRow> get _allRows => [
+        for (final r in _regions)
+          _ManagedRow(
+            type: 'REGION',
+            name: (r['name'] as String?) ?? 'Sans nom',
+            code: (r['code'] as String?) ?? '—',
+            category: null,
+            companies: (((r['_count'] as Map?)?['companies']) ?? 0) as int,
+            departments:
+                (((r['_count'] as Map?)?['departments']) ?? 0) as int,
+            onEdit: () => _editRegion(r),
+            onDelete: () => _deleteRegion(r),
           ),
+        for (final s in _sectors)
+          _ManagedRow(
+            type: 'SECTOR',
+            name: (s['name'] as String?) ?? 'Sans nom',
+            code: (s['code'] as String?) ?? '—',
+            category: (s['category'] as String?)?.isNotEmpty == true
+                ? s['category'] as String
+                : null,
+            companies: (((s['_count'] as Map?)?['companies']) ?? 0) as int,
+            departments: null,
+            onEdit: () => _editSector(s),
+            onDelete: () => _deleteSector(s),
+          ),
+      ];
+
+  List<_ManagedRow> get _filteredRows {
+    final q = _searchQuery.trim().toLowerCase();
+    final rows = _allRows.where((row) {
+      if (_typeFilter != 'ALL' && row.type != _typeFilter) return false;
+      if (q.isEmpty) return true;
+      return row.name.toLowerCase().contains(q) ||
+          row.code.toLowerCase().contains(q);
+    }).toList();
+    rows.sort((a, b) => a.name.compareTo(b.name));
+    return rows;
+  }
+
+  Widget _buildUnifiedTable() {
+    final rows = _filteredRows;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: _buildStatsStrip(),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: _buildTableToolbar(),
+        ),
+        Expanded(
+          child: rows.isEmpty
+              ? _buildEmptyState(
+                  icon: Icons.table_rows_outlined,
+                  title: 'Aucun résultat',
+                  subtitle:
+                      'Aucune région ou secteur ne correspond à votre recherche.',
+                )
+              : _buildDataTable(rows),
         ),
       ],
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // SECTEURS
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildSectorsTab() {
-    if (_sectors.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.business_outlined,
-        title: 'Aucun secteur trouvé',
-        subtitle: 'Les secteurs configurés apparaîtront ici.',
-      );
-    }
-    return Column(
-      children: [
-        _buildListHeader(
-            '${_sectors.length} secteur${_sectors.length > 1 ? 's' : ''}'),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-            itemCount: _sectors.length,
-            itemBuilder: (context, index) {
-              final sector = _sectors[index];
-              final counts = sector['_count'] as Map?;
-              return _EntityCard(
-                icon: Icons.business_outlined,
-                iconColor: UltraTheme.success,
-                title: sector['name'] ?? 'Sans nom',
-                subtitle: (sector['category'] as String?)?.isNotEmpty == true
-                    ? sector['category']
-                    : null,
-                pills: counts == null
-                    ? const []
-                    : [
-                        StatPill(
-                            value: (counts['companies'] ?? 0) as int,
-                            label: 'Entreprises',
-                            color: UltraTheme.success),
-                      ],
-                onEdit: () => _editSector(sector),
-                onDelete: () => _deleteSector(sector),
-              );
-            },
-          ),
-        ),
-      ],
+  Widget _buildStatsStrip() {
+    final totals = (_stats?['totals'] as Map?) ?? {};
+    final items = <(String, dynamic)>[
+      ('Entreprises', totals['companies'] ?? 0),
+      ('Déclarations', totals['declarations'] ?? 0),
+      ('Soumissions ONEFOP', totals['onefopSubmissions'] ?? 0),
+      ('Utilisateurs', totals['users'] ?? 0),
+    ];
+    return Wrap(
+      spacing: 22,
+      runSpacing: 6,
+      children: items
+          .map((e) => RichText(
+                text: TextSpan(children: [
+                  TextSpan(
+                      text: '${e.$2} ',
+                      style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: UltraTheme.textPrimary)),
+                  TextSpan(
+                      text: e.$1,
+                      style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: UltraTheme.textMuted)),
+                ]),
+              ))
+          .toList(),
     );
   }
 
-  Widget _buildListHeader(String countLabel) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-      child: Row(
-        children: [
-          Text(countLabel,
+  Widget _buildTableToolbar() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: _filterFieldDecoration(),
+            child: TextField(
+              onChanged: (v) => setState(() => _searchQuery = v),
               style: const TextStyle(
+                  fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
+              decoration: const InputDecoration(
+                icon: Icon(Icons.search_rounded,
+                    size: 18, color: UltraTheme.textMuted),
+                hintText: 'Rechercher une région ou un secteur…',
+                hintStyle: TextStyle(
+                    fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        _typeChip('ALL', 'Tout'),
+        const SizedBox(width: 6),
+        _typeChip('REGION', 'Régions'),
+        const SizedBox(width: 6),
+        _typeChip('SECTOR', 'Secteurs'),
+      ],
+    );
+  }
+
+  Widget _typeChip(String value, String label) {
+    final selected = _typeFilter == value;
+    return ChoiceChip(
+      label: Text(label,
+          style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12,
+              color: selected ? Colors.white : UltraTheme.textSecondary)),
+      selected: selected,
+      onSelected: (_) => setState(() => _typeFilter = value),
+      selectedColor: UltraTheme.primary,
+      backgroundColor: UltraTheme.background,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.2))),
+    );
+  }
+
+  Widget _buildDataTable(List<_ManagedRow> rows) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: UltraTheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
+          boxShadow: UltraTheme.softShadow,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SingleChildScrollView(
+            child: DataTable(
+              headingRowColor:
+                  WidgetStateProperty.all(UltraTheme.background),
+              headingTextStyle: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: UltraTheme.textMuted,
-                  letterSpacing: 0.2)),
-        ],
+                  fontWeight: FontWeight.w700,
+                  color: UltraTheme.textMuted),
+              dataTextStyle: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  color: UltraTheme.textPrimary),
+              columns: const [
+                DataColumn(label: Text('Type')),
+                DataColumn(label: Text('Nom')),
+                DataColumn(label: Text('Code')),
+                DataColumn(label: Text('Catégorie')),
+                DataColumn(label: Text('Entreprises'), numeric: true),
+                DataColumn(label: Text('Départements'), numeric: true),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: rows
+                  .map((row) => DataRow(cells: [
+                        DataCell(_typeBadge(row.type)),
+                        DataCell(Text(row.name)),
+                        DataCell(Text(row.code)),
+                        DataCell(Text(row.category ?? '—')),
+                        DataCell(Text('${row.companies}')),
+                        DataCell(Text(
+                            row.departments == null ? '—' : '${row.departments}')),
+                        DataCell(Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              color: UltraTheme.textSecondary,
+                              onPressed: row.onEdit,
+                              tooltip: 'Modifier',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded,
+                                  size: 18),
+                              color: UltraTheme.error,
+                              onPressed: row.onDelete,
+                              tooltip: 'Supprimer',
+                            ),
+                          ],
+                        )),
+                      ]))
+                  .toList(),
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _typeBadge(String type) {
+    final isRegion = type == 'REGION';
+    final color = isRegion ? UltraTheme.info : UltraTheme.success;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(isRegion ? 'Région' : 'Secteur',
+          style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color)),
     );
   }
 
@@ -353,342 +495,111 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // DONNÉES
+  // EXPORT PANEL
   // ═══════════════════════════════════════════════════════════
 
-  Widget _buildDataTab() {
-    final totals = (_stats?['totals'] as Map?) ?? {};
-    final declarationsByStatus =
-        (_stats?['declarationsByStatus'] as Map?) ?? {};
-    final onefopByStatus = (_stats?['onefopByStatus'] as Map?) ?? {};
-    final companiesByRegion =
-        (_stats?['companiesByRegion'] as List?)?.cast<dynamic>() ?? [];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LayoutBuilder(builder: (context, constraints) {
-            final wide = constraints.maxWidth > 640;
-            final cards = [
-              _buildDataCard(
-                  'Entreprises enregistrées',
-                  totals['companies'] ?? 0,
-                  Icons.apartment_outlined,
-                  UltraTheme.info,
-                  "Nombre total d'entreprises dans la base"),
-              _buildDataCard(
-                  'Déclarations DSMO',
-                  totals['declarations'] ?? 0,
-                  Icons.folder_open_outlined,
-                  UltraTheme.primary,
-                  'Nombre total de déclarations soumises'),
-              _buildDataCard(
-                  'Soumissions ONEFOP',
-                  totals['onefopSubmissions'] ?? 0,
-                  Icons.fact_check_outlined,
-                  UltraTheme.success,
-                  'Nombre total de questionnaires soumis'),
-              _buildDataCard('Utilisateurs', totals['users'] ?? 0,
-                  Icons.people_outline, UltraTheme.accent,
-                  'Nombre total de comptes utilisateurs'),
-            ];
-            if (!wide) {
-              return Column(
-                children: [
-                  for (final c in cards) ...[c, const SizedBox(height: 16)]
-                ],
-              );
-            }
-            return GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 2.5,
-              children: cards,
-            );
-          }),
-          const SizedBox(height: 32),
-          if (onefopByStatus.isNotEmpty)
-            _buildStatusBreakdownCard(
-                'Soumissions ONEFOP par statut', onefopByStatus),
-          if (onefopByStatus.isNotEmpty) const SizedBox(height: 20),
-          if (declarationsByStatus.isNotEmpty)
-            _buildStatusBreakdownCard(
-                'Déclarations DSMO par statut', declarationsByStatus),
-          if (declarationsByStatus.isNotEmpty) const SizedBox(height: 20),
-          if (companiesByRegion.isNotEmpty)
-            _buildTopRegionsCard(companiesByRegion),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCard({required String title, required Widget child}) {
+  Widget _buildExportPanel() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
-        boxShadow: UltraTheme.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: UltraTheme.titleMedium),
-          const SizedBox(height: 18),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBreakdownCard(String title, Map data) {
-    final entries = data.entries.toList()
-      ..sort((a, b) => (b.value as int).compareTo(a.value as int));
-    return _sectionCard(
-      title: title,
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: entries.map((e) {
-          final status = e.key as String;
-          final count = e.value as int;
-          final color = _statusColor(status);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text('$count',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: color)),
-              const SizedBox(width: 6),
-              Text(_statusLabel(status),
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: color.withValues(alpha: 0.85))),
-            ]),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildTopRegionsCard(List companiesByRegion) {
-    final top = companiesByRegion.take(5).toList();
-    final maxCount = top.isEmpty
-        ? 1
-        : (top.first['count'] as int? ?? 1).clamp(1, 1 << 30);
-    return _sectionCard(
-      title: 'Régions les plus représentées',
-      child: Column(
-        children: top.map((r) {
-          final region = r['region'] as String? ?? 'Inconnue';
-          final count = r['count'] as int? ?? 0;
-          final fraction = count / maxCount;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(region,
-                          style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: UltraTheme.textPrimary)),
-                    ),
-                    Text('$count',
-                        style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: UltraTheme.textPrimary)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: fraction.toDouble(),
-                    minHeight: 6,
-                    backgroundColor: UltraTheme.textMuted.withValues(alpha: 0.1),
-                    valueColor:
-                        const AlwaysStoppedAnimation(UltraTheme.primary),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildDataCard(String title, dynamic value, IconData icon, Color color,
-      String description) {
-    return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: UltraTheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
+        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
         boxShadow: UltraTheme.softShadow,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 26, color: color),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(value.toString(),
-                    style: const TextStyle(
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Exporter les soumissions ONEFOP',
+                    style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 20,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: UltraTheme.textPrimary)),
-                const SizedBox(height: 2),
-                Text(title,
-                    style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: UltraTheme.textSecondary)),
-                const SizedBox(height: 2),
-                Text(description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 11,
-                        color: UltraTheme.textMuted)),
-              ],
-            ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 18),
+                color: UltraTheme.textMuted,
+                onPressed: () => setState(() => _exportPanelOpen = false),
+                tooltip: 'Fermer',
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // EXPORT
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildExportTab() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          const Text(
+              'Compile toutes les soumissions approuvées (Entreprises, '
+              'Coopératives, CTD, ONG) : données d\'identification et '
+              'sections 1 à 4 du questionnaire.',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: UltraTheme.textSecondary,
+                  height: 1.4)),
+          const SizedBox(height: 18),
+          _buildFilterCard(),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: UltraTheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.download_rounded,
-                    size: 34, color: UltraTheme.primary),
-              ),
-              const SizedBox(height: 20),
-              const Text('Exporter les soumissions ONEFOP',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      color: UltraTheme.textPrimary)),
-              const SizedBox(height: 8),
-              const Text(
-                  'Compile toutes les soumissions approuvées (Entreprises, '
-                  'Coopératives, CTD, ONG) dans un classeur Excel : une '
-                  'ligne par soumission avec les données d\'identification '
-                  'et les sections 1 à 4 du questionnaire.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      color: UltraTheme.textSecondary,
-                      height: 1.5)),
-              const SizedBox(height: 28),
-              _buildFilterCard(),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _exporting ? null : _exportData,
-                  icon: _exporting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.file_download_rounded),
-                  label: Text(
-                      _exporting ? 'Génération en cours…' : 'Exporter en Excel'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: UltraTheme.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
+              ElevatedButton.icon(
+                onPressed: (_exporting || _exportingSpss) ? null : _exportData,
+                icon: _exporting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.grid_on_rounded, size: 18),
+                label: Text(_exporting ? 'Génération…' : 'Exporter en Excel'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: UltraTheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => showAdminToast(
-                      context,
-                      'Export PDF bientôt disponible',
-                      UltraTheme.info,
-                      Icons.info_outline_rounded),
-                  icon: const Icon(Icons.picture_as_pdf_rounded),
-                  label: const Text('Exporter en PDF'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: UltraTheme.textSecondary,
-                    side: BorderSide(
-                        color: UltraTheme.textMuted.withValues(alpha: 0.3)),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
+              OutlinedButton.icon(
+                onPressed: (_exporting || _exportingSpss) ? null : _exportSpss,
+                icon: _exportingSpss
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.dataset_outlined, size: 18),
+                label: Text(_exportingSpss ? 'Génération…' : 'Exporter en SPSS'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: UltraTheme.primary,
+                  side: const BorderSide(color: UltraTheme.primary),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => showAdminToast(
+                    context,
+                    'Export PDF bientôt disponible',
+                    UltraTheme.info,
+                    Icons.info_outline_rounded),
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                label: const Text('Exporter en PDF'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: UltraTheme.textSecondary,
+                  side: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -702,10 +613,9 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: UltraTheme.surface,
+        color: UltraTheme.background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
-        boxShadow: UltraTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,7 +711,7 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
 
   BoxDecoration _filterFieldDecoration({bool enabled = true}) => BoxDecoration(
         color: enabled
-            ? UltraTheme.background
+            ? UltraTheme.surface
             : UltraTheme.textMuted.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.2)),
@@ -819,20 +729,23 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
             child: DropdownButton<String>(
               value: _filterRegion,
               isExpanded: true,
-              hint: const Text('Toutes les régions',
-                  style: TextStyle(
-                      fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
               style: const TextStyle(
                   fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
               icon: const Icon(Icons.keyboard_arrow_down_rounded,
                   color: UltraTheme.textMuted),
-              items: _regions
-                  .map((r) => DropdownMenuItem(
-                        value: r['name'] as String,
-                        child: Text(r['name'] as String,
-                            overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Toutes les régions',
+                      style: TextStyle(color: UltraTheme.textMuted),
+                      overflow: TextOverflow.ellipsis),
+                ),
+                ..._regions.map((r) => DropdownMenuItem(
+                      value: r['name'] as String,
+                      child: Text(r['name'] as String,
+                          overflow: TextOverflow.ellipsis),
+                    )),
+              ],
               onChanged: (v) => setState(() {
                 _filterRegion = v;
                 _filterDepartment = null;
@@ -868,13 +781,19 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
                   fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
               icon: const Icon(Icons.keyboard_arrow_down_rounded,
                   color: UltraTheme.textMuted),
-              items: departments
-                  .map((d) => DropdownMenuItem(
-                        value: d['name'] as String,
-                        child: Text(d['name'] as String,
-                            overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Tous les départements',
+                      style: TextStyle(color: UltraTheme.textMuted),
+                      overflow: TextOverflow.ellipsis),
+                ),
+                ...departments.map((d) => DropdownMenuItem(
+                      value: d['name'] as String,
+                      child: Text(d['name'] as String,
+                          overflow: TextOverflow.ellipsis),
+                    )),
+              ],
               onChanged: enabled
                   ? (v) => setState(() => _filterDepartment = v)
                   : null,
@@ -1144,96 +1063,25 @@ class _DataManagementScreenState extends ConsumerState<DataManagementScreen>
   }
 }
 
-/// Flat bordered card for a région/secteur row: icon, title/subtitle,
-/// stat pills, and compact edit/delete actions — consistent with the
-/// card style used across the other admin screens (companies, users).
-class _EntityCard extends StatelessWidget {
-  const _EntityCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    this.subtitle,
-    required this.pills,
+/// A row in the unified régions + secteurs table.
+class _ManagedRow {
+  const _ManagedRow({
+    required this.type,
+    required this.name,
+    required this.code,
+    required this.category,
+    required this.companies,
+    required this.departments,
     required this.onEdit,
     required this.onDelete,
   });
 
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String? subtitle;
-  final List<Widget> pills;
+  final String type; // REGION | SECTOR
+  final String name;
+  final String code;
+  final String? category;
+  final int companies;
+  final int? departments;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.08)),
-        boxShadow: UltraTheme.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: UltraTheme.textPrimary)),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(subtitle!,
-                          style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 12,
-                              color: UltraTheme.textMuted)),
-                    ],
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                color: UltraTheme.textSecondary,
-                onPressed: onEdit,
-                tooltip: 'Modifier',
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                color: UltraTheme.error,
-                onPressed: onDelete,
-                tooltip: 'Supprimer',
-              ),
-            ],
-          ),
-          if (pills.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: pills),
-          ],
-        ],
-      ),
-    );
-  }
 }

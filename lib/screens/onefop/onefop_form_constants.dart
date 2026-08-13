@@ -23,8 +23,10 @@ const double kSidebarCollapsedWidth = 56.0;
 // ══════════════════════════════════════════════════════════════
 // DESIGN TOKENS — one brand color throughout: AppColors.deepEmerald,
 // the same green already used on login/password/approval screens.
-// Restrained neutral ink + surfaces around it, soft long shadows
-// instead of heavy borders. Every color the ONEFOP form uses
+// Restrained neutral ink + surfaces around it. Cards carry their
+// shape via a hairline border (kShadowCard is now near-invisible),
+// matching the flat, bordered dashboard-app look used app-wide —
+// see UltraTheme.border/softShadow. Every color the ONEFOP form uses
 // should come from this palette — no ad-hoc hex literals, and no
 // second brand hue (no navy, no blue) competing with the green.
 // ══════════════════════════════════════════════════════════════
@@ -45,18 +47,13 @@ const Color kFieldFillHover = Color(0xFFEFF4F1);
 const Color kBorder = Color(0xFFE4E9E6);
 const Color kBorderStrong = Color(0xFFD3DBD7);
 
-// The one brand color — app bar / primary chrome, CTAs, focus rings,
-// progress, links, selection, and "complete/done" states all share
-// this single green. kAccentDeep is only for pressed/hover states —
-// it's a shade of the same color, not a second hue.
+// The one brand color — CTAs, focus rings, progress, links, selection,
+// and "complete/done" states all share this single green. kAccentDeep
+// is only for pressed/hover states — it's a shade of the same color,
+// not a second hue.
 const Color kAccent = AppColors.deepEmerald; // #0A6640
 const Color kAccentDeep = Color(0xFF063F27);
 const Color kAccentSoft = Color(0xFFE1F0E8);
-
-// "Chrome" is an alias for the brand color — the app bar and other
-// large structural surfaces use it directly rather than a separate hue.
-const Color kNavy = kAccent;
-const Color kNavyDeep = kAccentDeep;
 
 // Status — success reuses the brand color itself (it already reads as
 // "good"); danger/warning stay distinct since they carry real meaning.
@@ -67,24 +64,23 @@ const Color kDangerSoft = Color(0xFFFBEDEB);
 const Color kWarning = Color(0xFFAC7A26);
 const Color kWarningSoft = Color(0xFFF8F0E1);
 
-// Radii — one step larger than the old scale for a calmer, less
-// "boxy" feel; still restrained (no pill-everything).
-const double kRadiusSm = 8.0;
-const double kRadiusMd = 12.0;
-const double kRadiusLg = 16.0;
+// Radii — aligned with UltraTheme's scale (radiusSmall/Medium/Large)
+// used by the rest of the app.
+const double kRadiusSm = 6.0;
+const double kRadiusMd = 8.0;
+const double kRadiusLg = 10.0;
 
-// Elevation via soft long shadows rather than borders-only cards.
+// Cards carry their shape via kBorder now, not elevation — matches
+// UltraTheme.softShadow's near-invisible treatment app-wide.
 List<BoxShadow> get kShadowCard => [
       BoxShadow(
-          color: kInk.withValues(alpha: 0.05),
-          blurRadius: 1,
+          color: kInk.withValues(alpha: 0.02),
+          blurRadius: 4,
           offset: const Offset(0, 1)),
-      BoxShadow(
-          color: kInk.withValues(alpha: 0.06),
-          blurRadius: 28,
-          offset: const Offset(0, 10)),
     ];
 
+// Reserved for things that actually float above content (menus,
+// dropdowns) — a border alone wouldn't read as "above" the page there.
 List<BoxShadow> get kShadowFloating => [
       BoxShadow(
           color: kInk.withValues(alpha: 0.10),

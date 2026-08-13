@@ -72,4 +72,10 @@ export class DataManagementController {
 
     return result;
   }
+
+  @Post('export/submissions/spss')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
+  async exportSubmissionsSpss(@Body() filters: any) {
+    return this.dataManagementService.exportSubmissionsSpss(filters);
+  }
 }
