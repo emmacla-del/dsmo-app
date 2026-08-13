@@ -36,6 +36,15 @@ export interface BilanRhResponse {
     year: number;
     submissionId: string;
     entityType: string;
+    companyName: string;
+    // Number of approved ONEFOP submissions (quarters) this response
+    // aggregates. ONEFOP is filed quarterly; a company filing on that
+    // cadence can have up to 4 approved submissions in one surveyYear.
+    // Flow metrics below (recruitments, departures, ...) are summed across
+    // all of them; permanentWorkers/vacancies are a snapshot from the
+    // most recently approved one. quarterCount > 1 means the response is
+    // a genuine annual aggregate, not a single quarter's numbers.
+    quarterCount: number;
 
     // ── Workforce snapshot ──────────────────────────────────────
     permanentWorkers: number;
@@ -227,20 +236,26 @@ export class BilanService {
         // ── 1. Find the company for this user ─────────────────────
         const company = await (this.prisma as any).company.findUnique({
             where: { userId },
-            select: { id: true },
+            select: { id: true, name: true },
         });
         if (!company) {
             throw new NotFoundException('Aucune entreprise trouvée pour cet utilisateur.');
         }
 
-        // ── 2. Find the APPROVED submission for this year ─────────
-        const submission = await (this.prisma as any).onefopSubmission.findFirst({
+        // ── 2. Find every APPROVED submission for this year ────────
+        // ONEFOP is quarterly — a company filing every quarter can have up
+        // to 4 approved submissions in one surveyYear. Previously this
+        // took only the single most-recently-created one (findFirst),
+        // silently discarding the others: "Bilan RH {year}" is meant to
+        // read as an annual report, but was really just whichever quarter
+        // happened to be approved last.
+        const submissions = await (this.prisma as any).onefopSubmission.findMany({
             where: {
                 companyId: company.id,
                 surveyYear: year,
                 status: 'APPROVED',
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: 'desc' }, // [0] = most recently approved
             include: {
                 enterpriseDetail: true,
                 cooperativeDetail: true,
@@ -258,166 +273,180 @@ export class BilanService {
             },
         });
 
-        if (!submission) {
+        if (submissions.length === 0) {
             // Return null — Flutter screen handles locked state
             throw new NotFoundException(
                 `Aucune déclaration approuvée trouvée pour l'année ${year}.`,
             );
         }
 
-        // ── 3. Extract permanentWorkers & vacancies from entity detail ──
-        const detail =
-            submission.enterpriseDetail ??
-            submission.cooperativeDetail ??
-            submission.ctdDetail ??
-            submission.ongDetail;
+        const latest = submissions[0];
 
-        const permanentWorkers: number = detail?.permanentWorkers ?? 0;
-        const vacancies: number = detail?.vacancies ?? 0;
+        // ── 3. Stock metrics: snapshot from the latest approved quarter ──
+        // permanentWorkers/vacancies are a headcount AT a point in time,
+        // not a flow — summing them across quarters would multiply the
+        // apparent headcount by ~the number of quarters filed instead of
+        // reporting it, so only the most recent snapshot is used here.
+        const latestDetail =
+            latest.enterpriseDetail ??
+            latest.cooperativeDetail ??
+            latest.ctdDetail ??
+            latest.ongDetail;
 
-        // ── 4. Build CSP recruitment tables ───────────────────────
-        const permanent = zeroCspBreakdown();
-        const temporary = zeroCspBreakdown();
+        const permanentWorkers: number = latestDetail?.permanentWorkers ?? 0;
+        const vacancies: number = latestDetail?.vacancies ?? 0;
 
-        for (const row of submission.cspGenderAge) {
-            // tableName is 's22q01' (permanent) or 's22q02' (temporary)
-            const target = row.tableName === 's22q01' ? permanent : temporary;
-            if (row.tableName !== 's22q01' && row.tableName !== 's22q02') continue;
-
-            const csp = row.cspCategory === 'TOTAL' ? 'total' : cspKey[row.cspCategory];
-            const g = genderKey[row.gender];
-            if (!csp || !g) continue;
-
-            // Only use TOTAL ageBand to avoid double-counting
-            if (row.ageBand !== 'TOTAL') continue;
-
-            if (csp === 'total') {
-                target.total[g] += row.value;
-            } else {
-                target[csp][g] += row.value;
-            }
-        }
-
-        const combined = addCspBreakdown(permanent, temporary);
-
-        // ── 5. Build departures ────────────────────────────────────
-        const departures: BilanRhResponse['departures'] = {
+        // ── 4-11. Flow metrics: summed across every approved quarter ────
+        let permanent = zeroCspBreakdown();
+        let temporary = zeroCspBreakdown();
+        let departures: BilanRhResponse['departures'] = {
             dismissals: zeroCspGender(),
             resignations: zeroCspGender(),
             retirements: zeroCspGender(),
             others: zeroCspGender(),
             total: zeroCspGender(),
         };
-
-        for (const row of submission.departureData) {
-            if (row.cspCategory !== 'TOTAL') continue; // aggregate totals only
-            const key = departureKey[row.departureType];
-            const g = genderKey[row.gender];
-            if (!g) continue;
-
-            if (key) {
-                departures[key][g] += row.value;
-            }
-            if (row.departureType === 'ENSEMBLE') {
-                departures.total[g] += row.value;
-            }
-        }
-
-        // ── 6. Build vulnerable workers ───────────────────────────
-        const vulnerable: BilanRhResponse['vulnerableWorkers'] = {
+        let vulnerable: BilanRhResponse['vulnerableWorkers'] = {
             internalDisplaced: { permanent: 0, temporary: 0, total: 0 },
             refugees: { permanent: 0, temporary: 0, total: 0 },
             orphans: { permanent: 0, temporary: 0, total: 0 },
             total: 0,
         };
-
-        for (const row of submission.vulnerableData) {
-            const vKey = vulnerableKey[row.vulnerableType];
-            if (!vKey) continue;
-            if (row.gender !== 'TOTAL') continue; // use totals only
-
-            const sKey = statusKey[row.status];
-            if (sKey) {
-                vulnerable[vKey][sKey] += row.value;
-            }
-            if (row.status === 'TOTAL') {
-                vulnerable[vKey].total += row.value;
-            }
-        }
-        vulnerable.total =
-            vulnerable.internalDisplaced.total +
-            vulnerable.refugees.total +
-            vulnerable.orphans.total;
-
-        // ── 7. Disabled recruitments ───────────────────────────────
-        const disabled = { permanent: 0, temporary: 0, total: 0 };
-        for (const row of submission.disabilityData) {
-            if (row.cspCategory !== 'TOTAL') continue;
-            if (row.gender !== 'TOTAL') continue;
-            if (row.status === 'PERMANENT') disabled.permanent += row.value;
-            if (row.status === 'TEMPORARY') disabled.temporary += row.value;
-            if (row.status === 'TOTAL') disabled.total += row.value;
-        }
-
-        // ── 8. First-time workers ─────────────────────────────────
-        const firstTime = { permanent: 0, temporary: 0, total: 0 };
-        for (const row of submission.firstTimeWorkers) {
-            if (row.cspCategory !== 'TOTAL') continue;
-            if (row.gender !== 'TOTAL') continue;
-            if (row.ageBand !== 'TOTAL') continue;
-            if (row.contractType === 'PERMANENT') firstTime.permanent += row.value;
-            if (row.contractType === 'TEMPORARY') firstTime.temporary += row.value;
-            if (row.contractType === 'TOTAL') firstTime.total += row.value;
-        }
-
-        // ── 9. Internships ────────────────────────────────────────
-        const internships: BilanRhResponse['internships'] = {
+        let disabled = { permanent: 0, temporary: 0, total: 0 };
+        let firstTime = { permanent: 0, temporary: 0, total: 0 };
+        let internships: BilanRhResponse['internships'] = {
             holiday: 0,
             academic: 0,
             professional: 0,
             preWork: 0,
             total: 0,
         };
-        for (const row of submission.internshipData) {
-            if (row.gender !== 'TOTAL') continue;
-            const iKey = internshipKey[row.internshipType];
-            if (iKey) internships[iKey] += row.value;
-            if (row.internshipType === 'TOTAL') internships.total += row.value;
+        // Skill/training needs are free text, independently numbered
+        // 1..N per submission — merged here by matching text so the same
+        // need mentioned in multiple quarters shows once with a combined
+        // count rather than as repeated "#1, #1, #1" rows.
+        const skillByText = new Map<string, { description: string; totalCount: number }>();
+        const trainingByText = new Map<string, { domain: string; totalCount: number }>();
+        const dismissalReasonsRaw: Array<{ text: string; male: number; female: number; total: number }> = [];
+
+        for (const submission of submissions) {
+            for (const row of submission.cspGenderAge) {
+                const target = row.tableName === 's22q01' ? permanent : temporary;
+                if (row.tableName !== 's22q01' && row.tableName !== 's22q02') continue;
+
+                const csp = row.cspCategory === 'TOTAL' ? 'total' : cspKey[row.cspCategory];
+                const g = genderKey[row.gender];
+                if (!csp || !g) continue;
+                if (row.ageBand !== 'TOTAL') continue; // avoid double-counting
+
+                if (csp === 'total') {
+                    target.total[g] += row.value;
+                } else {
+                    target[csp][g] += row.value;
+                }
+            }
+
+            for (const row of submission.departureData) {
+                if (row.cspCategory !== 'TOTAL') continue;
+                const key = departureKey[row.departureType];
+                const g = genderKey[row.gender];
+                if (!g) continue;
+                if (key) departures[key][g] += row.value;
+                if (row.departureType === 'ENSEMBLE') departures.total[g] += row.value;
+            }
+
+            for (const row of submission.vulnerableData) {
+                const vKey = vulnerableKey[row.vulnerableType];
+                if (!vKey) continue;
+                if (row.gender !== 'TOTAL') continue;
+                const sKey = statusKey[row.status];
+                if (sKey) vulnerable[vKey][sKey] += row.value;
+                if (row.status === 'TOTAL') vulnerable[vKey].total += row.value;
+            }
+
+            for (const row of submission.disabilityData) {
+                if (row.cspCategory !== 'TOTAL') continue;
+                if (row.gender !== 'TOTAL') continue;
+                if (row.status === 'PERMANENT') disabled.permanent += row.value;
+                if (row.status === 'TEMPORARY') disabled.temporary += row.value;
+                if (row.status === 'TOTAL') disabled.total += row.value;
+            }
+
+            for (const row of submission.firstTimeWorkers) {
+                if (row.cspCategory !== 'TOTAL') continue;
+                if (row.gender !== 'TOTAL') continue;
+                if (row.ageBand !== 'TOTAL') continue;
+                if (row.contractType === 'PERMANENT') firstTime.permanent += row.value;
+                if (row.contractType === 'TEMPORARY') firstTime.temporary += row.value;
+                if (row.contractType === 'TOTAL') firstTime.total += row.value;
+            }
+
+            for (const row of submission.internshipData) {
+                if (row.gender !== 'TOTAL') continue;
+                const iKey = internshipKey[row.internshipType];
+                if (iKey) internships[iKey] += row.value;
+                if (row.internshipType === 'TOTAL') internships.total += row.value;
+            }
+
+            for (const s of submission.skillNeeds) {
+                if (!s.skillDescription) continue;
+                const key = s.skillDescription.trim().toLowerCase();
+                const existing = skillByText.get(key);
+                if (existing) {
+                    existing.totalCount += s.totalCount;
+                } else {
+                    skillByText.set(key, { description: s.skillDescription, totalCount: s.totalCount });
+                }
+            }
+
+            for (const t of submission.trainingNeeds) {
+                if (!t.trainingDomain) continue;
+                const key = t.trainingDomain.trim().toLowerCase();
+                const existing = trainingByText.get(key);
+                if (existing) {
+                    existing.totalCount += t.totalCount;
+                } else {
+                    trainingByText.set(key, { domain: t.trainingDomain, totalCount: t.totalCount });
+                }
+            }
+
+            for (const r of submission.dismissalReasons) {
+                if (!r.reasonText) continue;
+                dismissalReasonsRaw.push({
+                    text: r.reasonText,
+                    male: r.maleCount,
+                    female: r.femaleCount,
+                    total: r.totalCount,
+                });
+            }
         }
 
-        // ── 10. Skills & Training ──────────────────────────────────
-        const skillNeeds = submission.skillNeeds
-            .filter((s: any) => s.skillDescription)
-            .map((s: any) => ({
-                index: s.skillIndex,
-                description: s.skillDescription ?? '',
-                totalCount: s.totalCount,
-            }));
+        vulnerable.total =
+            vulnerable.internalDisplaced.total +
+            vulnerable.refugees.total +
+            vulnerable.orphans.total;
 
-        const trainingNeeds = submission.trainingNeeds
-            .filter((t: any) => t.trainingDomain)
-            .map((t: any) => ({
-                index: t.domainIndex,
-                domain: t.trainingDomain ?? '',
-                totalCount: t.totalCount,
-            }));
+        const combined = addCspBreakdown(permanent, temporary);
 
-        // ── 11. Dismissal reasons ──────────────────────────────────
-        const dismissalReasons = submission.dismissalReasons
-            .filter((r: any) => r.reasonText)
-            .map((r: any) => ({
-                index: r.reasonIndex,
-                text: r.reasonText ?? '',
-                male: r.maleCount,
-                female: r.femaleCount,
-                total: r.totalCount,
-            }));
+        const skillNeeds = Array.from(skillByText.values()).map((s, i) => ({
+            index: i + 1,
+            description: s.description,
+            totalCount: s.totalCount,
+        }));
+        const trainingNeeds = Array.from(trainingByText.values()).map((t, i) => ({
+            index: i + 1,
+            domain: t.domain,
+            totalCount: t.totalCount,
+        }));
+        const dismissalReasons = dismissalReasonsRaw.map((r, i) => ({ index: i + 1, ...r }));
 
         // ── 12. Assemble response ──────────────────────────────────
         return {
             year,
-            submissionId: submission.submissionId,
-            entityType: submission.formType.toLowerCase(),
+            submissionId: latest.submissionId,
+            entityType: latest.formType.toLowerCase(),
+            companyName: company.name,
+            quarterCount: submissions.length,
             permanentWorkers,
             vacancies,
             vacancyRate: pct(vacancies, permanentWorkers),

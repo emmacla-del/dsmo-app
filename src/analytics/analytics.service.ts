@@ -388,68 +388,10 @@ export class AnalyticsService {
     // ═══════════════════════════════════════════════════════════
     // COMPANY-SCOPED ANALYTICS (Tier 1)
     // ═══════════════════════════════════════════════════════════
-
-    async getCompanySummary(companyId: string, year: number) {
-        const declarations = await this.prisma.declaration.findMany({
-            where: {
-                year,
-                status: DeclarationStatus.FINAL_APPROVED,
-                companyId,
-            },
-            include: { employees: true, movements: true },
-        });
-
-        const employees = declarations.flatMap((d) => d.employees);
-        const total = employees.length;
-        const male = employees.filter((e) => e.gender === 'M').length;
-        const female = employees.filter((e) => e.gender === 'F').length;
-
-        const byCategory = {
-            cat1_3: employees.filter((e) => e.salaryCategory === '1-3').length,
-            cat4_6: employees.filter((e) => e.salaryCategory === '4-6').length,
-            cat7_9: employees.filter((e) => e.salaryCategory === '7-9').length,
-            cat10_12: employees.filter((e) => e.salaryCategory === '10-12').length,
-            nonDeclared: employees.filter((e) => !e.salaryCategory).length,
-        };
-
-        const movements = declarations.flatMap((d) => d.movements);
-        const recruitments = movements
-            .filter((m) => m.movementType === 'RECRUITMENT')
-            .reduce((s, m) => s + m.cat1_3 + m.cat4_6 + m.cat7_9 + m.cat10_12 + m.catNonDeclared, 0);
-        const dismissals = movements
-            .filter((m) => m.movementType === 'DISMISSAL')
-            .reduce((s, m) => s + m.cat1_3 + m.cat4_6 + m.cat7_9 + m.cat10_12 + m.catNonDeclared, 0);
-        const retirements = movements
-            .filter((m) => m.movementType === 'RETIREMENT')
-            .reduce((s, m) => s + m.cat1_3 + m.cat4_6 + m.cat7_9 + m.cat10_12 + m.catNonDeclared, 0);
-
-        const prevYear = year - 1;
-        const prevDeclarations = await this.prisma.declaration.findMany({
-            where: { year: prevYear, status: DeclarationStatus.FINAL_APPROVED, companyId },
-            include: { employees: true },
-        });
-        const prevTotal = prevDeclarations.flatMap((d) => d.employees).length;
-        const growthRate = prevTotal === 0 ? 0 : +(((total - prevTotal) / prevTotal) * 100).toFixed(1);
-
-        return {
-            year,
-            totalEmployees: total,
-            gender: {
-                male,
-                female,
-                malePct: total > 0 ? +((male / total) * 100).toFixed(1) : 0,
-                femalePct: total > 0 ? +((female / total) * 100).toFixed(1) : 0,
-            },
-            categories: byCategory,
-            movements: {
-                recruitments,
-                dismissals,
-                retirements,
-                netChange: recruitments - dismissals,
-            },
-            growthRate,
-        };
-    }
+    //
+    // getCompanySummary (DSMO-Declaration-derived "My Situation" summary)
+    // was removed here — see the comment above getCompanyBenchmarks in
+    // analytics.controller.ts for why.
 
     // ═══════════════════════════════════════════════════════════
     // COMPANY BENCHMARKING (Tier 2)
@@ -465,6 +407,34 @@ export class AnalyticsService {
             select: { mainActivity: true, enterpriseSize: true, region: true },
         });
         if (!company) throw new BadRequestException('Entreprise non trouvée');
+
+        // Checked before the peer-count query below: this endpoint's own
+        // gate (onefopBenchmarking) is ONEFOP-submission-based, but the
+        // comparison itself reads DSMO Declaration data, a separate
+        // approval workflow. A company can clear the ONEFOP gate with zero
+        // approved DSMO declarations for `year` — that used to fall
+        // through to "your company: 0 employees, 0th percentile" against a
+        // real peer median, which reads as a bug rather than what it is
+        // (no data on your side yet). Reported as its own reason, distinct
+        // from INSUFFICIENT_DATA (which is about the peer group, not you),
+        // since it's the more specific and more actionable message either
+        // way — no point telling someone "not enough peers" when the real
+        // gap is their own missing declaration.
+        const myDeclarations = await this.prisma.declaration.findMany({
+            where: { year, status: DeclarationStatus.FINAL_APPROVED, companyId },
+            include: { employees: true },
+        });
+        if (myDeclarations.length === 0) {
+            return {
+                available: false,
+                reason: 'NO_OWN_DATA',
+                peerCount: 0,
+                minRequired: 5,
+            };
+        }
+        const myEmployees = myDeclarations.flatMap((d) => d.employees);
+        const myTotal = myEmployees.length;
+        const myFemalePct = myTotal > 0 ? (myEmployees.filter((e) => e.gender === 'F').length / myTotal) * 100 : 0;
 
         const peerWhere: any = {
             year,
@@ -505,14 +475,6 @@ export class AnalyticsService {
             })
             .sort((a, b) => a - b);
         const medianFemalePct = peerGenderRatios[Math.floor(peerGenderRatios.length / 2)];
-
-        const myDeclarations = await this.prisma.declaration.findMany({
-            where: { year, status: DeclarationStatus.FINAL_APPROVED, companyId },
-            include: { employees: true },
-        });
-        const myEmployees = myDeclarations.flatMap((d) => d.employees);
-        const myTotal = myEmployees.length;
-        const myFemalePct = myTotal > 0 ? (myEmployees.filter((e) => e.gender === 'F').length / myTotal) * 100 : 0;
 
         return {
             available: true,

@@ -14,14 +14,16 @@ import {
     Get,
     Query,
     Req,
+    Res,
     UseGuards,
     ParseIntPipe,
     DefaultValuePipe,
     HttpCode,
     HttpStatus,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { BilanService } from './bilan.service';
+import { BilanPdfService } from './bilan-pdf.service';
 
 // ── replace with your actual JWT guard import ──────────────────────────────
 // e.g. import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -32,7 +34,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('dsmo/analytics')
 export class BilanController {
-    constructor(private readonly bilanService: BilanService) { }
+    constructor(
+        private readonly bilanService: BilanService,
+        private readonly bilanPdfService: BilanPdfService,
+    ) { }
 
     /**
      * GET /dsmo/analytics/bilan?year=2025
@@ -65,5 +70,30 @@ export class BilanController {
     async getBilanYears(@Req() req: Request & { user: { id: string } }) {
         const years = await this.bilanService.getAvailableYears(req.user.id);
         return { years };
+    }
+
+    /**
+     * GET /dsmo/analytics/bilan/pdf?year=2026
+     *
+     * Same data as getBilan() above, rendered as a downloadable PDF.
+     * Generated fresh on every request — not persisted to storage, unlike
+     * the DSMO declaration / ONEFOP submission PDFs, since this is a
+     * convenience export of already-live data rather than a legal document
+     * that needs a durable, retrievable copy.
+     */
+    @UseGuards(JwtAuthGuard)
+    @Get('bilan/pdf')
+    async getBilanPdf(
+        @Req() req: Request & { user: { id: string } },
+        @Query('year', new DefaultValuePipe(new Date().getFullYear()), ParseIntPipe)
+        year: number,
+        @Res() res: Response,
+    ) {
+        const bilan = await this.bilanService.getBilan(req.user.id, year);
+        const buffer = await this.bilanPdfService.generate(bilan);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="bilan-rh-${year}.pdf"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.send(buffer);
     }
 }

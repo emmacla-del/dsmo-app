@@ -14,6 +14,7 @@ import { EstablishmentIdGenerator } from '../common/utils/establishment-id.gener
 import { NotificationService } from '../dsmo/notification.service';
 import { PdfService } from '../dsmo/pdf.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
+import { computeOnefopFeatures } from '../common/onefop-features.util';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -120,35 +121,27 @@ export class AuthService {
   }
 
   private async buildFeatures(userId: string, role: string) {
-    if (role !== 'COMPANY') {
-      return {
-        onefopBasicAnalytics: false,
-        onefopBenchmarking: false,
-        onefopSubmissionStatus: null,
-        onefopSurveyYear: null,
-        onefopHasDraft: false,
-      };
-    }
-
-    const onefopSubs = await this.prisma.onefopSubmission.findMany({
-      where: { submittedBy: userId },
-      orderBy: { createdAt: 'desc' },
-      select: { status: true, surveyYear: true, submissionDate: true },
-    });
-
-    const latestSubmitted = onefopSubs.find((s) =>
-      ['PENDING_REVIEW', 'APPROVED'].includes(s.status),
-    );
-    const latestApproved = onefopSubs.find((s) => s.status === 'APPROVED');
-
-    return {
-      onefopBasicAnalytics: !!latestSubmitted,
-      onefopBenchmarking: !!latestApproved,
-      onefopSubmissionStatus: latestSubmitted?.status ?? null,
-      onefopSurveyYear: latestSubmitted?.surveyYear ?? null,
-      onefopSubmissionDate: latestSubmitted?.submissionDate ?? null,
-      onefopHasDraft: onefopSubs.some((s) => s.status === 'DRAFT'),
+    const empty = {
+      onefopBasicAnalytics: false,
+      onefopBenchmarking: false,
+      onefopSubmissionStatus: null,
+      onefopSurveyYear: null,
+      onefopHasDraft: false,
     };
+    if (role !== 'COMPANY') return empty;
+
+    // Scoped by companyId, not submittedBy:userId — same result in
+    // practice (Company.userId is @unique) but this is now the single
+    // shared implementation also used server-side by AnalyticsController
+    // to actually enforce the gate on each request, since these flags
+    // never make it into the JWT (see onefop-features.util.ts).
+    const company = await this.prisma.company.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!company) return empty;
+
+    return computeOnefopFeatures(this.prisma, company.id);
   }
 
   async login(user: any) {

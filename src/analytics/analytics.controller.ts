@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { computeOnefopFeatures } from '../common/onefop-features.util';
 
 @Controller('dsmo/analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -116,34 +117,16 @@ export class AnalyticsController {
     // COMPANY-SCOPED ENDPOINTS
     // ═══════════════════════════════════════════════════════════
 
-    @Get('company-summary')
-    @Roles('COMPANY')
-    async getCompanySummary(
-        @Query('year') year: any,
-        @Req() req: any,
-    ) {
-        console.log('[company-summary] user:', JSON.stringify(req.user));
-        console.log('[company-summary] year param:', year, typeof year);
-
-        if (!req.user.features?.onefopBasicAnalytics) {
-            throw new ForbiddenException(
-                'Soumettez le questionnaire ONEFOP pour accéder à vos analyses.',
-            );
-        }
-
-        const userId = req.user?.sub;
-        if (!userId) throw new BadRequestException('Utilisateur non identifié');
-
-        const company = await this.prisma.company.findUnique({
-            where: { userId },
-            select: { id: true },
-        });
-        if (!company) throw new BadRequestException('Entreprise non trouvée');
-
-        const resolvedYear = year ? parseInt(year, 10) : new Date().getFullYear();
-        return this.analyticsService.getCompanySummary(company.id, resolvedYear);
-    }
-
+    // GET company-summary (DSMO-Declaration-derived) was removed: it read
+    // from a different approval workflow than the ONEFOP-derived Bilan RH
+    // tab that's now the app's single company-facing analytics view (see
+    // company_analytics_screen.dart), had no other consumer, and showed a
+    // separately-locked card next to already-real data for the same year.
+    // req.user only ever carries { id, email, role, region, department }
+    // (see JwtStrategy.validate) — onefopBasicAnalytics/onefopBenchmarking
+    // are never in the JWT, so getCompanyBenchmarks below must recompute
+    // the flag rather than read off req.user.features, which is always
+    // undefined.
     @Get('company-benchmarks')
     @Roles('COMPANY')
     async getCompanyBenchmarks(
@@ -151,16 +134,17 @@ export class AnalyticsController {
         @Query('groupBy') groupBy: 'sector' | 'size' | 'region',
         @Req() req: any,
     ) {
-        if (!req.user.features?.onefopBenchmarking) {
-            throw new ForbiddenException(
-                'Le benchmarking sera disponible après approbation de votre questionnaire ONEFOP.',
-            );
-        }
-
         const company = await this.prisma.company.findUnique({
             where: { userId: req.user.id },
         });
         if (!company) throw new BadRequestException('Entreprise non trouvée');
+
+        const features = await computeOnefopFeatures(this.prisma, company.id);
+        if (!features.onefopBenchmarking) {
+            throw new ForbiddenException(
+                'Le benchmarking sera disponible après approbation de votre questionnaire ONEFOP.',
+            );
+        }
 
         return this.analyticsService.getCompanyBenchmarks(company.id, year, groupBy);
     }
