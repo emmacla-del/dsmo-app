@@ -1,10 +1,10 @@
 ﻿// lib/features/analytics/widgets/tab_bar_widget.dart
 //
 // The visual tab selector used to live here as a TabBar — it's now the
-// "Section" dropdown inside AnalyticsFilterBar (analytics_filter_bar.dart),
-// merged into the same bar as the period/location/entity/sector filters.
-// TabContent below is unchanged: it's still the TabBarView driven by the
-// same DefaultTabController, just no longer paired with a TabBar sibling.
+// SectionPicker dropdown (analytics_filter_bar.dart), living in the
+// dashboard header next to the title. TabContent below is unchanged: it's
+// still the TabBarView driven by the same DefaultTabController, just no
+// longer paired with a TabBar sibling.
 
 import 'package:flutter/material.dart';
 

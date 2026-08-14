@@ -398,18 +398,18 @@ class _KpiCardState extends State<KpiCard> {
 
 class DeltaBadge extends StatelessWidget {
   final int delta;
+  // Direction (arrow) always reflects what the number actually did; color
+  // reflects whether that's good or bad — for lowerBetter metrics (e.g.
+  // départs) these can disagree, same convention as _TrendChip below.
+  final bool lowerBetter;
 
-  const DeltaBadge({super.key, required this.delta});
+  const DeltaBadge({super.key, required this.delta, this.lowerBetter = false});
 
   @override
   Widget build(BuildContext context) {
     final isNeutral = delta == 0;
     final isPositive = delta > 0;
-    final color = isNeutral
-        ? TextColor.muted
-        : isPositive
-            ? AccentColor.teal
-            : AccentColor.rose;
+    final color = SemanticColor.trend(delta, lowerBetter: lowerBetter);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -686,20 +686,23 @@ class CompactStatChip extends StatelessWidget {
     this.onTap,
   });
 
+  // Deliberately quieter than PrimaryKpiCard/KpiCard — these sit in
+  // secondary tabs/recaps, restating numbers already prominent elsewhere,
+  // so they read as reference chips rather than competing headline tiles.
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: InkColor.card,
-      borderRadius: BorderRadius.circular(10),
+      color: InkColor.surface,
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          constraints: const BoxConstraints(minWidth: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: const BoxConstraints(minWidth: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             border: Border.all(color: InkColor.border),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,9 +713,9 @@ class CompactStatChip extends StatelessWidget {
                 children: [
                   Text(value,
                       style: const TextStyle(
-                        fontSize: TextSize.metric,
-                        fontWeight: FontWeight.w800,
-                        color: TextColor.primary,
+                        fontSize: TextSize.section,
+                        fontWeight: FontWeight.w700,
+                        color: TextColor.secondary,
                         fontFamily: 'monospace',
                       )),
                   if (delta != null) ...[
@@ -723,7 +726,7 @@ class CompactStatChip extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(label,
-                  style: const TextStyle(fontSize: TextSize.caption, color: TextColor.secondary),
+                  style: const TextStyle(fontSize: TextSize.caption, color: TextColor.muted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
             ],
@@ -737,22 +740,23 @@ class CompactStatChip extends StatelessWidget {
 /// Small panel for the onepager grid: a tiny uppercase title + content,
 /// flat card chrome — the "small multiple" building block that replaces
 /// the old full-width lettered sections.
-class DashboardPanel extends StatelessWidget {
+class SectionCard extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final Widget child;
   final Widget? trailing;
   // Grid usage wraps this panel in a fixed-height SizedBox, where the
-  // content should stretch to fill it (charts especially). The YoY panel
-  // at the bottom of the page has no fixed height (unbounded scroll
-  // context), where wrapping content in Expanded would throw a layout
-  // exception ("RenderFlex children have non-zero flex but incoming
-  // height constraints are unbounded") — so callers without a fixed
-  // height must pass false here.
+  // content should stretch to fill it (charts especially). Panels sitting
+  // directly in an unbounded scroll context (no fixed height) would throw
+  // a layout exception ("RenderFlex children have non-zero flex but
+  // incoming height constraints are unbounded") if wrapped in Expanded —
+  // so callers without a fixed height must pass false here.
   final bool fillHeight;
 
-  const DashboardPanel({
+  const SectionCard({
     super.key,
     required this.title,
+    this.subtitle,
     required this.child,
     this.trailing,
     this.fillHeight = true,
@@ -761,11 +765,12 @@ class DashboardPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(Gap.sm + 2),
+      padding: const EdgeInsets.all(Gap.md),
       decoration: BoxDecoration(
         color: InkColor.card,
         border: Border.all(color: InkColor.border),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -773,12 +778,26 @@ class DashboardPanel extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title.toUpperCase(),
-                style: textMono(TextSize.caption,
-                        color: TextColor.secondary, weight: FontWeight.w700)
-                    .copyWith(letterSpacing: 0.6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title.toUpperCase(),
+                      style: textMono(TextSize.caption,
+                              color: TextColor.secondary, weight: FontWeight.w700)
+                          .copyWith(letterSpacing: 0.6),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle!,
+                          style: textMono(TextSize.label, color: TextColor.muted)),
+                    ],
+                  ],
+                ),
               ),
               if (trailing != null) trailing!,
             ],
@@ -786,6 +805,109 @@ class DashboardPanel extends StatelessWidget {
           const SizedBox(height: Gap.sm),
           fillHeight ? Expanded(child: child) : child,
         ],
+      ),
+    );
+  }
+}
+
+/// The primary dashboard's own KPI tile. Compact enough for all 6 to sit
+/// on one line (icon/delta pinned to the top edge; the number and label
+/// are centered — both axes — in whatever space is left below them,
+/// rather than stacked immediately under the icon row).
+class PrimaryKpiCard extends StatelessWidget {
+  final KpiDef def;
+  final String value;
+  final int? delta;
+  final bool lowerBetter;
+  final VoidCallback onTap;
+
+  const PrimaryKpiCard({
+    super.key,
+    required this.def,
+    required this.value,
+    required this.delta,
+    this.lowerBetter = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        splashColor: def.color.withAlpha(15),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: InkColor.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: InkColor.border),
+            boxShadow: cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [def.color.withAlpha(35), def.color.withAlpha(15)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(def.icon, color: def.color, size: 13),
+                  ),
+                  if (delta != null)
+                    DeltaBadge(delta: delta!, lowerBetter: lowerBetter),
+                ],
+              ),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        value,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          color: TextColor.primary,
+                          fontFamily: 'monospace',
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        def.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: TextSize.caption,
+                            height: 1.1,
+                            color: TextColor.secondary,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -875,6 +997,107 @@ class _TrendChip extends StatelessWidget {
                 fontSize: TextSize.label, color: color, fontWeight: FontWeight.w700),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The single most important thing on the dashboard: a full-width banner
+/// with a left border accent, leading icon, a bold headline (the primary
+/// finding — e.g. net job change) and optional secondary findings inline
+/// after it. Sits directly under the header, above the KPI row, so it's
+/// the first thing the eye hits after the page title.
+class InsightBanner extends StatelessWidget {
+  final String headline;
+  final IconData icon;
+  final Color color;
+  final List<String> secondaryLines;
+
+  const InsightBanner({
+    super.key,
+    required this.headline,
+    required this.icon,
+    required this.color,
+    this.secondaryLines = const [],
+  });
+
+  // A single-side Border combined with borderRadius doesn't clip cleanly
+  // at the corner (renders as a curved bulge, not a straight edge) — the
+  // accent stripe is a plain colored Container inside a ClipRRect instead,
+  // and the outer Container carries the same border/radius/shadow recipe
+  // as SectionCard and PrimaryKpiCard so this reads as the same design
+  // system instead of a one-off.
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: InkColor.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: InkColor.border),
+        boxShadow: cardShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        // Row's cross-axis (height) is otherwise unbounded here — this
+        // widget sits inside a scrolling column — so `stretch` alone has
+        // no height to stretch the accent stripe to. IntrinsicHeight gives
+        // the row a definite height (the content Container's natural
+        // height) before stretch is applied.
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 4, color: color),
+              Expanded(
+                child: Container(
+                  color: color.withAlpha(12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Gap.md, vertical: Gap.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: color.withAlpha(35),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(icon, color: color, size: 20),
+                      ),
+                      const SizedBox(width: Gap.md),
+                      Expanded(
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(headline,
+                                style: const TextStyle(
+                                    fontSize: TextSize.title,
+                                    fontWeight: FontWeight.w800,
+                                    color: TextColor.primary)),
+                            for (final line in secondaryLines) ...[
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('·',
+                                    style: textMono(TextSize.title,
+                                        color: TextColor.muted)),
+                              ),
+                              Text(line,
+                                  style: textMono(TextSize.section,
+                                      color: TextColor.secondary,
+                                      weight: FontWeight.w600)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

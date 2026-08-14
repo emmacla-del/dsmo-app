@@ -51,48 +51,266 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
 
     final cur = widget.dashboard;
     final prev = widget.previous;
-    final findings = _buildFindings(cur, prev);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(Gap.md),
+    // A second, nested tab controller for the secondary-information tabs
+    // below the main two-column area — independent of the outer 8-section
+    // DefaultTabController this whole OverviewTab already lives inside.
+    return DefaultTabController(
+      length: 4,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(Gap.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Key insight — the single most important read, first.
+            _insightBanner(cur),
+            const SizedBox(height: Gap.md),
+
+            // 2. Primary KPIs — exactly 4, largest/clearest numbers on
+            // the page after the insight banner.
+            _primaryKpiRow(context, cur, prev, national),
+            const SizedBox(height: Gap.md),
+
+            // 3. Main visual area — trend chart (main) + jobs dynamic
+            // (supporting), roughly 60/40.
+            _mainContent(granularity),
+            const SizedBox(height: Gap.lg),
+
+            // 4. Secondary detail, tabbed rather than always-on so it
+            // doesn't compete with the main content for attention. The
+            // annual comparison table lives inside the "Évolution
+            // annuelle" tab (below) rather than also repeating full-width
+            // here — showing it in both places just made the tab itself
+            // look empty by comparison.
+            _secondaryTabs(context, cur, prev, national),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 2. Key insight banner ───────────────────────────────────────
+  // Same underlying facts as the old findings ticker (net change, jobs
+  // balance, leading sector) but only the top 3, promoted to one prominent
+  // banner instead of a row of equal-weight pills.
+
+  Widget _insightBanner(DashboardSummary cur) {
+    final netChangeText = cur.netChange >= 0
+        ? 'Création nette de ${formatNumber(cur.netChange)} emplois'
+        : 'Perte nette de ${formatNumber(cur.netChange.abs())} emplois';
+    final color = SemanticColor.trend(cur.netChange);
+    final icon = cur.netChange >= 0
+        ? Icons.trending_up_rounded
+        : Icons.trending_down_rounded;
+
+    final departures = cur.totalDismissals + cur.totalRetirements;
+    String? balanceText;
+    if (departures > 0 && cur.totalRecruitments > 0) {
+      final ratio = cur.totalRecruitments / departures;
+      balanceText = ratio >= 1
+          ? 'Recrutements ${ratio.toStringAsFixed(1)}x les départs'
+          : 'Départs supérieurs aux recrutements';
+    }
+
+    String? topSectorText;
+    if (cur.topSectors.isNotEmpty) {
+      final top = cur.topSectors.first;
+      topSectorText =
+          'Secteur leader : ${top.sector} (${formatNumber(top.employees)})';
+    }
+
+    return InsightBanner(
+      headline: netChangeText,
+      icon: icon,
+      color: color,
+      secondaryLines: [
+        if (balanceText != null) balanceText,
+        if (topSectorText != null) topSectorText,
+      ],
+    );
+  }
+
+  // ── 3. Primary KPI row — all 6, one line, no "Voir plus" ────────
+
+  Widget _primaryKpiRow(BuildContext context, DashboardSummary cur,
+      DashboardSummary? prev, DashboardSummary? national) {
+    final defs = <KpiDef>[
+      const KpiDef('totalEmployees', 'Effectif total',
+          Icons.groups_outlined, AccentColor.blue),
+      KpiDef(
+          'netChange',
+          'Variation nette',
+          cur.netChange >= 0
+              ? Icons.trending_up_rounded
+              : Icons.trending_down_rounded,
+          SemanticColor.trend(cur.netChange)),
+      const KpiDef('totalRecruitments', 'Recrutements',
+          Icons.person_add_outlined, AccentColor.teal),
+      const KpiDef('totalDepartures', 'Départs',
+          Icons.person_remove_outlined, AccentColor.rose),
+      const KpiDef('totalDeclarations', 'Entreprises déclarantes',
+          Icons.apartment_outlined, AccentColor.blue),
+      const KpiDef('employmentGrowthRate', 'Croissance',
+          Icons.show_chart_rounded, AccentColor.gold),
+    ];
+
+    // Fixed card width so all 6 always render as one line: on comfortably
+    // wide screens that width fills the row exactly (no scrolling needed);
+    // on anything narrower it just becomes a horizontally-scrollable
+    // strip instead of wrapping to a second line or needing a "Voir plus".
+    return LayoutBuilder(builder: (context, constraints) {
+      const minCardWidth = 108.0;
+      final evenWidth = (constraints.maxWidth - Gap.sm * (defs.length - 1)) /
+          defs.length;
+      final cardWidth = evenWidth < minCardWidth ? minCardWidth : evenWidth;
+      final row = Row(
+        children: [
+          for (final def in defs) ...[
+            SizedBox(
+              width: cardWidth,
+              height: 96,
+              child: PrimaryKpiCard(
+                def: def,
+                value: _kpiValue(cur, prev, def.key),
+                delta: _kpiDelta(cur, prev, def.key),
+                lowerBetter: def.key == 'totalDepartures',
+                onTap: () => _drillDown(context, def.key, cur, prev, national),
+              ),
+            ),
+            if (def != defs.last) const SizedBox(width: Gap.sm),
+          ],
+        ],
+      );
+      if (cardWidth == minCardWidth) {
+        return SingleChildScrollView(scrollDirection: Axis.horizontal, child: row);
+      }
+      return row;
+    });
+  }
+
+  // ── 4. Main content — two-column (≈60/65 · 35/40) ───────────────
+  // Left: the primary chart, tallest element on the page. Right: jobs
+  // created/suppressed — Genre moved out entirely into its own secondary
+  // tab so this column stays lean rather than stacking a second panel
+  // under it.
+
+  Widget _mainContent(Granularity granularity) {
+    const mainHeight = 300.0;
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 760;
+      final trend = SizedBox(height: mainHeight, child: _trendPanel(granularity));
+      final balance = SizedBox(
+          height: mainHeight, child: _balancePanel(widget.employmentBalance));
+      if (!wide) {
+        return Column(children: [
+          trend,
+          const SizedBox(height: Gap.md),
+          balance,
+        ]);
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 62, child: trend),
+          const SizedBox(width: Gap.md),
+          Expanded(flex: 38, child: balance),
+        ],
+      );
+    });
+  }
+
+  // ── 5. Secondary information tabs ────────────────────────────────
+  // Dynamique détaillée / Genre & candidatures / Secteurs / Évolution
+  // annuelle — everything that used to sit in the always-on dense grid,
+  // now one tap away instead of competing for space with the main chart
+  // above. No "Synthèse" tab here: it would just repeat the outer
+  // "Section" picker in the header, which already reads "Synthèse" for
+  // this whole page — the two extra KPIs that used to live in that tab
+  // (Entreprises déclarantes, Croissance) now sit behind "Voir plus"
+  // under the primary KPI row instead.
+
+  // Deliberately not a TabBarView: its children all share one fixed
+  // viewport height, which is exactly what made "Évolution annuelle" (a
+  // full comparison table) look cramped/empty next to "Genre &
+  // candidatures" (a couple of stats). Driving the content off the
+  // TabController's index instead — same pattern SectionPicker already
+  // uses elsewhere in this feature — lets each tab size to its own
+  // content in the surrounding scroll view. Trade-off: no swipe gesture
+  // between tabs, tap-only — acceptable for a secondary nav row sitting
+  // inside an already vertically-scrolling page.
+  Widget _secondaryTabs(BuildContext context, DashboardSummary cur,
+      DashboardSummary? prev, DashboardSummary? national) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const TabBar(
+          isScrollable: true,
+          labelColor: AccentColor.teal,
+          unselectedLabelColor: TextColor.secondary,
+          indicatorColor: AccentColor.teal,
+          indicatorSize: TabBarIndicatorSize.label,
+          labelStyle: TextStyle(fontSize: TextSize.body, fontWeight: FontWeight.w700),
+          unselectedLabelStyle: TextStyle(fontSize: TextSize.body),
+          tabAlignment: TabAlignment.start,
+          tabs: [
+            Tab(text: 'Dynamique détaillée'),
+            Tab(text: 'Genre & candidatures'),
+            Tab(text: 'Secteurs'),
+            Tab(text: 'Évolution annuelle'),
+          ],
+        ),
+        const SizedBox(height: Gap.md),
+        Builder(builder: (context) {
+          final controller = DefaultTabController.of(context);
+          return ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) {
+              switch (controller.index) {
+                case 1:
+                  return _genderPanel(cur, fillHeight: false);
+                case 2:
+                  return _sectorPanel(cur, fillHeight: false);
+                case 3:
+                  return _annualEvolutionTab(context, cur, prev, national);
+                case 0:
+                default:
+                  return SectionCard(
+                    title: 'Dynamique du travail — détail',
+                    subtitle: 'Créations vs suppressions, détail par motif',
+                    fillHeight: false,
+                    child: _EmploymentBalanceCompact(balance: widget.employmentBalance),
+                  );
+              }
+            },
+          );
+        }),
+      ],
+    );
+  }
+
+  /// The tab that used to look "almost empty": now leads with a compact
+  /// recap of the same 4 primary KPIs (so the comparison has context
+  /// without repeating the full-size cards) and gives the YoY table the
+  /// full unconstrained height it needs instead of a clipped 320px box.
+  Widget _annualEvolutionTab(BuildContext context, DashboardSummary cur,
+      DashboardSummary? prev, DashboardSummary? national) {
+    return SectionCard(
+      title: 'Évolution annuelle',
+      subtitle: 'Comparaison ${cur.year - 1} → ${cur.year}',
+      fillHeight: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Answer-first ticker — compact pills, not a paragraph.
-          if (findings.isNotEmpty) ...[
-            Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: findings),
-            const SizedBox(height: Gap.sm),
-          ],
-
-          // Compact KPI strip.
           Wrap(
             spacing: Gap.sm,
             runSpacing: Gap.sm,
             children: [
               CompactStatChip(
-                label: 'Entreprises déclarantes',
-                value: _kpiValue(cur, prev, 'totalDeclarations'),
-                delta: _kpiDelta(cur, prev, 'totalDeclarations'),
-                onTap: () => _drillDown(context, 'totalDeclarations', cur, prev, national),
-              ),
-              CompactStatChip(
                 label: 'Effectif total',
                 value: _kpiValue(cur, prev, 'totalEmployees'),
                 delta: _kpiDelta(cur, prev, 'totalEmployees'),
-                onTap: () => _drillDown(context, 'totalEmployees', cur, prev, national),
-              ),
-              CompactStatChip(
-                label: 'Recrutements',
-                value: _kpiValue(cur, prev, 'totalRecruitments'),
-                delta: _kpiDelta(cur, prev, 'totalRecruitments'),
-                onTap: () => _drillDown(context, 'totalRecruitments', cur, prev, national),
-              ),
-              CompactStatChip(
-                label: 'Départs',
-                value: _kpiValue(cur, prev, 'totalDepartures'),
-                delta: _kpiDelta(cur, prev, 'totalDepartures'),
-                lowerBetter: true,
-                onTap: () => _drillDown(context, 'totalDepartures', cur, prev, national),
+                onTap: () =>
+                    _drillDown(context, 'totalEmployees', cur, prev, national),
               ),
               CompactStatChip(
                 label: 'Variation nette',
@@ -101,51 +319,26 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
                 onTap: () => _drillDown(context, 'netChange', cur, prev, national),
               ),
               CompactStatChip(
-                label: 'Croissance',
-                value: _kpiValue(cur, prev, 'employmentGrowthRate'),
-                onTap: () => _drillDown(context, 'employmentGrowthRate', cur, prev, national),
+                label: 'Recrutements',
+                value: _kpiValue(cur, prev, 'totalRecruitments'),
+                delta: _kpiDelta(cur, prev, 'totalRecruitments'),
+                onTap: () =>
+                    _drillDown(context, 'totalRecruitments', cur, prev, national),
               ),
               CompactStatChip(
-                label: 'Secteur leader',
-                value: _kpiValue(cur, prev, 'topSector'),
-                onTap: () => _drillDown(context, 'topSector', cur, prev, national),
+                label: 'Départs',
+                value: _kpiValue(cur, prev, 'totalDepartures'),
+                delta: _kpiDelta(cur, prev, 'totalDepartures'),
+                lowerBetter: true,
+                onTap: () =>
+                    _drillDown(context, 'totalDepartures', cur, prev, national),
               ),
             ],
           ),
+          const SizedBox(height: Gap.md),
+          const Divider(color: InkColor.border, height: 1),
           const SizedBox(height: Gap.sm),
-
-          // Dense panel grid — small multiples side by side.
-          LayoutBuilder(builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final columns = width >= 1100 ? 4 : (width >= 620 ? 2 : 1);
-            final panelWidth = columns == 1
-                ? width
-                : (width - Gap.sm * (columns - 1)) / columns;
-            return Wrap(
-              spacing: Gap.sm,
-              runSpacing: Gap.sm,
-              children: [
-                SizedBox(
-                    width: panelWidth, height: 280, child: _trendPanel(granularity)),
-                SizedBox(width: panelWidth, height: 280, child: _sectorPanel(cur)),
-                SizedBox(
-                    width: panelWidth,
-                    height: 280,
-                    child: _balancePanel(widget.employmentBalance)),
-                SizedBox(width: panelWidth, height: 280, child: _genderPanel(cur)),
-              ],
-            );
-          }),
-          const SizedBox(height: Gap.sm),
-
-          // YoY comparison — one compact full-width panel. No fixed height
-          // here (it sits directly in the scrollable column), so the panel
-          // must size to its content rather than try to fill/expand.
-          DashboardPanel(
-            title: 'Évolution annuelle',
-            fillHeight: false,
-            child: _yoyTable(cur, prev),
-          ),
+          _yoyTable(cur, prev),
         ],
       ),
     );
@@ -299,59 +492,12 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
     );
   }
 
-  // ── Findings ticker ─────────────────────────────────────────────
-
-  List<FindingChip> _buildFindings(DashboardSummary cur, DashboardSummary? prev) {
-    final findings = <FindingChip>[];
-
-    findings.add(FindingChip(
-      icon: cur.netChange >= 0
-          ? Icons.trending_up_rounded
-          : Icons.trending_down_rounded,
-      text: cur.netChange >= 0
-          ? 'Création nette de ${formatNumber(cur.netChange)} emplois'
-          : 'Perte nette de ${formatNumber(cur.netChange.abs())} emplois',
-      color: SemanticColor.trend(cur.netChange),
-    ));
-
-    if (cur.topSectors.isNotEmpty) {
-      final top = cur.topSectors.first;
-      findings.add(FindingChip(
-        icon: Icons.leaderboard_rounded,
-        text: '${top.sector} : premier secteur employeur (${formatNumber(top.employees)})',
-        color: AccentColor.teal,
-      ));
-    }
-
-    final growth = _employmentGrowthRate(cur, prev);
-    if (growth != null) {
-      findings.add(FindingChip(
-        icon: Icons.show_chart_rounded,
-        text: 'Effectif ${growth >= 0 ? '+' : ''}${growth.toStringAsFixed(1)}% vs ${cur.year - 1}',
-        color: SemanticColor.trend(growth),
-      ));
-    }
-
-    final departures = cur.totalDismissals + cur.totalRetirements;
-    if (departures > 0 && cur.totalRecruitments > 0) {
-      final ratio = cur.totalRecruitments / departures;
-      findings.add(FindingChip(
-        icon: Icons.balance_rounded,
-        text: ratio >= 1
-            ? 'Recrutements ${ratio.toStringAsFixed(1)}x les départs'
-            : 'Départs supérieurs aux recrutements',
-        color: ratio >= 1 ? SemanticColor.positive : SemanticColor.warning,
-      ));
-    }
-
-    return findings;
-  }
-
   // ── Panels ───────────────────────────────────────────────────────
 
   Widget _trendPanel(Granularity granularity) {
-    return DashboardPanel(
-      title: 'Évolution de l\'emploi',
+    return SectionCard(
+      title: 'Évolution de la variation nette',
+      subtitle: 'Recrutements moins départs, par période',
       trailing: DropdownButton<Granularity>(
         value: granularity,
         isDense: true,
@@ -376,24 +522,34 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
 
   Widget _trendChart(List<TimeSeriesData> trends, int currentYear) {
     if (trends.isEmpty) return emptyState('Aucune donnée');
-    final maxVal = trends
-        .map((t) => t.totalEmployees.toDouble())
-        .reduce((a, b) => a > b ? a : b);
+
+    // Net change per period — unlike a headcount/recruitment-count series
+    // this can legitimately go negative (a period with more départs than
+    // recrutements), so bars diverge from a zero baseline instead of all
+    // growing up from 0.
+    final values = trends.map((t) => t.totalEmployees.toDouble()).toList();
+    final maxVal = values.reduce((a, b) => a > b ? a : b);
+    final minVal = values.reduce((a, b) => a < b ? a : b);
+    final topPad = (maxVal > 0 ? maxVal : 0) * 0.25 + 1;
+    final bottomPad = (minVal < 0 ? minVal.abs() : 0) * 0.25 + 1;
 
     return BarChart(BarChartData(
+      minY: (minVal < 0 ? minVal : 0) - bottomPad,
+      maxY: (maxVal > 0 ? maxVal : 0) + topPad,
       barGroups: trends.asMap().entries.map((e) {
         final t = e.value;
-        final isCur = t.year == currentYear;
+        final value = t.totalEmployees.toDouble();
+        final color = SemanticColor.trend(t.totalEmployees);
         return BarChartGroupData(
           x: e.key,
           barRods: [
             BarChartRodData(
-              toY: t.totalEmployees / 1000,
-              color: isCur ? ChartTheme.current : ChartTheme.current.withAlpha(60),
+              toY: value,
+              color: color,
               width: 16,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-              backDrawRodData: BackgroundBarChartRodData(
-                  show: true, toY: maxVal / 1000 * 1.2, color: InkColor.surface),
+              borderRadius: value >= 0
+                  ? const BorderRadius.vertical(top: Radius.circular(4))
+                  : const BorderRadius.vertical(bottom: Radius.circular(4)),
             ),
           ],
         );
@@ -421,16 +577,9 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 28,
-            getTitlesWidget: (v, _) {
-              final rawValue = (v * 1000).toInt();
-              final label = rawValue < 1000
-                  ? '$rawValue'
-                  : rawValue % 1000 == 0
-                      ? '${rawValue ~/ 1000}K'
-                      : '${(rawValue / 1000).toStringAsFixed(1)}K';
-              return Text(label, style: ChartTheme.axisLabel);
-            },
+            reservedSize: 40,
+            getTitlesWidget: (v, _) =>
+                Text(formatNumber(v.round()), style: ChartTheme.axisLabel),
           ),
         ),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -438,13 +587,18 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
       ),
       gridData: ChartTheme.horizontalGrid,
       borderData: ChartTheme.noBorder,
+      extraLinesData: ExtraLinesData(horizontalLines: [
+        HorizontalLine(y: 0, color: TextColor.muted, strokeWidth: 1.5),
+      ]),
     ));
   }
 
-  Widget _sectorPanel(DashboardSummary dashboard) {
+  Widget _sectorPanel(DashboardSummary dashboard, {bool fillHeight = true}) {
     final sectors = dashboard.topSectors;
-    return DashboardPanel(
+    return SectionCard(
       title: 'Performance sectorielle',
+      subtitle: 'Classement par effectif employé',
+      fillHeight: fillHeight,
       child: sectors.isEmpty
           ? emptyState('Aucune donnée')
           : _sectorRanking(sectors),
@@ -499,16 +653,18 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
   }
 
   Widget _balancePanel(EmploymentBalance? balance) {
-    return DashboardPanel(
+    return SectionCard(
       title: 'Dynamique du travail',
       child: _EmploymentBalanceCompact(balance: balance),
     );
   }
 
-  Widget _genderPanel(DashboardSummary dashboard) {
+  Widget _genderPanel(DashboardSummary dashboard, {bool fillHeight = true}) {
     final g = dashboard.genderDistribution;
-    return DashboardPanel(
+    return SectionCard(
       title: 'Genre (candidatures)',
+      subtitle: 'Répartition des candidatures reçues (S21Q01)',
+      fillHeight: fillHeight,
       child: (g.male == 0 && g.female == 0)
           ? emptyState('Aucune donnée')
           : _genderSplit(g),
@@ -669,37 +825,39 @@ class _EmploymentBalanceCompact extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: Gap.xs),
+        const SizedBox(height: Gap.sm),
         const Divider(color: InkColor.border, height: 1),
-        const SizedBox(height: Gap.xs),
+        const SizedBox(height: Gap.sm),
         if (breakdown.isEmpty)
           emptyState('Aucune donnée')
         else
           ...breakdown.map((e) {
             final pct = b.jobsLost > 0 ? e.$2 / b.jobsLost : 0.0;
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: 5),
               child: Row(
                 children: [
                   SizedBox(
-                    width: 78,
+                    width: 90,
                     child: Text(e.$1,
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                         style: textMono(TextSize.caption, color: TextColor.secondary)),
                   ),
                   Expanded(
-                    child: LinearProgressIndicator(
-                      value: pct,
-                      backgroundColor: InkColor.border,
-                      valueColor: AlwaysStoppedAnimation(e.$3),
-                      minHeight: 6,
-                      borderRadius: BorderRadius.circular(3),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: pct,
+                        backgroundColor: InkColor.border,
+                        valueColor: AlwaysStoppedAnimation(e.$3),
+                        minHeight: 8,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
                   SizedBox(
-                    width: 36,
+                    width: 44,
                     child: Text(formatNumber(e.$2),
                         textAlign: TextAlign.right,
                         style: textMono(TextSize.caption,

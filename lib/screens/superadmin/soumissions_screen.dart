@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../shared/tab_container.dart';
+import '../../theme/ultra_theme.dart';
 import '../dsmo/declarations_list_screen.dart';
 import '../onefop/submissions_viewer_screen.dart';
 import 'onefop_export_panel.dart';
@@ -11,14 +11,27 @@ import 'onefop_export_panel.dart';
 // SUPER_ADMIN_DSMO/SUPER_ADMIN_ONEFOP roles only ever have one
 // of the two, so they keep their single dedicated tab.
 //
+// DSMO and ONEFOP stay two separate screens/data models (different
+// status vocabularies, different columns, different available actions
+// — DSMO still has approve/reject, ONEFOP is read-only per the
+// suspended vetting workflow) rather than one merged table. The type
+// switch is a dropdown (DSMO/ONEFOP, no "All") instead of pill tabs,
+// sharing one toolbar row with the export button.
+//
 // No "new declaration" affordance here (and none passed down to
 // DeclarationsListScreen) — this is a reviewer's view of everyone
 // else's submissions, not a company filing its own.
 //
 // Also hosts the bulk ONEFOP export panel (Excel/SPSS) — this used
 // to live in a separate "Data Mgmt" tab, which just duplicated the
-// submission data already listed here.
+// submission data already listed here. It opens as a dialog rather
+// than an inline panel above the tabs: an inline panel competes with
+// the tab content for vertical space and squeezed it into overflow
+// on anything shorter than a tall desktop window; a dialog is an
+// overlay, so it doesn't take space away from anything.
 // ══════════════════════════════════════════════════════════════
+
+enum _SubmissionType { dsmo, onefop }
 
 class SoumissionsScreen extends StatefulWidget {
   const SoumissionsScreen({super.key});
@@ -28,59 +41,82 @@ class SoumissionsScreen extends StatefulWidget {
 }
 
 class _SoumissionsScreenState extends State<SoumissionsScreen> {
-  bool _exportPanelOpen = false;
+  _SubmissionType _type = _SubmissionType.dsmo;
+
+  Future<void> _openExportDialog(BuildContext context) {
+    return showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 640,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            child: OnefopExportPanel(onClose: () => Navigator.of(ctx).pop()),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      // Capped + scrollable rather than sized to its natural height: the
-      // panel's filter card grows with content, and on a short window an
-      // uncapped panel above the Expanded tab content below can squeeze it
-      // to near-zero height and overflow — same reasoning as the toolbar
-      // bound in submissions_viewer_screen.dart.
-      //
-      // A flat percentage cap (e.g. 55%) still fails on a short-enough
-      // window — it shifts the threshold rather than removing it. Instead,
-      // reserve a fixed minimum for the tab content (its own AppBar +
-      // toolbar + pagination bar need real space to not overflow
-      // themselves) and give the panel whatever's left above that.
-      const kMinTabContentHeight = 360.0;
-      final panelMaxHeight = constraints.maxHeight.isFinite
-          ? (constraints.maxHeight - kMinTabContentHeight)
-              .clamp(0.0, double.infinity)
-          : 420.0;
-      return Column(children: [
-        if (_exportPanelOpen)
-          ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: panelMaxHeight),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: OnefopExportPanel(
-                  onClose: () => setState(() => _exportPanelOpen = false),
-                ),
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: UltraTheme.surface,
+              borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+              border: Border.all(color: UltraTheme.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<_SubmissionType>(
+                value: _type,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                    color: UltraTheme.textMuted),
+                style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: UltraTheme.textPrimary),
+                items: const [
+                  DropdownMenuItem(
+                      value: _SubmissionType.dsmo, child: Text('DSMO')),
+                  DropdownMenuItem(
+                      value: _SubmissionType.onefop, child: Text('ONEFOP')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _type = v);
+                },
               ),
             ),
           ),
-        Expanded(
-          child: TabContainer(
-            actions: [
-              IconButton(
-                icon: Icon(_exportPanelOpen
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.download_rounded),
-                onPressed: () =>
-                    setState(() => _exportPanelOpen = !_exportPanelOpen),
-                tooltip: 'Exporter',
-              ),
-            ],
-            tabs: const [
-              (label: 'DSMO', child: DeclarationsListScreen()),
-              (label: 'ONEFOP', child: SubmissionsViewerScreen()),
-            ],
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.download_rounded),
+            onPressed: () => _openExportDialog(context),
+            tooltip: 'Exporter',
           ),
+        ]),
+      ),
+      Expanded(
+        // IndexedStack (not a conditional child) so switching the dropdown
+        // doesn't tear down and re-fetch the screen not currently shown.
+        child: IndexedStack(
+          index: _type.index,
+          children: const [
+            DeclarationsListScreen(),
+            SubmissionsViewerScreen(),
+          ],
         ),
-      ]);
-    });
+      ),
+    ]);
   }
 }

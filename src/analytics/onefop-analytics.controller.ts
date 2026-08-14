@@ -161,6 +161,24 @@ export class OnefopAnalyticsController {
         });
     }
 
+    @Get('net-employment-trends')
+    async getNetEmploymentTrends(@Query() q: any) {
+        return this.analytics.getNetEmploymentTrends({
+            startYear: toInt(q.startYear) ?? toInt(q.year) ?? new Date().getFullYear(),
+            endYear: toInt(q.endYear) ?? toInt(q.year) ?? new Date().getFullYear(),
+            fromQuarter: q.fromQuarter,
+            toQuarter: q.toQuarter,
+            startDate: toDate(q.startDate),
+            endDate: toDate(q.endDate),
+            region: q.region,
+            department: q.department,
+            subdivision: q.subdivision,
+            entityType: q.entityType,
+            sector: q.sector,
+            granularity: q.granularity || 'year',
+        });
+    }
+
     @Get('hires')
     async getHires(@Query() q: any) {
         return this.analytics.getHiresByDemographics({

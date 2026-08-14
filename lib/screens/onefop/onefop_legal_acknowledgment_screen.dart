@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/i18n/l10n_ext.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../theme/ultra_theme.dart';
 import 'onefop_form_constants.dart' show EntityType;
 
 enum _FlowState {
@@ -506,11 +507,11 @@ class _ConfidentialityCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4472C4).withValues(alpha: 0.10),
+                  color: UltraTheme.primary.withValues(alpha: 0.10),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.shield_outlined,
-                    size: 16, color: Color(0xFF4472C4)),
+                    size: 16, color: UltraTheme.primary),
               ),
               const SizedBox(width: 10),
               Text(
@@ -519,7 +520,7 @@ class _ConfidentialityCard extends StatelessWidget {
                   fontFamily: 'Inter',
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF4472C4),
+                  color: UltraTheme.primary,
                 ),
               ),
             ],
@@ -530,7 +531,7 @@ class _ConfidentialityCard extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
-              color: Color(0xFF475569),
+              color: UltraTheme.textSecondary,
               height: 1.6,
             ),
           ),

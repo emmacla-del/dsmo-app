@@ -106,6 +106,9 @@ export class OnefopAnalyticsFacade {
     getDepartureSummary = (f: AnalyticsFilter) =>
         this.mobility.getDepartureSummary(f);
 
+    getDepartureTrends = (f: RecruitmentTrendFilter) =>
+        this.mobility.getDepartureTrends(f);
+
     getDismissalReasons = (f: AnalyticsFilter) =>
         this.mobility.getDismissalReasons(f);
 
@@ -231,6 +234,45 @@ export class OnefopAnalyticsFacade {
     // ─────────────────────────────────────────────────────────────
     // AGGREGATE HELPERS
     // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Net job creation per period — recruitments minus departures, bucketed
+     * the same way as each underlying series (see
+     * RecruitmentAnalyticsService.getRecruitmentTrends and
+     * MobilityAnalyticsService.getDepartureTrends). Powers the "Évolution
+     * de la variation nette" chart: not workforce headcount (a stock,
+     * which ONEFOP's periodic survey doesn't track historically — each
+     * submission only reports the entity's *current* permanent
+     * headcount) and not raw hiring volume alone (a flow that ignores
+     * departures) — the net of the two, matching what the insight banner
+     * and "Variation nette" KPI already headline for the current period.
+     */
+    async getNetEmploymentTrends(
+        filter: RecruitmentTrendFilter,
+    ): Promise<{ period: string; recruitments: number; departures: number; netChange: number }[]> {
+        const [recruitmentTrends, departureTrends] = await Promise.all([
+            this.recruitment.getRecruitmentTrends(filter),
+            this.mobility.getDepartureTrends(filter),
+        ]);
+
+        const recruitmentsByPeriod = new Map(
+            recruitmentTrends.map((t) => [t.period, t.totalRecruitments]),
+        );
+        const departuresByPeriod = new Map(departureTrends.map((t) => [t.period, t.total]));
+
+        // Union of periods present in either series — a period with hires
+        // but no departures (or vice versa) still needs a bar, at 0 for
+        // the missing side, not a gap in the chart.
+        const periods = new Set([...recruitmentsByPeriod.keys(), ...departuresByPeriod.keys()]);
+
+        return [...periods]
+            .sort((a, b) => a.localeCompare(b))
+            .map((period) => {
+                const recruitments = recruitmentsByPeriod.get(period) ?? 0;
+                const departures = departuresByPeriod.get(period) ?? 0;
+                return { period, recruitments, departures, netChange: recruitments - departures };
+            });
+    }
 
     async getSkillsDashboard(filter: AnalyticsFilter): Promise<SkillsDashboard> {
         const ids = await this.query.resolveSubmissionIds(filter);

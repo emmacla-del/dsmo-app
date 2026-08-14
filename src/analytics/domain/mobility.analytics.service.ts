@@ -19,6 +19,7 @@ import type {
     DismissalUnemploymentGroupRow,
     InternshipGroupRow,
     DeparturesByLocationRow,
+    RecruitmentTrendFilter,
 } from '../core/analytics-types';
 
 // ─── Internal helper ─────────────────────────────────────────────────────────
@@ -116,6 +117,59 @@ export class MobilityAnalyticsService {
         });
 
         return rows.map((r) => ({ departureType: r.departureType, total: r._sum.value ?? 0 }));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2.5. Departure trends — S3Q01 TOTAL rows, bucketed by period.
+    //    Mirrors RecruitmentAnalyticsService.getRecruitmentTrends's shape
+    //    exactly (same period bucketing, same startYear/endYear range
+    //    filter applied client-side after resolveSubmissions) so the
+    //    facade can zip the two series by period into a net
+    //    job-creation trend (recruitments − departures per period).
+    // ─────────────────────────────────────────────────────────────
+    async getDepartureTrends(
+        filter: RecruitmentTrendFilter,
+    ): Promise<{ period: string; total: number }[]> {
+        if (filter.startYear > filter.endYear) return [];
+
+        const submissions = await this.query.resolveSubmissions(filter);
+        const inRange = submissions.filter(
+            (s) => s.surveyYear >= filter.startYear && s.surveyYear <= filter.endYear,
+        );
+        if (!inRange.length) return [];
+
+        const ids = inRange.map((s) => s.id);
+
+        const rows: { submissionId: string; value: number | null }[] =
+            await (this.prisma as any).onefopDepartureData.findMany({
+                where: {
+                    submissionId: { in: ids },
+                    cspCategory: CspCategory.TOTAL,
+                    gender: Gender.TOTAL,
+                    departureType: { not: DepartureType.ENSEMBLE },
+                },
+                select: { submissionId: true, value: true },
+            });
+
+        // A submission has up to 4 rows here (one per departure type) —
+        // sum them into one per-submission total before bucketing by period.
+        const totalBySubmission = new Map<string, number>();
+        for (const r of rows) {
+            totalBySubmission.set(
+                r.submissionId,
+                (totalBySubmission.get(r.submissionId) ?? 0) + (r.value ?? 0),
+            );
+        }
+
+        const trendsMap = new Map<string, number>();
+        for (const s of inRange) {
+            const key = this.query.periodKey(s, filter.granularity);
+            trendsMap.set(key, (trendsMap.get(key) ?? 0) + (totalBySubmission.get(s.id) ?? 0));
+        }
+
+        return Array.from(trendsMap.entries())
+            .map(([period, total]) => ({ period, total }))
+            .sort((a, b) => a.period.localeCompare(b.period));
     }
 
     // ─────────────────────────────────────────────────────────────

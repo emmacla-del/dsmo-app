@@ -87,8 +87,11 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
   void _applyFilters() {
     setState(() {
       _filtered = _declarations.where((d) {
-        final name =
-            ((d['companyName'] ?? d['name'] ?? '') as String).toLowerCase();
+        final name = ((d['companyName'] ??
+                d['name'] ??
+                (d['company'] as Map?)?['name'] ??
+                '') as String)
+            .toLowerCase();
         final matchSearch =
             _searchQuery.isEmpty || name.contains(_searchQuery.toLowerCase());
         final matchStatus =
@@ -329,12 +332,17 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
 
   // ── Declaration card ──────────────────────────────────────
   Widget _buildDeclarationCard(Map<String, dynamic> d) {
-    final name = (d['companyName'] ?? d['name'] ?? 'Entreprise') as String;
+    final name = (d['companyName'] ??
+        d['name'] ??
+        (d['company'] as Map?)?['name'] ??
+        'Entreprise') as String;
     final status = (d['status'] as String?) ?? 'SUBMITTED';
     final meta =
         _statusMeta[status] ?? (label: status, color: UltraTheme.textMuted);
     final region = d['region'] as String?;
-    final dept = d['department'] as String?;
+    // Declaration's own field is "division", not "department" — the latter
+    // never matched, silently dropping it from the card.
+    final dept = (d['division'] ?? d['department']) as String?;
     final year = d['year']?.toString() ?? d['declarationYear']?.toString();
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
@@ -423,7 +431,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
                     ]),
               ),
               const SizedBox(width: 10),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Row(mainAxisSize: MainAxisSize.min, children: [
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -438,7 +446,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
                           fontWeight: FontWeight.w600,
                           color: meta.color)),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(width: 4),
                 const Icon(Icons.chevron_right_rounded,
                     size: 18, color: UltraTheme.textMuted),
               ]),
@@ -451,7 +459,10 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
 
   // ── Detail sheet ──────────────────────────────────────────
   void _showDeclarationSheet(Map<String, dynamic> d) {
-    final name = (d['companyName'] ?? d['name'] ?? 'Entreprise') as String;
+    final name = (d['companyName'] ??
+        d['name'] ??
+        (d['company'] as Map?)?['name'] ??
+        'Entreprise') as String;
     final status = (d['status'] as String?) ?? 'SUBMITTED';
     final id = d['id'] as String? ?? '';
     final isPending = status == 'SUBMITTED' || status == 'REGION_APPROVED';

@@ -1525,10 +1525,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final expanded = _railExpanded && !context.isMobile;
     return AnimatedContainer(
       duration: UltraTheme.normal,
-      width: expanded ? (context.isDesktop ? 260 : 200) : 72,
-      decoration: BoxDecoration(
+      width: expanded ? (context.isDesktop ? 220 : 180) : 72,
+      decoration: const BoxDecoration(
         color: UltraTheme.surface,
-        boxShadow: UltraTheme.softShadow,
+        border: Border(right: BorderSide(color: UltraTheme.border, width: 1)),
       ),
       child: Column(children: [
         Container(
@@ -1536,7 +1536,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               EdgeInsets.symmetric(horizontal: expanded ? 20 : 0, vertical: 24),
           child: Center(child: RailLogo(isExpanded: expanded)),
         ),
-        const Divider(height: 1, indent: 12, endIndent: 12),
+        const Divider(height: 1, indent: 0, endIndent: 0),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 8),

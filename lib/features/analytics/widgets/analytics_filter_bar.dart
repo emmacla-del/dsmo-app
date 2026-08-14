@@ -128,161 +128,174 @@ final _sectionCharts = <DashboardExportSection, List<_ChartItem>>{
   ],
 };
 
-class AnalyticsFilterBar extends ConsumerWidget {
-  const AnalyticsFilterBar({super.key});
+// ── Filters popover button (header) ─────────────────────────────
+// Section is page navigation (switches the 8 dashboard views) and Export
+// is a primary action — neither is a data filter, so both stay as their
+// own controls in the header. Only the 4 real filters (Période,
+// Localisation, Entité, Secteur) collapse behind this single trigger.
+
+class FiltersPopoverButton extends ConsumerStatefulWidget {
+  const FiltersPopoverButton({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FiltersPopoverButton> createState() =>
+      _FiltersPopoverButtonState();
+}
+
+class _FiltersPopoverButtonState extends ConsumerState<FiltersPopoverButton> {
+  final MenuController _menuController = MenuController();
+
+  @override
+  Widget build(BuildContext context) {
     final isLocked = ref.watch(isScopeLockedProvider);
     final period = ref.watch(dashboardFilterProvider).period;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 1200;
-    final isTablet = screenWidth >= 800 && screenWidth < 1200;
-    final filterWidth = isDesktop ? 180.0 : (isTablet ? 160.0 : 140.0);
+    final region = ref.watch(regionIdProvider);
+    final department = ref.watch(departmentIdProvider);
+    final subdivision = ref.watch(subdivisionIdProvider);
+    final entityType = ref.watch(entityTypeProvider);
+    final sector = ref.watch(sectorProvider);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
-      decoration: BoxDecoration(
-        color: InkColor.card,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    final activeCount = (!isLocked && region != null ? 1 : 0) +
+        (!isLocked && department != null ? 1 : 0) +
+        (!isLocked && subdivision != null ? 1 : 0) +
+        (entityType != null ? 1 : 0) +
+        (sector != null ? 1 : 0);
+
+    return MenuAnchor(
+      controller: _menuController,
+      alignmentOffset: const Offset(0, 8),
+      style: MenuStyle(
+        padding: WidgetStateProperty.all(EdgeInsets.zero),
+        backgroundColor: WidgetStateProperty.all(InkColor.card),
+        surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
+        elevation: WidgetStateProperty.all(6),
+        shape: WidgetStateProperty.all(const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          side: BorderSide(color: InkColor.border),
+        )),
       ),
-      child: isDesktop
-          ? _DesktopLayout(
-              period: period,
-              isLocked: isLocked,
-              filterWidth: filterWidth,
-            )
-          : _MobileLayout(
-              period: period,
-              isLocked: isLocked,
-              filterWidth: filterWidth,
-            ),
-    );
-  }
-}
-
-// ── Desktop layout ──────────────────────────────────────────────
-
-class _DesktopLayout extends ConsumerWidget {
-  final PeriodConfig period;
-  final bool isLocked;
-  final double filterWidth;
-
-  const _DesktopLayout({
-    required this.period,
-    required this.isLocked,
-    required this.filterWidth,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _SectionPicker(width: filterWidth),
-          const SizedBox(width: 12),
-          _PeriodPicker(period: period, width: filterWidth),
-          const SizedBox(width: 12),
-          if (!isLocked) ...[
-            _LocationPicker(width: filterWidth),
-            const SizedBox(width: 12),
-          ],
-          if (isLocked) ...[
-            const _ScopeLockedChip(),
-            const SizedBox(width: 12),
-          ],
-          _EntityTypePicker(width: filterWidth),
-          const SizedBox(width: 12),
-          _SectorPicker(width: filterWidth),
-          const SizedBox(width: 12),
-          const _ActiveFilterChips(),
-          const SizedBox(width: 12),
-          const _ExportButton(),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Mobile layout ───────────────────────────────────────────────
-
-class _MobileLayout extends ConsumerWidget {
-  final PeriodConfig period;
-  final bool isLocked;
-  final double filterWidth;
-
-  const _MobileLayout({
-    required this.period,
-    required this.isLocked,
-    required this.filterWidth,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final hasFilters = ref.watch(regionIdProvider) != null ||
-        ref.watch(departmentIdProvider) != null ||
-        ref.watch(subdivisionIdProvider) != null ||
-        ref.watch(entityTypeProvider) != null ||
-        ref.watch(sectorProvider) != null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _SectionPicker(width: filterWidth),
-              const SizedBox(width: 12),
-              _PeriodPicker(period: period, width: filterWidth),
-              const SizedBox(width: 12),
-              if (!isLocked) ...[
-                _LocationPicker(width: filterWidth),
-                const SizedBox(width: 12),
-              ],
-              if (isLocked) ...[
-                const _ScopeLockedChip(),
-                const SizedBox(width: 12),
-              ],
-              _EntityTypePicker(width: filterWidth),
-              const SizedBox(width: 12),
-              _SectorPicker(width: filterWidth),
-              const SizedBox(width: 12),
-              const _ExportButton(),
-            ],
-          ),
-        ),
-        if (!isLocked && hasFilters) ...[
-          const SizedBox(height: 8),
-          const _ActiveFilterChips(),
-        ],
+      menuChildren: [
+        _FiltersPopoverContent(period: period, isLocked: isLocked),
       ],
+      builder: (context, controller, _) {
+        return _FiltersTriggerButton(
+          activeCount: activeCount,
+          isOpen: controller.isOpen,
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        );
+      },
+    );
+  }
+}
+
+class _FiltersTriggerButton extends StatelessWidget {
+  final int activeCount;
+  final bool isOpen;
+  final VoidCallback onTap;
+
+  const _FiltersTriggerButton({
+    required this.activeCount,
+    required this.isOpen,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = activeCount > 0;
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: active ? AccentColor.teal.withAlpha(15) : InkColor.surface,
+          border: Border.all(
+              color: active ? AccentColor.teal.withAlpha(60) : InkColor.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_list_rounded,
+                size: 16, color: active ? AccentColor.teal : TextColor.secondary),
+            const SizedBox(width: 6),
+            Text('Filtres',
+                style: textMono(TextSize.section,
+                    color: active ? AccentColor.teal : TextColor.primary,
+                    weight: FontWeight.w600)),
+            if (active) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AccentColor.teal,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text('$activeCount',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+              ),
+            ],
+            const SizedBox(width: 4),
+            Icon(isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                size: 16, color: TextColor.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FiltersPopoverContent extends StatelessWidget {
+  final PeriodConfig period;
+  final bool isLocked;
+
+  const _FiltersPopoverContent({required this.period, required this.isLocked});
+
+  static const _contentWidth = 260.0;
+  static const _fieldWidth = _contentWidth - Gap.md * 2;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _contentWidth,
+      padding: const EdgeInsets.all(Gap.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PeriodPicker(period: period, width: _fieldWidth),
+          const SizedBox(height: 10),
+          if (isLocked)
+            const _ScopeLockedChip()
+          else
+            const _LocationPicker(width: _fieldWidth),
+          const SizedBox(height: 10),
+          const _EntityTypePicker(width: _fieldWidth),
+          const SizedBox(height: 10),
+          const _SectorPicker(width: _fieldWidth),
+          const SizedBox(height: 10),
+          const _ActiveFilterChips(),
+        ],
+      ),
     );
   }
 }
 
 // ── Section picker ───────────────────────────────────────────────
-// Replaces the old standalone TabBar row: the 8 analytics sections are
-// now a dropdown in this same bar, driven by the same DefaultTabController
-// TabBarView (in TabContent) already relies on — selecting an item here
-// just calls controller.animateTo, no separate navigation state needed.
+// Page navigation, not a filter — switches which of the 8 dashboard
+// sections is showing, driven by the same DefaultTabController TabBarView
+// (in TabContent) already relies on. Lives in the header, not the filters
+// popover, since hiding it there would bury the primary way to move
+// between dashboard views.
 
-class _SectionPicker extends StatelessWidget {
+class SectionPicker extends StatelessWidget {
   final double width;
 
-  const _SectionPicker({required this.width});
+  const SectionPicker({super.key, required this.width});
 
   static const _sections = [
     (Icons.dashboard_outlined, 'Synthèse'),
@@ -295,39 +308,61 @@ class _SectionPicker extends StatelessWidget {
     (Icons.school_outlined, 'Compétences & Formation'),
   ];
 
+  // Same compact single-line pill shape as the Filtres/Export buttons next
+  // to it (12/8 padding, 10 radius, InkColor.border) — it used to be built
+  // from _FilterDropdown, which stacks a "Section" caption above the
+  // value, making it visibly taller than its two neighbors.
   @override
   Widget build(BuildContext context) {
     final controller = DefaultTabController.of(context);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return _FilterDropdown<int>(
-          label: 'Section',
-          value: controller.index,
+        return SizedBox(
           width: width,
-          items: [
-            for (final entry in _sections.asMap().entries)
-              DropdownMenuItem(
-                value: entry.key,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(entry.value.$1, size: 14, color: AccentColor.teal),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        entry.value.$2,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: InkColor.surface,
+              border: Border.all(color: InkColor.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                value: controller.index,
+                isDense: true,
+                isExpanded: true,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 16, color: TextColor.muted),
+                style: textMono(TextSize.section,
+                    color: TextColor.primary, weight: FontWeight.w600),
+                dropdownColor: InkColor.card,
+                items: [
+                  for (final entry in _sections.asMap().entries)
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(entry.value.$1, size: 14, color: AccentColor.teal),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              entry.value.$2,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                ],
+                onChanged: (i) {
+                  if (i != null) controller.animateTo(i);
+                },
               ),
-          ],
-          onChanged: (i) {
-            if (i != null) controller.animateTo(i);
-          },
+            ),
+          ),
         );
       },
     );
@@ -854,14 +889,14 @@ class _FilterChip extends StatelessWidget {
 
 // ── Export button ───────────────────────────────────────────────
 
-class _ExportButton extends ConsumerStatefulWidget {
-  const _ExportButton();
+class ExportButton extends ConsumerStatefulWidget {
+  const ExportButton({super.key});
 
   @override
-  ConsumerState<_ExportButton> createState() => _ExportButtonState();
+  ConsumerState<ExportButton> createState() => _ExportButtonState();
 }
 
-class _ExportButtonState extends ConsumerState<_ExportButton> {
+class _ExportButtonState extends ConsumerState<ExportButton> {
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(dashboardFilterProvider);

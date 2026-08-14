@@ -456,8 +456,22 @@ final onefopPreviousYearSummaryProvider =
 });
 
 // ═══════════════════════════════════════════════════════════════
-// SECTION 2 — RECRUITMENT TRENDS
-// GET /onefop-analytics/recruitment-trends
+// SECTION 2 — NET EMPLOYMENT TREND (for the "Évolution de la
+// variation nette" chart on the Synthèse tab)
+// GET /onefop-analytics/net-employment-trends
+//
+// Deliberately NOT total headcount over time: ONEFOP's periodic survey
+// only ever reports each entity's *current* permanent headcount at
+// submission time, there's no historical stock series to draw from (see
+// EmploymentAnalyticsService.getPermanentEmployeeSummary — one aggregate
+// for the whole filtered set, not bucketed by period). And deliberately
+// NOT raw recruitment volume either — that ignores departures and would
+// only ever go up. This is recruitments minus departures per period,
+// matching what the insight banner and "Variation nette" KPI already
+// headline for the current period, just shown as a trend instead of one
+// snapshot. `totalEmployees` below carries the (possibly negative)
+// netChange value — same field-reuse pattern the rest of this file
+// already uses for other charts, not a literal headcount.
 // ═══════════════════════════════════════════════════════════════
 
 final _onefopTrendsProvider = FutureProvider.family<
@@ -474,7 +488,7 @@ final _onefopTrendsProvider = FutureProvider.family<
     })>((ref, p) async {
   final api = ref.read(apiClientProvider);
   final response = await api.get(
-    '/onefop-analytics/recruitment-trends',
+    '/onefop-analytics/net-employment-trends',
     queryParameters: {
       'startYear': p.startYear,
       'endYear': p.endYear,
@@ -498,9 +512,7 @@ final _onefopTrendsProvider = FutureProvider.family<
       'year': yearValue,
       'period': period,
       'shortLabel': label,
-      'totalEmployees': (m['totalRecruitments'] as num?)?.toInt() ??
-          (m['totalEmployees'] as num?)?.toInt() ??
-          0,
+      'totalEmployees': (m['netChange'] as num?)?.toInt() ?? 0,
     });
   }).toList();
 });

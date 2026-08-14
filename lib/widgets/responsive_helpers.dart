@@ -579,7 +579,10 @@ class NotificationBell extends StatelessWidget {
 
 // ── Content Shell ─────────────────────────────────────────────
 
-/// Card shell that wraps the active tab's screen content.
+/// Flat surface the active tab's screen content sits on. Separated from
+/// the nav rail by the rail's own thin right border only — no card
+/// margin, radius, or shadow, so it reads as one continuous flat page
+/// rather than a floating panel.
 class ContentShell extends StatelessWidget {
   const ContentShell({super.key, required this.child, this.margin});
   final Widget child;
@@ -587,19 +590,10 @@ class ContentShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pad = context.contentPadding;
     return Container(
-      margin: margin ?? EdgeInsets.all(pad),
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        border: Border.all(color: UltraTheme.border, width: 1),
-        boxShadow: UltraTheme.softShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(UltraTheme.radiusLarge),
-        child: child,
-      ),
+      margin: margin,
+      color: UltraTheme.surface,
+      child: child,
     );
   }
 }
