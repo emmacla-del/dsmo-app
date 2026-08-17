@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
 import { OnefopSubmissionPdfService } from '../pdf/onefop-submission-pdf.service';
+import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 
 @Injectable()
 export class OnefopService {
@@ -62,7 +63,7 @@ export class OnefopService {
             formType: normalizedEntityType,  // ← USING NORMALIZED VALUE
             status: isDraft ? 'DRAFT' : 'PENDING_REVIEW',
             rawData: data,
-            surveyYear: new Date().getFullYear(),
+            surveyYear: surveyYearFromQuarterCode(quarterCode || '2025-T1'),
             companyId: company.id,
             submittedBy: userId,
             quarterCode: quarterCode || '2025-T1',

@@ -17,6 +17,7 @@ import {
   normalizeFlatKeys,
   buildNestedDto,
 } from '../common/normalizers/flat-key-normalizer';
+import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 
 type FlatFormData = Record<string, string | number>;
 type TxClient = any;
@@ -451,6 +452,12 @@ export class QuestionnairesService {
     const skillNeedRows = this.buildSkillNeedRows(flat);
     const trainingNeedRows = this.buildTrainingNeedRows(flat);
 
+    // Resolved once so surveyYear and quarterCode agree with each other —
+    // surveyYear is the reporting period's own year (parsed from the
+    // quarter, e.g. "2025-T1" → 2025), not the machine's current date,
+    // which would drift wrong for anything filed after its period ends.
+    const resolvedQuarterCode = dto.quarterCode ?? this.getCurrentQuarter();
+
     let result: { submissionId: string };
     try {
       result = await this.prisma.onefopSubmission.create({
@@ -458,10 +465,10 @@ export class QuestionnairesService {
           submissionId: dto.formId || randomUUID(),
           formType: normalizedEntityType,
           rawData: dto.data as any,
-          surveyYear: questionnaireData.surveyYear ?? new Date().getFullYear(),
+          surveyYear: questionnaireData.surveyYear ?? surveyYearFromQuarterCode(resolvedQuarterCode),
           submissionDate: new Date(),
           establishmentId: resolvedEstablishmentId,
-          quarterCode: dto.quarterCode ?? this.getCurrentQuarter(),
+          quarterCode: resolvedQuarterCode,
           region: geoRegion,
           department: geoDept,
           subdivision: geoSubdiv,

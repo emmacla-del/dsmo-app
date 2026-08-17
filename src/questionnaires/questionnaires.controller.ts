@@ -61,6 +61,10 @@ export class QuestionnairesController {
     try {
       const rawData: Record<string, unknown> = body?.data ?? {};
       const entityType: string = normalizeEntityTypeForPreview(body?.entityType);
+      // The campaign quarter this preview is for — drives surveyYear (see
+      // pdf-data-mapper.service.ts's surveyYearFromQuarterCode) so the PDF
+      // prints the reporting period's own year, not today's.
+      const quarterCode: string | undefined = body?.quarterCode;
 
       console.log('📥 Preview request received');
       console.log('   entityType (raw):', body?.entityType);
@@ -95,16 +99,16 @@ export class QuestionnairesController {
       try {
         switch (entityType) {
           case 'enterprise':
-            mappedData = mapEnterpriseData(normalized);
+            mappedData = mapEnterpriseData(normalized, quarterCode);
             break;
           case 'cooperative':
-            mappedData = mapCooperativeData(normalized);
+            mappedData = mapCooperativeData(normalized, quarterCode);
             break;
           case 'ctd':
-            mappedData = mapCtdData(normalized);
+            mappedData = mapCtdData(normalized, quarterCode);
             break;
           case 'ong':
-            mappedData = mapOngData(normalized);
+            mappedData = mapOngData(normalized, quarterCode);
             break;
           default:
             console.error(`❌ Unknown entityType after normalization: "${entityType}"`);

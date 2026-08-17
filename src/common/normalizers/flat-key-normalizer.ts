@@ -64,7 +64,14 @@ export function normalizeFlatKeys(
 ): Record<string, unknown> {
 
     const out: Record<string, unknown> = {
-        surveyYear: raw['surveyYear'] ?? new Date().getFullYear(),
+        // Left as-is (undefined unless the client explicitly sent one) —
+        // filling it in with `new Date()` here would bake in whatever day
+        // this happens to run, before the caller has a chance to derive
+        // the real value from the submission's quarterCode/campaign
+        // period. See pdf-data-mapper.service.ts's surveyYearFromQuarterCode
+        // and questionnaires.service.ts's resolvedQuarterCode for where
+        // that actually happens.
+        surveyYear: raw['surveyYear'],
         organizationType: entityType,
         formType: entityType,
     };
@@ -199,7 +206,11 @@ export function buildNestedDto(
     const out: Record<string, unknown> = {
         organizationType: entityType,
         formType: entityType,
-        surveyYear: normalized['surveyYear'] ?? new Date().getFullYear(),
+        // See normalizeFlatKeys' surveyYear comment above — left undefined
+        // unless normalized already carried an explicit value; the real
+        // fallback happens in questionnaires.service.ts, which knows the
+        // submission's quarterCode.
+        surveyYear: normalized['surveyYear'],
     };
 
     // S0 — respondent

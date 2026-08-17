@@ -33,7 +33,7 @@ const MAPPER_ENTITY_TYPE: Record<string, string> = {
     ONG: 'ong',
 };
 
-const MAPPERS: Record<string, (f: Record<string, unknown>) => Record<string, unknown>> = {
+const MAPPERS: Record<string, (f: Record<string, unknown>, quarterCode?: string | null) => Record<string, unknown>> = {
     enterprise: mapEnterpriseData,
     cooperative: mapCooperativeData,
     ctd: mapCtdData,
@@ -44,6 +44,7 @@ interface SubmissionForPdf {
     id: string;
     formType: string;
     rawData: unknown;
+    quarterCode?: string | null;
 }
 
 @Injectable()
@@ -89,7 +90,7 @@ export class OnefopSubmissionPdfService {
             (submission.rawData as Record<string, unknown>) ?? {},
             normalizerKey,
         );
-        const mappedData = MAPPERS[mapperKey](normalized);
+        const mappedData = MAPPERS[mapperKey](normalized, submission.quarterCode);
 
         const buffer = await this.puppeteerService.generate({
             ...mappedData,

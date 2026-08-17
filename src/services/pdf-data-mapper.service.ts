@@ -9,6 +9,18 @@ type FlatData = Record<string, unknown>;
 type EntityType = 'enterprise' | 'cooperative' | 'ctd' | 'ong';
 type LabelMap = Record<string, string>;
 
+// The reporting year printed all over the form ("...du 1er Janvier
+// {{surveyYear}} à ce jour...") is the year of the campaign/round the
+// submission was filed under — parsed from its quarterCode ("2025-T1" →
+// 2025) — never the machine's current date. Falling back to `now` meant a
+// submission previewed, filed, or PDF'd after its own reporting period had
+// ended (e.g. a 2025-T4 form opened/regenerated in January 2026) silently
+// printed the wrong year on every page.
+export function surveyYearFromQuarterCode(quarterCode?: string | null): number {
+    const parsed = quarterCode ? parseInt(quarterCode.split('-')[0], 10) : NaN;
+    return Number.isFinite(parsed) ? parsed : new Date().getFullYear();
+}
+
 interface AgeBreakdown {
     age15_24: number;
     age25_34: number;
@@ -598,7 +610,7 @@ function buildS2S4(f: FlatData, entityType: EntityType) {
 // PUBLIC ENTITY MAPPERS
 // ─────────────────────────────────────────────
 
-export function mapEnterpriseData(f: FlatData) {
+export function mapEnterpriseData(f: FlatData, quarterCode?: string | null) {
     return {
         respondentName: str(f, 'S0Q01'),
         respondentFunction: str(f, 'S0Q02'),
@@ -623,12 +635,12 @@ export function mapEnterpriseData(f: FlatData) {
         vacancies: f['S1Q11'] != null ? String(f['S1Q11']) : '',
         enterpriseSize: mapSize(f['S1Q12']),
         ...buildS2S4(f, 'enterprise'),
-        surveyYear: f['surveyYear'] ?? new Date().getFullYear(),
+        surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
         copy: 'Original',
     };
 }
 
-export function mapCooperativeData(f: FlatData) {
+export function mapCooperativeData(f: FlatData, quarterCode?: string | null) {
     return {
         respondentName: str(f, 'S0Q01'),
         respondentFunction: str(f, 'S0Q02'),
@@ -654,12 +666,12 @@ export function mapCooperativeData(f: FlatData) {
         permanentWorkers: f['COOP_S1Q11'] != null ? String(f['COOP_S1Q11']) : '',
         vacancies: f['COOP_S1Q12'] != null ? String(f['COOP_S1Q12']) : '',
         ...buildS2S4(f, 'cooperative'),
-        surveyYear: f['surveyYear'] ?? new Date().getFullYear(),
+        surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
         copy: 'Original',
     };
 }
 
-export function mapCtdData(f: FlatData) {
+export function mapCtdData(f: FlatData, quarterCode?: string | null) {
     return {
         respondentName: str(f, 'S0Q01'),
         respondentFunction: str(f, 'S0Q02'),
@@ -682,12 +694,12 @@ export function mapCtdData(f: FlatData) {
         permanentWorkers: f['CTD_S1Q09'] != null ? String(f['CTD_S1Q09']) : '',
         vacancies: f['CTD_S1Q10'] != null ? String(f['CTD_S1Q10']) : '',
         ...buildS2S4(f, 'ctd'),
-        surveyYear: f['surveyYear'] ?? new Date().getFullYear(),
+        surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
         copy: 'Original',
     };
 }
 
-export function mapOngData(f: FlatData) {
+export function mapOngData(f: FlatData, quarterCode?: string | null) {
     return {
         respondentName: str(f, 'S0Q01'),
         respondentFunction: str(f, 'S0Q02'),
@@ -711,7 +723,7 @@ export function mapOngData(f: FlatData) {
         permanentWorkers: f['ONG_S1Q10'] != null ? String(f['ONG_S1Q10']) : '',
         vacancies: f['ONG_S1Q11'] != null ? String(f['ONG_S1Q11']) : '',
         ...buildS2S4(f, 'ong'),
-        surveyYear: f['surveyYear'] ?? new Date().getFullYear(),
+        surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
         copy: 'Original',
     };
 }
