@@ -597,10 +597,8 @@
     <div class="subsec">2.1 &nbsp; DEMANDE D&#8217;EMPLOIS / <em>JOB APPLICATION</em></div>
 
     <div class="qt"><strong>S21Q01 :</strong> Combien de demandes d&#8217;emplois avez-vous enregistr&#233; selon la
-      cat&#233;gorie socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du premier Janvier
-      <strong>{{surveyYear}}</strong> &#224; ce jour ?/ <em>How many job applications per socio-professional category,
-        gender and age group did you register from the 1<sup>st</sup> of January {{surveyYear}} to the present
-        day?</em>
+      cat&#233;gorie socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong> ?/ <em>How many job applications per socio-professional category,
+        gender and age group did you register from {{collectionPeriodEn}}?</em>
     </div>
     {{> cspAgeTable rows=jobApplicationsRows totals=jobApplicationsTotals}}
 
@@ -612,21 +610,18 @@
     <div class="subsec">2.2 RECRUTEMENTS/ <em>RECRUITMENTS</em></div>
 
     <div class="qt"><strong>S22Q01 :</strong> Combien de permanents avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du premier Janvier <strong>{{surveyYear}}</strong>
-      &#224; ce jour?/ <em>How many permanent workers per socio-professional category, gender and age group did you
-        recruit from the 1<sup>st</sup> of January {{surveyYear}} to the present day?</em></div>
+      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many permanent workers per socio-professional category, gender and age group did you
+        recruit from {{collectionPeriodEn}}?</em></div>
     {{> cspAgeTable rows=recruitmentsPermanentRows totals=recruitmentsPermanentTotals}}
 
     <div class="qt"><strong>S22Q02 :</strong> Combien de temporaires avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du premier Janvier <strong>{{surveyYear}}</strong>
-      &#224; ce jour ?/ <em>How many temporary workers per socio-professional category, gender and age group did you
-        recruit from the 1<sup>st</sup> of January {{surveyYear}} to the present day?</em></div>
+      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong> ?/ <em>How many temporary workers per socio-professional category, gender and age group did you
+        recruit from {{collectionPeriodEn}}?</em></div>
     {{> cspAgeTable rows=recruitmentsTemporaryRows totals=recruitmentsTemporaryTotals}}
 
     <div class="qt"><strong>S22Q03 :</strong> Combien de personnes avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe, le dipl&#244;me et la tranche d&#8217;&#226;ge du premier Janvier
-      <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many workers per socio-professional category, gender, and
-        diploma did you recruit from the 1<sup>st</sup> of January {{surveyYear}} to the present day?</em>
+      socioprofessionnelle, le sexe, le dipl&#244;me et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many workers per socio-professional category, gender, and
+        diploma did you recruit from {{collectionPeriodEn}}?</em>
     </div>
     {{> cspAgeTable rows=recruitmentsByDiplomaRows totals=recruitmentsByDiplomaTotals}}
 
@@ -636,16 +631,14 @@
   <div class="page">
 
     <div class="qt"><strong>S22Q04 :</strong> Combien de personnes en situation de handicap avez-vous recrut&#233; selon
-      la cat&#233;gorie socio professionnelle, le sexe et le statut du 1er Janvier <strong>{{surveyYear}}</strong>
-      &#224; ce jour?/ <em>How many workers with a disability per socio-professional category, gender, and status did
+      la cat&#233;gorie socio professionnelle, le sexe et le statut du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many workers with a disability per socio-professional category, gender, and status did
         you
-        recruit from the 1<sup>st</sup> of January {{surveyYear}} to the present day?</em></div>
+        recruit from {{collectionPeriodEn}}?</em></div>
     {{> permTempTable rows=disabledRecruitmentsRows totals=disabledRecruitmentsTotals}}
 
     <div class="qt"><strong>S22Q05 :</strong> Combien de personnes vuln&#233;rables avez-vous recrut&#233; selon le
-      statut et la nature de la vuln&#233;rabilit&#233; du 1er Janvier <strong>{{surveyYear}}</strong> &#224; ce jour?/
-      <em>How many vulnerable workers per socio-professional category, gender, and status did you recruit from the
-        1<sup>st</sup> of January {{surveyYear}} to the present day?</em>
+      statut et la nature de la vuln&#233;rabilit&#233; du <strong>{{collectionPeriodFr}}</strong>?/
+      <em>How many vulnerable workers per socio-professional category, gender, and status did you recruit from {{collectionPeriodEn}}?</em>
     </div>
     {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals headerLabel="Nature de
     vuln&#233;rabilit&#233;/<br /><em>Nature of vulnerability</em>"}}
@@ -654,17 +647,13 @@
         JOB SEEKER</em></div>
 
     <div class="qt"><strong>S23Q01 :</strong> Combien de personnes recherchant leur premier emploi avez-vous
-      enregistr&#233; selon la cat&#233;gorie socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du premier
-      Janvier <strong>{{surveyYear}}</strong> &#224; ce jour ?/ <em>How many people looking for their first job per
-        socio-professional category, gender and age group did you register from the 1<sup>st</sup> of January
-        {{surveyYear}} to the present day?</em></div>
+      enregistr&#233; selon la cat&#233;gorie socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong> ?/ <em>How many people looking for their first job per
+        socio-professional category, gender and age group did you register from {{collectionPeriodEn}}?</em></div>
     {{> cspAgeTable rows=firstTimeJobSeekerRows totals=firstTimeJobSeekerTotals}}
 
     <div class="qt"><strong>S23Q02 :</strong> Combien de personnes travaillant pour la premi&#232;re fois avez-vous
-      recrut&#233;es selon la cat&#233;gorie socioprofessionnelle et la tranche d&#8217;&#226;ge du premier Janvier
-      <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many people Working for their first time per
-        socio-professional category, gender and age group did you recruit from the 1<sup>st</sup> of January
-        {{surveyYear}} to the present day?</em> Statut
+      recrut&#233;es selon la cat&#233;gorie socioprofessionnelle et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many people Working for their first time per
+        socio-professional category, gender and age group did you recruit from {{collectionPeriodEn}}?</em> Statut
     </div>
 
     <table class="dt">
@@ -788,9 +777,7 @@
 
     <div class="sec">SECTION 3. &nbsp; DEPARTS/ <em>DEPARTURES</em></div>
 
-    <div class="qt"><strong>S3Q01 :</strong> Combien de d&#233;parts avez-vous enregistr&#233;s du 1er Janvier
-      <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many departures did you register from the 1<sup>st</sup>
-        of January {{surveyYear}} to the present day?</em>
+    <div class="qt"><strong>S3Q01 :</strong> Combien de d&#233;parts avez-vous enregistr&#233;s du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many departures did you register from {{collectionPeriodEn}}?</em>
     </div>
     <table class="dt">
       <thead>
@@ -907,9 +894,8 @@
 
 
     <div class="qt"><strong>S3Q03 :</strong> Combien de personnes avez-vous licenci&#233;es ou mises en ch&#244;mage
-      technique du 1er Janvier <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many people did you
-        dismiss or place on technical unemployment from the 1<sup>st</sup> of January {{surveyYear}} to the present
-        day?</em></div>
+      technique du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many people did you
+        dismiss or place on technical unemployment from {{collectionPeriodEn}}?</em></div>
     <table class="dt">
       <thead>
         <tr>
@@ -958,9 +944,7 @@
 
   <div class="sec">SECTION 4. &nbsp; STAGE ET FORMATION/ <em>INTERNSHIP AND TRAINING</em></div>
 
-  <div class="qt"><strong>S4Q01 :</strong> Combien de stagiaires avez-vous recrut&#233;s du 1er Janvier
-    <strong>{{surveyYear}}</strong> &#224; ce jour?/ <em>How many interns did you recruit from the 1<sup>st</sup>
-      of January {{surveyYear}} to the present day?</em>
+  <div class="qt"><strong>S4Q01 :</strong> Combien de stagiaires avez-vous recrut&#233;s du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many interns did you recruit from {{collectionPeriodEn}}?</em>
   </div>
   <table class="dt">
     <thead>

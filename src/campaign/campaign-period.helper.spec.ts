@@ -1,4 +1,10 @@
-import { computeCollectionPeriod } from './campaign-period.helper';
+import {
+  computeCollectionPeriod,
+  collectionPeriodFromQuarterCode,
+  parseCampaignCode,
+  formatCollectionPeriodFr,
+  formatCollectionPeriodEn,
+} from './campaign-period.helper';
 
 describe('computeCollectionPeriod', () => {
   it.each([
@@ -40,5 +46,58 @@ describe('computeCollectionPeriod', () => {
     const a = computeCollectionPeriod('QUARTERLY', new Date(2026, 0, 5));
     const b = computeCollectionPeriod('QUARTERLY', new Date(2026, 0, 5));
     expect(a).toEqual(b);
+  });
+});
+
+describe('parseCampaignCode / collectionPeriodFromQuarterCode', () => {
+  it('parses a real generateCampaignCode() output and agrees with computeCollectionPeriod', () => {
+    expect(parseCampaignCode('QUARTERLY_2026_T1_001')).toEqual({
+      type: 'QUARTERLY',
+      year: 2026,
+      quarter: 1,
+    });
+    expect(collectionPeriodFromQuarterCode('QUARTERLY_2026_T1_001')).toEqual(
+      computeCollectionPeriod('QUARTERLY', new Date(2026, 1, 1)),
+    );
+  });
+
+  it('parses SEMESTER codes (S1/S2) to the correct half of the year', () => {
+    expect(collectionPeriodFromQuarterCode('SEMESTER_2026_S1_001')).toEqual({
+      periodStart: new Date(2026, 0, 1),
+      periodEnd: new Date(2026, 5, 30),
+    });
+    expect(collectionPeriodFromQuarterCode('SEMESTER_2026_S2_003')).toEqual({
+      periodStart: new Date(2026, 6, 1),
+      periodEnd: new Date(2026, 11, 31),
+    });
+  });
+
+  it('parses ANNUAL codes to the full calendar year', () => {
+    expect(collectionPeriodFromQuarterCode('ANNUAL_2026_AN_007')).toEqual({
+      periodStart: new Date(2026, 0, 1),
+      periodEnd: new Date(2026, 11, 31),
+    });
+  });
+
+  it('accepts the legacy "YYYY-TN" shape as a QUARTERLY fallback', () => {
+    expect(collectionPeriodFromQuarterCode('2025-T4')).toEqual({
+      periodStart: new Date(2025, 9, 1),
+      periodEnd: new Date(2025, 11, 31),
+    });
+  });
+
+  it('returns null for missing/unrecognized codes rather than guessing a date', () => {
+    expect(collectionPeriodFromQuarterCode(null)).toBeNull();
+    expect(collectionPeriodFromQuarterCode(undefined)).toBeNull();
+    expect(collectionPeriodFromQuarterCode('not-a-code')).toBeNull();
+  });
+});
+
+describe('formatCollectionPeriodFr / formatCollectionPeriodEn', () => {
+  const period = { periodStart: new Date(2026, 0, 1), periodEnd: new Date(2026, 2, 31) };
+
+  it('formats as dd/MM/yyyy, matching the app-wide date convention', () => {
+    expect(formatCollectionPeriodFr(period)).toBe('01/01/2026 au 31/03/2026');
+    expect(formatCollectionPeriodEn(period)).toBe('01/01/2026 to 31/03/2026');
   });
 });

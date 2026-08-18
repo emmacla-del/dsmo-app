@@ -1,6 +1,14 @@
 // pdf-data-mapper.service.ts
 // Fully typed — no implicit any, no index-signature errors
 
+import {
+    parseCampaignCode,
+    collectionPeriodFromQuarterCode,
+    computeCollectionPeriod,
+    formatCollectionPeriodFr,
+    formatCollectionPeriodEn,
+} from '../campaign/campaign-period.helper';
+
 // ─────────────────────────────────────────────
 // SHARED TYPES
 // ─────────────────────────────────────────────
@@ -11,14 +19,33 @@ type LabelMap = Record<string, string>;
 
 // The reporting year printed all over the form ("...du 1er Janvier
 // {{surveyYear}} à ce jour...") is the year of the campaign/round the
-// submission was filed under — parsed from its quarterCode ("2025-T1" →
-// 2025) — never the machine's current date. Falling back to `now` meant a
-// submission previewed, filed, or PDF'd after its own reporting period had
-// ended (e.g. a 2025-T4 form opened/regenerated in January 2026) silently
-// printed the wrong year on every page.
+// submission was filed under — parsed from its quarterCode via
+// parseCampaignCode() (e.g. "QUARTERLY_2026_T1_001" -> 2026) — never the
+// machine's current date. Falling back to `now` meant a submission
+// previewed, filed, or PDF'd after its own reporting period had ended (e.g.
+// a Q4-2025 form opened/regenerated in January 2026) silently printed the
+// wrong year on every page.
 export function surveyYearFromQuarterCode(quarterCode?: string | null): number {
-    const parsed = quarterCode ? parseInt(quarterCode.split('-')[0], 10) : NaN;
-    return Number.isFinite(parsed) ? parsed : new Date().getFullYear();
+    return parseCampaignCode(quarterCode)?.year ?? new Date().getFullYear();
+}
+
+// {{collectionPeriodFr}}/{{collectionPeriodEn}} — the data-collection period
+// (S21Q01 and its sibling questions; see the .hbs templates and
+// OnefopFormController.kPeriodBasedQuestionIds on the Flutter side), derived
+// the same way as surveyYear: from the submission's own quarterCode, not a
+// live DB round lookup, so a PDF regenerated long after its campaign closed
+// still prints the correct period. Falls back to today's calendar quarter
+// only for the no-quarterCode preview path (never for a filed submission).
+function collectionPeriodStrings(quarterCode?: string | null): {
+    collectionPeriodFr: string;
+    collectionPeriodEn: string;
+} {
+    const period =
+        collectionPeriodFromQuarterCode(quarterCode) ?? computeCollectionPeriod('QUARTERLY', new Date());
+    return {
+        collectionPeriodFr: formatCollectionPeriodFr(period),
+        collectionPeriodEn: formatCollectionPeriodEn(period),
+    };
 }
 
 interface AgeBreakdown {
@@ -636,6 +663,7 @@ export function mapEnterpriseData(f: FlatData, quarterCode?: string | null) {
         enterpriseSize: mapSize(f['S1Q12']),
         ...buildS2S4(f, 'enterprise'),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
+        ...collectionPeriodStrings(quarterCode),
         copy: 'Original',
     };
 }
@@ -667,6 +695,7 @@ export function mapCooperativeData(f: FlatData, quarterCode?: string | null) {
         vacancies: f['COOP_S1Q12'] != null ? String(f['COOP_S1Q12']) : '',
         ...buildS2S4(f, 'cooperative'),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
+        ...collectionPeriodStrings(quarterCode),
         copy: 'Original',
     };
 }
@@ -695,6 +724,7 @@ export function mapCtdData(f: FlatData, quarterCode?: string | null) {
         vacancies: f['CTD_S1Q10'] != null ? String(f['CTD_S1Q10']) : '',
         ...buildS2S4(f, 'ctd'),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
+        ...collectionPeriodStrings(quarterCode),
         copy: 'Original',
     };
 }
@@ -724,6 +754,7 @@ export function mapOngData(f: FlatData, quarterCode?: string | null) {
         vacancies: f['ONG_S1Q11'] != null ? String(f['ONG_S1Q11']) : '',
         ...buildS2S4(f, 'ong'),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
+        ...collectionPeriodStrings(quarterCode),
         copy: 'Original',
     };
 }
