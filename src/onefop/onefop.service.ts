@@ -274,6 +274,13 @@ export class OnefopService {
             code: round.quarterCode,
             label: round.labelFr,
             deadline: round.deadline,
+            // The round's own data-collection window — set from the launching
+            // DataCampaign's startDate/deadline (see CampaignService's round
+            // open/reopen paths). This is the single source of truth the
+            // questionnaire itself (S21Q01's dynamic period wording) reads,
+            // as opposed to `deadline` above which is the submission cutoff.
+            periodStart: round.periodStart,
+            periodEnd: round.periodEnd,
         };
     }
 
