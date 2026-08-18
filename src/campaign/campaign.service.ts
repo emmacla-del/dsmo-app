@@ -4,6 +4,7 @@ import { Prisma, DataCampaign, OnefopEntityType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
 import { UserRole } from '../types/prisma.types';
+import { computeCollectionPeriod } from './campaign-period.helper';
 
 // Transaction client type provided by Prisma — doesn't include NestJS lifecycle methods.
 type PrismaTx = Prisma.TransactionClient;
@@ -155,13 +156,16 @@ export class CampaignService {
         // Edits here (name/deadline/targeting) previously never reached the
         // SubmissionRound actually gating submission — an admin editing a
         // live campaign's deadline or target regions had no real effect.
+        // periodEnd is intentionally not touched: it's the data-collection
+        // period (computed from the campaign's immutable type/startDate at
+        // round-open time — see computeCollectionPeriod()), not the
+        // submission deadline being edited here.
         await this.prisma.submissionRound.updateMany({
             where: { campaignId: id, status: { in: ['OPEN', 'EXTENDED'] } },
             data: {
                 labelFr: campaign.name,
                 labelEn: campaign.name,
                 deadline: campaign.deadline ?? undefined,
-                periodEnd: campaign.deadline ?? undefined,
                 targetRegions: campaign.targetRegions,
                 targetEntityTypes: campaign.targetEntityTypes as OnefopEntityType[],
             },
@@ -278,12 +282,15 @@ export class CampaignService {
             where: { id },
             data: { deadline: newDeadline, extendedDeadline: newDeadline, status: 'ACTIVE' },
         });
-        // Keep the open round's deadline in sync; bump it to EXTENDED so the
-        // distinction between "still within the original window" and
-        // "running past it" survives in the round's own status too.
+        // Keep the open round's submission deadline in sync; bump it to
+        // EXTENDED so the distinction between "still within the original
+        // window" and "running past it" survives in the round's own status
+        // too. periodEnd (the data-collection period S21Q01 etc. display) is
+        // deliberately left untouched — extending the submission deadline
+        // doesn't change what period the collected data itself covers.
         await this.prisma.submissionRound.updateMany({
             where: { campaignId: id, status: { in: ['OPEN', 'EXTENDED'] } },
-            data: { deadline: newDeadline, periodEnd: newDeadline, status: 'EXTENDED' },
+            data: { deadline: newDeadline, status: 'EXTENDED' },
         });
         await this.sendReminders(id, 'DEADLINE_EXTENDED');
         return campaign;
@@ -468,7 +475,18 @@ export class CampaignService {
      * GET /campaigns/conflicts before creating a colliding campaign.
      */
     private async _openCollectionRound(campaign: DataCampaign, userId?: string) {
-        const periodEnd = campaign.extendedDeadline ?? campaign.deadline ?? new Date();
+        // Submission deadline (when respondents may still submit) — distinct
+        // from the data-collection period below, and the only one of the two
+        // extendDeadline() ever moves.
+        const submissionDeadline = campaign.extendedDeadline ?? campaign.deadline ?? new Date();
+        // Data-collection period (what S21Q01 and its sibling questions ask
+        // about) — the calendar quarter/semester/year the campaign covers,
+        // fixed at round-open time and never altered by extending the
+        // submission deadline. See computeCollectionPeriod().
+        const { periodStart, periodEnd } = computeCollectionPeriod(
+            campaign.type ?? 'QUARTERLY',
+            campaign.startDate ?? new Date(),
+        );
 
         await this.prisma.$transaction(async (tx) => {
             await tx.submissionRound.updateMany({
@@ -497,9 +515,9 @@ export class CampaignService {
                     quarterCode: campaign.code,
                     labelFr: campaign.name,
                     labelEn: campaign.name,
-                    periodStart: campaign.startDate ?? new Date(),
+                    periodStart,
                     periodEnd,
-                    deadline: periodEnd,
+                    deadline: submissionDeadline,
                     targetRegions: campaign.targetRegions,
                     targetEntityTypes: campaign.targetEntityTypes as OnefopEntityType[],
                     status: 'OPEN',
@@ -509,9 +527,9 @@ export class CampaignService {
                 update: {
                     labelFr: campaign.name,
                     labelEn: campaign.name,
-                    periodStart: campaign.startDate ?? undefined,
+                    periodStart,
                     periodEnd,
-                    deadline: periodEnd,
+                    deadline: submissionDeadline,
                     targetRegions: campaign.targetRegions,
                     targetEntityTypes: campaign.targetEntityTypes as OnefopEntityType[],
                     status: 'OPEN',
