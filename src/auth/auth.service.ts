@@ -384,6 +384,94 @@ export class AuthService {
     }
   }
 
+  // Roles a SUPER_ADMIN may create through adminCreateMinefopUser — the
+  // MINEFOP field-agent roles only. Other staff roles (SUPER_ADMIN,
+  // DATA_MANAGER, ANALYST, ...) still have no creation path; this endpoint
+  // exists specifically to replace the public MINEFOP self-registration
+  // flow that was removed from the app.
+  private static readonly MINEFOP_FIELD_ROLES = ['CENTRAL', 'REGIONAL', 'DIVISIONAL'];
+
+  /** Unambiguous charset (no 0/O/1/l/I) — this gets read aloud/copied by hand. */
+  private generateTemporaryPassword(): string {
+    const charset = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const bytes = crypto.randomBytes(12);
+    let out = '';
+    for (let i = 0; i < 12; i++) {
+      out += charset[bytes[i] % charset.length];
+    }
+    return out;
+  }
+
+  /**
+   * SUPER_ADMIN creates a MINEFOP agent account directly, skipping the
+   * PENDING_APPROVAL step that self-registration goes through — the admin
+   * is already vouching for the account by creating it. Returns the
+   * generated temporary password once, in plaintext, so the admin can hand
+   * it to the agent out-of-band; it is never stored or returned again
+   * (outbound email from this app is unreliable, so this is the primary
+   * delivery path rather than a fallback).
+   */
+  async adminCreateMinefopUser(dto: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    region?: string;
+    department?: string;
+    matricule?: string;
+    poste?: string;
+    serviceCode?: string;
+    positionType?: string;
+  }) {
+    if (!AuthService.MINEFOP_FIELD_ROLES.includes(dto.role)) {
+      throw new BadRequestException('Rôle invalide pour la création directe');
+    }
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existingUser) {
+      throw new ConflictException('Un utilisateur avec cet email existe déjà');
+    }
+    if (dto.role === 'DIVISIONAL' && !dto.department) {
+      throw new BadRequestException(
+        'Les utilisateurs divisionnaires doivent avoir un département assigné',
+      );
+    }
+    if (dto.role === 'REGIONAL' && !dto.region) {
+      throw new BadRequestException(
+        'Les utilisateurs régionaux doivent avoir une région assignée',
+      );
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const hashed = await bcrypt.hash(temporaryPassword, 10);
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          passwordHash: hashed,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          role: dto.role as any,
+          region: dto.region,
+          department: dto.department,
+          matricule: dto.matricule,
+          poste: dto.poste,
+          serviceCode: dto.serviceCode ?? null,
+          positionType: dto.positionType ?? null,
+          status: 'ACTIVE',
+          isActive: true,
+          mustChangePassword: true,
+        },
+      });
+      const { passwordHash, ...safeUser } = user;
+      return { user: safeUser, temporaryPassword };
+    } catch (error: any) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Un utilisateur avec cet email existe déjà');
+      }
+      throw error;
+    }
+  }
+
   async registerCompany(
     email: string,
     password: string,

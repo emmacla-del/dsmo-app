@@ -167,6 +167,28 @@ export class AuthController {
 
   // ===== ADMIN ENDPOINTS =====
 
+  // Replaces the removed public MINEFOP self-registration flow: a
+  // SUPER_ADMIN creates the agent account directly (ACTIVE immediately,
+  // mustChangePassword: true) instead of the agent registering and
+  // waiting for approve-user below.
+  @Post('admin/create-minefop-user')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  async adminCreateMinefopUser(@Body() body: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    region?: string;
+    department?: string;
+    matricule?: string;
+    poste?: string;
+    serviceCode?: string;
+    positionType?: string;
+  }) {
+    return this.authService.adminCreateMinefopUser(body);
+  }
+
   @Get('pending-minefop')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
