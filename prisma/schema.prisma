@@ -689,6 +689,13 @@ model OnefopSubmission {
   @@index([taxNumber])
   @@index([cnpsNumber])
   @@index([companyId], map: "idx_onefop_submissions_companyId")
+  // Added for the SPSS/Excel bulk-export filters (DataManagementService) —
+  // `department` and the `createdAt` from/to range were the only two
+  // export filter columns without an index; at large submission counts
+  // (many campaign cycles) an unindexed filter here forces a sequential
+  // scan of the whole table.
+  @@index([department])
+  @@index([createdAt])
   @@map("onefop_submissions")
 }
 
@@ -1149,6 +1156,21 @@ model SystemSettings {
   updatedAt          DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+// Singleton row (fixed id "singleton") holding the Super-Admin-editable
+// content for the public landing page (LandingScreen). `data` mirrors the
+// Flutter LandingConfig.fromJson/defaults() contract exactly — see
+// lib/models/landing_config.dart — so the API can just pass it through
+// unchanged; kept as one Json blob rather than scalar columns because the
+// `roadmap` field is inherently a list of structured {label, done} objects.
+model LandingConfig {
+  id        String   @id @default("singleton")
+  data      Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@map("landing_config")
 }
 
 enum BatchStatus {
