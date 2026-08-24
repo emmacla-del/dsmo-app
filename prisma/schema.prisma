@@ -1173,6 +1173,19 @@ model LandingConfig {
   @@map("landing_config")
 }
 
+// Append-only snapshot of LandingConfig.data taken right before each
+// overwrite (see LandingConfigService.updateConfig), so a bad Super Admin
+// save can be rolled back. Pruned to the most recent MAX_VERSIONS rows.
+model LandingConfigVersion {
+  id        String   @id @default(cuid())
+  data      Json
+  updatedBy String?
+  createdAt DateTime @default(now())
+
+  @@map("landing_config_versions")
+  @@index([createdAt])
+}
+
 enum BatchStatus {
   PENDING
   RUNNING

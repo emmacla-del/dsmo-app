@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const SINGLETON_ID = 'singleton';
+const MAX_VERSIONS = 20;
 
 // Mirrors LandingConfig.defaults() in lib/models/landing_config.dart exactly
 // — keep both in sync if this pre-CMS fallback copy ever changes. Seeded
@@ -137,6 +138,19 @@ export class LandingConfigService {
   }
 
   async updateConfig(data: Record<string, any>, updatedBy: string) {
+    const existing = await this.prisma.landingConfig.findUnique({
+      where: { id: SINGLETON_ID },
+    });
+
+    // Snapshot what's about to be overwritten, so every save is undoable —
+    // including a restore itself, which just calls updateConfig again.
+    if (existing) {
+      await this.prisma.landingConfigVersion.create({
+        data: { data: existing.data, updatedBy: existing.updatedBy },
+      });
+      await this.pruneVersions();
+    }
+
     const row = await this.prisma.landingConfig.upsert({
       where: { id: SINGLETON_ID },
       create: { id: SINGLETON_ID, data, updatedBy },
@@ -144,6 +158,50 @@ export class LandingConfigService {
     });
     this.cached = row;
     return { ...(row.data as Record<string, any>), updatedAt: row.updatedAt };
+  }
+
+  /** Last MAX_VERSIONS pre-overwrite snapshots, most recent first, each with
+   * a short text preview so the admin can tell them apart without opening
+   * one. */
+  async listVersions() {
+    const versions = await this.prisma.landingConfigVersion.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: MAX_VERSIONS,
+    });
+    return versions.map((v) => ({
+      id: v.id,
+      createdAt: v.createdAt,
+      updatedBy: v.updatedBy,
+      preview: this.buildPreview(v.data as Record<string, any>),
+    }));
+  }
+
+  async restoreVersion(versionId: string, restoredBy: string) {
+    const version = await this.prisma.landingConfigVersion.findUniqueOrThrow({
+      where: { id: versionId },
+    });
+    return this.updateConfig(version.data as Record<string, any>, restoredBy);
+  }
+
+  private buildPreview(data: Record<string, any>): string {
+    const statusLine = data?.statusLine ?? {};
+    const text = (statusLine.en as string | undefined)?.trim()
+      ? statusLine.en
+      : (statusLine.fr as string | undefined) ?? '';
+    return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  }
+
+  private async pruneVersions() {
+    const stale = await this.prisma.landingConfigVersion.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip: MAX_VERSIONS,
+      select: { id: true },
+    });
+    if (stale.length) {
+      await this.prisma.landingConfigVersion.deleteMany({
+        where: { id: { in: stale.map((v) => v.id) } },
+      });
+    }
   }
 
   private async fetchOrCreate() {
