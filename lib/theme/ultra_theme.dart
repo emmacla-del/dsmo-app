@@ -4,15 +4,18 @@ import 'package:flutter/material.dart';
 class UltraTheme {
   UltraTheme._();
 
-  // ── Emerald & Gold ───────────────────────────────────────────
-  static const Color primary = Color(0xFF0A6640); // deep emerald
-  static const Color primaryDark = Color(0xFF063D27); // darker
+  // ── CAMLEAP forest green ────────────────────────────────────
+  // Same values as AppColors.deepEmerald/deepEmeraldDark (lib/theme/
+  // app_colors.dart) — kept as a separate literal here rather than an
+  // import, matching this file's existing standalone-palette structure.
+  static const Color primary = Color(0xFF1E6B3A); // CAMLEAP forest green
+  static const Color primaryDark = Color(0xFF124023); // darker
   static const Color primaryLight = Color(0xFF2FA89F); // lighter
   static const Color primaryLightBg = Color(0xFFE5F0E9); // very light
   static const Color primaryMid = Color(0xFFCFE6D9); // mid tone
 
-  // ── Accent — gold ─────────────────────────────────────────────
-  static const Color accent = Color(0xFFC9920A);
+  // ── Accent — amber (logo trend-line dot) ────────────────────────
+  static const Color accent = Color(0xFFE8A020);
 
   // ── Neutrals ───────────────────────────────────────────────
   static const Color background = Color(0xFFFAFAF7);
@@ -28,10 +31,10 @@ class UltraTheme {
   static const Color borderStrong = Color(0xFFD4D4D8);
 
   // ── Status ─────────────────────────────────────────────────
-  static const Color success = Color(0xFF0A6640);
-  static const Color warning = Color(0xFFC9920A);
-  static const Color error = Color(0xFFE8500A);
-  static const Color info = Color(0xFF1A3A6E);
+  static const Color success = Color(0xFF1E6B3A);
+  static const Color warning = Color(0xFFE8A020);
+  static const Color error = Color(0xFFCC2B2B);
+  static const Color info = Color(0xFF1B3A6B);
 
   // ── Shadows ────────────────────────────────────────────────
   // Cards carry their shape via `border` now, not elevation — softShadow is

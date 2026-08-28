@@ -1,5 +1,5 @@
 name: dsmo_app
-description: DSMO digital declaration platform.
+description: "CAMLEAP — Cameroon Labour and Employment Analytical Platform. Labour Market Intelligence."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -53,6 +53,20 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^2.0.0
   open_file: ^3.3.2
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  image_path: assets/images/camleap_logo.png
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  macos:
+    generate: true
+  web:
+    generate: true
+    image_path: assets/images/camleap_logo.png
+    background_color: "#FFFFFF"
+    theme_color: "#FFFFFF"
 
 flutter:
   uses-material-design: true
@@ -60,8 +74,7 @@ flutter:
 
   assets:
     - assets/images/onefop_logo.png
-    - assets/images/coat_of_arms.png
-    - assets/images/minefop-logo.png
+    - assets/images/camleap_logo.png
     - assets/fonts/
 
   fonts:

@@ -4,15 +4,22 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Brand
-  static const deepEmerald     = Color(0xFF0A6640);
-  static const deepEmeraldDark = Color(0xFF063D27);
+  // Brand — CAMLEAP palette (matches the logo: forest green monitor mark,
+  // navy wordmark, red→amber→green ascending trend-line dots).
+  static const deepEmerald     = Color(0xFF1E6B3A);
+  static const deepEmeraldDark = Color(0xFF124023);
   static const lightEmerald    = Color(0xFF2FA89F);
   static const richGold      = Color(0xFFC9920A);
   static const sunsetOrange  = Color(0xFFE8500A);
-  static const deepSapphire  = Color(0xFF1A3A6E);
+  static const deepSapphire  = Color(0xFF1B3A6B);
   static const champagne     = Color(0xFFF5E6C8);
   static const whatsappGreen = Color(0xFF075E54);
+
+  // CAMLEAP logo accent dots (ascending trend line) — not the primary
+  // brand color, used sparingly for status/trend accents that want to
+  // echo the logo's own red→amber→green progression.
+  static const accentRed   = Color(0xFFCC2B2B);
+  static const accentAmber = Color(0xFFE8A020);
 
   // Light mode surfaces
   static const pageBackground = Color(0xFFFAFAF7);

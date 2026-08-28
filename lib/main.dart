@@ -163,7 +163,7 @@ class _MyAppState extends ConsumerState<MyApp> {
 
     return MaterialApp.router(
       routerConfig: router,
-      title: 'DSMO Cameroon',
+      title: 'CAMLEAP | Labour Market Intelligence',
       theme: AppTheme.lightTheme(context), // Just use the theme directly
       locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,

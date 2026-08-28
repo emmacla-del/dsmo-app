@@ -4,20 +4,20 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary palette — Emerald & Gold (MINEFOP institutional identity)
-  static const Color primary = Color(0xFF0A6640);
+  // Primary palette — CAMLEAP forest green (matches the platform logo)
+  static const Color primary = Color(0xFF1E6B3A);
   static const Color primaryLight = Color(0xFF2FA89F);
-  static const Color primaryDark = Color(0xFF063D27);
+  static const Color primaryDark = Color(0xFF124023);
 
-  // Secondary — gold accent
-  static const Color secondary = Color(0xFFC9920A);
+  // Secondary — navy (logo wordmark) / amber accent (logo trend-line dot)
+  static const Color secondary = Color(0xFFE8A020);
   static const Color secondaryLight = Color(0xFF2FA89F);
 
   // Semantic colors
-  static const Color success = Color(0xFF0A6640);
-  static const Color warning = Color(0xFFC9920A);
-  static const Color danger = Color(0xFFE8500A);
-  static const Color info = Color(0xFF1A3A6E);
+  static const Color success = Color(0xFF1E6B3A);
+  static const Color warning = Color(0xFFE8A020);
+  static const Color danger = Color(0xFFCC2B2B);
+  static const Color info = Color(0xFF1B3A6B);
 
   // Neutral palette
   static const Color background = Color(0xFFFAFAF7);
@@ -30,13 +30,13 @@ class AppColors {
 
   // Chart palette
   static const List<Color> chartColors = [
-    Color(0xFF0A6640),
-    Color(0xFFC9920A),
-    Color(0xFF1A3A6E),
+    Color(0xFF1E6B3A),
+    Color(0xFFE8A020),
+    Color(0xFF1B3A6B),
     Color(0xFF2FA89F),
-    Color(0xFFE8500A),
+    Color(0xFFCC2B2B),
     Color(0xFF8A8368),
-    Color(0xFF063D27),
+    Color(0xFF124023),
     Color(0xFFB0B0B0),
   ];
 }
