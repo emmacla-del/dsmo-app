@@ -146,6 +146,18 @@ abstract class AppLocalizations {
   /// **'Champ obligatoire (conditionnel)'**
   String get requiredFieldConditional;
 
+  /// No description provided for @tableResponseRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Indiquez si les chiffres sont déclarés, si aucun cas n\'est à signaler, ou si la question ne s\'applique pas'**
+  String get tableResponseRequired;
+
+  /// No description provided for @tableFiguresRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisissez des chiffres, ou choisissez « aucun cas à signaler »'**
+  String get tableFiguresRequired;
+
   /// No description provided for @selectAnOption.
   ///
   /// In fr, this message translates to:
@@ -380,12 +392,6 @@ abstract class AppLocalizations {
   /// **'Identifiants incorrects. Vérifiez et réessayez.'**
   String get portalCredentialsError;
 
-  /// No description provided for @ministryFullName.
-  ///
-  /// In fr, this message translates to:
-  /// **'Ministère de l\'Emploi et de la Formation Professionnelle'**
-  String get ministryFullName;
-
   /// No description provided for @tabSignIn.
   ///
   /// In fr, this message translates to:
@@ -397,6 +403,450 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Créer un compte'**
   String get tabCreateAccount;
+
+  /// No description provided for @landingSignUpButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demander l\'accès'**
+  String get landingSignUpButton;
+
+  /// No description provided for @landingNavProgramme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Programme'**
+  String get landingNavProgramme;
+
+  /// No description provided for @landingNavAbout.
+  ///
+  /// In fr, this message translates to:
+  /// **'SIMT'**
+  String get landingNavAbout;
+
+  /// No description provided for @landingNavObservatory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Observatoire'**
+  String get landingNavObservatory;
+
+  /// No description provided for @landingNavComponents.
+  ///
+  /// In fr, this message translates to:
+  /// **'Composantes'**
+  String get landingNavComponents;
+
+  /// No description provided for @landingKickerObservatory.
+  ///
+  /// In fr, this message translates to:
+  /// **'L\'Observatoire'**
+  String get landingKickerObservatory;
+
+  /// No description provided for @landingObservatoryBadge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contenu en préparation'**
+  String get landingObservatoryBadge;
+
+  /// No description provided for @landingAboutTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pourquoi un système d\'information sur le marché du travail ?'**
+  String get landingAboutTitle;
+
+  /// No description provided for @landingAboutPositioningTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Positionnement institutionnel'**
+  String get landingAboutPositioningTitle;
+
+  /// No description provided for @landingRoadmapTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Construire le système progressivement'**
+  String get landingRoadmapTitle;
+
+  /// No description provided for @landingValueStripTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce que CAMLEAP construit'**
+  String get landingValueStripTitle;
+
+  /// No description provided for @landingSignInCta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accéder à la plateforme'**
+  String get landingSignInCta;
+
+  /// No description provided for @landingRequestAccountCta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demander l\'accès'**
+  String get landingRequestAccountCta;
+
+  /// No description provided for @landingEnterLmisCta.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accéder au SIMT'**
+  String get landingEnterLmisCta;
+
+  /// No description provided for @landingHeroHeadline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bâtir le système d\'information sur le marché du travail du Cameroun'**
+  String get landingHeroHeadline;
+
+  /// No description provided for @landingProgrammeLine.
+  ///
+  /// In fr, this message translates to:
+  /// **'Programme national pour le développement du système d\'information sur le marché du travail du Cameroun'**
+  String get landingProgrammeLine;
+
+  /// No description provided for @landingHeroLead.
+  ///
+  /// In fr, this message translates to:
+  /// **'Porté par l\'ONEFOP sous tutelle du Ministère de l\'Emploi et de la Formation Professionnelle (MINEFOP).'**
+  String get landingHeroLead;
+
+  /// No description provided for @landingExploreProgramme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Découvrir le programme'**
+  String get landingExploreProgramme;
+
+  /// No description provided for @landingCurrentImplementation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise en œuvre actuelle'**
+  String get landingCurrentImplementation;
+
+  /// No description provided for @landingPlanned.
+  ///
+  /// In fr, this message translates to:
+  /// **'Planifiée'**
+  String get landingPlanned;
+
+  /// No description provided for @landingOperational.
+  ///
+  /// In fr, this message translates to:
+  /// **'Opérationnelle'**
+  String get landingOperational;
+
+  /// No description provided for @landingComponentPrefix.
+  ///
+  /// In fr, this message translates to:
+  /// **'Composante {roman}'**
+  String landingComponentPrefix(String roman);
+
+  /// No description provided for @landingArchitectureTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le système d\'information sur le marché du travail'**
+  String get landingArchitectureTitle;
+
+  /// No description provided for @landingComponentsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Composantes du programme CAMLEAP'**
+  String get landingComponentsTitle;
+
+  /// No description provided for @landingCurrentSectionTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise en œuvre actuelle'**
+  String get landingCurrentSectionTitle;
+
+  /// No description provided for @landingDataToIntelTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Des données à l\'intelligence du marché du travail'**
+  String get landingDataToIntelTitle;
+
+  /// No description provided for @landingEcosystemTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une infrastructure d\'information pour le marché du travail'**
+  String get landingEcosystemTitle;
+
+  /// No description provided for @landingRepublic.
+  ///
+  /// In fr, this message translates to:
+  /// **'République du Cameroun'**
+  String get landingRepublic;
+
+  /// No description provided for @landingMinefopName.
+  ///
+  /// In fr, this message translates to:
+  /// **'MINEFOP'**
+  String get landingMinefopName;
+
+  /// No description provided for @landingMinefopFull.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ministère de l\'Emploi et de la Formation Professionnelle'**
+  String get landingMinefopFull;
+
+  /// No description provided for @landingOnefopName.
+  ///
+  /// In fr, this message translates to:
+  /// **'ONEFOP'**
+  String get landingOnefopName;
+
+  /// No description provided for @landingOnefopFull.
+  ///
+  /// In fr, this message translates to:
+  /// **'Observatoire National de l\'Emploi et de la Formation Professionnelle'**
+  String get landingOnefopFull;
+
+  /// No description provided for @landingKickerProgramme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le programme'**
+  String get landingKickerProgramme;
+
+  /// No description provided for @landingKickerLmis.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le SIMT'**
+  String get landingKickerLmis;
+
+  /// No description provided for @landingKickerComponents.
+  ///
+  /// In fr, this message translates to:
+  /// **'Composantes'**
+  String get landingKickerComponents;
+
+  /// No description provided for @landingKickerImplementation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise en œuvre'**
+  String get landingKickerImplementation;
+
+  /// No description provided for @landingKickerPlatform.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plateforme'**
+  String get landingKickerPlatform;
+
+  /// No description provided for @landingKickerEcosystem.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écosystème'**
+  String get landingKickerEcosystem;
+
+  /// No description provided for @landingArchSources.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sources de données'**
+  String get landingArchSources;
+
+  /// No description provided for @landingArchCollection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Collecte'**
+  String get landingArchCollection;
+
+  /// No description provided for @landingArchIntegration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intégration'**
+  String get landingArchIntegration;
+
+  /// No description provided for @landingArchAnalysis.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse'**
+  String get landingArchAnalysis;
+
+  /// No description provided for @landingArchIntelligence.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intelligence'**
+  String get landingArchIntelligence;
+
+  /// No description provided for @landingArchDecision.
+  ///
+  /// In fr, this message translates to:
+  /// **'Décision'**
+  String get landingArchDecision;
+
+  /// No description provided for @landingFlowPaper.
+  ///
+  /// In fr, this message translates to:
+  /// **'Collecte papier / fragmentée'**
+  String get landingFlowPaper;
+
+  /// No description provided for @landingFlowDigital.
+  ///
+  /// In fr, this message translates to:
+  /// **'Questionnaires numériques'**
+  String get landingFlowDigital;
+
+  /// No description provided for @landingFlowValidation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Validation et standardisation'**
+  String get landingFlowValidation;
+
+  /// No description provided for @landingFlowCentralised.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données centralisées'**
+  String get landingFlowCentralised;
+
+  /// No description provided for @landingFlowStructured.
+  ///
+  /// In fr, this message translates to:
+  /// **'Information structurée sur le marché du travail'**
+  String get landingFlowStructured;
+
+  /// No description provided for @landingIntelCollect.
+  ///
+  /// In fr, this message translates to:
+  /// **'Collecter'**
+  String get landingIntelCollect;
+
+  /// No description provided for @landingIntelValidate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Valider'**
+  String get landingIntelValidate;
+
+  /// No description provided for @landingIntelCentralise.
+  ///
+  /// In fr, this message translates to:
+  /// **'Centraliser'**
+  String get landingIntelCentralise;
+
+  /// No description provided for @landingIntelIntegrate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intégrer'**
+  String get landingIntelIntegrate;
+
+  /// No description provided for @landingIntelAnalyse.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyser'**
+  String get landingIntelAnalyse;
+
+  /// No description provided for @landingIntelIndicators.
+  ///
+  /// In fr, this message translates to:
+  /// **'Produire des indicateurs'**
+  String get landingIntelIndicators;
+
+  /// No description provided for @landingIntelDecisions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Éclairer les décisions'**
+  String get landingIntelDecisions;
+
+  /// No description provided for @landingStakeGovTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gouvernement et décideurs'**
+  String get landingStakeGovTitle;
+
+  /// No description provided for @landingStakeGovBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Conçu pour appuyer les politiques d\'emploi, la planification et le suivi par des éléments de preuve.'**
+  String get landingStakeGovBody;
+
+  /// No description provided for @landingStakeEmploymentTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Services de l\'emploi'**
+  String get landingStakeEmploymentTitle;
+
+  /// No description provided for @landingStakeEmploymentBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Conçu pour appuyer une meilleure compréhension de l\'offre, de la demande et des tendances de l\'emploi.'**
+  String get landingStakeEmploymentBody;
+
+  /// No description provided for @landingStakeSkillsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Établissements de formation'**
+  String get landingStakeSkillsTitle;
+
+  /// No description provided for @landingStakeSkillsBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Conçu pour appuyer l\'adéquation entre le développement des compétences et les besoins du marché du travail.'**
+  String get landingStakeSkillsBody;
+
+  /// No description provided for @landingStakeEmployersTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Employeurs et partenaires sociaux'**
+  String get landingStakeEmployersTitle;
+
+  /// No description provided for @landingStakeEmployersBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Conçu pour appuyer une information fiable sur la dynamique de l\'emploi et de la main-d\'œuvre.'**
+  String get landingStakeEmployersBody;
+
+  /// No description provided for @landingStakeResearchTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chercheurs et analystes'**
+  String get landingStakeResearchTitle;
+
+  /// No description provided for @landingStakeResearchBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Conçu pour appuyer une information structurée sur le marché du travail, pour l\'analyse et la recherche.'**
+  String get landingStakeResearchBody;
+
+  /// No description provided for @landingEcosystemNote.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ces usages seront appuyés progressivement, au fur et à mesure de la mise en œuvre des composantes du programme.'**
+  String get landingEcosystemNote;
+
+  /// No description provided for @landingPillarCollect.
+  ///
+  /// In fr, this message translates to:
+  /// **'Collecter'**
+  String get landingPillarCollect;
+
+  /// No description provided for @landingPillarIntegrate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intégrer'**
+  String get landingPillarIntegrate;
+
+  /// No description provided for @landingPillarAnalyse.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyser'**
+  String get landingPillarAnalyse;
+
+  /// No description provided for @landingPillarInform.
+  ///
+  /// In fr, this message translates to:
+  /// **'Informer'**
+  String get landingPillarInform;
+
+  /// No description provided for @loginHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'nom@entreprise.cm ou EN26000112'**
+  String get loginHint;
+
+  /// No description provided for @phoneHintShort.
+  ///
+  /// In fr, this message translates to:
+  /// **'6XXXXXXXX'**
+  String get phoneHintShort;
+
+  /// No description provided for @noAccountPrompt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore de compte ?'**
+  String get noAccountPrompt;
 
   /// No description provided for @tabForgotId.
   ///
@@ -443,7 +893,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginLabel.
   ///
   /// In fr, this message translates to:
-  /// **'Login'**
+  /// **'Identifiant'**
   String get loginLabel;
 
   /// No description provided for @passwordLabel.
@@ -553,24 +1003,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Impossible de charger les secteurs. Réessayez.'**
   String get registerLoadSectorsError;
-
-  /// No description provided for @registerPendingApprovalTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Demande soumise !'**
-  String get registerPendingApprovalTitle;
-
-  /// No description provided for @registerPendingApprovalBody.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre demande d\'accès MINEFOP est en attente d\'approbation par un administrateur.'**
-  String get registerPendingApprovalBody;
-
-  /// No description provided for @registerUnderstoodButton.
-  ///
-  /// In fr, this message translates to:
-  /// **'Compris'**
-  String get registerUnderstoodButton;
 
   /// No description provided for @registerSuccessTitle.
   ///
@@ -698,12 +1130,6 @@ abstract class AppLocalizations {
   /// **'Localisation'**
   String get registerStepTitleLocation;
 
-  /// No description provided for @registerStepTitleMinefopInfo.
-  ///
-  /// In fr, this message translates to:
-  /// **'Informations MINEFOP'**
-  String get registerStepTitleMinefopInfo;
-
   /// No description provided for @registerStepTitleSecurity.
   ///
   /// In fr, this message translates to:
@@ -746,54 +1172,6 @@ abstract class AppLocalizations {
   /// **'Centre de formation technique et professionnelle agréé.'**
   String get registerEntitySubtitleVocational;
 
-  /// No description provided for @registerServiceLevelTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Niveau de service'**
-  String get registerServiceLevelTitle;
-
-  /// No description provided for @registerServiceLevelSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez votre niveau hiérarchique.'**
-  String get registerServiceLevelSubtitle;
-
-  /// No description provided for @registerMinefopCentralTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Administration centrale'**
-  String get registerMinefopCentralTitle;
-
-  /// No description provided for @registerMinefopCentralSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Direction centrale, sous-direction ou service central à Yaoundé.'**
-  String get registerMinefopCentralSubtitle;
-
-  /// No description provided for @registerMinefopRegionalTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Service régional'**
-  String get registerMinefopRegionalTitle;
-
-  /// No description provided for @registerMinefopRegionalSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Délégation régionale de l\'emploi et de la formation professionnelle.'**
-  String get registerMinefopRegionalSubtitle;
-
-  /// No description provided for @registerMinefopDivisionalTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Service départemental'**
-  String get registerMinefopDivisionalTitle;
-
-  /// No description provided for @registerMinefopDivisionalSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Délégation départementale de l\'emploi et de la formation professionnelle.'**
-  String get registerMinefopDivisionalSubtitle;
-
   /// No description provided for @registerCreateAccountTitle.
   ///
   /// In fr, this message translates to:
@@ -818,35 +1196,11 @@ abstract class AppLocalizations {
   /// **'Société, coopérative, CTD, ONG ou centre de formation soumis à la déclaration ONEFOP / DSMO.'**
   String get registerRoleCompanySubtitle;
 
-  /// No description provided for @registerRoleMinefopTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Agent MINEFOP'**
-  String get registerRoleMinefopTitle;
-
-  /// No description provided for @registerRoleMinefopSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Inspecteur ou agent du Ministère de l\'Emploi et de la Formation Professionnelle.'**
-  String get registerRoleMinefopSubtitle;
-
   /// No description provided for @registerEntityTypeSubtitle.
   ///
   /// In fr, this message translates to:
   /// **'Sélectionnez le type d\'entité que vous représentez.'**
   String get registerEntityTypeSubtitle;
-
-  /// No description provided for @registerRespondentTitlePersonal.
-  ///
-  /// In fr, this message translates to:
-  /// **'Vos informations personnelles'**
-  String get registerRespondentTitlePersonal;
-
-  /// No description provided for @registerRespondentSubtitleMinefop.
-  ///
-  /// In fr, this message translates to:
-  /// **'Ces informations seront associées à votre compte agent MINEFOP.'**
-  String get registerRespondentSubtitleMinefop;
 
   /// No description provided for @registerRespondentSubtitleStandard.
   ///
@@ -914,53 +1268,11 @@ abstract class AppLocalizations {
   /// **'Ces informations seront automatiquement pré-remplies dans la Section 1 de vos futurs formulaires ONEFOP et dans la Partie A de vos déclarations DSMO.'**
   String get registerEntityInfoInfoBox;
 
-  /// No description provided for @registerMinefopLoadFunctionsError.
-  ///
-  /// In fr, this message translates to:
-  /// **'Impossible de charger les fonctions.'**
-  String get registerMinefopLoadFunctionsError;
-
-  /// No description provided for @registerInfoAsRole.
-  ///
-  /// In fr, this message translates to:
-  /// **'Renseignez vos informations en tant que {role}.'**
-  String registerInfoAsRole(String role);
-
-  /// No description provided for @registerMatriculeLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Matricule *'**
-  String get registerMatriculeLabel;
-
-  /// No description provided for @registerMatriculeHint.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre matricule de fonctionnaire'**
-  String get registerMatriculeHint;
-
-  /// No description provided for @registerMatriculeRequired.
-  ///
-  /// In fr, this message translates to:
-  /// **'Matricule requis'**
-  String get registerMatriculeRequired;
-
-  /// No description provided for @registerLocalisationSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Indiquez la région et le département de votre affectation.'**
-  String get registerLocalisationSubtitle;
-
   /// No description provided for @registerRegionLabel.
   ///
   /// In fr, this message translates to:
   /// **'Région *'**
   String get registerRegionLabel;
-
-  /// No description provided for @registerSelectRegionHint.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez votre région'**
-  String get registerSelectRegionHint;
 
   /// No description provided for @registerDepartmentLabel.
   ///
@@ -973,120 +1285,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Sélectionnez d\'abord une région'**
   String get registerSelectRegionFirst;
-
-  /// No description provided for @registerSelectDepartmentHint.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez votre département'**
-  String get registerSelectDepartmentHint;
-
-  /// No description provided for @registerMinefopInfoBox.
-  ///
-  /// In fr, this message translates to:
-  /// **'Ces informations seront vérifiées lors de la validation de votre compte par un administrateur.'**
-  String get registerMinefopInfoBox;
-
-  /// No description provided for @registerLoadingFunctions.
-  ///
-  /// In fr, this message translates to:
-  /// **'Chargement des fonctions...'**
-  String get registerLoadingFunctions;
-
-  /// No description provided for @registerNoFunctionsAvailable.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucune fonction disponible pour votre niveau.'**
-  String get registerNoFunctionsAvailable;
-
-  /// No description provided for @registerFunctionPositionLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Fonction / Poste *'**
-  String get registerFunctionPositionLabel;
-
-  /// No description provided for @registerSelectYourFunction.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez votre fonction'**
-  String get registerSelectYourFunction;
-
-  /// No description provided for @registerSelectFunctionValidator.
-  ///
-  /// In fr, this message translates to:
-  /// **'Veuillez sélectionner une fonction'**
-  String get registerSelectFunctionValidator;
-
-  /// No description provided for @registerLoadingParentUnits.
-  ///
-  /// In fr, this message translates to:
-  /// **'Chargement des unités parentes...'**
-  String get registerLoadingParentUnits;
-
-  /// No description provided for @registerNoParentUnitsAvailable.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucune unité parente disponible pour cette fonction.'**
-  String get registerNoParentUnitsAvailable;
-
-  /// No description provided for @registerParentUnitLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Unité parente *'**
-  String get registerParentUnitLabel;
-
-  /// No description provided for @registerParentUnitDirectlyAttached.
-  ///
-  /// In fr, this message translates to:
-  /// **'Cette fonction est directement rattachée à cette unité.'**
-  String get registerParentUnitDirectlyAttached;
-
-  /// No description provided for @registerSelectDirectSupervisor.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez le service supérieur hiérarchique direct.'**
-  String get registerSelectDirectSupervisor;
-
-  /// No description provided for @registerSelectParentUnitHint.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez l\'unité supérieure'**
-  String get registerSelectParentUnitHint;
-
-  /// No description provided for @registerLoadingServiceUnits.
-  ///
-  /// In fr, this message translates to:
-  /// **'Chargement de vos services...'**
-  String get registerLoadingServiceUnits;
-
-  /// No description provided for @registerNoServiceUnitsFound.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucun service trouvé sous cette unité parente.'**
-  String get registerNoServiceUnitsFound;
-
-  /// No description provided for @registerYourServiceLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre service *'**
-  String get registerYourServiceLabel;
-
-  /// No description provided for @registerSelectYourUnit.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez l\'unité dans laquelle vous exercez.'**
-  String get registerSelectYourUnit;
-
-  /// No description provided for @registerSelectYourServiceHint.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sélectionnez votre service'**
-  String get registerSelectYourServiceHint;
-
-  /// No description provided for @registerJobTitleLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Intitulé du poste'**
-  String get registerJobTitleLabel;
 
   /// No description provided for @registerLocationSubtitle.
   ///
@@ -1268,12 +1466,6 @@ abstract class AppLocalizations {
   /// **'Vérifiez vos informations avant de créer le compte.'**
   String get registerReviewSubtitle;
 
-  /// No description provided for @registerReviewPersonalInfoTitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Informations personnelles'**
-  String get registerReviewPersonalInfoTitle;
-
   /// No description provided for @registerReviewRespondentTitle.
   ///
   /// In fr, this message translates to:
@@ -1328,41 +1520,11 @@ abstract class AppLocalizations {
   /// **'Secteur'**
   String get registerSectorRowLabel;
 
-  /// No description provided for @registerMinefopPendingInfoBox.
-  ///
-  /// In fr, this message translates to:
-  /// **'Votre compte sera activé après validation par un administrateur MINEFOP.'**
-  String get registerMinefopPendingInfoBox;
-
   /// No description provided for @registerCompanyPendingInfoBox.
   ///
   /// In fr, this message translates to:
   /// **'Ces informations pré-rempliront automatiquement les Sections 0 et 1 de vos formulaires ONEFOP et la Partie A de vos déclarations DSMO.'**
   String get registerCompanyPendingInfoBox;
-
-  /// No description provided for @registerAgentMinefopPrefix.
-  ///
-  /// In fr, this message translates to:
-  /// **'Agent MINEFOP — {role}'**
-  String registerAgentMinefopPrefix(String role);
-
-  /// No description provided for @registerMatriculeRowLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Matricule'**
-  String get registerMatriculeRowLabel;
-
-  /// No description provided for @registerHierarchicalPathLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Chemin hiérarchique'**
-  String get registerHierarchicalPathLabel;
-
-  /// No description provided for @registerServiceCodeRowLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Code service'**
-  String get registerServiceCodeRowLabel;
 
   /// No description provided for @forgotIntro.
   ///
@@ -1454,29 +1616,191 @@ abstract class AppLocalizations {
   /// **'Nouvelle recherche'**
   String get newSearchButton;
 
-  /// No description provided for @footerHelp.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aide'**
-  String get footerHelp;
-
-  /// No description provided for @footerPrivacy.
-  ///
-  /// In fr, this message translates to:
-  /// **'Confidentialité'**
-  String get footerPrivacy;
-
-  /// No description provided for @footerContact.
-  ///
-  /// In fr, this message translates to:
-  /// **'Contact'**
-  String get footerContact;
-
   /// No description provided for @footerVersionLine.
   ///
   /// In fr, this message translates to:
-  /// **'DSMO Digital v2.4.1-stable  ·  © 2026 MINEFOP · République du Cameroun'**
+  /// **'CAMLEAP v2.4.1-stable  ·  © 2026 MINEFOP · République du Cameroun'**
   String get footerVersionLine;
+
+  /// No description provided for @platformName.
+  ///
+  /// In fr, this message translates to:
+  /// **'CAMLEAP'**
+  String get platformName;
+
+  /// No description provided for @platformTagline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intelligence du marché du travail'**
+  String get platformTagline;
+
+  /// No description provided for @platformFullName.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plateforme camerounaise d\'analyse de l\'emploi et du travail'**
+  String get platformFullName;
+
+  /// No description provided for @forgotPasswordTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe oublié'**
+  String get forgotPasswordTitle;
+
+  /// No description provided for @forgotPasswordResetDoneTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe réinitialisé'**
+  String get forgotPasswordResetDoneTitle;
+
+  /// No description provided for @forgotPasswordStep1Subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrez l\'adresse e-mail de votre compte pour commencer.'**
+  String get forgotPasswordStep1Subtitle;
+
+  /// No description provided for @forgotPasswordStep2Subtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Répondez aux deux questions et choisissez un nouveau mot de passe.'**
+  String get forgotPasswordStep2Subtitle;
+
+  /// No description provided for @forgotPasswordDoneSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.'**
+  String get forgotPasswordDoneSubtitle;
+
+  /// No description provided for @accountEmailLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email du compte'**
+  String get accountEmailLabel;
+
+  /// No description provided for @emailRequiredShort.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email requis'**
+  String get emailRequiredShort;
+
+  /// No description provided for @answerRequiredShort.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réponse requise'**
+  String get answerRequiredShort;
+
+  /// No description provided for @newPasswordLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau mot de passe'**
+  String get newPasswordLabel;
+
+  /// No description provided for @confirmNewPasswordLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer le nouveau mot de passe'**
+  String get confirmNewPasswordLabel;
+
+  /// No description provided for @resetPasswordButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser le mot de passe'**
+  String get resetPasswordButton;
+
+  /// No description provided for @goToSignIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aller à la connexion'**
+  String get goToSignIn;
+
+  /// No description provided for @backLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour'**
+  String get backLabel;
+
+  /// No description provided for @resetPasswordTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser le mot de passe'**
+  String get resetPasswordTitle;
+
+  /// No description provided for @resetPasswordInvalidLink.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lien de réinitialisation invalide. Veuillez refaire une demande depuis la page de connexion.'**
+  String get resetPasswordInvalidLink;
+
+  /// No description provided for @resetPasswordSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.'**
+  String get resetPasswordSuccess;
+
+  /// No description provided for @chooseNewPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez un nouveau mot de passe'**
+  String get chooseNewPassword;
+
+  /// No description provided for @resetButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser'**
+  String get resetButton;
+
+  /// No description provided for @changePasswordRequiredTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changement de mot de passe requis'**
+  String get changePasswordRequiredTitle;
+
+  /// No description provided for @changePasswordRequiredBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre mot de passe a été défini par un administrateur. Choisissez-en un nouveau pour continuer.'**
+  String get changePasswordRequiredBody;
+
+  /// No description provided for @temporaryPasswordLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe temporaire'**
+  String get temporaryPasswordLabel;
+
+  /// No description provided for @temporaryPasswordRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe temporaire requis'**
+  String get temporaryPasswordRequired;
+
+  /// No description provided for @changePasswordButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer le mot de passe'**
+  String get changePasswordButton;
+
+  /// No description provided for @verifyingInProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification en cours…'**
+  String get verifyingInProgress;
+
+  /// No description provided for @emailVerifiedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse e-mail vérifiée'**
+  String get emailVerifiedTitle;
+
+  /// No description provided for @verificationFailedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification impossible'**
+  String get verificationFailedTitle;
+
+  /// No description provided for @invalidVerificationLink.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lien de vérification invalide. Veuillez refaire une demande depuis votre compte.'**
+  String get invalidVerificationLink;
 
   /// No description provided for @activeCampaignsTitle.
   ///

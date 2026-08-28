@@ -38,6 +38,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get requiredFieldConditional => 'Champ obligatoire (conditionnel)';
 
   @override
+  String get tableResponseRequired =>
+      'Indiquez si les chiffres sont déclarés, si aucun cas n\'est à signaler, ou si la question ne s\'applique pas';
+
+  @override
+  String get tableFiguresRequired =>
+      'Saisissez des chiffres, ou choisissez « aucun cas à signaler »';
+
+  @override
   String get selectAnOption => 'Veuillez sélectionner une option';
 
   @override
@@ -168,14 +176,250 @@ class AppLocalizationsFr extends AppLocalizations {
       'Identifiants incorrects. Vérifiez et réessayez.';
 
   @override
-  String get ministryFullName =>
-      'Ministère de l\'Emploi et de la Formation Professionnelle';
-
-  @override
   String get tabSignIn => 'Ouvrir une session';
 
   @override
   String get tabCreateAccount => 'Créer un compte';
+
+  @override
+  String get landingSignUpButton => 'Demander l\'accès';
+
+  @override
+  String get landingNavProgramme => 'Programme';
+
+  @override
+  String get landingNavAbout => 'SIMT';
+
+  @override
+  String get landingNavObservatory => 'Observatoire';
+
+  @override
+  String get landingNavComponents => 'Composantes';
+
+  @override
+  String get landingKickerObservatory => 'L\'Observatoire';
+
+  @override
+  String get landingObservatoryBadge => 'Contenu en préparation';
+
+  @override
+  String get landingAboutTitle =>
+      'Pourquoi un système d\'information sur le marché du travail ?';
+
+  @override
+  String get landingAboutPositioningTitle => 'Positionnement institutionnel';
+
+  @override
+  String get landingRoadmapTitle => 'Construire le système progressivement';
+
+  @override
+  String get landingValueStripTitle => 'Ce que CAMLEAP construit';
+
+  @override
+  String get landingSignInCta => 'Accéder à la plateforme';
+
+  @override
+  String get landingRequestAccountCta => 'Demander l\'accès';
+
+  @override
+  String get landingEnterLmisCta => 'Accéder au SIMT';
+
+  @override
+  String get landingHeroHeadline =>
+      'Bâtir le système d\'information sur le marché du travail du Cameroun';
+
+  @override
+  String get landingProgrammeLine =>
+      'Programme national pour le développement du système d\'information sur le marché du travail du Cameroun';
+
+  @override
+  String get landingHeroLead =>
+      'Porté par l\'ONEFOP sous tutelle du Ministère de l\'Emploi et de la Formation Professionnelle (MINEFOP).';
+
+  @override
+  String get landingExploreProgramme => 'Découvrir le programme';
+
+  @override
+  String get landingCurrentImplementation => 'Mise en œuvre actuelle';
+
+  @override
+  String get landingPlanned => 'Planifiée';
+
+  @override
+  String get landingOperational => 'Opérationnelle';
+
+  @override
+  String landingComponentPrefix(String roman) {
+    return 'Composante $roman';
+  }
+
+  @override
+  String get landingArchitectureTitle =>
+      'Le système d\'information sur le marché du travail';
+
+  @override
+  String get landingComponentsTitle => 'Composantes du programme CAMLEAP';
+
+  @override
+  String get landingCurrentSectionTitle => 'Mise en œuvre actuelle';
+
+  @override
+  String get landingDataToIntelTitle =>
+      'Des données à l\'intelligence du marché du travail';
+
+  @override
+  String get landingEcosystemTitle =>
+      'Une infrastructure d\'information pour le marché du travail';
+
+  @override
+  String get landingRepublic => 'République du Cameroun';
+
+  @override
+  String get landingMinefopName => 'MINEFOP';
+
+  @override
+  String get landingMinefopFull =>
+      'Ministère de l\'Emploi et de la Formation Professionnelle';
+
+  @override
+  String get landingOnefopName => 'ONEFOP';
+
+  @override
+  String get landingOnefopFull =>
+      'Observatoire National de l\'Emploi et de la Formation Professionnelle';
+
+  @override
+  String get landingKickerProgramme => 'Le programme';
+
+  @override
+  String get landingKickerLmis => 'Le SIMT';
+
+  @override
+  String get landingKickerComponents => 'Composantes';
+
+  @override
+  String get landingKickerImplementation => 'Mise en œuvre';
+
+  @override
+  String get landingKickerPlatform => 'Plateforme';
+
+  @override
+  String get landingKickerEcosystem => 'Écosystème';
+
+  @override
+  String get landingArchSources => 'Sources de données';
+
+  @override
+  String get landingArchCollection => 'Collecte';
+
+  @override
+  String get landingArchIntegration => 'Intégration';
+
+  @override
+  String get landingArchAnalysis => 'Analyse';
+
+  @override
+  String get landingArchIntelligence => 'Intelligence';
+
+  @override
+  String get landingArchDecision => 'Décision';
+
+  @override
+  String get landingFlowPaper => 'Collecte papier / fragmentée';
+
+  @override
+  String get landingFlowDigital => 'Questionnaires numériques';
+
+  @override
+  String get landingFlowValidation => 'Validation et standardisation';
+
+  @override
+  String get landingFlowCentralised => 'Données centralisées';
+
+  @override
+  String get landingFlowStructured =>
+      'Information structurée sur le marché du travail';
+
+  @override
+  String get landingIntelCollect => 'Collecter';
+
+  @override
+  String get landingIntelValidate => 'Valider';
+
+  @override
+  String get landingIntelCentralise => 'Centraliser';
+
+  @override
+  String get landingIntelIntegrate => 'Intégrer';
+
+  @override
+  String get landingIntelAnalyse => 'Analyser';
+
+  @override
+  String get landingIntelIndicators => 'Produire des indicateurs';
+
+  @override
+  String get landingIntelDecisions => 'Éclairer les décisions';
+
+  @override
+  String get landingStakeGovTitle => 'Gouvernement et décideurs';
+
+  @override
+  String get landingStakeGovBody =>
+      'Conçu pour appuyer les politiques d\'emploi, la planification et le suivi par des éléments de preuve.';
+
+  @override
+  String get landingStakeEmploymentTitle => 'Services de l\'emploi';
+
+  @override
+  String get landingStakeEmploymentBody =>
+      'Conçu pour appuyer une meilleure compréhension de l\'offre, de la demande et des tendances de l\'emploi.';
+
+  @override
+  String get landingStakeSkillsTitle => 'Établissements de formation';
+
+  @override
+  String get landingStakeSkillsBody =>
+      'Conçu pour appuyer l\'adéquation entre le développement des compétences et les besoins du marché du travail.';
+
+  @override
+  String get landingStakeEmployersTitle => 'Employeurs et partenaires sociaux';
+
+  @override
+  String get landingStakeEmployersBody =>
+      'Conçu pour appuyer une information fiable sur la dynamique de l\'emploi et de la main-d\'œuvre.';
+
+  @override
+  String get landingStakeResearchTitle => 'Chercheurs et analystes';
+
+  @override
+  String get landingStakeResearchBody =>
+      'Conçu pour appuyer une information structurée sur le marché du travail, pour l\'analyse et la recherche.';
+
+  @override
+  String get landingEcosystemNote =>
+      'Ces usages seront appuyés progressivement, au fur et à mesure de la mise en œuvre des composantes du programme.';
+
+  @override
+  String get landingPillarCollect => 'Collecter';
+
+  @override
+  String get landingPillarIntegrate => 'Intégrer';
+
+  @override
+  String get landingPillarAnalyse => 'Analyser';
+
+  @override
+  String get landingPillarInform => 'Informer';
+
+  @override
+  String get loginHint => 'nom@entreprise.cm ou EN26000112';
+
+  @override
+  String get phoneHintShort => '6XXXXXXXX';
+
+  @override
+  String get noAccountPrompt => 'Pas encore de compte ?';
 
   @override
   String get tabForgotId => 'Identifiant oublié';
@@ -200,7 +444,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get backToLogin => 'Retour à la connexion';
 
   @override
-  String get loginLabel => 'Login';
+  String get loginLabel => 'Identifiant';
 
   @override
   String get passwordLabel => 'Mot de passe';
@@ -262,16 +506,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get registerLoadSectorsError =>
       'Impossible de charger les secteurs. Réessayez.';
-
-  @override
-  String get registerPendingApprovalTitle => 'Demande soumise !';
-
-  @override
-  String get registerPendingApprovalBody =>
-      'Votre demande d\'accès MINEFOP est en attente d\'approbation par un administrateur.';
-
-  @override
-  String get registerUnderstoodButton => 'Compris';
 
   @override
   String get registerSuccessTitle => 'Compte créé avec succès !';
@@ -344,9 +578,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get registerStepTitleLocation => 'Localisation';
 
   @override
-  String get registerStepTitleMinefopInfo => 'Informations MINEFOP';
-
-  @override
   String get registerStepTitleSecurity => 'Sécurité';
 
   @override
@@ -373,34 +604,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Centre de formation technique et professionnelle agréé.';
 
   @override
-  String get registerServiceLevelTitle => 'Niveau de service';
-
-  @override
-  String get registerServiceLevelSubtitle =>
-      'Sélectionnez votre niveau hiérarchique.';
-
-  @override
-  String get registerMinefopCentralTitle => 'Administration centrale';
-
-  @override
-  String get registerMinefopCentralSubtitle =>
-      'Direction centrale, sous-direction ou service central à Yaoundé.';
-
-  @override
-  String get registerMinefopRegionalTitle => 'Service régional';
-
-  @override
-  String get registerMinefopRegionalSubtitle =>
-      'Délégation régionale de l\'emploi et de la formation professionnelle.';
-
-  @override
-  String get registerMinefopDivisionalTitle => 'Service départemental';
-
-  @override
-  String get registerMinefopDivisionalSubtitle =>
-      'Délégation départementale de l\'emploi et de la formation professionnelle.';
-
-  @override
   String get registerCreateAccountTitle => 'Créer un compte';
 
   @override
@@ -415,22 +618,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Société, coopérative, CTD, ONG ou centre de formation soumis à la déclaration ONEFOP / DSMO.';
 
   @override
-  String get registerRoleMinefopTitle => 'Agent MINEFOP';
-
-  @override
-  String get registerRoleMinefopSubtitle =>
-      'Inspecteur ou agent du Ministère de l\'Emploi et de la Formation Professionnelle.';
-
-  @override
   String get registerEntityTypeSubtitle =>
       'Sélectionnez le type d\'entité que vous représentez.';
-
-  @override
-  String get registerRespondentTitlePersonal => 'Vos informations personnelles';
-
-  @override
-  String get registerRespondentSubtitleMinefop =>
-      'Ces informations seront associées à votre compte agent MINEFOP.';
 
   @override
   String get registerRespondentSubtitleStandard =>
@@ -470,103 +659,13 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ces informations seront automatiquement pré-remplies dans la Section 1 de vos futurs formulaires ONEFOP et dans la Partie A de vos déclarations DSMO.';
 
   @override
-  String get registerMinefopLoadFunctionsError =>
-      'Impossible de charger les fonctions.';
-
-  @override
-  String registerInfoAsRole(String role) {
-    return 'Renseignez vos informations en tant que $role.';
-  }
-
-  @override
-  String get registerMatriculeLabel => 'Matricule *';
-
-  @override
-  String get registerMatriculeHint => 'Votre matricule de fonctionnaire';
-
-  @override
-  String get registerMatriculeRequired => 'Matricule requis';
-
-  @override
-  String get registerLocalisationSubtitle =>
-      'Indiquez la région et le département de votre affectation.';
-
-  @override
   String get registerRegionLabel => 'Région *';
-
-  @override
-  String get registerSelectRegionHint => 'Sélectionnez votre région';
 
   @override
   String get registerDepartmentLabel => 'Département *';
 
   @override
   String get registerSelectRegionFirst => 'Sélectionnez d\'abord une région';
-
-  @override
-  String get registerSelectDepartmentHint => 'Sélectionnez votre département';
-
-  @override
-  String get registerMinefopInfoBox =>
-      'Ces informations seront vérifiées lors de la validation de votre compte par un administrateur.';
-
-  @override
-  String get registerLoadingFunctions => 'Chargement des fonctions...';
-
-  @override
-  String get registerNoFunctionsAvailable =>
-      'Aucune fonction disponible pour votre niveau.';
-
-  @override
-  String get registerFunctionPositionLabel => 'Fonction / Poste *';
-
-  @override
-  String get registerSelectYourFunction => 'Sélectionnez votre fonction';
-
-  @override
-  String get registerSelectFunctionValidator =>
-      'Veuillez sélectionner une fonction';
-
-  @override
-  String get registerLoadingParentUnits => 'Chargement des unités parentes...';
-
-  @override
-  String get registerNoParentUnitsAvailable =>
-      'Aucune unité parente disponible pour cette fonction.';
-
-  @override
-  String get registerParentUnitLabel => 'Unité parente *';
-
-  @override
-  String get registerParentUnitDirectlyAttached =>
-      'Cette fonction est directement rattachée à cette unité.';
-
-  @override
-  String get registerSelectDirectSupervisor =>
-      'Sélectionnez le service supérieur hiérarchique direct.';
-
-  @override
-  String get registerSelectParentUnitHint => 'Sélectionnez l\'unité supérieure';
-
-  @override
-  String get registerLoadingServiceUnits => 'Chargement de vos services...';
-
-  @override
-  String get registerNoServiceUnitsFound =>
-      'Aucun service trouvé sous cette unité parente.';
-
-  @override
-  String get registerYourServiceLabel => 'Votre service *';
-
-  @override
-  String get registerSelectYourUnit =>
-      'Sélectionnez l\'unité dans laquelle vous exercez.';
-
-  @override
-  String get registerSelectYourServiceHint => 'Sélectionnez votre service';
-
-  @override
-  String get registerJobTitleLabel => 'Intitulé du poste';
 
   @override
   String get registerLocationSubtitle =>
@@ -667,9 +766,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Vérifiez vos informations avant de créer le compte.';
 
   @override
-  String get registerReviewPersonalInfoTitle => 'Informations personnelles';
-
-  @override
   String get registerReviewRespondentTitle =>
       'Répondant — Section 0 ONEFOP / Partie A DSMO';
 
@@ -698,26 +794,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get registerSectorRowLabel => 'Secteur';
 
   @override
-  String get registerMinefopPendingInfoBox =>
-      'Votre compte sera activé après validation par un administrateur MINEFOP.';
-
-  @override
   String get registerCompanyPendingInfoBox =>
       'Ces informations pré-rempliront automatiquement les Sections 0 et 1 de vos formulaires ONEFOP et la Partie A de vos déclarations DSMO.';
-
-  @override
-  String registerAgentMinefopPrefix(String role) {
-    return 'Agent MINEFOP — $role';
-  }
-
-  @override
-  String get registerMatriculeRowLabel => 'Matricule';
-
-  @override
-  String get registerHierarchicalPathLabel => 'Chemin hiérarchique';
-
-  @override
-  String get registerServiceCodeRowLabel => 'Code service';
 
   @override
   String get forgotIntro =>
@@ -768,17 +846,106 @@ class AppLocalizationsFr extends AppLocalizations {
   String get newSearchButton => 'Nouvelle recherche';
 
   @override
-  String get footerHelp => 'Aide';
-
-  @override
-  String get footerPrivacy => 'Confidentialité';
-
-  @override
-  String get footerContact => 'Contact';
-
-  @override
   String get footerVersionLine =>
-      'DSMO Digital v2.4.1-stable  ·  © 2026 MINEFOP · République du Cameroun';
+      'CAMLEAP v2.4.1-stable  ·  © 2026 MINEFOP · République du Cameroun';
+
+  @override
+  String get platformName => 'CAMLEAP';
+
+  @override
+  String get platformTagline => 'Intelligence du marché du travail';
+
+  @override
+  String get platformFullName =>
+      'Plateforme camerounaise d\'analyse de l\'emploi et du travail';
+
+  @override
+  String get forgotPasswordTitle => 'Mot de passe oublié';
+
+  @override
+  String get forgotPasswordResetDoneTitle => 'Mot de passe réinitialisé';
+
+  @override
+  String get forgotPasswordStep1Subtitle =>
+      'Entrez l\'adresse e-mail de votre compte pour commencer.';
+
+  @override
+  String get forgotPasswordStep2Subtitle =>
+      'Répondez aux deux questions et choisissez un nouveau mot de passe.';
+
+  @override
+  String get forgotPasswordDoneSubtitle =>
+      'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.';
+
+  @override
+  String get accountEmailLabel => 'Email du compte';
+
+  @override
+  String get emailRequiredShort => 'Email requis';
+
+  @override
+  String get answerRequiredShort => 'Réponse requise';
+
+  @override
+  String get newPasswordLabel => 'Nouveau mot de passe';
+
+  @override
+  String get confirmNewPasswordLabel => 'Confirmer le nouveau mot de passe';
+
+  @override
+  String get resetPasswordButton => 'Réinitialiser le mot de passe';
+
+  @override
+  String get goToSignIn => 'Aller à la connexion';
+
+  @override
+  String get backLabel => 'Retour';
+
+  @override
+  String get resetPasswordTitle => 'Réinitialiser le mot de passe';
+
+  @override
+  String get resetPasswordInvalidLink =>
+      'Lien de réinitialisation invalide. Veuillez refaire une demande depuis la page de connexion.';
+
+  @override
+  String get resetPasswordSuccess =>
+      'Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.';
+
+  @override
+  String get chooseNewPassword => 'Choisissez un nouveau mot de passe';
+
+  @override
+  String get resetButton => 'Réinitialiser';
+
+  @override
+  String get changePasswordRequiredTitle => 'Changement de mot de passe requis';
+
+  @override
+  String get changePasswordRequiredBody =>
+      'Votre mot de passe a été défini par un administrateur. Choisissez-en un nouveau pour continuer.';
+
+  @override
+  String get temporaryPasswordLabel => 'Mot de passe temporaire';
+
+  @override
+  String get temporaryPasswordRequired => 'Mot de passe temporaire requis';
+
+  @override
+  String get changePasswordButton => 'Changer le mot de passe';
+
+  @override
+  String get verifyingInProgress => 'Vérification en cours…';
+
+  @override
+  String get emailVerifiedTitle => 'Adresse e-mail vérifiée';
+
+  @override
+  String get verificationFailedTitle => 'Vérification impossible';
+
+  @override
+  String get invalidVerificationLink =>
+      'Lien de vérification invalide. Veuillez refaire une demande depuis votre compte.';
 
   @override
   String get activeCampaignsTitle => 'Campagnes en cours';
