@@ -5,7 +5,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../theme/ultra_theme.dart';
+import 'public_chrome.dart';
 
 // ── Breakpoints ───────────────────────────────────────────────
 
@@ -427,14 +429,23 @@ class RailLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = Container(
+    // CAMLEAP logo — falls back to the same gradient+icon mark this
+    // replaced if the asset is missing, so a not-yet-added logo file
+    // degrades gracefully instead of showing a broken-image icon.
+    final icon = Image.asset(
+      kCamleapLogoAsset,
       width: 40,
       height: 40,
-      decoration: BoxDecoration(
-        gradient: UltraTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(10),
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          gradient: UltraTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.analytics, color: Colors.white, size: 22),
       ),
-      child: const Icon(Icons.analytics, color: Colors.white, size: 22),
     );
 
     if (!isExpanded) return icon;
@@ -442,20 +453,20 @@ class RailLogo extends StatelessWidget {
     return Row(children: [
       icon,
       const SizedBox(width: 12),
-      const Expanded(
+      Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('DSMO',
+          Text(context.l10n.platformName,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: UltraTheme.textPrimary,
                 letterSpacing: -0.5,
               )),
-          Text('Intelligence du travail',
+          Text(context.l10n.platformTagline,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
                 color: UltraTheme.textMuted,

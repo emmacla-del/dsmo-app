@@ -1,9 +1,50 @@
 // src/landing-config/landing-config.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
+import { LandingConfigDto } from './dto/landing-config.dto';
 
 const SINGLETON_ID = 'singleton';
 const MAX_VERSIONS = 20;
+
+// Fixed lengths for every top-level array field in the contract — mirrors
+// LandingConfig.fromJson's fixedList calls on the Dart side. Used by
+// mergeWithDefaults to decide "whole array missing/wrong shape" the same
+// way the client does. A correctly-sized array can still hold internally
+// stale items — see OBJECT_ARRAY_FIELDS below for that repair. Does NOT
+// include roadmap.milestones, valueProposition.cards,
+// introduction.paragraphs, platformCapabilities.items,
+// institutionalMessage.stakeholders, or lmisArchitecture.steps — all six
+// are nested one level deep, so they're handled by their own dedicated
+// migrateLegacyRoadmapShape/migrateLegacyValuePropositionShape/
+// migrateLegacyIntroductionShape/migrateLegacyPlatformCapabilitiesShape/
+// migrateLegacyInstitutionalMessageShape/migrateLegacyLmisArchitectureShape
+// instead of this generic top-level-keys mechanism. observatory.indicators
+// is also nested one level deep but has no migrateLegacy* counterpart —
+// unlike those six, `observatory` never existed as a prior flat key, so a
+// snapshot predating it simply lacks the whole `observatory` object and
+// this generic mechanism's whole-object replacement (see the `else if`
+// branch below) is sufficient.
+const ARRAY_FIELD_LENGTHS: Record<string, number> = {
+  whyPillarKickers: 4,
+};
+
+// Which of the top-level array fields above hold structured objects (not
+// plain LocalizedText) whose own sub-fields can independently predate a
+// given snapshot even when the array itself is the expected length.
+// Repaired item-by-item against DEFAULT_LANDING_CONFIG's item at the same
+// index — safe because roadmap.milestones/valueProposition.cards/
+// institutionalMessage.stakeholders (all repaired separately — see
+// migrateLegacyRoadmapShape/migrateLegacyValuePropositionShape/
+// migrateLegacyInstitutionalMessageShape) are all rendered by positional
+// index everywhere (landing_screen.dart's roman numerals/icons,
+// LandingConfig.fromJson's fixedList), never looked up by an id or key.
+// Not extended to whyPillarKickers/introduction.paragraphs/
+// platformCapabilities.items/lmisArchitecture.steps — those are plain
+// LocalizedText[], already covered by the whole-array-length check above
+// plus LandingConfigDto's own field validators.
+const OBJECT_ARRAY_FIELDS: string[] = [];
 
 // Mirrors LandingConfig.defaults() in lib/models/landing_config.dart exactly
 // — keep both in sync if this pre-CMS fallback copy ever changes. Seeded
@@ -11,110 +52,208 @@ const MAX_VERSIONS = 20;
 // Super Admin's saved value takes over.
 const DEFAULT_LANDING_CONFIG = {
   statusLine: {
-    fr: "Initiative MINEFOP / ONEFOP — pilote en attente d'autorisation institutionnelle",
-    en: 'MINEFOP / ONEFOP initiative — pilot pending institutional authorization',
+    fr: "Phase fondatrice · Composante I — collecte numérique des données du travail et de l'emploi",
+    en: 'Foundation phase · Component I — digital labour and employment data collection',
   },
-  heroSupport: {
-    fr: "Une infrastructure numérique pour renforcer la qualité, la couverture et l'exploitabilité des données sur le marché du travail au Cameroun.",
-    en: "A digital infrastructure to strengthen the quality, coverage and usability of Cameroon's labour-market data.",
+  hero: {
+    title: {
+      fr: "Bâtir le système d'information sur le marché du travail du Cameroun",
+      en: "Building Cameroon's Labour Market Information System",
+    },
+    description: {
+      fr: "CAMLEAP est le programme d'infrastructure numérique par lequel l'ONEFOP développe progressivement un système national de collecte, d'intégration, de gestion et d'analyse des informations sur le travail et l'emploi.",
+      en: 'CAMLEAP is the digital infrastructure programme through which ONEFOP is progressively developing a national system for collecting, integrating, managing and analysing labour and employment information.',
+    },
   },
-  roadmap: [
-    {
-      label: { fr: 'Collecte de données', en: 'Data collection' },
-      description: {
-        fr: "Collecte numérique des enquêtes ONEFOP (entreprises, coopératives, ONG, CTD) et des déclarations de main-d'œuvre DSMO. Prototype fonctionnel prêt pour un pilote supervisé.",
-        en: 'Digital collection of ONEFOP surveys (enterprises, cooperatives, NGOs, CTDs) and DSMO workforce declarations. Functional prototype ready for supervised pilot.',
+  roadmap: {
+    milestones: [
+      {
+        label: { fr: 'Collecte numérique des données', en: 'Digital data collection' },
+        description: {
+          fr: "Digitalisation des instruments ONEFOP et DSMO et mise en place de l'infrastructure de données fondatrice du SIMT national. Composante actuellement mise en œuvre.",
+          en: 'Digitising ONEFOP and DSMO instruments and establishing the foundational data infrastructure required for the national LMIS. This component is the current implementation.',
+        },
+        done: true,
       },
-      done: true,
-    },
-    {
-      label: { fr: 'Formation professionnelle', en: 'Training data' },
-      description: {
-        fr: 'Intégration des données de la formation professionnelle pour compléter le volet compétences du marché du travail.',
-        en: 'Integration of professional training data to complete the skills side of the labour-market picture.',
+      {
+        label: { fr: 'Intégration et gestion des données', en: 'Data integration & management' },
+        description: {
+          fr: 'Composante planifiée, destinée à relier les informations sur le marché du travail issues des sources et processus institutionnels concernés.',
+          en: 'Planned component, designed to connect labour-market information from relevant sources and institutional processes.',
+        },
+        done: false,
       },
-      done: false,
-    },
-    {
-      label: { fr: 'Intelligence', en: 'Intelligence' },
-      description: {
-        fr: "Couches d'intelligence Ministère et Employeurs pour l'analyse, l'appui aux politiques et la prise de décision.",
-        en: 'Ministry and employer intelligence layers for analysis, policy support and decision-making.',
+      {
+        label: { fr: 'Analytique du marché du travail', en: 'Labour-market analytics' },
+        description: {
+          fr: "Composante planifiée, destinée à transformer l'information structurée en indicateurs et en éléments de preuve sur le marché du travail.",
+          en: 'Planned component, designed to transform structured information into labour-market indicators and evidence.',
+        },
+        done: false,
       },
-      done: false,
-    },
-    {
-      label: { fr: 'Observatoire public', en: 'Public observatory' },
-      description: {
-        fr: 'Observatoire public du marché du travail pour la diffusion transparente des indicateurs et analyses.',
-        en: 'Public labour-market observatory for transparent dissemination of indicators and insights.',
+      {
+        label: { fr: 'Intelligence et diffusion', en: 'Labour-market intelligence & dissemination' },
+        description: {
+          fr: "Composante planifiée, destinée à appuyer la diffusion de l'intelligence du marché du travail pour l'action publique et la décision.",
+          en: 'Planned component, designed to support dissemination of labour-market intelligence for policy and decision-making.',
+        },
+        done: false,
       },
-      done: false,
+    ],
+    caption: {
+      fr: 'Composante I en cours de mise en œuvre · Composantes II–IV planifiées',
+      en: 'Component I currently being implemented · Components II–IV planned',
     },
-  ],
-  roadmapCaption: {
-    fr: 'Composante I opérationnelle · Composantes II–IV planifiées',
-    en: 'Component I operational · Components II–IV planned',
   },
-  valueCards: [
-    {
-      title: { fr: 'Intégrité des données', en: 'Data integrity' },
-      body: {
-        fr: "Validation en temps réel, contrôles de cohérence et piste d'audit complète.",
-        en: 'Real-time validation, consistency checks and full audit trail.',
+  valueProposition: {
+    cards: [
+      {
+        title: { fr: 'Collecter', en: 'Collect' },
+        body: {
+          fr: "Digitaliser et standardiser la collecte des données sur le travail et l'emploi.",
+          en: 'Digitise and standardise labour and employment data collection.',
+        },
       },
-    },
-    {
-      title: { fr: 'Couverture nationale', en: 'National coverage' },
-      body: {
-        fr: 'Enquêtes ONEFOP et déclarations DSMO dans un flux numérique unique.',
-        en: 'ONEFOP surveys and DSMO declarations in one digital flow.',
+      {
+        title: { fr: 'Intégrer', en: 'Integrate' },
+        body: {
+          fr: 'Relier progressivement les informations issues des sources et processus institutionnels concernés.',
+          en: 'Connect information from relevant sources and institutional processes.',
+        },
       },
-    },
-    {
-      title: { fr: 'Traçabilité', en: 'Traceability' },
-      body: {
-        fr: 'Historique des soumissions, horodatage et attribution des utilisateurs.',
-        en: 'Submission history, timestamps and user attribution.',
+      {
+        title: { fr: 'Analyser', en: 'Analyse' },
+        body: {
+          fr: "Transformer l'information structurée en indicateurs et en éléments de preuve sur le marché du travail.",
+          en: 'Transform structured information into labour-market indicators and evidence.',
+        },
       },
-    },
-    {
-      title: { fr: 'Souveraineté', en: 'Sovereignty' },
-      body: {
-        fr: 'Données hébergées sous contrôle institutionnel camerounais.',
-        en: 'Data hosted under Cameroonian institutional control.',
+      {
+        title: { fr: 'Informer', en: 'Inform' },
+        body: {
+          fr: "Appuyer les politiques d'emploi, la planification, le suivi et la décision.",
+          en: 'Support employment policy, planning, monitoring and decision-making.',
+        },
       },
-    },
+    ],
+  },
+  whyPillarKickers: [
+    { fr: 'Collecter', en: 'Collect' },
+    { fr: 'Intégrer', en: 'Integrate' },
+    { fr: 'Analyser', en: 'Analyse' },
+    { fr: 'Informer', en: 'Inform' },
   ],
-  aboutParagraphs: [
-    {
-      fr: "CAM-LEAP (Cameroon Labour and Employment Analytical Platform) est une initiative de transformation numérique du système d'information sur le marché du travail du Cameroun. Elle vise à doter le MINEFOP d'une infrastructure moderne pour améliorer la visibilité, la qualité et l'exploitabilité des données du marché du travail.",
-      en: "CAM-LEAP (Cameroon Labour and Employment Analytical Platform) is a digital transformation initiative for Cameroon's labour-market information system. It aims to equip MINEFOP with modern infrastructure to improve the visibility, quality and usability of labour-market data.",
+  lmisArchitecture: {
+    steps: [
+      { fr: 'Sources de données', en: 'Data sources' },
+      { fr: 'Collecte', en: 'Collection' },
+      { fr: 'Intégration', en: 'Integration' },
+      { fr: 'Analyse', en: 'Analysis' },
+      { fr: 'Intelligence', en: 'Intelligence' },
+      { fr: 'Décision', en: 'Decision-making' },
+    ],
+  },
+  platformCapabilities: {
+    items: [
+      { fr: 'Collecter', en: 'Collect' },
+      { fr: 'Valider', en: 'Validate' },
+      { fr: 'Centraliser', en: 'Centralise' },
+      { fr: 'Intégrer', en: 'Integrate' },
+      { fr: 'Analyser', en: 'Analyse' },
+      { fr: 'Produire des indicateurs', en: 'Generate indicators' },
+      { fr: 'Éclairer les décisions', en: 'Inform decisions' },
+    ],
+  },
+  institutionalMessage: {
+    stakeholders: [
+      {
+        title: { fr: 'Gouvernement et décideurs', en: 'Government & policy makers' },
+        body: {
+          fr: "Conçu pour appuyer les politiques d'emploi, la planification et le suivi par des éléments de preuve.",
+          en: 'Designed to support evidence for employment policy, planning and monitoring.',
+        },
+      },
+      {
+        title: { fr: "Services de l'emploi", en: 'Employment services' },
+        body: {
+          fr: "Conçu pour appuyer une meilleure compréhension de l'offre, de la demande et des tendances de l'emploi.",
+          en: 'Designed to support a better understanding of labour supply, demand and employment trends.',
+        },
+      },
+      {
+        title: { fr: 'Établissements de formation', en: 'Skills & training institutions' },
+        body: {
+          fr: "Conçu pour appuyer l'adéquation entre le développement des compétences et les besoins du marché du travail.",
+          en: 'Designed to support alignment between skills development and labour-market needs.',
+        },
+      },
+      {
+        title: { fr: 'Employeurs et partenaires sociaux', en: 'Employers & social partners' },
+        body: {
+          fr: "Conçu pour appuyer une information fiable sur la dynamique de l'emploi et de la main-d'œuvre.",
+          en: 'Designed to support reliable information on workforce and employment dynamics.',
+        },
+      },
+      {
+        title: { fr: 'Chercheurs et analystes', en: 'Researchers & analysts' },
+        body: {
+          fr: "Conçu pour appuyer une information structurée sur le marché du travail, pour l'analyse et la recherche.",
+          en: 'Designed to support structured labour-market information for analysis and research.',
+        },
+      },
+    ],
+  },
+  introduction: {
+    paragraphs: [
+      {
+        fr: "Le Cameroun produit des informations sur le travail et l'emploi à travers plusieurs instruments, institutions et processus. CAMLEAP est développé pour transformer progressivement ces flux fragmentés en une infrastructure nationale d'information sur le marché du travail plus cohérente, fiable et exploitable.",
+        en: 'Cameroon generates labour and employment information through different instruments, institutions and processes. CAMLEAP is being developed to progressively transform these fragmented information flows into a more coherent, reliable and usable national labour-market information infrastructure.',
+      },
+      {
+        fr: "Le programme est structuré en quatre composantes séquentielles, de la collecte numérique à l'intégration, l'analytique et l'intelligence du marché du travail. La Composante I — digitalisation de la collecte des données ONEFOP et DSMO — est la mise en œuvre actuelle.",
+        en: 'The programme is structured in four sequential components, from digital data collection through integration, analytics and labour-market intelligence. Component I — digitalisation of ONEFOP and DSMO labour and employment data collection — is the current implementation.',
+      },
+      {
+        fr: "La mise en œuvre actuelle ne constitue ni un déploiement national du SIMT, ni une adoption institutionnelle, un transfert ou une licence de la plateforme. Ces questions seront déterminées par le MINEFOP.",
+        en: 'The current implementation does not constitute nationwide LMIS deployment, institutional adoption, transfer or licensing of the platform. Those questions will be determined by MINEFOP.',
+      },
+    ],
+    positioning: {
+      fr: "Conçue à partir de l'expérience opérationnelle au sein du MINEFOP et alignée sur la Vision 2035, la SND30 et les exigences des partenaires au développement en matière d'audit des données.",
+      en: 'Designed from operational experience inside MINEFOP and aligned with Vision 2035, SND30 and the data-auditing requirements of development partners.',
     },
-    {
-      fr: "Le programme est structuré en quatre composantes séquentielles. La Composante I — collecte numérique des enquêtes ONEFOP et des déclarations de main-d'œuvre DSMO — est achevée et opérationnelle sous forme de prototype fonctionnel. Les Composantes II à IV restent à développer.",
-      en: 'The programme is structured in four sequential components. Component I — digital collection of ONEFOP surveys and DSMO workforce declarations — is complete and operational as a functional prototype. Components II–IV remain to be developed.',
+  },
+  // Placeholder content — no real copy exists yet for the public
+  // observatory page. Flagged as provisional in the admin editor's note
+  // banner and with an in-preparation badge on the public page itself
+  // (see ObservatoryScreen). Super Admin fills these in when real copy is
+  // ready.
+  observatory: {
+    title: {
+      fr: "L'Observatoire du marché du travail",
+      en: 'The Labour Market Observatory',
     },
-    {
-      fr: "Le pilote ne constitue ni une adoption institutionnelle, ni une acquisition, un transfert ou une licence de la plateforme. Ces questions seront déterminées par le MINEFOP à la suite de l'évaluation du pilote supervisé.",
-      en: 'The pilot does not constitute institutional adoption, acquisition, transfer or licensing of the platform. Those questions will be determined by MINEFOP after evaluation of the supervised pilot.',
+    description: {
+      fr: "L'Observatoire mettra à disposition du public des indicateurs sur le marché du travail camerounais, à mesure que les composantes du SIMT seront mises en œuvre. Son contenu est en cours de préparation.",
+      en: "The Observatory will make labour-market indicators for Cameroon publicly available as LMIS components are implemented. Its content is currently in preparation.",
     },
-  ],
-  aboutPositioning: {
-    fr: "Conçue à partir de l'expérience opérationnelle au sein du MINEFOP et alignée sur la Vision 2035, la SND30 et les exigences des partenaires au développement en matière d'audit des données.",
-    en: 'Designed from operational experience inside MINEFOP and aligned with Vision 2035, SND30 and the data-auditing requirements of development partners.',
+    indicators: [
+      { fr: 'Emploi et chômage', en: 'Employment & unemployment' },
+      { fr: 'Compétences et formation', en: 'Skills & training' },
+      { fr: 'Salaires et conditions de travail', en: 'Wages & working conditions' },
+    ],
   },
   ctaTitle: {
-    fr: 'Prêt à découvrir la Composante I ?',
-    en: 'Ready to explore Component I?',
+    fr: 'Accéder à la plateforme CAMLEAP',
+    en: 'Access the CAMLEAP platform',
   },
   ctaNote: {
-    fr: "L'accès au pilote est réservé aux utilisateurs institutionnels autorisés.",
-    en: 'Pilot access is limited to authorised institutional users.',
+    fr: "Les services numériques de CAMLEAP sont progressivement mis à la disposition des utilisateurs autorisés et des institutions participantes, au fur et à mesure de la mise en œuvre des composantes du programme.",
+    en: 'CAMLEAP digital services are progressively being made available to authorised users and participating institutions as programme components are implemented.',
   },
   accessNote: {
-    fr: "L'accès au pilote est actuellement réservé aux utilisateurs institutionnels autorisés. Connectez-vous si vous disposez déjà d'un compte, ou demandez-en un.",
-    en: 'Pilot access is currently limited to authorised institutional users. Sign in if you already have credentials, or request an account.',
+    fr: "L'accès est actuellement réservé aux utilisateurs institutionnels autorisés. Connectez-vous si vous disposez déjà d'un compte, ou demandez l'accès.",
+    en: 'Access is currently limited to authorised institutional users. Sign in if you already have credentials, or request access.',
   },
 };
 
@@ -180,7 +319,327 @@ export class LandingConfigService {
     const version = await this.prisma.landingConfigVersion.findUniqueOrThrow({
       where: { id: versionId },
     });
-    return this.updateConfig(version.data as Record<string, any>, restoredBy);
+
+    // A snapshot can predate fields added to the schema since it was taken
+    // (e.g. the LMIS-redesign fields) — backfill those with the current
+    // defaults before writing it back, so restoring an old version can
+    // never silently blank out fields it never had, or leave the row in a
+    // shape newer code doesn't expect.
+    const merged = this.mergeWithDefaults(version.data as Record<string, any>);
+
+    // Validate the backfilled result against the same DTO the live PUT
+    // path enforces — catches genuine corruption (wrong types, malformed
+    // nested shapes), not just "missing a field that didn't exist yet"
+    // (mergeWithDefaults already handled that). forbidNonWhitelisted is
+    // deliberately off here (unlike the PUT controller): a years-old
+    // snapshot may carry a since-removed key, and that shouldn't block a
+    // restore the way it blocks a malformed live edit.
+    const instance = plainToInstance(LandingConfigDto, merged);
+    const errors = await validate(instance, {
+      whitelist: true,
+      forbidNonWhitelisted: false,
+    });
+    if (errors.length > 0) {
+      throw new UnprocessableEntityException(
+        "This version's data no longer matches the current landing-config schema and cannot be restored.",
+      );
+    }
+
+    return this.updateConfig(merged, restoredBy);
+  }
+
+  /** Backfills any field missing or the wrong shape in [data] — most
+   * commonly a version snapshot taken before that field existed — with
+   * DEFAULT_LANDING_CONFIG's value for it. Array fields are replaced whole
+   * when absent or the wrong length; scalar (LocalizedText) fields are
+   * replaced whole when absent or not an object. Legacy-shape migrations
+   * (see migrateLegacyHeroShape, migrateLegacyValuePropositionShape,
+   * migrateLegacyIntroductionShape, migrateLegacyRoadmapShape,
+   * migrateLegacyPlatformCapabilitiesShape,
+   * migrateLegacyInstitutionalMessageShape,
+   * migrateLegacyLmisArchitectureShape) run first, so a pre-restructure
+   * row's flat hero, valueCards, about-, roadmap-,
+   * dataToIntelligencePipeline-, ecosystemStakeholders-, and
+   * architecturePipeline-prefixed fields are read into their new nested
+   * shapes rather than discarded in favour of the default objects. */
+  private mergeWithDefaults(data: Record<string, any>): Record<string, any> {
+    let merged: Record<string, any> = this.migrateLegacyHeroShape({ ...data });
+    merged = this.migrateLegacyValuePropositionShape(merged);
+    merged = this.migrateLegacyIntroductionShape(merged);
+    merged = this.migrateLegacyRoadmapShape(merged);
+    merged = this.migrateLegacyPlatformCapabilitiesShape(merged);
+    merged = this.migrateLegacyInstitutionalMessageShape(merged);
+    merged = this.migrateLegacyLmisArchitectureShape(merged);
+    for (const key of Object.keys(DEFAULT_LANDING_CONFIG)) {
+      const expectedLength = ARRAY_FIELD_LENGTHS[key];
+      const defaultValue = (DEFAULT_LANDING_CONFIG as Record<string, any>)[key];
+      if (expectedLength !== undefined) {
+        const raw = merged[key];
+        if (!Array.isArray(raw) || raw.length !== expectedLength) {
+          merged[key] = defaultValue;
+        } else if (OBJECT_ARRAY_FIELDS.includes(key)) {
+          // Right length, but an individual item can still be an old
+          // shape — repair each item against its positional default
+          // rather than trusting the whole array just because the count
+          // matches.
+          merged[key] = raw.map((item: unknown, i: number) =>
+            this.mergeItemWithDefault(item, defaultValue[i]),
+          );
+        }
+      } else if (merged[key] == null || typeof merged[key] !== 'object') {
+        merged[key] = defaultValue;
+      }
+    }
+    return merged;
+  }
+
+  /** Read-time compatibility shim (deliberately not a one-time data
+   * migration): a row saved before the Hero group was nested stores
+   * `heroHeadline`/`heroSupport` at the top level instead of under a
+   * `hero` key. Chosen over a migration script because it also covers any
+   * LandingConfigVersion snapshot taken before this change — including
+   * ones that don't exist yet — with no production write required. Only
+   * fires when `hero` itself isn't already present; a row saved again
+   * through the current admin UI always has a real `hero` key (the
+   * Flutter client only ever sends the new nested shape), so this never
+   * runs for it again. Falls back to DEFAULT_LANDING_CONFIG.hero per
+   * sub-field, mirroring HeroConfig.fromJson's `legacyJson` handling on
+   * the Dart side. */
+  private migrateLegacyHeroShape(data: Record<string, any>): Record<string, any> {
+    if (data.hero != null && typeof data.hero === 'object') return data;
+    const { heroHeadline, heroSupport, ...rest } = data;
+    if (heroHeadline == null && heroSupport == null) return data;
+    return {
+      ...rest,
+      hero: {
+        title: heroHeadline ?? DEFAULT_LANDING_CONFIG.hero.title,
+        description: heroSupport ?? DEFAULT_LANDING_CONFIG.hero.description,
+      },
+    };
+  }
+
+  /** Read-time compatibility shim for the ValueProposition group (same
+   * rationale as migrateLegacyHeroShape): a row saved before this group
+   * was nested stores its 4 cards as a top-level `valueCards` array
+   * instead of under `valueProposition.cards`. Also does the per-item
+   * repair OBJECT_ARRAY_FIELDS applies to roadmap/ecosystemStakeholders,
+   * reimplemented here because valueProposition.cards is no longer a
+   * top-level key the generic loop in mergeWithDefaults can reach
+   * directly. Prefers an already-nested `valueProposition.cards` over the
+   * legacy flat key when both happen to be present. */
+  private migrateLegacyValuePropositionShape(
+    data: Record<string, any>,
+  ): Record<string, any> {
+    const defaultCards = DEFAULT_LANDING_CONFIG.valueProposition.cards;
+    const nestedCards = data.valueProposition?.cards;
+    const source = Array.isArray(nestedCards)
+      ? nestedCards
+      : Array.isArray(data.valueCards)
+        ? data.valueCards
+        : null;
+
+    const { valueCards, ...rest } = data;
+    if (source == null || source.length !== defaultCards.length) {
+      return { ...rest, valueProposition: { cards: defaultCards } };
+    }
+    return {
+      ...rest,
+      valueProposition: {
+        cards: source.map((item: unknown, i: number) =>
+          this.mergeItemWithDefault(item, defaultCards[i]),
+        ),
+      },
+    };
+  }
+
+  /** Read-time compatibility shim for the Introduction group (same
+   * rationale as migrateLegacyHeroShape): a row saved before this group
+   * was nested stores `aboutParagraphs`/`aboutPositioning` at the top
+   * level instead of under an `introduction` key. Each field falls back
+   * independently (per-field, not whole-object), same as
+   * migrateLegacyHeroShape. `paragraphs` is a plain LocalizedText[] (not
+   * structured objects like valueProposition.cards), so a wrong-length
+   * array is replaced wholesale rather than repaired item-by-item — same
+   * treatment ARRAY_FIELD_LENGTHS gives whyPillarKickers/
+   * architecturePipeline/dataToIntelligencePipeline. Prefers an
+   * already-nested `introduction` field over the legacy flat key when
+   * both happen to be present. */
+  private migrateLegacyIntroductionShape(
+    data: Record<string, any>,
+  ): Record<string, any> {
+    const defaults = DEFAULT_LANDING_CONFIG.introduction;
+    const nested = data.introduction;
+
+    const nestedParagraphs = nested?.paragraphs;
+    const paragraphsSource = Array.isArray(nestedParagraphs)
+      ? nestedParagraphs
+      : Array.isArray(data.aboutParagraphs)
+        ? data.aboutParagraphs
+        : null;
+    const paragraphs =
+      paragraphsSource != null && paragraphsSource.length === defaults.paragraphs.length
+        ? paragraphsSource
+        : defaults.paragraphs;
+
+    const positioning =
+      (nested != null && typeof nested === 'object' ? nested.positioning : undefined) ??
+      data.aboutPositioning ??
+      defaults.positioning;
+
+    const { aboutParagraphs, aboutPositioning, ...rest } = data;
+    return { ...rest, introduction: { paragraphs, positioning } };
+  }
+
+  /** Read-time compatibility shim for the Roadmap group — extra care
+   * versus the other migrate* methods because the new nested key reuses
+   * the exact name (`roadmap`) the old flat milestone ARRAY used, unlike
+   * hero/valueProposition/introduction where old and new key names
+   * differ. `data.roadmap` therefore has to be shape-checked (array =
+   * old flat milestones, object = new nested {milestones, caption})
+   * rather than just checked for presence. This is also the group whose
+   * per-item repair matters most in practice: the live singleton row's
+   * only populated fields are statusLine/roadmap/roadmapCaption, and its
+   * roadmap items have `label`/`done` but no `description` — the exact
+   * shape that first broke restoreVersion's strict DTO validation before
+   * mergeItemWithDefault existed (see this method's dry-run coverage). */
+  private migrateLegacyRoadmapShape(data: Record<string, any>): Record<string, any> {
+    const defaults = DEFAULT_LANDING_CONFIG.roadmap;
+    const rawRoadmap = data.roadmap;
+    const isNestedObject =
+      rawRoadmap != null && typeof rawRoadmap === 'object' && !Array.isArray(rawRoadmap);
+
+    const nestedMilestones = isNestedObject ? rawRoadmap.milestones : undefined;
+    const milestonesSource = Array.isArray(nestedMilestones)
+      ? nestedMilestones
+      : Array.isArray(rawRoadmap)
+        ? rawRoadmap
+        : null;
+    const milestones =
+      milestonesSource != null && milestonesSource.length === defaults.milestones.length
+        ? milestonesSource.map((item: unknown, i: number) =>
+            this.mergeItemWithDefault(item, defaults.milestones[i]),
+          )
+        : defaults.milestones;
+
+    const caption = (isNestedObject ? rawRoadmap.caption : undefined) ??
+      data.roadmapCaption ??
+      defaults.caption;
+
+    const { roadmapCaption, ...rest } = data;
+    return { ...rest, roadmap: { milestones, caption } };
+  }
+
+  /** Read-time compatibility shim for the PlatformCapabilities group: a row
+   * saved before this group was nested stores the 7-step "from data to
+   * intelligence" pipeline as a top-level `dataToIntelligencePipeline`
+   * array instead of under `platformCapabilities.items`. Unlike
+   * migrateLegacyRoadmapShape, `platformCapabilities` is a brand-new key
+   * name that never collided with the old flat key, so no
+   * array-vs-object shape check is needed here — presence of the new key
+   * alone distinguishes old from new. `items` is a plain LocalizedText[]
+   * (not structured objects), so a wrong-length array is replaced
+   * wholesale rather than repaired item-by-item, same treatment
+   * migrateLegacyIntroductionShape gives `paragraphs`. */
+  private migrateLegacyPlatformCapabilitiesShape(
+    data: Record<string, any>,
+  ): Record<string, any> {
+    const defaults = DEFAULT_LANDING_CONFIG.platformCapabilities;
+    const nestedItems = data.platformCapabilities?.items;
+    const source = Array.isArray(nestedItems)
+      ? nestedItems
+      : Array.isArray(data.dataToIntelligencePipeline)
+        ? data.dataToIntelligencePipeline
+        : null;
+    const items =
+      source != null && source.length === defaults.items.length ? source : defaults.items;
+
+    const { dataToIntelligencePipeline, ...rest } = data;
+    return { ...rest, platformCapabilities: { items } };
+  }
+
+  /** Read-time compatibility shim for the InstitutionalMessage group: a row
+   * saved before this group was nested stores the 5 stakeholder blocks as
+   * a top-level `ecosystemStakeholders` array instead of under
+   * `institutionalMessage.stakeholders`. Like migrateLegacyPlatformCapabilitiesShape
+   * (and unlike migrateLegacyRoadmapShape), `institutionalMessage` is a
+   * brand-new key name that never collided with the old flat key, so no
+   * array-vs-object shape check is needed — presence of the new key alone
+   * distinguishes old from new. `stakeholders` holds structured
+   * `{title, body}` objects (not plain LocalizedText), so — like
+   * migrateLegacyValuePropositionShape's cards — individual items are
+   * repaired against their positional default via mergeItemWithDefault
+   * rather than the whole array being replaced just because an old-shape
+   * item is missing a sub-field. */
+  private migrateLegacyInstitutionalMessageShape(
+    data: Record<string, any>,
+  ): Record<string, any> {
+    const defaults = DEFAULT_LANDING_CONFIG.institutionalMessage;
+    const nestedStakeholders = data.institutionalMessage?.stakeholders;
+    const source = Array.isArray(nestedStakeholders)
+      ? nestedStakeholders
+      : Array.isArray(data.ecosystemStakeholders)
+        ? data.ecosystemStakeholders
+        : null;
+
+    const { ecosystemStakeholders, ...rest } = data;
+    if (source == null || source.length !== defaults.stakeholders.length) {
+      return { ...rest, institutionalMessage: { stakeholders: defaults.stakeholders } };
+    }
+    return {
+      ...rest,
+      institutionalMessage: {
+        stakeholders: source.map((item: unknown, i: number) =>
+          this.mergeItemWithDefault(item, defaults.stakeholders[i]),
+        ),
+      },
+    };
+  }
+
+  /** Read-time compatibility shim for the LmisArchitecture group: a row
+   * saved before this group was nested stores the 6 architecture pipeline
+   * steps as a top-level `architecturePipeline` array instead of under
+   * `lmisArchitecture.steps`. Like migrateLegacyPlatformCapabilitiesShape
+   * (and unlike migrateLegacyRoadmapShape), `lmisArchitecture` is a
+   * brand-new key name that never collided with the old flat key, so no
+   * array-vs-object shape check is needed — presence of the new key alone
+   * distinguishes old from new. `steps` is a plain LocalizedText[] (not
+   * structured objects), so a wrong-length array is replaced wholesale
+   * rather than repaired item-by-item, same treatment
+   * migrateLegacyPlatformCapabilitiesShape gives `items`. */
+  private migrateLegacyLmisArchitectureShape(
+    data: Record<string, any>,
+  ): Record<string, any> {
+    const defaults = DEFAULT_LANDING_CONFIG.lmisArchitecture;
+    const nestedSteps = data.lmisArchitecture?.steps;
+    const source = Array.isArray(nestedSteps)
+      ? nestedSteps
+      : Array.isArray(data.architecturePipeline)
+        ? data.architecturePipeline
+        : null;
+    const steps =
+      source != null && source.length === defaults.steps.length ? source : defaults.steps;
+
+    const { architecturePipeline, ...rest } = data;
+    return { ...rest, lmisArchitecture: { steps } };
+  }
+
+  /** Fills any key missing or null on [item] from [defaultItem] at the
+   * same index — e.g. an old roadmap entry that has `label`/`done` but no
+   * `description` gets `description` from the current default for that
+   * position. Falls back to the default item outright if [item] itself
+   * isn't an object. */
+  private mergeItemWithDefault(
+    item: unknown,
+    defaultItem: Record<string, any>,
+  ): Record<string, any> {
+    if (item == null || typeof item !== 'object') return defaultItem;
+    const mergedItem: Record<string, any> = { ...(item as Record<string, any>) };
+    for (const key of Object.keys(defaultItem)) {
+      if (mergedItem[key] == null) {
+        mergedItem[key] = defaultItem[key];
+      }
+    }
+    return mergedItem;
   }
 
   private buildPreview(data: Record<string, any>): string {

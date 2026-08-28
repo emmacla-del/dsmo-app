@@ -721,6 +721,87 @@ class ApiClient {
     );
   }
 
+  // ==================== LANDING PAGE CONFIG ====================
+
+  // Shared with landing_config_provider.dart's peekCachedLandingConfig, so
+  // the cache key used to write here and the one used to read there can
+  // never drift apart.
+  static const landingConfigCacheKey = 'landing_config';
+
+  // Network-first (not getCached's return-stale-immediately): a Super Admin
+  // editing this content wants visitors to see the change on their next
+  // load, not whenever this device's TTL happens to expire. The cache is
+  // only a fallback for when the fetch itself fails — see
+  // ReferenceCacheService.getFresh. LandingConfig.fromJson/defaults() then
+  // does its own field-level fallback on top of this, so a 404, malformed
+  // body, or fully offline first launch all still resolve to a valid config.
+  Future<Map<String, dynamic>> getLandingConfig() async {
+    return _cache.getFresh<Map<String, dynamic>>(
+      key: landingConfigCacheKey,
+      fetch: () async {
+        try {
+          final response = await dio.get('/public/landing-config');
+          return Map<String, dynamic>.from(response.data as Map);
+        } on DioException catch (e) {
+          throw ApiException(
+            statusCode: e.response?.statusCode,
+            message: _handleError(e),
+          );
+        }
+      },
+    );
+  }
+
+  // SUPER_ADMIN only — see LandingConfigScreen. Always sends the whole
+  // config (all 4 roadmap items), matching the backend's PUT-replaces-
+  // the-resource semantics. Doesn't touch the getFresh cache directly —
+  // getLandingConfig() is network-first anyway, so the next read (e.g.
+  // after landingConfigProvider is invalidated) naturally picks up the
+  // saved value and refreshes the cache itself.
+  Future<Map<String, dynamic>> updateLandingConfig(
+      Map<String, dynamic> data) async {
+    try {
+      final response = await dio.put('/admin/landing-config', data: data);
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // SUPER_ADMIN only — most recent pre-overwrite snapshots, newest first.
+  // See LandingConfigService.listVersions.
+  Future<List<Map<String, dynamic>>> getLandingConfigHistory() async {
+    try {
+      final response = await dio.get('/admin/landing-config/history');
+      return List<Map<String, dynamic>>.from(
+          (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)));
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  // SUPER_ADMIN only — replays a prior snapshot through updateConfig, so
+  // the restore itself is snapshotted too (undoable, same as any save).
+  Future<Map<String, dynamic>> restoreLandingConfigVersion(
+      String versionId) async {
+    try {
+      final response =
+          await dio.post('/admin/landing-config/restore/$versionId');
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   // ==================== MINEFOP SERVICE METHODS ====================
 
   Future<List<dynamic>> getMinefopServices({

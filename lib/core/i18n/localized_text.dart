@@ -17,7 +17,24 @@ class LocalizedText {
       : fr = value,
         en = value;
 
+  /// Parses `{"fr": "...", "en": "..."}` — used for remotely-configured
+  /// content (e.g. Super-Admin-edited landing page copy). Falls back to
+  /// [fallback] field-by-field so a partial/malformed remote value can't
+  /// blank out a language.
+  factory LocalizedText.fromJson(
+    Map<String, dynamic>? json, {
+    required LocalizedText fallback,
+  }) {
+    if (json == null) return fallback;
+    return LocalizedText(
+      fr: json['fr'] as String? ?? fallback.fr,
+      en: json['en'] as String? ?? fallback.en,
+    );
+  }
+
   String of(Locale locale) => locale.languageCode == 'en' ? en : fr;
+
+  Map<String, dynamic> toJson() => {'fr': fr, 'en': en};
 
   @override
   bool operator ==(Object other) =>

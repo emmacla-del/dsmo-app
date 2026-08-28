@@ -14,7 +14,11 @@ import 'providers/sync_queue_provider.dart';
 import 'widgets/offline_banner.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/forgot_password_screen.dart';
-import 'screens/minefop_portal_screen.dart';
+import 'screens/landing_screen.dart';
+import 'screens/lmis_screen.dart';
+import 'screens/programme_screen.dart';
+import 'screens/observatory_screen.dart';
+import 'screens/login_portal_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verify_email_screen.dart';
@@ -24,18 +28,77 @@ import 'features/analytics/screens/onefop_dashboard_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// A bare continuity cue for the public site's tab-like routes (/, /lmis,
+/// /programme, /observatory) — deliberately NOT an app-style "screen
+/// transition". Institutional sites (World Bank, WHO) don't animate
+/// navigation at all; this only softens GoRouter's default instant cut
+/// just enough that the next section reads as "appeared smoothly" rather
+/// than "the app moved to another screen": a quick opacity fade with a
+/// fixed, near-imperceptible 3px settle (not a fraction of page height —
+/// SlideTransition's fractional offset was the earlier version's mistake,
+/// producing a visible slide on tall pages). Fast (150ms) and understated
+/// on purpose — no bounce, no overshoot. Skipped entirely when the OS
+/// reports a reduced-motion preference.
+CustomTransitionPage<void> _publicPage(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 150),
+    reverseTransitionDuration: const Duration(milliseconds: 150),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      if (MediaQuery.of(context).disableAnimations) return child;
+
+      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+      return FadeTransition(
+        opacity: curved,
+        child: AnimatedBuilder(
+          animation: curved,
+          child: child,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, (1 - curved.value) * 3),
+            child: child,
+          ),
+        ),
+      );
+    },
+  );
+}
+
 final GoRouter router = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
-  redirect: (context, state) {
-    if (state.matchedLocation == '/login') return '/';
-    return null;
-  },
   routes: [
     GoRoute(
       path: '/',
-      name: 'portal',
-      builder: (context, state) => const MinefopPortalScreen(),
+      name: 'landing',
+      pageBuilder: (context, state) => _publicPage(state, const LandingScreen()),
+    ),
+    GoRoute(
+      path: '/lmis',
+      name: 'lmis',
+      pageBuilder: (context, state) => _publicPage(state, const LmisScreen()),
+    ),
+    GoRoute(
+      path: '/programme',
+      name: 'programme',
+      pageBuilder: (context, state) => _publicPage(state, const ProgrammeScreen()),
+    ),
+    GoRoute(
+      path: '/observatory',
+      name: 'observatory',
+      pageBuilder: (context, state) => _publicPage(state, const ObservatoryScreen()),
+    ),
+    // Old standalone roadmap page, folded into /programme — redirected
+    // rather than removed outright since this is a public government site
+    // and old links/bookmarks to it may already be shared.
+    GoRoute(
+      path: '/roadmap',
+      redirect: (context, state) => '/programme',
+    ),
+    GoRoute(
+      path: '/login',
+      name: 'login',
+      builder: (context, state) => const LoginPortalScreen(),
     ),
     GoRoute(
       path: '/register',
