@@ -213,9 +213,9 @@ class FormSchemaCompiler {
       case 'departure_table':
         return _buildDepartureGrid(prefix, tableSpec);
       case 'first_time_workers_table':
-        return _buildFirstTimeWorkersGrid(prefix);
+        return _buildFirstTimeWorkersGrid(prefix, tableSpec);
       case 'dismissal_unemployment_table':
-        return _buildDismissalUnemploymentGrid(prefix);
+        return _buildDismissalUnemploymentGrid(prefix, tableSpec);
       case 'internship_table':
         return _buildInternshipGrid(prefix);
       default:
@@ -381,9 +381,15 @@ class FormSchemaCompiler {
     return GridSchema(id: prefix, matrix: matrix);
   }
 
-  static GridSchema _buildFirstTimeWorkersGrid(String prefix) {
+  static GridSchema _buildFirstTimeWorkersGrid(
+      String prefix, Map<String, dynamic> tableSpec) {
     final statuses = ['permanent', 'temporary'];
-    final rows = ['cadres', 'foremen', 'workers'];
+    // Defensive consistency fix only: honor an explicit tableSpec['rows']
+    // if one is ever supplied, matching the other CSP/SFP-row builders
+    // above — S23Q02 has no Administration (SFP-row) variant today, so
+    // this currently always falls back to the CSP default.
+    final rows = (tableSpec['rows'] as List?)?.cast<String>() ??
+        ['cadres', 'foremen', 'workers'];
     final genders = ['male', 'female', 'total'];
     final ageBands = ['15_24', '25_34', '35_plus'];
 
@@ -413,8 +419,15 @@ class FormSchemaCompiler {
     return GridSchema(id: prefix, matrix: matrix);
   }
 
-  static GridSchema _buildDismissalUnemploymentGrid(String prefix) {
-    final rows = ['cadres', 'foremen', 'workers'];
+  static GridSchema _buildDismissalUnemploymentGrid(
+      String prefix, Map<String, dynamic> tableSpec) {
+    // Defensive consistency fix only: honor an explicit tableSpec['rows']
+    // if one is ever supplied, matching the other CSP/SFP-row builders
+    // above. S3Q03 has no Administration variant today (deliberately
+    // unimplemented, pending visual PDF verification), so this currently
+    // always falls back to the CSP default — not implementing S3Q03 here.
+    final rows = (tableSpec['rows'] as List?)?.cast<String>() ??
+        ['cadres', 'foremen', 'workers'];
     final types = ['dismissal', 'technical_unemployment', 'total'];
     final genders = ['male', 'female', 'total'];
 

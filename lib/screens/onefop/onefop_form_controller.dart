@@ -583,13 +583,32 @@ class OnefopFormController extends ChangeNotifier {
     _gridRecalcTimer = Timer(const Duration(milliseconds: 220), _recalcDirty);
   }
 
+  /// tableSpec['rows'] for the table field whose prefix is [prefix] (e.g.
+  /// Administration's SFP rows for s21q01/s22q01/s3q01), or null to let
+  /// TableCellEngine.dispatch fall back to the default CSP rows — used so
+  /// recalculation agrees with whatever row set TableSpecBuilder actually
+  /// rendered for the current entity type.
+  List<String>? _tableRowsForPrefix(String prefix) {
+    if (_schema == null) return null;
+    for (final f in _schema!.fields) {
+      if (f.type != 'table') continue;
+      final sp = f.tableSpec;
+      if (sp == null) continue;
+      final pfx = (sp['prefix'] as String? ?? f.id).toLowerCase();
+      if (pfx != prefix) continue;
+      final rawRows = sp['rows'];
+      return rawRows is List ? rawRows.cast<String>() : null;
+    }
+    return null;
+  }
+
   void _recalcDirty() {
     if (_dirtyT.isEmpty) return;
     var w = Map<String, int>.from(_aGrid);
     final tp = Set<String>.from(_dirtyT);
     _dirtyT.clear();
     for (final p in tp) {
-      w = TableCellEngine.dispatch(w, p);
+      w = TableCellEngine.dispatch(w, p, rows: _tableRowsForPrefix(p));
     }
     final userCellIds = <String>{};
     for (final f in _schema!.fields) {
@@ -1202,7 +1221,7 @@ class OnefopFormController extends ChangeNotifier {
       's4q02',
       's4q03'
     ]) {
-      w = TableCellEngine.dispatch(w, p);
+      w = TableCellEngine.dispatch(w, p, rows: _tableRowsForPrefix(p));
     }
     _aGrid = w;
 

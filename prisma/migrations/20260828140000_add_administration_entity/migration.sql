@@ -11,6 +11,17 @@
 -- generates enum additions.
 ALTER TYPE "OnefopEntityType" ADD VALUE 'ADMINISTRATION';
 
+-- AlterEnum
+-- Administration's S21Q01/S22Q01/S3Q01 use SFP (civil-service) status
+-- categories instead of the CSP categories the other four entity types
+-- use. CspCategory backs OnefopCspGenderAge.cspCategory and
+-- OnefopDepartureData.cspCategory, both hard-typed to this enum, so
+-- these three values must exist before any Administration submission
+-- carrying S21Q01/S22Q01/S3Q01 data can be persisted.
+ALTER TYPE "CspCategory" ADD VALUE 'FONCTIONNAIRE';
+ALTER TYPE "CspCategory" ADD VALUE 'DECISIONNAIRE';
+ALTER TYPE "CspCategory" ADD VALUE 'CONTRACTUELLE';
+
 -- CreateTable
 CREATE TABLE "onefop_administration_details" (
     "id" TEXT NOT NULL,

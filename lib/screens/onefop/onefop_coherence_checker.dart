@@ -44,35 +44,42 @@ class OnefopCoherenceChecker {
     // Recruitments (S22Q01 permanent + S22Q02 temporary) re-partitioned by
     // diploma instead of age in S22Q03 — same recruited population, the
     // grand totals must agree, overall and per gender.
-    final byAge = {
-      'male': n('s22q01_total_male_total') + n('s22q02_total_male_total'),
-      'female':
-          n('s22q01_total_female_total') + n('s22q02_total_female_total'),
-      'total': n('s22q01_total_total_total') + n('s22q02_total_total_total'),
-    };
-    final byDiploma = {
-      'male': n('s22q03_total_male_total'),
-      'female': n('s22q03_total_female_total'),
-      'total': n('s22q03_total_total_total'),
-    };
-    for (final gender in ['male', 'female', 'total']) {
-      final a = byAge[gender]!;
-      final b = byDiploma[gender]!;
-      if (a != b && (a > 0 || b > 0)) {
-        final gFr = _genderLabels[gender]!.fr;
-        final gEn = _genderLabels[gender]!.en;
-        flags.add(CoherenceFlag(
-          'S22Q03_DIPLOMA_MISMATCH',
-          LocalizedText(
-            fr: 'Répartition des recrutements par diplôme (S22Q03: $b, '
-                '$gFr) ne correspond pas au total des recrutements '
-                'permanents + temporaires (S22Q01+S22Q02: $a, $gFr).',
-            en: 'Recruitment breakdown by diploma (S22Q03: $b, $gEn) does '
-                'not match the total permanent + temporary recruitments '
-                '(S22Q01+S22Q02: $a, $gEn).',
-          ),
-          'S22Q03',
-        ));
+    // Administration has no S22Q02/S22Q03 (excluded from its schema — see
+    // onefop_ast.dart), so this check is meaningless for it: S22Q02/S22Q03
+    // always read 0 while S22Q01 carries real data, which would otherwise
+    // spuriously fire on every submission with recruitment data.
+    if (entityType != EntityType.administration) {
+      final byAge = {
+        'male': n('s22q01_total_male_total') + n('s22q02_total_male_total'),
+        'female':
+            n('s22q01_total_female_total') + n('s22q02_total_female_total'),
+        'total':
+            n('s22q01_total_total_total') + n('s22q02_total_total_total'),
+      };
+      final byDiploma = {
+        'male': n('s22q03_total_male_total'),
+        'female': n('s22q03_total_female_total'),
+        'total': n('s22q03_total_total_total'),
+      };
+      for (final gender in ['male', 'female', 'total']) {
+        final a = byAge[gender]!;
+        final b = byDiploma[gender]!;
+        if (a != b && (a > 0 || b > 0)) {
+          final gFr = _genderLabels[gender]!.fr;
+          final gEn = _genderLabels[gender]!.en;
+          flags.add(CoherenceFlag(
+            'S22Q03_DIPLOMA_MISMATCH',
+            LocalizedText(
+              fr: 'Répartition des recrutements par diplôme (S22Q03: $b, '
+                  '$gFr) ne correspond pas au total des recrutements '
+                  'permanents + temporaires (S22Q01+S22Q02: $a, $gFr).',
+              en: 'Recruitment breakdown by diploma (S22Q03: $b, $gEn) does '
+                  'not match the total permanent + temporary recruitments '
+                  '(S22Q01+S22Q02: $a, $gEn).',
+            ),
+            'S22Q03',
+          ));
+        }
       }
     }
 
@@ -80,23 +87,29 @@ class OnefopCoherenceChecker {
     // (S3Q01, "dismissal" column), the dismissal-reasons table (S3Q02), and
     // the dismissal/technical-unemployment table (S3Q03, "dismissal"
     // column) — all three describe the same dismissals and should agree.
-    for (final gender in ['male', 'female']) {
-      final a = n('s3q01_total_dismissal_$gender');
-      final b = n('s3q02_total_$gender');
-      final c = n('s3q03_total_dismissal_$gender');
-      if ({a, b, c}.length > 1 && (a > 0 || b > 0 || c > 0)) {
-        final gFr = _genderLabels[gender]!.fr;
-        final gEn = _genderLabels[gender]!.en;
-        flags.add(CoherenceFlag(
-          'S3_DISMISSAL_MISMATCH',
-          LocalizedText(
-            fr: 'Le nombre de licenciements ($gFr) diffère entre S3Q01 '
-                '($a), S3Q02 ($b) et S3Q03 ($c).',
-            en: 'The number of dismissals ($gEn) differs between S3Q01 '
-                '($a), S3Q02 ($b) and S3Q03 ($c).',
-          ),
-          'S3Q01',
-        ));
+    // Administration has no S3Q03 (deliberately unimplemented pending
+    // visual PDF verification — see onefop_ast.dart), so c can never
+    // become nonzero for it while S3Q01/S3Q02 carry real data, which would
+    // otherwise permanently false-positive this check.
+    if (entityType != EntityType.administration) {
+      for (final gender in ['male', 'female']) {
+        final a = n('s3q01_total_dismissal_$gender');
+        final b = n('s3q02_total_$gender');
+        final c = n('s3q03_total_dismissal_$gender');
+        if ({a, b, c}.length > 1 && (a > 0 || b > 0 || c > 0)) {
+          final gFr = _genderLabels[gender]!.fr;
+          final gEn = _genderLabels[gender]!.en;
+          flags.add(CoherenceFlag(
+            'S3_DISMISSAL_MISMATCH',
+            LocalizedText(
+              fr: 'Le nombre de licenciements ($gFr) diffère entre S3Q01 '
+                  '($a), S3Q02 ($b) et S3Q03 ($c).',
+              en: 'The number of dismissals ($gEn) differs between S3Q01 '
+                  '($a), S3Q02 ($b) and S3Q03 ($c).',
+            ),
+            'S3Q01',
+          ));
+        }
       }
     }
 

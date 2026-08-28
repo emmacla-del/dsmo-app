@@ -377,6 +377,11 @@ class TableRenderer {
   }) {
     final spec = field.tableSpec!;
     final template = (spec['template'] as String? ?? '').trim();
+    // S4Q02/S4Q03's tableSpec['rows'] is an int (a row *count*, not a row
+    // *id list* — see their skills/training-table AST specs), so this must
+    // check the runtime type rather than blindly casting.
+    final rawRows = spec['rows'];
+    final rows = rawRows is List ? rawRows.cast<String>() : null;
     return TableSpecBuilder.build(
       template: template,
       prefix: _prefixFor(field),
@@ -384,6 +389,7 @@ class TableRenderer {
       onCellChanged: onCellChanged ?? (_, __) {},
       entityType: entityType,
       locale: locale,
+      rows: rows,
     );
   }
 

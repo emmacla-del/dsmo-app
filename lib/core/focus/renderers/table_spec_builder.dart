@@ -16,11 +16,12 @@ class TableSpecBuilder {
     required void Function(String, int?) onCellChanged,
     required String entityType,
     required Locale locale,
+    List<String>? rows,
   }) {
     switch (template) {
       case 'csp_gender_age_table':
       case 'csp_table':
-        return _buildCspGenderAge(prefix, locale);
+        return _buildCspGenderAge(prefix, locale, rows: rows);
 
       case 'diploma_gender_age_table':
       case 'diploma_table':
@@ -35,7 +36,7 @@ class TableSpecBuilder {
         return _buildVulnerableNamedRows(prefix, locale);
 
       case 'departure_table':
-        return _buildDeparture(prefix, locale);
+        return _buildDeparture(prefix, locale, rows: rows);
 
       case 'dismissal_unemployment_table':
         return _buildDismissalUnemployment(prefix, locale);
@@ -79,6 +80,25 @@ class TableSpecBuilder {
 
   static List<String> _cspRowLabels(Locale locale) =>
       _cspRowLabelsI18n.map((t) => t.of(locale)).toList();
+
+  // Row-id → label lookup covering both the default CSP rows (Enterprise/
+  // Cooperative/CTD/ONG) and Administration's SFP (civil-service status)
+  // rows for S21Q01/S22Q01/S3Q01 — see table_spec_builder's `rows` param,
+  // sourced from the AST's tableSpec['rows'] via TableRenderer. An id with
+  // no entry here falls back to itself (defensive; every row id currently
+  // produced by the AST is covered).
+  static const _rowLabelsById = <String, LocalizedText>{
+    'cadres': LocalizedText(fr: 'Cadres', en: 'Executives'),
+    'foremen': LocalizedText(fr: 'Agents de Maîtrise', en: 'Foremen'),
+    'workers': LocalizedText(fr: "Agents d'exécution", en: 'Field workers'),
+    'fonctionnaire': LocalizedText(fr: 'Fonctionnaire', en: 'Civil servant'),
+    'decisionnaire':
+        LocalizedText(fr: 'Décisionnaire', en: 'Decision-maker'),
+    'contractuelle': LocalizedText(fr: 'Contractuelle', en: 'Contractual'),
+  };
+
+  static List<LocalizedText> _rowLabelsFor(List<String> rows) =>
+      [for (final r in rows) _rowLabelsById[r] ?? LocalizedText.same(r)];
 
   // ─────────────────────────────────────────────────────────────
   // SHARED HELPERS
@@ -234,16 +254,21 @@ class TableSpecBuilder {
     );
   }
 
-  /// One CategoryMiniGrid per CSP category (Cadres/Foremen/Field
-  /// workers) — [rowKeyPrefix] lets a table with an outer axis (S23Q02's
-  /// permanent_/temporary_ status) reuse this for each outer group.
+  /// One CategoryMiniGrid per data row (Cadres/Foremen/Field workers by
+  /// default, or Administration's Fonctionnaire/Décisionnaire/Contractuelle
+  /// when [dataRows]/[labelsI18n] are supplied) — [rowKeyPrefix] lets a
+  /// table with an outer axis (S23Q02's permanent_/temporary_ status) reuse
+  /// this for each outer group.
   static List<CategoryMiniGrid> _categoryMiniGrids(
-      String prefix, String rowKeyPrefix, Locale locale) {
+      String prefix, String rowKeyPrefix, Locale locale,
+      {List<String>? dataRows, List<LocalizedText>? labelsI18n}) {
+    final rows = dataRows ?? _cspDataRows;
+    final labels = labelsI18n ?? _cspRowLabelsI18n;
     return [
-      for (int i = 0; i < _cspDataRows.length; i++)
+      for (int i = 0; i < rows.length; i++)
         CategoryMiniGrid(
-          label: _cspRowLabelsI18n[i].of(locale),
-          spec: _categoryMiniGrid(prefix, '$rowKeyPrefix${_cspDataRows[i]}', locale),
+          label: labels[i].of(locale),
+          spec: _categoryMiniGrid(prefix, '$rowKeyPrefix${rows[i]}', locale),
         ),
     ];
   }
@@ -251,14 +276,20 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S21Q01 / S22Q01 / S22Q02 / S23Q01
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildCspGenderAge(String prefix, Locale locale) {
+  static GridRenderSpec _buildCspGenderAge(String prefix, Locale locale,
+      {List<String>? rows}) {
+    final dataRows = rows ?? _cspDataRows;
+    final rowLabelsI18n = _rowLabelsFor(dataRows);
     final matrix = [
-      for (final r in _cspDataRows) _genderAgeRow(prefix, r),
+      for (final r in dataRows) _genderAgeRow(prefix, r),
       _genderAgeRow(prefix, 'total'),
     ];
     return GridRenderSpec(
       id: prefix,
-      rowLabels: _cspRowLabels(locale),
+      rowLabels: [
+        ...rowLabelsI18n.map((t) => t.of(locale)),
+        const LocalizedText.same('Total').of(locale),
+      ],
       matrix: matrix,
       headers: _genderAgeHeaders(locale),
       cornerLabel: const LocalizedText(fr: 'Sexe', en: 'Sex').of(locale),
@@ -266,7 +297,9 @@ class TableSpecBuilder {
               fr: "Tranche d'âge (ans)", en: 'Age group (years)')
           .of(locale),
       categoryGridGroups: [
-        CategoryGridGroup(categories: _categoryMiniGrids(prefix, '', locale)),
+        CategoryGridGroup(
+            categories: _categoryMiniGrids(prefix, '', locale,
+                dataRows: dataRows, labelsI18n: rowLabelsI18n)),
       ],
       // Spreadsheet Mode (desktop) renders this flat spec directly —
       // every category as one row, no card wrapper — with a compact
@@ -276,7 +309,7 @@ class TableSpecBuilder {
       // _categoryMiniGrids(prefix, '', locale) call above), so a skip
       // flag set from either rendering is recognized by the other. The
       // trailing '' is the computed Total row — nothing to skip there.
-      rowKeys: [for (final r in _cspDataRows) '${prefix}_$r', ''],
+      rowKeys: [for (final r in dataRows) '${prefix}_$r', ''],
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );
@@ -441,7 +474,8 @@ class TableSpecBuilder {
   // ─────────────────────────────────────────────────────────────
   // S3Q01
   // ─────────────────────────────────────────────────────────────
-  static GridRenderSpec _buildDeparture(String prefix, Locale locale) {
+  static GridRenderSpec _buildDeparture(String prefix, Locale locale,
+      {List<String>? rows}) {
     const types = [
       'dismissal',
       'resignation',
@@ -456,13 +490,15 @@ class TableSpecBuilder {
       LocalizedText(fr: 'Autres départs', en: 'Other departures'),
       LocalizedText(fr: 'Ensemble', en: 'Total'),
     ];
+    final dataRows = rows ?? _cspDataRows;
+    final rowLabelsI18n = _rowLabelsFor(dataRows);
     List<String> typeGenderRow(String rowKey) => [
           for (final t in types)
             for (final g in ['male', 'female', 'total'])
               '${prefix}_${rowKey}_${t}_$g',
         ];
     final matrix = [
-      for (final r in _cspDataRows) typeGenderRow(r),
+      for (final r in dataRows) typeGenderRow(r),
       typeGenderRow('total'),
     ];
     final typeLabels = typeLabelsI18n.map((t) => t.of(locale)).toList();
@@ -472,7 +508,10 @@ class TableSpecBuilder {
     // Mobile: categoryGridGroups, reason as the outer segmented axis.
     return GridRenderSpec(
       id: prefix,
-      rowLabels: _cspRowLabels(locale),
+      rowLabels: [
+        ...rowLabelsI18n.map((t) => t.of(locale)),
+        const LocalizedText.same('Total').of(locale),
+      ],
       matrix: matrix,
       headers: [
         for (final tl in typeLabelsI18n)
@@ -484,9 +523,9 @@ class TableSpecBuilder {
       ],
       cornerLabel: 'CSP / SPC',
       statusSwitcher: StatusSwitcherConfig(labels: typeLabels, keys: types),
-      rowKeys: [for (final r in _cspDataRows) '${prefix}_$r', ''],
+      rowKeys: [for (final r in dataRows) '${prefix}_$r', ''],
       categoryGridGroups: _middleAxisCategoryGroups(
-          prefix, types, typeLabels, _cspDataRows, _cspRowLabelsI18n, locale),
+          prefix, types, typeLabels, dataRows, rowLabelsI18n, locale),
       cellSpec: _cell,
       isTotalCell: _isTotal,
     );

@@ -1318,6 +1318,9 @@ enum CspCategory {
   FOREMEN
   WORKERS
   TOTAL
+  FONCTIONNAIRE
+  DECISIONNAIRE
+  CONTRACTUELLE
 }
 
 enum Gender {

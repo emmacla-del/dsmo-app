@@ -12,10 +12,14 @@ class TableCellEngine {
     if (spec == null) return [];
     final tpl = spec['template'] as String? ?? '';
     final pfx = (spec['prefix'] as String? ?? f.id).toLowerCase();
+    // S4Q02/S4Q03's tableSpec['rows'] is an int (a row *count*), not a row
+    // *id list*, so this must check the runtime type rather than cast.
+    final rawRows = spec['rows'];
+    final rows = rawRows is List ? rawRows.cast<String>() : null;
     switch (tpl) {
       case 'csp_gender_age_table':
       case 'csp_table':
-        return _cGA(pfx);
+        return _cGA(pfx, rows: rows);
       case 'diploma_gender_age_table':
       case 'diploma_table':
         return _cDip(pfx);
@@ -27,7 +31,7 @@ class TableCellEngine {
       case 'vulnerable_named_rows_table':
         return _cSG(pfx, ['deplaces_internes', 'refugies', 'orphelins']);
       case 'departure_table':
-        return _cDep(pfx);
+        return _cDep(pfx, rows: rows);
       case 'dismissal_unemployment_table':
         return _cDU(pfx);
       case 'first_time_workers_table':
@@ -45,8 +49,8 @@ class TableCellEngine {
     }
   }
 
-  static List<String> _cGA(String p) {
-    const r = ['cadres', 'foremen', 'workers'];
+  static List<String> _cGA(String p, {List<String>? rows}) {
+    final r = rows ?? const ['cadres', 'foremen', 'workers'];
     const g = ['male', 'female'];
     const a = ['15_24', '25_34', '35_plus'];
     return [
@@ -90,8 +94,8 @@ class TableCellEngine {
     ];
   }
 
-  static List<String> _cDep(String p) {
-    const r = ['cadres', 'foremen', 'workers'];
+  static List<String> _cDep(String p, {List<String>? rows}) {
+    final r = rows ?? const ['cadres', 'foremen', 'workers'];
     const t = ['dismissal', 'resignation', 'retirement', 'other'];
     const g = ['male', 'female'];
     return [
@@ -142,12 +146,16 @@ class TableCellEngine {
     ];
   }
 
-  /// Recompute a single table prefix and return updated grid.
-  static Map<String, int> dispatch(Map<String, int> current, String p) {
+  /// Recompute a single table prefix and return updated grid. [rows]
+  /// overrides the default CSP rows for the s21q01/s22q01/s22q02/s23q01
+  /// and s3q01 cases — pass the table's tableSpec['rows'] (e.g.
+  /// Administration's SFP rows) when known; other cases are unaffected.
+  static Map<String, int> dispatch(Map<String, int> current, String p,
+      {List<String>? rows}) {
     Map<String, int> ga(String x) => TableCalculator.recalculateCspGenderAge(
         current: current,
         prefix: x,
-        rows: ['cadres', 'foremen', 'workers'],
+        rows: rows ?? ['cadres', 'foremen', 'workers'],
         genders: ['male', 'female', 'total'],
         ageBands: ['15_24', '25_34', '35_plus']);
 
@@ -210,11 +218,7 @@ class TableCellEngine {
         return TableCalculator.recalculateDeparture(
             current: current,
             prefix: p,
-            rows: [
-              'cadres',
-              'foremen',
-              'workers'
-            ],
+            rows: rows ?? ['cadres', 'foremen', 'workers'],
             departureTypes: [
               'dismissal',
               'resignation',
