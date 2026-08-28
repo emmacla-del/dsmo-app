@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/focus/onefop_form_loader.dart';
+import '../../core/i18n/localized_text.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/form_schema_v2.dart';
@@ -17,6 +18,7 @@ import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
+import '../../core/focus/utils/table_response_status.dart';
 import '../../data/api_client.dart';
 import '../../services/sync_queue_service.dart';
 
@@ -53,6 +55,12 @@ class OnefopFormController extends ChangeNotifier {
   final String? establishmentId;
   final String? companyId; // ← ADD THIS
   final String? quarterCode;
+  // The active campaign's data-collection window — same source (the
+  // SubmissionRound behind /onefop/active-quarter) that gates whether this
+  // screen can even be opened. S21Q01's question text reads these instead
+  // of a hard-coded date; see _applyCampaignPeriodLabels().
+  final DateTime? campaignPeriodStart;
+  final DateTime? campaignPeriodEnd;
   final void Function(Map<String, dynamic>) onSave;
   final VoidCallback? onCancel;
   final String? userId;
@@ -64,6 +72,8 @@ class OnefopFormController extends ChangeNotifier {
     this.establishmentId,
     this.companyId, // ← ADD THIS
     this.quarterCode,
+    this.campaignPeriodStart,
+    this.campaignPeriodEnd,
     required this.onSave,
     this.onCancel,
     this.userId,
@@ -78,6 +88,16 @@ class OnefopFormController extends ChangeNotifier {
       _data['__meta_registration_number'] as String?;
   String? get _metaQuarterCode =>
       quarterCode ?? _data['__meta_quarter_code'] as String?;
+
+  // ── Resume position: which page/section and which internal table tab
+  // (age band, Permanent/Temporaire, ...) the user was last on. Stored the
+  // same way as the other __meta_ fields above — inside _data, so it rides
+  // along for free with the existing autosave/draft round-trip — but never
+  // rendered as a form field. Unlike _unitCursor (which intentionally
+  // starts empty and re-derives from data presence each session, see its
+  // comment below), there's no data-derived way to know which *page* the
+  // user was on, so this one has to be explicitly persisted and restored.
+  static const String _kNavPositionKey = '__meta_nav_position';
 
   // ── Schema / Engine ─────────────────────────────────────────
   NavigationEngine? _engine;
@@ -100,6 +120,7 @@ class OnefopFormController extends ChangeNotifier {
   Map<String, dynamic> get data => _data;
   Map<String, TextEditingController> get ctrl => _ctrl;
   Map<String, int> get aGrid => _aGrid;
+  Map<String, int> get uGrid => _uGrid;
   Map<String, String> get tv => _tv;
   Map<String, String> get htv => _htv;
   Map<String, TextEditingController> get hctrl => _hctrl;
@@ -112,12 +133,107 @@ class OnefopFormController extends ChangeNotifier {
   bool _loading = true;
   String? _err;
   int _si = 0;
+  // Set once, in _restorePosition(), when a loaded draft actually had a
+  // saved position to resume into — lets the screen show a one-time "you
+  // left off here" toast without re-deriving whether this was a fresh
+  // start vs. a resume.
+  bool _resumedFromSavedPosition = false;
+  bool get resumedFromSavedPosition => _resumedFromSavedPosition;
   final Map<String, bool> _valid = {};
   Map<String, dynamic>? _submissionSnapshot;
   int _sidebarMode = 2;
   final Map<String, ValidationError?> _valCache = {};
   List<String> _visibleFieldIds = [];
   final Map<String, VoidCallback> _ctrlListeners = {};
+
+  // ── Section-unit progressive reveal (mobile + desktop) ───────
+  // Which section-units (a group of simple fields, or one table-type
+  // field) the user has advanced past — drives both platforms'
+  // one-table-at-a-time reveal (see onefop_section_units.dart). Session-
+  // only, not persisted: a unit that already has data is *also* treated
+  // as advanced (see currentUnitIndex()), so a returning draft still
+  // shows its real progress even though this set starts empty.
+  final Set<String> _advancedUnits = {};
+  bool isUnitAdvanced(String key) => _advancedUnits.contains(key);
+  void advanceUnit(String key) {
+    if (_advancedUnits.add(key)) notifyListeners();
+  }
+
+  // Which unit within a section is currently displayed — explicit so
+  // Back/Next can move deterministically instead of re-deriving "current"
+  // from _advancedUnits (which only ever grows). Keyed by section id;
+  // absent means "not yet visited this session", so the unit-rendering
+  // widget falls back to currentUnitIndex()'s live computation.
+  final Map<String, int> _unitCursor = {};
+  int? unitCursor(String sectionId) => _unitCursor[sectionId];
+  void setUnitCursor(String sectionId, int index) {
+    _unitCursor[sectionId] = index;
+    notifyListeners();
+  }
+
+  // Which horizontal tab (age band, Permanent/Temporaire, ...) is active
+  // within a multi-option table — keyed by the table's cell-id prefix, so
+  // it survives navigating to a different section and back within the
+  // same session. _tabPeak is the furthest tab index ever reached for
+  // that key, independent of where the cursor currently sits (e.g. after
+  // stepping back to review an earlier tab) — used to show a completion
+  // checkmark on every tab up to the peak except the one currently active.
+  final Map<String, int> _tabCursor = {};
+  final Map<String, int> _tabPeak = {};
+  int tabCursor(String key) => _tabCursor[key] ?? 0;
+  int tabPeak(String key) => _tabPeak[key] ?? 0;
+  void setTabCursor(String key, int index) {
+    _tabCursor[key] = index;
+    if (index > (_tabPeak[key] ?? 0)) _tabPeak[key] = index;
+    _persistPosition();
+    notifyListeners();
+  }
+
+  // computeVisibleFieldIds()/focusFieldOffset() walk every field in the
+  // current section regardless of what's actually on screen — fine when
+  // everything renders at once, but both platforms now hide not-yet-
+  // revealed units, so Tab/Enter could otherwise try to focus a field
+  // with no mounted widget. The unit-rendering widget restates this on
+  // every build (a plain field write, not a notifyListeners() call — safe
+  // to do from within build()).
+  List<String>? _revealedFieldIds;
+  void setRevealedFieldIds(List<String> ids) => _revealedFieldIds = ids;
+  void clearRevealScope() => _revealedFieldIds = null;
+
+  // What to do instead of falling through to next()/prev() when Tab/Enter
+  // walks off the edge of the currently revealed unit — set by the unit-
+  // rendering widget each build so exitTable()/exitTablePrevious() can
+  // advance to the next/previous unit *within the section* first, only
+  // falling through to the page-level next()/prev() once there's no more
+  // unit to advance/retreat into.
+  VoidCallback? _onRevealForwardBoundary;
+  VoidCallback? _onRevealBackwardBoundary;
+  void setRevealBoundaryActions(
+      {VoidCallback? forward, VoidCallback? backward}) {
+    _onRevealForwardBoundary = forward;
+    _onRevealBackwardBoundary = backward;
+  }
+
+  // Per-unit scroll anchor, mirroring blockKeys/scrollToField below but
+  // keyed by the synthetic SectionUnit.key instead of a schema field id —
+  // a "simple fields" unit has no single field id of its own to anchor to.
+  final Map<String, GlobalKey> unitKeys = {};
+  GlobalKey keyForUnit(String key) =>
+      unitKeys.putIfAbsent(key, () => GlobalKey());
+  void scrollToUnit(String key) {
+    final gk = unitKeys[key];
+    if (gk == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = gk.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+  }
 
   Set<String> get touched => _touched;
   bool get dirty => _dirty;
@@ -156,6 +272,10 @@ class OnefopFormController extends ChangeNotifier {
   // ── Revalidation debounce ───────────────────────────────────
   Timer? _valTimer;
 
+  // ── Grid-total recalculation debounce ───────────────────────
+  Timer? _gridRecalcTimer;
+  bool _disposed = false;
+
   // ═══════════════════════════════════════════════════════════
   // LIFECYCLE
   // ═══════════════════════════════════════════════════════════
@@ -164,8 +284,10 @@ class OnefopFormController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _valTimer?.cancel();
     _asTimer?.cancel();
+    _gridRecalcTimer?.cancel();
     version.dispose();
     _fm?.dispose();
     for (final e in _ctrl.entries) {
@@ -189,6 +311,7 @@ class OnefopFormController extends ChangeNotifier {
       // completes before the widget's first build — the form renders
       // directly, without a loading-skeleton flash first.
       final s = OnefopFormLoader.loadForEntity(entityTypeForSchema(entityType));
+      _applyCampaignPeriodLabels(s);
       _schema = s;
       _engine = NavigationEngine(s);
       _fm = UnifiedFocusManagerV2(_engine!);
@@ -207,6 +330,8 @@ class OnefopFormController extends ChangeNotifier {
         blockKeys[f.id] = GlobalKey();
       }
 
+      _restorePosition();
+
       _loading = false;
       notifyListeners();
       WidgetsBinding.instance.addPostFrameCallback((_) => focusFirst());
@@ -216,6 +341,91 @@ class OnefopFormController extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  // Every question whose wording refers to the questionnaire's active
+  // data-collection period rather than a fixed date — S21Q01
+  // ("...du [X] au [Y]?") plus every sibling question sharing the same
+  // "...du premier Janvier 2025 à ce jour?" / "...du 1er Janvier 2025 à ce
+  // jour?" / "...from the 1st of January 2025 to the present day?"
+  // boilerplate (S22Q01-05, S23Q01-02, S3Q01, S3Q03, S4Q01). One resolver,
+  // reused by every question below — not a per-question mechanism.
+  // campaignPeriodStart/End come from the same SubmissionRound
+  // (/onefop/active-quarter) that already gates entry to this screen (see
+  // home_screen.dart's _openOnefopFormForCompany/_navigateToBlankForm), so
+  // there is no second campaign-period source to keep in sync.
+  static const List<String> kPeriodBasedQuestionIds = [
+    'S21Q01',
+    'S22Q01',
+    'S22Q02',
+    'S22Q03',
+    'S22Q04',
+    'S22Q05_ENTERPRISE',
+    'S22Q05_OTHER',
+    'S23Q01',
+    'S23Q02',
+    'S3Q01',
+    'S3Q03',
+    'S4Q01',
+  ];
+
+  // The compile-time placeholder date-phrases these questions carry in the
+  // AST (see onefop_ast.dart) — swapped in place for the resolved campaign
+  // period. Two French variants exist for the same "1st of January" date;
+  // both are replaced. Missing here would mean a period-based question was
+  // added to the AST without being wired into kPeriodBasedQuestionIds, not
+  // that it's exempt from dynamic dates.
+  static const List<String> _kFrPeriodPhrases = [
+    "du premier Janvier 2025 à ce jour",
+    "du 1er Janvier 2025 à ce jour",
+  ];
+  static const String _kEnPeriodPhrase =
+      "from the 1st of January 2025 to the present day";
+
+  void _applyCampaignPeriodLabels(FormSchemaV2 s) {
+    final periodFr = _periodPhraseFr(campaignPeriodStart, campaignPeriodEnd);
+    final periodEn = _periodPhraseEn(campaignPeriodStart, campaignPeriodEnd);
+    for (final id in kPeriodBasedQuestionIds) {
+      final idx = s.fields.indexWhere((f) => f.id == id);
+      // -1 is expected for the S22Q05 entity-type variant that doesn't
+      // apply to this schema's entityType (e.g. S22Q05_ENTERPRISE is
+      // filtered out for a cooperative/CTD/ONG schema).
+      if (idx == -1) continue;
+      final label = s.fields[idx].label;
+      if (label == null) continue;
+      var fr = label.fr;
+      for (final phrase in _kFrPeriodPhrases) {
+        fr = fr.replaceAll(phrase, periodFr);
+      }
+      final en = label.en.replaceAll(_kEnPeriodPhrase, periodEn);
+      s.fields[idx] =
+          s.fields[idx].copyWith(label: LocalizedText(fr: fr, en: en));
+    }
+  }
+
+  static String _fmtCampaignDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  // Matches the fallback wording used elsewhere for an unset campaign date
+  // (see app_fr.arb/app_en.arb's periodUndefined) — reached only if this
+  // controller is ever constructed with no campaign period in context.
+  // Both real entry points (home_screen.dart's _openOnefopFormForCompany
+  // and _navigateToBlankForm) fetch and gate on the active campaign before
+  // constructing this controller, so in normal use this is unreachable —
+  // it exists so a future/offline caller fails visibly with the app's own
+  // "period undefined" convention rather than a fabricated date.
+  static const _undefined = LocalizedText(fr: 'non définie', en: 'not set');
+
+  static String _periodPhraseFr(DateTime? start, DateTime? end) {
+    final startText = start == null ? _undefined.fr : _fmtCampaignDate(start);
+    final endText = end == null ? _undefined.fr : _fmtCampaignDate(end);
+    return 'du $startText au $endText';
+  }
+
+  static String _periodPhraseEn(DateTime? start, DateTime? end) {
+    final startText = start == null ? _undefined.en : _fmtCampaignDate(start);
+    final endText = end == null ? _undefined.en : _fmtCampaignDate(end);
+    return 'from $startText to $endText';
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -244,8 +454,8 @@ class OnefopFormController extends ChangeNotifier {
     for (final f in _schema!.fields) {
       if (f.type != 'table') continue;
       for (final id in TableCellEngine.cellIds(f)) {
-        final v = _data[id] as int?;
-        if (v != null && v != 0) _uGrid[id] = v;
+        final v = _data[id];
+        if (v is int) _uGrid[id] = v;
       }
     }
     _aGrid = Map.from(_uGrid);
@@ -294,21 +504,58 @@ class OnefopFormController extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // CATEGORY SKIP STATE (Simple Mode / mobile category cards)
+  // ═══════════════════════════════════════════════════════════
+  // "None to report for this category" is a distinct, explicit answer —
+  // not the same as a cell nobody has typed into — because downstream
+  // statistical use needs to tell "confirmed zero" apart from "unknown".
+  // Stored as a plain boolean in _data under the category's own spec id
+  // (e.g. "s23q02_permanent_cadres_skipped", stable across rebuilds and
+  // included in collectAndMapData()'s submission payload like any other
+  // _data entry) rather than as UI-only state, so it survives navigating
+  // away/back, autosaves, and round-trips through drafts.
+
+  bool isCategorySkipped(String categoryKey) =>
+      _data['${categoryKey}_skipped'] == true;
+
+  /// Toggling on clears [cellIds] back to a confirmed zero (rather than
+  /// leaving stray numbers the skip flag would otherwise contradict);
+  /// toggling off just drops the flag and leaves the (already-zero) cells
+  /// for the user to fill in.
+  void setCategorySkipped(
+      String categoryKey, bool value, List<String> cellIds) {
+    _data['${categoryKey}_skipped'] = value;
+    if (value) {
+      for (final id in cellIds) {
+        _uGrid[id] = 0;
+        _aGrid[id] = 0;
+        _data[id] = 0;
+      }
+      _dirtyT.add(fieldPrefix(cellIds.isEmpty ? categoryKey : cellIds.first));
+      _schedRecalc();
+    }
+    schedAS();
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // GRID / TABLE RECALCULATION
   // ═══════════════════════════════════════════════════════════
 
-  void onGridCellChanged(String id, int v) {
-    v = v.clamp(0, 10000);
-    if (v != 0) {
-      _uGrid[id] = v;
-    } else {
+  void onGridCellChanged(String id, int? v) {
+    if (v == null) {
       _uGrid.remove(id);
+      _aGrid.remove(id);
+      _data.remove(id);
+    } else {
+      final n = v.clamp(0, 10000);
+      _uGrid[id] = n;
+      _aGrid[id] = n;
+      _data[id] = n;
     }
-    _aGrid[id] = v;
-    _data[id] = v;
     schedAS();
     _dirtyT.add(fieldPrefix(id));
-    _recalcDirty();
+    _schedRecalc();
     _bump();
   }
 
@@ -324,6 +571,18 @@ class OnefopFormController extends ChangeNotifier {
     _recalcDirty();
   }
 
+  /// Debounces subtotal/total recomputation so a fast typist doesn't force
+  /// a full-page rebuild (every GenericSpreadsheetTable on the page relayouts
+  /// on [notifyListeners]) on every single keystroke — only once typing
+  /// pauses. The just-typed digit itself renders immediately regardless,
+  /// since it lives in the cell's own TextEditingController, not in this
+  /// recompute; only the *other* dependent cells (subtotal/total columns)
+  /// wait for the debounce.
+  void _schedRecalc() {
+    _gridRecalcTimer?.cancel();
+    _gridRecalcTimer = Timer(const Duration(milliseconds: 220), _recalcDirty);
+  }
+
   void _recalcDirty() {
     if (_dirtyT.isEmpty) return;
     var w = Map<String, int>.from(_aGrid);
@@ -332,8 +591,21 @@ class OnefopFormController extends ChangeNotifier {
     for (final p in tp) {
       w = TableCellEngine.dispatch(w, p);
     }
+    final userCellIds = <String>{};
+    for (final f in _schema!.fields) {
+      if (f.type != 'table') continue;
+      userCellIds.addAll(TableCellEngine.cellIds(f));
+    }
     for (final e in w.entries) {
-      _data[e.key] = e.value;
+      if (userCellIds.contains(e.key)) {
+        if (_uGrid.containsKey(e.key)) {
+          _data[e.key] = _uGrid[e.key];
+        } else {
+          _data.remove(e.key);
+        }
+      } else {
+        _data[e.key] = e.value;
+      }
     }
     _aGrid = w;
     notifyListeners();
@@ -372,6 +644,56 @@ class OnefopFormController extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════
   // AUTO-SAVE
   // ═══════════════════════════════════════════════════════════
+
+  /// Records where the user currently is (page + any table tab cursors)
+  /// into _data and marks the draft dirty — called on every
+  /// next()/prev()/goto()/setTabCursor(), not just on answer edits, so a
+  /// draft closed mid-navigation (no field touched since the last save)
+  /// still resumes in the right place. Deliberately doesn't route through
+  /// [schedAS] the way an answer edit does: schedAS's first-call-in-a-
+  /// while branch fires [_doAS] (and its unstructured, uncancellable
+  /// `Future.delayed`) synchronously, which is fine for an actual edit but
+  /// far too eager for a mere navigation step — repeated taps (e.g.
+  /// stepping through a tabbed table's internal tabs) would otherwise
+  /// queue up saves for no reason. Setting _dirty directly still gets the
+  /// position written for real once *something* actually triggers a save
+  /// — a later edit's schedAS(), an explicit saveNow(), or the
+  /// flushPendingSave() every screen already runs from dispose() (the
+  /// "app closed" case this exists for).
+  void _persistPosition() {
+    _data[_kNavPositionKey] = {
+      'section': _si,
+      'tabs': Map<String, int>.from(_tabCursor),
+    };
+    if (!_dirty) {
+      _dirty = true;
+      notifyListeners();
+    }
+  }
+
+  /// Restores _si and _tabCursor/_tabPeak from a loaded draft's stored
+  /// position, if present and still in range for the current schema.
+  /// Called once from [_loadSchema], after _schema/pageCount are known.
+  void _restorePosition() {
+    final nav = _data[_kNavPositionKey];
+    if (nav is! Map) return;
+    _resumedFromSavedPosition = true;
+    final section = nav['section'];
+    if (section is int && section >= 0 && section < pageCount) {
+      _si = section;
+    }
+    final tabs = nav['tabs'];
+    if (tabs is Map) {
+      for (final entry in tabs.entries) {
+        final v = entry.value;
+        if (v is int) {
+          final key = entry.key.toString();
+          _tabCursor[key] = v;
+          _tabPeak[key] = v;
+        }
+      }
+    }
+  }
 
   void schedAS() {
     final now = DateTime.now();
@@ -418,6 +740,18 @@ class OnefopFormController extends ChangeNotifier {
     onSave(Map.from(_data));
   }
 
+  /// Same as [flushPendingSave] but for an interactive "Save" button click:
+  /// runs through [_doAS] so saving/dirty flip and notify listeners,
+  /// driving the title bar's status indicator. Safe to call anytime the
+  /// controller is still mounted — unlike [flushPendingSave], never call
+  /// this from dispose().
+  Future<void> saveNow() async {
+    _asTimer?.cancel();
+    _asTimer = null;
+    if (!_dirty) return;
+    await _doAS();
+  }
+
   // ═══════════════════════════════════════════════════════════
   // VALIDATION
   // ═══════════════════════════════════════════════════════════
@@ -453,6 +787,14 @@ class OnefopFormController extends ChangeNotifier {
         )) !=
         null;
   }
+
+  /// Unconditional (ignores touched-state) required-field check — unlike
+  /// [hasError], which only flags a field once the user has reached it.
+  /// Used to gate the excel shell's per-unit "next" button: a unit should
+  /// be advanceable once its required fields are actually filled, not
+  /// once the user has merely clicked into them.
+  bool isFieldFilled(FieldSchema f) =>
+      FieldValidator.validate(f, _data) == null;
 
   String errorText(FieldSchema f, AppLocalizations l10n) {
     final error = _valCache.putIfAbsent(
@@ -572,7 +914,10 @@ class OnefopFormController extends ChangeNotifier {
         result.add(id);
       }
     }
-    return result;
+    final revealed = _revealedFieldIds;
+    if (revealed == null) return result;
+    final revealedSet = revealed.toSet();
+    return result.where(revealedSet.contains).toList();
   }
 
   void focusFieldOffset(int delta) {
@@ -600,13 +945,22 @@ class OnefopFormController extends ChangeNotifier {
     if (targetIdx >= 0 && targetIdx < fieldIds.length) {
       focusFieldId(fieldIds[targetIdx], preferFirst: delta > 0);
     } else if (targetIdx >= fieldIds.length && delta > 0) {
-      next();
+      if (_onRevealForwardBoundary != null) {
+        _onRevealForwardBoundary!();
+      } else {
+        next();
+      }
     } else if (targetIdx < 0 && delta < 0) {
-      prev();
+      if (_onRevealBackwardBoundary != null) {
+        _onRevealBackwardBoundary!();
+      } else {
+        prev();
+      }
     }
   }
 
-  void focusFieldId(String fieldId, {bool preferFirst = true, bool scroll = true}) {
+  void focusFieldId(String fieldId,
+      {bool preferFirst = true, bool scroll = true}) {
     final field = _schema?.getField(fieldId);
     if (field != null && field.type == 'table') {
       final cells = TableCellEngine.cellIds(field);
@@ -618,7 +972,12 @@ class OnefopFormController extends ChangeNotifier {
     } else {
       _fm!.focus(fieldId);
     }
-    if (scroll) scrollToField(fieldId);
+    // Entering a field forward (preferFirst) should reveal it starting from
+    // its top — e.g. a new table's header, not some mid/bottom slice of it —
+    // so the whole thing is visible to fill out. Entering backward (Shift+Tab
+    // into the previous table) aligns to its end instead, landing near the
+    // last cell the user would naturally continue editing from.
+    if (scroll) scrollToField(fieldId, alignEnd: !preferFirst);
   }
 
   void exitTable(String fieldId) {
@@ -629,6 +988,8 @@ class OnefopFormController extends ChangeNotifier {
     final idx = fieldIds.indexOf(fieldId);
     if (idx >= 0 && idx < fieldIds.length - 1) {
       focusFieldId(fieldIds[idx + 1], preferFirst: true);
+    } else if (_onRevealForwardBoundary != null) {
+      _onRevealForwardBoundary!();
     } else {
       next();
     }
@@ -642,6 +1003,8 @@ class OnefopFormController extends ChangeNotifier {
     final idx = fieldIds.indexOf(fieldId);
     if (idx > 0) {
       focusFieldId(fieldIds[idx - 1], preferFirst: false);
+    } else if (_onRevealBackwardBoundary != null) {
+      _onRevealBackwardBoundary!();
     } else {
       prev();
     }
@@ -702,7 +1065,12 @@ class OnefopFormController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void scrollToField(String fieldId) {
+  // alignEnd=false (default) aligns the target's top to the viewport's top —
+  // right for landing on a new table/page, so it's pushed fully into view
+  // from its header rather than showing some mid/bottom slice of it when the
+  // block is taller than the viewport. alignEnd=true aligns to the bottom,
+  // for backward navigation into a table's tail end.
+  void scrollToField(String fieldId, {bool alignEnd = false}) {
     final key = blockKeys[fieldId];
     if (key == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -712,7 +1080,9 @@ class OnefopFormController extends ChangeNotifier {
         ctx,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
-        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        alignmentPolicy: alignEnd
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+            : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
       );
     });
   }
@@ -728,6 +1098,7 @@ class OnefopFormController extends ChangeNotifier {
     if (_si < pageCount - 1) {
       _si++;
       _visibleFieldIds = computeVisibleFieldIds();
+      _persistPosition();
       notifyListeners();
       // _scrollToTop() already handles the scroll for a page change —
       // also animating focusFirst()'s own scroll-into-view at the same
@@ -743,32 +1114,54 @@ class OnefopFormController extends ChangeNotifier {
     if (_si > 0) {
       _si--;
       _visibleFieldIds = computeVisibleFieldIds();
+      _persistPosition();
       notifyListeners();
       focusFirst(scroll: false);
       _scrollToTop();
     }
   }
 
-  void goto(int page) {
+  // focus/scroll default true so the two existing call sites (submit's
+  // jump to a failed page, and the pre-outline-nav Sidebar tap) keep their
+  // original behavior unchanged. The vertical navigation's section/
+  // subsection jumps (see onefop_section_units.dart's navigateToSection)
+  // pass both false: they browse the outline without focusing a field,
+  // and do their own single scroll via scrollToUnit afterwards — animating
+  // _scrollToTop() at the same time would race it on the same
+  // ScrollController (see focusFirst's own doc comment on that race).
+  void goto(int page, {bool focus = true, bool scroll = true}) {
     // Leaving the page that failed validation clears the banner; landing
     // on it (e.g. the jump _previewSubmit() does via flagBlockedPage())
     // keeps it, so it shows exactly where the failure happened.
     if (page != _advanceBlockedPage) _advanceBlockedPage = null;
     _si = page;
     _visibleFieldIds = computeVisibleFieldIds();
+    _persistPosition();
     notifyListeners();
-    focusFirst(scroll: false);
-    _scrollToTop();
+    if (focus) focusFirst(scroll: false);
+    if (scroll) _scrollToTop();
   }
 
+  // Recomputes _visibleFieldIds *inside* the post-frame callback rather
+  // than before scheduling it — next()/prev()/goto() call this
+  // synchronously, right after bumping _si, which is before the unit-body
+  // widget's rebuild has run setRevealedFieldIds() for the new page's
+  // first unit. Computing eagerly here used to still see the *previous*
+  // unit's reveal scope, intersect it against the new page's field ids,
+  // get an empty list, and silently skip focusing anything — landing on
+  // a new section (via Suivant, or a table's Enter/Tab running off its
+  // last cell) never actually moved the cursor into it. Deferring the
+  // whole computation to the post-frame callback — which runs after that
+  // rebuild has already set the new unit's reveal scope — fixes that.
   void focusFirst({bool scroll = true}) {
-    if (_schema == null) return;
-    _visibleFieldIds = computeVisibleFieldIds();
-    if (_visibleFieldIds.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (_disposed || _schema == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed) return;
+      _visibleFieldIds = computeVisibleFieldIds();
+      if (_visibleFieldIds.isNotEmpty) {
         focusFieldId(_visibleFieldIds.first, preferFirst: true, scroll: scroll);
-      });
-    }
+      }
+    });
   }
 
   void _scrollToTop() {
@@ -813,19 +1206,33 @@ class OnefopFormController extends ChangeNotifier {
     }
     _aGrid = w;
 
-    for (final e in _aGrid.entries) {
-      _data[e.key] = e.value;
-    }
-    for (final e in _htv.entries) {
-      if (e.value.isNotEmpty) _data[e.key] = e.value;
-    }
+    final userCellIds = <String>{};
     if (_schema != null) {
       for (final f in _schema!.fields) {
         if (f.type != 'table') continue;
+        userCellIds.addAll(TableCellEngine.cellIds(f));
+        final paper = f.paperCode;
+        final status = paper == null
+            ? null
+            : _data[TableResponseStatus.fieldId(paper)]?.toString();
         for (final id in TableCellEngine.cellIds(f)) {
-          if (!_data.containsKey(id)) _data[id] = 0;
+          if (status == TableResponseStatus.none) {
+            _data[id] = 0;
+          } else if (status == TableResponseStatus.notApplicable) {
+            _data.remove(id);
+          } else if (_uGrid.containsKey(id)) {
+            _data[id] = _uGrid[id];
+          } else {
+            _data.remove(id);
+          }
         }
       }
+    }
+    for (final e in _aGrid.entries) {
+      if (!userCellIds.contains(e.key)) _data[e.key] = e.value;
+    }
+    for (final e in _htv.entries) {
+      if (e.value.isNotEmpty) _data[e.key] = e.value;
     }
     for (final e in _ctrl.entries) {
       if (e.value.text.isNotEmpty) _data[e.key] = e.value.text;
@@ -956,7 +1363,8 @@ class OnefopFormController extends ChangeNotifier {
           method: 'post',
           path: '/onefop/submit',
           payload: payload,
-          label: 'Questionnaire ONEFOP — ${_metaEstablishmentId ?? userId ?? ''}',
+          label:
+              'Questionnaire ONEFOP — ${_metaEstablishmentId ?? userId ?? ''}',
         );
         _submissionSnapshot = null;
         onSave({});

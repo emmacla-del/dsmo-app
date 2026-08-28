@@ -1,7 +1,7 @@
 // lib/core/focus/renderers/shared/form_cell.dart
 //
-// Unified cell dispatcher used by schema_renderer and other callers
-// that need a single widget entry-point for number / text / readOnly cells.
+// Unified cell dispatcher for callers that need a single widget entry-point
+// for number / text / readOnly cells.
 //
 // All callback signatures match NumberField and TextFieldCell exactly:
 //   NumberField  : onChanged(String fieldId, int  value)
@@ -22,7 +22,7 @@ class FormCell extends StatelessWidget {
 
   // Typed callbacks — callers must supply the correct variant.
   // Only one of these is used, determined by [type].
-  final void Function(String fieldId, int value)? onNumberChanged;
+  final void Function(String fieldId, int? value)? onNumberChanged;
   final void Function(String fieldId, String value)? onTextChanged;
 
   final UnifiedFocusManagerV2 focusManager;
@@ -62,7 +62,7 @@ class FormCell extends StatelessWidget {
       case FormCellType.number:
         return NumberField(
           fieldId: id,
-          value: value is int ? value as int : 0,
+          value: value is int ? value as int : null,
           onChanged: onNumberChanged ?? (_, __) {},
           focusManager: focusManager,
           tableId: tableId,

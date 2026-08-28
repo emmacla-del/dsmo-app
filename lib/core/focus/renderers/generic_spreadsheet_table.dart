@@ -3,13 +3,22 @@
 // ══════════════════════════════════════════════════════════════
 // GENERIC SPREADSHEET TABLE  — pixel-perfect ONEFOP renderer
 //
-// ARCHITECTURE:
-//   • Header rows → GridLayoutEngine (fixed height, handles colSpan/rowSpan)
-//   • Data rows   → Column + IntrinsicHeight (auto-height, no clipping)
+// ARCHITECTURE (v2 — unified single grid):
+//   Header cells and data cells are both plain GridCell objects (row/
+//   col/rowSpan/colSpan), fed into ONE GridLayoutEngine call. That
+//   engine positions every cell absolutely and paints every gridline
+//   — including the header/data boundary — as a single continuous
+//   stroke per line (see grid_layout_engine.dart), so there's no seam
+//   at the header/data boundary and no per-cell double-bordering.
 //
-// FIX: leading-group column cells (e.g. "Permanent / Temporaire") are now
-//      rendered as a single merged cell spanning all their sub-rows, matching
-//      the PDF reference layout.
+//   Row heights: header rows use a fixed height. Data rows are sized
+//   analytically — via TextPainter, the same layout engine Flutter's
+//   own Text widgets use internally — so a wrapped row label (or a
+//   long leading-group label spanning several sub-rows) still gets a
+//   tall enough row without needing runtime IntrinsicHeight/auto-size
+//   passes, which is what the old per-row Row+IntrinsicHeight builder
+//   used to provide (and which is what made the header and data rows
+//   two independently-laid-out systems in the first place).
 // ══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
@@ -18,12 +27,14 @@ import 'grid_render_spec.dart';
 import '../unified_focus_manager_v2.dart';
 import 'shared/grid_cell_dispatch.dart';
 import 'grid_theme.dart';
+import '../../i18n/localized_text.dart';
+import '../../i18n/l10n_ext.dart';
 
 class GenericSpreadsheetTable extends StatelessWidget {
   final GridRenderSpec spec;
   final Map<String, int> numberValues;
   final Map<String, String> textValues;
-  final Function(String, int) onNumberChanged;
+  final Function(String, int?) onNumberChanged;
   final Function(String, String) onTextChanged;
   final UnifiedFocusManagerV2 focusManager;
   final String tableId;
@@ -32,6 +43,14 @@ class GenericSpreadsheetTable extends StatelessWidget {
   final double horizontalPagePadding;
   // ← ADD: hybrid controller for text/label cells
   final TextEditingController Function(String)? hybridController;
+  // Optional leading widget inside a data row's label cell — Spreadsheet
+  // Mode's flat matrix-question tables use this for the per-row "Aucun
+  // cas à signaler" toggle (see category_mini_grids.dart's
+  // RowSkipToggle). Only called for a row whose spec.rowKeys entry is
+  // non-empty (a computed "Total" row has none) — every other table
+  // (S4Q01, reasons/skills/training, identification grids, ...) leaves
+  // spec.rowKeys null and never triggers this at all.
+  final Widget Function(int rowIndex, String rowKey)? rowAccessoryBuilder;
 
   const GenericSpreadsheetTable({
     super.key,
@@ -46,18 +65,12 @@ class GenericSpreadsheetTable extends StatelessWidget {
     this.onExitPrevious,
     this.horizontalPagePadding = 0,
     this.hybridController, // ← ADD THIS
+    this.rowAccessoryBuilder,
   });
 
   // ── Editable cell list (recomputed every build) ───────────────
   List<String> get allCells {
     final cells = <String>[];
-
-    if (spec.rowLabelCellIds != null) {
-      for (final id in spec.rowLabelCellIds!) {
-        if (id.isNotEmpty) cells.add(id);
-      }
-    }
-
     if (spec.isMatrixLayout) {
       for (final row in spec.matrix) {
         for (final cellId in row) {
@@ -67,6 +80,14 @@ class GenericSpreadsheetTable extends StatelessWidget {
       }
     } else {
       for (int r = 0; r < spec.rowLabels.length; r++) {
+        final labelId =
+            spec.rowLabelCellIds != null && r < spec.rowLabelCellIds!.length
+                ? spec.rowLabelCellIds![r]
+                : '';
+        if (labelId.isNotEmpty &&
+            (spec.cellSpec?.call(labelId).editable ?? false)) {
+          cells.add(labelId);
+        }
         for (int c = 0; c < spec.colCount; c++) {
           final cellId = spec.cellId(r, c);
           final cs = spec.cellSpec?.call(cellId);
@@ -81,7 +102,10 @@ class GenericSpreadsheetTable extends StatelessWidget {
     if (spec.isMatrixLayout) {
       return spec.matrix.isEmpty ? 1 : spec.matrix.first.length;
     }
-    return spec.colCount;
+    final hasEditableRowLabel = spec.rowLabelCellIds?.any((id) =>
+            id.isNotEmpty && (spec.cellSpec?.call(id).editable ?? false)) ??
+        false;
+    return spec.colCount + (hasEditableRowLabel ? 1 : 0);
   }
 
   // ── Header depth ──────────────────────────────────────────────
@@ -125,16 +149,25 @@ class GenericSpreadsheetTable extends StatelessWidget {
       widths = [labelColW, ...dataCols];
     }
 
-    const borderOverhead = 3.0;
-    final usableWidth =
-        (availableWidth - borderOverhead).clamp(0.0, double.infinity);
-    final naturalW = widths.reduce((a, b) => a + b);
-    if (naturalW < usableWidth && usableWidth > 0) {
-      final extra = usableWidth - naturalW;
-      final extraPerCol = extra / widths.length;
-      widths = widths.map((w) => w + extraPerCol).toList();
+    return _snapToPixels(widths);
+  }
+
+  // Distributing leftover width evenly (extraPerCol above) leaves every
+  // column boundary at a fractional logical pixel (e.g. x=117.5,
+  // x=352.83…). Snapping each cumulative boundary to a whole pixel
+  // (rather than each width) keeps the running total exact, so every
+  // seam lands on one physical pixel.
+  List<double> _snapToPixels(List<double> widths) {
+    final snapped = <double>[];
+    var cursor = 0.0;
+    var prevRounded = 0.0;
+    for (final w in widths) {
+      cursor += w;
+      final rounded = cursor.roundToDouble();
+      snapped.add(rounded - prevRounded);
+      prevRounded = rounded;
     }
-    return widths;
+    return snapped;
   }
 
   // ── Header cells ──────────────────────────────────────────────
@@ -233,8 +266,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
       col: col,
       colSpan: span,
       rowSpan: isLeaf ? (maxDepth - row) : 1,
-      backgroundColor:
-          node.highlight ? const Color(0xFFBDD7EE) : GridTheme.headerBg,
+      backgroundColor: GridTheme.headerBg,
       alignment: Alignment.center,
       child: Padding(
         padding: GridTheme.headerCellPadding,
@@ -254,7 +286,8 @@ class GenericSpreadsheetTable extends StatelessWidget {
   }
 
   // ── Label data cells ──────────────────────────────────────────
-  List<GridCell> _buildLabelDataCells(List<double> colWidths) {
+  List<GridCell> _buildLabelDataCells(
+      List<double> colWidths, BuildContext context) {
     final cells = <GridCell>[];
     final dataStart = _headerDepth;
     if (spec.hasLeadingGroup) {
@@ -302,6 +335,18 @@ class GenericSpreadsheetTable extends StatelessWidget {
       final labelCs =
           labelCellId.isNotEmpty ? spec.cellSpec?.call(labelCellId) : null;
 
+      final rowKey = (spec.rowKeys != null && r < spec.rowKeys!.length)
+          ? spec.rowKeys![r]
+          : '';
+      final accessory = (rowKey.isNotEmpty && rowAccessoryBuilder != null)
+          ? rowAccessoryBuilder!(r, rowKey)
+          : null;
+      final labelText = Text(label,
+          style: labelStyle,
+          softWrap: true,
+          maxLines: null,
+          overflow: TextOverflow.visible);
+
       cells.add(GridCell(
         id: labelCellId.isNotEmpty ? labelCellId : 'lbl_${r}_$label',
         row: dataStart + r,
@@ -310,6 +355,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: (labelCs?.editable ?? false)
             ? _buildCellWidget(
+                context: context,
                 cellId: labelCellId,
                 cs: labelCs,
                 isTotalRow: isTotalRow,
@@ -317,11 +363,16 @@ class GenericSpreadsheetTable extends StatelessWidget {
                 width: colWidths[_cornerCol])
             : Padding(
                 padding: GridTheme.labelCellPadding,
-                child: Text(label,
-                    style: labelStyle,
-                    softWrap: true,
-                    maxLines: null,
-                    overflow: TextOverflow.visible),
+                child: accessory == null
+                    ? labelText
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          accessory,
+                          const SizedBox(width: 7),
+                          Flexible(child: labelText),
+                        ],
+                      ),
               ),
       ));
 
@@ -336,6 +387,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
           backgroundColor: resolvedBg,
           alignment: Alignment.center,
           child: _buildCellWidget(
+              context: context,
               cellId: cellId,
               cs: cs,
               isTotalRow: isTotalRow,
@@ -347,7 +399,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
   }
 
   // ── Matrix data cells ─────────────────────────────────────────
-  List<GridCell> _buildMatrixDataCells() {
+  List<GridCell> _buildMatrixDataCells(BuildContext context) {
     final cells = <GridCell>[];
     final dataStart = _headerDepth;
     for (int r = 0; r < spec.matrix.length; r++) {
@@ -365,273 +417,109 @@ class GenericSpreadsheetTable extends StatelessWidget {
           backgroundColor: resolvedBg,
           alignment: Alignment.centerLeft,
           child: _buildCellWidget(
-              cellId: cellId, cs: cs, isTotalRow: false, isGrandTotal: false),
+              context: context,
+              cellId: cellId,
+              cs: cs,
+              isTotalRow: false,
+              isGrandTotal: false),
         ));
       }
     }
     return cells;
   }
 
-  // ── Build leading-group data block (merged first column) ───────
-  //
-  // FIX: instead of drawing the leading-group cell once per row (which
-  // just repeated the label), we now wrap each group's sub-rows in an
-  // IntrinsicHeight Row so the merged label cell stretches to cover all
-  // its sub-rows in a single container — matching the PDF reference.
-  Widget _buildLeadingGroupDataBlock(List<double> colWidths) {
-    final labels = spec.leadingGroupLabels!;
-    final counts = spec.leadingGroupRowCounts!;
-    final groupColW = colWidths[0];
-
-    // Width of all columns EXCEPT the leading-group column.
-    // Used to give the sub-rows Column a fixed width so it works
-    // inside IntrinsicHeight without needing Expanded (which is
-    // incompatible with IntrinsicHeight and causes zero-size errors).
-    final subRowsW = colWidths.skip(1).fold(0.0, (a, b) => a + b);
-
-    final allDataCells = _buildLabelDataCells(colWidths); // ← ADD colWidths
-    final dataStart = _headerDepth;
-
-    int globalRow = 0;
-    final groupWidgets = <Widget>[];
-
-    for (int gi = 0; gi < labels.length; gi++) {
-      final rowCount = counts[gi];
-      final subRowWidgets = <Widget>[];
-
-      for (int ri = 0; ri < rowCount; ri++) {
-        final r = globalRow + ri;
-        final isTotalRow = !spec.isMatrixLayout &&
-            r < spec.rowLabels.length &&
-            (spec.isTotalCell?.call(spec.cellId(r, 0)) ?? false);
-        final isEven = r % 2 == 0;
-        final rowBg = isTotalRow
-            ? GridTheme.totalBg
-            : isEven
-                ? GridTheme.rowEven
-                : GridTheme.rowOdd;
-
-        // Collect cells for this row — skip col 0 (merged leading-group cell)
-        final rowCells = allDataCells
-            .where((cell) => cell.row == dataStart + r && cell.col != 0)
-            .toList()
-          ..sort((a, b) => a.col.compareTo(b.col));
-
-        final children = <Widget>[];
-        int colIdx = _cornerCol; // starts at 1 (col 0 = leading-group)
-
-        for (final cell in rowCells) {
-          if (cell.col > colIdx) {
-            double gapW = 0;
-            for (int i = colIdx; i < cell.col && i < colWidths.length; i++) {
-              gapW += colWidths[i];
-            }
-            if (gapW > 0) {
-              children.add(_cellContainer(
-                  width: gapW,
-                  bg: rowBg,
-                  alignment: Alignment.center,
-                  child: const SizedBox.shrink()));
-            }
-            colIdx = cell.col;
-          }
-
-          double w = 0;
-          for (int i = 0; i < cell.colSpan; i++) {
-            final idx = colIdx + i;
-            if (idx < colWidths.length) w += colWidths[idx];
-          }
-
-          children.add(_cellContainer(
-              width: w,
-              bg: cell.backgroundColor ?? rowBg,
-              alignment: cell.alignment,
-              child: cell.child));
-          colIdx += cell.colSpan;
-        }
-
-        // Fill any remaining columns
-        if (colIdx < colWidths.length) {
-          double rem = 0;
-          for (int i = colIdx; i < colWidths.length; i++) {
-            rem += colWidths[i];
-          }
-          if (rem > 0) {
-            children.add(_cellContainer(
-                width: rem,
-                bg: rowBg,
-                alignment: Alignment.center,
-                child: const SizedBox.shrink()));
-          }
-        }
-
-        subRowWidgets.add(IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
-        ));
-      }
-
-      // ── Merged leading-group label + sub-rows side by side ────
-      // We use fixed widths for both children so IntrinsicHeight can
-      // measure the group without any Expanded widget (Expanded inside
-      // IntrinsicHeight gives each child zero size).
-      groupWidgets.add(
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Merged status cell — spans full height of the group
-              Container(
-                width: groupColW,
-                decoration: const BoxDecoration(
-                  color: GridTheme.headerBg,
-                  border: Border(
-                    right: BorderSide(
-                        color: GridTheme.borderColor,
-                        width: GridTheme.borderWidth),
-                    bottom: BorderSide(
-                        color: GridTheme.borderColor,
-                        width: GridTheme.borderWidth),
-                  ),
-                ),
-                alignment: Alignment.center,
-                padding: GridTheme.labelCellPadding,
-                child: Text(
-                  labels[gi],
-                  style: GridTheme.headerStyle,
-                  textAlign: TextAlign.center,
-                  softWrap: true,
-                  overflow: TextOverflow.visible,
-                ),
-              ),
-              // Sub-rows — fixed width, no Expanded
-              SizedBox(
-                width: subRowsW,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: subRowWidgets,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-      globalRow += rowCount;
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: groupWidgets,
-    );
+  // ── Analytic row heights ────────────────────────────────────────
+  // GridLayoutEngine positions every row at a fixed, known height (no
+  // runtime IntrinsicHeight pass) — so a data row that needs to be
+  // taller than GridTheme.rowHeight (a wrapped row label, or a long
+  // leading-group label spread over several sub-rows) has to be
+  // measured analytically, ahead of layout. TextPainter runs the same
+  // line-breaking engine Flutter's own Text widget uses internally,
+  // so this matches actual rendered height rather than estimating it.
+  double _measureTextHeight(
+      String text, TextStyle style, double maxWidth, TextScaler scaler) {
+    if (text.isEmpty) return 0;
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: null,
+      textScaler: scaler,
+    )..layout(maxWidth: maxWidth > 0 ? maxWidth : 0);
+    return tp.height;
   }
 
-  // ── Single data row (auto-height, non-leading-group tables) ───
-  Widget _buildDataRow(
-      int r, List<double> colWidths, List<GridCell> allDataCells) {
-    final dataStart = _headerDepth;
-    final rowCells = allDataCells
-        .where((cell) => cell.row == dataStart + r)
-        .toList()
-      ..sort((a, b) => a.col.compareTo(b.col));
-
-    final isTotalRow = !spec.isMatrixLayout &&
-        r < spec.rowLabels.length &&
-        (spec.isTotalCell?.call(spec.cellId(r, 0)) ?? false);
-    final isEven = r % 2 == 0;
-    final rowBg = isTotalRow
-        ? GridTheme.totalBg
-        : isEven
-            ? GridTheme.rowEven
-            : GridTheme.rowOdd;
-
-    final children = <Widget>[];
-    int colIdx = 0;
-
-    for (final cell in rowCells) {
-      if (cell.col > colIdx) {
-        double gapW = 0;
-        for (int i = colIdx; i < cell.col && i < colWidths.length; i++) {
-          gapW += colWidths[i];
+  List<double> _computeDataRowHeights(
+      List<double> colWidths, TextScaler textScaler) {
+    if (spec.isMatrixLayout) {
+      final heights =
+          List<double>.filled(spec.matrix.length, GridTheme.rowHeight);
+      for (int r = 0; r < spec.matrix.length; r++) {
+        var tallest = GridTheme.rowHeight;
+        for (int c = 0; c < spec.matrix[r].length; c++) {
+          final cellId = spec.matrix[r][c];
+          final cs = spec.cellSpec?.call(cellId);
+          if (cs?.editable ?? false) continue; // fixed-height input widget
+          if (cs?.type != CellType.text && cs?.type != CellType.label) {
+            continue;
+          }
+          final value = spec.textValue?.call(cellId) ?? cs?.label ?? '';
+          final w = (c < colWidths.length ? colWidths[c] : GridTheme.colWidth) -
+              GridTheme.cellPadding.horizontal;
+          final h =
+              _measureTextHeight(value, GridTheme.dataStyle, w, textScaler) +
+                  GridTheme.cellPadding.vertical;
+          if (h > tallest) tallest = h;
         }
-        if (gapW > 0) {
-          children.add(_cellContainer(
-              width: gapW,
-              bg: rowBg,
-              alignment: Alignment.center,
-              child: const SizedBox.shrink()));
-        }
-        colIdx = cell.col;
+        heights[r] = tallest.ceilToDouble();
       }
-
-      double w = 0;
-      for (int i = 0; i < cell.colSpan; i++) {
-        final idx = colIdx + i;
-        if (idx < colWidths.length) w += colWidths[idx];
-      }
-
-      children.add(_cellContainer(
-          width: w,
-          bg: cell.backgroundColor ?? rowBg,
-          alignment: cell.alignment,
-          child: cell.child));
-      colIdx += cell.colSpan;
+      return heights;
     }
 
-    if (colIdx < colWidths.length) {
-      double rem = 0;
-      for (int i = colIdx; i < colWidths.length; i++) {
-        rem += colWidths[i];
-      }
-      if (rem > 0) {
-        children.add(_cellContainer(
-            width: rem,
-            bg: rowBg,
-            alignment: Alignment.center,
-            child: const SizedBox.shrink()));
+    final heights =
+        List<double>.filled(spec.rowLabels.length, GridTheme.rowHeight);
+    for (int r = 0; r < spec.rowLabels.length; r++) {
+      final isTotalRow = spec.isTotalCell?.call(spec.cellId(r, 0)) ?? false;
+      final style = isTotalRow ? GridTheme.totalStyle : GridTheme.labelStyle;
+      final labelW =
+          colWidths[_cornerCol] - GridTheme.labelCellPadding.horizontal;
+      final labelH =
+          _measureTextHeight(spec.rowLabels[r], style, labelW, textScaler) +
+              GridTheme.labelCellPadding.vertical;
+      heights[r] = labelH > GridTheme.rowHeight
+          ? labelH.ceilToDouble()
+          : GridTheme.rowHeight;
+    }
+
+    // A leading-group label spans several sub-rows merged into one
+    // cell — make sure the group's own label still fits within the
+    // sum of its sub-rows' heights, growing the last sub-row if not.
+    if (spec.hasLeadingGroup) {
+      final labels = spec.leadingGroupLabels!;
+      final counts = spec.leadingGroupRowCounts!;
+      final groupW = colWidths[0] - GridTheme.labelCellPadding.horizontal;
+      var start = 0;
+      for (int gi = 0; gi < labels.length; gi++) {
+        final count = counts[gi];
+        if (count <= 0) continue;
+        final neededH = _measureTextHeight(
+                labels[gi], GridTheme.headerStyle, groupW, textScaler) +
+            GridTheme.labelCellPadding.vertical;
+        final sum = heights.skip(start).take(count).fold(0.0, (a, b) => a + b);
+        if (neededH > sum) {
+          heights[start + count - 1] += (neededH - sum).ceilToDouble();
+        }
+        start += count;
       }
     }
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
-      ),
-    );
-  }
-
-  // ── Cell container (right + bottom border) ────────────────────
-  Widget _cellContainer({
-    required double width,
-    required Color? bg,
-    required Alignment alignment,
-    required Widget child,
-  }) {
-    return Container(
-      width: width,
-      constraints: const BoxConstraints(minHeight: GridTheme.rowHeight),
-      decoration: BoxDecoration(
-        color: bg,
-        border: const Border(
-          right: BorderSide(
-              color: GridTheme.borderColor, width: GridTheme.borderWidth),
-          bottom: BorderSide(
-              color: GridTheme.borderColor, width: GridTheme.borderWidth),
-        ),
-      ),
-      alignment: alignment,
-      child: child,
-    );
+    return heights;
   }
 
   // ── Cell widget dispatcher ────────────────────────────────────
   // Delegates to the shared builder (grid_cell_dispatch.dart) so the
   // mobile card-per-row table can build identical cell widgets.
   Widget _buildCellWidget({
+    required BuildContext context,
     required String cellId,
     required CellSpec? cs,
     required bool isTotalRow,
@@ -639,6 +527,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
     double? width,
   }) {
     return buildGridCellWidget(
+      context: context,
       cellId: cellId,
       cs: cs,
       isTotalRow: isTotalRow,
@@ -681,67 +570,34 @@ class GenericSpreadsheetTable extends StatelessWidget {
         const borderOverhead = 3.0;
         final needsScroll = naturalW > (availableWidth - borderOverhead);
 
-        // Header block — GridLayoutEngine handles colSpan/rowSpan
-        final headerBlock = GridLayoutEngine(
-          cells: headerCells,
-          rowCount: _headerDepth,
+        final allDataCells = spec.isMatrixLayout
+            ? _buildMatrixDataCells(context)
+            : _buildLabelDataCells(colWidths, context);
+
+        final dataRowHeights =
+            _computeDataRowHeights(colWidths, MediaQuery.textScalerOf(context));
+
+        // One grid, header rows + data rows together — this is what
+        // lets GridLayoutEngine draw the header/data boundary (and
+        // every other line) as a single continuous stroke instead of
+        // two independently-laid-out blocks meeting at a seam.
+        final grid = GridLayoutEngine(
+          cells: [...headerCells, ...allDataCells],
+          rowCount: _headerDepth + dataRows,
           colCount: _totalCols,
           colWidths: colWidths,
-          rowHeights: List.filled(_headerDepth, GridTheme.rowHeight * 1.5),
+          rowHeights: [
+            ...List.filled(_headerDepth, GridTheme.rowHeight * 1.5),
+            ...dataRowHeights,
+          ],
           borderColor: GridTheme.borderColor,
           borderWidth: GridTheme.borderWidth,
           backgroundColor: GridTheme.headerBg,
         );
 
-        // Data block — leading-group tables use merged first column,
-        // all others use the per-row builder.
-        final Widget dataBlock;
-        if (spec.hasLeadingGroup && !spec.isMatrixLayout) {
-          dataBlock = _buildLeadingGroupDataBlock(colWidths);
-        } else {
-          final allDataCells = spec.isMatrixLayout
-              ? _buildMatrixDataCells()
-              : _buildLabelDataCells(colWidths); // ← PASS colWidths
-
-          dataBlock = Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (int r = 0; r < dataRows; r++)
-                _buildDataRow(r, colWidths, allDataCells),
-            ],
-          );
-        }
-
-        // Left border wraps both blocks
-        final tableContent = Container(
-          decoration: const BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                  color: GridTheme.borderColor, width: GridTheme.borderWidth),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [headerBlock, dataBlock],
-          ),
-        );
-
-        final tableWidget = ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-            ),
-            child: needsScroll
-                ? SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: tableContent,
-                  )
-                : tableContent,
-          ),
+        final tableWidget = Container(
+          color: Colors.white,
+          child: needsScroll ? _HorizontalScrollTable(grid: grid) : grid,
         );
 
         return Padding(
@@ -749,6 +605,112 @@ class GenericSpreadsheetTable extends StatelessWidget {
           child: tableWidget,
         );
       },
+    );
+  }
+}
+
+// Wraps a table too wide for its available space in a horizontal scroll —
+// without this, the hard cut mid-header (e.g. "Total" clipped to "T" on a
+// narrow phone) reads as a rendering bug rather than "scroll for more".
+// Stateful only to track scroll position for the fade/hint below, which
+// hide themselves once the user has actually scrolled to the true right
+// edge.
+class _HorizontalScrollTable extends StatefulWidget {
+  final Widget grid;
+  const _HorizontalScrollTable({required this.grid});
+
+  @override
+  State<_HorizontalScrollTable> createState() => _HorizontalScrollTableState();
+}
+
+class _HorizontalScrollTableState extends State<_HorizontalScrollTable> {
+  final _controller = ScrollController();
+  bool _hasMoreToScroll = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_updateHasMoreToScroll);
+    // The controller has no attached position until after the first
+    // layout pass, so the real extent isn't known synchronously here.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _updateHasMoreToScroll());
+  }
+
+  void _updateHasMoreToScroll() {
+    if (!_controller.hasClients) return;
+    final remaining =
+        _controller.position.maxScrollExtent - _controller.position.pixels;
+    final hasMore = remaining > 1;
+    if (hasMore != _hasMoreToScroll) {
+      setState(() => _hasMoreToScroll = hasMore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_updateHasMoreToScroll);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _controller,
+              scrollDirection: Axis.horizontal,
+              child: widget.grid,
+            ),
+            if (_hasMoreToScroll)
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 28,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0),
+                          Colors.white.withValues(alpha: 0.95),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        if (_hasMoreToScroll)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.swipe_left_alt_rounded,
+                    size: 14, color: GridTheme.borderColor),
+                const SizedBox(width: 4),
+                Text(
+                  const LocalizedText(
+                    fr: 'Faites glisser pour voir plus',
+                    en: 'Swipe to see more',
+                  ).of(context.loc),
+                  style: const TextStyle(
+                      fontSize: 11, color: GridTheme.borderColor),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

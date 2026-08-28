@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1514,7 +1516,12 @@ class ApiClient {
     }
   }
 
-  /// Export all approved ONEFOP submissions as an Excel workbook (Super Admin only)
+  /// Export all approved ONEFOP submissions as an Excel workbook (Super
+  /// Admin only). The backend streams this sheet-by-sheet (see
+  /// streamOnefopSubmissionsExcel) rather than building the whole workbook
+  /// in memory, which — at large submission counts — can mean several
+  /// sequential passes over the data server-side before the response
+  /// finishes, hence the longer receive timeout than the SPSS CSV download.
   Future<List<int>> exportOnefopSubmissionsExcel({
     String? region,
     String? department,
@@ -1524,16 +1531,18 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.post(
-        '/data-management/export/submissions',
+        '/data-management/export/submissions/excel',
         data: {
-          'type': 'ONEFOP',
           if (region != null) 'region': region,
           if (department != null) 'department': department,
           if (year != null) 'year': year,
           if (fromDate != null) 'fromDate': fromDate,
           if (toDate != null) 'toDate': toDate,
         },
-        options: Options(responseType: ResponseType.bytes),
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(minutes: 10),
+        ),
       );
       return response.data;
     } on DioException catch (e) {
@@ -1544,9 +1553,14 @@ class ApiClient {
     }
   }
 
-  /// Export all approved ONEFOP submissions as a CSV + SPSS (.sps) syntax
-  /// pair (Super Admin only). Returns {'csv': String, 'sps': String}.
-  Future<Map<String, dynamic>> exportOnefopSubmissionsSpss({
+  /// Fetch the SPSS (.sps) syntax for the approved ONEFOP submissions
+  /// matching these filters (Super Admin only). Fast and bounded regardless
+  /// of submission count — see buildSpssManifest on the backend — so this
+  /// stays a plain JSON call. Call this alongside
+  /// [downloadOnefopSubmissionsSpssCsv] with the same filters; the two
+  /// files are a matched pair (the .sps GET DATA syntax references the CSV
+  /// by its fixed filename, not a shared response body).
+  Future<String> getOnefopSubmissionsSpssSyntax({
     String? region,
     String? department,
     int? year,
@@ -1555,7 +1569,7 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.post(
-        '/data-management/export/submissions/spss',
+        '/data-management/export/submissions/spss/manifest',
         data: {
           if (region != null) 'region': region,
           if (department != null) 'department': department,
@@ -1564,7 +1578,46 @@ class ApiClient {
           if (toDate != null) 'toDate': toDate,
         },
       );
-      return response.data as Map<String, dynamic>;
+      return (response.data as Map<String, dynamic>)['sps'] as String;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
+  /// Download the CSV of approved ONEFOP submissions matching these filters
+  /// (Super Admin only). The backend streams this response row-by-row (see
+  /// streamApprovedOnefopSubmissionsCsv) rather than buffering the whole
+  /// export in memory, which — since Dio's receiveTimeout resets on each
+  /// received chunk regardless of responseType — also avoids the fixed 60s
+  /// receiveTimeout being hit on a large export. Raw bytes are requested
+  /// directly (no JSON string wrapper) to skip the escaping/parsing
+  /// overhead a JSON-embedded CSV would add at 20,000-row scale.
+  Future<List<int>> downloadOnefopSubmissionsSpssCsv({
+    String? region,
+    String? department,
+    int? year,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final response = await dio.post(
+        '/data-management/export/submissions/spss/csv',
+        data: {
+          if (region != null) 'region': region,
+          if (department != null) 'department': department,
+          if (year != null) 'year': year,
+          if (fromDate != null) 'fromDate': fromDate,
+          if (toDate != null) 'toDate': toDate,
+        },
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(minutes: 5),
+        ),
+      );
+      return response.data;
     } on DioException catch (e) {
       throw ApiException(
         statusCode: e.response?.statusCode,
@@ -1952,8 +2005,23 @@ class ApiClient {
   String _handleError(DioException error) {
     if (error.response != null) {
       final response = error.response!;
-      final data = response.data;
       final statusCode = response.statusCode;
+
+      // Calls that set `responseType: ResponseType.bytes` (PDF preview /
+      // download endpoints) get raw bytes back for error responses too —
+      // Dio doesn't know a non-2xx body is JSON, not a PDF. Without this,
+      // the backend's actual error message (e.g. "PDF generation failed" /
+      // Chrome launch failure) is silently discarded in favor of a generic
+      // "Erreur serveur (HTTP 500)".
+      dynamic data = response.data;
+      if (data is List<int>) {
+        try {
+          data = jsonDecode(utf8.decode(data));
+        } catch (_) {
+          // Not JSON (e.g. an HTML error page) — fall through with the
+          // original bytes, handled by the generic branches below.
+        }
+      }
 
       if (data != null) {
         if (data is Map) {

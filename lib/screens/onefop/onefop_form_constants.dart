@@ -16,9 +16,30 @@ const double kHybridNumWidth = 60.0; // GridTheme.colWidth
 const double kColumnGap = 20.0;
 const double kScrollChildWidth = kDocWidth + 40.0; // OL.sectionBodyPaddingH*2
 
+// Simple Mode's narrower, single-question reading column (see
+// simple_mode_shell.dart) — deliberately much narrower than
+// kScrollChildWidth, which is the wider mobile-stepper/desktop-card
+// column width. Also used by UnitNavRow's pinned-footer variant so
+// Back/Next line up under the same column instead of spreading to the
+// full window width.
+const double kSimpleModeContentWidth = 640.0;
+
 // ── Sidebar widths ────────────────────────────────────────────
 const double kSidebarFullWidth = 240.0;
 const double kSidebarCollapsedWidth = 56.0;
+
+// Shared by Sidebar's own header row and OnefopExcelShell's _TitleBar, so
+// the sidebar's bottom border and the title bar's bottom border sit at the
+// same height and read as one continuous line across the vertical divider
+// between them, instead of stepping where the two meet.
+const double kOnefopHeaderHeight = 56.0;
+
+// Shared by every pill-shaped control in OnefopShellTitleBar (mode
+// dropdown, Save, Drafts, Dashboard) so they all read as one consistent
+// family — same height and border treatment, width free to follow each
+// one's own label length — instead of a mix of bordered buttons, a bare
+// icon button, and a border-less text button of differing heights.
+const double kShellBarButtonHeight = 28.0;
 
 // ══════════════════════════════════════════════════════════════
 // DESIGN TOKENS — one brand color throughout: AppColors.deepEmerald,
@@ -191,7 +212,7 @@ const Map<String, SidebarMeta> kSidebarMeta = {
   'section1_entreprise': SidebarMeta(
       LocalizedText(fr: 'Entreprise', en: 'Company'), Icons.business_outlined),
   'section1_ctd': SidebarMeta(
-      LocalizedText.same('CTD'), Icons.account_balance_outlined),
+      LocalizedText(fr: 'CTD', en: 'RLA'), Icons.account_balance_outlined),
   'section1_ong': SidebarMeta(
       LocalizedText(fr: 'ONG', en: 'NGO'), Icons.volunteer_activism_outlined),
   'section2': SidebarMeta(
@@ -306,7 +327,7 @@ LocalizedText entityTypeTitle(EntityType t) {
     case EntityType.cooperative:
       return const LocalizedText(fr: 'COOPÉRATIVE', en: 'COOPERATIVE');
     case EntityType.ctd:
-      return const LocalizedText.same('CTD');
+      return const LocalizedText(fr: 'CTD', en: 'RLA');
     case EntityType.ong:
       return const LocalizedText(fr: 'ONG', en: 'NGO');
   }

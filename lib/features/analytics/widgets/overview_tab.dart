@@ -516,11 +516,18 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
           }
         },
       ),
-      child: _trendChart(widget.trends, widget.dashboard.year),
+      child: _trendChart(widget.trends),
     );
   }
 
-  Widget _trendChart(List<TimeSeriesData> trends, int currentYear) {
+  // Reserved axis space below is deliberately kept as named constants —
+  // the trend-line overlay has to reproduce fl_chart's own plot-area inset
+  // (widget bounds minus these) to land on the same pixels as the bars.
+  static const _kTrendLeftAxis = 40.0;
+  static const _kTrendBottomAxis = 22.0;
+  static const _kTrendBarWidth = 16.0;
+
+  Widget _trendChart(List<TimeSeriesData> trends) {
     if (trends.isEmpty) return emptyState('Aucune donnée');
 
     // Net change per period — unlike a headcount/recruitment-count series
@@ -532,65 +539,85 @@ class _OverviewTabState extends ConsumerState<OverviewTab> {
     final minVal = values.reduce((a, b) => a < b ? a : b);
     final topPad = (maxVal > 0 ? maxVal : 0) * 0.25 + 1;
     final bottomPad = (minVal < 0 ? minVal.abs() : 0) * 0.25 + 1;
+    final chartMinY = (minVal < 0 ? minVal : 0) - bottomPad;
+    final chartMaxY = (maxVal > 0 ? maxVal : 0) + topPad;
 
-    return BarChart(BarChartData(
-      minY: (minVal < 0 ? minVal : 0) - bottomPad,
-      maxY: (maxVal > 0 ? maxVal : 0) + topPad,
-      barGroups: trends.asMap().entries.map((e) {
-        final t = e.value;
-        final value = t.totalEmployees.toDouble();
-        final color = SemanticColor.trend(t.totalEmployees);
-        return BarChartGroupData(
-          x: e.key,
-          barRods: [
-            BarChartRodData(
-              toY: value,
-              color: color,
-              width: 16,
-              borderRadius: value >= 0
-                  ? const BorderRadius.vertical(top: Radius.circular(4))
-                  : const BorderRadius.vertical(bottom: Radius.circular(4)),
-            ),
-          ],
-        );
-      }).toList(),
-      titlesData: FlTitlesData(
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 22,
-            getTitlesWidget: (value, _) {
-              final i = value.toInt();
-              if (i < 0 || i >= trends.length) return const SizedBox.shrink();
-              final t = trends[i];
-              final isCur = t.year == currentYear;
-              return Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(t.shortLabel,
-                    style: textMono(TextSize.micro,
-                        color: isCur ? ChartTheme.current : TextColor.muted,
-                        weight: isCur ? FontWeight.bold : FontWeight.normal)),
+    return LayoutBuilder(builder: (context, constraints) {
+      return Stack(
+        children: [
+          BarChart(BarChartData(
+            minY: chartMinY,
+            maxY: chartMaxY,
+            barGroups: trends.asMap().entries.map((e) {
+              final t = e.value;
+              final value = t.totalEmployees.toDouble();
+              final color = SemanticColor.trend(t.totalEmployees);
+              return BarChartGroupData(
+                x: e.key,
+                barRods: [
+                  BarChartRodData(
+                    toY: value,
+                    color: color,
+                    width: _kTrendBarWidth,
+                    borderRadius: value >= 0
+                        ? const BorderRadius.vertical(top: Radius.circular(4))
+                        : const BorderRadius.vertical(bottom: Radius.circular(4)),
+                  ),
+                ],
               );
-            },
-          ),
-        ),
-        leftTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 40,
-            getTitlesWidget: (v, _) =>
-                Text(formatNumber(v.round()), style: ChartTheme.axisLabel),
-          ),
-        ),
-        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      ),
-      gridData: ChartTheme.horizontalGrid,
-      borderData: ChartTheme.noBorder,
-      extraLinesData: ExtraLinesData(horizontalLines: [
-        HorizontalLine(y: 0, color: TextColor.muted, strokeWidth: 1.5),
-      ]),
-    ));
+            }).toList(),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: _kTrendBottomAxis,
+                  getTitlesWidget: (value, _) {
+                    final i = value.toInt();
+                    if (i < 0 || i >= trends.length) return const SizedBox.shrink();
+                    final t = trends[i];
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(t.shortLabel,
+                          style: textMono(TextSize.micro, color: TextColor.muted)),
+                    );
+                  },
+                ),
+              ),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: _kTrendLeftAxis,
+                  getTitlesWidget: (v, _) =>
+                      Text(formatNumber(v.round()), style: ChartTheme.axisLabel),
+                ),
+              ),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+            gridData: ChartTheme.horizontalGrid,
+            borderData: ChartTheme.noBorder,
+            extraLinesData: ExtraLinesData(horizontalLines: [
+              HorizontalLine(y: 0, color: TextColor.muted, strokeWidth: 1.5),
+            ]),
+          )),
+          if (trends.length > 1)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _TrendOverlayPainter(
+                    values: values,
+                    minY: chartMinY,
+                    maxY: chartMaxY,
+                    leftAxis: _kTrendLeftAxis,
+                    bottomAxis: _kTrendBottomAxis,
+                    barWidth: _kTrendBarWidth,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    });
   }
 
   Widget _sectorPanel(DashboardSummary dashboard, {bool fillHeight = true}) {
@@ -872,5 +899,93 @@ class _EmploymentBalanceCompact extends StatelessWidget {
               text: '${formatNumber(b.technicalUnemployment)} en chômage technique (hors total).'),
       ],
     );
+  }
+}
+
+/// Connects each bar's actual value with a line, so the overall direction
+/// (improving vs. worsening) reads at a glance alongside each period's
+/// discrete reading. fl_chart's BarChart has no native line-series overlay,
+/// so this reproduces its own bar-centering math (BarChartAlignment
+/// .spaceEvenly, see fl_chart's calculateGroupsX) against the SAME
+/// reserved axis space the BarChart above it was given (leftAxis/
+/// bottomAxis/barWidth) to land on the same pixels as the bar tops.
+class _TrendOverlayPainter extends CustomPainter {
+  final List<double> values;
+  final double minY;
+  final double maxY;
+  final double leftAxis;
+  final double bottomAxis;
+  final double barWidth;
+
+  const _TrendOverlayPainter({
+    required this.values,
+    required this.minY,
+    required this.maxY,
+    required this.leftAxis,
+    required this.bottomAxis,
+    required this.barWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = values.length;
+    if (n < 2) return;
+
+    final plotLeft = leftAxis;
+    final plotWidth = size.width - leftAxis;
+    final plotBottom = size.height - bottomAxis;
+    final plotHeight = plotBottom; // plotTop is 0
+
+    if (plotWidth <= 0 || plotHeight <= 0) return;
+
+    // fl_chart BarChartAlignment.spaceEvenly: n equal-width groups spread
+    // across plotWidth with (n+1) equal gaps around/between them.
+    final sumWidth = barWidth * n;
+    final eachSpace = (plotWidth - sumWidth) / (n + 1);
+
+    double xAt(int i) {
+      // groupsX[i] = (i+1)*eachSpace + (i+0.5)*barWidth — unrolled from
+      // fl_chart's own loop (see BarChartDataExtension.calculateGroupsX).
+      return plotLeft + (i + 1) * eachSpace + (i + 0.5) * barWidth;
+    }
+
+    double yAt(double value) {
+      final frac = (value - minY) / (maxY - minY);
+      return plotBottom - frac * plotHeight;
+    }
+
+    final points = [
+      for (var i = 0; i < n; i++) Offset(xAt(i), yAt(values[i])),
+    ];
+
+    final linePaint = Paint()
+      ..color = TextColor.primary.withValues(alpha: 0.55)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final p in points.skip(1)) {
+      path.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(path, linePaint);
+
+    final dotPaint = Paint()..color = TextColor.primary.withValues(alpha: 0.85);
+    final dotHalo = Paint()..color = InkColor.card;
+    for (final p in points) {
+      canvas.drawCircle(p, 4, dotHalo);
+      canvas.drawCircle(p, 2.5, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendOverlayPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.minY != minY ||
+        oldDelegate.maxY != maxY ||
+        oldDelegate.leftAxis != leftAxis ||
+        oldDelegate.bottomAxis != bottomAxis ||
+        oldDelegate.barWidth != barWidth;
   }
 }

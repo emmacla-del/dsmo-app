@@ -89,11 +89,6 @@ class OL {
   static const Color shBgSection4 = AppColors.deepEmerald;
   static const Color shFg = Colors.white;
 
-  // Question header (.qt) — warm, muted parchment box (restrained,
-  // not a bright alert-amber)
-  static const Color qtBg = Color(0xFFF8F0E1);
-  static const Color qtBorder = Color(0xFFD9C08F);
-
   // Table header row
   static const Color tableHdrBg = Color(0xFFF5F6F9);
   static const Color tableHdrFg = Color(0xFF1A1A1A);
@@ -118,6 +113,20 @@ class OL {
 
   // Subtle grey used for internal cell separators in some tables
   static const Color cellSepColor = Color(0xFFD7DAE4);
+
+  // Category-card status dots (Simple Mode / mobile's non-linear
+  // per-category card redesign — see CategoryGridGroupsView). Semantic
+  // status, not brand chrome — the same exception onefop_form_constants
+  // .dart's kWarning/kDanger already carve out of the "one accent color"
+  // rule, extended with a 4th tone: "skipped" has to read as visually
+  // distinct from "complete" (this category has a confirmed answer, but
+  // that answer is an explicit zero) for the dot to do its job.
+  static const Color catStatusEmptyBorder = Color(0xFFC7D1CB);
+  static const Color catStatusPartial = AppColors.richGold;
+  static const Color catStatusPartialSoft = Color(0xFFF8F0DE);
+  static const Color catStatusComplete = AppColors.deepEmerald;
+  static const Color catStatusSkipped = Color(0xFF5B57A3);
+  static const Color catStatusSkippedSoft = Color(0xFFECEBF6);
 
   // ─────────────────────────────────────────────────────────────
   // GRID GEOMETRY  (modern touch-friendly dimensions)
@@ -250,12 +259,13 @@ class OL {
     );
   }
 
+  // A plain hairline rule under the question text — no fill, no box —
+  // rather than the boxed/highlighted-note treatment this replaced.
+  // Question headers read as headings now (weight + color hierarchy),
+  // not as callouts, and sit flush with the table's own left edge below
+  // them instead of being inset inside a card.
   static const BoxDecoration qtDecoration = BoxDecoration(
-    color: qtBg,
-    border: Border.fromBorderSide(
-      BorderSide(color: qtBorder, width: borderWidth),
-    ),
-    borderRadius: BorderRadius.all(Radius.circular(8)),
+    border: Border(bottom: BorderSide(color: borderColor, width: borderWidth)),
   );
 
   static const BoxDecoration tableHdrDecoration = BoxDecoration(

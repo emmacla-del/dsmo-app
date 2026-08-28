@@ -26,8 +26,11 @@ class GridTheme {
   static const double tableTargetWidth = 940.0;
 
   // ── Row / cell geometry ────────────────────────────────────
-  static const double rowHeight = 36.0;
+  // 24px ≈ Excel's default compact row height, down from the earlier
+  // 36px "generous padding" pass.
+  static const double rowHeight = 24.0;
   static const double colWidth = 60.0;
+  static const double mobileColWidth = 64.0;
 
   // ── Label (first) column widths ───────────────────────────
   static const double firstColWidth = 180.0;
@@ -38,7 +41,10 @@ class GridTheme {
   static const double leadingGroupColWidth = 120.0;
 
   // ── Border ────────────────────────────────────────────────
-  static const Color borderColor = Color(0xFFE7E9F0);
+  // Real black, matching Excel's own gridlines — this was previously
+  // softened away to #000000 → #E7E9F0 → #B9BEC7; reverted all the way
+  // back on request.
+  static const Color borderColor = Color(0xFF000000);
   static const double borderWidth = 1.0;
 
   // ── Active-cell focus ring — same brand green as the plain-field
@@ -52,15 +58,21 @@ class GridTheme {
   static const double focusRingWidth = 1.5;
   static const Duration focusRingDuration = Duration(milliseconds: 140);
 
-  // ── Background colours ("quiet luxury" — kept in sync with
-  // onefop_form_constants.dart's token set) ──────────────────
-  static const Color headerBg = Color(0xFFF5F6F9);
+  // ── Background colours — all-white sheet, matching the reference
+  // Excel forms exactly: no header shading, no row stripes. Most rows
+  // are distinguished by text weight and color only (see headerStyle/
+  // totalStyle/grandTotalStyle below), not by cell fill — except total
+  // cells, which get a subtle tint (same value as OL.totalCellBg in
+  // onefop_layout_constants.dart) so read-only computed cells are
+  // visually distinct from editable input cells at a glance, not just
+  // by their bold green text.
+  static const Color headerBg = Color(0xFFFFFFFF);
   static const Color rowEven = Color(0xFFFFFFFF);
-  static const Color rowOdd = Color(0xFFF8F9FC);
+  static const Color rowOdd = Color(0xFFFFFFFF);
   static const Color totalBg = Color(0xFFE1F0E8);
-  static const Color grandTotalBg = AppColors.deepEmerald;
+  static const Color grandTotalBg = Color(0xFFFFFFFF);
   static const Color inputBg = Color(0xFFFFFFFF);
-  static const Color readOnlyBg = Color(0xFFF5F6F9);
+  static const Color readOnlyBg = Color(0xFFFFFFFF);
 
   // ── Typography (unified 13 px) ────────────────────────────
   static const String? fontFamily = null;
@@ -101,17 +113,19 @@ class GridTheme {
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.w700,
-    color: Colors.white,
+    color: AppColors.deepEmerald,
     height: 1.25,
   );
 
   // ── Padding ───────────────────────────────────────────────
+  // Vertical insets trimmed to fit the smaller rowHeight above — 8px top
+  // + 8px bottom would overflow a 24px row once text height is added.
   static const EdgeInsets headerCellPadding =
-      EdgeInsets.symmetric(horizontal: 10, vertical: 8);
+      EdgeInsets.symmetric(horizontal: 6, vertical: 3);
 
   static const EdgeInsets labelCellPadding =
-      EdgeInsets.symmetric(horizontal: 14, vertical: 8);
+      EdgeInsets.symmetric(horizontal: 14, vertical: 3);
 
   static const EdgeInsets cellPadding =
-      EdgeInsets.symmetric(horizontal: 10, vertical: 8);
+      EdgeInsets.symmetric(horizontal: 10, vertical: 3);
 }

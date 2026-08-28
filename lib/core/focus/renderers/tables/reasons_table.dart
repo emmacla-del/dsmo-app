@@ -8,7 +8,7 @@ class ReasonsTable extends StatelessWidget {
   final FieldSchema field;
   final Map<String, int> numberValues;
   final Map<String, String> textValues;
-  final Function(String, int) onNumberChanged;
+  final Function(String, int?) onNumberChanged;
   final Function(String, String) onTextChanged;
   final UnifiedFocusManagerV2 focusManager;
   final String tableId;

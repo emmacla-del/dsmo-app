@@ -221,8 +221,7 @@ class _OnefopLegalAcknowledgmentScreenState
             boxShadow: [
               BoxShadow(
                 // FIX: withOpacity → withValues(alpha: ...)
-                color:
-                    const Color(0xFF4472C4).withValues(alpha: _pulseGlow.value),
+                color: UltraTheme.primary.withValues(alpha: _pulseGlow.value),
                 blurRadius: 48,
                 spreadRadius: 12,
               ),
@@ -235,9 +234,9 @@ class _OnefopLegalAcknowledgmentScreenState
               height: 110,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF4472C4), Color(0xFF5B8BD4)],
+                    colors: [UltraTheme.primary, UltraTheme.primary.withValues(alpha: 0.72)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -273,7 +272,7 @@ class _OnefopLegalAcknowledgmentScreenState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Animated blue accent bar
+            // Animated emerald accent bar
             AnimatedBuilder(
               animation: _cardCtrl,
               builder: (_, __) => FractionallySizedBox(
@@ -281,9 +280,9 @@ class _OnefopLegalAcknowledgmentScreenState
                 widthFactor: _cardCtrl.value.clamp(0.0, 1.0),
                 child: Container(
                   height: 4,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF4472C4), Color(0xFF5B8BD4)],
+                      colors: [UltraTheme.primary, UltraTheme.primary.withValues(alpha: 0.72)],
                     ),
                   ),
                 ),
@@ -363,13 +362,13 @@ class _OnefopLegalAcknowledgmentScreenState
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: _isAcknowledged
-                                  ? const Color(0xFF4472C4)
+                                color: _isAcknowledged
+                                  ? UltraTheme.primary
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(5),
                               border: Border.all(
                                 color: _isAcknowledged
-                                    ? const Color(0xFF4472C4)
+                                  ? UltraTheme.primary
                                     : const Color(0xFFCBD5E1),
                                 width: 2,
                               ),
@@ -410,14 +409,13 @@ class _OnefopLegalAcknowledgmentScreenState
                       child: ElevatedButton(
                         onPressed: _isAcknowledged ? _handOff : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4472C4),
+                          backgroundColor: UltraTheme.primary,
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: const Color(0xFFE2E8F0),
                           disabledForegroundColor: const Color(0xFF94A3B8),
                           elevation: _isAcknowledged ? 3 : 0,
                           // FIX: withOpacity → withValues(alpha: ...)
-                          shadowColor:
-                              const Color(0xFF4472C4).withValues(alpha: 0.35),
+                            shadowColor: UltraTheme.primary.withValues(alpha: 0.35),
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -467,10 +465,10 @@ class _EntityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: UltraTheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFF4472C4).withValues(alpha: 0.15),
+          color: UltraTheme.primary.withValues(alpha: 0.18),
         ),
       ),
       child: Text(
@@ -479,7 +477,7 @@ class _EntityBadge extends StatelessWidget {
           fontFamily: 'Inter',
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF4472C4),
+          color: UltraTheme.primary,
           letterSpacing: 0.3,
         ),
       ),

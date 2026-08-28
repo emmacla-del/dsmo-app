@@ -30,6 +30,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/i18n/l10n_ext.dart';
+import '../core/i18n/localized_text.dart';
 import '../providers/auth_provider.dart';
 import '../providers/providers.dart';
 import '../data/api_client.dart' show ApiException;
@@ -121,6 +122,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // lets a wizard reopen against the last-known window instead of hard
   // failing; the server re-validates for real at submit time.
   final _periodCache = ReferenceCacheService();
+
+  // "New declaration" (both DSMO and ONEFOP) gates on a network-first
+  // active-period check (ReferenceCacheService.getFresh always awaits a
+  // live fetch — see reference_cache_service.dart) before anything appears
+  // on screen. Against a cold backend that round trip can take tens of
+  // seconds, and with no feedback during the wait the tap looked like it
+  // had done nothing. This flag drives a full-screen spinner overlay (see
+  // build()) for the duration of whichever gate function is running,
+  // regardless of which of its internal branches it takes.
+  bool _navGateLoading = false;
+
+  Future<void> _withNavGate(Future<void> Function() task) async {
+    if (mounted) setState(() => _navGateLoading = true);
+    try {
+      await task();
+    } finally {
+      if (mounted) setState(() => _navGateLoading = false);
+    }
+  }
 
   // Filter state variables
   String? _filterRegion;
@@ -809,6 +829,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
       final activeQuarterCode = activeQuarter['code'] as String;
+      // Same SubmissionRound this whole gate already reads from — S21Q01's
+      // dynamic period wording rides along with it rather than fetching its
+      // own copy. Missing/unparsable in the cached-offline case just falls
+      // back to S21Q01's own "not set" wording; nothing else here depends
+      // on these two.
+      final campaignPeriodStart =
+          DateTime.tryParse(activeQuarter['periodStart']?.toString() ?? '');
+      final campaignPeriodEnd =
+          DateTime.tryParse(activeQuarter['periodEnd']?.toString() ?? '');
 
       String? entityType = company['entityType'] as String?;
       if (entityType == null) {
@@ -916,7 +945,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           reverseTransitionDuration: Duration.zero,
           pageBuilder: (_, __, ___) => OnefopLegalAcknowledgmentScreen(
             entityType: parsedType,
-            isReturningUser: hasAcknowledged,
+            // Acknowledgment is required for every new declaration. Only a
+            // user explicitly resuming an existing draft may bypass the
+            // notice after acknowledging it once.
+            isReturningUser: resumeDraft && hasAcknowledged,
             onPreload: () async {},
             onAcknowledged: () async {
               if (!hasAcknowledged && user != null) {
@@ -931,6 +963,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   establishmentId: establishmentId,
                   companyId: companyId,
                   quarterCode: activeQuarterCode,
+                  campaignPeriodStart: campaignPeriodStart,
+                  campaignPeriodEnd: campaignPeriodEnd,
                   userId: user?.id,
                   periodCheckedOffline: periodCheckedOffline,
                   onSave: (data) async {
@@ -983,12 +1017,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // SECTION 7 — DIALOGS (UPDATED for new draft keys)
   // ═══════════════════════════════════════════════════════════
 
-  /// Shown when the server has a newer draft than this device's local
-  /// copy — i.e. another device saved one more recently. Returns true to
-  /// use the server's version, false to keep this device's. Plain
-  /// bilingual literals rather than the .arb-generated l10n strings used
-  /// elsewhere in this dialog, matching the precedent in OfflineBanner —
-  /// keeps this addition from depending on a `flutter gen-l10n` run.
+  /// Shown when the server has a newer draft than this device's local copy.
   Future<bool?> _showConflictDialog() {
     return showDialog<bool>(
       context: context,
@@ -1001,25 +1030,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _dialogIcon(Icons.sync_problem_outlined, UltraTheme.warning),
               const SizedBox(height: 20),
               Text(
-                  'Brouillon plus récent trouvé / A newer draft was found',
+                  const LocalizedText(
+                      fr: 'Brouillon plus récent trouvé',
+                      en: 'A newer draft was found')
+                    .of(context.loc),
                   style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
               const SizedBox(height: 8),
               Text(
-                  "Un autre appareil a enregistré une version plus récente. / "
-                  'Another device saved a newer version.',
+                  const LocalizedText(
+                      fr: 'Un autre appareil a enregistré une version plus récente.',
+                      en: 'Another device saved a newer version.')
+                    .of(context.loc),
                   style: UltraTheme.bodyMedium),
               const SizedBox(height: 24),
               SubmissionOptionCard(
                   icon: Icons.cloud_download_outlined,
-                  title: "Utiliser l'autre version / Use the other version",
-                  subtitle: 'Depuis un autre appareil / From another device',
+                  title: const LocalizedText(
+                      fr: "Utiliser l'autre version",
+                      en: 'Use the other version')
+                    .of(context.loc),
+                  subtitle: const LocalizedText(
+                      fr: 'Depuis un autre appareil',
+                      en: 'From another device')
+                    .of(context.loc),
                   color: UltraTheme.primary,
                   onTap: () => Navigator.pop(ctx, true)),
               const SizedBox(height: 12),
               SubmissionOptionCard(
                   icon: Icons.smartphone_outlined,
-                  title: 'Garder cet appareil / Keep this device',
-                  subtitle: 'Votre version actuelle / Your current version',
+                  title: const LocalizedText(
+                      fr: 'Garder cet appareil', en: 'Keep this device')
+                    .of(context.loc),
+                  subtitle: const LocalizedText(
+                      fr: 'Votre version actuelle',
+                      en: 'Your current version')
+                    .of(context.loc),
                   color: UltraTheme.warning,
                   onTap: () => Navigator.pop(ctx, false)),
             ]),
@@ -1172,9 +1217,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (!mounted) return;
     if (result == 'dsmo') {
-      await _openDsmoFormForCompany();
+      await _withNavGate(_openDsmoFormForCompany);
     } else if (result == 'onefop') {
-      await _openOnefopFormForCompany();
+      await _withNavGate(_openOnefopFormForCompany);
     }
   }
 
@@ -1502,7 +1547,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       subtitle: 'Saisie assistée',
                       onTap: () {
                         Navigator.pop(context);
-                        _navigateToBlankForm();
+                        _withNavGate(_navigateToBlankForm);
                       },
                     ),
                   ],
@@ -1533,8 +1578,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(children: [
         Container(
           padding:
-              EdgeInsets.symmetric(horizontal: expanded ? 20 : 0, vertical: 24),
-          child: Center(child: RailLogo(isExpanded: expanded)),
+              EdgeInsets.fromLTRB(expanded ? 20 : 0, 18, expanded ? 12 : 0, 14),
+          child: Row(
+            children: [
+              Expanded(child: Center(child: RailLogo(isExpanded: expanded))),
+              _railToggleButton(expanded),
+            ],
+          ),
         ),
         const Divider(height: 1, indent: 0, endIndent: 0),
         Expanded(
@@ -1560,6 +1610,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _railToggleButton(bool expanded) {
+    return Tooltip(
+      message: expanded ? 'Collapse navigation' : 'Expand navigation',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _railExpanded = !_railExpanded),
+          borderRadius: BorderRadius.circular(9),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: expanded
+                  ? UltraTheme.background
+                  : UltraTheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                  color: expanded
+                      ? UltraTheme.border
+                      : UltraTheme.primary.withValues(alpha: 0.2)),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0x100F172A), blurRadius: 5, offset: Offset(0, 2)),
+              ],
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: Icon(
+                expanded ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                key: ValueKey(expanded),
+                size: 19,
+                color: UltraTheme.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════
   // SECTION 12 — APP BAR (with filter button)
   // ═══════════════════════════════════════════════════════════
@@ -1567,6 +1658,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   PreferredSizeWidget _buildAppBar(
       BuildContext context, User user, String role, List<_Tab> tabs) {
     final isMobile = context.isMobile;
+
+    // The company portal owns its own page header (for example, the
+    // declarations screen renders "My Declarations" with its primary action).
+    // Keep the desktop rail, but remove the duplicate global title/status/user
+    // bar so the portal content starts at the top of the workspace.
+    if (role == 'COMPANY' && !isMobile) {
+      return const PreferredSize(
+        preferredSize: Size.zero,
+        child: SizedBox.shrink(),
+      );
+    }
+
     final canFilter = _nationalRoles.contains(role);
     final filterActive = _filterRegion != null ||
         _filterDepartment != null ||
@@ -1595,7 +1698,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       elevation: 0,
       scrolledUnderElevation: 0,
       toolbarHeight: 64,
-      leading: isMobile
+        leading: isMobile
           ? Builder(
               builder: (ctx) => IconButton(
                 icon: Container(
@@ -1611,34 +1714,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
             )
-          : IconButton(
-              icon: Icon(_railExpanded ? Icons.menu_open : Icons.menu,
-                  color: UltraTheme.textSecondary),
-              onPressed: () => setState(() => _railExpanded = !_railExpanded),
-              tooltip: _railExpanded ? 'Réduire le rail' : 'Étendre le rail',
-            ),
-      title: isMobile
-          ? const Text('DSMO',
-              style: TextStyle(
+            : null,
+          title: isMobile
+            ? Text(role == 'COMPANY' ? 'My declarations' : 'CAMLEAP',
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: UltraTheme.textPrimary,
                 letterSpacing: -0.5,
               ))
-          : Row(children: [
-              Text(
-                tabs.isNotEmpty
-                    ? tabs[_selectedIndex.clamp(0, tabs.length - 1)].label
-                    : 'Tableau de bord',
-                style: UltraTheme.displayMedium.copyWith(fontSize: 20),
-              ),
-              const SizedBox(width: 12),
-              StatusBadge(
-                  label: context.l10n.onlineStatusLabel,
-                  color: UltraTheme.success,
-                  icon: Icons.circle),
-            ]),
+          : Text(
+              role == 'COMPANY'
+                  ? 'My declarations'
+                  : (tabs.isNotEmpty
+                      ? tabs[_selectedIndex.clamp(0, tabs.length - 1)].label
+                      : 'Tableau de bord'),
+              style: UltraTheme.displayMedium.copyWith(fontSize: 20),
+            ),
       actions: [
         if (canFilter)
           IconButton(
@@ -1801,12 +1894,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // SECTION 13 — BLANK FORM (non-company MINEFOP roles)
   // ═══════════════════════════════════════════════════════════
 
-  void _navigateToBlankForm() {
+  Future<void> _navigateToBlankForm() async {
     final userId = ref.read(authProvider).value?.id ?? 'guest';
+    final api = ref.read(apiClientProvider);
+    // Same active-campaign gate/source as _openOnefopFormForCompany() above
+    // — this "assisted entry" path used to skip it entirely and open the
+    // form with no campaign context at all, which is why S21Q01 rendered
+    // "not set to not set" here: campaignPeriodStart/End were never fetched
+    // in the first place, not merely unavailable in time for first paint.
+    Map<String, dynamic>? activeQuarter;
+    try {
+      activeQuarter = await _periodCache.getFresh(
+        key: 'onefop_active_quarter',
+        fetch: () => api.getActiveQuarter(),
+      );
+    } catch (_) {
+      activeQuarter = null;
+    }
+    if (!mounted) return;
+    if (activeQuarter == null || activeQuarter['isOpen'] != true) {
+      if (!context.mounted) return;
+      _snack(context,
+          message: context.l10n.noOpenSubmissionPeriodError,
+          type: SnackBarType.warning);
+      return;
+    }
+    final campaignPeriodStart =
+        DateTime.tryParse(activeQuarter['periodStart']?.toString() ?? '');
+    final campaignPeriodEnd =
+        DateTime.tryParse(activeQuarter['periodEnd']?.toString() ?? '');
+
     _push(OnefopUnifiedFormScreenV4(
       entityType: EntityType.enterprise,
       initialData: const {},
       userId: userId,
+      campaignPeriodStart: campaignPeriodStart,
+      campaignPeriodEnd: campaignPeriodEnd,
       onSave: (data) async {
         await DraftService.saveDraft(
             userId: userId, entityType: 'enterprise', data: data);
@@ -1866,23 +1989,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return true;
     }());
 
-    return ResponsiveScaffold(
-      appBar: _buildAppBar(context, user, role, tabs),
-      drawer: isMobile ? _buildDrawer(user, role) : null,
-      railNav: isMobile ? null : _buildNavRail(user, role, tabs),
-      body: Column(
-        children: [
-          Expanded(child: ContentShell(child: tabs[safeIndex].screen)),
-        ],
-      ),
-      bottomNavigationBar: isMobile && tabs.length >= 2
-          ? UltraBottomNavBar(
-              tabs: tabs.map((t) => (icon: t.icon, label: t.label)).toList(),
-              selectedIndex: safeIndex,
-              onTap: (i) => _selectTab(i, tabs),
-            )
-          : null,
-      floatingActionButton: null,
+    return Stack(
+      children: [
+        ResponsiveScaffold(
+          appBar: _buildAppBar(context, user, role, tabs),
+          drawer: isMobile ? _buildDrawer(user, role) : null,
+          railNav: isMobile ? null : _buildNavRail(user, role, tabs),
+          body: Column(
+            children: [
+              Expanded(child: ContentShell(child: tabs[safeIndex].screen)),
+            ],
+          ),
+          bottomNavigationBar: isMobile && tabs.length >= 2
+              ? UltraBottomNavBar(
+                  tabs: tabs.map((t) => (icon: t.icon, label: t.label)).toList(),
+                  selectedIndex: safeIndex,
+                  onTap: (i) => _selectTab(i, tabs),
+                )
+              : null,
+          floatingActionButton: null,
+        ),
+        if (_navGateLoading) const _NavGateLoadingOverlay(),
+      ],
     );
   }
 
@@ -2055,6 +2183,38 @@ class _ActiveFilterChip extends StatelessWidget {
               size: 14, color: UltraTheme.primary),
         ),
       ]),
+    );
+  }
+}
+
+/// Full-screen scrim + spinner shown while a "new declaration" entry point
+/// (_openOnefopFormForCompany / _openDsmoFormForCompany /
+/// _navigateToBlankForm, via _withNavGate) is mid-flight — those all gate
+/// on a network-first active-period check with no visual feedback of their
+/// own, which against a slow/cold backend read as the tap having done
+/// nothing. Absorbs taps (IgnorePointer would let them fall through to
+/// whatever's underneath) so a second tap can't fire the same gate twice.
+class _NavGateLoadingOverlay extends StatelessWidget {
+  const _NavGateLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.15),
+          child: const Center(
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(UltraTheme.primary),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -20,8 +20,8 @@ import '../grid_theme.dart';
 
 class NumberField extends StatefulWidget {
   final String fieldId;
-  final int value;
-  final void Function(String, int) onChanged;
+  final int? value;
+  final void Function(String, int?) onChanged;
   final UnifiedFocusManagerV2 focusManager;
   final String tableId;
   final double width;
@@ -54,7 +54,7 @@ class _NumberFieldState extends State<NumberField> {
   late final TextEditingController _ctrl;
   FocusNode get _node => widget.focusManager.node(widget.fieldId);
 
-  String _display(int v) => v == 0 ? '' : '$v';
+  String _display(int? v) => v == null ? '' : '$v';
 
   @override
   void initState() {
@@ -173,6 +173,10 @@ class _NumberFieldState extends State<NumberField> {
       }
       return KeyEventResult.handled;
     }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.escape)) {
+      n.unfocus();
+      return KeyEventResult.handled;
+    }
     return widget.focusManager.handleKey(n, e, gridId: widget.tableId);
   }
 
@@ -181,7 +185,6 @@ class _NumberFieldState extends State<NumberField> {
     return ListenableBuilder(
       listenable: _node,
       builder: (ctx, _) {
-        final focused = _node.hasFocus;
         // Center: isDense+zero-padding TextField collapses to its intrinsic
         // (single-line) height and pins to the TOP of whatever height its
         // ancestor gives it — textAlignVertical.center only centers text
@@ -189,18 +192,8 @@ class _NumberFieldState extends State<NumberField> {
         // Without this the caret sits near the top of the cell instead of
         // vertically centered.
         return Center(
-          child: AnimatedContainer(
-            duration: GridTheme.focusRingDuration,
-            curve: Curves.easeOut,
-            margin: EdgeInsets.all(focused ? 2 : 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: focused
-                  ? Border.all(
-                      color: GridTheme.focusRingColor,
-                      width: GridTheme.focusRingWidth)
-                  : null,
-            ),
+          child: Container(
+            margin: const EdgeInsets.all(2),
             child: TextField(
               controller: _ctrl,
               focusNode: _node,
@@ -218,20 +211,17 @@ class _NumberFieldState extends State<NumberField> {
               textAlignVertical: TextAlignVertical.center,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: GridTheme.dataStyle,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
-                hintText: focused ? '0' : null,
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFFCBD5E1),
-                ),
               ),
-              onChanged: (v) =>
-                  widget.onChanged(widget.fieldId, int.tryParse(v) ?? 0),
+              onChanged: (v) => widget.onChanged(
+                widget.fieldId,
+                v.trim().isEmpty ? null : int.tryParse(v),
+              ),
               onSubmitted: (_) => _handleKey(
                 _node,
                 const KeyDownEvent(

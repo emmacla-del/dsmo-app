@@ -12,6 +12,8 @@ import {
   Max,
   IsIn,
   IsEmail,
+  IsDefined,
+  ValidateIf,
   ValidateNested,
   ArrayMinSize,
   ArrayMaxSize,
@@ -75,8 +77,9 @@ export class RespondentDto {
   @ToString()
   phone2?: string;
 
-  @IsOptional() @IsEmail()
-  email?: string;
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
 }
 
 // ─────────────────────────────────────────────
@@ -284,9 +287,9 @@ export class EnterpriseIdentificationDto {
   @ToString()
   subdivision!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  locality?: string;
+  locality!: string;
 
   @IsString() @IsNotEmpty()
   @ToString()
@@ -296,26 +299,26 @@ export class EnterpriseIdentificationDto {
   @ToString()
   phone2?: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  poBox?: string;
+  poBox!: string;
 
   @IsIn([1, 2, 3]) sector!: number;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  branch?: string;
+  branch!: string;
 
   @IsString() @IsNotEmpty()
   @ToString()
   mainActivity!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  headOffice?: string;
+  headOffice!: string;
 
   @IsInt() @Min(0) permanentWorkers!: number;
-  @IsOptional() @IsInt() @Min(0) vacancies?: number;
+  @IsInt() @Min(0) vacancies!: number;
   @IsIn([1, 2, 3, 4]) size!: number;
 }
 
@@ -324,103 +327,107 @@ export class CooperativeIdentificationDto {
   @ToString()
   name!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  headOffice?: string;
+  headOffice!: string;
 
-  @IsOptional() @IsInt() @Min(1800) @Max(2100) yearCreated?: number;
-  @IsOptional() @IsIn([1, 2]) area?: 1 | 2;
+  @IsInt() @Min(1800) @Max(2100) yearCreated!: number;
+  @IsIn([1, 2]) area!: 1 | 2;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  region?: string;
+  region!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  department?: string;
+  department!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  subdivision?: string;
+  subdivision!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  locality?: string;
+  locality!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  phone1?: string;
+  phone1!: string;
 
   @IsOptional() @IsString()
   @ToString()
   phone2?: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  poBox?: string;
+  poBox!: string;
 
-  @IsOptional() @IsIn([1, 2, 3]) sector?: 1 | 2 | 3;
+  @IsIn([1, 2, 3]) sector!: 1 | 2 | 3;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  branch?: string;
+  branch!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  mainActivity?: string;
+  mainActivity!: string;
 
-  @IsOptional() @IsIn([1, 2, 3]) type?: 1 | 2 | 3;
+  @IsIn([1, 2, 3]) type!: 1 | 2 | 3;
 
-  @IsOptional() @IsString()
+  @ValidateIf((o: CooperativeIdentificationDto) => o.type === 3)
+  @IsString() @IsNotEmpty()
   @ToString()
   typeOther?: string;
 
-  @IsOptional() @IsInt() @Min(0) permanentWorkers?: number;
-  @IsOptional() @IsInt() @Min(0) vacancies?: number;
+  @IsInt() @Min(0) permanentWorkers!: number;
+  @IsInt() @Min(0) vacancies!: number;
 }
 
 export class CtdIdentificationDto {
   @IsIn([1, 2]) type!: 1 | 2;
-  @IsOptional() @IsIn([1, 2]) councilType?: 1 | 2;
-  @IsOptional() @IsInt() @Min(1800) @Max(2100) yearCreated?: number;
-  @IsOptional() @IsIn([1, 2]) area?: 1 | 2;
 
-  @IsOptional() @IsString()
-  @ToString()
-  region?: string;
+  @ValidateIf((o: CtdIdentificationDto) => o.type === 2)
+  @IsIn([1, 2]) councilType?: 1 | 2;
 
-  @IsOptional() @IsString()
-  @ToString()
-  department?: string;
+  @IsInt() @Min(1800) @Max(2100) yearCreated!: number;
+  @IsIn([1, 2]) area!: 1 | 2;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  subdivision?: string;
+  region!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  locality?: string;
+  department!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  phone1?: string;
+  subdivision!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  locality!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  phone1!: string;
 
   @IsOptional() @IsString()
   @ToString()
   phone2?: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  poBox?: string;
+  poBox!: string;
 
-  @IsOptional() @IsIn([1, 2, 3]) sector?: 1 | 2 | 3;
+  @IsIn([1, 2, 3]) sector!: 1 | 2 | 3;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  branch?: string;
+  branch!: string;
 
-  @IsOptional() @IsInt() @Min(0) permanentWorkers?: number;
-  @IsOptional() @IsInt() @Min(0) vacancies?: number;
+  @IsInt() @Min(0) permanentWorkers!: number;
+  @IsInt() @Min(0) vacancies!: number;
 }
 
 export class OngIdentificationDto {
@@ -428,53 +435,53 @@ export class OngIdentificationDto {
   @ToString()
   name!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  headOffice?: string;
+  headOffice!: string;
 
-  @IsOptional() @IsInt() @Min(1800) @Max(2100) yearCreated?: number;
-  @IsOptional() @IsIn([1, 2]) area?: 1 | 2;
+  @IsInt() @Min(1800) @Max(2100) yearCreated!: number;
+  @IsIn([1, 2]) area!: 1 | 2;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  region?: string;
+  region!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  department?: string;
+  department!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  subdivision?: string;
+  subdivision!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  locality?: string;
+  locality!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  phone1?: string;
+  phone1!: string;
 
   @IsOptional() @IsString()
   @ToString()
   phone2?: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  poBox?: string;
+  poBox!: string;
 
-  @IsOptional() @IsIn([1, 2, 3]) sector?: 1 | 2 | 3;
+  @IsIn([1, 2, 3]) sector!: 1 | 2 | 3;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  branch?: string;
+  branch!: string;
 
-  @IsOptional() @IsString()
+  @IsString() @IsNotEmpty()
   @ToString()
-  mainMission?: string;
+  mainMission!: string;
 
-  @IsOptional() @IsInt() @Min(0) permanentWorkers?: number;
-  @IsOptional() @IsInt() @Min(0) vacancies?: number;
+  @IsInt() @Min(0) permanentWorkers!: number;
+  @IsInt() @Min(0) vacancies!: number;
 }
 
 // ─────────────────────────────────────────────
@@ -528,6 +535,7 @@ export class SharedSectionsDto {
 export abstract class BaseQuestionnaireDto extends SharedSectionsDto {
   abstract organizationType: string;
 
+  @IsDefined()
   @ValidateNested() @Type(() => RespondentDto)
   respondent!: RespondentDto;
 }
@@ -535,6 +543,7 @@ export abstract class BaseQuestionnaireDto extends SharedSectionsDto {
 export class EnterpriseQuestionnaireDto extends BaseQuestionnaireDto {
   organizationType: 'enterprise' = 'enterprise';
 
+  @IsDefined()
   @ValidateNested() @Type(() => EnterpriseIdentificationDto)
   enterprise!: EnterpriseIdentificationDto;
 }
@@ -542,6 +551,7 @@ export class EnterpriseQuestionnaireDto extends BaseQuestionnaireDto {
 export class CooperativeQuestionnaireDto extends BaseQuestionnaireDto {
   organizationType: 'cooperative' = 'cooperative';
 
+  @IsDefined()
   @ValidateNested() @Type(() => CooperativeIdentificationDto)
   cooperative!: CooperativeIdentificationDto;
 }
@@ -549,6 +559,7 @@ export class CooperativeQuestionnaireDto extends BaseQuestionnaireDto {
 export class CtdQuestionnaireDto extends BaseQuestionnaireDto {
   organizationType: 'ctd' = 'ctd';
 
+  @IsDefined()
   @ValidateNested() @Type(() => CtdIdentificationDto)
   ctd!: CtdIdentificationDto;
 }
@@ -556,6 +567,7 @@ export class CtdQuestionnaireDto extends BaseQuestionnaireDto {
 export class OngQuestionnaireDto extends BaseQuestionnaireDto {
   organizationType: 'ong' = 'ong';
 
+  @IsDefined()
   @ValidateNested() @Type(() => OngIdentificationDto)
   ong!: OngIdentificationDto;
 }

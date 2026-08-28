@@ -82,7 +82,7 @@ const entityTypes = ['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'];
 const entityTypeLabels = {
   'ENTREPRISE': LocalizedText(fr: 'Entreprise', en: 'Company'),
   'COOPERATIVE': LocalizedText(fr: 'Coopérative', en: 'Cooperative'),
-  'CTD': LocalizedText.same('CTD'),
+  'CTD': LocalizedText(fr: 'CTD', en: 'RLA'),
   'ONG': LocalizedText(fr: 'ONG', en: 'NGO'),
 };
 

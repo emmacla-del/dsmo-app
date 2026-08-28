@@ -89,6 +89,74 @@ enum TableLayout {
 }
 
 // ─────────────────────────────────────────────────────────────
+// CATEGORY MINI GRIDS — S21Q01/S22Q01/S22Q02/S23Q01/S23Q02
+//
+// One CSP category's (Cadres/Foremen/Field workers) small transposed
+// grid — rows Male/Female/Total × columns age-bands+Total — plus an
+// optional outer grouping axis (S23Q02's Permanent/Temporaire status;
+// tables with no such axis use a single group with outerLabel: null).
+// See TableSpecBuilder._categoryMiniGrids — cell IDs are unchanged from
+// the flat gender-major/age-minor convention _genderAgeRow already
+// uses, just re-chunked into a 3×4 shape instead of 1×12.
+// ─────────────────────────────────────────────────────────────
+
+class CategoryMiniGrid {
+  final String label;
+  final GridRenderSpec spec;
+  const CategoryMiniGrid({required this.label, required this.spec});
+}
+
+class CategoryGridGroup {
+  final String? outerLabel;
+  final List<CategoryMiniGrid> categories;
+  const CategoryGridGroup({this.outerLabel, required this.categories});
+}
+
+// ─────────────────────────────────────────────────────────────
+// AGE-BAND SWITCHER — S22Q03 (desktop only; see AgeBandSwitchTable)
+//
+// Rather than one 12-column sheet (3 genders × 4 age bands), a segmented
+// control picks one age band at a time and only that band's 3 gender
+// columns (Male/Female/Total) are shown, for every row at once. Same
+// cell IDs, same matrix — see AgeBandSwitchTable for the fixed
+// [ageIdx, 4+ageIdx, 8+ageIdx] column-slice this relies on, mirroring
+// _genderAgeRow's [male×4, female×4, total×4] column layout.
+// ─────────────────────────────────────────────────────────────
+
+class AgeBandSwitcherConfig {
+  final List<String> labels; // e.g. ['15–24', '25–34', '35+', 'Total (tous âges)']
+  const AgeBandSwitcherConfig({required this.labels});
+}
+
+// ─────────────────────────────────────────────────────────────
+// STATUS SWITCHER — S22Q04/S22Q05 (desktop only; see StatusSwitchTable)
+//
+// Mirror image of the age-band switcher: rather than one 9-column sheet
+// (3 statuses × 3 genders), a segmented control picks one status at a
+// time (Permanent/Temporaire/Total) and only that status's 3 gender
+// columns (Male/Female/Total) are shown, for every row at once. Same
+// cell IDs, same matrix — see StatusSwitchTable for the fixed
+// [3*statusIdx, 3*statusIdx+1, 3*statusIdx+2] column-slice this relies
+// on, mirroring _statusGenderRow's [permanent×3, temporary×3, total×3]
+// column layout (a contiguous block per status, unlike the age-band
+// switcher's strided pick — status is the *major* axis here, gender the
+// minor one, the reverse of _genderAgeRow).
+// ─────────────────────────────────────────────────────────────
+
+class StatusSwitcherConfig {
+  final List<String> labels; // e.g. ['Permanent', 'Temporaire', 'Total']
+  // Raw, non-localized keys parallel to [labels] (e.g. ['permanent',
+  // 'temporary', 'total']) — StatusSwitchTable needs these (not the
+  // display labels) to compose the same '${rowKey}_${middleKey}'
+  // per-(row, status) "Aucun cas à signaler" skip key that mobile's
+  // categoryGridGroups fallback already uses (see
+  // TableSpecBuilder._middleAxisCategoryGroups), so a flag set on one
+  // platform is recognized on the other.
+  final List<String> keys;
+  const StatusSwitcherConfig({required this.labels, required this.keys});
+}
+
+// ─────────────────────────────────────────────────────────────
 // GRID RENDER SPEC
 // ─────────────────────────────────────────────────────────────
 
@@ -151,6 +219,23 @@ class GridRenderSpec {
   /// Kept narrow so the overall table width stays harmonised.
   final double? leadingGroupColWidth;
 
+  // ── Category mini-grids (S21Q01/S22Q01/S22Q02/S23Q01/S23Q02) ─
+  /// When non-null, TableRenderer renders these instead of
+  /// matrix/rowLabels/headers entirely — see CategoryGridGroup.
+  final List<CategoryGridGroup>? categoryGridGroups;
+
+  // ── Age-band switcher (S22Q03, desktop only) ─────────────────
+  /// When non-null (desktop only — mobile falls back to
+  /// categoryGridGroups, per-diploma cards), TableRenderer renders
+  /// AgeBandSwitchTable instead of matrix/rowLabels/headers directly.
+  final AgeBandSwitcherConfig? ageBandSwitcher;
+
+  // ── Status switcher (S22Q04/S22Q05, desktop only) ─────────────
+  /// When non-null (desktop only — mobile falls back to
+  /// categoryGridGroups), TableRenderer renders StatusSwitchTable
+  /// instead of matrix/rowLabels/headers directly.
+  final StatusSwitcherConfig? statusSwitcher;
+
   // ── First-column (row-label) width override ────────────────
   final double? firstColWidthOverride;
 
@@ -168,6 +253,17 @@ class GridRenderSpec {
   ///
   /// Used by: reasons_table, skills_table, training_table.
   final List<String>? rowLabelCellIds;
+
+  // ── Row keys (Spreadsheet Mode's flat matrix-question rows) ────
+  /// Optional stable, non-localized identifier per row in [rowLabels]
+  /// order — e.g. `'s21q01_cadres'`, matching the same
+  /// `'${prefix}_$rowKey'` convention CategoryMiniGrid.spec.id already
+  /// uses, so a skip flag stored under one identifier is recognized by
+  /// either rendering. An empty string marks a row with nothing to skip
+  /// (a computed "Total" row). Used by GenericSpreadsheetTable's
+  /// rowAccessoryBuilder (the per-row "Aucun cas à signaler" toggle) to
+  /// know which rows are real categories versus computed totals.
+  final List<String>? rowKeys;
 
   // ── Cell spec resolver ─────────────────────────────────────
   final CellSpec Function(String fieldId)? cellSpec;
@@ -200,8 +296,12 @@ class GridRenderSpec {
     this.leadingGroupLabels,
     this.leadingGroupRowCounts,
     this.leadingGroupColWidth,
+    this.categoryGridGroups,
+    this.ageBandSwitcher,
+    this.statusSwitcher,
     this.firstColWidthOverride,
     this.rowLabelCellIds,
+    this.rowKeys,
     this.cellSpec,
     this.isTotalCell,
     this.cellColor,
@@ -221,6 +321,57 @@ class GridRenderSpec {
 
   // ── Convenience ────────────────────────────────────────────
   bool get hasLeadingGroup => leadingGroupHeader != null;
+
+  // ── Split into standalone per-group tables ──────────────────
+  //
+  // Tables like S22Q03 (education level) or S23Q02 (Permanent /
+  // Temporaire) are large enough that a single merged-column sheet
+  // reads as one intimidating block. This slices the same
+  // rowLabels/matrix/rowLabelCellIds data by [leadingGroupRowCounts]
+  // into N standalone specs — one per group, each a normal flat
+  // table (no leading column, since the group label now titles its
+  // own box) — so the renderer can lay them out as separate boxed
+  // tables instead of one table with a frozen first column.
+  //
+  // Cell IDs are untouched (just re-sliced into smaller lists), so
+  // stored data / autosave keys are unaffected — this only changes
+  // how the same cells are grouped into boxes on screen.
+  List<({String label, GridRenderSpec spec})> splitByLeadingGroup() {
+    if (!hasLeadingGroup) return [(label: '', spec: this)];
+    final labels = leadingGroupLabels!;
+    final counts = leadingGroupRowCounts!;
+    final result = <({String label, GridRenderSpec spec})>[];
+    var start = 0;
+    for (var i = 0; i < labels.length; i++) {
+      final end = start + counts[i];
+      result.add((
+        label: labels[i],
+        spec: GridRenderSpec(
+          id: '${id}_g$i',
+          matrix: matrix.sublist(start, end),
+          rowLabels: rowLabels.sublist(start, end),
+          headers: headers,
+          cornerLabel: cornerLabel,
+          cornerLabel2: cornerLabel2,
+          firstColWidthOverride: firstColWidthOverride,
+          rowLabelCellIds: rowLabelCellIds?.sublist(start, end),
+          rowKeys: rowKeys?.sublist(start, end),
+          cellSpec: cellSpec,
+          isTotalCell: isTotalCell,
+          cellColor: cellColor,
+          cellTextStyle: cellTextStyle,
+          textValue: textValue,
+          onTextChanged: onTextChanged,
+          selectedValue: selectedValue,
+          onSelectChanged: onSelectChanged,
+          radioValue: radioValue,
+          onRadioChanged: onRadioChanged,
+        ),
+      ));
+      start = end;
+    }
+    return result;
+  }
 
   // ── Layout discriminator ───────────────────────────────────
   bool get isMatrixLayout => rowLabels.isEmpty && matrix.isNotEmpty;
@@ -272,6 +423,7 @@ class GridRenderSpec {
     double? leadingGroupColWidth,
     double? firstColWidthOverride,
     List<String>? rowLabelCellIds,
+    List<String>? rowKeys,
     CellSpec Function(String)? cellSpec,
     bool Function(String)? isTotalCell,
     Color? Function(String)? cellColor,
@@ -298,6 +450,7 @@ class GridRenderSpec {
       firstColWidthOverride:
           firstColWidthOverride ?? this.firstColWidthOverride,
       rowLabelCellIds: rowLabelCellIds ?? this.rowLabelCellIds,
+      rowKeys: rowKeys ?? this.rowKeys,
       cellSpec: cellSpec ?? this.cellSpec,
       isTotalCell: isTotalCell ?? this.isTotalCell,
       cellColor: cellColor ?? this.cellColor,

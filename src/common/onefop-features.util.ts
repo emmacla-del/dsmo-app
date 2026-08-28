@@ -22,6 +22,7 @@ export interface OnefopFeatures {
   onefopSurveyYear: number | null;
   onefopSubmissionDate: Date | null;
   onefopHasDraft: boolean;
+  onefopRejectionReason: string | null;
 }
 
 /**
@@ -37,12 +38,22 @@ export async function computeOnefopFeatures(
   const onefopSubs = await (prisma as any).onefopSubmission.findMany({
     where: { companyId },
     orderBy: { createdAt: 'desc' },
-    select: { status: true, surveyYear: true, submissionDate: true },
+    select: { status: true, surveyYear: true, submissionDate: true, rejectionReason: true },
   });
 
   const latestSubmitted = onefopSubs.find((s: any) =>
     ['PENDING_REVIEW', 'APPROVED'].includes(s.status),
   );
+
+  // For *display*, the most recently created row overall (already sorted
+  // desc) — not just the accepted ones. Without this, a REJECTED or
+  // CORRECTION_REQUESTED-only company's dashboard silently fell back to
+  // "not submitted", as if the review never happened: the entity had no
+  // way to learn it was rejected, or why, since rejectionReason was never
+  // exposed here either. Feature-gate booleans below intentionally keep
+  // the accepted-only `latestSubmitted` — those should stay locked behind
+  // an actually-accepted submission, not a rejected one.
+  const latestOverall = onefopSubs[0] ?? null;
 
   return {
     onefopBasicAnalytics: !!latestSubmitted,
@@ -56,9 +67,13 @@ export async function computeOnefopFeatures(
     // yet, so this just lets more companies reach that (already-honest)
     // gate sooner instead of hitting a closed door first.
     onefopBenchmarking: !!latestSubmitted,
-    onefopSubmissionStatus: latestSubmitted?.status ?? null,
-    onefopSurveyYear: latestSubmitted?.surveyYear ?? null,
-    onefopSubmissionDate: latestSubmitted?.submissionDate ?? null,
+    onefopSubmissionStatus: latestOverall?.status ?? null,
+    onefopSurveyYear: latestOverall?.surveyYear ?? null,
+    onefopSubmissionDate: latestOverall?.submissionDate ?? null,
     onefopHasDraft: onefopSubs.some((s: any) => s.status === 'DRAFT'),
+    onefopRejectionReason:
+      latestOverall?.status === 'REJECTED' || latestOverall?.status === 'CORRECTION_REQUESTED'
+        ? latestOverall.rejectionReason ?? null
+        : null,
   };
 }

@@ -21,6 +21,7 @@ import 'package:path_provider/path_provider.dart';
 
 // ── Core schema imports ──────────────────────────────────────
 import '../../core/i18n/l10n_ext.dart';
+import '../../core/i18n/localized_text.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
@@ -38,10 +39,14 @@ import '../../providers/auth_provider.dart';
 import '../dashboards/company_workspace_dashboard.dart' show companyWorkspaceProvider;
 
 // ── Screen-local modules ─────────────────────────────────────
+import '../../providers/onefop_mode_provider.dart';
 import 'onefop_form_constants.dart';
 import 'onefop_form_controller.dart';
 import 'onefop_form_widgets.dart';
+import 'onefop_section_units.dart';
 import 'onefop_table_engine.dart';
+import 'excel/onefop_excel_shell.dart';
+import 'simple_mode_shell.dart';
 
 class OnefopUnifiedFormScreenV4 extends StatefulWidget {
   final EntityType entityType;
@@ -49,6 +54,11 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
   final String? establishmentId;
   final String? companyId;
   final String? quarterCode;
+  // The active campaign's data-collection window — see
+  // OnefopFormController.campaignPeriodStart/End for how S21Q01 consumes
+  // these instead of a hard-coded date.
+  final DateTime? campaignPeriodStart;
+  final DateTime? campaignPeriodEnd;
   final void Function(Map<String, dynamic>) onSave;
   final VoidCallback? onCancel;
   final String? userId;
@@ -67,6 +77,8 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
     this.establishmentId,
     this.companyId,
     this.quarterCode,
+    this.campaignPeriodStart,
+    this.campaignPeriodEnd,
     required this.onSave,
     this.onCancel,
     this.userId,
@@ -95,6 +107,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       establishmentId: widget.establishmentId,
       companyId: widget.companyId,
       quarterCode: widget.quarterCode,
+      campaignPeriodStart: widget.campaignPeriodStart,
+      campaignPeriodEnd: widget.campaignPeriodEnd,
       onSave: widget.onSave,
       onCancel: widget.onCancel,
       userId: widget.userId,
@@ -102,6 +116,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     );
     _ctrl.initialize();
     _ctrl.addListener(_onControllerChange);
+    if (_ctrl.resumedFromSavedPosition) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showResumeToast());
+    }
   }
 
   @override
@@ -252,11 +269,6 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       );
     }
 
-    // On mobile the MobileContextHeader already shows the current section's
-    // label and progress, so the app bar's second row would be a redundant
-    // ~52px of chrome on an already-tight phone viewport — only render it
-    // on desktop, where there's no compact header.
-    final headerSec = desktop ? _currentSection : null;
     // Consumer rather than converting the whole State to ConsumerState —
     // this is the only spot that needs ref, to push the local draft to the
     // server as soon as connectivity returns (local writes always succeed
@@ -266,6 +278,15 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         ref.listen<bool>(isOnlineProvider, (previous, next) {
           if (previous == false && next == true) _ctrl.flushPendingSave();
         });
+        final mode = ref.watch(onefopModeProvider);
+        void onModeChanged(OnefopViewMode m) =>
+            ref.read(onefopModeProvider.notifier).setMode(m);
+        // Both desktop modes now carry their own single title bar
+        // (OnefopShellTitleBar — title, save status, mode switch, drafts,
+        // dashboard — see OnefopExcelShell and SimpleModeShell), sitting
+        // next to the Sidebar's own logo header, so the outer white app bar
+        // here would just repeat that chrome one level up. Only mobile,
+        // which has no bar of its own, keeps it.
         return Scaffold(
           key: _scaffoldKey,
           backgroundColor: kCanvas,
@@ -275,26 +296,24 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
             onSaveNow: () async => _ctrl.flushPendingSave(),
             onDelete: (draft) => _deleteDraft(draft.key),
           ),
-          appBar: OnefopAppBar(
-            title: title,
-            loading: false,
-            saving: _ctrl.saving,
-            dirty: _ctrl.dirty,
-            onCancel: widget.onCancel,
-            onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
-            sectionTitle: headerSec == null
-                ? null
-                : kSidebarMeta[headerSec.id]?.label.of(locale),
-            sectionIcon:
-                headerSec == null ? null : kSidebarMeta[headerSec.id]?.icon,
-            sectionComplete: headerSec == null
-                ? false
-                : (_ctrl.valid[headerSec.id] ?? false),
-          ),
+          appBar: desktop
+              ? null
+              : OnefopAppBar(
+                  title: title,
+                  loading: false,
+                  saving: _ctrl.saving,
+                  dirty: _ctrl.dirty,
+                  onCancel: widget.onCancel,
+                  onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
+                ),
           body: Column(
             children: [
               if (widget.periodCheckedOffline) _offlinePeriodBanner(),
-              Expanded(child: desktop ? _desktopLayout() : _mobileLayout()),
+              Expanded(
+                child: desktop
+                    ? _desktopLayout(mode, onModeChanged)
+                    : _mobileLayout(),
+              ),
             ],
           ),
         );
@@ -308,15 +327,18 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: kAccent.withValues(alpha: 0.08),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.wifi_off, color: kAccent, size: 16),
-            SizedBox(width: 8),
+            const Icon(Icons.wifi_off, color: kAccent, size: 16),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Période vérifiée hors ligne — sera revalidée lors de l\'envoi. '
-                '/ Period checked offline — will be re-verified on submit.',
-                style: TextStyle(fontSize: 12.5, color: kAccent),
+                const LocalizedText(
+                  fr:
+                      'Période vérifiée hors ligne — sera revalidée lors de l\'envoi.',
+                  en: 'Period checked offline — will be re-verified on submit.',
+                ).of(context.loc),
+                style: const TextStyle(fontSize: 12.5, color: kAccent),
               ),
             ),
           ],
@@ -324,75 +346,61 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       );
 
   // ═══════════════════════════════════════════════════════════
-  // CURRENT SECTION  (drives the app bar's fused section row)
-  // ═══════════════════════════════════════════════════════════
-
-  SectionSchema? get _currentSection {
-    final idxs = _ctrl.sectionIndicesForPage(_ctrl.currentPage);
-    if (idxs.isEmpty) return null;
-    return _ctrl.schema!.sections[idxs.first];
-  }
-
-  // ═══════════════════════════════════════════════════════════
   // LAYOUTS
   // ═══════════════════════════════════════════════════════════
 
-  Widget _desktopLayout() => Row(
+  // The card-based Sidebar+CustomScrollView tree this replaced is now only
+  // used on mobile (_mobileLayout below) — desktop renders either the
+  // Excel/spreadsheet-style sheet (Spreadsheet Mode) or the guided
+  // SimpleModeShell (Simple Mode), per the desktop-only mode toggle in the
+  // app bar (see onefop_mode_provider.dart). Both this and mobile share
+  // the same OnefopFormController, so autosave/validation/submit are
+  // identical across all three; only the visual chrome differs. See
+  // lib/screens/onefop/excel/ for the spreadsheet shell + row widgets.
+  Widget _desktopLayout(
+      OnefopViewMode mode, void Function(OnefopViewMode) onModeChanged) {
+    final title = 'ONEFOP — ${entityTypeTitle(widget.entityType).of(context.loc)}';
+    if (mode == OnefopViewMode.simple) {
+      // The vertical section nav (Sidebar) is desktop-only chrome, shared
+      // with OnefopExcelShell below rather than duplicated — mobile is the
+      // only layout that should ever lack it. SimpleModeShell itself stays
+      // sidebar-less (see its own doc comment) since Spreadsheet Mode wraps
+      // it the same way, one level up, instead of owning it internally.
+      return Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Sidebar(ctrl: _ctrl),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            width: _ctrl.sidebarMode > 0 ? 1 : 0,
-            child: const VerticalDivider(width: 1, thickness: 1, color: kBorder),
-          ),
+          Sidebar(ctrl: _ctrl, entityType: widget.entityType),
+          Container(width: 1, color: kBorder),
           Expanded(
-            child: Column(children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    CustomScrollView(
-                      controller: _ctrl.mainScroll,
-                      slivers: [
-                        ..._sectionSlivers(pairFields: true, mobile: false),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: 40),
-                        ),
-                      ],
-                    ),
-                    if (_ctrl.sidebarMode == 0)
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        child: Tooltip(
-                          message: context.l10n.showSidebar,
-                          child: InkWell(
-                            onTap: () => _ctrl.setSidebarMode(2),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: kSurface,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: kBorder, width: 1),
-                                boxShadow: kShadowFloating,
-                              ),
-                              child: const Icon(Icons.menu,
-                                  size: 16, color: kInkSoft),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              _navBar(),
-            ]),
+            child: SimpleModeShell(
+              ctrl: _ctrl,
+              entityType: widget.entityType,
+              buildField: _buildField,
+              onPreviewSubmit: _previewSubmit,
+              title: title,
+              dirty: _ctrl.dirty,
+              saving: _ctrl.saving,
+              onSaveNow: _ctrl.saveNow,
+              onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
+              onCancel: widget.onCancel,
+              mode: mode,
+              onModeChanged: onModeChanged,
+            ),
           ),
         ],
       );
+    }
+    return OnefopExcelShell(
+      ctrl: _ctrl,
+      entityType: widget.entityType,
+      title: title,
+      onPreviewSubmit: _previewSubmit,
+      onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
+      onCancel: widget.onCancel,
+      mode: mode,
+      onModeChanged: onModeChanged,
+    );
+  }
 
   Widget _mobileLayout() {
     return Column(children: [
@@ -407,12 +415,11 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         child: CustomScrollView(
           controller: _ctrl.mainScroll,
           slivers: [
-            ..._sectionSlivers(pairFields: false, mobile: true),
+            ..._sectionSlivers(),
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
       ),
-      _navBar(),
     ]);
   }
 
@@ -528,50 +535,118 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     );
   }
 
-  // Only worth showing once a section stacks more than one table — a
-  // single-table section has nothing to jump past.
-  Widget? _tableJumpNavSliver(SectionSchema sec) {
-    final loc = context.loc;
-    final tableFields = sec.fieldIds
-        .map((id) => _ctrl.schema!.getField(id))
-        .whereType<FieldSchema>()
-        .where((f) => f.type == 'table' && _ctrl.isFieldVisible(f))
-        .toList();
-    if (tableFields.length < 2) return null;
+  // One table/question-group at a time, mirroring the desktop excel
+  // shell's ExcelSectionBody — see onefop_section_units.dart for the
+  // shared unit model + advance/retreat/scroll-into-view logic.
+  Widget _sectionUnitBody(SectionSchema sec) {
+    final locale = context.loc;
+    final units = buildTableGroupUnits(
+      _ctrl,
+      sec,
+      locale,
+      entityType: widget.entityType,
+      simpleFieldsBuilder: (fields, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final f in fields) ...[
+            if (_ctrl.dividerLabel(f.id, locale) != null)
+              OnefopDividerLabel(label: _ctrl.dividerLabel(f.id, locale)!),
+            _buildField(f),
+          ],
+        ],
+      ),
+      mobile: true,
+    );
+    if (units.isEmpty) return const SizedBox.shrink();
 
-    final targets = tableFields
-        .map((f) => JumpTarget(
-              id: f.id,
-              label: f.paperCode ?? f.id,
-              groupLabel: f.subsection?.of(loc),
-            ))
-        .toList();
+    final currentIdx = (_ctrl.unitCursor(sec.id) ?? currentUnitIndex(_ctrl, units))
+        .clamp(0, units.length - 1);
+    final unit = units[currentIdx];
+    final isFirst = currentIdx == 0;
+    final isLast = currentIdx == units.length - 1;
+    // True end of the whole form — see UnitNavRow.isSubmit doc comment for
+    // why this is the only place left to offer Submit on mobile now that
+    // the page-level NavBar (which duplicated this same Précédent/Suivant
+    // pair everywhere else) is gone.
+    final isFormEnd = isLast && _ctrl.currentPage == _ctrl.pageCount - 1;
 
-    return SliverPersistentHeader(
-      pinned: true,
-      delegate: TableJumpNavDelegate(
-        child: TableJumpNav(targets: targets, onJump: _ctrl.scrollToField),
+    _ctrl.setRevealedFieldIds(unit.fieldIds);
+    _ctrl.setRevealBoundaryActions(
+      forward: isFormEnd
+          ? () => _previewSubmit()
+          : isLast
+              ? () => advanceToNextSection(_ctrl)
+              : () => advanceToUnit(_ctrl, sec, units, currentIdx),
+      backward: isFirst
+          ? () => retreatToPreviousSection(_ctrl)
+          : () => retreatToUnit(_ctrl, sec, units, currentIdx),
+    );
+
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OnefopSectionMap(
+            ctrl: _ctrl,
+            units: units,
+            currentIndex: currentIdx,
+            onJump: (i) => jumpToUnit(_ctrl, sec, units, i),
+            onJumpToLocation: (i) => jumpToLocation(_ctrl, sec, units, i),
+          ),
+          KeyedSubtree(
+            key: _ctrl.keyForUnit(unit.key),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                UnitTransition(
+                  child: KeyedSubtree(key: ValueKey(unit.key), child: unit.content()),
+                ),
+                // showNext is unconditional now — this row is the only
+                // Précédent/Suivant/Soumettre control left on mobile (the
+                // page-level NavBar that used to duplicate it is gone), so
+                // it has to keep rendering all the way through the very
+                // last unit of the very last section instead of hiding
+                // once this section's own units run out.
+                UnitNavRow(
+                  showBack: !isFirst || _ctrl.currentPage > 0,
+                  onBack: () => isFirst
+                      ? retreatToPreviousSection(_ctrl)
+                      : retreatToUnit(_ctrl, sec, units, currentIdx),
+                  showNext: true,
+                  isSubmit: isFormEnd,
+                  nextEnabled: isFormEnd ? _ctrl.validateAllPages() : unit.canAdvance(_ctrl),
+                  onNext: () => isFormEnd
+                      ? _previewSubmit()
+                      : isLast
+                          ? advanceToNextSection(_ctrl)
+                          : advanceToUnit(_ctrl, sec, units, currentIdx),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  List<Widget> _sectionSlivers({required bool pairFields, required bool mobile}) {
+  List<Widget> _sectionSlivers() {
     final idxs = _ctrl.sectionIndicesForPage(_ctrl.currentPage);
     if (idxs.isEmpty) return const <Widget>[];
     final sec = _ctrl.schema!.sections[idxs.first];
     debugPrint(
         'Page ${_ctrl.currentPage} → ${sec.id} → fields: ${sec.fieldIds.length} → visible: ${_ctrl.computeVisibleFieldIds().length}');
     final isSection1 = sec.id.startsWith('section1_');
-    final showValidationBanner = mobile &&
-        _ctrl.advanceBlockedPage == _ctrl.currentPage &&
+    final showValidationBanner = _ctrl.advanceBlockedPage == _ctrl.currentPage &&
         !_ctrl.validatePage(_ctrl.currentPage);
-    final jumpNav = mobile ? null : _tableJumpNavSliver(sec);
     _tableStagger = 0;
 
     return [
       if (showValidationBanner) _validationBanner(sec),
       if (_ctrl.coherenceFlags.isNotEmpty) _coherenceBanner(),
-      if (jumpNav != null) jumpNav,
       if (isSection1 && widget.establishmentId != null)
         SliverToBoxAdapter(
           child: Center(
@@ -633,7 +708,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                     horizontal: OL.sectionBodyPaddingH,
                     vertical: OL.sectionBodyPaddingV,
                   ),
-                  child: _sectionBody(sec, pairFields: pairFields),
+                  child: _sectionUnitBody(sec),
                 ),
               ),
             ),
@@ -641,88 +716,6 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         ),
       ),
     ];
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // SECTION BODY
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _sectionBody(SectionSchema sec, {required bool pairFields}) {
-    final locale = context.loc;
-    final fields = sec.fieldIds
-        .map((id) => _ctrl.schema!.getField(id))
-        .whereType<FieldSchema>()
-        .toList();
-    final isSimple = _ctrl.isSimpleSection(sec.id);
-    final groups = groupFields(fields);
-
-    Widget buildGroupContent(FieldGroup g) {
-      final children = <Widget>[];
-      if (g.sub != null) {
-        children.add(OnefopSubsectionHeader(title: g.sub!.of(locale)));
-      }
-
-      if (isSimple) {
-        final visible = g.fields.where(_ctrl.isFieldVisible).toList();
-        int i = 0;
-        while (i < visible.length) {
-          final f = visible[i];
-          final div = _ctrl.dividerLabel(f.id, locale);
-          if (div != null) children.add(OnefopDividerLabel(label: div));
-
-          final canPair = pairFields &&
-              f.type != 'table' &&
-              f.type != 'radio' &&
-              !kHybridAstIds.contains(f.id);
-          final next = i + 1 < visible.length ? visible[i + 1] : null;
-          final nextCanPair = next != null &&
-              next.type != 'table' &&
-              next.type != 'radio' &&
-              !kHybridAstIds.contains(next.id);
-
-          if (canPair && nextCanPair) {
-            children.add(
-              Padding(
-                padding: const EdgeInsets.only(bottom: OL.questionGapV),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildField(f)),
-                    const SizedBox(width: kColumnGap),
-                    Expanded(child: _buildField(next)),
-                  ],
-                ),
-              ),
-            );
-            i += 2;
-          } else {
-            children.add(_buildField(f));
-            i++;
-          }
-        }
-      } else {
-        for (final f in g.fields) {
-          final div = _ctrl.dividerLabel(f.id, locale);
-          if (div != null) children.add(OnefopDividerLabel(label: div));
-          children.add(_buildField(f));
-        }
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: children,
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: groups.map(buildGroupContent).toList(),
-      ),
-    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -792,31 +785,6 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     final cellCount = TableCellEngine.cellIds(f).length;
     final approxRows = (cellCount / 3).ceil().clamp(1, 40);
     return 56 + approxRows * 40.0;
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // NAV BAR
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _navBar() {
-    final isLast = _ctrl.currentPage == _ctrl.pageCount - 1;
-    final pageValid = _ctrl.validatePage(_ctrl.currentPage);
-    final allValid = _ctrl.validateAllPages();
-    final canProceed = isLast ? allValid : pageValid;
-
-    return ValueListenableBuilder<int>(
-      valueListenable: _ctrl.version,
-      builder: (_, __, ___) => NavBar(
-        isLast: isLast,
-        canProceed: canProceed,
-        allValid: allValid,
-        pageLabel: _ctrl.pageLabel(_ctrl.currentPage, context.loc),
-        currentPage: _ctrl.currentPage,
-        totalPages: _ctrl.pageCount,
-        onPrevious: _ctrl.currentPage > 0 ? _ctrl.prev : null,
-        onNextOrPreview: () => isLast ? _previewSubmit() : _ctrl.next(),
-      ),
-    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -919,7 +887,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // DIALOGS / SNACKS
   // ═══════════════════════════════════════════════════════════
 
-  void _snack(String m) {
+  void _snack(String m, {Color color = kDanger}) {
     // Bilingual copy runs long — give it enough time to actually be read,
     // scaling past the default 4s for longer messages.
     final duration = Duration(seconds: m.length > 60 ? 6 : 4);
@@ -930,13 +898,35 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
           style: const TextStyle(fontSize: 14),
           maxLines: 4,
           overflow: TextOverflow.ellipsis),
-      backgroundColor: kDanger,
+      backgroundColor: color,
       behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(16),
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusSm)),
       duration: duration,
+      // Capped and centered instead of stretching edge-to-edge on wide
+      // desktop viewports (SnackBar's default floating width) — a toast
+      // this short reads better sized to its message than as a bar
+      // spanning the whole screen. width and margin are mutually
+      // exclusive on SnackBar, so this replaces the old fixed margin.
+      width: (MediaQuery.sizeOf(context).width - 32).clamp(0.0, 480.0),
     ));
+  }
+
+  /// One-time toast for a resumed draft — tells the user where they left
+  /// off last time instead of silently landing them there. Fired once
+  /// from initState() (see _ctrl.resumedFromSavedPosition), not on every
+  /// rebuild.
+  void _showResumeToast() {
+    if (!mounted) return;
+    final locale = context.loc;
+    final label = _ctrl.pageLabel(_ctrl.currentPage, locale);
+    _snack(
+      LocalizedText(
+        fr: 'Vous avez repris là où vous vous étiez arrêté : $label',
+        en: 'Resumed where you left off: $label',
+      ).of(locale),
+      color: kAccent,
+    );
   }
 
   void _showProgress(String msg) => showDialog(

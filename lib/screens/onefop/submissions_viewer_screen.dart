@@ -16,6 +16,7 @@ import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart' as shimmer_pkg;
 
 import '../../core/i18n/l10n_ext.dart';
+import '../../core/i18n/localized_text.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/onefop_form_loader.dart';
 import '../../core/focus/schema/form_schema_v2.dart';
@@ -33,31 +34,31 @@ import '../../widgets/admin_kit.dart';
 // light tint background and as solid white-on-fill chips.
 // ═══════════════════════════════════════════════════════════════
 
-typedef _StatusMeta = ({String label, Color color, IconData icon});
+typedef _StatusMeta = ({LocalizedText label, Color color, IconData icon});
 
 const Map<String, _StatusMeta> _statusMeta = {
   'DRAFT': (
-    label: 'Brouillon',
+    label: LocalizedText(fr: 'Brouillon', en: 'Draft'),
     color: UltraTheme.textSecondary, // #475569 — accessible neutral
     icon: Icons.drafts_outlined,
   ),
   'PENDING_REVIEW': (
-    label: 'En révision',
+    label: LocalizedText(fr: 'En révision', en: 'Under review'),
     color: Color(0xFF1D4ED8), // blue-700
     icon: Icons.hourglass_top_rounded,
   ),
   'APPROVED': (
-    label: 'Approuvé',
-    color: Color(0xFF047857), // emerald-700
+    label: LocalizedText(fr: 'Approuvé', en: 'Approved'),
+    color: UltraTheme.primary, // brand deep emerald
     icon: Icons.check_circle_rounded,
   ),
   'REJECTED': (
-    label: 'Rejeté',
+    label: LocalizedText(fr: 'Rejeté', en: 'Rejected'),
     color: Color(0xFFB91C1C), // red-700
     icon: Icons.cancel_rounded,
   ),
   'CORRECTION_REQUESTED': (
-    label: 'Corrections demandées',
+    label: LocalizedText(fr: 'Corrections demandées', en: 'Corrections requested'),
     color: Color(0xFFB45309), // amber-700
     icon: Icons.edit_note_rounded,
   ),
@@ -74,19 +75,26 @@ const List<String> _statusOrder = [
 _StatusMeta _statusOf(String status) =>
     _statusMeta[status.toUpperCase()] ??
     (
-      label: status,
+      label: LocalizedText.same(status),
       color: UltraTheme.textMuted,
       icon: Icons.help_outline_rounded,
     );
 
-String _entityTypeLabel(String type) {
+// [locale] is optional and defaults to French: SubmissionSummary.fromJson
+// (below) has no BuildContext to resolve a real locale from at parse time,
+// and this same resolved string doubles as the value search/sort filter
+// against (see SubmissionSummary.entityTypeLabel) — always resolving it in
+// French there keeps that filtering behavior exactly as it always was.
+// Display call sites that *do* have a locale (the widgets below) pass it
+// explicitly instead of relying on the default.
+String _entityTypeLabel(String type, [Locale? locale]) {
   const labels = {
-    'ENTREPRISE': 'Entreprise',
-    'COOPERATIVE': 'Coopérative',
-    'CTD': 'CTD',
-    'ONG': 'ONG',
+    'ENTREPRISE': LocalizedText(fr: 'Entreprise', en: 'Company'),
+    'COOPERATIVE': LocalizedText(fr: 'Coopérative', en: 'Cooperative'),
+    'CTD': LocalizedText(fr: 'CTD', en: 'RLA'),
+    'ONG': LocalizedText(fr: 'ONG', en: 'NGO'),
   };
-  return labels[type.toUpperCase()] ?? type;
+  return labels[type.toUpperCase()]?.of(locale ?? const Locale('fr')) ?? type;
 }
 
 String _schemaEntityKey(String entityType) {
@@ -120,7 +128,12 @@ Future<void> _printSubmissionPdf(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible de charger le PDF : $e')),
+        SnackBar(
+          content: Text(LocalizedText(
+            fr: 'Impossible de charger le PDF : $e',
+            en: 'Unable to load the PDF: $e',
+          ).of(context.loc)),
+        ),
       );
     }
   }
@@ -153,7 +166,7 @@ class _StatusBadge extends StatelessWidget {
           Icon(meta.icon, size: dense ? 12 : 14, color: Colors.white),
           SizedBox(width: dense ? 4 : 6),
           Text(
-            meta.label,
+            meta.label.of(context.loc),
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: dense ? 11 : 12,
@@ -564,9 +577,11 @@ class _SubmissionsViewerScreenState
   // ── App bar ───────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text(
-        'Soumissions ONEFOP',
-        style: TextStyle(
+      title: Text(
+        const LocalizedText(
+                fr: 'Soumissions ONEFOP', en: 'ONEFOP Submissions')
+            .of(context.loc),
+        style: const TextStyle(
           fontFamily: 'Inter',
           fontSize: 20,
           fontWeight: FontWeight.w700,
@@ -620,20 +635,24 @@ class _SubmissionsViewerScreenState
               _buildRegionDropdown(),
               if (_filterEntityType != null)
                 _ActiveFilterChip(
-                  label: 'Type : ${_entityTypeLabel(_filterEntityType!)}',
+                  label:
+                      '${const LocalizedText(fr: 'Type', en: 'Type').of(context.loc)} : ${_entityTypeLabel(_filterEntityType!, context.loc)}',
                   onRemove: () =>
                       setState(() => _filterEntityType = null),
                 ),
               if (_filterRegion != null)
                 _ActiveFilterChip(
-                  label: 'Région : $_filterRegion',
+                  label:
+                      '${const LocalizedText(fr: 'Région', en: 'Region').of(context.loc)} : $_filterRegion',
                   onRemove: () => setState(() => _filterRegion = null),
                 ),
               if (_hasActiveFilters)
                 TextButton.icon(
                   onPressed: _resetFilters,
                   icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
-                  label: const Text('Réinitialiser'),
+                  label: Text(
+                      const LocalizedText(fr: 'Réinitialiser', en: 'Reset')
+                          .of(context.loc)),
                   style: TextButton.styleFrom(
                     foregroundColor: UltraTheme.textMuted,
                     textStyle: const TextStyle(
@@ -648,8 +667,15 @@ class _SubmissionsViewerScreenState
           const SizedBox(height: 10),
           Text(
             _hasActiveFilters
-                ? 'Affichage de $filteredCount sur $total soumissions'
-                : '$total soumission${total == 1 ? '' : 's'} au total',
+                ? LocalizedText(
+                    fr: 'Affichage de $filteredCount sur $total soumissions',
+                    en: 'Showing $filteredCount of $total submissions',
+                  ).of(context.loc)
+                : LocalizedText(
+                    fr:
+                        '$total soumission${total == 1 ? '' : 's'} au total',
+                    en: '$total submission${total == 1 ? '' : 's'} total',
+                  ).of(context.loc),
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 12,
@@ -674,8 +700,10 @@ class _SubmissionsViewerScreenState
       textInputAction: TextInputAction.search,
       style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
       decoration: InputDecoration(
-        hintText:
-            'Rechercher par établissement, ID, région, trimestre, type...',
+        hintText: const LocalizedText(
+          fr: 'Rechercher par établissement, ID, région, trimestre, type...',
+          en: 'Search by establishment, ID, region, quarter, type...',
+        ).of(context.loc),
         hintStyle: const TextStyle(
             fontFamily: 'Inter', fontSize: 13.5, color: UltraTheme.textMuted),
         prefixIcon: const Icon(Icons.search_rounded,
@@ -751,7 +779,10 @@ class _SubmissionsViewerScreenState
                   color: UltraTheme.primary.withValues(alpha: 0.04),
                 ),
                 child: Text(
-                  'Voir les $totalMatches résultats dans le tableau',
+                  LocalizedText(
+                    fr: 'Voir les $totalMatches résultats dans le tableau',
+                    en: 'View all $totalMatches results in the table',
+                  ).of(context.loc),
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -832,7 +863,7 @@ class _SubmissionsViewerScreenState
         scrollDirection: Axis.horizontal,
         children: [
           _FilterPill(
-            label: 'Tous',
+            label: const LocalizedText(fr: 'Tous', en: 'All').of(context.loc),
             count: _submissions.length,
             color: UltraTheme.primary,
             selected: _filterStatus == null,
@@ -844,7 +875,7 @@ class _SubmissionsViewerScreenState
           const SizedBox(width: 8),
           for (final status in _statusOrder) ...[
             _FilterPill(
-              label: _statusOf(status).label,
+              label: _statusOf(status).label.of(context.loc),
               count: counts[status] ?? 0,
               color: _statusOf(status).color,
               icon: _statusOf(status).icon,
@@ -863,14 +894,19 @@ class _SubmissionsViewerScreenState
 
   Widget _buildEntityTypeDropdown() {
     return _CompactDropdown<String>(
-      hint: "Type d'entité",
+      hint: const LocalizedText(fr: "Type d'entité", en: 'Entity type')
+          .of(context.loc),
       value: _filterEntityType,
       icon: Icons.category_outlined,
       items: [
-        const DropdownMenuItem(value: null, child: Text('Tous les types')),
+        DropdownMenuItem(
+            value: null,
+            child: Text(const LocalizedText(
+                    fr: 'Tous les types', en: 'All types')
+                .of(context.loc))),
         ..._availableEntityTypes.map((t) => DropdownMenuItem(
               value: t,
-              child: Text(_entityTypeLabel(t)),
+              child: Text(_entityTypeLabel(t, context.loc)),
             )),
       ],
       onChanged: (v) => setState(() {
@@ -882,11 +918,15 @@ class _SubmissionsViewerScreenState
 
   Widget _buildRegionDropdown() {
     return _CompactDropdown<String>(
-      hint: 'Région',
+      hint: const LocalizedText(fr: 'Région', en: 'Region').of(context.loc),
       value: _filterRegion,
       icon: Icons.map_outlined,
       items: [
-        const DropdownMenuItem(value: null, child: Text('Toutes les régions')),
+        DropdownMenuItem(
+            value: null,
+            child: Text(const LocalizedText(
+                    fr: 'Toutes les régions', en: 'All regions')
+                .of(context.loc))),
         ..._availableRegions.map((r) => DropdownMenuItem(
               value: r,
               child: Text(r),
@@ -988,8 +1028,14 @@ class _SubmissionsViewerScreenState
                       if (submission.flagCount > 0) ...[
                         Tooltip(
                           message: submission.flagCount == 1
-                              ? '1 incohérence détectée'
-                              : '${submission.flagCount} incohérences détectées',
+                              ? const LocalizedText(
+                                  fr: '1 incohérence détectée',
+                                  en: '1 inconsistency detected',
+                                ).of(context.loc)
+                              : LocalizedText(
+                                  fr: '${submission.flagCount} incohérences détectées',
+                                  en: '${submission.flagCount} inconsistencies detected',
+                                ).of(context.loc),
                           child: const Icon(Icons.rule_outlined,
                               size: 15, color: UltraTheme.warning),
                         ),
@@ -1023,7 +1069,8 @@ class _SubmissionsViewerScreenState
                       TextButton.icon(
                         onPressed: () => _viewSubmission(submission),
                         icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text('Voir'),
+                        label: Text(const LocalizedText(fr: 'Voir', en: 'View')
+                            .of(context.loc)),
                         style: TextButton.styleFrom(
                           foregroundColor: UltraTheme.primary,
                           textStyle: const TextStyle(
@@ -1091,8 +1138,10 @@ class _SubmissionsViewerScreenState
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Par page :',
-                  style: TextStyle(
+              Text(
+                  const LocalizedText(fr: 'Par page :', en: 'Per page:')
+                      .of(context.loc),
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
                       color: UltraTheme.textMuted)),
@@ -1114,7 +1163,10 @@ class _SubmissionsViewerScreenState
             ],
           ),
           Text(
-            '$start–$end sur $totalFiltered',
+            LocalizedText(
+              fr: '$start–$end sur $totalFiltered',
+              en: '$start–$end of $totalFiltered',
+            ).of(context.loc),
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 12.5,
@@ -1128,10 +1180,15 @@ class _SubmissionsViewerScreenState
               IconButton(
                 icon: const Icon(Icons.chevron_left_rounded),
                 onPressed: _page > 0 ? () => setState(() => _page--) : null,
-                tooltip: 'Page précédente',
+                tooltip: const LocalizedText(
+                        fr: 'Page précédente', en: 'Previous page')
+                    .of(context.loc),
               ),
               Text(
-                'Page ${_page + 1} / $maxPage',
+                LocalizedText(
+                  fr: 'Page ${_page + 1} / $maxPage',
+                  en: 'Page ${_page + 1} of $maxPage',
+                ).of(context.loc),
                 style: const TextStyle(fontFamily: 'Inter', fontSize: 12.5),
               ),
               IconButton(
@@ -1139,7 +1196,9 @@ class _SubmissionsViewerScreenState
                 onPressed: _page + 1 < maxPage
                     ? () => setState(() => _page++)
                     : null,
-                tooltip: 'Page suivante',
+                tooltip:
+                    const LocalizedText(fr: 'Page suivante', en: 'Next page')
+                        .of(context.loc),
               ),
             ],
           ),
@@ -1174,15 +1233,29 @@ class _SubmissionsViewerScreenState
             ),
             const SizedBox(height: 20),
             Text(
-              noDataAtAll ? 'Aucune soumission' : 'Aucun résultat',
+              (noDataAtAll
+                      ? const LocalizedText(
+                          fr: 'Aucune soumission', en: 'No submissions')
+                      : const LocalizedText(
+                          fr: 'Aucun résultat', en: 'No results'))
+                  .of(context.loc),
               style: UltraTheme.titleMedium
                   .copyWith(color: UltraTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             Text(
-              noDataAtAll
-                  ? 'Aucune soumission ONEFOP trouvée pour le moment.'
-                  : 'Aucune soumission ne correspond à votre recherche ou aux filtres actifs.',
+              (noDataAtAll
+                      ? const LocalizedText(
+                          fr: 'Aucune soumission ONEFOP trouvée pour le moment.',
+                          en: 'No ONEFOP submissions found yet.',
+                        )
+                      : const LocalizedText(
+                          fr:
+                              'Aucune soumission ne correspond à votre recherche ou aux filtres actifs.',
+                          en:
+                              'No submission matches your search or active filters.',
+                        ))
+                  .of(context.loc),
               textAlign: TextAlign.center,
               style:
                   UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
@@ -1192,7 +1265,10 @@ class _SubmissionsViewerScreenState
               OutlinedButton.icon(
                 onPressed: _resetFilters,
                 icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
-                label: const Text('Réinitialiser les filtres'),
+                label: Text(const LocalizedText(
+                        fr: 'Réinitialiser les filtres',
+                        en: 'Reset filters')
+                    .of(context.loc)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: UltraTheme.primary,
                   side: const BorderSide(color: UltraTheme.primary),
@@ -1230,12 +1306,18 @@ class _SubmissionsViewerScreenState
             ),
             const SizedBox(height: 20),
             Text(
-              'Erreur de chargement',
+              const LocalizedText(
+                      fr: 'Erreur de chargement', en: 'Loading error')
+                  .of(context.loc),
               style: UltraTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              _error ?? 'Une erreur est survenue',
+              _error ??
+                  const LocalizedText(
+                          fr: 'Une erreur est survenue',
+                          en: 'An error occurred')
+                      .of(context.loc),
               textAlign: TextAlign.center,
               style:
                   UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
@@ -1252,9 +1334,10 @@ class _SubmissionsViewerScreenState
                   borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
                 ),
               ),
-              child: const Text(
-                'Réessayer',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              child: Text(
+                const LocalizedText(fr: 'Réessayer', en: 'Retry')
+                    .of(context.loc),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -1412,13 +1495,13 @@ class _TableHeaderRow extends StatelessWidget {
   final void Function(int columnIndex, bool ascending) onSort;
 
   static const _labels = [
-    'Établissement',
-    'ID',
-    'Type',
-    'Région',
-    'Trimestre',
-    'Date',
-    'Statut',
+    LocalizedText(fr: 'Établissement', en: 'Establishment'),
+    LocalizedText.same('ID'),
+    LocalizedText(fr: 'Type', en: 'Type'),
+    LocalizedText(fr: 'Région', en: 'Region'),
+    LocalizedText(fr: 'Trimestre', en: 'Quarter'),
+    LocalizedText(fr: 'Date', en: 'Date'),
+    LocalizedText(fr: 'Statut', en: 'Status'),
   ];
 
   @override
@@ -1491,13 +1574,15 @@ class _TableHeaderRow extends StatelessWidget {
                     color: UltraTheme.textMuted)),
           ),
           for (int i = 0; i < _labels.length; i++)
-            cell(i, _labels[i], flex[i + 1],
+            cell(i, _labels[i].of(context.loc), flex[i + 1],
                 align: i >= 4 ? TextAlign.center : TextAlign.left),
-          const SizedBox(
+          SizedBox(
             width: 96,
-            child: Text('Actions',
+            child: Text(
+                const LocalizedText(fr: 'Actions', en: 'Actions')
+                    .of(context.loc),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1614,8 +1699,14 @@ class _SubmissionTableRowState extends State<_SubmissionTableRow> {
                           const SizedBox(width: 6),
                           Tooltip(
                             message: s.flagCount == 1
-                                ? '1 incohérence détectée'
-                                : '${s.flagCount} incohérences détectées',
+                                ? const LocalizedText(
+                                    fr: '1 incohérence détectée',
+                                    en: '1 inconsistency detected',
+                                  ).of(context.loc)
+                                : LocalizedText(
+                                    fr: '${s.flagCount} incohérences détectées',
+                                    en: '${s.flagCount} inconsistencies detected',
+                                  ).of(context.loc),
                             child: const Icon(Icons.rule_outlined,
                                 size: 14, color: UltraTheme.warning),
                           ),
@@ -1646,7 +1737,10 @@ class _SubmissionTableRowState extends State<_SubmissionTableRow> {
                       IconButton(
                         icon: const Icon(Icons.visibility_outlined, size: 18),
                         color: UltraTheme.textSecondary,
-                        tooltip: 'Voir la soumission',
+                        tooltip: const LocalizedText(
+                                fr: 'Voir la soumission',
+                                en: 'View submission')
+                            .of(context.loc),
                         onPressed: widget.onView,
                         constraints:
                             const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -1663,7 +1757,10 @@ class _SubmissionTableRowState extends State<_SubmissionTableRow> {
                               icon: const Icon(Icons.picture_as_pdf_outlined,
                                   size: 18),
                               color: UltraTheme.primary,
-                              tooltip: 'Télécharger le PDF',
+                              tooltip: const LocalizedText(
+                                      fr: 'Télécharger le PDF',
+                                      en: 'Download PDF')
+                                  .of(context.loc),
                               onPressed: widget.onDownload,
                               constraints: const BoxConstraints(
                                   minWidth: 36, minHeight: 36),
@@ -1726,15 +1823,22 @@ class _SubmissionDetailScreenState
       context,
       icon: Icons.check_circle_rounded,
       iconColor: UltraTheme.success,
-      title: 'Approuver la soumission',
-      body: 'Confirmer l\'approbation de cette soumission ONEFOP ?',
-      confirmLabel: 'Approuver',
+      title: const LocalizedText(
+              fr: 'Approuver la soumission', en: 'Approve the submission')
+          .of(context.loc),
+      body: const LocalizedText(
+        fr: 'Confirmer l\'approbation de cette soumission ONEFOP ?',
+        en: 'Confirm approval of this ONEFOP submission?',
+      ).of(context.loc),
+      confirmLabel:
+          const LocalizedText(fr: 'Approuver', en: 'Approve').of(context.loc),
       confirmColor: UltraTheme.success,
     );
     if (confirmed != true) return;
     await _runAction(
       () => ref.read(apiClientProvider).approveQuestionnaire(widget.submission.id),
-      'Soumission approuvée',
+      const LocalizedText(
+          fr: 'Soumission approuvée', en: 'Submission approved'),
       UltraTheme.success,
       Icons.check_circle_rounded,
     );
@@ -1746,9 +1850,12 @@ class _SubmissionDetailScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _ActionReasonSheet(
-        title: 'Rejeter la soumission',
-        hintText: 'Motif du rejet (optionnel)',
-        confirmLabel: 'Confirmer le rejet',
+        title: LocalizedText(
+            fr: 'Rejeter la soumission', en: 'Reject the submission'),
+        hintText: LocalizedText(
+            fr: 'Motif du rejet (optionnel)', en: 'Reason for rejection (optional)'),
+        confirmLabel:
+            LocalizedText(fr: 'Confirmer le rejet', en: 'Confirm rejection'),
         confirmColor: UltraTheme.error,
         icon: Icons.block_rounded,
       ),
@@ -1756,7 +1863,7 @@ class _SubmissionDetailScreenState
     if (reason == null) return;
     await _runAction(
       () => ref.read(apiClientProvider).rejectQuestionnaire(widget.submission.id, reason),
-      'Soumission rejetée',
+      const LocalizedText(fr: 'Soumission rejetée', en: 'Submission rejected'),
       UltraTheme.error,
       Icons.cancel_rounded,
     );
@@ -1768,9 +1875,14 @@ class _SubmissionDetailScreenState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _ActionReasonSheet(
-        title: 'Demander une correction',
-        hintText: 'Précisez ce qui doit être corrigé (optionnel)',
-        confirmLabel: 'Demander la correction',
+        title: LocalizedText(
+            fr: 'Demander une correction', en: 'Request a correction'),
+        hintText: LocalizedText(
+          fr: 'Précisez ce qui doit être corrigé (optionnel)',
+          en: 'Specify what needs to be corrected (optional)',
+        ),
+        confirmLabel: LocalizedText(
+            fr: 'Demander la correction', en: 'Request correction'),
         confirmColor: Color(0xFFB45309),
         icon: Icons.edit_note_rounded,
       ),
@@ -1778,7 +1890,8 @@ class _SubmissionDetailScreenState
     if (comments == null) return;
     await _runAction(
       () => ref.read(apiClientProvider).requestCorrection(widget.submission.id, comments),
-      'Correction demandée',
+      const LocalizedText(
+          fr: 'Correction demandée', en: 'Correction requested'),
       const Color(0xFFB45309),
       Icons.edit_note_rounded,
     );
@@ -1786,7 +1899,7 @@ class _SubmissionDetailScreenState
 
   Future<void> _runAction(
     Future<void> Function() action,
-    String successMessage,
+    LocalizedText successMessage,
     Color color,
     IconData icon,
   ) async {
@@ -1794,11 +1907,15 @@ class _SubmissionDetailScreenState
     try {
       await action();
       if (!mounted) return;
-      showAdminToast(context, successMessage, color, icon);
+      showAdminToast(context, successMessage.of(context.loc), color, icon);
       await _load();
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Erreur : $e', UltraTheme.error, Icons.error_rounded);
+      showAdminToast(
+          context,
+          LocalizedText(fr: 'Erreur : $e', en: 'Error: $e').of(context.loc),
+          UltraTheme.error,
+          Icons.error_rounded);
     } finally {
       if (mounted) setState(() => _actioning = false);
     }
@@ -1867,7 +1984,9 @@ class _SubmissionDetailScreenState
           else
             IconButton(
               icon: const Icon(Icons.picture_as_pdf_outlined),
-              tooltip: 'Télécharger le PDF',
+              tooltip: const LocalizedText(
+                      fr: 'Télécharger le PDF', en: 'Download PDF')
+                  .of(context.loc),
               onPressed: _downloadPdf,
             ),
           const SizedBox(width: 8),
@@ -1958,7 +2077,11 @@ class _SubmissionDetailScreenState
           children: [
             const Icon(Icons.error_outline, size: 48, color: UltraTheme.error),
             const SizedBox(height: 16),
-            Text('Erreur de chargement', style: UltraTheme.titleLarge),
+            Text(
+                const LocalizedText(
+                        fr: 'Erreur de chargement', en: 'Loading error')
+                    .of(context.loc),
+                style: UltraTheme.titleLarge),
             const SizedBox(height: 8),
             Text(_error ?? '',
                 textAlign: TextAlign.center, style: UltraTheme.bodyMedium),
@@ -1968,7 +2091,8 @@ class _SubmissionDetailScreenState
               style: ElevatedButton.styleFrom(
                   backgroundColor: UltraTheme.primary,
                   foregroundColor: Colors.white),
-              child: const Text('Réessayer'),
+              child: Text(const LocalizedText(fr: 'Réessayer', en: 'Retry')
+                  .of(context.loc)),
             ),
           ],
         ),
@@ -2075,7 +2199,8 @@ class _SubmissionDetailScreenState
                 child: OutlinedButton.icon(
                   onPressed: _reject,
                   icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Rejeter'),
+                  label: Text(const LocalizedText(fr: 'Rejeter', en: 'Reject')
+                      .of(context.loc)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: UltraTheme.error,
                     side: BorderSide(color: UltraTheme.error.withValues(alpha: 0.4)),
@@ -2089,7 +2214,8 @@ class _SubmissionDetailScreenState
                 child: OutlinedButton.icon(
                   onPressed: _requestCorrection,
                   icon: const Icon(Icons.edit_note_rounded, size: 16),
-                  label: const Text('Corriger'),
+                  label: Text(const LocalizedText(fr: 'Corriger', en: 'Correct')
+                      .of(context.loc)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB45309),
                     side: const BorderSide(color: Color(0x66B45309)),
@@ -2103,7 +2229,8 @@ class _SubmissionDetailScreenState
                 child: ElevatedButton.icon(
                   onPressed: _approve,
                   icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Approuver'),
+                  label: Text(const LocalizedText(fr: 'Approuver', en: 'Approve')
+                      .of(context.loc)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: UltraTheme.success,
                     foregroundColor: Colors.white,
@@ -2154,7 +2281,12 @@ class _SubmissionDetailScreenState
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'ID établissement : ${widget.submission.establishmentId}',
+                      LocalizedText(
+                        fr:
+                            'ID établissement : ${widget.submission.establishmentId}',
+                        en:
+                            'Establishment ID: ${widget.submission.establishmentId}',
+                      ).of(context.loc),
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -2173,14 +2305,31 @@ class _SubmissionDetailScreenState
             runSpacing: 16,
             children: [
               _MetaItem(
-                  label: "Type d'entité", value: _entityTypeLabel(entityType)),
-              _MetaItem(label: 'Code trimestre', value: quarterCode ?? '—'),
+                  label: const LocalizedText(
+                          fr: "Type d'entité", en: 'Entity type')
+                      .of(context.loc),
+                  value: _entityTypeLabel(entityType, context.loc)),
               _MetaItem(
-                  label: 'Date de soumission',
+                  label: const LocalizedText(
+                          fr: 'Code trimestre', en: 'Quarter code')
+                      .of(context.loc),
+                  value: quarterCode ?? '—'),
+              _MetaItem(
+                  label: const LocalizedText(
+                          fr: 'Date de soumission', en: 'Submission date')
+                      .of(context.loc),
                   value: _formatDateTime(submittedAt)),
-              if (region != null) _MetaItem(label: 'Région', value: region),
+              if (region != null)
+                _MetaItem(
+                    label: const LocalizedText(fr: 'Région', en: 'Region')
+                        .of(context.loc),
+                    value: region),
               if (department != null)
-                _MetaItem(label: 'Département', value: department),
+                _MetaItem(
+                    label: const LocalizedText(
+                            fr: 'Département', en: 'Department')
+                        .of(context.loc),
+                    value: department),
             ],
           ),
         ],
@@ -2210,8 +2359,14 @@ class _SubmissionDetailScreenState
             const SizedBox(width: 8),
             Text(
               flags.length == 1
-                  ? 'Incohérence détectée'
-                  : '${flags.length} incohérences détectées',
+                  ? const LocalizedText(
+                      fr: 'Incohérence détectée',
+                      en: 'Inconsistency detected',
+                    ).of(context.loc)
+                  : LocalizedText(
+                      fr: '${flags.length} incohérences détectées',
+                      en: '${flags.length} inconsistencies detected',
+                    ).of(context.loc),
               style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
@@ -2252,7 +2407,7 @@ class _SubmissionDetailScreenState
           Row(children: [
             Icon(Icons.report_problem_outlined, color: meta.color, size: 18),
             const SizedBox(width: 8),
-            Text(meta.label,
+            Text(meta.label.of(context.loc),
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -2269,7 +2424,9 @@ class _SubmissionDetailScreenState
             const SizedBox(height: 8),
             Text(
               [
-                if (reviewedBy != null) 'Par $reviewedBy',
+                if (reviewedBy != null)
+                  LocalizedText(fr: 'Par $reviewedBy', en: 'By $reviewedBy')
+                      .of(context.loc),
                 if (reviewedAt != null) _formatDateTime(reviewedAt),
               ].join(' · '),
               style: const TextStyle(
@@ -2354,7 +2511,10 @@ class _SubmissionDetailScreenState
               size: 32, color: UltraTheme.textMuted),
           const SizedBox(height: 12),
           Text(
-            'Aucune réponse enregistrée pour cette soumission.',
+            const LocalizedText(
+              fr: 'Aucune réponse enregistrée pour cette soumission.',
+              en: 'No answers recorded for this submission.',
+            ).of(context.loc),
             textAlign: TextAlign.center,
             style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
           ),
@@ -2473,7 +2633,13 @@ class _SubmissionDetailScreenState
   }
 
   String _formatDateTime(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} à ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final datePart =
+        '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    final timePart =
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final joiner =
+        const LocalizedText(fr: 'à', en: 'at').of(context.loc);
+    return '$datePart $joiner $timePart';
   }
 }
 
@@ -2493,9 +2659,9 @@ class _ActionReasonSheet extends StatefulWidget {
     required this.icon,
   });
 
-  final String title;
-  final String hintText;
-  final String confirmLabel;
+  final LocalizedText title;
+  final LocalizedText hintText;
+  final LocalizedText confirmLabel;
   final Color confirmColor;
   final IconData icon;
 
@@ -2542,7 +2708,8 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
             child: Icon(widget.icon, color: widget.confirmColor, size: 30),
           ),
           const SizedBox(height: 16),
-          Text(widget.title, style: UltraTheme.displayMedium.copyWith(fontSize: 18)),
+          Text(widget.title.of(context.loc),
+              style: UltraTheme.displayMedium.copyWith(fontSize: 18)),
           const SizedBox(height: 16),
           TextField(
             controller: _ctrl,
@@ -2550,7 +2717,7 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
             autofocus: true,
             style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
             decoration: InputDecoration(
-              hintText: widget.hintText,
+              hintText: widget.hintText.of(context.loc),
               hintStyle: const TextStyle(fontFamily: 'Inter', color: UltraTheme.textMuted),
               filled: true,
               fillColor: UltraTheme.background,
@@ -2596,7 +2763,7 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: Text(widget.confirmLabel,
+                child: Text(widget.confirmLabel.of(context.loc),
                     style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
               ),
             ),

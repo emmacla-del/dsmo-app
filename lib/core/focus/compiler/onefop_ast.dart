@@ -689,7 +689,8 @@ const section1CtdQuestions = <FormQuestionAst>[
     ],
     dependsOn: "CTD_S1Q01",
     dependsValue: "Commune/ Council",
-    // NO requiredField - conditional field
+    // Required when visible (CTD type = Commune/Council).
+    requiredField: true,
     path: "ctd.councilType",
   ),
   FormQuestionAst(
@@ -1583,7 +1584,6 @@ const s4q02_domain_2_text = FormQuestionAst(
   sectionId: "section4",
   order: 2,
   type: AstFieldType.text,
-  requiredField: true,
   path: "section4.skills.domain2.text",
   hint: LocalizedText(
     fr: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
@@ -1603,7 +1603,6 @@ const s4q02_domain_3_text = FormQuestionAst(
   sectionId: "section4",
   order: 2,
   type: AstFieldType.text,
-  requiredField: true,
   path: "section4.skills.domain3.text",
   hint: LocalizedText(
     fr: "Ex: Gestion, Comptabilité, Marketing, RH, Technique...",
@@ -1663,7 +1662,6 @@ const s4q03_domain_2_text = FormQuestionAst(
   sectionId: "section4",
   order: 3,
   type: AstFieldType.text,
-  requiredField: true,
   path: "section4.training.domain2.text",
   hint: LocalizedText(
     fr: "Ex: Leadership, Techniques de vente, Gestion de projet...",
@@ -1683,7 +1681,6 @@ const s4q03_domain_3_text = FormQuestionAst(
   sectionId: "section4",
   order: 3,
   type: AstFieldType.text,
-  requiredField: true,
   path: "section4.training.domain3.text",
   hint: LocalizedText(
     fr: "Ex: Leadership, Techniques de vente, Gestion de projet...",
@@ -1694,6 +1691,52 @@ const s4q03_domain_3_text = FormQuestionAst(
     en: "Name the priority training domain",
   ),
 );
+
+// Explicit table-level response so an untouched grid is not stored as
+// a genuine zero. NONE = nothing to report (treated as zeros).
+// NOT_APPLICABLE = the question does not apply. REPORTED = figures
+// were entered (empty cells stay missing; 0 is an explicit zero).
+FormQuestionAst tableResponseStatus({
+  required String paperCode,
+  required String sectionId,
+  required int order,
+  LocalizedText? subsection,
+}) =>
+    FormQuestionAst(
+      id: '${paperCode}_RESPONSE_STATUS',
+      paperCode: paperCode,
+      label: const LocalizedText(
+        fr: 'Statut de réponse',
+        en: 'Response status',
+      ),
+      instruction: const LocalizedText(
+        fr:
+            'Indiquez si les chiffres sont déclarés, si aucun cas n\'est à signaler, ou si la question ne s\'applique pas.',
+        en:
+            'State whether figures are reported, there is nothing to report, or the question does not apply.',
+      ),
+      sectionId: sectionId,
+      order: order,
+      subsection: subsection,
+      type: AstFieldType.select,
+      options: const [
+        LocalizedOption(
+          'REPORTED',
+          LocalizedText(fr: 'Chiffres déclarés', en: 'Figures reported'),
+        ),
+        LocalizedOption(
+          'NONE',
+          LocalizedText(
+              fr: 'Aucun cas à signaler', en: 'Nothing to report'),
+        ),
+        LocalizedOption(
+          'NOT_APPLICABLE',
+          LocalizedText(fr: 'Non applicable', en: 'Not applicable'),
+        ),
+      ],
+      requiredField: true,
+      path: 'responseStatus.$paperCode',
+    );
 
 // ============================================================
 // EXPORT COLLECTIONS
@@ -1711,7 +1754,7 @@ const List<SectionAst> allSections = [
 ];
 
 // FIX-3: s3q02_reason_4_text removed from this list (no 4th reason in any PDF)
-const List<FormQuestionAst> allQuestions = [
+final List<FormQuestionAst> allQuestions = [
   // Section 0 — respondent (all entities)
   ...section0Questions,
 
@@ -1723,34 +1766,83 @@ const List<FormQuestionAst> allQuestions = [
 
   // Section 2.1 — job applications
   s21q01,
+  tableResponseStatus(
+      paperCode: 'S21Q01',
+      sectionId: 'section2',
+      order: 1,
+      subsection: const LocalizedText(
+          fr: "2.1 DEMANDE D'EMPLOIS", en: '2.1 JOB APPLICATION')),
 
   // Section 2.2 — recruitments
   s22q01,
+  tableResponseStatus(
+      paperCode: 'S22Q01',
+      sectionId: 'section2',
+      order: 2,
+      subsection: const LocalizedText(fr: '2.2 RECRUTEMENTS', en: '2.2 RECRUITMENTS')),
   s22q02,
+  tableResponseStatus(
+      paperCode: 'S22Q02',
+      sectionId: 'section2',
+      order: 3,
+      subsection: const LocalizedText(fr: '2.2 RECRUTEMENTS', en: '2.2 RECRUITMENTS')),
   s22q03,
+  tableResponseStatus(
+      paperCode: 'S22Q03',
+      sectionId: 'section2',
+      order: 4,
+      subsection: const LocalizedText(fr: '2.2 RECRUTEMENTS', en: '2.2 RECRUITMENTS')),
   s22q04,
+  tableResponseStatus(
+      paperCode: 'S22Q04',
+      sectionId: 'section2',
+      order: 5,
+      subsection: const LocalizedText(fr: '2.2 RECRUTEMENTS', en: '2.2 RECRUITMENTS')),
   s22q05Enterprise,
   s22q05Other,
+  tableResponseStatus(
+      paperCode: 'S22Q05',
+      sectionId: 'section2',
+      order: 6,
+      subsection: const LocalizedText(fr: '2.2 RECRUTEMENTS', en: '2.2 RECRUITMENTS')),
 
   // Section 2.3 — first-time job seekers
   s23q01,
+  tableResponseStatus(
+      paperCode: 'S23Q01',
+      sectionId: 'section2',
+      order: 7,
+      subsection: const LocalizedText(
+          fr: '2.3 PRIMO DEMANDEUR', en: '2.3 FIRST-TIME JOB SEEKER')),
   s23q02,
+  tableResponseStatus(
+      paperCode: 'S23Q02',
+      sectionId: 'section2',
+      order: 8,
+      subsection: const LocalizedText(
+          fr: '2.3 PRIMO DEMANDEUR', en: '2.3 FIRST-TIME JOB SEEKER')),
 
   // Section 3 — departures
   s3q01,
+  tableResponseStatus(paperCode: 'S3Q01', sectionId: 'section3', order: 1),
   s3q02,
+  tableResponseStatus(paperCode: 'S3Q02', sectionId: 'section3', order: 2),
   s3q02_reason_1_text,
   s3q02_reason_2_text,
   s3q02_reason_3_text,
   s3q03,
+  tableResponseStatus(paperCode: 'S3Q03', sectionId: 'section3', order: 3),
 
   // Section 4 — internship and training
   s4q01,
+  tableResponseStatus(paperCode: 'S4Q01', sectionId: 'section4', order: 1),
   s4q02,
+  tableResponseStatus(paperCode: 'S4Q02', sectionId: 'section4', order: 2),
   s4q02_domain_1_text,
   s4q02_domain_2_text,
   s4q02_domain_3_text,
   s4q03,
+  tableResponseStatus(paperCode: 'S4Q03', sectionId: 'section4', order: 3),
   s4q03_domain_1_text,
   s4q03_domain_2_text,
   s4q03_domain_3_text,

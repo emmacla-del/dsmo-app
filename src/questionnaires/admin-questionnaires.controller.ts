@@ -41,9 +41,13 @@ export class AdminQuestionnairesController {
     return this.service.getById(id);
   }
 
+  // req.user carries { id, email, role, region, department } (see
+  // JwtStrategy.validate) — there is no `.sub`, so `req.user?.sub` here
+  // used to silently resolve to undefined and reviewedBy was never
+  // actually recorded on approve/reject/request-correction.
   @Patch(':id/approve')
   async approve(@Param('id') id: string, @Request() req: any) {
-    return this.service.approve(id, req.user?.sub);
+    return this.service.approve(id, req.user?.id);
   }
 
   @Patch(':id/reject')
@@ -52,7 +56,7 @@ export class AdminQuestionnairesController {
     @Body('reason') reason: string,
     @Request() req: any,
   ) {
-    return this.service.reject(id, reason, req.user?.sub);
+    return this.service.reject(id, reason, req.user?.id);
   }
 
   @Patch(':id/request-correction')
@@ -61,6 +65,6 @@ export class AdminQuestionnairesController {
     @Body('comments') comments: string,
     @Request() req: any,
   ) {
-    return this.service.requestCorrection(id, comments, req.user?.sub);
+    return this.service.requestCorrection(id, comments, req.user?.id);
   }
 }

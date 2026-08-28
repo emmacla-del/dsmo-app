@@ -8,7 +8,7 @@ class CSPStatusGenderTable extends StatelessWidget {
   final FieldSchema field;
   final Map<String, int> numberValues;
   final Map<String, String> textValues;
-  final Function(String, int) onNumberChanged;
+  final Function(String, int?) onNumberChanged;
   final Function(String, String) onTextChanged;
   final String entityType;
   final UnifiedFocusManagerV2 focusManager;

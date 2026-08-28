@@ -119,7 +119,17 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
     try {
       final api = ref.read(apiClientProvider);
       final year = int.tryParse(_yearController.text.trim());
-      final result = await api.exportOnefopSubmissionsSpss(
+      // Manifest first (fast, bounded) — if the filters somehow match zero
+      // submissions or the request fails, this fails fast before the
+      // (potentially large) CSV download even starts.
+      final sps = await api.getOnefopSubmissionsSpssSyntax(
+        region: _filterRegion,
+        department: _filterDepartment,
+        year: year,
+        fromDate: _filterDateRange?.start.toIso8601String(),
+        toDate: _filterDateRange?.end.toIso8601String(),
+      );
+      final csvBytes = await api.downloadOnefopSubmissionsSpssCsv(
         region: _filterRegion,
         department: _filterDepartment,
         year: year,
@@ -131,12 +141,12 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
       // so the two downloads stay a matched pair regardless of when the
       // user later places them together and runs the syntax in SPSS.
       await saveBytesAsFile(
-        utf8.encode(result['csv'] as String),
+        csvBytes,
         'onefop_submissions.csv',
         mimeType: 'text/csv',
       );
       final spsPath = await saveBytesAsFile(
-        utf8.encode(result['sps'] as String),
+        utf8.encode(sps),
         'onefop_submissions.sps',
         mimeType: 'text/plain',
       );

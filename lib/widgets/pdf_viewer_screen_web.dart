@@ -12,7 +12,22 @@ import 'dart:ui_web' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
 import 'pdf_cache.dart';
+
+// This screen is shared across the ONEFOP and DSMO flows (see
+// employee_list_screen.dart), so it can't reach into either flow's own
+// design tokens — these mirror the app's actual palette (AppColors,
+// plus the same border/warning values ONEFOP's own screens use) instead
+// of the unrelated teal/slate one this screen used to draw in.
+const _kAccent = AppColors.deepEmerald;
+const _kCanvas = AppColors.pageBackground;
+const _kSurface = AppColors.cardWhite;
+const _kInk = AppColors.obsidian;
+const _kInkSoft = AppColors.slate;
+const _kBorder = Color(0xFFE4E9E6);
+const _kWarning = Color(0xFFAC7A26);
+const _kRadius = 10.0;
 
 class PdfViewerScreen extends StatefulWidget {
   final Uint8List? pdfBytes;
@@ -137,78 +152,58 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: _kCanvas,
+      // Flat, bordered chrome (kSurface + a hairline bottom border)
+      // instead of a solid brand-color fill — matches OnefopAppBar's own
+      // treatment elsewhere in the app. The only action up here is the
+      // lightweight download link; the actual submit decision belongs to
+      // one clear, full-width button in the bottom bar, not a second,
+      // smaller one competing with it for attention.
       appBar: AppBar(
         title: const Text('Aperçu du formulaire',
             style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.white)),
-        backgroundColor: const Color(0xFF0D7377),
+                color: _kInk)),
+        backgroundColor: _kSurface,
+        foregroundColor: _kInk,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        surfaceTintColor: Colors.transparent,
+        shape: const Border(bottom: BorderSide(color: _kBorder, width: 1)),
         actions: [
           TextButton.icon(
             onPressed: _download,
-            icon: const Icon(Icons.download_outlined,
-                color: Colors.white70, size: 18),
+            icon: const Icon(Icons.download_outlined, color: _kInkSoft, size: 18),
             label: const Text('Télécharger',
-                style: TextStyle(
-                    fontFamily: 'Inter', fontSize: 13, color: Colors.white70)),
+                style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _kInkSoft)),
           ),
           const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _confirming
-                ? const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: _blobUrl != null ? _handleConfirm : null,
-                    icon: const Icon(Icons.send_rounded, size: 18),
-                    label: const Text('Soumettre',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                    ),
-                  ),
-          ),
         ],
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            color: const Color(0xFFFFF7ED),
-            child: const Row(children: [
-              Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Vérifiez les informations ci-dessous avant de soumettre définitivement.',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      color: Color(0xFF92400E)),
-                ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _kWarning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(_kRadius - 2),
+                border: Border.all(color: _kWarning.withValues(alpha: 0.3)),
               ),
-            ]),
+              child: const Row(children: [
+                Icon(Icons.info_outline, size: 16, color: _kWarning),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Vérifiez les informations ci-dessous avant de soumettre définitivement.',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _kWarning),
+                  ),
+                ),
+              ]),
+            ),
           ),
           Expanded(
             child: _blobUrl == null
@@ -216,11 +211,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: Color(0xFF0D7377)),
+                        CircularProgressIndicator(color: _kAccent),
                         SizedBox(height: 16),
                         Text('Chargement du PDF…',
-                            style: TextStyle(
-                                fontSize: 14, color: Color(0xFF475569))),
+                            style: TextStyle(fontSize: 14, color: _kInkSoft)),
                       ],
                     ),
                   )
@@ -236,11 +230,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        color: _kSurface,
+        border: Border(top: BorderSide(color: _kBorder)),
         boxShadow: [
-          BoxShadow(
-              color: Color(0x0A000000), blurRadius: 12, offset: Offset(0, -4)),
+          BoxShadow(color: Color(0x0A000000), blurRadius: 12, offset: Offset(0, -4)),
         ],
       ),
       child: SafeArea(
@@ -252,14 +245,18 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 style: TextStyle(
                     fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF475569),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
+              foregroundColor: _kInkSoft,
+              side: const BorderSide(color: _kBorder),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_kRadius)),
             ),
           ),
           const Spacer(),
+          // The one, unambiguous submit action — deliberately the only
+          // filled/high-contrast button on this bar, so it reads as the
+          // primary action rather than one of several equally-weighted
+          // choices (the AppBar used to have its own smaller copy of
+          // this same button).
           ElevatedButton.icon(
             onPressed:
                 (_blobUrl != null && !_confirming) ? _handleConfirm : null,
@@ -276,13 +273,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     fontSize: 14,
                     fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: _kAccent,
               foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFF94A3B8),
+              disabledBackgroundColor: _kBorder,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_kRadius)),
             ),
           ),
         ]),

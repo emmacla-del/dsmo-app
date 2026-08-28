@@ -73,9 +73,37 @@ export class DataManagementController {
     return result;
   }
 
-  @Post('export/submissions/spss')
+  // Streams the ONEFOP Excel workbook directly to the response, sheet by
+  // sheet (see streamOnefopSubmissionsExcel), instead of building the whole
+  // multi-sheet workbook in memory and returning it as one Buffer — this
+  // replaces the ONEFOP branch the old 'export/submissions' endpoint used
+  // to handle, which no longer scales past a few thousand submissions.
+  @Post('export/submissions/excel')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
-  async exportSubmissionsSpss(@Body() filters: any) {
-    return this.dataManagementService.exportSubmissionsSpss(filters);
+  async exportOnefopSubmissionsExcel(@Body() filters: any, @Res() res: Response) {
+    await this.dataManagementService.streamOnefopSubmissionsExcel(filters, res);
+  }
+
+  // The .sps syntax half — fast and bounded (see buildSpssManifest's own
+  // doc comment) regardless of how many submissions match the filters, so
+  // this stays a plain JSON response. Call this first, then
+  // 'export/submissions/spss/csv' with the same filters for the data
+  // itself — the two are split so the (potentially large, slow) data
+  // fetch is a real streamed file download rather than sharing a request/
+  // response cycle with this quick manifest call.
+  @Post('export/submissions/spss/manifest')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
+  async exportSubmissionsSpssManifest(@Body() filters: any) {
+    return this.dataManagementService.buildSpssManifest(filters);
+  }
+
+  // Streams the CSV directly to the response as it's computed (see
+  // streamApprovedOnefopSubmissionsCsv) instead of buffering the whole
+  // export in memory and returning it as one JSON string — the part of
+  // this feature that actually has to scale with submission count.
+  @Post('export/submissions/spss/csv')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
+  async exportSubmissionsSpssCsv(@Body() filters: any, @Res() res: Response) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(filters, res);
   }
 }

@@ -25,6 +25,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../schema/field_schema.dart';
 import '../schema/section_schema.dart';
 import '../schema/form_schema_v2.dart';
+import 'table_response_status.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Field IDs whose number values represent a calendar year.
@@ -45,6 +46,8 @@ enum ValidationErrorCode {
   yearMin,
   yearMax,
   requiredConditional,
+  tableResponseRequired,
+  tableFiguresRequired,
 }
 
 @immutable
@@ -106,12 +109,19 @@ class FieldValidator {
     Map<String, dynamic> data, {
     Set<String>? touched,
   }) {
+    if (!_isVisible(f, data)) return null;
+    if (f.type == 'table') {
+      if (touched != null &&
+          !touched.contains(f.id) &&
+          (f.paperCode == null ||
+              !touched.contains(TableResponseStatus.fieldId(f.paperCode!)))) {
+        return null;
+      }
+      return _validateTable(f, data);
+    }
+
     // Skip non-required and optional overrides always
     if (!f.required || kOptionalOverrides.contains(f.id)) return null;
-    // Skip invisible (conditional) fields
-    if (!_isVisible(f, data)) return null;
-    // Skip table fields — validated elsewhere
-    if (f.type == 'table') return null;
 
     // If we're in touched-only mode, skip untouched fields
     if (touched != null && !touched.contains(f.id)) return null;
@@ -201,6 +211,47 @@ class FieldValidator {
     return out;
   }
 
+  static ValidationError? _validateTable(
+    FieldSchema f,
+    Map<String, dynamic> data,
+  ) {
+    final paper = f.paperCode;
+    if (paper == null || paper.isEmpty) return null;
+    final status = data[TableResponseStatus.fieldId(paper)]?.toString();
+    if (status == null || status.isEmpty) {
+      return const ValidationError(ValidationErrorCode.tableResponseRequired);
+    }
+    if (TableResponseStatus.isClosed(status)) return null;
+    if (TableResponseStatus.isReported(status)) {
+      return _tableHasEnteredValue(f, data)
+          ? null
+          : const ValidationError(ValidationErrorCode.tableFiguresRequired);
+    }
+    return const ValidationError(ValidationErrorCode.tableResponseRequired);
+  }
+
+  static bool _tableHasEnteredValue(
+    FieldSchema f,
+    Map<String, dynamic> data,
+  ) {
+    final pfx = ((f.tableSpec?['prefix'] as String?) ?? f.id).toLowerCase();
+    final start = '${pfx}_';
+    for (final entry in data.entries) {
+      if (!entry.key.startsWith(start)) continue;
+      if (entry.key.endsWith('_skipped') ||
+          entry.key.endsWith('_RESPONSE_STATUS')) {
+        continue;
+      }
+      final v = entry.value;
+      if (v is int) return true;
+      if (v is num) return true;
+      if (v is String && v.trim().isNotEmpty && int.tryParse(v.trim()) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // ── Helpers ───────────────────────────────────────────────
   static bool _isVisible(FieldSchema f, Map<String, dynamic> data) {
     if (f.dependsOn == null || f.dependsOn!.isEmpty) return true;
@@ -238,5 +289,9 @@ String validationErrorMessage(AppLocalizations l10n, ValidationError error) {
       return l10n.yearMax(error.args['max'] as int);
     case ValidationErrorCode.requiredConditional:
       return l10n.requiredFieldConditional;
+    case ValidationErrorCode.tableResponseRequired:
+      return l10n.tableResponseRequired;
+    case ValidationErrorCode.tableFiguresRequired:
+      return l10n.tableFiguresRequired;
   }
 }

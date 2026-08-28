@@ -84,7 +84,7 @@ enum EntityType {
       case EntityType.cooperative:
         return 'Section 1 — Cooperative identification';
       case EntityType.ctd:
-        return 'Section 1 — CTD identification';
+        return 'Section 1 — RLA identification';
       case EntityType.ong:
         return 'Section 1 — NGO identification';
       case EntityType.vocational:

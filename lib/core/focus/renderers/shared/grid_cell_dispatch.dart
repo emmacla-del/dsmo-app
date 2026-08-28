@@ -17,7 +17,25 @@ import '../grid_theme.dart';
 import 'number_field.dart';
 import 'text_field.dart';
 
+/// User-typed table values, including explicit zeros. Absence means the
+/// cell was never filled (missing), which is distinct from 0.
+class TableEnteredScope extends InheritedWidget {
+  final Map<String, int> values;
+  const TableEnteredScope({
+    super.key,
+    required this.values,
+    required super.child,
+  });
+
+  static Map<String, int>? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TableEnteredScope>()?.values;
+
+  @override
+  bool updateShouldNotify(TableEnteredScope old) => !identical(old.values, values);
+}
+
 Widget buildGridCellWidget({
+  required BuildContext context,
   required String cellId,
   required CellSpec? cs,
   required bool isTotalRow,
@@ -25,7 +43,7 @@ Widget buildGridCellWidget({
   required GridRenderSpec spec,
   required Map<String, int> numberValues,
   required Map<String, String> textValues,
-  required Function(String, int) onNumberChanged,
+  required Function(String, int?) onNumberChanged,
   required Function(String, String) onTextChanged,
   required UnifiedFocusManagerV2 focusManager,
   required String tableId,
@@ -57,9 +75,13 @@ Widget buildGridCellWidget({
           ),
         );
       }
+      final entered = TableEnteredScope.maybeOf(context);
+      final int? enteredValue = entered != null
+          ? (entered.containsKey(cellId) ? entered[cellId] : null)
+          : (numberValues.containsKey(cellId) ? numberValues[cellId] : null);
       return NumberField(
         fieldId: cellId,
-        value: numberValues[cellId] ?? 0,
+        value: enteredValue,
         onChanged: onNumberChanged,
         focusManager: focusManager,
         tableId: tableId,

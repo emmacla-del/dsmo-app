@@ -22,16 +22,32 @@ import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 type FlatFormData = Record<string, string | number>;
 type TxClient = any;
 
+// Must stay aligned with the identification DTOs and AST requiredField
+// flags. Drafts skip class-validator missing properties; this list is
+// the final-submit gate so an API client cannot persist an empty
+// cooperative / CTD / NGO as PENDING_REVIEW.
 const FINAL_REQUIRED_FIELDS: Record<string, string[]> = {
-  respondent: ['name', 'function', 'phone1'],
+  respondent: ['name', 'function', 'phone1', 'email'],
   enterprise: [
     'name', 'legalStatus', 'area', 'region', 'department',
-    'subdivision', 'phone1', 'sector', 'mainActivity',
-    'permanentWorkers', 'size',
+    'subdivision', 'locality', 'phone1', 'poBox', 'sector', 'branch',
+    'mainActivity', 'headOffice', 'permanentWorkers', 'vacancies', 'size',
   ],
-  cooperative: ['name'],
-  ctd: ['type'],
-  ong: ['name'],
+  cooperative: [
+    'name', 'headOffice', 'yearCreated', 'area', 'region', 'department',
+    'subdivision', 'locality', 'phone1', 'poBox', 'sector', 'branch',
+    'mainActivity', 'type', 'permanentWorkers', 'vacancies',
+  ],
+  ctd: [
+    'type', 'yearCreated', 'area', 'region', 'department', 'subdivision',
+    'locality', 'phone1', 'poBox', 'sector', 'branch', 'permanentWorkers',
+    'vacancies',
+  ],
+  ong: [
+    'name', 'headOffice', 'yearCreated', 'area', 'region', 'department',
+    'subdivision', 'locality', 'phone1', 'poBox', 'sector', 'branch',
+    'mainMission', 'permanentWorkers', 'vacancies',
+  ],
 };
 
 // Human-readable, bilingual labels for the dotted `entity.field` paths
@@ -52,10 +68,86 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'enterprise.mainActivity': 'Activité principale / Main activity',
   'enterprise.permanentWorkers': 'Employés permanents / Permanent workers',
   'enterprise.size': "Taille de l'entreprise / Company size",
+  'respondent.email': 'E-mail du répondant / Respondent email',
+  'enterprise.locality': 'Localité / Locality',
+  'enterprise.poBox': 'Boîte postale / PO Box',
+  'enterprise.branch': "Branche d'activité / Branch of activity",
+  'enterprise.headOffice': 'Siège social / Head office',
+  'enterprise.vacancies': 'Postes vacants / Vacancies',
   'cooperative.name': 'Nom de la coopérative / Cooperative name',
+  'cooperative.headOffice': 'Siège social / Head office',
+  'cooperative.yearCreated': 'Année de création / Year of creation',
+  'cooperative.area': 'Milieu de résidence / Area',
+  'cooperative.region': 'Région / Region',
+  'cooperative.department': 'Département / Department',
+  'cooperative.subdivision': 'Arrondissement / Subdivision',
+  'cooperative.locality': 'Localité / Locality',
+  'cooperative.phone1': 'Téléphone / Phone',
+  'cooperative.poBox': 'Boîte postale / PO Box',
+  'cooperative.sector': "Secteur d'activité / Business sector",
+  'cooperative.branch': "Branche d'activité / Branch of activity",
+  'cooperative.mainActivity': 'Activité principale / Main activity',
+  'cooperative.type': 'Type de coopérative / Cooperative type',
+  'cooperative.typeOther': 'Précisez le type / Specify cooperative type',
+  'cooperative.permanentWorkers': 'Employés permanents / Permanent workers',
+  'cooperative.vacancies': 'Postes vacants / Vacancies',
   'ctd.type': 'Type de CTD / Local authority type',
+  'ctd.councilType': 'Type de commune / Council type',
+  'ctd.yearCreated': 'Année de création / Year of creation',
+  'ctd.area': 'Milieu de résidence / Area',
+  'ctd.region': 'Région / Region',
+  'ctd.department': 'Département / Department',
+  'ctd.subdivision': 'Arrondissement / Subdivision',
+  'ctd.locality': 'Localité / Locality',
+  'ctd.phone1': 'Téléphone / Phone',
+  'ctd.poBox': 'Boîte postale / PO Box',
+  'ctd.sector': "Secteur d'activité / Business sector",
+  'ctd.branch': "Branche d'activité / Branch of activity",
+  'ctd.permanentWorkers': 'Employés permanents / Permanent workers',
+  'ctd.vacancies': 'Postes vacants / Vacancies',
   'ong.name': "Nom de l'ONG / NGO name",
+  'ong.headOffice': 'Siège social / Head office',
+  'ong.yearCreated': 'Année de création / Year of creation',
+  'ong.area': 'Milieu de résidence / Area',
+  'ong.region': 'Région / Region',
+  'ong.department': 'Département / Department',
+  'ong.subdivision': 'Arrondissement / Subdivision',
+  'ong.locality': 'Localité / Locality',
+  'ong.phone1': 'Téléphone / Phone',
+  'ong.poBox': 'Boîte postale / PO Box',
+  'ong.sector': "Secteur d'activité / Business sector",
+  'ong.branch': "Branche d'activité / Branch of activity",
+  'ong.mainMission': 'Mission principale / Main mission',
+  'ong.permanentWorkers': 'Employés permanents / Permanent workers',
+  'ong.vacancies': 'Postes vacants / Vacancies',
+  'S21Q01_RESPONSE_STATUS': 'Demandes d\'emploi — statut / Job applications — status',
+  'S22Q01_RESPONSE_STATUS': 'Recrutements permanents — statut / Permanent recruitments — status',
+  'S22Q02_RESPONSE_STATUS': 'Recrutements temporaires — statut / Temporary recruitments — status',
+  'S22Q03_RESPONSE_STATUS': 'Recrutements par diplôme — statut / Recruitments by diploma — status',
+  'S22Q04_RESPONSE_STATUS': 'Recrutements de personnes handicapées — statut / Disability recruitments — status',
+  'S22Q05_RESPONSE_STATUS': 'Recrutements de personnes vulnérables — statut / Vulnerable recruitments — status',
+  'S23Q01_RESPONSE_STATUS': 'Primo-demandeurs — statut / First-time job seekers — status',
+  'S23Q02_RESPONSE_STATUS': 'Primo-recrutements — statut / First-time recruitments — status',
+  'S3Q01_RESPONSE_STATUS': 'Départs — statut / Departures — status',
+  'S3Q02_RESPONSE_STATUS': 'Motifs de licenciement — statut / Dismissal reasons — status',
+  'S3Q03_RESPONSE_STATUS': 'Licenciement / chômage technique — statut / Dismissal / technical unemployment — status',
+  'S4Q01_RESPONSE_STATUS': 'Stages — statut / Internships — status',
+  'S4Q02_RESPONSE_STATUS': 'Besoins en compétences — statut / Skills needs — status',
+  'S4Q03_RESPONSE_STATUS': 'Besoins en formation — statut / Training needs — status',
 };
+
+const FINAL_TABLE_RESPONSE_FIELDS = [
+  'S21Q01_RESPONSE_STATUS',
+  'S22Q01_RESPONSE_STATUS', 'S22Q02_RESPONSE_STATUS',
+  'S22Q03_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS',
+  'S22Q05_RESPONSE_STATUS', 'S23Q01_RESPONSE_STATUS',
+  'S23Q02_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS',
+  'S3Q02_RESPONSE_STATUS', 'S3Q03_RESPONSE_STATUS',
+  'S4Q01_RESPONSE_STATUS', 'S4Q02_RESPONSE_STATUS',
+  'S4Q03_RESPONSE_STATUS',
+] as const;
+
+const TABLE_RESPONSE_STATUSES = new Set(['REPORTED', 'NONE', 'NOT_APPLICABLE']);
 
 // ============================================================
 // NORMALIZATION HELPER - Converts any entity type to uppercase
@@ -254,12 +346,20 @@ export class QuestionnairesService {
       });
       console.log('────────────────────────────────────────────────────\n');
       throw new BadRequestException(dataErrors);
-    } else {
+    } else if (debugSubmit) {
+      // Gated like the other debug output above — Node's console.log is
+      // synchronous when stdout is piped (Render's log capture), so an
+      // ungated line here was blocking the event loop on every single
+      // successful submission in production, not just failed ones.
       console.log('\n── ✅ Validation passed ───────────────────────────\n');
     }
 
     if (!isDraft) {
-      this.enforceFinalRequiredFields(questionnaireData, normalizedEntityType.toLowerCase());
+      this.enforceFinalRequiredFields(
+        questionnaireData,
+        normalized as Record<string, unknown>,
+        normalizedEntityType.toLowerCase(),
+      );
     }
 
     const flat = normalized as unknown as FlatFormData;
@@ -674,7 +774,11 @@ export class QuestionnairesService {
     return flags;
   }
 
-  private enforceFinalRequiredFields(data: AnyQuestionnaireDto, entityType: string): void {
+  private enforceFinalRequiredFields(
+    data: AnyQuestionnaireDto,
+    flat: Record<string, unknown>,
+    entityType: string,
+  ): void {
     const missingFields: string[] = [];
     const respondentRequired = FINAL_REQUIRED_FIELDS['respondent'] ?? [];
     for (const field of respondentRequired) {
@@ -687,6 +791,18 @@ export class QuestionnairesService {
     for (const field of entityRequired) {
       if (!entityData || entityData[field] === undefined || entityData[field] === null || entityData[field] === '') {
         missingFields.push(`${entityType}.${field}`);
+      }
+    }
+    if (entityType === 'ctd' && entityData?.type === 2 && !entityData?.councilType) {
+      missingFields.push('ctd.councilType');
+    }
+    if (entityType === 'cooperative' && entityData?.type === 3 && !entityData?.typeOther) {
+      missingFields.push('cooperative.typeOther');
+    }
+    for (const field of FINAL_TABLE_RESPONSE_FIELDS) {
+      const status = flat[field];
+      if (typeof status !== 'string' || !TABLE_RESPONSE_STATUSES.has(status)) {
+        missingFields.push(field);
       }
     }
     if (missingFields.length > 0) {

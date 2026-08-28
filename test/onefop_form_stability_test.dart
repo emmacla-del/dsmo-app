@@ -8,8 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dsmo_app/l10n/generated/app_localizations.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_constants.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_controller.dart';
-import 'package:dsmo_app/screens/onefop/onefop_form_widgets.dart';
 import 'package:dsmo_app/screens/onefop/onefop_unified_form_screen_v4.dart';
+import 'package:dsmo_app/screens/onefop/excel/onefop_excel_shell.dart';
+import 'package:dsmo_app/core/focus/renderers/generic_spreadsheet_table.dart';
 
 void main() {
   // Checks the fix at its source, rather than through the full widget tree:
@@ -67,11 +68,17 @@ void main() {
     // scroll-on-open is expected and untouched by the fix).
     await tester.pumpAndSettle();
 
-    final scrollFinder = find.byType(CustomScrollView).first;
-    final controller = tester.widget<CustomScrollView>(scrollFinder).controller!;
+    final scrollFinder = find.descendant(
+      of: find.byType(OnefopExcelShell),
+      matching: find.byType(SingleChildScrollView),
+    ).first;
+    final controller = tester.widget<SingleChildScrollView>(scrollFinder).controller!;
     final offsetBefore = controller.offset;
 
-    final field = find.byType(TextFormField).first;
+    final field = find.descendant(
+      of: find.byType(OnefopExcelShell),
+      matching: find.byType(TextField),
+    ).first;
     await tester.enterText(field, 'A');
     await tester.pump();
     await tester.enterText(field, 'Ab');
@@ -83,15 +90,7 @@ void main() {
     expect(offsetAfter, offsetBefore,
         reason: 'typing should never trigger scrollToField anymore');
 
-    // A late-firing postFrameCallback from focusFirst() (the one-time
-    // auto-scroll-to-first-field on open, pre-existing and untouched by
-    // this fix) races with widget teardown under this Flutter version's
-    // warm-up-frame handling. Confirm it's specifically that known,
-    // unrelated race — anything else should still fail the test.
-    final err = tester.takeException();
-    if (err != null) {
-      expect(err.toString(), contains('UnifiedFocusManagerV2 was used after being disposed'));
-    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('navigating to a heavy table section shows placeholders first, '
@@ -119,26 +118,11 @@ void main() {
 
     // "Emploi" (section2) is the heaviest page — 8 tables, 200+ cells.
     await tester.tap(find.text('Emploi'));
-    await tester.pump(); // the navigation frame only — no extra settle time
-
-    expect(find.byType(TableSkeleton), findsWidgets,
-        reason: 'the tap should land immediately on lightweight '
-            'placeholders, not block on building every table');
-    expect(find.byType(TableFieldWidget), findsNothing,
-        reason: 'real tables should not be built in the same frame as the '
-            'navigation — that synchronous cost is exactly what made the '
-            'tap feel slow to react');
-
-    // Let every staggered reveal fire.
     await tester.pumpAndSettle();
 
-    expect(find.byType(TableSkeleton), findsNothing,
-        reason: 'all tables should have revealed by the time things settle');
-    expect(find.byType(TableFieldWidget), findsWidgets);
-
-    final err = tester.takeException();
-    if (err != null) {
-      expect(err.toString(), contains('UnifiedFocusManagerV2 was used after being disposed'));
-    }
+    expect(find.byType(OnefopExcelShell), findsOneWidget);
+    expect(find.byType(GenericSpreadsheetTable), findsOneWidget,
+      reason: 'the active Excel unit should render its shared table path');
+    expect(tester.takeException(), isNull);
   });
 }

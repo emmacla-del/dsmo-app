@@ -50,4 +50,27 @@ class FieldSchema {
   /// against by BackendMappers/dependsValue. Never rendered directly; use
   /// [optionsI18n] + `.text.of(locale)` for display.
   List<String>? get options => optionsI18n?.map((o) => o.value).toList();
+
+  /// Used to patch a compiled field's label with runtime content (e.g.
+  /// S21Q01's campaign-period wording — see
+  /// OnefopFormController._applyCampaignPeriodLabels) without re-listing
+  /// every other constructor argument at the call site.
+  FieldSchema copyWith({LocalizedText? label}) => FieldSchema(
+        id: id,
+        path: path,
+        type: type,
+        next: next,
+        prev: prev,
+        label: label ?? this.label,
+        optionsI18n: optionsI18n,
+        required: required,
+        hint: hint,
+        paperCode: paperCode,
+        tableSpec: tableSpec,
+        dependsOn: dependsOn,
+        dependsValue: dependsValue,
+        questionText: questionText,
+        instruction: instruction,
+        subsection: subsection,
+      );
 }

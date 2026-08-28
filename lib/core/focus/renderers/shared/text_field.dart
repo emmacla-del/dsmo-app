@@ -187,6 +187,10 @@ class _FormTextFieldState extends State<FormTextField> {
       }
       return KeyEventResult.handled;
     }
+    if (kb.isLogicalKeyPressed(LogicalKeyboardKey.escape)) {
+      n.unfocus();
+      return KeyEventResult.handled;
+    }
 
     return widget.focusManager.handleKey(n, e, gridId: widget.tableId);
   }
@@ -196,7 +200,6 @@ class _FormTextFieldState extends State<FormTextField> {
     return ListenableBuilder(
       listenable: _node,
       builder: (ctx, _) {
-        final focused = _node.hasFocus;
         return SizedBox(
             width: widget.width,
             height: widget.height,
@@ -206,19 +209,8 @@ class _FormTextFieldState extends State<FormTextField> {
             // that collapsed box, not the box itself within the cell. See
             // number_field.dart for the same fix and how it was verified.
             child: Center(
-              child: AnimatedContainer(
-                duration: GridTheme.focusRingDuration,
-                curve: Curves.easeOut,
-                margin: EdgeInsets.symmetric(
-                    horizontal: focused ? 2 : 4, vertical: focused ? 2 : 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  border: focused
-                      ? Border.all(
-                          color: GridTheme.focusRingColor,
-                          width: GridTheme.focusRingWidth)
-                      : null,
-                ),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: TextField(
                   controller: _ctrl,
                   focusNode: _node,

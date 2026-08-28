@@ -401,7 +401,6 @@ export class CampaignService {
         const company = await this.prisma.company.findUnique({ where: { userId } });
         if (!company?.establishmentId) return [];
 
-        const now = new Date();
         // Each targeting axis is independent: an empty array means "no
         // restriction on this axis" (the "All" option in the targeting UI),
         // not "matches nothing" — `has` on an empty array is always false,
@@ -411,9 +410,6 @@ export class CampaignService {
         // actually restricts.
         const campaigns = await this.prisma.dataCampaign.findMany({
             where: {
-                status: 'ACTIVE',
-                startDate: { lte: now },
-                deadline: { gte: now },
                 AND: [
                     { OR: [{ targetRegions: { isEmpty: true } }, { targetRegions: { has: company.region } }] },
                     { OR: [{ targetDepartments: { isEmpty: true } }, { targetDepartments: { has: company.department } }] },
@@ -433,6 +429,7 @@ export class CampaignService {
                           },
                 ],
             },
+            orderBy: { startDate: 'desc' },
             include: {
                 submissions: {
                     where: { establishmentId: company.establishmentId },
@@ -441,7 +438,17 @@ export class CampaignService {
             },
         });
 
-        return campaigns.map(c => ({
+        // Keep one stable slot per collection module. The dashboard needs to
+        // show inactive modules too, while older campaigns should not crowd
+        // out the current/latest one.
+        const latestByModule = new Map<string, typeof campaigns[number]>();
+        for (const campaign of campaigns) {
+            if (!latestByModule.has(campaign.collectionType)) {
+                latestByModule.set(campaign.collectionType, campaign);
+            }
+        }
+
+        return [...latestByModule.values()].map(c => ({
             id: c.id,
             code: c.code,
             name: c.name,

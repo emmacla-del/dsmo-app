@@ -20,6 +20,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
+import '../../i18n/l10n_ext.dart';
+import '../../i18n/localized_text.dart';
 import 'onefop_layout_constants.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -93,7 +95,7 @@ class OnefopSectionContainer extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF70AD47),
+                      color: AppColors.deepEmerald,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Row(
@@ -208,9 +210,9 @@ class OnefopFieldLabel extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: const Color(0xFFE7E9F0)),
             ),
-            child: const Text(
-              'Optionnel',
-              style: TextStyle(
+            child: Text(
+              const LocalizedText(fr: 'Optionnel', en: 'Optional').of(context.loc),
+              style: const TextStyle(
                 fontSize: 10,
                 color: Color(0xFF4A4A4A),
                 fontWeight: FontWeight.w500,
@@ -244,16 +246,9 @@ class OnefopQuestionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: OL.labelGapV),
-      padding: const EdgeInsets.symmetric(
-        horizontal: OL.sectionBodyPaddingH,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color: OL.qtBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: OL.qtBorder, width: 1),
-      ),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 10),
+      decoration: OL.qtDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

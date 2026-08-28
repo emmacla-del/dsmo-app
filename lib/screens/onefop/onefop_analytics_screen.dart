@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../core/i18n/l10n_ext.dart';
+import '../../core/i18n/localized_text.dart';
 import '../../data/api_client.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/period_selector.dart';
@@ -264,8 +266,11 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('ONEFOP · Analyse approfondie',
-                style: TextStyle(
+            Text(
+                const LocalizedText(
+                        fr: 'ONEFOP · Analyse approfondie', en: 'ONEFOP · In-depth analysis')
+                    .of(context.loc),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     color: UltraTheme.textPrimary,
@@ -339,6 +344,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
     String? tempRegion = _selectedRegion;
     String? tempDepartment = _selectedDepartment;
     String? tempSubdivision = _selectedSubdivision;
+    final locale = context.loc;
 
     showDialog(
       context: context,
@@ -347,8 +353,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           backgroundColor: UltraTheme.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Filtres géographiques',
-              style: TextStyle(
+          title: Text(
+              const LocalizedText(fr: 'Filtres géographiques', en: 'Geographic filters')
+                  .of(locale),
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   color: UltraTheme.textPrimary,
@@ -359,17 +367,19 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (_geoLoading)
-                  const LinearProgressIndicator(color: Color(0xFF1D9E75))
+                  const LinearProgressIndicator(color: UltraTheme.primary)
                 else ...[
                   DropdownButtonFormField<String?>(
                     initialValue: tempRegion,
-                    decoration: const InputDecoration(
-                      labelText: 'Région',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: const LocalizedText(fr: 'Région', en: 'Region').of(locale),
+                      border: const OutlineInputBorder(),
                     ),
                     items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Toutes les régions')),
+                      DropdownMenuItem(
+                          value: null,
+                          child: Text(const LocalizedText(fr: 'Toutes les régions', en: 'All regions')
+                              .of(locale))),
                       ..._regionNames.map(
                           (r) => DropdownMenuItem(value: r, child: Text(r))),
                     ],
@@ -383,13 +393,17 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
                       initialValue: tempDepartment,
-                      decoration: const InputDecoration(
-                        labelText: 'Département',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText:
+                            const LocalizedText(fr: 'Département', en: 'Department').of(locale),
+                        border: const OutlineInputBorder(),
                       ),
                       items: [
-                        const DropdownMenuItem(
-                            value: null, child: Text('Tous les départements')),
+                        DropdownMenuItem(
+                            value: null,
+                            child: Text(const LocalizedText(
+                                    fr: 'Tous les départements', en: 'All departments')
+                                .of(locale))),
                         ..._departmentNames(tempRegion).map(
                             (d) => DropdownMenuItem(value: d, child: Text(d))),
                       ],
@@ -405,14 +419,17 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
                       initialValue: tempSubdivision,
-                      decoration: const InputDecoration(
-                        labelText: 'Arrondissement',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText:
+                            const LocalizedText(fr: 'Arrondissement', en: 'Subdivision').of(locale),
+                        border: const OutlineInputBorder(),
                       ),
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                             value: null,
-                            child: Text('Tous les arrondissements')),
+                            child: Text(const LocalizedText(
+                                    fr: 'Tous les arrondissements', en: 'All subdivisions')
+                                .of(locale))),
                         ..._subdivisionNames(tempRegion, tempDepartment).map(
                             (s) => DropdownMenuItem(value: s, child: Text(s))),
                       ],
@@ -427,8 +444,8 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler',
-                  style: TextStyle(
+              child: Text(const LocalizedText(fr: 'Annuler', en: 'Cancel').of(locale),
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
                       color: UltraTheme.textMuted)),
@@ -443,8 +460,8 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 Navigator.pop(ctx);
                 _fetchAll();
               },
-              child: const Text('Appliquer',
-                  style: TextStyle(
+              child: Text(const LocalizedText(fr: 'Appliquer', en: 'Apply').of(locale),
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
                       color: UltraTheme.primary)),
@@ -457,6 +474,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
 
   Widget _buildKpiRow() {
     final employment = _dashboard['employment'] as Map? ?? {};
+    final locale = context.loc;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -467,12 +485,12 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _kpiItem(
-              'Effectif total',
+              const LocalizedText(fr: 'Effectif total', en: 'Total headcount').of(locale),
               (employment['totalEmployees'] ?? 0).toString(),
               UltraTheme.primary,
             ),
             _kpiItem(
-              'Soumissions',
+              const LocalizedText(fr: 'Soumissions', en: 'Submissions').of(locale),
               (_dashboard['submissionCount'] ?? 0).toString(),
               UltraTheme.primaryLight,
             ),
@@ -534,8 +552,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const Icon(Icons.wifi_off_rounded,
                 size: 56, color: UltraTheme.textMuted),
             const SizedBox(height: 16),
-            const Text('Connexion impossible',
-                style: TextStyle(
+            Text(
+                const LocalizedText(fr: 'Connexion impossible', en: 'Connection failed')
+                    .of(context.loc),
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -555,7 +575,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 backgroundColor: UltraTheme.primary,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Réessayer'),
+              child: Text(const LocalizedText(fr: 'Réessayer', en: 'Retry').of(context.loc)),
             ),
           ],
         ),
@@ -564,6 +584,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildEmploymentSection() {
+    final locale = context.loc;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -576,20 +597,29 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Emploi par localisation',
-                    style: TextStyle(
+                Text(
+                    const LocalizedText(
+                            fr: 'Emploi par localisation', en: 'Employment by location')
+                        .of(locale),
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         color: UltraTheme.textPrimary,
                         fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _employmentGroupBy,
-                  items: const [
-                    DropdownMenuItem(value: 'region', child: Text('Région')),
+                  items: [
                     DropdownMenuItem(
-                        value: 'department', child: Text('Département')),
+                        value: 'region',
+                        child: Text(const LocalizedText(fr: 'Région', en: 'Region').of(locale))),
                     DropdownMenuItem(
-                        value: 'subdivision', child: Text('Arrondissement')),
+                        value: 'department',
+                        child: Text(
+                            const LocalizedText(fr: 'Département', en: 'Department').of(locale))),
+                    DropdownMenuItem(
+                        value: 'subdivision',
+                        child: Text(const LocalizedText(fr: 'Arrondissement', en: 'Subdivision')
+                            .of(locale))),
                   ],
                   onChanged: (v) {
                     setState(() => _employmentGroupBy = v!);
@@ -602,7 +632,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             SizedBox(
               height: 300,
               child: _employment.isEmpty
-                  ? const Center(child: Text('Aucune donnée'))
+                  ? Center(
+                  child: Text(
+                      const LocalizedText(fr: 'Aucune donnée', en: 'No data').of(context.loc)))
                   : BarChart(
                       BarChartData(
                         barGroups: _employment.asMap().entries.map((e) {
@@ -649,6 +681,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildRecruitmentTrendsSection() {
+    final locale = context.loc;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -661,21 +694,32 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Tendances des recrutements',
-                    style: TextStyle(
+                Text(
+                    const LocalizedText(
+                            fr: 'Tendances des recrutements', en: 'Recruitment trends')
+                        .of(locale),
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         color: UltraTheme.textPrimary,
                         fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _trendsGranularity,
-                  items: const [
-                    DropdownMenuItem(value: 'year', child: Text('Année')),
+                  items: [
                     DropdownMenuItem(
-                        value: 'quarter', child: Text('Trimestre')),
+                        value: 'year',
+                        child: Text(const LocalizedText(fr: 'Année', en: 'Year').of(locale))),
                     DropdownMenuItem(
-                        value: 'semester', child: Text('Semestre')),
-                    DropdownMenuItem(value: 'month', child: Text('Mois')),
+                        value: 'quarter',
+                        child:
+                            Text(const LocalizedText(fr: 'Trimestre', en: 'Quarter').of(locale))),
+                    DropdownMenuItem(
+                        value: 'semester',
+                        child:
+                            Text(const LocalizedText(fr: 'Semestre', en: 'Semester').of(locale))),
+                    DropdownMenuItem(
+                        value: 'month',
+                        child: Text(const LocalizedText(fr: 'Mois', en: 'Month').of(locale))),
                   ],
                   onChanged: (v) {
                     setState(() => _trendsGranularity = v!);
@@ -688,7 +732,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             SizedBox(
               height: 250,
               child: _recruitmentTrends.isEmpty
-                  ? const Center(child: Text('Aucune donnée'))
+                  ? Center(
+                  child: Text(
+                      const LocalizedText(fr: 'Aucune donnée', en: 'No data').of(context.loc)))
                   : LineChart(
                       LineChartData(
                         lineBarsData: [
@@ -737,6 +783,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildHiresDemographicsSection() {
+    final locale = context.loc;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -746,8 +793,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Embauches par démographie',
-                style: TextStyle(
+            Text(
+                const LocalizedText(fr: 'Embauches par démographie', en: 'Hires by demographics')
+                    .of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     color: UltraTheme.textPrimary,
@@ -757,7 +806,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             // CSP — uppercase values matching backend CspCategory enum
             Wrap(spacing: 8, children: [
               FilterChip(
-                label: const Text('Tous CSP'),
+                label: Text(const LocalizedText(fr: 'Tous CSP', en: 'All CSP').of(locale)),
                 selected: _selectedCsp == null,
                 onSelected: (_) {
                   setState(() => _selectedCsp = null);
@@ -765,7 +814,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 },
               ),
               FilterChip(
-                label: const Text('Cadres'),
+                label: Text(const LocalizedText(fr: 'Cadres', en: 'Executives').of(locale)),
                 selected: _selectedCsp == 'CADRES',
                 onSelected: (_) {
                   setState(() => _selectedCsp = 'CADRES');
@@ -773,7 +822,8 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 },
               ),
               FilterChip(
-                label: const Text('Agents de maîtrise'),
+                label: Text(
+                    const LocalizedText(fr: 'Agents de maîtrise', en: 'Foremen').of(locale)),
                 selected: _selectedCsp == 'FOREMEN',
                 onSelected: (_) {
                   setState(() => _selectedCsp = 'FOREMEN');
@@ -781,7 +831,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 },
               ),
               FilterChip(
-                label: const Text('Ouvriers'),
+                label: Text(const LocalizedText(fr: 'Ouvriers', en: 'Workers').of(locale)),
                 selected: _selectedCsp == 'WORKERS',
                 onSelected: (_) {
                   setState(() => _selectedCsp = 'WORKERS');
@@ -794,7 +844,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             // Gender — uppercase values matching backend Gender enum
             Wrap(spacing: 8, children: [
               FilterChip(
-                label: const Text('Tous genres'),
+                label: Text(const LocalizedText(fr: 'Tous genres', en: 'All genders').of(locale)),
                 selected: _selectedGender == null,
                 onSelected: (_) {
                   setState(() => _selectedGender = null);
@@ -802,7 +852,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 },
               ),
               FilterChip(
-                label: const Text('Hommes'),
+                label: Text(const LocalizedText(fr: 'Hommes', en: 'Men').of(locale)),
                 selected: _selectedGender == 'MALE',
                 onSelected: (_) {
                   setState(() => _selectedGender = 'MALE');
@@ -810,7 +860,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                 },
               ),
               FilterChip(
-                label: const Text('Femmes'),
+                label: Text(const LocalizedText(fr: 'Femmes', en: 'Women').of(locale)),
                 selected: _selectedGender == 'FEMALE',
                 onSelected: (_) {
                   setState(() => _selectedGender = 'FEMALE');
@@ -823,7 +873,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             // Age band — matches backend AgeBand enum exactly
             Wrap(spacing: 8, children: [
               FilterChip(
-                label: const Text('Tous âges'),
+                label: Text(const LocalizedText(fr: 'Tous âges', en: 'All ages').of(locale)),
                 selected: _selectedAgeBand == null,
                 onSelected: (_) {
                   setState(() => _selectedAgeBand = null);
@@ -858,7 +908,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 16),
 
             if (_hiresByDemographics.isEmpty)
-              const Center(child: Text('Aucune donnée'))
+              Center(
+                  child: Text(
+                      const LocalizedText(fr: 'Aucune donnée', en: 'No data').of(context.loc)))
             else
               ..._hiresByDemographics.map((row) => ListTile(
                     dense: true,
@@ -893,15 +945,19 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Embauches par diplôme',
-                style: TextStyle(
+            Text(
+                const LocalizedText(fr: 'Embauches par diplôme', en: 'Hires by diploma')
+                    .of(context.loc),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     color: UltraTheme.textPrimary,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             if (_hiresByDiploma.isEmpty)
-              const Center(child: Text('Aucune donnée'))
+              Center(
+                  child: Text(
+                      const LocalizedText(fr: 'Aucune donnée', en: 'No data').of(context.loc)))
             else
               ..._hiresByDiploma.map((d) => ListTile(
                     dense: true,
@@ -925,6 +981,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildVacanciesSection() {
+    final locale = context.loc;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -937,18 +994,25 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Postes vacants par segment',
-                    style: TextStyle(
+                Text(
+                    const LocalizedText(
+                            fr: 'Postes vacants par segment', en: 'Vacancies by segment')
+                        .of(locale),
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         color: UltraTheme.textPrimary,
                         fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: _vacanciesGroupBy,
-                  items: const [
-                    DropdownMenuItem(value: 'sector', child: Text('Secteur')),
+                  items: [
                     DropdownMenuItem(
-                        value: 'companySize', child: Text('Taille entreprise')),
+                        value: 'sector',
+                        child: Text(const LocalizedText(fr: 'Secteur', en: 'Sector').of(locale))),
+                    DropdownMenuItem(
+                        value: 'companySize',
+                        child: Text(const LocalizedText(fr: 'Taille entreprise', en: 'Company size')
+                            .of(locale))),
                   ],
                   onChanged: (v) {
                     setState(() => _vacanciesGroupBy = v!);
@@ -959,7 +1023,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             ),
             const SizedBox(height: 12),
             if (_vacancies.isEmpty)
-              const Center(child: Text('Aucune donnée'))
+              Center(
+                  child: Text(
+                      const LocalizedText(fr: 'Aucune donnée', en: 'No data').of(context.loc)))
             else
               ..._vacancies.map((v) => ListTile(
                     dense: true,
@@ -969,7 +1035,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                             fontSize: 12,
                             color: UltraTheme.textPrimary)),
                     trailing: Text(
-                      '${v['totalVacancies']} postes',
+                      locale.languageCode == 'en'
+                          ? '${v['totalVacancies']} positions'
+                          : '${v['totalVacancies']} postes',
                       style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -983,6 +1051,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildSkillsSection() {
+    final locale = context.loc;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -992,15 +1061,19 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Compétences demandées',
-                style: TextStyle(
+            Text(
+                const LocalizedText(fr: 'Compétences demandées', en: 'Skills in demand')
+                    .of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     color: UltraTheme.textPrimary,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             if (_skills.isEmpty)
-              const Center(child: Text('Aucune donnée'))
+              Center(
+                  child: Text(
+                      const LocalizedText(fr: 'Aucune donnée', en: 'No data').of(context.loc)))
             else
               ..._skills.map((s) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
@@ -1024,8 +1097,12 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                     ),
                   )),
             const SizedBox(height: 16),
-            const Text('Écart formation (Demande vs Offre)',
-                style: TextStyle(
+            Text(
+                const LocalizedText(
+                        fr: 'Écart formation (Demande vs Offre)',
+                        en: 'Training gap (Demand vs Supply)')
+                    .of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
                     color: UltraTheme.textSecondary,
@@ -1043,7 +1120,9 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
                                   fontSize: 12,
                                   color: UltraTheme.textPrimary)),
                           Text(
-                            'Demande: ${g['demand']}, Offre: ${g['supply']}',
+                            locale.languageCode == 'en'
+                                ? 'Demand: ${g['demand']}, Supply: ${g['supply']}'
+                                : 'Demande: ${g['demand']}, Offre: ${g['supply']}',
                             style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 11,
@@ -1059,6 +1138,7 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
   }
 
   Widget _buildSocialMetricsSection() {
+    final locale = context.loc;
     final femalePct =
         ((_genderParity['femalePercentage'] as num?)?.toDouble() ?? 0) / 100;
     final disabledByCsp = (_inclusion['disabledByCsp'] as List?) ?? [];
@@ -1073,8 +1153,11 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Parité · Jeunes · Inclusion',
-                style: TextStyle(
+            Text(
+                const LocalizedText(
+                        fr: 'Parité · Jeunes · Inclusion', en: 'Parity · Youth · Inclusion')
+                    .of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     color: UltraTheme.textPrimary,
@@ -1082,8 +1165,8 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 12),
 
             // Gender parity
-            const Text('Parité H/F',
-                style: TextStyle(
+            Text(const LocalizedText(fr: 'Parité H/F', en: 'Gender parity').of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textSecondary)),
@@ -1098,7 +1181,8 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'H: ${(_genderParity['malePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%'
+              '${locale.languageCode == 'en' ? 'M' : 'H'}: '
+              '${(_genderParity['malePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%'
               '  ·  '
               'F: ${(_genderParity['femalePercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%',
               style: const TextStyle(
@@ -1109,14 +1193,17 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 12),
 
             // Youth employment
-            const Text('Emploi jeunes',
-                style: TextStyle(
+            Text(const LocalizedText(fr: 'Emploi jeunes', en: 'Youth employment').of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textSecondary)),
             Text(
-              '${_youthEmployment['youthHires'] ?? 0} embauches'
-              ' (${(_youthEmployment['youthPercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%)',
+              locale.languageCode == 'en'
+                  ? '${_youthEmployment['youthHires'] ?? 0} hires'
+                      ' (${(_youthEmployment['youthPercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%)'
+                  : '${_youthEmployment['youthHires'] ?? 0} embauches'
+                      ' (${(_youthEmployment['youthPercentage'] as num?)?.toStringAsFixed(1) ?? '0.0'}%)',
               style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
@@ -1125,17 +1212,21 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
             const SizedBox(height: 12),
 
             // Inclusion totals
-            const Text('Inclusion',
-                style: TextStyle(
+            Text(const LocalizedText.same('Inclusion').of(locale),
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textSecondary)),
-            Text('Handicapés : ${_inclusion['disabled'] ?? 0}',
+            Text(
+                '${const LocalizedText(fr: 'Handicapés', en: 'Disabled').of(locale)} : '
+                '${_inclusion['disabled'] ?? 0}',
                 style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     color: UltraTheme.textPrimary)),
-            Text('Vulnérables : ${_inclusion['vulnerable'] ?? 0}',
+            Text(
+                '${const LocalizedText(fr: 'Vulnérables', en: 'Vulnerable').of(locale)} : '
+                '${_inclusion['vulnerable'] ?? 0}',
                 style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -1143,8 +1234,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
 
             if (disabledByCsp.isNotEmpty) ...[
               const SizedBox(height: 8),
-              const Text('Par CSP (handicapés)',
-                  style: TextStyle(
+              Text(
+                  const LocalizedText(fr: 'Par CSP (handicapés)', en: 'By CSP (disabled)')
+                      .of(locale),
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       color: UltraTheme.textMuted)),
@@ -1159,8 +1252,10 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
 
             if (vulnerableByType.isNotEmpty) ...[
               const SizedBox(height: 8),
-              const Text('Par type (vulnérables)',
-                  style: TextStyle(
+              Text(
+                  const LocalizedText(fr: 'Par type (vulnérables)', en: 'By type (vulnerable)')
+                      .of(locale),
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       color: UltraTheme.textMuted)),
@@ -1195,10 +1290,15 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Données en temps réel — ${_period.displayText}'
-              '${_selectedRegion != null ? ' · $_selectedRegion' : ''}. '
-              'Les chiffres reflètent l\'état actuel de la base et peuvent '
-              'différer des rapports officiels archivés.',
+              context.loc.languageCode == 'en'
+                  ? 'Live data — ${_period.displayText}'
+                      '${_selectedRegion != null ? ' · $_selectedRegion' : ''}. '
+                      'These figures reflect the database\'s current state and may '
+                      'differ from archived official reports.'
+                  : 'Données en temps réel — ${_period.displayText}'
+                      '${_selectedRegion != null ? ' · $_selectedRegion' : ''}. '
+                      'Les chiffres reflètent l\'état actuel de la base et peuvent '
+                      'différer des rapports officiels archivés.',
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 11,
@@ -1231,13 +1331,17 @@ class _OnefopAnalyticsScreenState extends ConsumerState<OnefopAnalyticsScreen> {
           });
         },
         icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-        label: const Text(
-          'Archiver ces données en rapport officiel',
-          style: TextStyle(fontFamily: 'Inter', fontSize: 12),
+        label: Text(
+          const LocalizedText(
+                  fr: 'Archiver ces données en rapport officiel',
+                  en: 'Archive this data as an official report')
+              .of(context.loc),
+          style: const TextStyle(fontFamily: 'Inter', fontSize: 12),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF0F6E56),
-          side: const BorderSide(color: Color(0xFF1D9E75), width: 0.5),
+          foregroundColor: UltraTheme.primary,
+          side: BorderSide(
+              color: UltraTheme.primary.withValues(alpha: 0.5), width: 0.5),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

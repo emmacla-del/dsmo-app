@@ -1,20 +1,24 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../i18n/l10n_ext.dart';
 
 /// Returns null if valid, error message if invalid.
-String? cameroonPhoneError(String? value, {bool required = true}) {
+String? cameroonPhoneError(BuildContext context, String? value, {bool required = true}) {
+  final l10n = context.l10n;
   if (value == null || value.isEmpty) {
-    return required ? 'Champ obligatoire' : null;
+    return required ? l10n.requiredField : null;
   }
   if (value.length != 9) {
-    return 'Le numéro doit contenir exactement 9 chiffres';
+    return l10n.telExactly9Digits;
   }
   if (value[0] != '2' && value[0] != '6') {
-    return 'Le numéro doit commencer par 2 (fixe) ou 6 (mobile)';
+    return l10n.telMustStartWith2Or6;
   }
   return null;
 }
 
-bool isValidCameroonPhone(String? value) => cameroonPhoneError(value) == null;
+bool isValidCameroonPhone(BuildContext context, String? value) =>
+    cameroonPhoneError(context, value) == null;
 
 /// Strips non-digits, caps at 9 chars, and blocks any first digit
 /// that is not 2 or 6.

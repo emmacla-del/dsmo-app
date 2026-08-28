@@ -10,6 +10,12 @@ import '../schema/types.dart';
 import 'form_ast.dart';
 
 class FormSchemaCompiler {
+  static void _debug(String message) {
+    if (const bool.fromEnvironment('VERBOSE_FORM_LOGS', defaultValue: false)) {
+      print(message);
+    }
+  }
+
   static String _getFieldTypeString(AstFieldType type) {
     switch (type) {
       case AstFieldType.text:
@@ -40,20 +46,20 @@ class FormSchemaCompiler {
     required List<FormQuestionAst> questions,
     required String entityType,
   }) {
-    print('\n🔧 ========== COMPILER DEBUG ==========');
-    print('🔧 COMPILING SCHEMA for entity: $entityType');
-    print('🔧 Total sections in AST: ${sections.length}');
-    print('🔧 Section IDs: ${sections.map((s) => s.id).toList()}');
-    print('🔧 Total questions in AST: ${questions.length}');
+    _debug('\n🔧 ========== COMPILER DEBUG ==========');
+    _debug('🔧 COMPILING SCHEMA for entity: $entityType');
+    _debug('🔧 Total sections in AST: ${sections.length}');
+    _debug('🔧 Section IDs: ${sections.map((s) => s.id).toList()}');
+    _debug('🔧 Total questions in AST: ${questions.length}');
 
     // 1. Filter by entity type
     final filteredSections = sections.where((s) {
       if (s.entityTypes == null) {
-        print('   ✅ Section ${s.id} - no entity filter (always included)');
+        _debug('   ✅ Section ${s.id} - no entity filter (always included)');
         return true;
       }
       final include = s.entityTypes!.contains(entityType);
-      print(
+      _debug(
           '   ${include ? "✅" : "❌"} Section ${s.id} - entityTypes: ${s.entityTypes}');
       return include;
     }).toList();
@@ -63,10 +69,10 @@ class FormSchemaCompiler {
       return q.entityTypes!.contains(entityType);
     }).toList();
 
-    print('\n🔧 Filtered sections: ${filteredSections.length}');
-    print(
+    _debug('\n🔧 Filtered sections: ${filteredSections.length}');
+    _debug(
         '🔧 Filtered section IDs: ${filteredSections.map((s) => s.id).toList()}');
-    print('🔧 Filtered questions: ${filteredQuestions.length}');
+    _debug('🔧 Filtered questions: ${filteredQuestions.length}');
 
     // 2. Build fields
     final allFields = filteredQuestions
@@ -92,7 +98,7 @@ class FormSchemaCompiler {
             ))
         .toList();
 
-    print('\n🔧 Fields created: ${allFields.length}');
+    _debug('\n🔧 Fields created: ${allFields.length}');
 
     // 3. Build sections WITH navigation links (FIXED)
     final sectionFieldMap = <String, List<String>>{};
@@ -107,7 +113,7 @@ class FormSchemaCompiler {
       final nextId =
           i < filteredSections.length - 1 ? filteredSections[i + 1].id : null;
 
-      print('🔧 Section ${s.id}: prev=$prevId, next=$nextId');
+      _debug('🔧 Section ${s.id}: prev=$prevId, next=$nextId');
 
       sectionSchemas.add(SectionSchema(
         id: s.id,
@@ -134,7 +140,7 @@ class FormSchemaCompiler {
       }
     }
 
-    print('\n🔧 Grids created: ${grids.length}');
+    _debug('\n🔧 Grids created: ${grids.length}');
 
     // 5. Build navigation graph (FIXED)
     final allFieldIds = allFields.map((f) => f.id).toList();
@@ -176,9 +182,9 @@ class FormSchemaCompiler {
       gridNeighbors: gridNeighbors, // ✅ FIXED - was empty map
     );
 
-    print(
+    _debug(
         '\n🔧 Navigation built: ${next.length} field links, ${gridNeighbors.length} grid neighbors');
-    print('\n🔧 ==========================================\n');
+    _debug('\n🔧 ==========================================\n');
 
     return FormSchemaV2(
       fields: allFields,
