@@ -14,7 +14,7 @@ import {
 // ─────────────────────────────────────────────
 
 type FlatData = Record<string, unknown>;
-type EntityType = 'enterprise' | 'cooperative' | 'ctd' | 'ong';
+type EntityType = 'enterprise' | 'cooperative' | 'ctd' | 'ong' | 'administration';
 type LabelMap = Record<string, string>;
 
 // The reporting year printed all over the form ("...du 1er Janvier
@@ -200,6 +200,16 @@ const CSP_LABELS: LabelMap = {
     workers: 'Ouvriers / Workers',
 };
 
+// Administration's S21Q01/S22Q01/S3Q01 use SFP status rows instead of CSP
+// rows — see mapAdministrationData below.
+const SFP_ROWS: string[] = ['fonctionnaire', 'decisionnaire', 'contractuelle'];
+
+const SFP_LABELS: LabelMap = {
+    fonctionnaire: 'Fonctionnaire / Civil servant',
+    decisionnaire: 'Décisionnaire / Decision-maker',
+    contractuelle: 'Contractuelle / Contractual',
+};
+
 const DIPLOMA_MAP: [string, string][] = [
     ['cep', 'CEP / FSLC'],
     ['bepc', 'BEPC / CAP / GCE-OL'],
@@ -247,9 +257,14 @@ function ageBlock(f: FlatData, prefix: string): AgeBreakdown {
 // CSP × AGE TABLES
 // ─────────────────────────────────────────────
 
-function buildCspAgeRows(f: FlatData, prefix: string): CspAgeRow[] {
-    return CSP_ROWS.map((row): CspAgeRow => ({
-        label: CSP_LABELS[row] ?? row,
+function buildCspAgeRows(
+    f: FlatData,
+    prefix: string,
+    rows: string[] = CSP_ROWS,
+    labels: LabelMap = CSP_LABELS,
+): CspAgeRow[] {
+    return rows.map((row): CspAgeRow => ({
+        label: labels[row] ?? row,
         male: ageBlock(f, `${prefix}_${row}_male`),
         female: ageBlock(f, `${prefix}_${row}_female`),
         total: ageBlock(f, `${prefix}_${row}_total`),
@@ -322,9 +337,14 @@ function buildPermTempTotals(f: FlatData, prefix: string): PermTempTotals {
 // DEPARTURES TABLE
 // ─────────────────────────────────────────────
 
-function buildDepartureRows(f: FlatData, prefix: string): DepartureRow[] {
-    return CSP_ROWS.map((row): DepartureRow => ({
-        label: CSP_LABELS[row] ?? row,
+function buildDepartureRows(
+    f: FlatData,
+    prefix: string,
+    rows: string[] = CSP_ROWS,
+    labels: LabelMap = CSP_LABELS,
+): DepartureRow[] {
+    return rows.map((row): DepartureRow => ({
+        label: labels[row] ?? row,
         dismissals: mft(f, `${prefix}_${row}_dismissal`),
         resignations: mft(f, `${prefix}_${row}_resignation`),
         retirements: mft(f, `${prefix}_${row}_retirement`),
@@ -509,6 +529,17 @@ function mapArea(v: unknown): number {
     return 0;
 }
 
+// Administration's S1Q09/S1Q11 (Oui/Non) — 1=Oui, 2=Non, same convention
+// as mapArea/mapSector below.
+function mapYesNo(v: unknown): number {
+    if (typeof v === 'number') return v;
+    if (!v) return 0;
+    const s = String(v).toLowerCase();
+    if (s.includes('oui') || s.includes('yes')) return 1;
+    if (s.includes('non') || s.includes('no')) return 2;
+    return 0;
+}
+
 function mapSector(v: unknown): number {
     if (typeof v === 'number') return v;
     if (!v) return 0;
@@ -630,6 +661,44 @@ function buildS2S4(f: FlatData, entityType: EntityType) {
         skillsTotals: buildSkillsTotals(f, 's4q02'),
         trainingNeeds: buildTrainingNeeds(f, 's4q03'),
         trainingNeedsTotals: buildTrainingTotals(f, 's4q03'),
+    };
+}
+
+// Administration's Section 2/3/4 is structurally narrower than the other
+// four entity types: S21Q01/S22Q01-equivalent use SFP status rows instead
+// of CSP rows and there's no permanent/temporary split (S22Q02),
+// no diploma breakdown (S22Q03), no "Primo demandeur" (S23Q01/S23Q02),
+// and no training-domain-needs question (S4Q03). S3Q03 (dismissal/
+// technical unemployment) is also not included — its row labels could not
+// be visually confirmed against the authoritative PDF (see the Phase 1
+// audit) and administration.hbs does not reference it. Deliberately a
+// separate builder rather than reusing buildS2S4, since the two shapes
+// diverge in exactly which sections exist, not just which row labels
+// they use.
+function buildS2S4Administration(f: FlatData) {
+    return {
+        // 2.1 — census (S21Q01, SFP rows)
+        jobApplicationsRows: buildCspAgeRows(f, 's21q01', SFP_ROWS, SFP_LABELS),
+        jobApplicationsTotals: buildCspAgeTotals(f, 's21q01'),
+        // 2.2 — recruitment (S22Q01-equivalent, SFP rows)
+        recruitmentsPermanentRows: buildCspAgeRows(f, 's22q01', SFP_ROWS, SFP_LABELS),
+        recruitmentsPermanentTotals: buildCspAgeTotals(f, 's22q01'),
+        // 2.2 — disabled (S22Q04, CSP rows — preserved as-is, see audit)
+        disabledRecruitmentsRows: buildPermTempRows(f, 's22q04', CSP_ROWS, CSP_LABELS),
+        disabledRecruitmentsTotals: buildPermTempTotals(f, 's22q04'),
+        // 2.2 — vulnerable (S22Q05, reuses the cooperative/ctd/ong prefix)
+        vulnerableRecruitmentsRows: buildVulnerableRows(f, 'administration'),
+        vulnerableRecruitmentsTotals: buildVulnerableTotals(f, 'administration'),
+        // S3 — departures (S3Q01, SFP rows) + dismissal reasons (S3Q02)
+        departuresRows: buildDepartureRows(f, 's3q01', SFP_ROWS, SFP_LABELS),
+        departuresTotals: buildDepartureTotals(f, 's3q01'),
+        dismissalReasons: buildDismissalReasons(f, 's3q02'),
+        dismissalReasonsTotals: buildDismissalReasonsTotals(f, 's3q02'),
+        // S4 — internship (S4Q01) + skills needs (S4Q02)
+        internshipsRows: buildInternshipRows(f, 's4q01'),
+        internshipsTotals: buildInternshipTotals(f, 's4q01'),
+        skills: buildSkills(f, 's4q02'),
+        skillsTotals: buildSkillsTotals(f, 's4q02'),
     };
 }
 
@@ -759,6 +828,44 @@ export function mapOngData(f: FlatData, quarterCode?: string | null) {
     };
 }
 
+// DOCUMENTED ASSUMPTIONS (unresolved wording discrepancies between the two
+// source drafts — see Phase 1 audit): S21Q01's "à ce jour" date clause and
+// S4Q02's "de votre administration" vs "des administrations" wording. Not
+// silently invented — see onefop_ast.dart's s21q01Administration and
+// s4q02Administration for the same documented choices on the frontend
+// side; this PDF mapper doesn't hardcode question wording itself (that
+// lives in administration.hbs), only the S1 field values.
+export function mapAdministrationData(f: FlatData, quarterCode?: string | null) {
+    return {
+        respondentName: str(f, 'S0Q01'),
+        respondentFunction: str(f, 'S0Q02'),
+        respondentPhone1: str(f, 'S0Q03_TEL1'),
+        respondentPhone2: str(f, 'S0Q03_TEL2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL'),
+        administrationName: str(f, 'ADMIN_S1Q01'),
+        sigle: str(f, 'ADMIN_S1Q02'),
+        area: mapArea(f['ADMIN_S1Q03']),
+        region: str(f, 'ADMIN_S1Q04_REGION'),
+        department: str(f, 'ADMIN_S1Q04_DEPT'),
+        subdivision: str(f, 'ADMIN_S1Q04_SUBDIV'),
+        locality: str(f, 'ADMIN_S1Q04_LOCALITY'),
+        phone1: str(f, 'ADMIN_S1Q05_TEL1'),
+        phone2: str(f, 'ADMIN_S1Q05_TEL2'),
+        poBox: str(f, 'ADMIN_S1Q05_BP'),
+        businessSector: mapSector(f['ADMIN_S1Q06']),
+        branchActivity: str(f, 'ADMIN_S1Q07'),
+        mainMission: str(f, 'ADMIN_S1Q08'),
+        hasProject: mapYesNo(f['ADMIN_S1Q09']),
+        projectCount: f['ADMIN_S1Q10'] != null ? String(f['ADMIN_S1Q10']) : '',
+        hasSupervisedStructures: mapYesNo(f['ADMIN_S1Q11']),
+        supervisedStructureCount: f['ADMIN_S1Q12'] != null ? String(f['ADMIN_S1Q12']) : '',
+        ...buildS2S4Administration(f),
+        surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
+        ...collectionPeriodStrings(quarterCode),
+        copy: 'Original',
+    };
+}
+
 // ─────────────────────────────────────────────
 // DIAGNOSTIC HELPER  (dev / debug only)
 // ─────────────────────────────────────────────
@@ -786,6 +893,13 @@ const ENTITY_EXPECTED_KEYS: Record<EntityType, string[]> = {
         'ONG_S1Q05_REGION', 'ONG_S1Q05_DEPT', 'ONG_S1Q05_SUBDIV', 'ONG_S1Q05_LOCALITY',
         'ONG_S1Q06_TEL1', 'ONG_S1Q06_TEL2', 'ONG_S1Q06_BP',
         'ONG_S1Q07', 'ONG_S1Q08', 'ONG_S1Q09', 'ONG_S1Q10', 'ONG_S1Q11',
+    ],
+    administration: [
+        'ADMIN_S1Q01', 'ADMIN_S1Q02', 'ADMIN_S1Q03',
+        'ADMIN_S1Q04_REGION', 'ADMIN_S1Q04_DEPT', 'ADMIN_S1Q04_SUBDIV', 'ADMIN_S1Q04_LOCALITY',
+        'ADMIN_S1Q05_TEL1', 'ADMIN_S1Q05_TEL2', 'ADMIN_S1Q05_BP',
+        'ADMIN_S1Q06', 'ADMIN_S1Q07', 'ADMIN_S1Q08', 'ADMIN_S1Q09', 'ADMIN_S1Q10',
+        'ADMIN_S1Q11', 'ADMIN_S1Q12',
     ],
 };
 

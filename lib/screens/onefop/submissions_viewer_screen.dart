@@ -105,6 +105,8 @@ String _schemaEntityKey(String entityType) {
       return 'ctd';
     case 'ONG':
       return 'ong';
+    case 'ADMINISTRATION':
+      return 'administration';
     default:
       return 'enterprise';
   }

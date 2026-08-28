@@ -1172,6 +1172,12 @@ abstract class AppLocalizations {
   /// **'Centre de formation technique et professionnelle agréé.'**
   String get registerEntitySubtitleVocational;
 
+  /// No description provided for @registerEntitySubtitleAdministration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Administration publique ou service gouvernemental.'**
+  String get registerEntitySubtitleAdministration;
+
   /// No description provided for @registerCreateAccountTitle.
   ///
   /// In fr, this message translates to:

@@ -597,6 +597,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Accredited technical and vocational training center.';
 
   @override
+  String get registerEntitySubtitleAdministration =>
+      'Public administration or government service.';
+
+  @override
   String get registerCreateAccountTitle => 'Create an account';
 
   @override

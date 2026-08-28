@@ -206,6 +206,7 @@
   "registerEntitySubtitleCtd": "Collectivité Territoriale Décentralisée (commune, région).",
   "registerEntitySubtitleOng": "Organisation Non Gouvernementale ou association.",
   "registerEntitySubtitleVocational": "Centre de formation technique et professionnelle agréé.",
+  "registerEntitySubtitleAdministration": "Administration publique ou service gouvernemental.",
   "registerCreateAccountTitle": "Créer un compte",
   "registerSelectProfileSubtitle": "Sélectionnez votre profil pour commencer.",
   "registerRoleCompanyTitle": "Entreprise / Organisation",

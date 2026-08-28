@@ -89,6 +89,7 @@ export function normalizeFlatKeys(
         case 'entreprise': normalizeEnterpriseS1(raw, out); break;
         case 'ctd': normalizeCtdS1(raw, out); break;
         case 'ong': normalizeOngS1(raw, out); break;
+        case 'administration': normalizeAdministrationS1(raw, out); break;
     }
 
     // ── S2–S4: Table keys pass through unchanged ──────────────────────────────
@@ -190,6 +191,26 @@ function normalizeOngS1(raw: Record<string, unknown>, out: Record<string, unknow
     set(out, 'ONG_S1Q10', pick(raw, 'permanentWorkers', 'ONG_S1Q10'));
     set(out, 'ONG_S1Q11', pick(raw, 'vacancies', 'ONG_S1Q11'));
 }
+function normalizeAdministrationS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
+    set(out, 'ADMIN_S1Q01', pick(raw, 'administrationName', 'name', 'ADMIN_S1Q01'));
+    set(out, 'ADMIN_S1Q02', pick(raw, 'sigle', 'ADMIN_S1Q02'));
+    set(out, 'ADMIN_S1Q03', pick(raw, 'area', 'ADMIN_S1Q03'));
+    set(out, 'ADMIN_S1Q04_REGION', pick(raw, 'region', 'ADMIN_S1Q04_REGION'));
+    set(out, 'ADMIN_S1Q04_DEPT', pick(raw, 'department', 'ADMIN_S1Q04_DEPT'));
+    set(out, 'ADMIN_S1Q04_SUBDIV', pick(raw, 'subdivision', 'ADMIN_S1Q04_SUBDIV'));
+    set(out, 'ADMIN_S1Q04_LOCALITY', pick(raw, 'locality', 'ADMIN_S1Q04_LOCALITY'));
+    set(out, 'ADMIN_S1Q05_TEL1', pick(raw, 'phone1', 'ADMIN_S1Q05_TEL1'));
+    set(out, 'ADMIN_S1Q05_TEL2', pick(raw, 'phone2', 'ADMIN_S1Q05_TEL2'));
+    set(out, 'ADMIN_S1Q05_BP', pick(raw, 'poBox', 'ADMIN_S1Q05_BP'));
+    set(out, 'ADMIN_S1Q06', pick(raw, 'businessSector', 'ADMIN_S1Q06'));
+    set(out, 'ADMIN_S1Q07', pick(raw, 'branchActivity', 'branch', 'ADMIN_S1Q07'));
+    set(out, 'ADMIN_S1Q08', pick(raw, 'mainMission', 'ADMIN_S1Q08'));
+    set(out, 'ADMIN_S1Q09', pick(raw, 'hasProject', 'ADMIN_S1Q09'));
+    set(out, 'ADMIN_S1Q10', pick(raw, 'projectCount', 'ADMIN_S1Q10'));
+    set(out, 'ADMIN_S1Q11', pick(raw, 'hasSupervisedStructures', 'ADMIN_S1Q11'));
+    set(out, 'ADMIN_S1Q12', pick(raw, 'supervisedStructureCount', 'ADMIN_S1Q12'));
+}
+
 // ─── buildNestedDto ───────────────────────────────────────────────────────────
 //
 // Converts the normalized flat object into the nested shape that
@@ -228,19 +249,36 @@ export function buildNestedDto(
         case 'entreprise': out['enterprise'] = buildEnterpriseDto(normalized); break;
         case 'ctd': out['ctd'] = buildCtdDto(normalized); break;
         case 'ong': out['ong'] = buildOngDto(normalized); break;
+        case 'administration': out['administration'] = buildAdministrationDto(normalized); break;
     }
+
+    // Administration's S21Q01/S22Q01/S3Q01 use SFP status rows
+    // (fonctionnaire/decisionnaire/contractuelle) instead of the CSP rows
+    // (cadres/foremen/workers) the other four entity types use — mirrors
+    // the same row-key parameterization applied to the frontend compiler's
+    // _buildCspGenderAgeGrid/_buildDepartureGrid.
+    const isAdministration = entityType === 'administration';
+    const cspRowKeys = isAdministration
+        ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
+        : ['cadres', 'foremen', 'workers'];
+    const departureRowKeys = isAdministration
+        ? ['fonctionnaire', 'decisionnaire', 'contractuelle', 'total']
+        : ['cadres', 'foremen', 'workers', 'total'];
 
     // S2–S4 — kept as nested structures for DTO validation compatibility
     // (these mirror what FlatToNestedTransformer used to build)
-    out['jobApplications'] = buildCspTable(normalized, 's21q01');
-    out['recruitmentsPermanent'] = buildCspTable(normalized, 's22q01');
+    out['jobApplications'] = buildCspTable(normalized, 's21q01', cspRowKeys);
+    out['recruitmentsPermanent'] = buildCspTable(normalized, 's22q01', cspRowKeys);
+    // S22Q02 (temporary recruitment) does not exist for Administration —
+    // still built for shape-completeness (SharedSectionsDto is optional
+    // for every field), but from flat keys that will never be present.
     out['recruitmentsTemporary'] = buildCspTable(normalized, 's22q02');
     out['recruitmentsByDiploma'] = buildDiplomaTable(normalized);
     out['disabledRecruitments'] = buildPermTempTable(normalized, 's22q04');
     out['vulnerableRecruitments'] = buildVulnerableTable(normalized, entityType);
     out['firstTimeJobSeekers'] = buildCspTable(normalized, 's23q01');
     out['firstTimeRecruitments'] = buildFirstTimeTable(normalized);
-    out['departures'] = buildDeparturesTable(normalized);
+    out['departures'] = buildDeparturesTable(normalized, departureRowKeys);
     out['dismissalReasons'] = buildDismissalReasons(normalized);
     out['dismissalTechUnemployment'] = buildDismissalTechTable(normalized);
     out['internships'] = buildInternshipsTable(normalized);
@@ -342,12 +380,43 @@ function buildOngDto(n: Record<string, unknown>): Record<string, unknown> {
     return r;
 }
 
+function buildAdministrationDto(n: Record<string, unknown>): Record<string, unknown> {
+    const r: Record<string, unknown> = {};
+    setIfPresent(r, 'name', n['ADMIN_S1Q01']);
+    setIfPresent(r, 'sigle', n['ADMIN_S1Q02']);
+    setNum(r, 'area', n['ADMIN_S1Q03'], mapArea);
+    setIfPresent(r, 'region', n['ADMIN_S1Q04_REGION']);
+    setIfPresent(r, 'department', n['ADMIN_S1Q04_DEPT']);
+    setIfPresent(r, 'subdivision', n['ADMIN_S1Q04_SUBDIV']);
+    setIfPresent(r, 'locality', n['ADMIN_S1Q04_LOCALITY']);
+    setIfPresent(r, 'phone1', n['ADMIN_S1Q05_TEL1']);
+    setIfPresent(r, 'phone2', n['ADMIN_S1Q05_TEL2']);
+    setIfPresent(r, 'poBox', n['ADMIN_S1Q05_BP']);
+    setNum(r, 'sector', n['ADMIN_S1Q06'], mapSector);
+    setIfPresent(r, 'branch', n['ADMIN_S1Q07']);
+    setIfPresent(r, 'mainMission', n['ADMIN_S1Q08']);
+    setNum(r, 'hasProject', n['ADMIN_S1Q09'], mapYesNo);
+    setNum(r, 'projectCount', n['ADMIN_S1Q10']);
+    setNum(r, 'hasSupervisedStructures', n['ADMIN_S1Q11'], mapYesNo);
+    setNum(r, 'supervisedStructureCount', n['ADMIN_S1Q12']);
+    return r;
+}
+
 // ─── Nested DTO builders (S2–S4) ──────────────────────────────────────────────
 // Mirror the shape FlatToNestedTransformer used to produce for DTO validation.
 
-function buildCspTable(n: Record<string, unknown>, prefix: string): Record<string, unknown> {
+// rowKeys defaults to the CSP flat-key set (cadres/foremen/workers) used by
+// Enterprise/Cooperative/CTD/ONG. Administration's S21Q01/S22Q01 use SFP
+// status rows instead (fonctionnaire/decisionnaire/contractuelle) — see
+// buildNestedDto's entityType-aware calls below. The `rows` output keys
+// (executives/foremen/fieldWorkers) are internal DTO field names and stay
+// the same either way; only the flat-key lookup side changes.
+function buildCspTable(
+    n: Record<string, unknown>,
+    prefix: string,
+    rowKeys: readonly string[] = ['cadres', 'foremen', 'workers'],
+): Record<string, unknown> {
     const rows = ['executives', 'foremen', 'fieldWorkers'] as const;
-    const rowKeys = ['cadres', 'foremen', 'workers'] as const;
     const genders = ['male', 'female', 'total'] as const;
     const ageBands = [
         { flatKey: '15_24', dtoKey: 'age15_24' },
@@ -524,10 +593,14 @@ function buildFirstTimeTable(n: Record<string, unknown>): Record<string, unknown
     return result;
 }
 
-function buildDeparturesTable(n: Record<string, unknown>): Record<string, unknown> {
+// rowKeys defaults to the CSP flat-key set; Administration's S3Q01 uses
+// SFP status rows instead — see buildNestedDto's entityType-aware call.
+function buildDeparturesTable(
+    n: Record<string, unknown>,
+    rowKeys: readonly string[] = ['cadres', 'foremen', 'workers', 'total'],
+): Record<string, unknown> {
     const prefix = 's3q01';
     const rows = ['executives', 'foremen', 'fieldWorkers', 'total'] as const;
-    const rowKeys = ['cadres', 'foremen', 'workers', 'total'] as const;
     const types = ['dismissals', 'resignations', 'retirements', 'others', 'ensemble'] as const;
     const typeKeys = ['dismissal', 'resignation', 'retirement', 'other', 'ensemble'] as const;
     const genders = ['male', 'female', 'total'] as const;
@@ -666,6 +739,17 @@ function mapSector(v: string): number {
     return 0;
 }
 
+// Administration's S1Q09/S1Q11 (Oui/Non) — matches
+// AdministrationIdentificationDto's hasProject/hasSupervisedStructures
+// numeric-code convention (1=Oui, 2=Non), same pattern as mapArea/mapSector.
+function mapYesNo(v: string): number {
+    if (!v) return 0;
+    const lv = v.toLowerCase();
+    if (lv.includes('oui') || lv.includes('yes')) return 1;
+    if (lv.includes('non') || lv.includes('no')) return 2;
+    return 0;
+}
+
 function mapSize(v: string): number {
     if (!v) return 0;
     if (v.includes('TPE')) return 1;
@@ -784,6 +868,10 @@ function toInt(value: unknown): number {
     'ongName', 'ngoName', 'name',
     'ongName', 'ong_name', 'ongHeadOffice', 'ongMainMission',
     'mainMission', 'ongYearCreated',
+    // Administration
+    'administrationName', 'sigle',
+    'hasProject', 'projectCount',
+    'hasSupervisedStructures', 'supervisedStructureCount',
     // Meta
     'surveyYear', 'organizationType', 'formType', 'entityType',
     'isDraft', 'userId', 'formId',

@@ -14,15 +14,18 @@ import {
     mapEnterpriseData,
     mapCtdData,
     mapOngData,
+    mapAdministrationData,
 } from '../services/pdf-data-mapper.service';
 
 // normalizeFlatKeys() branches on the French spelling ('entreprise'), matching
 // the convention questionnaires.service.ts uses when persisting formType.
+// 'administration' is spelled the same in both English and French.
 const NORMALIZER_ENTITY_TYPE: Record<string, string> = {
     ENTREPRISE: 'entreprise',
     COOPERATIVE: 'cooperative',
     CTD: 'ctd',
     ONG: 'ong',
+    ADMINISTRATION: 'administration',
 };
 
 // The data mappers / .hbs templates use the English spelling ('enterprise').
@@ -31,6 +34,7 @@ const MAPPER_ENTITY_TYPE: Record<string, string> = {
     COOPERATIVE: 'cooperative',
     CTD: 'ctd',
     ONG: 'ong',
+    ADMINISTRATION: 'administration',
 };
 
 const MAPPERS: Record<string, (f: Record<string, unknown>, quarterCode?: string | null) => Record<string, unknown>> = {
@@ -38,6 +42,7 @@ const MAPPERS: Record<string, (f: Record<string, unknown>, quarterCode?: string 
     cooperative: mapCooperativeData,
     ctd: mapCtdData,
     ong: mapOngData,
+    administration: mapAdministrationData,
 };
 
 interface SubmissionForPdf {

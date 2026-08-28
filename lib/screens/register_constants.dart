@@ -196,6 +196,7 @@ class EntityConfig {
       data['ctdName'],
       data['ngoName'],
       data['centerName'],
+      data['administrationName'],
     ];
     for (final c in candidates) {
       if (c != null && (c as String).trim().isNotEmpty) return c;
@@ -570,6 +571,74 @@ const Map<EntityType, EntityConfig> entityConfigs = {
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S0.Q5',
+        dsmoField: 'telephone',
+      ),
+      EntityField(
+        key: 'phone2',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
+        keyboardType: TextInputType.phone,
+        isPhone: true,
+        required: false,
+        dsmoField: 'telephone2',
+      ),
+      EntityField(
+        key: 'poBox',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
+        required: false,
+        dsmoField: 'boitePostale',
+      ),
+    ],
+  ),
+
+  // ── ADMINISTRATION ─────────────────────────────────────────────
+  // Phase 1 — added last, only once the AST (onefop_ast.dart) and backend
+  // path (DTO/Prisma/questionnaires.service.ts) were functional, per the
+  // implementation instruction. This is the registration form's own field
+  // set (name/address/phone/mission), a deliberately smaller subset of
+  // the full ONEFOP Section 1 (12 fields incl. two conditional
+  // project/supervised-structure questions) — matching how the other
+  // entity types' EntityConfig fields are already a registration-only
+  // subset, not literally the AST.
+  EntityType.administration: EntityConfig(
+    type: EntityType.administration,
+    title: LocalizedText(fr: 'Administration', en: 'Administration'),
+    icon: Icons.account_balance_outlined,
+    color: Colors.blueGrey,
+    fields: [
+      EntityField(
+        key: 'administrationName',
+        label: LocalizedText(
+            fr: "Nom de l'administration", en: 'Administration name'),
+        onefopSection: 'S1.Q1',
+        dsmoField: 'raisonSociale',
+      ),
+      EntityField(
+        key: 'sigle',
+        label: LocalizedText(fr: 'Sigle', en: 'Acronym'),
+        required: false,
+        onefopSection: 'S1.Q2',
+        dsmoField: 'sigle',
+      ),
+      EntityField(
+        key: 'mainMission',
+        label: LocalizedText(fr: 'Mission principale', en: 'Main mission'),
+        onefopSection: 'S1.Q8',
+        dsmoField: 'activitePrincipale',
+      ),
+      EntityField(
+        key: 'address',
+        label: LocalizedText(
+            fr: 'Adresse du siège', en: 'Head office address'),
+        onefopSection: 'S1.Q4',
+        dsmoField: 'adresseSiege',
+      ),
+      EntityField(
+        key: 'phone',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
+        keyboardType: TextInputType.phone,
+        isPhone: true,
+        onefopSection: 'S1.Q5',
         dsmoField: 'telephone',
       ),
       EntityField(

@@ -96,18 +96,19 @@ model Subdivision {
 }
 
 model Sector {
-  id                 String                    @id @default(uuid())
-  name               String                    @unique
-  code               String?                   @unique
-  category           String?
-  nameEn             String?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  companies          Company[]
-  onefopEnterprises  OnefopEnterpriseDetail[]
-  onefopCooperatives OnefopCooperativeDetail[]
-  onefopCtds         OnefopCtdDetail[]
-  onefopOngs         OnefopOngDetail[]
+  id                    String                       @id @default(uuid())
+  name                  String                       @unique
+  code                  String?                      @unique
+  category              String?
+  nameEn                String?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  companies             Company[]
+  onefopEnterprises     OnefopEnterpriseDetail[]
+  onefopCooperatives    OnefopCooperativeDetail[]
+  onefopCtds            OnefopCtdDetail[]
+  onefopOngs            OnefopOngDetail[]
+  onefopAdministrations OnefopAdministrationDetail[]
 
   @@map("sectors")
 }
@@ -653,6 +654,7 @@ model OnefopSubmission {
   cnpsNumber            String?
   registrationNumber    String?
   metaJson              Json?
+  administrationDetail  OnefopAdministrationDetail?
   cooperativeDetail     OnefopCooperativeDetail?
   cspGenderAge          OnefopCspGenderAge[]
   ctdDetail             OnefopCtdDetail?
@@ -742,6 +744,34 @@ model OnefopEnterpriseDetail {
   submission       OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@map("onefop_enterprise_details")
+}
+
+model OnefopAdministrationDetail {
+  id                       String           @id @default(uuid())
+  submissionId             String           @unique
+  name                     String
+  sigle                    String?
+  area                     String
+  region                   String
+  department               String
+  subdivision              String
+  locality                 String?
+  phone1                   String
+  phone2                   String?
+  poBox                    String?
+  sector                   String
+  branch                   String?
+  mainMission              String
+  hasProject               Boolean
+  projectCount             Int?
+  hasSupervisedStructures  Boolean
+  supervisedStructureCount Int?
+  createdAt                DateTime         @default(now())
+  sectorId                 String?
+  sectorRef                Sector?          @relation(fields: [sectorId], references: [id])
+  submission               OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_administration_details")
 }
 
 model OnefopCooperativeDetail {
@@ -1182,8 +1212,8 @@ model LandingConfigVersion {
   updatedBy String?
   createdAt DateTime @default(now())
 
-  @@map("landing_config_versions")
   @@index([createdAt])
+  @@map("landing_config_versions")
 }
 
 enum BatchStatus {
@@ -1247,6 +1277,7 @@ enum OnefopEntityType {
   COOPERATIVE
   CTD
   ONG
+  ADMINISTRATION
 }
 
 enum OnefopStatus {

@@ -604,6 +604,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Centre de formation technique et professionnelle agréé.';
 
   @override
+  String get registerEntitySubtitleAdministration =>
+      'Administration publique ou service gouvernemental.';
+
+  @override
   String get registerCreateAccountTitle => 'Créer un compte';
 
   @override

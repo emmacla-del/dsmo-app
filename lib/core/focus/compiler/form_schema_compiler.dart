@@ -205,13 +205,13 @@ class FormSchemaCompiler {
 
     switch (template) {
       case 'csp_gender_age_table':
-        return _buildCspGenderAgeGrid(prefix);
+        return _buildCspGenderAgeGrid(prefix, tableSpec);
       case 'csp_status_gender_table':
         return _buildCspStatusGenderGrid(prefix, tableSpec);
       case 'diploma_gender_age_table':
         return _buildDiplomaGenderAgeGrid(prefix, tableSpec);
       case 'departure_table':
-        return _buildDepartureGrid(prefix);
+        return _buildDepartureGrid(prefix, tableSpec);
       case 'first_time_workers_table':
         return _buildFirstTimeWorkersGrid(prefix);
       case 'dismissal_unemployment_table':
@@ -223,8 +223,10 @@ class FormSchemaCompiler {
     }
   }
 
-  static GridSchema _buildCspGenderAgeGrid(String prefix) {
-    final rows = ['cadres', 'foremen', 'workers'];
+  static GridSchema _buildCspGenderAgeGrid(
+      String prefix, Map<String, dynamic> tableSpec) {
+    final rows = (tableSpec['rows'] as List?)?.cast<String>() ??
+        ['cadres', 'foremen', 'workers'];
     final genders = ['male', 'female', 'total'];
     final ageBands = ['15_24', '25_34', '35_plus'];
 
@@ -343,8 +345,10 @@ class FormSchemaCompiler {
     return GridSchema(id: prefix, matrix: matrix);
   }
 
-  static GridSchema _buildDepartureGrid(String prefix) {
-    final rows = ['cadres', 'foremen', 'workers'];
+  static GridSchema _buildDepartureGrid(
+      String prefix, Map<String, dynamic> tableSpec) {
+    final rows = (tableSpec['rows'] as List?)?.cast<String>() ??
+        ['cadres', 'foremen', 'workers'];
     final departureTypes = [
       'dismissal',
       'resignation',

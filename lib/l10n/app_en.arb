@@ -185,6 +185,7 @@
   "registerEntitySubtitleCtd": "Decentralized Territorial Authority (municipality, region).",
   "registerEntitySubtitleOng": "Non-Governmental Organization or association.",
   "registerEntitySubtitleVocational": "Accredited technical and vocational training center.",
+  "registerEntitySubtitleAdministration": "Public administration or government service.",
   "registerCreateAccountTitle": "Create an account",
   "registerSelectProfileSubtitle": "Select your profile to get started.",
   "registerRoleCompanyTitle": "Company / Organization",

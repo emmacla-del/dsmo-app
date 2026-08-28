@@ -528,6 +528,73 @@ export class SharedSectionsDto {
   @IsOptional() @IsInt() @Min(1) @Max(3) copy?: 1 | 2 | 3;
 }
 
+// Phase 1 — Administration. Field set matches ADMIN_S1Q01-S1Q12 in
+// onefop_ast.dart. hasProject/hasSupervisedStructures use the same
+// numeric-code convention as area/sector (1/2), not a raw boolean —
+// converted to Boolean at persistence time in questionnaires.service.ts,
+// consistent with how other radio fields are mapped to their stored form.
+export class AdministrationIdentificationDto {
+  @IsString() @IsNotEmpty()
+  @ToString()
+  name!: string;
+
+  @IsOptional() @IsString()
+  @ToString()
+  sigle?: string;
+
+  @IsIn([1, 2]) area!: number;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  region!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  department!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  subdivision!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  locality!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  phone1!: string;
+
+  @IsOptional() @IsString()
+  @ToString()
+  phone2?: string;
+
+  @IsOptional() @IsString()
+  @ToString()
+  poBox?: string;
+
+  @IsIn([1, 2, 3]) sector!: number;
+
+  @IsOptional() @IsString()
+  @ToString()
+  branch?: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  mainMission!: string;
+
+  @IsIn([1, 2]) hasProject!: number;
+
+  @ValidateIf((o) => o.hasProject === 1)
+  @IsInt() @Min(0)
+  projectCount?: number;
+
+  @IsIn([1, 2]) hasSupervisedStructures!: number;
+
+  @ValidateIf((o) => o.hasSupervisedStructures === 1)
+  @IsInt() @Min(0)
+  supervisedStructureCount?: number;
+}
+
 // ─────────────────────────────────────────────
 // TOP LEVEL DISCRIMINATED UNION
 // ─────────────────────────────────────────────
@@ -572,8 +639,17 @@ export class OngQuestionnaireDto extends BaseQuestionnaireDto {
   ong!: OngIdentificationDto;
 }
 
+export class AdministrationQuestionnaireDto extends BaseQuestionnaireDto {
+  organizationType: 'administration' = 'administration';
+
+  @IsDefined()
+  @ValidateNested() @Type(() => AdministrationIdentificationDto)
+  administration!: AdministrationIdentificationDto;
+}
+
 export type AnyQuestionnaireDto =
   | EnterpriseQuestionnaireDto
   | CooperativeQuestionnaireDto
   | CtdQuestionnaireDto
-  | OngQuestionnaireDto;
+  | OngQuestionnaireDto
+  | AdministrationQuestionnaireDto;

@@ -226,9 +226,11 @@ class EntityTypeCard extends StatelessWidget {
         return context.l10n.registerEntitySubtitleOng;
       case EntityType.vocational:
         return context.l10n.registerEntitySubtitleVocational;
-      // administration/projectProgram have no entityConfigs entry (see
+      case EntityType.administration:
+        return context.l10n.registerEntitySubtitleAdministration;
+      // projectProgram has no entityConfigs entry (see
       // register_constants.dart), so register_steps.dart never constructs
-      // this card for them — unreachable in practice, Phase 0 placeholder.
+      // this card for it — unreachable in practice, Phase 0 placeholder.
       default:
         return '';
     }

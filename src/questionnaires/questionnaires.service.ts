@@ -9,6 +9,7 @@ import {
   CooperativeQuestionnaireDto,
   CtdQuestionnaireDto,
   OngQuestionnaireDto,
+  AdministrationQuestionnaireDto,
 } from '../dto/onefop-questionnaire.dto';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -47,6 +48,10 @@ const FINAL_REQUIRED_FIELDS: Record<string, string[]> = {
     'name', 'headOffice', 'yearCreated', 'area', 'region', 'department',
     'subdivision', 'locality', 'phone1', 'poBox', 'sector', 'branch',
     'mainMission', 'permanentWorkers', 'vacancies',
+  ],
+  administration: [
+    'name', 'area', 'region', 'department', 'subdivision', 'locality',
+    'phone1', 'sector', 'mainMission', 'hasProject', 'hasSupervisedStructures',
   ],
 };
 
@@ -120,6 +125,18 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'ong.mainMission': 'Mission principale / Main mission',
   'ong.permanentWorkers': 'Employés permanents / Permanent workers',
   'ong.vacancies': 'Postes vacants / Vacancies',
+  'administration.name': "Nom de l'administration / Administration name",
+  'administration.area': 'Milieu de résidence / Area',
+  'administration.region': 'Région / Region',
+  'administration.department': 'Département / Department',
+  'administration.subdivision': 'Arrondissement / Subdivision',
+  'administration.locality': 'Localité / Locality',
+  'administration.phone1': 'Téléphone / Phone',
+  'administration.sector': "Secteur d'activité / Business sector",
+  'administration.mainMission': 'Mission principale / Main mission',
+  'administration.hasProject': 'Existence de projet / Existence of a project',
+  'administration.hasSupervisedStructures':
+    'Existence de structures sous tutelle / Existence of supervised structures',
   'S21Q01_RESPONSE_STATUS': 'Demandes d\'emploi — statut / Job applications — status',
   'S22Q01_RESPONSE_STATUS': 'Recrutements permanents — statut / Permanent recruitments — status',
   'S22Q02_RESPONSE_STATUS': 'Recrutements temporaires — statut / Temporary recruitments — status',
@@ -158,10 +175,11 @@ function normalizeEntityType(type: string): string {
   if (upper === 'COOPERATIVE') return 'COOPERATIVE';
   if (upper === 'CTD') return 'CTD';
   if (upper === 'ONG') return 'ONG';
+  if (upper === 'ADMINISTRATION') return 'ADMINISTRATION';
   // Previously fell back to ENTREPRISE — an unrecognized/unsupported
-  // entity type (e.g. ADMINISTRATION, PROJECT_PROGRAM — architecture
-  // placeholders with no questionnaire handling yet) must not be
-  // silently miscategorized as a company.
+  // entity type (e.g. PROJECT_PROGRAM — still an architecture placeholder
+  // with no questionnaire handling yet) must not be silently
+  // miscategorized as a company.
   throw new BadRequestException(`Unsupported entity type: ${type}`);
 }
 
@@ -330,6 +348,9 @@ export class QuestionnairesService {
       case 'ONG':
         questionnaireData = plainToClass(OngQuestionnaireDto, nestedData);
         break;
+      case 'ADMINISTRATION':
+        questionnaireData = plainToClass(AdministrationQuestionnaireDto, nestedData);
+        break;
       default:
         throw new BadRequestException('Invalid entity type');
     }
@@ -374,22 +395,29 @@ export class QuestionnairesService {
       entityForGeo.enterprise?.region ??
       entityForGeo.cooperative?.region ??
       entityForGeo.ctd?.region ??
-      entityForGeo.ong?.region ?? null;
+      entityForGeo.ong?.region ??
+      entityForGeo.administration?.region ?? null;
     const geoDept =
       entityForGeo.enterprise?.department ??
       entityForGeo.cooperative?.department ??
       entityForGeo.ctd?.department ??
-      entityForGeo.ong?.department ?? null;
+      entityForGeo.ong?.department ??
+      entityForGeo.administration?.department ?? null;
     const geoSubdiv =
       entityForGeo.enterprise?.subdivision ??
       entityForGeo.cooperative?.subdivision ??
       entityForGeo.ctd?.subdivision ??
-      entityForGeo.ong?.subdivision ?? null;
+      entityForGeo.ong?.subdivision ??
+      entityForGeo.administration?.subdivision ?? null;
     const geoSector =
       entityForGeo.enterprise?.sector ??
       entityForGeo.cooperative?.sector ??
       entityForGeo.ctd?.sector ??
-      entityForGeo.ong?.sector ?? null;
+      entityForGeo.ong?.sector ??
+      entityForGeo.administration?.sector ?? null;
+    // Administration has no permanentWorkers/vacancies equivalent (its S1
+    // asks about projects/supervised structures instead) — headline
+    // worker/vacancy figures are correctly null for this entity type.
     const headlineWorkers =
       entityForGeo.enterprise?.permanentWorkers ??
       entityForGeo.cooperative?.permanentWorkers ??
@@ -529,7 +557,45 @@ export class QuestionnairesService {
           },
         },
       };
+    } else if (normalizedEntityType === 'ADMINISTRATION' && 'administration' in questionnaireData && questionnaireData.administration) {
+      const a = questionnaireData.administration;
+      entityDetailRelation = {
+        administrationDetail: {
+          create: {
+            name: a.name ?? '',
+            sigle: a.sigle ?? null,
+            area: this.mapArea(a.area as 1 | 2),
+            region: a.region ?? '',
+            department: a.department ?? '',
+            subdivision: a.subdivision ?? '',
+            locality: a.locality ?? null,
+            phone1: a.phone1 ?? '',
+            phone2: a.phone2 ?? null,
+            poBox: a.poBox ?? null,
+            sector: this.mapSector(a.sector as 1 | 2 | 3),
+            sectorId,
+            branch: a.branch ?? null,
+            mainMission: a.mainMission ?? '',
+            hasProject: a.hasProject === 1,
+            projectCount: a.projectCount ?? null,
+            hasSupervisedStructures: a.hasSupervisedStructures === 1,
+            supervisedStructureCount: a.supervisedStructureCount ?? null,
+          },
+        },
+      };
     }
+
+    // Administration's S21Q01/S22Q01/S3Q01 use SFP status categories
+    // (Fonctionnaire/Décisionnaire/Contractuelle) instead of the CSP
+    // categories the other four entity types use — mirrors the same
+    // row-key parameterization applied to the frontend compiler and
+    // flat-key-normalizer.ts. Prefixes that don't apply to Administration
+    // (s22q02, s23q01/02) find no matching flat keys either way, so
+    // passing them the same category list is harmless.
+    const factRowCspCategories = normalizedEntityType === 'ADMINISTRATION'
+      ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
+      : ['cadres', 'foremen', 'workers'];
+    const factRowCspCategoriesWithTotal = [...factRowCspCategories, 'total'];
 
     // The four csp/gender/age prefixes previously ran as four separate
     // createMany round trips against the same table — they only differ by
@@ -540,16 +606,16 @@ export class QuestionnairesService {
       { prefix: 's22q01', tableName: 's22q01' },
       { prefix: 's22q02', tableName: 's22q02' },
       { prefix: 's23q01', tableName: 's23q01' },
-    ]);
+    ], factRowCspCategories);
     const diplomaRows = this.buildDiplomaRows(flat);
     const disabilityRows = this.buildDisabilityRows(flat, 's22q04');
     const vulnerableRows = normalizedEntityType === 'ENTREPRISE'
       ? this.buildVulnerableEnterpriseRows(flat)
       : this.buildVulnerableOtherRows(flat);
     const firstTimeWorkerRows = this.buildFirstTimeWorkerRows(flat);
-    const jobApplicationRows = this.buildJobApplicationRows(flat);
+    const jobApplicationRows = this.buildJobApplicationRows(flat, factRowCspCategoriesWithTotal);
     const registeredSeekerRows = this.buildRegisteredSeekerRows(flat);
-    const departureRows = this.buildDepartureRows(flat);
+    const departureRows = this.buildDepartureRows(flat, factRowCspCategoriesWithTotal);
     const dismissalReasonRows = this.buildDismissalReasonRows(flat);
     const dismissalUnemploymentRows = this.buildDismissalUnemploymentRows(flat);
     const internshipRows = this.buildInternshipRows(flat);
@@ -854,8 +920,18 @@ export class QuestionnairesService {
   // `tx` — same field mappings as before, just no `submissionId` column
   // since Prisma sets that FK itself from the parent create.
 
-  private buildCspGenderAgeRows(flat: FlatFormData, prefixes: { prefix: string; tableName: string }[]): object[] {
-    const cspRows = ['cadres', 'foremen', 'workers'];
+  // cspRows defaults to the CSP category set used by Enterprise/Cooperative/
+  // CTD/ONG. Administration's S21Q01/S22Q01 use SFP status categories
+  // instead (Fonctionnaire/Décisionnaire/Contractuelle) — see the
+  // entityType-aware call site below. Prefixes that don't apply to a given
+  // entity type (e.g. s22q02/s23q01 for Administration) simply find no
+  // matching flat keys and contribute zero rows, regardless of which
+  // category labels are passed.
+  private buildCspGenderAgeRows(
+    flat: FlatFormData,
+    prefixes: { prefix: string; tableName: string }[],
+    cspRows: string[] = ['cadres', 'foremen', 'workers'],
+  ): object[] {
     const genders = ['male', 'female', 'total'];
     const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const rows: object[] = [];
@@ -1076,9 +1152,13 @@ export class QuestionnairesService {
     return records;
   }
 
-  private buildDepartureRows(flat: FlatFormData): object[] {
+  // cspRows defaults to the CSP category set; Administration's S3Q01 uses
+  // SFP status categories instead — see the entityType-aware call site.
+  private buildDepartureRows(
+    flat: FlatFormData,
+    cspRows: string[] = ['cadres', 'foremen', 'workers', 'total'],
+  ): object[] {
     const prefix = 's3q01';
-    const cspRows = ['cadres', 'foremen', 'workers', 'total'];
     const departureTypes = ['dismissal', 'resignation', 'retirement', 'other', 'ensemble'];
     const genders = ['male', 'female', 'total'];
     const records: object[] = [];
@@ -1166,9 +1246,13 @@ export class QuestionnairesService {
     return records;
   }
 
-  private buildJobApplicationRows(flat: FlatFormData): object[] {
+  // cspRows defaults to the CSP category set; Administration's S21Q01 uses
+  // SFP status categories instead — see the entityType-aware call site.
+  private buildJobApplicationRows(
+    flat: FlatFormData,
+    cspRows: string[] = ['cadres', 'foremen', 'workers', 'total'],
+  ): object[] {
     const prefix = 's21q01';
-    const cspRows = ['cadres', 'foremen', 'workers', 'total'];
     const genders = ['male', 'female', 'total'];
     const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
     const rows: object[] = [];
@@ -1378,28 +1462,28 @@ export class QuestionnairesService {
   async getAllQuestionnaires() {
     return (this.prisma as any).onefopSubmission.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true },
     });
   }
 
   async getQuestionnaireById(id: string) {
     return (this.prisma as any).onefopSubmission.findUnique({
       where: { id },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
     });
   }
 
   async listByStatus(status: string, limit: number, offset: number) {
     return (this.prisma as any).onefopSubmission.findMany({
       where: { status }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true },
     });
   }
 
   async getById(id: string) {
     const submission = await (this.prisma as any).onefopSubmission.findUnique({
       where: { id },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     return submission;
