@@ -844,6 +844,7 @@
   "companyProfileNotFoundError": "Company profile not found. Contact the administrator.",
   "missingEstablishmentIdError": "Missing establishment ID. Please contact the administrator.",
   "noOpenSubmissionPeriodError": "No submission period is currently open.",
+  "unknownEntityTypeError": "Unrecognized entity type. Please contact the administrator.",
   "profileLoadError": "Error loading profile: {error}",
   "noOpenDsmoPeriodError": "No DSMO declaration period is currently open.",
 

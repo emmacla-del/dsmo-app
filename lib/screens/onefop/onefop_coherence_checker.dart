@@ -228,17 +228,22 @@ class OnefopCoherenceChecker {
     }
 
     // Headline sanity ceiling — catches a stray extra digit typo.
+    // vocational/administration/projectProgram have no worker/vacancy
+    // field mapped here yet (Phase 0 architecture placeholders) — n('')
+    // resolves to 0, so the implausibility checks below simply don't fire.
     final workersFieldId = switch (entityType) {
       EntityType.enterprise => 'S1Q10',
       EntityType.cooperative => 'COOP_S1Q11',
       EntityType.ctd => 'CTD_S1Q09',
       EntityType.ong => 'ONG_S1Q10',
+      _ => '',
     };
     final vacanciesFieldId = switch (entityType) {
       EntityType.enterprise => 'S1Q11',
       EntityType.cooperative => 'COOP_S1Q12',
       EntityType.ctd => 'CTD_S1Q10',
       EntityType.ong => 'ONG_S1Q11',
+      _ => '',
     };
     final workers = n(workersFieldId);
     final vacancies = n(vacanciesFieldId);

@@ -11,6 +11,20 @@
 // No Flutter imports needed — pure Dart.
 
 // ════════════════════════════════════════════════════════════════
+// QuestionnaireFamily — which ONEFOP questionnaire instrument an
+// EntityType belongs to. Vocational is still part of the ONEFOP survey
+// ecosystem; it's simply a different family because its instrument,
+// workflow, data model, validation and analytics differ substantially
+// from the labour-family questionnaire. Nobody selects a family
+// directly — it's always derived from EntityType via EntityType.family.
+// ════════════════════════════════════════════════════════════════
+
+enum QuestionnaireFamily {
+  onefop,
+  onefopVocational,
+}
+
+// ════════════════════════════════════════════════════════════════
 // EntityType  —  unified enum, replaces the two conflicting copies
 // ════════════════════════════════════════════════════════════════
 
@@ -19,7 +33,9 @@ enum EntityType {
   cooperative, // Coopérative / GIE
   ctd, // Collectivité Territoriale Décentralisée
   ong, // ONG / Association
-  vocational; // Centre de formation professionnelle (DSMO only, no ONEFOP S1)
+  vocational, // Centre de formation professionnelle (DSMO only, no ONEFOP S1)
+  administration, // Architecture placeholder — questionnaire not yet implemented
+  projectProgram; // Architecture placeholder — questionnaire not yet implemented
 
   // ── Display ──────────────────────────────────────────────────
 
@@ -35,6 +51,28 @@ enum EntityType {
         return 'ONG';
       case EntityType.vocational:
         return 'Centre de formation professionnelle';
+      case EntityType.administration:
+        return 'Administration';
+      case EntityType.projectProgram:
+        return 'Projet / Programme';
+    }
+  }
+
+  // ── Questionnaire family ────────────────────────────────────────
+
+  /// Which ONEFOP questionnaire instrument this entity type belongs to.
+  /// Derived, never chosen independently — see [QuestionnaireFamily].
+  QuestionnaireFamily get family {
+    switch (this) {
+      case EntityType.enterprise:
+      case EntityType.cooperative:
+      case EntityType.ctd:
+      case EntityType.ong:
+      case EntityType.administration:
+      case EntityType.projectProgram:
+        return QuestionnaireFamily.onefop;
+      case EntityType.vocational:
+        return QuestionnaireFamily.onefopVocational;
     }
   }
 
@@ -53,6 +91,10 @@ enum EntityType {
         return 'ONG';
       case EntityType.vocational:
         return 'VOCATIONAL_TRAINING_CENTER';
+      case EntityType.administration:
+        return 'ADMINISTRATION';
+      case EntityType.projectProgram:
+        return 'PROJECT_PROGRAM';
     }
   }
 
@@ -71,6 +113,10 @@ enum EntityType {
         return "Section 1 — Identification de l'ONG";
       case EntityType.vocational:
         return 'Section 1 — Identification du centre de formation';
+      case EntityType.administration:
+        return "Section 1 — Identification de l'administration";
+      case EntityType.projectProgram:
+        return 'Section 1 — Identification du projet/programme';
     }
   }
 
@@ -89,6 +135,10 @@ enum EntityType {
         return 'Section 1 — NGO identification';
       case EntityType.vocational:
         return 'Section 1 — Training center identification';
+      case EntityType.administration:
+        return 'Section 1 — Administration identification';
+      case EntityType.projectProgram:
+        return 'Section 1 — Project/Program identification';
     }
   }
 

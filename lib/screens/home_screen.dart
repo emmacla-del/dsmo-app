@@ -70,7 +70,8 @@ import 'dsmo/send_notification_screen.dart';
 import 'onefop/onefop_unified_form_screen_v4.dart';
 import 'onefop/onefop_legal_acknowledgment_screen.dart';
 import 'onefop/submissions_viewer_screen.dart'; // NEW: read-only viewer
-import 'onefop/onefop_form_constants.dart' show EntityType, entityTypeString;
+import 'onefop/onefop_form_constants.dart'
+    show EntityType, entityTypeString, entityTypeForSchema;
 
 // ── Admin ────────────────────────────────────────────────────
 import 'admin/admin_reset_password_screen.dart';
@@ -541,21 +542,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // SECTION 5 — ENTITY TYPE HELPERS
   // ═══════════════════════════════════════════════════════════
 
-  String _entityTypeString(EntityType t) {
-    switch (t) {
-      case EntityType.enterprise:
-        return 'enterprise';
-      case EntityType.cooperative:
-        return 'cooperative';
-      case EntityType.ctd:
-        return 'ctd';
-      case EntityType.ong:
-        return 'ong';
-    }
-  }
-
-  EntityType _parseEntityType(String s) {
+  /// Returns null for an unrecognized value — callers must handle that
+  /// explicitly (see the entityType-resolution guard in
+  /// _openOnefopFormForCompany) rather than silently defaulting to
+  /// Enterprise, which used to hand the wrong census questionnaire to
+  /// whichever company had an unrecognized/corrupt stored entityType.
+  EntityType? _parseEntityType(String s) {
     switch (s.toUpperCase()) {
+      case 'ENTERPRISE':
+      case 'ENTREPRISE':
+        return EntityType.enterprise;
       case 'COOPERATIVE':
         return EntityType.cooperative;
       case 'CTD':
@@ -563,7 +559,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 'ONG':
         return EntityType.ong;
       default:
-        return EntityType.enterprise;
+        return null;
     }
   }
 
@@ -768,6 +764,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _set(data, 'ONG_S1Q09', company['mainMission']);
         _set(data, 'ONG_S1Q10', company['registrationNumber']);
         break;
+      case EntityType.vocational:
+      case EntityType.administration:
+      case EntityType.projectProgram:
+        break; // No Section 1 prefill mapping yet
     }
     return data;
   }
@@ -862,7 +862,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
 
       final parsedType = _parseEntityType(entityType);
-      final entityTypeStr = _entityTypeString(parsedType);
+      if (parsedType == null) {
+        if (!context.mounted) return;
+        _snack(context,
+            message: context.l10n.unknownEntityTypeError,
+            type: SnackBarType.error);
+        return;
+      }
+      final entityTypeStr = entityTypeForSchema(parsedType);
 
       // ═══════════════════════════════════════════════════════════
       // Local storage is the primary draft copy (instant, works offline).

@@ -6,7 +6,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/i18n/localized_text.dart';
+import '../../data/minefop_models.dart' show EntityType;
 import '../../theme/app_colors.dart';
+
+// EntityType now lives solely in ../../data/minefop_models.dart — the
+// single canonical source of truth. Re-exported here so every existing
+// `import 'onefop_form_constants.dart'` (with or without a `show` clause)
+// keeps resolving EntityType without needing its own import changed.
+export '../../data/minefop_models.dart' show EntityType;
 
 const String kOnefopBaseUrl = 'https://dsmo-app-2.onrender.com/api';
 
@@ -120,9 +127,6 @@ const TextStyle kTotalStyle =
 const TextStyle kGrandTotalStyle =
     TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white);
 const double kNumCellFontSize = 14.0;
-
-// ── Entity type ─────────────────────────────────────────────
-enum EntityType { enterprise, cooperative, ctd, ong }
 
 // ── Backend mappers ───────────────────────────────────────────
 class BackendMappers {
@@ -302,6 +306,14 @@ String entityTypeString(EntityType t) {
       return 'CTD';
     case EntityType.ong:
       return 'ONG';
+    case EntityType.vocational:
+      return 'VOCATIONAL';
+    // Architecture placeholders (Phase 0) — no backend/AST support yet;
+    // these values are not reachable via any current UI path.
+    case EntityType.administration:
+      return 'ADMINISTRATION';
+    case EntityType.projectProgram:
+      return 'PROJECT_PROGRAM';
   }
 }
 
@@ -316,6 +328,15 @@ String entityTypeForSchema(EntityType t) {
       return 'ctd';
     case EntityType.ong:
       return 'ong';
+    case EntityType.vocational:
+      return 'vocational';
+    // Architecture placeholders (Phase 0) — no AST declares these yet, so
+    // loading a schema for them yields an empty/incomplete form. Not
+    // reachable via any current UI path.
+    case EntityType.administration:
+      return 'administration';
+    case EntityType.projectProgram:
+      return 'projectProgram';
   }
 }
 
@@ -330,6 +351,17 @@ LocalizedText entityTypeTitle(EntityType t) {
       return const LocalizedText(fr: 'CTD', en: 'RLA');
     case EntityType.ong:
       return const LocalizedText(fr: 'ONG', en: 'NGO');
+    case EntityType.vocational:
+      return const LocalizedText(
+          fr: 'CENTRE DE FORMATION PROFESSIONNELLE',
+          en: 'VOCATIONAL TRAINING CENTRE');
+    // Architecture placeholders (Phase 0) — not reachable via any current
+    // UI path.
+    case EntityType.administration:
+      return const LocalizedText(fr: 'ADMINISTRATION', en: 'ADMINISTRATION');
+    case EntityType.projectProgram:
+      return const LocalizedText(
+          fr: 'PROJET / PROGRAMME', en: 'PROJECT / PROGRAMME');
   }
 }
 

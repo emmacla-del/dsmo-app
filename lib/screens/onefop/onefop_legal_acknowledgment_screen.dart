@@ -154,6 +154,11 @@ class _OnefopLegalAcknowledgmentScreenState
       EntityType.enterprise => l10n.entityShortEnterprise,
       EntityType.cooperative => l10n.entityShortCooperative,
       EntityType.ctd => l10n.entityShortCtd,
+      // vocational/administration/projectProgram never reach this screen
+      // today (no ONEFOP form flow routes to it for them yet — Phase 0
+      // architecture placeholders) — generic platform name as a safe,
+      // unreachable-in-practice fallback.
+      _ => l10n.platformName,
     };
   }
 

@@ -1207,7 +1207,9 @@ class OnefopFormState {
       case EntityType.ong:
         ongS1 = OngSection1();
       case EntityType.vocational:
-        break; // DSMO-only path — no ONEFOP Section 1 variant
+      case EntityType.administration:
+      case EntityType.projectProgram:
+        break; // No ONEFOP Section 1 model variant yet
     }
   }
 
@@ -1225,13 +1227,17 @@ class OnefopFormState {
   }
 
   Map<String, dynamic> toJson() {
-    // vocational entities have no ONEFOP Section 1 payload
+    // vocational/administration/projectProgram have no ONEFOP Section 1
+    // payload yet (administration/projectProgram: architecture placeholder,
+    // Phase 0 — see EntityType.family).
     final s1 = switch (entityType) {
       EntityType.enterprise => entrepriseS1!.toJson(),
       EntityType.cooperative => cooperativeS1!.toJson(),
       EntityType.ctd => ctdS1!.toJson(),
       EntityType.ong => ongS1!.toJson(),
       EntityType.vocational => <String, dynamic>{},
+      EntityType.administration => <String, dynamic>{},
+      EntityType.projectProgram => <String, dynamic>{},
     };
     return {
       ...section0.toJson(),

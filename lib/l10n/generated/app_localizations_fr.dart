@@ -2584,6 +2584,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucune période de soumission n\'est actuellement ouverte.';
 
   @override
+  String get unknownEntityTypeError =>
+      'Type d\'entité non reconnu. Merci de contacter l\'administrateur.';
+
+  @override
   String profileLoadError(String error) {
     return 'Erreur lors du chargement du profil : $error';
   }

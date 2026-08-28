@@ -158,7 +158,11 @@ function normalizeEntityType(type: string): string {
   if (upper === 'COOPERATIVE') return 'COOPERATIVE';
   if (upper === 'CTD') return 'CTD';
   if (upper === 'ONG') return 'ONG';
-  return 'ENTREPRISE';
+  // Previously fell back to ENTREPRISE — an unrecognized/unsupported
+  // entity type (e.g. ADMINISTRATION, PROJECT_PROGRAM — architecture
+  // placeholders with no questionnaire handling yet) must not be
+  // silently miscategorized as a company.
+  throw new BadRequestException(`Unsupported entity type: ${type}`);
 }
 
 function debugLog(label: string, value: any, maxChars = 2000): void {

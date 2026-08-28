@@ -1005,6 +1005,7 @@
   "companyProfileNotFoundError": "Profil entreprise introuvable. Contactez l'administrateur.",
   "missingEstablishmentIdError": "ID établissement manquant. Veuillez contacter l'administrateur.",
   "noOpenSubmissionPeriodError": "Aucune période de soumission n'est actuellement ouverte.",
+  "unknownEntityTypeError": "Type d'entité non reconnu. Merci de contacter l'administrateur.",
   "profileLoadError": "Erreur lors du chargement du profil : {error}",
   "@profileLoadError": {
     "placeholders": { "error": { "type": "String" } }

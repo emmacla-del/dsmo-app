@@ -4695,6 +4695,12 @@ abstract class AppLocalizations {
   /// **'Aucune période de soumission n\'est actuellement ouverte.'**
   String get noOpenSubmissionPeriodError;
 
+  /// No description provided for @unknownEntityTypeError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Type d\'entité non reconnu. Merci de contacter l\'administrateur.'**
+  String get unknownEntityTypeError;
+
   /// No description provided for @profileLoadError.
   ///
   /// In fr, this message translates to:
