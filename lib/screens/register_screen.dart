@@ -8,6 +8,7 @@ import '../data/minefop_models.dart';
 import '../data/api_client.dart';
 import '../providers/auth_provider.dart';
 import '../core/i18n/l10n_ext.dart';
+import '../widgets/public_chrome.dart';
 import 'register_constants.dart';
 import 'register_widgets.dart';
 import 'register_receipt.dart';
@@ -28,11 +29,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final PageController _pageCtrl = PageController();
   final GlobalKey<FormState> _respondentKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _entityKey = GlobalKey<FormState>();
-  final GlobalKey<FormState> _minefopKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _securityKey = GlobalKey<FormState>();
 
   bool _draftLoaded = false;
-  String _role = '';
+  // COMPANY is the only role StepRole offers (MINEFOP self-registration was
+  // removed — see StepRole), so it's set once here instead of making every
+  // registrant click through a single-option screen. The wizard starts
+  // directly on entity-type selection — see _step and _visibleSteps below.
+  String _role = 'COMPANY';
   EntityType? _selectedEntityType;
 
   // Respondent fields
@@ -47,16 +51,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   // Entity data (company)
   final Map<String, dynamic> _entityData = {};
   final Map<String, TextEditingController> _entityControllers = {};
-
-  // MINEFOP fields
-  String _minefopMatricule = '';
-  String _minefopPoste = '';
-  String _minefopServiceCode = '';
-  String _minefopPositionType = '';
-  String? _minefopRegionName;
-  String? _minefopDepartmentName;
-  String _minefopServicePath = '';
-  // _minefopTargetLevel removed – no longer needed
 
   // Location (company flow)
   Map<String, dynamic>? _selectedRegion;
@@ -76,19 +70,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _loadingSectors = false;
 
   String _password = '';
-  int _step = kStepRole;
+  int _step = kStepEntityType;
   bool _isSubmitting = false;
   Timer? _debounce;
 
   bool get _isCompany => _role == 'COMPANY';
-  bool get _isMinefop =>
-      _role == 'DIVISIONAL' || _role == 'REGIONAL' || _role == 'CENTRAL';
 
-  List<int> get _visibleSteps {
-    if (_role.isEmpty) return [kStepRole];
-    if (_isCompany) {
-      return [
-        kStepRole,
+  List<int> get _visibleSteps => const [
         kStepEntityType,
         kStepRespondent,
         kStepEntityInfo,
@@ -96,16 +84,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         kStepSecurity,
         kStepReview,
       ];
-    }
-    // MINEFOP flow: skip entity type step
-    return [
-      kStepRole,
-      kStepRespondent,
-      kStepMinefopInfo,
-      kStepSecurity,
-      kStepReview,
-    ];
-  }
 
   int get _visibleCount => _visibleSteps.length;
   int get _currentVisibleIdx => _visibleSteps.indexOf(_step);
@@ -169,13 +147,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         'selectedSector': _selectedSector,
         'password': _password,
         'step': _step,
-        'minefopMatricule': _minefopMatricule,
-        'minefopServiceCode': _minefopServiceCode,
-        'minefopPositionType': _minefopPositionType,
-        'minefopRegionName': _minefopRegionName,
-        'minefopDepartmentName': _minefopDepartmentName,
-        'minefopServicePath': _minefopServicePath,
-        // 'minefopTargetLevel' removed
       });
     } catch (e) {
       debugPrint('Draft save failed: $e');
@@ -224,21 +195,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               Map<String, dynamic>.from(data['selectedSector'] as Map);
         }
         _password = data['password'] as String? ?? '';
-        _step = data['step'] as int? ?? kStepRole;
-        _minefopMatricule = data['minefopMatricule'] as String? ?? '';
-        _minefopServiceCode = data['minefopServiceCode'] as String? ?? '';
-        _minefopPositionType = data['minefopPositionType'] as String? ?? '';
-        _minefopRegionName = data['minefopRegionName'] as String?;
-        _minefopDepartmentName = data['minefopDepartmentName'] as String?;
-        _minefopServicePath = data['minefopServicePath'] as String? ?? '';
-        // _minefopTargetLevel removed
+        // A draft saved before the role step was removed could have step
+        // 0 (kStepRole) persisted — that step no longer exists, so treat
+        // it the same as "no step saved yet".
+        final loadedStep = data['step'] as int? ?? kStepEntityType;
+        _step = _visibleSteps.contains(loadedStep) ? loadedStep : kStepEntityType;
         _draftLoaded = true;
       });
 
       if (_selectedEntityType != null) _initEntityControllers();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _step > kStepRole) {
+        if (mounted && _step > kStepEntityType) {
           _pageCtrl.jumpToPage(_pageIndexForStep(_step));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -354,12 +322,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         _next();
         break;
 
-      case kStepMinefopInfo:
-        if (!_minefopKey.currentState!.validate()) return;
-        _minefopKey.currentState!.save();
-        _next();
-        break;
-
       case kStepLocation:
         if (_selectedRegion == null) {
           _showSnack(context.l10n.registerSelectRegion, error: true);
@@ -459,53 +421,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Future<void> _showRegistrationSuccess({
-    bool pendingApproval = false,
     String? establishmentId,
     String? companyName,
     String? attestationUrl,
   }) async {
-    if (pendingApproval) {
-      // Simple pending approval dialog
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.hourglass_top_rounded,
-                  size: 64, color: Colors.orange),
-              const SizedBox(height: 16),
-              Text(
-                context.l10n.registerPendingApprovalTitle,
-                style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.l10n.registerPendingApprovalBody,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  if (mounted) context.go('/');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                ),
-                child: Text(context.l10n.registerUnderstoodButton),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else if (establishmentId != null) {
+    if (establishmentId != null) {
       // Show the beautiful receipt
       await showDialog<void>(
         context: context,
@@ -550,11 +470,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
-      if (_isCompany) {
-        await _submitCompany();
-      } else if (_isMinefop) {
-        await _submitMinefop();
-      }
+      await _submitCompany();
     } catch (e) {
       if (!mounted) return;
       if (e is DioException) {
@@ -643,33 +559,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
     if (mounted) {
       await _showRegistrationSuccess(
-        pendingApproval: false,
         establishmentId: establishmentId,
         companyName: registeredCompanyName,
         attestationUrl: attestationUrl,
       );
     }
-  }
-
-  Future<void> _submitMinefop() async {
-    await ref.read(apiClientProvider).registerMinefopUser(
-          email: _respondentEmail,
-          password: _password,
-          firstName: _respondentFirstName,
-          lastName: _respondentLastName,
-          role: _role,
-          region: _minefopRegionName,
-          department: _minefopDepartmentName,
-          matricule: _minefopMatricule.isNotEmpty ? _minefopMatricule : null,
-          poste: _minefopPoste.isNotEmpty ? _minefopPoste : null,
-          serviceCode:
-              _minefopServiceCode.isNotEmpty ? _minefopServiceCode : null,
-          positionType:
-              _minefopPositionType.isNotEmpty ? _minefopPositionType : null,
-        );
-
-    await _clearDraft();
-    if (mounted) await _showRegistrationSuccess(pendingApproval: true);
   }
 
   void _showSnack(String msg, {bool error = false}) {
@@ -693,13 +587,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               setState(() {
                 _role = role;
                 _selectedEntityType = null;
-                _minefopMatricule = '';
-                _minefopPoste = '';
-                _minefopServiceCode = '';
-                _minefopRegionName = null;
-                _minefopDepartmentName = null;
-                _minefopServicePath = '';
-                // _minefopTargetLevel removed
               });
               _saveDraft(immediate: true);
               if (role.isNotEmpty) {
@@ -735,8 +622,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             initialEmail: _respondentEmail,
             initialPhone1: _respondentPhone1,
             initialPhone2: _respondentPhone2,
-            isMinefop: _isMinefop,
-            // removed initialTargetLevel
             onChanged: (fn, ln, func, email, p1, p2) {
               // No setState: nothing on screen reads these fields back while
               // the user is on this step (the text fields already reflect
@@ -771,41 +656,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             },
           );
 
-        case kStepMinefopInfo:
-          return StepMinefopInfo(
-            key: ValueKey(_role),
-            formKey: _minefopKey,
-            role: _role,
-            // removed targetLevel parameter
-            initialMatricule: _minefopMatricule,
-            initialPoste: _minefopPoste,
-            initialServiceCode: _minefopServiceCode,
-            initialPositionType: _minefopPositionType,
-            initialRegion: _minefopRegionName,
-            initialDepartment: _minefopDepartmentName,
-            onChanged: ({
-              required matricule,
-              required poste,
-              required serviceCode,
-              required positionType,
-              required servicePath,
-              region,
-              department,
-            }) {
-              // Same reasoning as the respondent step: StepMinefopInfo owns
-              // its own dropdown selection state and rebuilds itself, so the
-              // parent doesn't need to rebuild on every Matricule keystroke.
-              _minefopMatricule = matricule;
-              _minefopPoste = poste;
-              _minefopServiceCode = serviceCode;
-              _minefopPositionType = positionType;
-              _minefopServicePath = servicePath;
-              if (region != null) _minefopRegionName = region;
-              if (department != null) _minefopDepartmentName = department;
-              _scheduleDraftSave();
-            },
-          );
-
         case kStepLocation:
           return StepLocation(
             regions: _regions,
@@ -821,7 +671,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             selectedSubdivision: _selectedSubdivision,
             selectedArea: _selectedArea,
             selectedSector: _selectedSector,
-            isMinefop: _isMinefop,
             onRegionChanged: (r) {
               setState(() {
                 _selectedRegion = r;
@@ -872,8 +721,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
         case kStepReview:
           return StepReview(
-            isMinefop: _isMinefop,
-            role: _role,
             entityType: _selectedEntityType,
             respondentFirstName: _respondentFirstName,
             respondentLastName: _respondentLastName,
@@ -882,24 +729,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             respondentPhone1: _respondentPhone1,
             respondentPhone2: _respondentPhone2,
             entityData: _entityData,
-            selectedRegion: _isMinefop
-                ? (_minefopRegionName != null
-                    ? {'name': _minefopRegionName}
-                    : null)
-                : _selectedRegion,
-            selectedDepartment: _isMinefop
-                ? (_minefopDepartmentName != null
-                    ? {'name': _minefopDepartmentName}
-                    : null)
-                : _selectedDepartment,
-            selectedSubdivision: _isMinefop ? null : _selectedSubdivision,
-            selectedArea: _isMinefop ? null : _selectedArea,
-            selectedSector: _isMinefop ? null : _selectedSector,
-            minefopMatricule: _minefopMatricule,
-            minefopPoste: _minefopPoste,
-            minefopServiceCode: _minefopServiceCode,
-            minefopPositionType: _minefopPositionType,
-            minefopServicePath: _minefopServicePath,
+            selectedRegion: _selectedRegion,
+            selectedDepartment: _selectedDepartment,
+            selectedSubdivision: _selectedSubdivision,
+            selectedArea: _selectedArea,
+            selectedSector: _selectedSector,
           );
 
         default:
@@ -909,7 +743,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       // Cap each step to a conventional form width and center it — on
       // mobile the screen is already narrower than the cap so this is a
       // no-op, on desktop/web it stops fields from stretching edge-to-edge.
-      // Matches the 480px convention used by MinefopPortalScreen.
+      // Matches the 480px convention used by LoginPortalScreen.
       return Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
@@ -1012,8 +846,8 @@ class _BottomNav extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: isBusy ? null : onPrevious,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF006B5E),
-                    side: const BorderSide(color: Color(0xFF006B5E)),
+                    foregroundColor: PublicColors.green,
+                    side: const BorderSide(color: PublicColors.green),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
@@ -1037,7 +871,7 @@ class _BottomNav extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: isBusy ? null : onNext,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF006B5E),
+                    backgroundColor: PublicColors.green,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/email_availability_provider.dart';
+import 'public_chrome.dart';
 
 /// A self-contained email form field that checks availability in real‑time.
 class EmailFieldWithAvailability extends ConsumerStatefulWidget {
@@ -196,11 +197,11 @@ class _EmailFieldWithAvailabilityState
             child: Row(
               children: [
                 Icon(Icons.check_circle_outline,
-                    size: 14, color: Color(0xFF006B5E)),
+                    size: 14, color: PublicColors.green),
                 SizedBox(width: 6),
                 Text(
                   'Email disponible',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF006B5E)),
+                  style: TextStyle(fontSize: 12, color: PublicColors.green),
                 ),
               ],
             ),
@@ -262,7 +263,7 @@ class _EmailFieldWithAvailabilityState
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
               color:
-                  hasError ? const Color(0xFFE24B4A) : const Color(0xFF006B5E),
+                  hasError ? const Color(0xFFE24B4A) : PublicColors.green,
               width: 2)),
       errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

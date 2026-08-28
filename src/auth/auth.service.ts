@@ -127,6 +127,7 @@ export class AuthService {
       onefopSubmissionStatus: null,
       onefopSurveyYear: null,
       onefopHasDraft: false,
+      onefopRejectionReason: null,
     };
     if (role !== 'COMPANY') return empty;
 

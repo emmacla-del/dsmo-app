@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/i18n/l10n_ext.dart';
+import '../widgets/public_chrome.dart';
 
 class RegistrationReceipt extends StatelessWidget {
   final String establishmentId;
@@ -200,7 +201,7 @@ class RegistrationReceipt extends StatelessWidget {
                                           style: const TextStyle(
                                             fontSize: 24,
                                             fontWeight: FontWeight.w800,
-                                            color: Color(0xFF006B5E),
+                                            color: PublicColors.green,
                                             fontFamily: 'monospace',
                                             letterSpacing: 1,
                                           ),
@@ -252,7 +253,7 @@ class RegistrationReceipt extends StatelessWidget {
                                   label: context
                                       .l10n.registerReceiptRegistrationDateLabel,
                                   value:
-                                      '${registrationDate.day.toString().padLeft(2, '0')}/${registrationDate.month.toString().padLeft(2, '0')}/${registrationDate.year} à ${registrationDate.hour.toString().padLeft(2, '0')}:${registrationDate.minute.toString().padLeft(2, '0')}',
+                                      '${registrationDate.day.toString().padLeft(2, '0')}/${registrationDate.month.toString().padLeft(2, '0')}/${registrationDate.year}, ${registrationDate.hour.toString().padLeft(2, '0')}:${registrationDate.minute.toString().padLeft(2, '0')}',
                                 ),
                               ],
                             ),
@@ -296,13 +297,13 @@ class RegistrationReceipt extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: () => _downloadAttestation(context),
                           icon: const Icon(Icons.picture_as_pdf_outlined,
-                              size: 16, color: Color(0xFF006B5E)),
+                              size: 16, color: PublicColors.green),
                           label: Text(
                             context.l10n.registerReceiptDownloadAttestation,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF006B5E),
+                              color: PublicColors.green,
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
@@ -310,7 +311,7 @@ class RegistrationReceipt extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            side: const BorderSide(color: Color(0xFF006B5E)),
+                            side: const BorderSide(color: PublicColors.green),
                           ),
                         ),
                       ),
@@ -332,14 +333,14 @@ class RegistrationReceipt extends StatelessWidget {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              side: const BorderSide(color: Color(0xFF006B5E)),
+                              side: const BorderSide(color: PublicColors.green),
                             ),
                             child: Text(
                               context.l10n.registerReceiptCloseButton,
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF006B5E),
+                                color: PublicColors.green,
                               ),
                             ),
                           ),
@@ -352,7 +353,7 @@ class RegistrationReceipt extends StatelessWidget {
                               context.go('/home');
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF006B5E),
+                              backgroundColor: PublicColors.green,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(

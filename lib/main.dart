@@ -147,27 +147,24 @@ final GoRouter router = GoRouter(
   ],
 );
 
+Future<void> _initializeHive() async {
+  try {
+    await Hive.initFlutter().timeout(const Duration(seconds: 8));
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(EmployeeAdapter());
+    }
+    await Hive.openBox('tokenBox').timeout(const Duration(seconds: 8));
+  } catch (error) {
+    // Storage must not prevent the Flutter shell from starting. Do not delete
+    // the token box here: a transient web-storage or file-lock error should
+    // never turn into an unexpected logout or data loss.
+    debugPrint('Hive initialization unavailable: $error');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // A corrupt/locked local box must never block runApp() — that's the
-  // difference between "logged out" and "app won't open" for whichever
-  // device has a bad tokenBox on disk.
-  try {
-    await Hive.initFlutter();
-    Hive.registerAdapter(EmployeeAdapter());
-    await Hive.openBox('tokenBox');
-  } catch (_) {
-    try {
-      await Hive.deleteBoxFromDisk('tokenBox');
-      await Hive.openBox('tokenBox');
-    } catch (_) {
-      // Local storage still unavailable — proceed without it. ApiClient
-      // and other Hive.openBox('tokenBox') call sites already re-open it
-      // lazily and tolerate a missing/empty box.
-    }
-  }
-
+  await _initializeHive();
   runApp(const ProviderScope(child: MyApp()));
 }
 

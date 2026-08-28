@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../providers/auth_provider.dart';
-import '../theme/app_colors.dart';
+import '../widgets/public_chrome.dart';
 import '../main.dart' show router;
 
 class VerifyEmailScreen extends ConsumerStatefulWidget {
@@ -20,7 +21,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   @override
   void initState() {
     super.initState();
-    _verify();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _verify());
   }
 
   Future<void> _verify() async {
@@ -29,20 +30,20 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       setState(() {
         _loading = false;
         _success = false;
-        _message = 'Lien de vérification invalide. Veuillez refaire une '
-            'demande depuis votre compte.';
+        _message = null;
       });
       return;
     }
     try {
-      final message =
-          await ref.read(authProvider.notifier).verifyEmail(token);
+      final message = await ref.read(authProvider.notifier).verifyEmail(token);
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _success = true;
         _message = message;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _success = false;
@@ -53,47 +54,27 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(12),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: _buildContent(),
-              ),
-            ),
-          ),
-        ),
+    return PublicAuthScaffold(
+      onLogoTap: () => router.go('/'),
+      child: PublicCard(
+        padding: const EdgeInsets.all(28),
+        child: _buildContent(),
       ),
     );
   }
 
   Widget _buildContent() {
     if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
         child: Column(
           children: [
-            CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.deepEmerald)),
-            SizedBox(height: 16),
-            Text('Vérification en cours...',
-                style: TextStyle(fontSize: 14, color: AppColors.slate)),
+            const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(PublicColors.green)),
+            const SizedBox(height: 16),
+            Text(context.l10n.verifyingInProgress,
+                style:
+                    const TextStyle(fontSize: 14, color: PublicColors.gray500)),
           ],
         ),
       );
@@ -104,36 +85,29 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
         Icon(
           _success ? Icons.check_circle_outline : Icons.error_outline,
           size: 48,
-          color: _success ? AppColors.deepEmerald : Colors.red,
+          color: _success ? PublicColors.green : PublicColors.red,
         ),
         const SizedBox(height: 16),
         Text(
-          _success ? 'Adresse e-mail vérifiée' : 'Vérification impossible',
+          _success
+              ? context.l10n.emailVerifiedTitle
+              : context.l10n.verificationFailedTitle,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         Text(
-          _message ?? '',
+          _message ??
+              (_success ? '' : context.l10n.invalidVerificationLink),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: AppColors.slate),
+          style: const TextStyle(fontSize: 14, color: PublicColors.gray500),
         ),
         const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: () => router.go(_success ? '/home' : '/'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.deepEmerald,
-              foregroundColor: Colors.white,
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
-            child: Text(_success ? 'Continuer' : 'Retour à la connexion',
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w600)),
-          ),
+        PublicPrimaryButton(
+          onPressed: () => router.go(_success ? '/home' : '/login'),
+          label: _success
+              ? context.l10n.registerContinueButton
+              : context.l10n.backToLogin,
+          expanded: true,
         ),
       ],
     );

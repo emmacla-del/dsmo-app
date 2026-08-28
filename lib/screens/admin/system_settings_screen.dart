@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api_client.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/admin_kit.dart';
+import 'landing_config_screen.dart';
 import 'regions_sectors_screen.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -196,6 +197,40 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 filled: true,
                                 fillColor: UltraTheme.background,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _SettingsSection(
+                          title: "Page d'accueil publique",
+                          icon: Icons.web_outlined,
+                          children: [
+                            const Text(
+                              'Modifier le bandeau de statut et la feuille de '
+                              "route affichés sur la page d'accueil, avant "
+                              'connexion.',
+                              style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12.5,
+                                  color: UltraTheme.textMuted,
+                                  height: 1.4),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => const LandingConfigScreen()),
+                              ),
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              label: const Text("Gérer la page d'accueil"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: UltraTheme.primary,
+                                side: const BorderSide(color: UltraTheme.primary),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
                           ],

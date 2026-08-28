@@ -7,102 +7,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/email_field_with_availability.dart';
 import '../core/i18n/l10n_ext.dart';
 import '../core/i18n/localized_text.dart';
-import '../data/api_client.dart';
 import '../data/minefop_models.dart';
 
 // ════════════════════════════════════════════════════════════════
 // STEP 0 — Role selection
 // ════════════════════════════════════════════════════════════════
 
-class StepRole extends StatefulWidget {
+class StepRole extends StatelessWidget {
   final String role;
   final ValueChanged<String> onSelect;
+
   const StepRole({super.key, required this.role, required this.onSelect});
-  @override
-  State<StepRole> createState() => _StepRoleState();
-}
 
-class _StepRoleState extends State<StepRole> {
-  String? _pendingMinefopRole;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.role == 'CENTRAL' ||
-        widget.role == 'REGIONAL' ||
-        widget.role == 'DIVISIONAL') {
-      _pendingMinefopRole = widget.role;
-    }
-  }
-
-  bool get _isCompanySelected => widget.role == 'COMPANY';
-  bool get _isMinefopPanelOpen => _pendingMinefopRole != null;
+  bool get _isCompanySelected => role == 'COMPANY';
 
   @override
   Widget build(BuildContext context) {
-    if (_isMinefopPanelOpen) {
-      return SizedBox(
-        height: double.infinity,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => setState(() => _pendingMinefopRole = null),
-                ),
-                const SizedBox(width: 4),
-                Text(context.l10n.registerServiceLevelTitle,
-                    style:
-                        const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              ]),
-              const SizedBox(height: 6),
-              Text(context.l10n.registerServiceLevelSubtitle,
-                  style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-              const SizedBox(height: 32),
-              _MinefopLevelCard(
-                value: 'CENTRAL',
-                selected: _pendingMinefopRole,
-                title: context.l10n.registerMinefopCentralTitle,
-                subtitle: context.l10n.registerMinefopCentralSubtitle,
-                icon: Icons.account_balance_outlined,
-                onTap: (v) {
-                  setState(() => _pendingMinefopRole = v);
-                  widget.onSelect(v);
-                },
-              ),
-              const SizedBox(height: 12),
-              _MinefopLevelCard(
-                value: 'REGIONAL',
-                selected: _pendingMinefopRole,
-                title: context.l10n.registerMinefopRegionalTitle,
-                subtitle: context.l10n.registerMinefopRegionalSubtitle,
-                icon: Icons.map_outlined,
-                onTap: (v) {
-                  setState(() => _pendingMinefopRole = v);
-                  widget.onSelect(v);
-                },
-              ),
-              const SizedBox(height: 12),
-              _MinefopLevelCard(
-                value: 'DIVISIONAL',
-                selected: _pendingMinefopRole,
-                title: context.l10n.registerMinefopDivisionalTitle,
-                subtitle: context.l10n.registerMinefopDivisionalSubtitle,
-                icon: Icons.location_city_outlined,
-                onTap: (v) {
-                  setState(() => _pendingMinefopRole = v);
-                  widget.onSelect(v);
-                },
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -119,87 +39,12 @@ class _StepRoleState extends State<StepRole> {
           color: Colors.teal,
           title: context.l10n.registerRoleCompanyTitle,
           subtitle: context.l10n.registerRoleCompanySubtitle,
-          onTap: (_) {
-            setState(() => _pendingMinefopRole = null);
-            widget.onSelect('COMPANY');
-          },
+          onTap: (_) => onSelect('COMPANY'),
         ),
-        const SizedBox(height: 12),
-        RoleCard(
-          value: 'MINEFOP',
-          selected: '',
-          icon: Icons.account_balance_outlined,
-          color: Colors.indigo,
-          title: context.l10n.registerRoleMinefopTitle,
-          subtitle: context.l10n.registerRoleMinefopSubtitle,
-          onTap: (_) => setState(() => _pendingMinefopRole = ''),
-        ),
+        // MINEFOP self-registration removed — Central/Regional/Divisional
+        // staff accounts are now created by a Super Admin, not through this
+        // public wizard.
       ]),
-    );
-  }
-}
-
-class _MinefopLevelCard extends StatelessWidget {
-  final String value;
-  final String? selected;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final void Function(String) onTap;
-
-  const _MinefopLevelCard({
-    required this.value,
-    required this.selected,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isSelected = selected == value;
-    return GestureDetector(
-      onTap: () => onTap(value),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.indigo.shade50 : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? Colors.indigo : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.indigo.withAlpha(25),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: Colors.indigo, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: isSelected
-                          ? Colors.indigo.shade700
-                          : const Color(0xFF1E293B))),
-              const SizedBox(height: 3),
-              Text(subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-            ]),
-          ),
-          if (isSelected)
-            const Icon(Icons.check_circle, color: Colors.indigo, size: 20),
-        ]),
-      ),
     );
   }
 }
@@ -260,7 +105,6 @@ class StepRespondent extends ConsumerStatefulWidget {
       initialEmail,
       initialPhone1,
       initialPhone2;
-  final bool isMinefop;
   final void Function(
           String fn, String ln, String func, String email, String p1, String p2)
       onChanged;
@@ -275,7 +119,6 @@ class StepRespondent extends ConsumerStatefulWidget {
     required this.initialEmail,
     required this.initialPhone1,
     required this.initialPhone2,
-    required this.isMinefop,
     required this.onChanged,
     this.onEmailAvailabilityChanged,
   });
@@ -345,16 +188,12 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
         key: widget.formKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(
-            widget.isMinefop
-                ? context.l10n.registerRespondentTitlePersonal
-                : context.l10n.registerStepTitleRespondent,
+            context.l10n.registerStepTitleRespondent,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
-            widget.isMinefop
-                ? context.l10n.registerRespondentSubtitleMinefop
-                : context.l10n.registerRespondentSubtitleStandard,
+            context.l10n.registerRespondentSubtitleStandard,
             style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
           ),
           const SizedBox(height: 28),
@@ -378,8 +217,7 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
                         : null)),
           ]),
           const SizedBox(height: 14),
-          if (!widget.isMinefop) ...[
-            FieldLabel(label: context.l10n.registerFunctionLabel),
+          FieldLabel(label: context.l10n.registerFunctionLabel),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               initialValue: _function.isNotEmpty ? _function : null,
@@ -398,7 +236,6 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
               validator: (v) =>
                   (v == null || v.isEmpty) ? context.l10n.requiredShort : null,
             ),
-          ],
           const SizedBox(height: 14),
           EmailFieldWithAvailability(
             controller: _emailCtrl,
@@ -422,12 +259,11 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
                     isRequired: false)),
           ]),
           const SizedBox(height: 16),
-          if (!widget.isMinefop)
-            InfoBox(
-              icon: Icons.auto_fix_high_outlined,
-              color: Colors.teal,
-              text: context.l10n.registerRespondentInfoBox,
-            ),
+          InfoBox(
+            icon: Icons.auto_fix_high_outlined,
+            color: Colors.teal,
+            text: context.l10n.registerRespondentInfoBox,
+          ),
         ]),
       ),
     );
@@ -622,932 +458,6 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// STEP 4 — MINEFOP info
-// 3-step cascade:
-//   Step 1: pick position type (e.g. CHEF_SERVICE)
-//   Step 2: pick immediate parent unit (e.g. the Sous-Direction)
-//   Step 3: pick exact service unit (e.g. the Service itself)
-//   → job title resolved from ServicePosition.title in database
-// ════════════════════════════════════════════════════════════════
-
-class StepMinefopInfo extends ConsumerStatefulWidget {
-  final GlobalKey<FormState> formKey;
-  final String role;
-  final String initialMatricule;
-  final String initialPoste;
-  final String initialServiceCode;
-  final String initialPositionType;
-  final String? initialRegion;
-  final String? initialDepartment;
-
-  final void Function({
-    required String matricule,
-    required String poste,
-    required String serviceCode,
-    required String positionType,
-    required String servicePath,
-    String? region,
-    String? department,
-  }) onChanged;
-
-  const StepMinefopInfo({
-    super.key,
-    required this.formKey,
-    required this.role,
-    required this.initialMatricule,
-    required this.initialPoste,
-    required this.initialServiceCode,
-    required this.initialPositionType,
-    this.initialRegion,
-    this.initialDepartment,
-    required this.onChanged,
-  });
-
-  @override
-  ConsumerState<StepMinefopInfo> createState() => _StepMinefopInfoState();
-}
-
-class _StepMinefopInfoState extends ConsumerState<StepMinefopInfo> {
-  late final TextEditingController _matriculeCtrl;
-
-  // ── Step 1: position types ──
-  List<Map<String, dynamic>> _availablePositionTypes = [];
-  String? _selectedPositionType;
-  bool _loadingPositionTypes = false;
-  String? _positionTypesError;
-
-  // ── Step 2: immediate parent units ──
-  List<Map<String, dynamic>> _parentUnits = [];
-  Map<String, dynamic>? _selectedParentUnit;
-  bool _loadingParentUnits = false;
-
-  // ── Step 3: exact service units under selected parent ──
-  List<Map<String, dynamic>> _serviceUnits = [];
-  Map<String, dynamic>? _selectedServiceUnit;
-  bool _loadingServiceUnits = false;
-
-  // Resolved job title from ServicePosition.title in the database
-  String _resolvedJobTitle = '';
-
-  // ── Location fields (REGIONAL / DIVISIONAL only) ──
-  String? _selectedRegion;
-  String? _selectedDepartment;
-  List<Map<String, dynamic>> _regions = [];
-  List<Map<String, dynamic>> _departments = [];
-  bool _loadingRegions = false;
-  bool _loadingDepartments = false;
-
-  bool get _needsLocation =>
-      widget.role == 'REGIONAL' || widget.role == 'DIVISIONAL';
-  bool get _needsDepartment => widget.role == 'DIVISIONAL';
-  String get _roleLabel =>
-      kMinefopRoleLabels[widget.role]?.of(context.loc) ?? widget.role;
-
-  @override
-  void initState() {
-    super.initState();
-    _matriculeCtrl = TextEditingController(text: widget.initialMatricule);
-    _matriculeCtrl.addListener(_notify);
-    _selectedRegion = widget.initialRegion;
-    _selectedDepartment = widget.initialDepartment;
-    _loadPositionTypes();
-    if (_needsLocation) _loadRegions();
-  }
-
-  @override
-  void dispose() {
-    _matriculeCtrl.dispose();
-    super.dispose();
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // STEP 1 — load position types for this role
-  // ─────────────────────────────────────────────────────────────
-  Future<void> _loadPositionTypes() async {
-    setState(() {
-      _loadingPositionTypes = true;
-      _positionTypesError = null;
-      _availablePositionTypes = [];
-    });
-    try {
-      final response = await ref.read(apiClientProvider).get(
-        '/minefop-services/positions/by-role',
-        queryParameters: {'role': widget.role},
-      );
-      final List<dynamic> data = response.data is List ? response.data : [];
-      if (mounted) {
-        setState(() {
-          _availablePositionTypes = data
-              .map((e) => {
-                    'positionType': e['positionType'] as String,
-                    'label': e['label'] as String,
-                  })
-              .toList();
-          _loadingPositionTypes = false;
-        });
-        // Restore draft
-        if (widget.initialPositionType.isNotEmpty) {
-          final match = _availablePositionTypes.firstWhere(
-              (t) => t['positionType'] == widget.initialPositionType,
-              orElse: () => {});
-          if (match.isNotEmpty) {
-            _selectedPositionType = match['positionType'] as String;
-            await _loadParentUnits();
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading position types: $e');
-      if (mounted) {
-        setState(() {
-          _loadingPositionTypes = false;
-          _positionTypesError = context.l10n.registerMinefopLoadFunctionsError;
-        });
-      }
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // STEP 2 — load immediate parent units for the chosen position
-  // ─────────────────────────────────────────────────────────────
-  Future<void> _loadParentUnits() async {
-    if (_selectedPositionType == null) return;
-    setState(() {
-      _loadingParentUnits = true;
-      _parentUnits = [];
-      _selectedParentUnit = null;
-      _serviceUnits = [];
-      _selectedServiceUnit = null;
-      _resolvedJobTitle = '';
-    });
-    try {
-      final response = await ref.read(apiClientProvider).get(
-        '/minefop-services/parents-for-position',
-        queryParameters: {
-          'positionType': _selectedPositionType!,
-          'role': widget.role,
-        },
-      );
-      final List<dynamic> data = response.data is List ? response.data : [];
-
-      final List<Map<String, dynamic>> parents = [];
-
-      void collectParents(List<dynamic> items) {
-        for (final item in items) {
-          final children =
-              item['children'] is List ? item['children'] as List : <dynamic>[];
-          final acronym = item['acronym'] as String? ?? '';
-          final name = item['name'] as String? ?? '';
-          final level = item['level'] as int? ?? 1;
-          parents.add({
-            'code': item['code'] as String,
-            'name': name,
-            'acronym': acronym,
-            'displayName': acronym.isNotEmpty ? '$acronym — $name' : name,
-            'level': level,
-          });
-          if (children.isNotEmpty) {
-            collectParents(children);
-          }
-        }
-      }
-
-      collectParents(data);
-
-      if (mounted) {
-        setState(() {
-          _parentUnits = parents;
-          _loadingParentUnits = false;
-        });
-        if (widget.initialServiceCode.isNotEmpty && parents.isNotEmpty) {
-          await _restoreSelectionFromDraft();
-        }
-      }
-    } catch (e, st) {
-      debugPrint('Error loading parent units: $e\n$st');
-      if (mounted) setState(() => _loadingParentUnits = false);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // STEP 3 — load exact service units under selected parent
-  // ─────────────────────────────────────────────────────────────
-  Future<void> _loadServiceUnits() async {
-    if (_selectedParentUnit == null || _selectedPositionType == null) return;
-    setState(() {
-      _loadingServiceUnits = true;
-      _serviceUnits = [];
-      _selectedServiceUnit = null;
-      _resolvedJobTitle = '';
-    });
-    try {
-      final response = await ref.read(apiClientProvider).get(
-        '/minefop-services/children-for-position',
-        queryParameters: {
-          'parentCode': _selectedParentUnit!['code'] as String,
-          'positionType': _selectedPositionType!,
-        },
-      );
-      final List<dynamic> data = response.data is List ? response.data : [];
-      if (mounted) {
-        setState(() {
-          _serviceUnits = data.map((e) => _parseServiceUnit(e)).toList();
-          _loadingServiceUnits = false;
-        });
-        // Restore draft after loading service units (if not already restored)
-        if (widget.initialServiceCode.isNotEmpty) {
-          final match = _serviceUnits.firstWhere(
-              (s) => s['code'] == widget.initialServiceCode,
-              orElse: () => {});
-          if (match.isNotEmpty) {
-            _selectedServiceUnit = match;
-            _resolvedJobTitle = match['positionTitle'] as String? ?? '';
-            _notify();
-          }
-        }
-      }
-    } catch (e, st) {
-      debugPrint('Error loading service units: $e\n$st');
-      if (mounted) setState(() => _loadingServiceUnits = false);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // DRAFT RESTORATION – fast path + fallback
-  // ─────────────────────────────────────────────────────────────
-  Future<void> _restoreSelectionFromDraft() async {
-    // Fast path: resolve-position endpoint (1 call)
-    final (parentCode, serviceUnit) =
-        await _resolvePositionFast(widget.initialServiceCode);
-    if (parentCode != null && serviceUnit != null) {
-      final parent = _parentUnits.firstWhere(
-        (p) => p['code'] == parentCode,
-        orElse: () => {},
-      );
-      if (parent.isNotEmpty) {
-        setState(() {
-          _selectedParentUnit = parent;
-          final unit = _parseServiceUnit(serviceUnit);
-          _serviceUnits = [unit];
-          _selectedServiceUnit = unit;
-          _resolvedJobTitle = unit['positionTitle'] as String? ?? '';
-        });
-        _notify();
-        // Optionally load full sibling list in background
-        _loadServiceUnits();
-        return;
-      }
-    }
-
-    // Fallback: linear scan over parents
-    for (final parent in _parentUnits) {
-      try {
-        final response = await ref.read(apiClientProvider).get(
-          '/minefop-services/children-for-position',
-          queryParameters: {
-            'parentCode': parent['code'] as String,
-            'positionType': _selectedPositionType!,
-          },
-        );
-        final List<dynamic> data = response.data is List ? response.data : [];
-        final match = data.firstWhere(
-            (e) => e['code'] == widget.initialServiceCode,
-            orElse: () => null);
-        if (match != null && mounted) {
-          setState(() {
-            _selectedParentUnit = parent;
-            _serviceUnits = data.map((e) => _parseServiceUnit(e)).toList();
-            _selectedServiceUnit = _serviceUnits.firstWhere(
-                (s) => s['code'] == widget.initialServiceCode,
-                orElse: () => {});
-            if (_selectedServiceUnit != null &&
-                (_selectedServiceUnit as Map).isNotEmpty) {
-              _resolvedJobTitle =
-                  _selectedServiceUnit!['positionTitle'] as String? ?? '';
-            }
-          });
-          _notify();
-          return;
-        }
-      } catch (e, st) {
-        debugPrint(
-            'Draft restore scan error for parent ${parent['code']}: $e\n$st');
-        continue;
-      }
-    }
-  }
-
-  /// Try to resolve the saved service code via the dedicated endpoint.
-  /// Returns (parentCode, serviceUnit) if successful, else (null, null).
-  Future<(String?, Map<String, dynamic>?)> _resolvePositionFast(
-      String serviceCode) async {
-    try {
-      final response = await ref.read(apiClientProvider).get(
-        '/minefop-services/resolve-position',
-        queryParameters: {'serviceCode': serviceCode},
-      );
-      final data = response.data as Map<String, dynamic>?;
-      if (data != null &&
-          data['parentCode'] != null &&
-          data['serviceUnit'] != null) {
-        final parentCode = data['parentCode'] as String;
-        final serviceUnit = data['serviceUnit'] as Map<String, dynamic>;
-        return (parentCode, serviceUnit);
-      }
-      return (null, null);
-    } catch (e) {
-      debugPrint('resolve-position failed, will fallback to scan: $e');
-      return (null, null);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // HELPERS – parse service unit from backend response
-  // ─────────────────────────────────────────────────────────────
-  Map<String, dynamic> _parseServiceUnit(dynamic e) {
-    final map = e as Map<String, dynamic>;
-    final acronym = map['acronym'] as String? ?? '';
-    final name = map['name'] as String? ?? '';
-    return {
-      'code': map['code'] as String,
-      'name': name,
-      'acronym': acronym,
-      'displayName': map['displayName'] as String? ??
-          (acronym.isNotEmpty ? '$acronym — $name' : name),
-      'positionTitle': map['positionTitle'] as String? ?? '',
-    };
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // LOCATION
-  // ─────────────────────────────────────────────────────────────
-  Future<void> _loadRegions() async {
-    setState(() {
-      _loadingRegions = true;
-      _regions = [];
-    });
-    try {
-      final data = await ref.read(apiClientProvider).getRegions();
-      if (mounted) setState(() => _regions = data.cast<Map<String, dynamic>>());
-    } catch (e) {
-      debugPrint('Regions error: $e');
-    } finally {
-      if (mounted) setState(() => _loadingRegions = false);
-    }
-  }
-
-  Future<void> _loadDepartments(String regionId) async {
-    setState(() {
-      _loadingDepartments = true;
-      _departments = [];
-      _selectedDepartment = null;
-    });
-    try {
-      final data = await ref.read(apiClientProvider).getDepartments(regionId);
-      if (mounted) {
-        setState(() => _departments = data.cast<Map<String, dynamic>>());
-      }
-    } catch (e) {
-      debugPrint('Departments error: $e');
-    } finally {
-      if (mounted) setState(() => _loadingDepartments = false);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // EVENT HANDLERS
-  // ─────────────────────────────────────────────────────────────
-  void _onPositionTypeChanged(String? type) {
-    setState(() {
-      _selectedPositionType = type;
-      _parentUnits = [];
-      _selectedParentUnit = null;
-      _serviceUnits = [];
-      _selectedServiceUnit = null;
-      _resolvedJobTitle = '';
-    });
-    if (type != null) {
-      _loadParentUnits();
-    } else {
-      _notify();
-    }
-  }
-
-  void _onParentUnitChanged(String? parentCode) {
-    final parent = parentCode != null
-        ? _parentUnits.firstWhere((u) => u['code'] == parentCode,
-            orElse: () => {})
-        : null;
-    setState(() {
-      _selectedParentUnit =
-          parent != null && (parent as Map).isNotEmpty ? parent : null;
-      _serviceUnits = [];
-      _selectedServiceUnit = null;
-      _resolvedJobTitle = '';
-    });
-    if (parent != null && (parent as Map).isNotEmpty) {
-      _loadServiceUnits();
-    } else {
-      _notify();
-    }
-  }
-
-  void _onServiceUnitChanged(String? unitCode) {
-    final unit = unitCode != null
-        ? _serviceUnits.firstWhere((s) => s['code'] == unitCode,
-            orElse: () => {})
-        : null;
-    setState(() {
-      _selectedServiceUnit =
-          unit != null && (unit as Map).isNotEmpty ? unit : null;
-      _resolvedJobTitle = unit != null && (unit as Map).isNotEmpty
-          ? unit['positionTitle'] as String? ?? ''
-          : '';
-    });
-    _notify();
-  }
-
-  void _onRegionChanged(Map<String, dynamic>? v) {
-    setState(() => _selectedRegion = v?['name'] as String?);
-    if (v != null) _loadDepartments(v['id'] as String);
-    _notify();
-  }
-
-  void _onDepartmentChanged(Map<String, dynamic>? v) {
-    setState(() => _selectedDepartment = v?['name'] as String?);
-    _notify();
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // NOTIFY — sends final resolved values upward
-  // ─────────────────────────────────────────────────────────────
-  void _notify() {
-    widget.onChanged(
-      matricule: _matriculeCtrl.text.trim(),
-      poste: _resolvedJobTitle,
-      serviceCode: _selectedServiceUnit?['code'] as String? ?? '',
-      positionType: _selectedPositionType ?? '',
-      servicePath: _buildServicePath(),
-      region: _selectedRegion,
-      department: _selectedDepartment,
-    );
-  }
-
-  String _buildServicePath() {
-    final parts = <String>[];
-    if (_selectedParentUnit != null) {
-      parts.add(_selectedParentUnit!['displayName'] as String);
-    }
-    if (_selectedServiceUnit != null &&
-        (_selectedServiceUnit as Map).isNotEmpty) {
-      parts.add(_selectedServiceUnit!['displayName'] as String);
-    }
-    return parts.join(' › ');
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // UI
-  // ─────────────────────────────────────────────────────────────
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Form(
-        key: widget.formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(context.l10n.registerStepTitleMinefopInfo,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(context.l10n.registerInfoAsRole(_roleLabel),
-                style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-            const SizedBox(height: 28),
-            _roleBadge(),
-            const SizedBox(height: 24),
-            // Matricule
-            Field(
-              controller: _matriculeCtrl,
-              label: context.l10n.registerMatriculeLabel,
-              icon: Icons.badge_outlined,
-              hint: context.l10n.registerMatriculeHint,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? context.l10n.registerMatriculeRequired
-                  : null,
-            ),
-            const SizedBox(height: 24),
-            const Divider(height: 1),
-            const SizedBox(height: 24),
-
-            // STEP 1 — position type
-            _buildPositionTypeDropdown(),
-
-            // STEP 2 — immediate parent unit
-            if (_selectedPositionType != null) ...[
-              const SizedBox(height: 20),
-              _buildParentUnitDropdown(),
-            ],
-
-            // STEP 3 — exact service unit
-            if (_selectedParentUnit != null) ...[
-              const SizedBox(height: 20),
-              _buildServiceUnitDropdown(),
-            ],
-
-            // Resolved job title preview
-            if (_resolvedJobTitle.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _buildJobTitlePreview(),
-            ],
-
-            // Location fields (REGIONAL / DIVISIONAL)
-            if (_needsLocation) ...[
-              const SizedBox(height: 24),
-              const Divider(height: 1),
-              const SizedBox(height: 24),
-              Text(context.l10n.registerStepTitleLocation,
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.indigo.shade700)),
-              const SizedBox(height: 4),
-              Text(context.l10n.registerLocalisationSubtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-              const SizedBox(height: 16),
-              _LocationFormDropdown(
-                label: context.l10n.registerRegionLabel,
-                hint: context.l10n.registerSelectRegionHint,
-                icon: Icons.location_on_outlined,
-                items: _regions,
-                selectedName: _selectedRegion,
-                loading: _loadingRegions,
-                onChanged: _onRegionChanged,
-                validator: (v) => v == null ? context.l10n.requiredShort : null,
-              ),
-              if (_needsDepartment) ...[
-                const SizedBox(height: 16),
-                _LocationFormDropdown(
-                  label: context.l10n.registerDepartmentLabel,
-                  hint: _selectedRegion == null
-                      ? context.l10n.registerSelectRegionFirst
-                      : context.l10n.registerSelectDepartmentHint,
-                  icon: Icons.location_city_outlined,
-                  items: _selectedRegion != null ? _departments : [],
-                  selectedName: _selectedDepartment,
-                  loading: _loadingDepartments,
-                  onChanged:
-                      _selectedRegion != null ? _onDepartmentChanged : null,
-                  validator: (v) =>
-                      v == null ? context.l10n.requiredShort : null,
-                ),
-              ],
-            ],
-
-            const SizedBox(height: 24),
-            InfoBox(
-              icon: Icons.info_outline,
-              color: Colors.indigo,
-              text: context.l10n.registerMinefopInfoBox,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _roleBadge() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.indigo.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.indigo.shade200),
-      ),
-      child: Row(children: [
-        const Icon(Icons.account_balance_outlined,
-            color: Colors.indigo, size: 18),
-        const SizedBox(width: 8),
-        Text(_roleLabel,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Colors.indigo)),
-      ]),
-    );
-  }
-
-  // ── Step 1 widget ──
-  Widget _buildPositionTypeDropdown() {
-    if (_loadingPositionTypes) {
-      return LoadingField(label: context.l10n.registerLoadingFunctions);
-    }
-    if (_positionTypesError != null) {
-      return _errorBox(_positionTypesError!);
-    }
-    if (_availablePositionTypes.isEmpty) {
-      return _infoBox(context.l10n.registerNoFunctionsAvailable);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FieldLabel(label: context.l10n.registerFunctionPositionLabel),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedPositionType,
-          isExpanded: true,
-          decoration: modernDropdown(),
-          hint: Text(context.l10n.registerSelectYourFunction,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: _availablePositionTypes
-              .map((e) => DropdownMenuItem<String>(
-                    value: e['positionType'] as String,
-                    child: Text(e['label'] as String,
-                        style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF1E293B))),
-                  ))
-              .toList(),
-          onChanged: _onPositionTypeChanged,
-          validator: (v) =>
-              v == null ? context.l10n.registerSelectFunctionValidator : null,
-        ),
-      ],
-    );
-  }
-
-  // ── Step 2 widget ──
-  Widget _buildParentUnitDropdown() {
-    if (_loadingParentUnits) {
-      return LoadingField(label: context.l10n.registerLoadingParentUnits);
-    }
-    if (_parentUnits.isEmpty) {
-      return _infoBox(context.l10n.registerNoParentUnitsAvailable);
-    }
-    // Auto-select root-level parent (level 1) when it's the only option
-    if (_parentUnits.length == 1 &&
-        _parentUnits[0]['level'] == 1 &&
-        _selectedParentUnit == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _onParentUnitChanged(_parentUnits[0]['code'] as String);
-      });
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FieldLabel(label: context.l10n.registerParentUnitLabel),
-        const SizedBox(height: 4),
-        Text(
-          _parentUnits.length == 1 && _parentUnits[0]['level'] == 1
-              ? context.l10n.registerParentUnitDirectlyAttached
-              : context.l10n.registerSelectDirectSupervisor,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedParentUnit != null &&
-                  (_selectedParentUnit as Map).isNotEmpty
-              ? _selectedParentUnit!['code'] as String?
-              : null,
-          isExpanded: true,
-          decoration: modernDropdown(),
-          hint: Text(context.l10n.registerSelectParentUnitHint,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: _parentUnits
-              .map((e) => DropdownMenuItem<String>(
-                    value: e['code'] as String,
-                    child: Text(
-                      e['displayName'] as String,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14, color: Color(0xFF1E293B)),
-                    ),
-                  ))
-              .toList(),
-          onChanged: _onParentUnitChanged,
-          validator: (v) => v == null ? context.l10n.requiredShort : null,
-        ),
-      ],
-    );
-  }
-
-  // ── Step 3 widget ──
-  Widget _buildServiceUnitDropdown() {
-    if (_loadingServiceUnits) {
-      return LoadingField(label: context.l10n.registerLoadingServiceUnits);
-    }
-    if (_serviceUnits.isEmpty) {
-      return _infoBox(context.l10n.registerNoServiceUnitsFound);
-    }
-    // Auto-select when only one service unit is available
-    if (_serviceUnits.length == 1 && _selectedServiceUnit == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _onServiceUnitChanged(_serviceUnits[0]['code'] as String);
-      });
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FieldLabel(label: context.l10n.registerYourServiceLabel),
-        const SizedBox(height: 4),
-        Text(
-          context.l10n.registerSelectYourUnit,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedServiceUnit != null &&
-                  (_selectedServiceUnit as Map).isNotEmpty
-              ? _selectedServiceUnit!['code'] as String?
-              : null,
-          isExpanded: true,
-          decoration: modernDropdown(),
-          hint: Text(context.l10n.registerSelectYourServiceHint,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: _serviceUnits
-              .map((e) => DropdownMenuItem<String>(
-                    value: e['code'] as String,
-                    child: Text(
-                      e['displayName'] as String,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14, color: Color(0xFF1E293B)),
-                    ),
-                  ))
-              .toList(),
-          onChanged: _onServiceUnitChanged,
-          validator: (v) => v == null ? context.l10n.requiredShort : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildJobTitlePreview() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.teal.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.teal.shade200),
-      ),
-      child: Row(children: [
-        const Icon(Icons.work_outline, color: Colors.teal, size: 20),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(context.l10n.registerJobTitleLabel,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.teal,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 4),
-              Text(
-                _resolvedJobTitle,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Color(0xFF1E293B)),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.check_circle, color: Colors.teal, size: 18),
-      ]),
-    );
-  }
-
-  Widget _errorBox(String message) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.red.shade200),
-      ),
-      child: Row(children: [
-        const Icon(Icons.error_outline, color: Colors.red, size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(message, style: const TextStyle(color: Colors.red))),
-      ]),
-    );
-  }
-
-  Widget _infoBox(String message) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.amber.shade200),
-      ),
-      child: Text(message, style: const TextStyle(fontSize: 13)),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// Location form dropdown (MINEFOP regional/divisional)
-// ════════════════════════════════════════════════════════════════
-
-class _LocationFormDropdown extends StatelessWidget {
-  final String label;
-  final String hint;
-  final IconData icon;
-  final List<Map<String, dynamic>> items;
-  final String? selectedName;
-  final bool loading;
-  final void Function(Map<String, dynamic>?)? onChanged;
-  final String? Function(Map<String, dynamic>?)? validator;
-
-  const _LocationFormDropdown({
-    required this.label,
-    required this.hint,
-    required this.icon,
-    required this.items,
-    required this.selectedName,
-    required this.loading,
-    required this.onChanged,
-    this.validator,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final match = items.isNotEmpty && selectedName != null
-        ? items.firstWhere((r) => r['name'] == selectedName,
-            orElse: () => <String, dynamic>{})
-        : null;
-    final resolved = (match != null && match.isNotEmpty) ? match : null;
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      FieldLabel(label: label),
-      const SizedBox(height: 6),
-      if (loading)
-        const _LoadingBox()
-      else
-        DropdownButtonFormField<String>(
-          initialValue: resolved != null
-              ? resolved['id'] as String? ?? resolved['name'] as String?
-              : null,
-          isExpanded: true,
-          decoration:
-              modernDropdown().copyWith(prefixIcon: Icon(icon, size: 20)),
-          hint: Text(hint,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: items
-              .map((item) => DropdownMenuItem<String>(
-                    value:
-                        item['id'] as String? ?? item['name'] as String? ?? '',
-                    child: Text(item['name'] as String? ?? '',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF1E293B))),
-                  ))
-              .toList(),
-          onChanged: (code) {
-            final selected = code != null
-                ? items.firstWhere((i) => (i['id'] ?? i['name']) == code,
-                    orElse: () => {})
-                : null;
-            onChanged?.call(selected != null && (selected as Map).isNotEmpty
-                ? selected
-                : null);
-          },
-          validator: (v) => validator?.call(v != null
-              ? items.firstWhere((i) => (i['id'] ?? i['name']) == v,
-                  orElse: () => {})
-              : null),
-        ),
-    ]);
-  }
-}
-
-class _LoadingBox extends StatelessWidget {
-  const _LoadingBox();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: const Center(
-        child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
 // STEP 5 — Location (COMPANY flow)
 // ════════════════════════════════════════════════════════════════
 
@@ -1562,7 +472,6 @@ class StepLocation extends StatefulWidget {
       selectedSubdivision,
       selectedSector;
   final String? selectedArea;
-  final bool isMinefop;
   final ValueChanged<Map<String, dynamic>?> onRegionChanged;
   final ValueChanged<Map<String, dynamic>?> onDepartmentChanged;
   final ValueChanged<Map<String, dynamic>?> onSubdivisionChanged;
@@ -1585,7 +494,6 @@ class StepLocation extends StatefulWidget {
     required this.selectedSubdivision,
     required this.selectedArea,
     required this.selectedSector,
-    required this.isMinefop,
     required this.onRegionChanged,
     required this.onDepartmentChanged,
     required this.onSubdivisionChanged,
@@ -1711,12 +619,10 @@ class _StepLocationState extends State<StepLocation> {
                 ],
               ),
         const SizedBox(height: 20),
-        const InfoBox(
+        InfoBox(
           icon: Icons.auto_fix_high_outlined,
           color: Colors.teal,
-          text: 'Ces informations seront automatiquement pré-remplies dans la '
-              'Section 1 de vos formulaires ONEFOP et dans la Partie A de '
-              'vos déclarations DSMO.',
+          text: context.l10n.registerLocationInfoBox,
         ),
       ]),
     );
@@ -1748,6 +654,7 @@ class _StepSecurityState extends State<StepSecurity> {
   bool _obscurePw = true;
   bool _obscureConfirm = true;
   double _strength = 0;
+  bool _confirmDirty = false;
 
   @override
   void initState() {
@@ -1758,6 +665,15 @@ class _StepSecurityState extends State<StepSecurity> {
     _pwCtrl.addListener(() {
       setState(() => _strength = _calcStrength(_pwCtrl.text));
       widget.onChanged(_pwCtrl.text);
+    });
+    // Once the user has started confirming, keep the mismatch check live as
+    // either field changes — matches PhoneField's live-validation pattern.
+    _confirmCtrl.addListener(() {
+      if (!_confirmDirty && _confirmCtrl.text.isNotEmpty) {
+        setState(() => _confirmDirty = true);
+      } else if (_confirmDirty) {
+        setState(() {});
+      }
     });
   }
 
@@ -1792,6 +708,16 @@ class _StepSecurityState extends State<StepSecurity> {
           : s < 0.9
               ? context.l10n.registerStrengthStrong
               : context.l10n.registerStrengthVeryStrong;
+
+  String? _confirmError(String? v) {
+    if (v == null || v.isEmpty) {
+      return context.l10n.registerConfirmationRequired;
+    }
+    if (v != _pwCtrl.text) {
+      return context.l10n.registerPasswordsDontMatch;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1861,11 +787,21 @@ class _StepSecurityState extends State<StepSecurity> {
             controller: _confirmCtrl,
             obscureText: _obscureConfirm,
             textInputAction: TextInputAction.done,
+            autovalidateMode: _confirmDirty
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
             decoration: modernInput(
-              hasError: false,
+              hasError: _confirmDirty && _confirmError(_confirmCtrl.text) != null,
               labelText: context.l10n.registerConfirmPasswordLabel,
-              prefixIcon: const Icon(Icons.lock_clock_outlined),
+              prefixIcon: Icon(
+                _confirmDirty && _confirmError(_confirmCtrl.text) == null
+                    ? Icons.check_circle_outline
+                    : Icons.lock_clock_outlined,
+                color: _confirmDirty && _confirmError(_confirmCtrl.text) == null
+                    ? Colors.green
+                    : null,
+              ),
               suffixIcon: IconButton(
                 icon: Icon(_obscureConfirm
                     ? Icons.visibility_outlined
@@ -1874,15 +810,7 @@ class _StepSecurityState extends State<StepSecurity> {
                     setState(() => _obscureConfirm = !_obscureConfirm),
               ),
             ),
-            validator: (v) {
-              if (v == null || v.isEmpty) {
-                return context.l10n.registerConfirmationRequired;
-              }
-              if (v != _pwCtrl.text) {
-                return context.l10n.registerPasswordsDontMatch;
-              }
-              return null;
-            },
+            validator: _confirmError,
           ),
         ]),
       ),
@@ -1931,8 +859,6 @@ class _PasswordTips extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class StepReview extends StatelessWidget {
-  final bool isMinefop;
-  final String role;
   final EntityType? entityType;
   final String respondentFirstName,
       respondentLastName,
@@ -1946,16 +872,9 @@ class StepReview extends StatelessWidget {
       selectedSubdivision,
       selectedSector;
   final String? selectedArea;
-  final String minefopMatricule,
-      minefopPoste,
-      minefopServiceCode,
-      minefopPositionType;
-  final String minefopServicePath;
 
   const StepReview({
     super.key,
-    required this.isMinefop,
-    required this.role,
     required this.entityType,
     required this.respondentFirstName,
     required this.respondentLastName,
@@ -1969,11 +888,6 @@ class StepReview extends StatelessWidget {
     required this.selectedSubdivision,
     required this.selectedArea,
     required this.selectedSector,
-    required this.minefopMatricule,
-    required this.minefopPoste,
-    required this.minefopServiceCode,
-    required this.minefopPositionType,
-    this.minefopServicePath = '',
   });
 
   EntityConfig? get _entityConfig =>
@@ -1993,14 +907,12 @@ class StepReview extends StatelessWidget {
         _roleBadge(context),
         const SizedBox(height: 16),
         ReviewCard(
-          title: isMinefop
-              ? context.l10n.registerReviewPersonalInfoTitle
-              : context.l10n.registerReviewRespondentTitle,
+          title: context.l10n.registerReviewRespondentTitle,
           icon: Icons.person_outline,
           rows: [
             (context.l10n.registerFullNameLabel,
                 '$respondentFirstName $respondentLastName'),
-            if (!isMinefop && respondentFunction.isNotEmpty)
+            if (respondentFunction.isNotEmpty)
               (context.l10n.registerFunctionRowLabel, respondentFunction),
             (context.l10n.registerEmailRowLabel, respondentEmail),
             (context.l10n.registerPhone1RowLabel, respondentPhone1),
@@ -2008,7 +920,7 @@ class StepReview extends StatelessWidget {
               (context.l10n.registerPhone2RowLabel, respondentPhone2),
           ],
         ),
-        if (!isMinefop && _entityConfig != null) ...[
+        if (_entityConfig != null) ...[
           const SizedBox(height: 12),
           ReviewCard(
             title: context.loc.languageCode == 'en'
@@ -2016,15 +928,6 @@ class StepReview extends StatelessWidget {
                 : entityType!.formSectionLabel,
             icon: _entityConfig!.icon,
             rows: _buildEntityRows(context),
-          ),
-        ],
-        if (isMinefop) ...[
-          const SizedBox(height: 12),
-          _MinefopReviewCard(
-            matricule: minefopMatricule,
-            poste: minefopPoste,
-            servicePath: minefopServicePath,
-            serviceCode: minefopServiceCode,
           ),
         ],
         if (selectedRegion != null || selectedDepartment != null) ...[
@@ -2039,12 +942,12 @@ class StepReview extends StatelessWidget {
               if (selectedDepartment != null)
                 (context.l10n.registerDepartmentRowLabel,
                     selectedDepartment!['name'] as String? ?? ''),
-              if (!isMinefop && selectedSubdivision != null)
+              if (selectedSubdivision != null)
                 (
                   context.l10n.registerArrondissementLabel,
                   selectedSubdivision!['name'] as String? ?? ''
                 ),
-              if (!isMinefop && selectedArea != null)
+              if (selectedArea != null)
                 (
                   context.l10n.registerMilieuLabel,
                   kAreaOptions
@@ -2054,7 +957,7 @@ class StepReview extends StatelessWidget {
                       .text
                       .of(context.loc)
                 ),
-              if (!isMinefop && selectedSector != null)
+              if (selectedSector != null)
                 (context.l10n.registerSectorRowLabel,
                     selectedSector!['name'] as String? ?? ''),
             ],
@@ -2062,13 +965,9 @@ class StepReview extends StatelessWidget {
         ],
         const SizedBox(height: 16),
         InfoBox(
-          icon: isMinefop
-              ? Icons.hourglass_top_outlined
-              : Icons.check_circle_outline,
-          color: isMinefop ? Colors.orange : Colors.green,
-          text: isMinefop
-              ? context.l10n.registerMinefopPendingInfoBox
-              : context.l10n.registerCompanyPendingInfoBox,
+          icon: Icons.check_circle_outline,
+          color: Colors.green,
+          text: context.l10n.registerCompanyPendingInfoBox,
         ),
       ]),
     );
@@ -2095,29 +994,6 @@ class StepReview extends StatelessWidget {
         ]),
       );
     }
-    if (isMinefop) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.indigo.withAlpha(20),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.indigo.withAlpha(80)),
-        ),
-        child: Row(children: [
-          const Icon(Icons.account_balance_outlined, color: Colors.indigo),
-          const SizedBox(width: 10),
-          Text(
-            context.l10n.registerAgentMinefopPrefix(
-                kMinefopRoleLabels[role]?.of(context.loc) ?? role),
-            style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: Colors.indigo),
-          ),
-        ]),
-      );
-    }
     return const SizedBox.shrink();
   }
 
@@ -2131,129 +1007,5 @@ class StepReview extends StatelessWidget {
       rows.add((field.label.of(context.loc), value));
     }
     return rows;
-  }
-}
-
-class _MinefopReviewCard extends StatelessWidget {
-  final String matricule;
-  final String poste;
-  final String servicePath;
-  final String serviceCode;
-
-  const _MinefopReviewCard({
-    required this.matricule,
-    required this.poste,
-    required this.servicePath,
-    required this.serviceCode,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: Row(children: [
-            Icon(Icons.badge_outlined, size: 18, color: Colors.indigo.shade400),
-            const SizedBox(width: 8),
-            Text(context.l10n.registerStepTitleMinefopInfo,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700)),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        const Divider(height: 1, indent: 16, endIndent: 16),
-        const SizedBox(height: 12),
-        if (matricule.isNotEmpty)
-          _ReviewRow(
-              label: context.l10n.registerMatriculeRowLabel, value: matricule),
-        if (poste.isNotEmpty)
-          _ReviewRow(
-              label: context.l10n.registerJobTitleLabel, value: poste),
-        if (servicePath.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            child: Text(context.l10n.registerHierarchicalPathLabel,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade500)),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 4,
-                runSpacing: 4,
-                children: [
-                  for (final (i, part) in servicePath.split(' › ').indexed) ...[
-                    if (i > 0)
-                      Icon(Icons.chevron_right,
-                          size: 13, color: Colors.indigo.shade300),
-                    Text(
-                      part,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: i == servicePath.split(' › ').length - 1
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: i == servicePath.split(' › ').length - 1
-                            ? Colors.indigo.shade700
-                            : Colors.indigo.shade400,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ] else if (serviceCode.isNotEmpty)
-          _ReviewRow(
-              label: context.l10n.registerServiceCodeRowLabel,
-              value: serviceCode),
-        const SizedBox(height: 4),
-      ]),
-    );
-  }
-}
-
-class _ReviewRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _ReviewRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          width: 130,
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade500)),
-        ),
-        Expanded(
-          child: Text(value,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
-        ),
-      ]),
-    );
   }
 }

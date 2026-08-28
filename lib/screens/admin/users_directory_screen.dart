@@ -5,6 +5,7 @@ import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 import '../../../widgets/common_widgets.dart';
 import '../../../widgets/admin_kit.dart';
+import 'create_minefop_user_screen.dart';
 
 // ══════════════════════════════════════════════════════════════
 // UsersDirectoryScreen — single searchable/filterable roster of
@@ -435,6 +436,8 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
           Expanded(child: _buildRoleFilterDropdown()),
           const SizedBox(width: 8),
           AdminRefreshButton(onTap: _load),
+          const SizedBox(width: 8),
+          _NewAgentButton(onCreated: _load),
         ]),
         const SizedBox(height: 8),
         Text('$_total compte${_total == 1 ? '' : 's'}',
@@ -1032,6 +1035,39 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
             ),
           ]),
         ]),
+      ),
+    );
+  }
+}
+
+// ── New agent entry point ─────────────────────────────────────
+class _NewAgentButton extends StatelessWidget {
+  const _NewAgentButton({required this.onCreated});
+  final VoidCallback onCreated;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: UltraTheme.primary,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () async {
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => const CreateMinefopUserScreen()),
+          );
+          if (created == true) onCreated();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.person_add_alt_1_rounded, size: 16, color: Colors.white),
+            SizedBox(width: 6),
+            Text('Nouvel agent',
+                style: TextStyle(
+                    fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+          ]),
+        ),
       ),
     );
   }

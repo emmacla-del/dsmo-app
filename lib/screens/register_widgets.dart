@@ -9,7 +9,6 @@ import 'register_constants.dart'
         kStepRespondent,
         kStepEntityInfo,
         kStepLocation,
-        kStepMinefopInfo,
         kStepSecurity,
         kStepReview,
         modernInput,
@@ -21,6 +20,7 @@ import 'register_constants.dart'
 import '../core/focus/utils/cameroon_phone_validator.dart';
 import '../core/i18n/l10n_ext.dart';
 import '../data/minefop_models.dart' show EntityType;
+import '../widgets/public_chrome.dart';
 
 // ════════════════════════════════════════════════════════════════
 // RegisterHeader — progress bar + step title
@@ -50,8 +50,6 @@ class RegisterHeader extends StatelessWidget {
         return context.l10n.registerStepTitleEntityInfo;
       case kStepLocation:
         return context.l10n.registerStepTitleLocation;
-      case kStepMinefopInfo:
-        return context.l10n.registerStepTitleMinefopInfo;
       case kStepSecurity:
         return context.l10n.registerStepTitleSecurity;
       case kStepReview:
@@ -73,7 +71,7 @@ class RegisterHeader extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: onBack,
-          color: const Color(0xFF006B5E),
+          color: PublicColors.green,
         ),
         Expanded(
           child: Column(
@@ -88,7 +86,7 @@ class RegisterHeader extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF006B5E)),
+                          color: PublicColors.green),
                     ),
                   ),
                   Text(
@@ -105,7 +103,7 @@ class RegisterHeader extends StatelessWidget {
                   value: progress,
                   minHeight: 5,
                   backgroundColor: Colors.grey.shade200,
-                  color: const Color(0xFF006B5E),
+                  color: PublicColors.green,
                 ),
               ),
             ],
@@ -370,7 +368,7 @@ class _PhoneFieldState extends State<PhoneField> {
 
   bool get _hasError =>
       _dirty &&
-      cameroonPhoneError(widget.controller.text, required: widget.isRequired) !=
+      cameroonPhoneError(context, widget.controller.text, required: widget.isRequired) !=
           null;
 
   @override
@@ -402,13 +400,13 @@ class _PhoneFieldState extends State<PhoneField> {
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: length == 9
-              ? const Color(0xFF006B5E)
+              ? PublicColors.green
               : _hasError
                   ? const Color(0xFFE24B4A)
                   : const Color(0xFF94A3B8),
         ),
       ),
-      validator: (v) => cameroonPhoneError(v, required: widget.isRequired),
+      validator: (v) => cameroonPhoneError(context, v, required: widget.isRequired),
     );
   }
 }
@@ -628,7 +626,7 @@ class ReviewCard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Row(children: [
-            Icon(icon, size: 16, color: const Color(0xFF006B5E)),
+            Icon(icon, size: 16, color: PublicColors.green),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -636,7 +634,7 @@ class ReviewCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF006B5E)),
+                    color: PublicColors.green),
               ),
             ),
           ]),

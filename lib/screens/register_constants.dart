@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/i18n/localized_text.dart';
 import '../data/minefop_models.dart'; // EntityType lives here — single source of truth
+import '../widgets/public_chrome.dart';
 
 // ─── Step indices ────────────────────────────────────────────
 const int kStepRole = 0;
@@ -10,7 +11,6 @@ const int kStepEntityType = 1;
 const int kStepRespondent = 2;
 const int kStepEntityInfo = 3;
 const int kStepLocation = 4;
-const int kStepMinefopInfo = 5;
 const int kStepSecurity = 6;
 const int kStepReview = 7;
 
@@ -45,7 +45,7 @@ InputDecoration modernInput({
                 hasError ? const Color(0xFFE24B4A) : const Color(0xFFE2E8F0))),
     focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF006B5E), width: 2)),
+        borderSide: const BorderSide(color: PublicColors.green, width: 2)),
     errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFE24B4A))),
@@ -125,22 +125,6 @@ const List<LocalizedOption> kRespondentFunctionOptions = [
           en: 'Chairman of the Board')),
   LocalizedOption('Autre', LocalizedText(fr: 'Autre', en: 'Other')),
 ];
-
-// ─── MINEFOP role options ─────────────────────────────────────
-const List<String> kMinefopRoleOptions = [
-  'CENTRAL',
-  'REGIONAL',
-  'DIVISIONAL',
-];
-
-const Map<String, LocalizedText> kMinefopRoleLabels = {
-  'DIVISIONAL':
-      LocalizedText(fr: 'Délégué Départemental', en: 'Divisional Delegate'),
-  'REGIONAL':
-      LocalizedText(fr: 'Délégué Régional', en: 'Regional Delegate'),
-  'CENTRAL':
-      LocalizedText(fr: 'Administration Centrale', en: 'Central Administration'),
-};
 
 // NOTE: EntityType enum has been removed from this file.
 // It is defined once in lib/data/minefop_models.dart and imported above.
@@ -467,20 +451,20 @@ const Map<EntityType, EntityConfig> entityConfigs = {
   // ── CTD ─────────────────────────────────────────────────────
   EntityType.ctd: EntityConfig(
     type: EntityType.ctd,
-    title: LocalizedText.same('CTD'),
+    title: LocalizedText(fr: 'CTD', en: 'RLA'),
     icon: Icons.account_balance_outlined,
     color: Colors.indigo,
     fields: [
       EntityField(
         key: 'ctdType',
-        label: LocalizedText(fr: 'Type de CTD', en: 'CTD type'),
+        label: LocalizedText(fr: 'Type de CTD', en: 'RLA type'),
         options: kCtdTypeOptions,
         onefopSection: 'S1.Q1',
         dsmoField: 'typeCtd',
       ),
       EntityField(
         key: 'ctdName',
-        label: LocalizedText(fr: 'Nom de la CTD', en: 'CTD name'),
+        label: LocalizedText(fr: 'Nom de la CTD', en: 'RLA name'),
         hint: LocalizedText(fr: 'Région ou Commune', en: 'Region or Municipality'),
         onefopSection: 'S1.Q2',
         dsmoField: 'raisonSociale',

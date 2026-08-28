@@ -214,6 +214,44 @@ class ApiClient {
     }
   }
 
+  /// SUPER_ADMIN-only: creates a MINEFOP agent account directly (skips the
+  /// PENDING_APPROVAL step). Returns `{'user': {...}, 'temporaryPassword': '...'}`
+  /// — the password is only ever returned this once, so the caller must show
+  /// it to the admin immediately.
+  Future<Map<String, dynamic>> adminCreateMinefopUser({
+    required String email,
+    required String firstName,
+    required String lastName,
+    required String role,
+    String? region,
+    String? department,
+    String? matricule,
+    String? poste,
+    String? serviceCode,
+    String? positionType,
+  }) async {
+    try {
+      final response = await dio.post('/auth/admin/create-minefop-user', data: {
+        'email': email,
+        'firstName': firstName,
+        'lastName': lastName,
+        'role': role,
+        if (region != null) 'region': region,
+        if (department != null) 'department': department,
+        if (matricule != null) 'matricule': matricule,
+        if (poste != null) 'poste': poste,
+        if (serviceCode != null) 'serviceCode': serviceCode,
+        if (positionType != null) 'positionType': positionType,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> registerCompany({
     required String email,
     required String password,

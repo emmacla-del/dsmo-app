@@ -5,6 +5,7 @@ class UserFeatures {
   final int? onefopSurveyYear;
   final DateTime? onefopSubmissionDate;
   final bool onefopHasDraft;
+  final String? onefopRejectionReason;
 
   UserFeatures({
     this.onefopBasicAnalytics = false,
@@ -13,6 +14,7 @@ class UserFeatures {
     this.onefopSurveyYear,
     this.onefopSubmissionDate,
     this.onefopHasDraft = false,
+    this.onefopRejectionReason,
   });
 
   factory UserFeatures.fromJson(Map<String, dynamic> json) => UserFeatures(
@@ -24,6 +26,7 @@ class UserFeatures {
             ? DateTime.tryParse(json['onefopSubmissionDate'])
             : null,
         onefopHasDraft: json['onefopHasDraft'] ?? false,
+        onefopRejectionReason: json['onefopRejectionReason'],
       );
 }
 
