@@ -1233,7 +1233,7 @@ class _DeclarationWizardScreenState
               child: Center(
                 child: ConstrainedBox(
             // Matches the 480px form-width convention used by the ONEFOP
-            // registration wizard (register_screen.dart) and MinefopPortalScreen.
+            // registration wizard (register_screen.dart) and LoginPortalScreen.
             constraints: const BoxConstraints(maxWidth: 480),
             child: Stepper(
           currentStep: _currentStep,

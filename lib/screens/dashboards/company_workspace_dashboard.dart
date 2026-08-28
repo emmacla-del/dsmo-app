@@ -4,13 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async' show Timer;
 import 'dart:math' show pi;
 import '../../core/i18n/l10n_ext.dart';
+import '../../core/i18n/localized_text.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/responsive_helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../data/api_client.dart';
 import '../campaign/campaign_constants.dart'
-    show submissionStatusLabels, campaignTypeLabels, collectionTypeLabels;
+  show campaignTypeLabels, collectionTypeLabels, campaignStatusLabels;
 
 // ═══════════════════════════════════════════════════════════
 // PROVIDERS — wired to backend
@@ -59,6 +60,7 @@ final companyWorkspaceProvider =
   final onefopSurveyYear = user?.features.onefopSurveyYear;
   final onefopSubmissionDate = user?.features.onefopSubmissionDate;
   final hasDraft = user?.features.onefopHasDraft ?? false;
+  final onefopRejectionReason = user?.features.onefopRejectionReason;
 
   return {
     'company': company,
@@ -73,6 +75,7 @@ final companyWorkspaceProvider =
     'onefopSurveyYear': onefopSurveyYear,
     'onefopSubmissionDate': onefopSubmissionDate,
     'hasOnefopDraft': hasDraft,
+    'onefopRejectionReason': onefopRejectionReason,
     'declarations': declarations,
     'activeCampaigns': activeCampaigns,
   };
@@ -113,10 +116,23 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     final onefopStatus = data['onefopStatus'] as String?;
     final onefopSurveyYear = data['onefopSurveyYear'] as int?;
     final hasOnefopDraft = data['hasOnefopDraft'] as bool;
-    final activeCampaigns = data['activeCampaigns'] as List<dynamic>? ?? [];
+    final onefopRejectionReason = data['onefopRejectionReason'] as String?;
+    final campaigns = (data['activeCampaigns'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((campaign) => Map<String, dynamic>.from(campaign))
+        .toList();
+    final campaignsByType = <String, Map<String, dynamic>>{
+      for (final campaign in campaigns)
+        if (campaign['collectionType'] != null)
+          campaign['collectionType'] as String: campaign,
+    };
+    final campaignSlots = <Map<String, dynamic>?>[
+      campaignsByType['DSMO'],
+      campaignsByType['ONEFOP'],
+    ];
 
-    final onefopDisplay = _formatOnefopStatus(
-        context, onefopStatus, onefopSurveyYear, hasOnefopDraft);
+    final onefopDisplay = _formatOnefopStatus(context, onefopStatus,
+        onefopSurveyYear, hasOnefopDraft, onefopRejectionReason);
     final mobile = context.isMobile;
 
     return SingleChildScrollView(
@@ -124,15 +140,10 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (activeCampaigns.isNotEmpty) ...[
-            _buildActiveCampaigns(context, activeCampaigns, onNewSubmission),
-            const SizedBox(height: 24),
-          ],
-          _buildHeroCard(context, totalWorkers, declarationsFiled, lastUpdated,
-              mobile, onNewSubmission),
-          const SizedBox(height: 24),
-          _buildKpiRow(context, mobile, declarationsFiled, pendingCount,
-              approvedCount, onefopDisplay),
+          _buildCampaignSelector(context, campaignSlots, onNewSubmission),
+          const SizedBox(height: 20),
+          _buildKpiRow(context, mobile, totalWorkers, declarationsFiled,
+              pendingCount, approvedCount, lastUpdated, onefopDisplay),
           const SizedBox(height: 24),
           if (mobile)
             Column(
@@ -159,151 +170,95 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     );
   }
 
-  // ── Active campaigns ─────────────────────────────────────
+  // ── Campaign selector ────────────────────────────────────
 
-  Widget _buildActiveCampaigns(BuildContext context,
-      List<dynamic> campaigns, VoidCallback? onNewSubmission) {
-    const spacing = 16.0;
-    final mobile = context.isMobile;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(context.l10n.activeCampaignsTitle, style: UltraTheme.titleMedium),
-        const SizedBox(height: 12),
-        if (mobile)
-          for (final c in campaigns)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _CampaignCard(
-                campaign: c as Map<String, dynamic>,
-                onNewSubmission: onNewSubmission,
-              ),
-            )
-        else
-          // Cards are capped at half the row's width rather than divided by
-          // count, so two fit side by side and a single active campaign
-          // still sits at half width instead of stretching the full line.
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cardWidth = (constraints.maxWidth - spacing) / 2;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: [
-                  for (final c in campaigns)
-                    SizedBox(
-                      width: cardWidth,
-                      child: _CampaignCard(
-                        campaign: c as Map<String, dynamic>,
-                        onNewSubmission: onNewSubmission,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  // ── Hero card ────────────────────────────────────────────
-
-  Widget _buildHeroCard(BuildContext context, int totalWorkers,
-      int activeDeclarations, DateTime? lastUpdated, bool mobile,
-      VoidCallback? onNewSubmission) {
-    final l10n = context.l10n;
-    String lastUpdatedText;
-    if (lastUpdated != null) {
-      final now = DateTime.now();
-      final diff = now.difference(lastUpdated);
-      if (diff.inDays == 0) {
-        lastUpdatedText = l10n.updatedToday;
-      } else if (diff.inDays == 1) {
-        lastUpdatedText = l10n.updatedYesterday;
-      } else {
-        lastUpdatedText = l10n.updatedDaysAgo(diff.inDays);
-      }
-    } else {
-      lastUpdatedText = l10n.noDeclarationsYet;
-    }
-
-    final stats = Row(
-      children: [
-        Container(
-          width: 4,
-          height: 56,
-          decoration: BoxDecoration(
-            color: UltraTheme.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.workersCurrentlyDeclared, style: UltraTheme.labelLarge),
-              const SizedBox(height: 6),
-              Text('$totalWorkers',
-                  style: UltraTheme.displayLarge.copyWith(fontSize: 32),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 6),
-              Text(
-                  l10n.activeDeclarationsCount(
-                      activeDeclarations, lastUpdatedText),
-                  style: UltraTheme.bodyMedium),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    final ctaButton = onNewSubmission == null
+  Widget _buildCampaignSelector(BuildContext context,
+      List<Map<String, dynamic>?> campaigns, VoidCallback? onNewSubmission) {
+    final action = onNewSubmission == null
         ? null
         : ElevatedButton.icon(
             onPressed: onNewSubmission,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(l10n.newDeclarationCta),
+            icon: const Icon(Icons.add_rounded, size: 17),
+            label: Text(context.l10n.newDeclarationCta),
             style: ElevatedButton.styleFrom(
               backgroundColor: UltraTheme.primary,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
             ),
           );
 
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
-      child: mobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                stats,
-                if (ctaButton != null) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(width: double.infinity, child: ctaButton),
-                ],
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: stats),
-                if (ctaButton != null) ...[
-                  const SizedBox(width: 20),
-                  ctaButton,
-                ],
-              ],
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        final selector = Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Text(
+              const LocalizedText(fr: 'Campagnes', en: 'Campaigns').of(context.loc),
+              style: UltraTheme.titleMedium.copyWith(fontSize: 14),
             ),
+            CampaignBadge(campaign: campaigns[0], collectionType: 'DSMO'),
+            CampaignBadge(campaign: campaigns[1], collectionType: 'ONEFOP'),
+          ],
+        );
+        if (action == null) return selector;
+        if (constraints.maxWidth < 760) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [selector, const SizedBox(height: 10), action],
+          );
+        }
+        return Row(children: [Expanded(child: selector), action]);
+      },
     );
+
+    return context.isMobile
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Text(
+                    const LocalizedText(fr: 'Campagnes', en: 'Campaigns')
+                        .of(context.loc),
+                    style: UltraTheme.titleMedium.copyWith(fontSize: 14),
+                  ),
+                  CampaignBadge(campaign: campaigns[0], collectionType: 'DSMO'),
+                  CampaignBadge(
+                      campaign: campaigns[1], collectionType: 'ONEFOP'),
+                ],
+              ),
+              if (action != null) ...[
+                const SizedBox(height: 10),
+                SizedBox(width: double.infinity, child: action),
+              ],
+            ],
+          )
+        : content;
   }
 
   // ── KPI row ──────────────────────────────────────────────
 
-  Widget _buildKpiRow(BuildContext context, bool mobile, int declarationsFiled,
-      int pendingCount, int approvedCount, Map<String, dynamic> onefopDisplay) {
+  Widget _buildKpiRow(
+      BuildContext context,
+      bool mobile,
+      int totalWorkers,
+      int declarationsFiled,
+      int pendingCount,
+      int approvedCount,
+      DateTime? lastUpdated,
+      Map<String, dynamic> onefopDisplay) {
     final l10n = context.l10n;
+    final lastUpdatedText = lastUpdated == null
+        ? l10n.noDeclarationsYet
+        : l10n.updatedDaysAgo(DateTime.now().difference(lastUpdated).inDays);
     final declarationProgress = declarationsFiled > 0
         ? (approvedCount / declarationsFiled).clamp(0.0, 1.0)
         : 0.0;
@@ -311,71 +266,69 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         ? (pendingCount / declarationsFiled).clamp(0.0, 1.0)
         : 0.0;
 
-    // Declarations-filed and Awaiting-approval are both plain DSMO counts —
-    // same shape, so they pair naturally at half width. ONEFOP status keeps
-    // its own full-width row: its value is a status word (e.g. "Corrections
-    // requises"), not a number, and it's the most action-critical of the
-    // three, so it shouldn't be squeezed down to match the others.
-    Widget declarationsCard(bool compact) => _kpiCard(
-          title: l10n.declarationsFiledTitle,
-          value: '$declarationsFiled',
-          valueColor: UltraTheme.textPrimary,
-          subtitle: l10n.approvedCountSubtitle(approvedCount),
-          subtitleColor: UltraTheme.success,
-          progress: declarationProgress.toDouble(),
-          progressColor: UltraTheme.primary,
-          valueFontSize: compact ? 20 : 28,
-          compact: compact,
-        );
-
-    Widget pendingCard(bool compact) => _kpiCard(
-          title: l10n.awaitingApprovalTitle,
-          value: '$pendingCount',
-          valueColor: UltraTheme.textPrimary,
-          subtitle: pendingCount > 0 ? l10n.underReview : l10n.allUpToDate,
-          subtitleColor: UltraTheme.textSecondary,
-          progress: pendingProgress.toDouble(),
-          progressColor: UltraTheme.warning,
-          valueFontSize: compact ? 20 : 28,
-          compact: compact,
-        );
-
-    final onefopCard = _kpiCard(
-      title: onefopDisplay['title'] as String,
-      value: onefopDisplay['value'] as String,
-      valueColor: onefopDisplay['color'] as Color,
-      subtitle: onefopDisplay['subtitle'] as String,
-      subtitleColor: onefopDisplay['color'] as Color,
-      progress: onefopDisplay['progress'] as double,
-      progressColor: onefopDisplay['color'] as Color,
-      valueFontSize: 24,
-    );
+    final cards = <Widget>[
+      _kpiCard(
+        title: l10n.workersCurrentlyDeclared,
+        value: '$totalWorkers',
+        valueColor: UltraTheme.textPrimary,
+        subtitle: l10n.activeDeclarationsCount(totalWorkers, lastUpdatedText),
+        subtitleColor: UltraTheme.textSecondary,
+        progress: totalWorkers == 0 ? 0 : 1,
+        progressColor: UltraTheme.primary,
+      ),
+      _kpiCard(
+        title: l10n.declarationsFiledTitle,
+        value: '$declarationsFiled',
+        valueColor: UltraTheme.textPrimary,
+        subtitle: l10n.approvedCountSubtitle(approvedCount),
+        subtitleColor: UltraTheme.success,
+        progress: declarationProgress.toDouble(),
+        progressColor: UltraTheme.primary,
+      ),
+      _kpiCard(
+        title: l10n.awaitingApprovalTitle,
+        value: '$pendingCount',
+        valueColor: UltraTheme.textPrimary,
+        subtitle: pendingCount > 0 ? l10n.underReview : l10n.allUpToDate,
+        subtitleColor: UltraTheme.textSecondary,
+        progress: pendingProgress.toDouble(),
+        progressColor: UltraTheme.warning,
+      ),
+      _kpiCard(
+        title: onefopDisplay['title'] as String,
+        value: onefopDisplay['value'] as String,
+        valueColor: onefopDisplay['color'] as Color,
+        subtitle: onefopDisplay['subtitle'] as String,
+        subtitleColor: onefopDisplay['color'] as Color,
+        progress: onefopDisplay['progress'] as double,
+        progressColor: onefopDisplay['color'] as Color,
+        valueFontSize: 24,
+      ),
+    ];
 
     if (mobile) {
-      return Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: declarationsCard(true)),
-              const SizedBox(width: 12),
-              Expanded(child: pendingCard(true)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          onefopCard,
-        ],
+      return GridView.count(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.45,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: cards,
       );
     }
 
-    return Row(
-      children: [
-        Expanded(child: declarationsCard(false)),
-        const SizedBox(width: 16),
-        Expanded(child: pendingCard(false)),
-        const SizedBox(width: 16),
-        Expanded(child: onefopCard),
-      ],
+    return SizedBox(
+      height: 156,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 14),
+            Expanded(child: cards[i]),
+          ],
+        ],
+      ),
     );
   }
 
@@ -391,7 +344,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
     bool compact = false,
   }) {
     return GlassCard(
-      padding: EdgeInsets.all(compact ? 14 : 20),
+      padding: EdgeInsets.all(compact ? 14 : 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -400,11 +353,11 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                   .copyWith(fontSize: compact ? 11 : null),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
-          SizedBox(height: compact ? 8 : 12),
+          SizedBox(height: compact ? 8 : 8),
           Text(value,
               style: UltraTheme.displayLarge
                   .copyWith(fontSize: valueFontSize, color: valueColor)),
-          SizedBox(height: compact ? 4 : 8),
+          SizedBox(height: compact ? 4 : 6),
           Text(subtitle,
               style: UltraTheme.bodyMedium.copyWith(
                   fontWeight: FontWeight.w600,
@@ -412,7 +365,7 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
                   fontSize: compact ? 11 : null),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
-          SizedBox(height: compact ? 8 : 12),
+          SizedBox(height: compact ? 8 : 8),
           Container(
             height: compact ? 3 : 4,
             decoration: BoxDecoration(
@@ -433,8 +386,8 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
 
   // ── ONEFOP status formatter ──────────────────────────────
 
-  Map<String, dynamic> _formatOnefopStatus(
-      BuildContext context, String? status, int? surveyYear, bool hasDraft) {
+  Map<String, dynamic> _formatOnefopStatus(BuildContext context, String? status,
+      int? surveyYear, bool hasDraft, String? rejectionReason) {
     final l10n = context.l10n;
     final year = surveyYear ?? DateTime.now().year;
     switch (status) {
@@ -458,7 +411,12 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         return {
           'title': 'ONEFOP $year',
           'value': l10n.onefopRejected,
-          'subtitle': l10n.onefopCorrectionsRequiredSubtitle,
+          // Falls back to the generic label only if an admin somehow
+          // rejected without leaving a reason — the reviewer-facing screen
+          // requires one, so this is a defensive fallback, not the norm.
+          'subtitle': (rejectionReason != null && rejectionReason.isNotEmpty)
+              ? rejectionReason
+              : l10n.onefopCorrectionsRequiredSubtitle,
           'color': UltraTheme.error,
           'progress': 0.3,
         };
@@ -466,7 +424,9 @@ class CompanyWorkspaceDashboard extends ConsumerWidget {
         return {
           'title': 'ONEFOP $year',
           'value': l10n.onefopCorrections,
-          'subtitle': l10n.onefopModificationsRequestedSubtitle,
+          'subtitle': (rejectionReason != null && rejectionReason.isNotEmpty)
+              ? rejectionReason
+              : l10n.onefopModificationsRequestedSubtitle,
           'color': UltraTheme.warning,
           'progress': 0.5,
         };
@@ -1024,15 +984,234 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// ACTIVE CAMPAIGN CARD — ticks its own countdown clock
-// ═══════════════════════════════════════════════════════════
+/// Compact campaign navigation item used in the dashboard header.
+class CampaignBadge extends StatelessWidget {
+  final Map<String, dynamic>? campaign;
+  final String collectionType;
+  final VoidCallback? onOpen;
+
+  const CampaignBadge({
+    super.key,
+    required this.campaign,
+    required this.collectionType,
+    this.onOpen,
+  });
+
+  bool get isActive {
+    final status = campaign?['status'] as String?;
+    final start = DateTime.tryParse(campaign?['startDate']?.toString() ?? '');
+    final end = DateTime.tryParse(campaign?['deadline']?.toString() ?? '');
+    final now = DateTime.now();
+    return status == 'ACTIVE' &&
+        (start == null || !start.isAfter(now)) &&
+        (end == null || !end.isBefore(now));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = isActive;
+    final accent = active ? UltraTheme.success : UltraTheme.error;
+    final name = campaign?['name'] as String? ??
+        (collectionType == 'DSMO' ? 'DSMO' : 'ONEFOP');
+    final module = collectionType == 'DSMO' ? 'DSMO' : 'ONEFOP';
+
+    return Semantics(
+      button: true,
+      label: '$module, ${active ? 'Active' : 'Inactive'}',
+      hint: const LocalizedText(
+              fr: 'Ouvrir les détails de la campagne',
+              en: 'Open campaign details')
+          .of(context.loc),
+      child: Tooltip(
+        message: name,
+        child: InkWell(
+          onTap: () => CampaignDetailsDialog.show(
+            context,
+            campaign: campaign,
+            collectionType: collectionType,
+            onOpen: active ? onOpen : null,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 230),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: active ? 0.1 : 0.07),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: accent.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(active ? Icons.circle : Icons.circle_outlined,
+                    size: 9, color: accent),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    module,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: accent),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  active
+                      ? const LocalizedText(fr: 'Active', en: 'Active').of(context.loc)
+                      : const LocalizedText(fr: 'Inactive', en: 'Inactive').of(context.loc),
+                  style: TextStyle(fontSize: 10.5, color: accent),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full campaign information shown after selecting a compact badge.
+class CampaignDetailsDialog extends StatelessWidget {
+  final Map<String, dynamic>? campaign;
+  final String collectionType;
+  final VoidCallback? onOpen;
+
+  const CampaignDetailsDialog({
+    super.key,
+    required this.campaign,
+    required this.collectionType,
+    this.onOpen,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    required Map<String, dynamic>? campaign,
+    required String collectionType,
+    VoidCallback? onOpen,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => CampaignDetailsDialog(
+        campaign: campaign,
+        collectionType: collectionType,
+        onOpen: onOpen,
+      ),
+    );
+  }
+
+  String _date(dynamic value) {
+    final date = DateTime.tryParse(value?.toString() ?? '');
+    if (date == null) return '-';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = campaign;
+    final status = data?['status'] as String?;
+    final start = DateTime.tryParse(data?['startDate']?.toString() ?? '');
+    final end = DateTime.tryParse(data?['deadline']?.toString() ?? '');
+    final now = DateTime.now();
+    final active = status == 'ACTIVE' &&
+        (start == null || !start.isAfter(now)) &&
+        (end == null || !end.isBefore(now));
+    final accent = active ? UltraTheme.success : UltraTheme.error;
+    final title = data?['name'] as String? ?? collectionType;
+    final description = data?['description'] as String?;
+    final statusText = active
+        ? const LocalizedText(fr: 'Active', en: 'Active').of(context.loc)
+        : const LocalizedText(fr: 'Inactive', en: 'Inactive').of(context.loc);
+    final unavailable = const LocalizedText(fr: 'Non disponible', en: 'Not available')
+        .of(context.loc);
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          Expanded(child: Text(title, style: UltraTheme.titleMedium)),
+          Icon(active ? Icons.circle : Icons.circle_outlined,
+              size: 12, color: accent),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _CampaignDetailRow(label: 'Status', value: statusText),
+              _CampaignDetailRow(
+                  label: 'Description', value: description?.trim().isNotEmpty == true ? description! : unavailable),
+              _CampaignDetailRow(label: 'Start date', value: _date(data?['startDate'])),
+              _CampaignDetailRow(label: 'End date', value: _date(data?['deadline'])),
+              _CampaignDetailRow(label: 'Target users', value: unavailable),
+              _CampaignDetailRow(
+                  label: 'Available forms',
+                  value: collectionTypeLabels[collectionType]?.of(context.loc) ?? collectionType),
+              _CampaignDetailRow(
+                  label: 'Submissions',
+                  value: data?['submissionCount']?.toString() ?? unavailable),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        if (onOpen != null)
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              onOpen!();
+            },
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Open campaign'),
+          ),
+      ],
+    );
+  }
+}
+
+class _CampaignDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _CampaignDetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+                width: 112,
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700))),
+            Expanded(
+                child: Text(value,
+                    style: const TextStyle(fontSize: 12, color: UltraTheme.textMuted))),
+          ],
+        ),
+      );
+}
+
+// Legacy card retained below for compatibility with existing drafts/screens.
 
 class _CampaignCard extends StatefulWidget {
-  final Map<String, dynamic> campaign;
+  final Map<String, dynamic>? campaign;
+  final String collectionType;
   final VoidCallback? onNewSubmission;
 
-  const _CampaignCard({required this.campaign, this.onNewSubmission});
+  const _CampaignCard({
+    required this.campaign,
+    required this.collectionType,
+    // ignore: unused_element_parameter
+    this.onNewSubmission,
+  });
 
   @override
   State<_CampaignCard> createState() => _CampaignCardState();
@@ -1040,6 +1219,7 @@ class _CampaignCard extends StatefulWidget {
 
 class _CampaignCardState extends State<_CampaignCard> {
   Timer? _ticker;
+  bool _expanded = false;
 
   @override
   void initState() {
@@ -1057,97 +1237,133 @@ class _CampaignCardState extends State<_CampaignCard> {
 
   @override
   Widget build(BuildContext context) {
-    final campaign = widget.campaign;
-    final mySubmission = campaign['mySubmission'] as String? ?? 'NOT_STARTED';
-    final isDone = mySubmission == 'SUBMITTED' || mySubmission == 'VALIDATED';
-    final statusColor = isDone ? UltraTheme.success : UltraTheme.warning;
-    final type = campaign['type'] as String?;
-    final collectionType = campaign['collectionType'] as String?;
-    final startDate =
-        DateTime.tryParse(campaign['startDate']?.toString() ?? '');
-    final deadline = DateTime.tryParse(campaign['deadline']?.toString() ?? '');
+        final campaign = widget.campaign;
+        final mySubmission = campaign?['mySubmission'] as String? ?? 'NOT_STARTED';
+        final isDone = mySubmission == 'SUBMITTED' || mySubmission == 'VALIDATED';
+        final campaignStatus = campaign?['status'] as String?;
+        final startDate =
+            DateTime.tryParse(campaign?['startDate']?.toString() ?? '');
+        final deadline =
+            DateTime.tryParse(campaign?['deadline']?.toString() ?? '');
+        final now = DateTime.now();
+        final isActive = campaignStatus == 'ACTIVE' &&
+            (startDate == null || !startDate.isAfter(now)) &&
+            (deadline == null || !deadline.isBefore(now));
+        final statusColor = isActive ? UltraTheme.success : UltraTheme.textMuted;
+        final type = campaign?['type'] as String?;
+        final collectionType =
+            campaign?['collectionType'] as String? ?? widget.collectionType;
+        final statusLabel = campaign == null
+            ? context.l10n.noCampaignsTitle
+            : isActive
+                ? campaignStatusLabels['ACTIVE']!.of(context.loc)
+                : campaignStatusLabels[campaignStatus]?.of(context.loc) ??
+                    context.l10n.noCampaignsTitle;
 
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
-      onTap: isDone ? null : widget.onNewSubmission,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        final card = GlassCard(
+          padding: const EdgeInsets.all(14),
+          onTap: isActive && !isDone ? widget.onNewSubmission : null,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (isDone ? UltraTheme.success : UltraTheme.primary)
-                      .withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  isDone ? Icons.check_circle_outline : Icons.campaign_outlined,
-                  color: isDone ? UltraTheme.success : UltraTheme.primary,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Title gets the full remaining row width (the status badge
-              // used to compete with it here, which on a phone-width card
-              // could squeeze the title's available width down to less than
-              // a single word — forcing mid-word character breaks instead
-              // of wrapping at spaces). Badge now sits below the title.
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      campaign['name'] as String? ?? context.l10n.campaignFallbackName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: UltraTheme.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (isDone ? UltraTheme.success : UltraTheme.primary)
+                          .withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Chip(
-                        label: Text(
-                          submissionStatusLabels[mySubmission]?.of(context.loc) ??
-                              mySubmission,
-                          style: TextStyle(fontSize: 11, color: statusColor),
+                    child: Icon(
+                      isDone ? Icons.check_circle_outline : Icons.campaign_outlined,
+                      color: isDone ? UltraTheme.success : UltraTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          campaign?['name'] as String? ?? collectionType,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: UltraTheme.bodyLarge.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
                         ),
-                        backgroundColor: statusColor.withValues(alpha: 0.1),
-                        visualDensity: VisualDensity.compact,
-                      ),
+                        const SizedBox(height: 6),
+                        Chip(
+                          label: Text(statusLabel,
+                              style: TextStyle(fontSize: 10.5, color: statusColor)),
+                          backgroundColor: statusColor.withValues(alpha: 0.1),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if (type != null)
+                    _tag(Icons.repeat_rounded,
+                        campaignTypeLabels[type]?.of(context.loc) ?? type),
+                  _tag(Icons.description_outlined,
+                      collectionTypeLabels[collectionType]?.of(context.loc) ??
+                          collectionType),
+                ],
+              ),
+              if (campaign != null) ...[
+                const SizedBox(height: 6),
+                TextButton.icon(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  style: TextButton.styleFrom(
+                    foregroundColor: UltraTheme.primary,
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 16),
+                  label: Text(
+                    LocalizedText(
+                            fr: _expanded ? 'Voir moins' : 'Voir plus',
+                            en: _expanded ? 'See less' : 'See more')
+                        .of(context.loc),
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (_expanded) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    context.l10n.periodLabel(_formatPeriod(startDate, deadline)),
+                    style: UltraTheme.bodyMedium
+                        .copyWith(fontSize: 12, color: UltraTheme.textMuted),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCountdown(deadline),
+                ],
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              if (type != null)
-                _tag(Icons.repeat_rounded,
-                    campaignTypeLabels[type]?.of(context.loc) ?? type),
-              if (collectionType != null)
-                _tag(Icons.description_outlined,
-                    collectionTypeLabels[collectionType]?.of(context.loc) ??
-                        collectionType),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            context.l10n.periodLabel(_formatPeriod(startDate, deadline)),
-            style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
-          ),
-          const SizedBox(height: 10),
-          _buildCountdown(deadline),
-        ],
-      ),
+        );
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+        child: _expanded
+          ? card
+          : SizedBox(height: 178, child: card),
     );
   }
 
@@ -1163,22 +1379,19 @@ class _CampaignCardState extends State<_CampaignCard> {
         children: [
           Icon(icon, size: 13, color: UltraTheme.primary),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: UltraTheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: UltraTheme.primary,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
   String _formatPeriod(DateTime? start, DateTime? end) {
-    String fmt(DateTime d) =>
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    String fmt(DateTime date) =>
+        '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     if (start != null && end != null) return '${fmt(start)} → ${fmt(end)}';
     if (end != null) return context.l10n.periodUntil(fmt(end));
     if (start != null) return context.l10n.periodSince(fmt(start));
@@ -1188,10 +1401,8 @@ class _CampaignCardState extends State<_CampaignCard> {
   Widget _buildCountdown(DateTime? deadline) {
     final l10n = context.l10n;
     if (deadline == null) {
-      return Text(
-        l10n.deadlineUndefined,
-        style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted),
-      );
+      return Text(l10n.deadlineUndefined,
+          style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted));
     }
 
     final remaining = deadline.difference(DateTime.now());
@@ -1201,11 +1412,9 @@ class _CampaignCardState extends State<_CampaignCard> {
           const Icon(Icons.timer_off_outlined,
               size: 16, color: UltraTheme.error),
           const SizedBox(width: 6),
-          Text(
-            l10n.deadlinePassed,
-            style: UltraTheme.bodyMedium
-                .copyWith(color: UltraTheme.error, fontWeight: FontWeight.w600),
-          ),
+          Text(l10n.deadlinePassed,
+              style: UltraTheme.bodyMedium.copyWith(
+                  color: UltraTheme.error, fontWeight: FontWeight.w600)),
         ],
       );
     }

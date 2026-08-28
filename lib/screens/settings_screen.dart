@@ -237,30 +237,39 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildPageHeader() {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: UltraTheme.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
-          ),
-          child: const Icon(Icons.settings_outlined,
-              color: UltraTheme.primary, size: 22),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final heading = Row(
           children: [
-            Text(context.l10n.settingsPageTitle,
-                style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
-            const SizedBox(height: 2),
-            Text(context.l10n.settingsPageSubtitle,
-                style: UltraTheme.bodyMedium),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: UltraTheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
+              ),
+              child: const Icon(Icons.settings_outlined,
+                  color: UltraTheme.primary, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.l10n.settingsPageTitle,
+                      style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
+                  const SizedBox(height: 2),
+                  Text(context.l10n.settingsPageSubtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: UltraTheme.bodyMedium),
+                ],
+              ),
+            ),
           ],
-        ),
-      ],
+        );
+        return heading;
+      },
     );
   }
 
@@ -276,9 +285,11 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
         borderRadius: BorderRadius.circular(UltraTheme.radiusMedium),
         boxShadow: UltraTheme.softShadow,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(_tabs.length, (i) {
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(_tabs.length, (i) {
           final isActive = i == _selectedTab;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -336,7 +347,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen>
               ),
             ),
           );
-        }),
+          }),
+        ),
       ),
     );
   }

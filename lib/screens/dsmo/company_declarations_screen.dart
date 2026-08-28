@@ -46,14 +46,6 @@ class _HistoryEntry {
 
 enum _Group { draft, pending, approved, rejected }
 
-const _tableHeaderStyle = TextStyle(
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: FontWeight.w700,
-    color: UltraTheme.textSecondary);
-const _tableCellStyle =
-    TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary);
-
 const _dsmoStatusMeta = {
   'DRAFT': (color: UltraTheme.textMuted, group: _Group.draft),
   'SUBMITTED': (color: UltraTheme.info, group: _Group.pending),
@@ -136,6 +128,8 @@ class _CompanyDeclarationsScreenState
   bool _loading = true;
   String? _error;
   _Group? _groupFilter;
+  String _campaignFilter = 'ALL';
+  final _searchController = TextEditingController();
   late AnimationController _animCtrl;
 
   @override
@@ -149,6 +143,7 @@ class _CompanyDeclarationsScreenState
   @override
   void dispose() {
     _animCtrl.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -238,14 +233,32 @@ class _CompanyDeclarationsScreenState
 
   void _applyFilter() {
     setState(() {
-      _filtered = _groupFilter == null
-          ? _entries
-          : _entries.where((e) => e.group == _groupFilter).toList();
+      final query = _searchController.text.trim().toLowerCase();
+      _filtered = _entries.where((e) {
+        final matchesStatus = _groupFilter == null || e.group == _groupFilter;
+        final matchesCampaign = _campaignFilter == 'ALL' ||
+            e.stream == _campaignFilter;
+        final matchesSearch = query.isEmpty ||
+            _entryTitle(context.l10n, e).toLowerCase().contains(query) ||
+            e.stream.toLowerCase().contains(query) ||
+            e.period.toLowerCase().contains(query);
+        return matchesStatus && matchesCampaign && matchesSearch;
+      }).toList();
     });
   }
 
   int get _draftCount =>
       _entries.where((e) => e.isDraft).length;
+
+  int _count(_Group group) => _entries.where((e) => e.group == group).length;
+
+    int get _submittedCount =>
+      _entries.where((e) => e.status == 'SUBMITTED' || e.status == 'PENDING_REVIEW').length;
+
+    int get _underReviewCount =>
+      _count(_Group.pending) - _submittedCount < 0
+        ? 0
+        : _count(_Group.pending) - _submittedCount;
 
   // `pdfUrl` being set on the record is a proxy for "this declaration was
   // submitted with a PDF" — the actual bytes are always fetched fresh
@@ -285,86 +298,144 @@ class _CompanyDeclarationsScreenState
     return Scaffold(
       backgroundColor: UltraTheme.background,
       body: Column(children: [
-        if (!_loading && _error == null) _buildStatStrip(l10n),
-        if (!_loading && _error == null) _buildFilterChips(l10n),
+        if (!_loading && _error == null) _buildHeader(l10n),
+        if (!_loading && _error == null) _buildSummary(l10n),
+        if (!_loading && _error == null) _buildToolbar(l10n),
         Expanded(child: _buildBody(l10n)),
       ]),
-      floatingActionButton: widget.onNewSubmission != null
-          ? FloatingActionButton.extended(
-              onPressed: widget.onNewSubmission,
-              backgroundColor: UltraTheme.primary,
-              foregroundColor: Colors.white,
-              elevation: 2,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l10n.companyDeclNewButton,
-                  style: const TextStyle(
-                      fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-            )
-          : null,
     );
   }
 
-  Widget _buildStatStrip(AppLocalizations l10n) {
+  Widget _buildHeader(AppLocalizations l10n) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Row(children: [
-        _StatPill(
-            value: _entries.length, label: l10n.total, color: UltraTheme.primary),
-        const SizedBox(width: 8),
-        _StatPill(
-            value: _draftCount,
-            label: l10n.companyDeclDraftsFilter,
-            color: UltraTheme.textSecondary),
-        const Spacer(),
-        _RefreshButton(onTap: _load, tooltip: l10n.refreshTooltip),
-      ]),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final action = widget.onNewSubmission == null
+              ? null
+              : ElevatedButton.icon(
+                  onPressed: widget.onNewSubmission,
+                  icon: const Icon(Icons.add_rounded, size: 17),
+                  label: Text(l10n.companyDeclNewButton),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: UltraTheme.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                );
+          final copy = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('My Declarations', style: UltraTheme.displayMedium.copyWith(fontSize: 24)),
+              const SizedBox(height: 4),
+              Text('Track your employment declarations, submissions, and approval status',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
+            ],
+          );
+          if (constraints.maxWidth < 680) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [copy, if (action != null) ...[const SizedBox(height: 10), action]],
+            );
+          }
+          return Row(children: [Expanded(child: copy), if (action != null) action]);
+        },
+      ),
     );
   }
 
-  Widget _buildFilterChips(AppLocalizations l10n) {
+  Widget _buildSummary(AppLocalizations l10n) {
+    final items = <(String, int, Color)>[
+      ('Submitted', _submittedCount, UltraTheme.info),
+      ('Under review', _underReviewCount, UltraTheme.info),
+      ('Approved', _count(_Group.approved), UltraTheme.success),
+      ('Drafts', _draftCount, UltraTheme.textSecondary),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 12),
+            Expanded(child: _SummaryCard(label: items[i].$1, value: items[i].$2, color: items[i].$3)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar(AppLocalizations l10n) {
     final chips = <(_Group?, String, Color)>[
-      (null, l10n.allMasculine, UltraTheme.primary),
+      (null, 'All ${_entries.length}', UltraTheme.primary),
       (_Group.draft, l10n.companyDeclDraftsFilter, UltraTheme.textSecondary),
-      (_Group.pending, l10n.inProgressLabel, UltraTheme.info),
+      (_Group.pending, 'Under review ${_count(_Group.pending)}', UltraTheme.info),
       (_Group.approved, l10n.companyDeclApprovedFilter, UltraTheme.success),
       (_Group.rejected, l10n.companyDeclRejectedFilter, UltraTheme.error),
     ];
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-        scrollDirection: Axis.horizontal,
-        itemCount: chips.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final (group, label, color) = chips[i];
-          final isActive = _groupFilter == group;
-          return GestureDetector(
-            onTap: () {
-              setState(() => _groupFilter = group);
-              _applyFilter();
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: isActive ? color : UltraTheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isActive
-                      ? color
-                      : UltraTheme.textMuted.withValues(alpha: 0.2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (group, label, color) in chips)
+                _FilterPill(
+                  label: label,
+                  color: color,
+                  selected: _groupFilter == group,
+                  onTap: () {
+                    setState(() => _groupFilter = group);
+                    _applyFilter();
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (_) => _applyFilter(),
+                  decoration: InputDecoration(
+                    hintText: 'Search declarations...',
+                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                    isDense: true,
+                    filled: true,
+                    fillColor: UltraTheme.surface,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.18))),
+                  ),
                 ),
               ),
-              child: Text(label,
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isActive ? Colors.white : UltraTheme.textMuted)),
-            ),
-          );
-        },
+              const SizedBox(width: 10),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _campaignFilter,
+                  borderRadius: BorderRadius.circular(10),
+                  items: const [
+                    DropdownMenuItem(value: 'ALL', child: Text('All campaigns')),
+                    DropdownMenuItem(value: 'DSMO', child: Text('DSMO')),
+                    DropdownMenuItem(value: 'ONEFOP', child: Text('ONEFOP')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _campaignFilter = value);
+                    _applyFilter();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              _RefreshButton(onTap: _load, tooltip: l10n.refreshTooltip),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -388,109 +459,39 @@ class _CompanyDeclarationsScreenState
   }
 
   Widget _buildTable(AppLocalizations l10n) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: UltraTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.12)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(UltraTheme.surface),
-          columnSpacing: 20,
-          horizontalMargin: 16,
-          showCheckboxColumn: false,
-          columns: [
-            DataColumn(
-                label:
-                    Text(l10n.companyDeclFiliereColumn, style: _tableHeaderStyle)),
-            DataColumn(
-                label: Text(l10n.companyDeclDeclarationColumn,
-                    style: _tableHeaderStyle)),
-            DataColumn(
-                label:
-                    Text(l10n.companyDeclDetailsColumn, style: _tableHeaderStyle)),
-            DataColumn(
-                label: Text(l10n.companyDeclDateColumn, style: _tableHeaderStyle)),
-            DataColumn(
-                label: Text(l10n.statusColumnHeader, style: _tableHeaderStyle)),
-            DataColumn(
-                label: Text(l10n.companyDeclPdfColumn, style: _tableHeaderStyle)),
-          ],
-          rows: _filtered.map((e) => _buildRow(l10n, e)).toList(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+          child: Text('Declaration history',
+              style: UltraTheme.titleMedium.copyWith(fontSize: 15)),
         ),
-      ),
-    );
-  }
-
-  DataRow _buildRow(AppLocalizations l10n, _HistoryEntry e) {
-    final dateStr = e.date != null
-        ? '${e.date!.day.toString().padLeft(2, '0')}/${e.date!.month.toString().padLeft(2, '0')}/${e.date!.year}'
-        : l10n.dateUnknown;
-    final streamColor =
-        e.stream == 'DSMO' ? UltraTheme.primary : UltraTheme.accent;
-    final hasPdf = _hasPdf(e);
-    final statusLabel = _statusLabel(l10n, e);
-
-    return DataRow(
-      onSelectChanged: (_) => _showDetailSheet(l10n, e),
-      cells: [
-        DataCell(Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: streamColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(4),
+        for (final entry in _filtered) ...[
+          _DeclarationHistoryTile(
+            entry: entry,
+            title: _entryTitle(l10n, entry),
+            statusLabel: _statusLabel(l10n, entry),
+            dateLabel: entry.date == null
+                ? l10n.dateUnknown
+                : '${entry.date!.day.toString().padLeft(2, '0')} ${_monthName(entry.date!.month)} ${entry.date!.year}',
+            hasPdf: _hasPdf(entry),
+            onTap: () => _showDetailSheet(l10n, entry),
+            onPdf: () => _downloadPdf(entry),
+            onContinue: entry.isDraft && widget.onNewSubmission != null
+                ? widget.onNewSubmission
+                : null,
           ),
-          child: Text(e.stream,
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: streamColor)),
-        )),
-        DataCell(SizedBox(
-          width: 220,
-          child: Text(_entryTitle(l10n, e),
-              style: _tableCellStyle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        )),
-        DataCell(SizedBox(
-          width: 160,
-          child: Text(e.subtitle ?? '—',
-              style: _tableCellStyle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        )),
-        DataCell(Text(dateStr, style: _tableCellStyle)),
-        DataCell(Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: e.color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(statusLabel,
-              style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: e.color)),
-        )),
-        DataCell(
-          hasPdf
-              ? IconButton(
-                  onPressed: () => _downloadPdf(e),
-                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                  color: UltraTheme.primary,
-                  tooltip: l10n.companyDeclDownloadPdfTooltip,
-                )
-              : const Text('—', style: _tableCellStyle),
-        ),
+          if (entry != _filtered.last) const SizedBox(height: 8),
+        ],
       ],
     );
   }
+
+  String _monthName(int month) => const [
+        '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ][month];
 
   // ── Detail sheet (read-only, no approve/reject) ────────────
   void _showDetailSheet(AppLocalizations l10n, _HistoryEntry e) {
@@ -543,6 +544,8 @@ class _CompanyDeclarationsScreenState
                     ),
                     StatusBadge(label: statusLabel, color: e.color),
                   ]),
+                  const SizedBox(height: 22),
+                  _StatusTimeline(entry: e),
                   if (hasPdf) ...[
                     const SizedBox(height: 16),
                     SizedBox(
@@ -716,45 +719,225 @@ class _CompanyDeclarationsScreenState
 // Private helper widgets
 // ══════════════════════════════════════════════════════════════
 
-class _StatPill extends StatelessWidget {
-  const _StatPill({
-    required this.value,
-    required this.label,
-    required this.color,
-  });
+class _SummaryCard extends StatelessWidget {
+  final String label;
   final int value;
+  final Color color;
+  const _SummaryCard({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 82,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: UltraTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.16)),
+          boxShadow: UltraTheme.softShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: UltraTheme.textMuted)),
+            Text('$value',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+          ],
+        ),
+      );
+}
+
+class _FilterPill extends StatelessWidget {
   final String label;
   final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  const _FilterPill({required this.label, required this.color, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: selected ? color : UltraTheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: selected ? color : color.withValues(alpha: 0.2)),
+              ),
+              child: Text(label,
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : color)),
+            ),
+          ),
+        ),
+      );
+}
+
+class _DeclarationHistoryTile extends StatelessWidget {
+  final _HistoryEntry entry;
+  final String title;
+  final String statusLabel;
+  final String dateLabel;
+  final bool hasPdf;
+  final VoidCallback onTap;
+  final VoidCallback onPdf;
+  final VoidCallback? onContinue;
+
+  const _DeclarationHistoryTile({
+    required this.entry,
+    required this.title,
+    required this.statusLabel,
+    required this.dateLabel,
+    required this.hasPdf,
+    required this.onTap,
+    required this.onPdf,
+    this.onContinue,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+    final streamColor = entry.stream == 'DSMO' ? UltraTheme.primary : UltraTheme.accent;
+    final compact = MediaQuery.sizeOf(context).width < 640;
+    final content = Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+              color: streamColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10)),
+          child: Text(entry.stream,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: streamColor)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              Text(entry.subtitle ?? 'Company submission',
+                  style: const TextStyle(fontSize: 11, color: UltraTheme.textMuted)),
+            ],
+          ),
+        ),
+        if (!compact) ...[
+          Expanded(
+            flex: 2,
+            child: Text(dateLabel,
+                style: const TextStyle(fontSize: 12, color: UltraTheme.textMuted)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _StatusPill(label: statusLabel, color: entry.color),
+            ),
+          ),
+        ],
+        PopupMenuButton<String>(
+          tooltip: 'Actions',
+          onSelected: (action) {
+            if (action == 'view') onTap();
+            if (action == 'pdf' && hasPdf) onPdf();
+            if (action == 'continue' && onContinue != null) onContinue!();
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'view', child: Text('View details')),
+            if (onContinue != null)
+              const PopupMenuItem(value: 'continue', child: Text('Continue draft')),
+            if (hasPdf)
+              const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
+            const PopupMenuItem(value: 'track', child: Text('Track status')),
+          ],
+        ),
+      ],
+    );
+    return Material(
+      color: UltraTheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: UltraTheme.textMuted.withValues(alpha: 0.14)),
+          ),
+          child: compact
+              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  content,
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    _StatusPill(label: statusLabel, color: entry.color),
+                    const SizedBox(width: 10),
+                    Text(dateLabel, style: const TextStyle(fontSize: 11, color: UltraTheme.textMuted)),
+                  ]),
+                ])
+              : content,
+        ),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(
-          '$value',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: color.withValues(alpha: 0.75),
-          ),
-        ),
-      ]),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _StatusPill({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+        child: Text(label, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+      );
+}
+
+class _StatusTimeline extends StatelessWidget {
+  final _HistoryEntry entry;
+  const _StatusTimeline({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final submitted = !entry.isDraft;
+    final reviewed = entry.group == _Group.approved || entry.group == _Group.rejected;
+    final approved = entry.group == _Group.approved;
+    final steps = [
+      ('Created', true),
+      ('Submitted', submitted),
+      ('Under review', reviewed),
+      ('Approved', approved),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Status timeline', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        for (var i = 0; i < steps.length; i++)
+          Row(children: [
+            Icon(steps[i].$2 ? Icons.check_circle : Icons.radio_button_unchecked,
+                size: 16, color: steps[i].$2 ? entry.color : UltraTheme.textMuted),
+            const SizedBox(width: 8),
+            Text(steps[i].$1, style: TextStyle(fontSize: 12, color: steps[i].$2 ? UltraTheme.textPrimary : UltraTheme.textMuted)),
+            if (i < steps.length - 1)
+              const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('↓', style: TextStyle(color: UltraTheme.textMuted))),
+          ]),
+      ],
     );
   }
 }
