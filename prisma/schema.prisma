@@ -109,6 +109,7 @@ model Sector {
   onefopCtds            OnefopCtdDetail[]
   onefopOngs            OnefopOngDetail[]
   onefopAdministrations OnefopAdministrationDetail[]
+  onefopProjectPrograms OnefopProjectProgramDetail[]
 
   @@map("sectors")
 }
@@ -655,6 +656,8 @@ model OnefopSubmission {
   registrationNumber    String?
   metaJson              Json?
   administrationDetail  OnefopAdministrationDetail?
+  projectProgramDetail  OnefopProjectProgramDetail?
+  projectProgramActivities ProjectProgramActivity[]
   cooperativeDetail     OnefopCooperativeDetail?
   cspGenderAge          OnefopCspGenderAge[]
   ctdDetail             OnefopCtdDetail?
@@ -772,6 +775,85 @@ model OnefopAdministrationDetail {
   submission               OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@map("onefop_administration_details")
+}
+
+// Phase 1 — Projects & Programs Section 1 identification (PP_S1Q01-16)
+// + Section 3's outcomes/perspectives KPI grid, embedded directly as 12
+// nullable scalar columns rather than a child table — it's a small
+// fixed 4-row x 3-period shape (see kpi_period_table in
+// table_spec_builder.dart), unlike Section 2's genuinely variable-count
+// activities (see ProjectProgramActivity below).
+model OnefopProjectProgramDetail {
+  id                       String           @id @default(uuid())
+  submissionId             String           @unique
+  nature                   String
+  name                     String
+  sigle                    String?
+  personInCharge           String
+  area                     String
+  region                   String
+  department               String
+  subdivision              String
+  locality                 String?
+  phone1                   String
+  phone2                   String?
+  poBox                    String?
+  sector                   String
+  branch                   String?
+  mainMission              String
+  headOffice               String?
+  supervisingMinistry      String?
+  status                   String
+  stopReason               String?
+  permanentWorkers         Int
+  vacancies                Int?
+  // Section 3 outcomes/perspectives (S3Q01-04 x 3 periods) — nullable,
+  // the paper form has no response-status selector for this table.
+  employedCurrent          Int?
+  employedOutlookDec       Int?
+  employedOutlookJune      Int?
+  selfEmployedCurrent      Int?
+  selfEmployedOutlookDec   Int?
+  selfEmployedOutlookJune  Int?
+  jobsCreatedCurrent       Int?
+  jobsCreatedOutlookDec    Int?
+  jobsCreatedOutlookJune   Int?
+  trainedCurrent           Int?
+  trainedOutlookDec        Int?
+  trainedOutlookJune       Int?
+  createdAt                DateTime         @default(now())
+  sectorId                 String?
+  sectorRef                Sector?          @relation(fields: [sectorId], references: [id])
+  submission               OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_project_program_details")
+}
+
+// Section 2's "services/activities offered" repeating table — a real
+// child record per filled-in row (up to 13, matching the paper form's
+// display capacity — see AstFieldType.repeatingTable), not encoded as
+// scalar columns; only rows the respondent actually filled in are
+// persisted (empty rows are dropped by the normalizer before this
+// point). targetPopulation/supportType/scope store the paper form's
+// raw coded values ('1'..'6' etc) as strings, matching how the frontend
+// stores them — not modeled as enums since the DTO doesn't validate
+// them against the code range either (see ProjectProgramActivityDto).
+model ProjectProgramActivity {
+  id                String           @id @default(uuid())
+  submissionId      String
+  rowIndex          Int
+  description       String?
+  targetPopulation  String?
+  supportType       String?
+  scope             String?
+  startDate         String?
+  duration          String?
+  createdAt         DateTime         @default(now())
+  submission        OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, rowIndex])
+  @@index([submissionId])
+  @@map("project_program_activities")
 }
 
 model OnefopCooperativeDetail {
@@ -1278,6 +1360,7 @@ enum OnefopEntityType {
   CTD
   ONG
   ADMINISTRATION
+  PROJECT_PROGRAM
 }
 
 enum OnefopStatus {

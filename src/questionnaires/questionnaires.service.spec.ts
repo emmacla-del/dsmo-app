@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { QuestionnairesService } from './questionnaires.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CspCategory } from '../types/prisma.types';
@@ -112,5 +113,143 @@ describe('QuestionnairesService — Administration SFP fact rows', () => {
     expect(rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ cspCategory: 'CADRES', gender: 'MALE', value: 5 }),
     ]));
+  });
+});
+
+// Phase 2 P0 fix regression coverage — entity-aware final-submission
+// response-status validation.
+//
+// enforceFinalRequiredFields() used to check all 14 Enterprise-family
+// *_RESPONSE_STATUS fields unconditionally for every entity type. Since
+// Administration's AST excludes 6 of them (S22Q02/S22Q03/S23Q01/S23Q02/
+// S3Q03/S4Q03) and Projects & Programs has none of the 14 except 3 that
+// coincidentally share paper codes with its own S4Q01-Q03, a final
+// (non-draft) submission for either entity always threw BadRequestException
+// — confirmed by direct trace in the Phase 1.5 audit. This tests that
+// FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY fixes that without weakening the
+// existing all-14 requirement for Enterprise/Cooperative/CTD/ONG.
+describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware response-status)', () => {
+  const service = new QuestionnairesService({} as PrismaService);
+
+  const ALL_14_FIELDS = [
+    'S21Q01_RESPONSE_STATUS', 'S22Q01_RESPONSE_STATUS', 'S22Q02_RESPONSE_STATUS',
+    'S22Q03_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS', 'S22Q05_RESPONSE_STATUS',
+    'S23Q01_RESPONSE_STATUS', 'S23Q02_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS',
+    'S3Q02_RESPONSE_STATUS', 'S3Q03_RESPONSE_STATUS', 'S4Q01_RESPONSE_STATUS',
+    'S4Q02_RESPONSE_STATUS', 'S4Q03_RESPONSE_STATUS',
+  ];
+
+  const ADMIN_APPLICABLE_FIELDS = [
+    'S21Q01_RESPONSE_STATUS', 'S22Q01_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS',
+    'S22Q05_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS', 'S3Q02_RESPONSE_STATUS',
+    'S4Q01_RESPONSE_STATUS', 'S4Q02_RESPONSE_STATUS',
+  ];
+  const ADMIN_INAPPLICABLE_FIELDS = [
+    'S22Q02_RESPONSE_STATUS', 'S22Q03_RESPONSE_STATUS', 'S23Q01_RESPONSE_STATUS',
+    'S23Q02_RESPONSE_STATUS', 'S3Q03_RESPONSE_STATUS', 'S4Q03_RESPONSE_STATUS',
+  ];
+
+  const PP_APPLICABLE_FIELDS = [
+    'S4Q01_RESPONSE_STATUS', 'S4Q02_RESPONSE_STATUS', 'S4Q03_RESPONSE_STATUS',
+  ];
+  const PP_INAPPLICABLE_FIELDS = [
+    'S21Q01_RESPONSE_STATUS', 'S22Q01_RESPONSE_STATUS', 'S22Q02_RESPONSE_STATUS',
+    'S22Q03_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS', 'S22Q05_RESPONSE_STATUS',
+    'S23Q01_RESPONSE_STATUS', 'S23Q02_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS',
+    'S3Q02_RESPONSE_STATUS', 'S3Q03_RESPONSE_STATUS',
+  ];
+
+  const validRespondent = { name: 'Jean Dupont', function: 'Directeur', phone1: '699999999', email: 'a@b.com' };
+
+  function flatWithStatuses(fields: string[], omit: string[] = []): Record<string, unknown> {
+    const flat: Record<string, unknown> = {};
+    for (const f of fields) {
+      if (!omit.includes(f)) flat[f] = 'REPORTED';
+    }
+    return flat;
+  }
+
+  function callEnforce(data: Record<string, unknown>, flat: Record<string, unknown>, entityType: string) {
+    return (service as any).enforceFinalRequiredFields(data, flat, entityType);
+  }
+
+  const enterpriseData = {
+    respondent: validRespondent,
+    enterprise: {
+      name: 'ACME', legalStatus: 'SARL', area: 1, region: 'Centre', department: 'Mfoundi',
+      subdivision: 'Yaoundé 1', locality: 'Bastos', phone1: '699999999', poBox: 'BP 1',
+      sector: 1, branch: 'Commerce', mainActivity: 'Vente', headOffice: 'Yaoundé',
+      permanentWorkers: 10, vacancies: 2, size: 1,
+    },
+  };
+
+  const administrationData = {
+    respondent: validRespondent,
+    administration: {
+      name: 'MINEFOP', area: 1, region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1',
+      locality: 'Centre-ville', phone1: '699999999', sector: 1, mainMission: 'Emploi',
+      hasProject: 1, hasSupervisedStructures: 2,
+    },
+  };
+
+  const projectProgramData = {
+    respondent: validRespondent,
+    projectProgram: {
+      nature: 1, name: 'Programme Test', personInCharge: 'Marie Curie', area: 1, region: 'Centre',
+      department: 'Mfoundi', subdivision: 'Yaoundé 1', locality: 'Centre-ville', phone1: '699999999',
+      poBox: 'BP 1', sector: 1, branch: 'Formation', mainMission: 'Insertion', headOffice: 'Yaoundé',
+      supervisingMinistry: 'MINEFOP', status: 2, permanentWorkers: 5, vacancies: 1,
+    },
+  };
+
+  it('Enterprise: a final submission missing S21Q01_RESPONSE_STATUS still fails (existing behavior preserved)', () => {
+    const flat = flatWithStatuses(ALL_14_FIELDS, ['S21Q01_RESPONSE_STATUS']);
+    expect(() => callEnforce(enterpriseData, flat, 'enterprise')).toThrow(BadRequestException);
+  });
+
+  it('Enterprise: all 14 fields present passes (baseline)', () => {
+    const flat = flatWithStatuses(ALL_14_FIELDS);
+    expect(() => callEnforce(enterpriseData, flat, 'enterprise')).not.toThrow();
+  });
+
+  it.each(['cooperative', 'ctd', 'ong'])(
+    '%s: still requires all 14 response-status fields (existing behavior preserved)',
+    (entityType) => {
+      const flat = flatWithStatuses(ALL_14_FIELDS, ['S3Q03_RESPONSE_STATUS']);
+      const data: Record<string, unknown> = { respondent: validRespondent, [entityType]: enterpriseData.enterprise };
+      expect(() => callEnforce(data, flat, entityType)).toThrow(BadRequestException);
+    },
+  );
+
+  it('Administration: absence of the 6 inapplicable response-status fields does NOT block final submission', () => {
+    const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS);
+    // Sanity: none of the inapplicable fields are present at all.
+    for (const f of ADMIN_INAPPLICABLE_FIELDS) expect(flat[f]).toBeUndefined();
+    expect(() => callEnforce(administrationData, flat, 'administration')).not.toThrow();
+  });
+
+  it('Administration: a genuinely applicable response-status field, if missing, is still validated', () => {
+    const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS, ['S22Q01_RESPONSE_STATUS']);
+    expect(() => callEnforce(administrationData, flat, 'administration')).toThrow(BadRequestException);
+  });
+
+  it('Projects & Programs: absence of all 11 Enterprise-family-only response-status fields does NOT block final submission', () => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS);
+    for (const f of PP_INAPPLICABLE_FIELDS) expect(flat[f]).toBeUndefined();
+    expect(() => callEnforce(projectProgramData, flat, 'projectProgram')).not.toThrow();
+  });
+
+  it('Projects & Programs: its own applicable response-status field (S4Q02), if missing, is still validated', () => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS, ['S4Q02_RESPONSE_STATUS']);
+    expect(() => callEnforce(projectProgramData, flat, 'projectProgram')).toThrow(BadRequestException);
+  });
+
+  it("Projects & Programs: FINAL_REQUIRED_FIELDS['projectProgram'] remains enforced independently of the response-status fix", () => {
+    const flat = flatWithStatuses(PP_APPLICABLE_FIELDS);
+    const incompleteData = {
+      respondent: validRespondent,
+      projectProgram: { ...projectProgramData.projectProgram, name: '' },
+    };
+    expect(() => callEnforce(incompleteData, flat, 'projectProgram')).toThrow(BadRequestException);
   });
 });

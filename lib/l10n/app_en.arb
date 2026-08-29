@@ -186,6 +186,7 @@
   "registerEntitySubtitleOng": "Non-Governmental Organization or association.",
   "registerEntitySubtitleVocational": "Accredited technical and vocational training center.",
   "registerEntitySubtitleAdministration": "Public administration or government service.",
+  "registerEntitySubtitleProjectProgram": "Project, programme, or structure under a ministry's supervision.",
   "registerCreateAccountTitle": "Create an account",
   "registerSelectProfileSubtitle": "Select your profile to get started.",
   "registerRoleCompanyTitle": "Company / Organization",

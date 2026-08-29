@@ -38,6 +38,8 @@ class FormSchemaCompiler {
         return 'date';
       case AstFieldType.textarea:
         return 'textarea';
+      case AstFieldType.repeatingTable:
+        return 'repeating_table';
     }
   }
 

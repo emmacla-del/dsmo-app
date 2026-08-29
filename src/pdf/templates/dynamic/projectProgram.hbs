@@ -1,0 +1,692 @@
+{{! ONEFOP — Questionnaire Projets & Programmes — Phase 1 v1 (derived from
+    administration.hbs's CSS scaffold and cspAgeTable/permTempTable partials).
+    Structural implementation only — bindings are complete (every PP_S1Q01-16
+    field and Section 2/3/4 table below has a mapper output, see
+    pdf-data-mapper.service.ts's mapProjectProgramData/buildS2S4ProjectProgram),
+    but visual fidelity against the source PDF
+    (Questionnaire_Projet_et_Programmes.pdf) has NOT been verified — review
+    before production use, same deferred status Administration's template
+    carried after its own Phase 1. }}
+{{#with this}}
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <title>ONEFOP Projets &amp; Programmes {{surveyYear}}</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    body {
+      font-family: "Arial Narrow", Arial, Helvetica, sans-serif;
+      font-size: 9pt;
+      color: #000;
+      background: #fff;
+      line-height: 1.3
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 5mm 7mm;
+      page-break-after: always;
+      position: relative
+    }
+
+    .page:last-child {
+      page-break-after: auto
+    }
+
+    .hdr {
+      margin-bottom: 3mm;
+      font-size: 8pt
+    }
+
+    .hdr-top {
+      display: flex;
+      align-items: flex-start;
+      min-height: 24mm
+    }
+
+    .hdr-fr {
+      width: 37%;
+      padding: 1mm 2mm;
+      text-align: center;
+      font-size: 7.5pt;
+      line-height: 1.45
+    }
+
+    .hdr-logo-c {
+      width: 26%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 2mm
+    }
+
+    .hdr-logo-c img {
+      max-width: 100%;
+      max-height: 16mm;
+      display: block;
+      margin: 0 auto
+    }
+
+    .hdr-logo-c .ltag {
+      font-size: 5.5pt;
+      font-weight: bold;
+      text-align: center;
+      line-height: 1.2;
+      text-transform: uppercase;
+      margin-top: 1mm
+    }
+
+    .hdr-en {
+      width: 37%;
+      padding: 1mm 2mm;
+      text-align: center;
+      font-size: 7.5pt;
+      line-height: 1.45
+    }
+
+    .hdr-fr .co,
+    .hdr-en .co {
+      font-weight: bold;
+      font-size: 7.5pt
+    }
+
+    .sep {
+      font-size: 6.5pt;
+      color: #444
+    }
+
+    .hdr-bar {
+      background: #1F3864;
+      padding: 2.5mm 4mm;
+      text-align: center
+    }
+
+    .hdr-bar .t1 {
+      font-weight: bold;
+      font-size: 9pt;
+      color: #fff;
+      text-transform: uppercase;
+      line-height: 1.35
+    }
+
+    .hdr-bar .t2 {
+      font-size: 7.5pt;
+      color: #fff;
+      font-style: italic;
+      margin-top: 0.8mm
+    }
+
+    .conf {
+      border: 1.5px solid #000;
+      padding: 2mm 3mm;
+      margin-bottom: 2.5mm;
+      font-size: 7.5pt;
+      line-height: 1.35
+    }
+
+    .sec {
+      background: #5B9BD5;
+      color: #fff;
+      font-weight: bold;
+      font-size: 9.5pt;
+      padding: 2px 5px;
+      margin: 2.5mm 0 1.5mm;
+      text-transform: uppercase
+    }
+
+    .sec-s1 {
+      background: #BDD7EE;
+      color: #000;
+      font-weight: bold;
+      font-style: italic;
+      font-size: 9.5pt;
+      padding: 2px 5px;
+      margin: 2.5mm 0 1.5mm
+    }
+
+    .subsec {
+      background: #BDD7EE;
+      color: #000;
+      font-weight: bold;
+      font-style: italic;
+      font-size: 8.5pt;
+      padding: 2px 5px;
+      margin: 2mm 0 1.5mm
+    }
+
+    .qt {
+      background: #FFF2CC;
+      border: 1px solid #000;
+      padding: 2px 4px;
+      margin: 1.5mm 0 0;
+      font-size: 7.5pt;
+      line-height: 1.35
+    }
+
+    .ftable {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1mm;
+      font-size: 8pt
+    }
+
+    .ftable td {
+      border: 1px solid #000;
+      padding: 2px 3px;
+      background: #fff;
+      vertical-align: middle;
+      font-size: 8pt;
+      text-align: left
+    }
+
+    .ftable td.fc {
+      font-weight: bold;
+      width: 11mm;
+      white-space: nowrap
+    }
+
+    .ph-box {
+      display: inline-flex;
+      gap: 0;
+      vertical-align: middle
+    }
+
+    .ph-box .pd {
+      display: inline-block;
+      width: 5mm;
+      height: 4.5mm;
+      border: 1px solid #000;
+      border-right: none;
+      font-size: 7pt;
+      text-align: center;
+      line-height: 4.5mm;
+      font-family: monospace;
+      background: #fff
+    }
+
+    .ph-box .pd:last-child {
+      border-right: 1px solid #000
+    }
+
+    .radio-opt {
+      font-size: 8pt;
+      white-space: nowrap
+    }
+
+    table.dt {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 1.5mm;
+      font-size: 7pt
+    }
+
+    table.dt th {
+      background: #BFBFBF;
+      color: #000;
+      text-align: center;
+      padding: 2px 1px;
+      border: 1px solid #000;
+      font-size: 7.5pt;
+      font-weight: bold;
+      line-height: 1.15
+    }
+
+    table.dt th.g {
+      background: #BFBFBF;
+      color: #000
+    }
+
+    table.dt th.r {
+      background: #D0CECE;
+      color: #000
+    }
+
+    table.dt td {
+      background: #fff;
+      border: 1px solid #000;
+      text-align: center;
+      padding: 1px 1px;
+      font-size: 7.5pt;
+      height: 5mm;
+      vertical-align: middle
+    }
+
+    table.dt td.lb {
+      background: #DEEAF6;
+      text-align: left;
+      font-size: 7.5pt;
+      padding-left: 3px;
+      height: 5mm
+    }
+
+    table.dt td.tot-col {
+      background: #DEEAF6
+    }
+
+    table.dt tr.tot td {
+      background: #DEEAF6;
+      font-weight: bold
+    }
+
+    table.dt tr.tot td.lb {
+      background: #DEEAF6;
+      font-weight: bold
+    }
+
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  {{! ══ PARTIALS (copied verbatim from administration.hbs) ═════════════ }}
+
+  {{#*inline "cspAgeTable"}}
+  <table class="dt">
+    <thead>
+      <tr>
+        <th style="width:16%;background:#BFBFBF;color:#000">Sexe/ <em>Sex</em></th>
+        <th colspan="4">Masculin/ <em>Male</em></th>
+        <th colspan="4">F&#233;minin/ <em>Female</em></th>
+        <th colspan="4">TOTAL</th>
+      </tr>
+      <tr>
+        <th class="g">Tranche d&#8217;&#226;ge (ans)/<br /><em>Age group (years)</em></th>
+        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
+        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
+        <th class="g">35 et +<br /><em>35 and<br />above</em></th>
+        <th class="g">Total</th>
+        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
+        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
+        <th class="g">35 et +<br /><em>35 and<br />above</em></th>
+        <th class="g">Total</th>
+        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
+        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
+        <th class="g">35 et +<br /><em>35 and<br />above</em></th>
+        <th class="g">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="lb">{{label}}</td>
+        <td>{{{formatCell male.age15_24}}}</td>
+        <td>{{{formatCell male.age25_34}}}</td>
+        <td>{{{formatCell male.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell male.total}}}</td>
+        <td>{{{formatCell female.age15_24}}}</td>
+        <td>{{{formatCell female.age25_34}}}</td>
+        <td>{{{formatCell female.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell female.total}}}</td>
+        <td>{{{formatCell this.total.age15_24}}}</td>
+        <td>{{{formatCell this.total.age25_34}}}</td>
+        <td>{{{formatCell this.total.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell this.total.total}}}</td>
+      </tr>
+      {{/each}}
+      {{#if totals}}
+      <tr class="tot">
+        <td class="lb">{{totals.label}}</td>
+        <td>{{{formatCell totals.male.age15_24}}}</td>
+        <td>{{{formatCell totals.male.age25_34}}}</td>
+        <td>{{{formatCell totals.male.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell totals.male.total}}}</td>
+        <td>{{{formatCell totals.female.age15_24}}}</td>
+        <td>{{{formatCell totals.female.age25_34}}}</td>
+        <td>{{{formatCell totals.female.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell totals.female.total}}}</td>
+        <td>{{{formatCell totals.total.age15_24}}}</td>
+        <td>{{{formatCell totals.total.age25_34}}}</td>
+        <td>{{{formatCell totals.total.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell totals.total.total}}}</td>
+      </tr>
+      {{/if}}
+    </tbody>
+  </table>
+  {{/inline}}
+
+  {{#*inline "permTempTable"}}
+  <table class="dt">
+    <thead>
+      <tr>
+        <th rowspan="2" style="width:28%;background:#D0CECE;color:#000">{{#if headerLabel}}{{{headerLabel}}}{{else}}CSP/ <em>SPC</em>{{/if}}</th>
+        <th class="r" colspan="3">Permanent/ <em>Permanent</em></th>
+        <th class="r" colspan="3">Temporaire/ <em>Temporary</em></th>
+        <th class="r">Total</th>
+      </tr>
+      <tr>
+        <th class="r">M</th>
+        <th class="r">F</th>
+        <th class="r">T</th>
+        <th class="r">M</th>
+        <th class="r">F</th>
+        <th class="r">T</th>
+        <th class="r">&nbsp;</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="lb">{{label}}</td>
+        <td>{{{formatCell permanent.male}}}</td>
+        <td>{{{formatCell permanent.female}}}</td>
+        <td class="tot-col">{{{formatCell permanent.total}}}</td>
+        <td>{{{formatCell temporary.male}}}</td>
+        <td>{{{formatCell temporary.female}}}</td>
+        <td class="tot-col">{{{formatCell temporary.total}}}</td>
+        <td class="tot-col">{{{formatCell this.total.total}}}</td>
+      </tr>
+      {{/each}}
+      {{#if totals}}
+      <tr class="tot">
+        <td class="lb">{{totals.label}}</td>
+        <td>{{{formatCell totals.permanent.male}}}</td>
+        <td>{{{formatCell totals.permanent.female}}}</td>
+        <td class="tot-col">{{{formatCell totals.permanent.total}}}</td>
+        <td>{{{formatCell totals.temporary.male}}}</td>
+        <td>{{{formatCell totals.temporary.female}}}</td>
+        <td class="tot-col">{{{formatCell totals.temporary.total}}}</td>
+        <td class="tot-col">{{{formatCell totals.total.total}}}</td>
+      </tr>
+      {{/if}}
+    </tbody>
+  </table>
+  {{/inline}}
+
+  {{! ══ PAGE 1: Header + S0 + S1 ═══════════════════════════════════════ }}
+  <div class="page">
+
+    <div class="hdr">
+      <div class="hdr-top">
+        <div class="hdr-fr">
+          <div class="co">REPUBLIQUE DU CAMEROUN</div>
+          <div>Paix &#8211; Travail &#8211; Patrie</div>
+          <div class="sep">-----------</div>
+          <div><strong>MINISTERE DE L&#8217;EMPLOI ET DE LA FORMATION PROFESSIONNELLE</strong></div>
+          <div class="sep">-----------</div>
+          <div>SECRETARIAT GENERAL</div>
+          <div class="sep">-----------</div>
+          <div>OBSERVATOIRE NATIONAL DE L&#8217;EMPLOI ET DE LA FORMATION PROFESSIONNELLE</div>
+          <div class="sep">-----------</div>
+        </div>
+        <div class="hdr-logo-c">
+          {{#if logoBase64}}<img src="{{logoBase64}}" alt="ONEFOP" />{{/if}}
+          <div class="ltag">OBSERVATOIRE NATIONAL DE L&#8217;EMPLOI<br />ET DE LA FORMATION PROFESSIONNELLE</div>
+        </div>
+        <div class="hdr-en">
+          <div class="co">REPUBLIC OF CAMEROON</div>
+          <div>Peace &#8211; Work &#8211; Fatherland</div>
+          <div class="sep">-----------</div>
+          <div><strong>MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING</strong></div>
+          <div class="sep">-----------</div>
+          <div>SECRETARIAT GENERAL</div>
+          <div class="sep">-----------</div>
+          <div>NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL TRAINING</div>
+          <div class="sep">-----------</div>
+        </div>
+      </div>
+      <div class="hdr-bar">
+        <div class="t1">COLLECTE DES DONNEES SUR LES EMPLOIS CREES PAR LE SECTEUR MODERNE DE L&#8217;ECONOMIE /
+          COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY</div>
+        <div class="t2">- Questionnaire Projets, Programmes et Structures sous-tutelle / Questionnaire on Projects,
+          Programs and Structures under supervision -</div>
+      </div>
+    </div>
+
+    <div class="conf">
+      <strong>Les informations contenues dans ce document sont confidentielles et ne pourront &#234;tre utilis&#233;es
+        &#224; des fins de poursuites judiciaires, de contr&#244;le fiscal ou de r&#233;pression &#233;conomique,
+        conform&#233;ment &#224; la Loi N&#176; 2020/010 du 20 juillet 2020 relative aux recensements et enqu&#234;tes
+        Statistiques.</strong> / <em>The information contained in this document is confidential and may not be used for
+        legal proceedings, fiscal control or economic repression, in accordance with Law N<sup>o</sup> 2020/010 of 20
+        July 2020 on censuses and statistical surveys.</em>
+    </div>
+
+    <div class="sec">SECTION 0. &nbsp; IDENTIFICATION DU REPONDANT / <em>IDENTIFICATION OF RESPONDENT</em></div>
+
+    <table class="ftable">
+      <tr>
+        <td class="fc">S0Q01</td>
+        <td>Noms, pr&#233;noms du r&#233;pondant/ <em>Respondent&#8217;s full name</em> : {{respondentName}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S0Q02</td>
+        <td>Fonction du r&#233;pondant/ <em>Respondent&#8217;s function</em> : {{respondentFunction}}</td>
+      </tr>
+      <tr>
+        <td class="fc" style="vertical-align:top">S0Q03</td>
+        <td>
+          Contacts r&#233;pondant/ <em>Respondent&#8217;s contacts</em> :
+          T&#233;l 1 : {{respondentPhone1}} &nbsp; T&#233;l 2 : {{respondentPhone2}}<br />
+          E-mail : {{respondentEmail}}
+        </td>
+      </tr>
+    </table>
+
+    <div class="sec-s1"><em>SECTION 1. &nbsp; IDENTIFICATION DE LA STRUCTURE / STRUCTURE DETAILS</em></div>
+
+    <table class="ftable">
+      <tr>
+        <td class="fc">S1Q01</td>
+        <td>Nature de la structure/ <em>Nature of the structure</em> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Projet/ <em>Project</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Programme/ <em>Program</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 3)}}&#9745;{{else}}&#9744;{{/if}} 3.Structure sous-tutelle/ <em>Under supervision</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 4)}}&#9745;{{else}}&#9744;{{/if}} 4.Autres/ <em>Other</em></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q02</td>
+        <td>Nom/ <em>Name</em> : {{projectProgramName}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q03</td>
+        <td>Sigle ou acronyme/ <em>Abbreviation or acronym</em> : {{sigle}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q04</td>
+        <td>Nom du Responsable/ <em>Name of the person in charge</em> : {{personInCharge}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q05</td>
+        <td>Milieu de r&#233;sidence/ <em>Area</em> &nbsp;
+          <span class="radio-opt">{{#if (eq area 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Urbain/ <em>Urban</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq area 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Rural/ <em>Rural</em></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q06</td>
+        <td>R&#233;gion/ <em>Region</em> : {{region}} &nbsp;
+          D&#233;partement/ <em>Division</em> : {{department}}<br />
+          Arrondissement/ <em>Subdivision</em> : {{subdivision}} &nbsp;
+          Quartier/Village/Localit&#233;/ <em>Neighborhood/Village/Locality</em> : {{locality}}
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q07</td>
+        <td>T&#233;l 1/ <em>Tel 1</em> : {{phone1}} &nbsp;
+          T&#233;l 2/ <em>Tel 2</em> : {{phone2}} &nbsp;
+          BP/ <em>PO Box</em> : {{poBox}}
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q08</td>
+        <td>Secteur d&#8217;activit&#233;/ <em>Business sector</em> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Primaire/ <em>Primary</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Secondaire/ <em>Secondary</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 3)}}&#9745;{{else}}&#9744;{{/if}} 3.Tertiaire/ <em>Tertiary</em></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q09</td>
+        <td>Branche d&#8217;activit&#233;/ <em>Branch of activity</em> : {{branchActivity}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q10</td>
+        <td>Objectif ou mission principale/ <em>Objective or main mission</em> : {{mainMission}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q11</td>
+        <td>Si&#232;ge social/ <em>Head office</em> : {{headOffice}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q12</td>
+        <td>Minist&#232;re/ Organisme tutelle/ <em>Ministry/ Organisation under supervision</em> : {{supervisingMinistry}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q13</td>
+        <td>Situation du Projet / Programme/ <em>Project / Programme Status</em> &nbsp;
+          <span class="radio-opt">{{#if (eq status 1)}}&#9745;{{else}}&#9744;{{/if}} 1.En arr&#234;t/ <em>Stopped</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq status 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Actif/ <em>Active</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq status 3)}}&#9745;{{else}}&#9744;{{/if}} 3.En cours de d&#233;marrage/ <em>Starting up</em></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q14</td>
+        <td>Si en arr&#234;t, motif/ <em>If stopped, reason</em> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Arriv&#233; &#224; terme/ <em>Expired</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Manque de fonds/ <em>Lack of funds</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 3)}}&#9745;{{else}}&#9744;{{/if}} 3.R&#233;sultats insuffisants/ <em>Insufficient results</em></span> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 4)}}&#9745;{{else}}&#9744;{{/if}} 4.Autre/ <em>Other</em></span>
+        </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q15</td>
+        <td>Nombre d&#8217;employ&#233; permanent/ <em>Number of permanent workers</em> : {{permanentWorkers}}</td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q16</td>
+        <td>Nombre de poste vacant/ <em>Number of vacancies</em> : {{vacancies}}</td>
+      </tr>
+    </table>
+
+  </div>
+
+  {{! ══ PAGE 2: Section 2 activities table ══════════════════════════════ }}
+  <div class="page">
+
+    <div class="sec">SECTION 2. &nbsp; RENSEIGNEMENTS SUR LA STRUCTURE SOUS-TUTELLE/ PROJET ET PROGRAMME /
+      <em>INFORMATION ON THE STRUCTURE UNDER SUPERVISION/PROJECT AND PROGRAM</em></div>
+
+    <table class="dt">
+      <thead>
+        <tr>
+          <th style="width:6%">#</th>
+          <th style="width:24%">Prestations offertes/ <em>Services offered</em></th>
+          <th style="width:16%">Population cible/ <em>Target population</em></th>
+          <th style="width:18%">Nature de l&#8217;appui/ <em>Type of support</em></th>
+          <th style="width:12%">Rayon d&#8217;action/ <em>Scope</em></th>
+          <th style="width:12%">Date de d&#233;but/ <em>Start date</em></th>
+          <th style="width:12%">Dur&#233;e/ <em>Duration</em></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each activitiesRows}}
+        <tr>
+          <td>{{index}}</td>
+          <td class="lb">{{description}}</td>
+          <td class="lb">{{targetPopulation}}</td>
+          <td class="lb">{{supportType}}</td>
+          <td class="lb">{{scope}}</td>
+          <td>{{startDate}}</td>
+          <td>{{duration}}</td>
+        </tr>
+        {{/each}}
+        {{#unless activitiesRows}}
+        <tr>
+          <td colspan="7" class="lb">Aucune activit&#233; d&#233;clar&#233;e/ <em>No activity reported</em></td>
+        </tr>
+        {{/unless}}
+      </tbody>
+    </table>
+
+  </div>
+
+  {{! ══ PAGE 3: Section 3 outcomes + Section 4 recruitment tables ═══════ }}
+  <div class="page">
+
+    <div class="sec">SECTION 3. &nbsp; EMPLOI ET TRAVAIL / <em>EMPLOYMENT AND LABOUR</em></div>
+
+    <table class="dt">
+      <thead>
+        <tr>
+          <th style="width:40%">Activit&#233; de la structure/ <em>Activity</em></th>
+          <th>Du 1er Janvier {{surveyYear}} &#224; ce jour/ <em>From 1st January {{surveyYear}} to date</em></th>
+          <th>Perspectives au 31/12/ <em>Outlook at 31/12</em></th>
+          <th>Perspectives au 30/06/ <em>Outlook at 30/06</em></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each outcomesRows}}
+        <tr>
+          <td class="lb">{{label}}</td>
+          <td>{{{formatCell current}}}</td>
+          <td>{{{formatCell outlookDec}}}</td>
+          <td>{{{formatCell outlookJune}}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <div class="sec">SECTION 4. &nbsp; DETAILS SUR LES RESENCEMENTS ET RECRUTEMENTS / <em>DETAILS ON APPOINTMENTS AND
+      RECRUITMENTS</em></div>
+
+    <div class="qt"><strong>S4Q01 :</strong> Combien de permanents avez-vous recens&#233; selon la cat&#233;gorie
+      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
+      <em>How many permanent workers per socio-professional category, gender and age group did you count from
+        {{collectionPeriodEn}}?</em></div>
+    {{> cspAgeTable rows=countedPermanentRows totals=countedPermanentTotals}}
+
+    <div class="qt"><strong>S4Q02 :</strong> Combien de temporaires avez-vous recens&#233; selon la cat&#233;gorie
+      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
+      <em>How many temporary workers per socio-professional category, gender and age group did you count from
+        {{collectionPeriodEn}}?</em></div>
+    {{> cspAgeTable rows=countedTemporaryRows totals=countedTemporaryTotals}}
+
+  </div>
+
+  {{! ══ PAGE 4: Section 4 continued ══════════════════════════════════════ }}
+  <div class="page">
+
+    <div class="qt"><strong>S4Q03 :</strong> Combien de permanents avez-vous recrut&#233; selon la cat&#233;gorie
+      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
+      <em>How many permanent workers per socio-professional category, gender and age group did you recruit from
+        {{collectionPeriodEn}}?</em></div>
+    {{> cspAgeTable rows=recruitedPermanentRows totals=recruitedPermanentTotals}}
+
+    <div class="qt"><strong>S4Q04 :</strong> Combien de temporaires avez-vous recrut&#233; selon la cat&#233;gorie
+      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
+      <em>How many temporary workers per socio-professional category, gender and age group did you recruit from
+        {{collectionPeriodEn}}?</em></div>
+    {{> cspAgeTable rows=recruitedTemporaryRows totals=recruitedTemporaryTotals}}
+
+    <div class="qt"><strong>S4Q05 :</strong> Combien de personnes en situation de handicap avez-vous recrut&#233;
+      selon la cat&#233;gorie socio professionnelle, le sexe et le statut du
+      <strong>{{collectionPeriodFr}}</strong>?/ <em>How many workers with a disability per socio-professional
+        category, gender, and status did you recruit from {{collectionPeriodEn}}?</em></div>
+    {{> permTempTable rows=disabledRecruitmentsRows totals=disabledRecruitmentsTotals}}
+
+    <div class="qt"><strong>S4Q06 :</strong> Combien de personnes vuln&#233;rables avez-vous recrut&#233; selon le
+      statut et la nature de la vuln&#233;rabilit&#233; du <strong>{{collectionPeriodFr}}</strong>?/
+      <em>How many vulnerable workers per socio-professional category, gender, and status did you recruit from
+        {{collectionPeriodEn}}?</em></div>
+    {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals}}
+
+  </div>
+
+</html>
+{{/with}}

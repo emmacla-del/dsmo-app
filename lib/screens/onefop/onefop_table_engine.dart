@@ -44,9 +44,23 @@ class TableCellEngine {
         return _cHN(pfx, ['skill_1', 'skill_2', 'skill_3']);
       case 'training_table':
         return _cHN(pfx, ['domain_1', 'domain_2', 'domain_3']);
+      case 'kpi_period_table':
+        return _cKpi(pfx);
       default:
         return [];
     }
+  }
+
+  // Projects & Programs — Section 3 outcomes/perspectives KPI grid: 4
+  // fixed rows x 3 period columns, no recalculation needed (no computed
+  // totals in this table — see TableSpecBuilder._buildKpiPeriod).
+  static List<String> _cKpi(String p) {
+    const rows = ['employed', 'self_employed', 'jobs_created', 'trained'];
+    const periods = ['current', 'outlook_dec', 'outlook_june'];
+    return [
+      for (final r in rows)
+        for (final pv in periods) '${p}_${r}_$pv'
+    ];
   }
 
   static List<String> _cGA(String p, {List<String>? rows}) {
@@ -172,6 +186,10 @@ class TableCellEngine {
       case 's22q01':
       case 's22q02':
       case 's23q01':
+      case 'pp_s4q01':
+      case 'pp_s4q02':
+      case 'pp_s4q03':
+      case 'pp_s4q04':
         return ga(p);
       case 's22q03':
         return TableCalculator.recalculateCspGenderAge(
@@ -202,6 +220,8 @@ class TableCellEngine {
               '35_plus'
             ]);
       case 's22q04':
+      case 'pp_s4q05':
+      case 'pp_s4q06':
         return sg(p, ['cadres', 'foremen', 'workers']);
       case 's22q05_ent':
       case 's22q05_oth':

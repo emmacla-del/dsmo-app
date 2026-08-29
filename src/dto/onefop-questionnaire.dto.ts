@@ -595,6 +595,119 @@ export class AdministrationIdentificationDto {
   supervisedStructureCount?: number;
 }
 
+// Phase 1 — Projects & Programs. Field set matches PP_S1Q01-S1Q16 in
+// onefop_ast.dart (composite region/dept/subdivision/locality and
+// tel1/tel2/BP fields flattened, matching every other entity's DTO
+// convention). nature/area/sector/status/stopReason use the same
+// numeric-code convention as Administration's area/sector — not raw
+// strings — converted at persistence time in questionnaires.service.ts.
+export class ProjectProgramIdentificationDto {
+  @IsIn([1, 2, 3, 4]) nature!: number;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  name!: string;
+
+  @IsOptional() @IsString()
+  @ToString()
+  sigle?: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  personInCharge!: string;
+
+  @IsIn([1, 2]) area!: number;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  region!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  department!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  subdivision!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  locality!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  phone1!: string;
+
+  @IsOptional() @IsString()
+  @ToString()
+  phone2?: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  poBox!: string;
+
+  @IsIn([1, 2, 3]) sector!: number;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  branch!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  mainMission!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  headOffice!: string;
+
+  @IsString() @IsNotEmpty()
+  @ToString()
+  supervisingMinistry!: string;
+
+  @IsIn([1, 2, 3]) status!: number;
+
+  @ValidateIf((o) => o.status === 1)
+  @IsIn([1, 2, 3, 4])
+  stopReason?: number;
+
+  @IsInt() @Min(0) permanentWorkers!: number;
+
+  @IsInt() @Min(0) vacancies!: number;
+}
+
+// One row of Section 2's activities table — a variable-count repeating
+// collection (up to 13 rows on the paper form; only rows the respondent
+// actually filled in are sent/persisted, see the flat-key normalizer).
+// targetPopulation/supportType/scope are the paper form's coded
+// categoricals (1-6/1-5/1-4 respectively), stored as their raw code
+// string, matching how the frontend's ActivitiesTable dropdowns store
+// values — not re-validated against the code range here since the row
+// is optional/free-form and a stray value should not fail the whole
+// submission.
+export class ProjectProgramActivityDto {
+  @IsOptional() @IsString() @ToString() description?: string;
+  @IsOptional() @IsString() @ToString() targetPopulation?: string;
+  @IsOptional() @IsString() @ToString() supportType?: string;
+  @IsOptional() @IsString() @ToString() scope?: string;
+  @IsOptional() @IsString() @ToString() startDate?: string;
+  @IsOptional() @IsString() @ToString() duration?: string;
+}
+
+// Section 3's outcomes/perspectives KPI grid — 4 fixed rows x 3 period
+// columns, all plain optional integers (no gender/age breakdown).
+export class ProjectProgramOutcomesRowDto {
+  @IsOptional() @IsInt() @Min(0) current?: number;
+  @IsOptional() @IsInt() @Min(0) outlookDec?: number;
+  @IsOptional() @IsInt() @Min(0) outlookJune?: number;
+}
+
+export class ProjectProgramOutcomesDto {
+  @IsOptional() @ValidateNested() @Type(() => ProjectProgramOutcomesRowDto) employed?: ProjectProgramOutcomesRowDto;
+  @IsOptional() @ValidateNested() @Type(() => ProjectProgramOutcomesRowDto) selfEmployed?: ProjectProgramOutcomesRowDto;
+  @IsOptional() @ValidateNested() @Type(() => ProjectProgramOutcomesRowDto) jobsCreated?: ProjectProgramOutcomesRowDto;
+  @IsOptional() @ValidateNested() @Type(() => ProjectProgramOutcomesRowDto) trained?: ProjectProgramOutcomesRowDto;
+}
+
 // ─────────────────────────────────────────────
 // TOP LEVEL DISCRIMINATED UNION
 // ─────────────────────────────────────────────
@@ -647,9 +760,41 @@ export class AdministrationQuestionnaireDto extends BaseQuestionnaireDto {
   administration!: AdministrationIdentificationDto;
 }
 
+// Phase 1 — Projects & Programs. Sections 2-4 are dedicated fields on
+// this DTO (not SharedSectionsDto, whose S21Q01/S22Q01/S3Q01/S4Q02
+// shape belongs to the enterprise-family questionnaire and doesn't
+// apply here) — activities/outcomes/section4 CSP tables reuse the
+// existing entity-agnostic Csp*Dto shapes, matching S4Q01-S4Q06's own
+// csp_gender_age_table/csp_status_gender_table templates in
+// onefop_ast.dart.
+export class ProjectProgramQuestionnaireDto extends BaseQuestionnaireDto {
+  organizationType: 'projectProgram' = 'projectProgram';
+
+  @IsDefined()
+  @ValidateNested() @Type(() => ProjectProgramIdentificationDto)
+  projectProgram!: ProjectProgramIdentificationDto;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(13)
+  @ValidateNested({ each: true })
+  @Type(() => ProjectProgramActivityDto)
+  activities?: ProjectProgramActivityDto[];
+
+  @IsOptional() @ValidateNested() @Type(() => ProjectProgramOutcomesDto) outcomes?: ProjectProgramOutcomesDto;
+
+  @IsOptional() @ValidateNested() @Type(() => CspGenderAgeTableDto) countedPermanent?: CspGenderAgeTableDto;
+  @IsOptional() @ValidateNested() @Type(() => CspGenderAgeTableDto) countedTemporary?: CspGenderAgeTableDto;
+  @IsOptional() @ValidateNested() @Type(() => CspGenderAgeTableDto) recruitedPermanent?: CspGenderAgeTableDto;
+  @IsOptional() @ValidateNested() @Type(() => CspGenderAgeTableDto) recruitedTemporary?: CspGenderAgeTableDto;
+  @IsOptional() @ValidateNested() @Type(() => DisabledRecruitmentsDto) disabledRecruitments?: DisabledRecruitmentsDto;
+  @IsOptional() @ValidateNested() @Type(() => DisabledRecruitmentsDto) vulnerableRecruitments?: DisabledRecruitmentsDto;
+}
+
 export type AnyQuestionnaireDto =
   | EnterpriseQuestionnaireDto
   | CooperativeQuestionnaireDto
   | CtdQuestionnaireDto
   | OngQuestionnaireDto
+  | ProjectProgramQuestionnaireDto
   | AdministrationQuestionnaireDto;

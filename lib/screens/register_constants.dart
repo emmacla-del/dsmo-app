@@ -197,6 +197,7 @@ class EntityConfig {
       data['ngoName'],
       data['centerName'],
       data['administrationName'],
+      data['projectProgramName'],
     ];
     for (final c in candidates) {
       if (c != null && (c as String).trim().isNotEmpty) return c;
@@ -639,6 +640,65 @@ const Map<EntityType, EntityConfig> entityConfigs = {
         keyboardType: TextInputType.phone,
         isPhone: true,
         onefopSection: 'S1.Q5',
+        dsmoField: 'telephone',
+      ),
+      EntityField(
+        key: 'phone2',
+        label: LocalizedText(fr: 'Téléphone secondaire', en: 'Secondary phone'),
+        keyboardType: TextInputType.phone,
+        isPhone: true,
+        required: false,
+        dsmoField: 'telephone2',
+      ),
+      EntityField(
+        key: 'poBox',
+        label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
+        hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
+        required: false,
+        dsmoField: 'boitePostale',
+      ),
+    ],
+  ),
+
+  // ── PROJECT / PROGRAM ───────────────────────────────────────
+  EntityType.projectProgram: EntityConfig(
+    type: EntityType.projectProgram,
+    title: LocalizedText(fr: 'Projet / Programme', en: 'Project / Programme'),
+    icon: Icons.rocket_launch_outlined,
+    color: Colors.deepPurple,
+    fields: [
+      EntityField(
+        key: 'projectProgramName',
+        label: LocalizedText(fr: 'Nom', en: 'Name'),
+        onefopSection: 'S1.Q2',
+        dsmoField: 'raisonSociale',
+      ),
+      EntityField(
+        key: 'sigle',
+        label: LocalizedText(fr: 'Sigle ou acronyme', en: 'Abbreviation or acronym'),
+        required: false,
+        onefopSection: 'S1.Q3',
+        dsmoField: 'sigle',
+      ),
+      EntityField(
+        key: 'mainMission',
+        label: LocalizedText(
+            fr: 'Objectif ou mission principale', en: 'Objective or main mission'),
+        onefopSection: 'S1.Q10',
+        dsmoField: 'activitePrincipale',
+      ),
+      EntityField(
+        key: 'address',
+        label: LocalizedText(fr: 'Siège social', en: 'Head office'),
+        onefopSection: 'S1.Q11',
+        dsmoField: 'adresseSiege',
+      ),
+      EntityField(
+        key: 'phone',
+        label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
+        keyboardType: TextInputType.phone,
+        isPhone: true,
+        onefopSection: 'S1.Q7',
         dsmoField: 'telephone',
       ),
       EntityField(

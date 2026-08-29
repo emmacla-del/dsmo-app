@@ -1178,6 +1178,12 @@ abstract class AppLocalizations {
   /// **'Administration publique ou service gouvernemental.'**
   String get registerEntitySubtitleAdministration;
 
+  /// No description provided for @registerEntitySubtitleProjectProgram.
+  ///
+  /// In fr, this message translates to:
+  /// **'Projet, programme ou structure sous tutelle d\'un ministère.'**
+  String get registerEntitySubtitleProjectProgram;
+
   /// No description provided for @registerCreateAccountTitle.
   ///
   /// In fr, this message translates to:

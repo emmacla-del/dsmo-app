@@ -12,6 +12,7 @@ import '../../core/focus/schema/field_schema.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/renderers/table_renderer.dart';
+import '../../core/focus/renderers/activities_table.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
 import '../../core/focus/utils/field_validator.dart';
@@ -392,6 +393,33 @@ class TableFieldWidget extends StatelessWidget {
                   .data[TableResponseStatus.fieldId(field.paperCode!)]
                   ?.toString()),
         ),
+      ),
+    );
+  }
+}
+
+/// Renders Projects & Programs' Section 2 activities table — deliberately
+/// bypasses TableRenderer.renderTable/TableSpecBuilder entirely (see
+/// AstFieldType.repeatingTable and ActivitiesTable's file-level comment):
+/// this field's tableSpec is heterogeneous-column shaped, not a numeric
+/// GridRenderSpec matrix.
+class ActivitiesTableFieldWidget extends StatelessWidget {
+  final OnefopFormController ctrl;
+  final FieldSchema field;
+  const ActivitiesTableFieldWidget(
+      {super.key, required this.ctrl, required this.field});
+
+  @override
+  Widget build(BuildContext context) {
+    final spec = field.tableSpec ?? const {};
+    final prefix = (spec['prefix'] as String? ?? field.id).toLowerCase();
+    final rows = spec['rows'] is int ? spec['rows'] as int : 13;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: ActivitiesTable(
+        prefix: prefix,
+        rows: rows,
+        hybridController: ctrl.hybridController,
       ),
     );
   }

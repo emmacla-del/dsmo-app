@@ -558,6 +558,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return EntityType.ctd;
       case 'ONG':
         return EntityType.ong;
+      case 'ADMINISTRATION':
+        return EntityType.administration;
+      case 'PROJECT_PROGRAM':
+        return EntityType.projectProgram;
       default:
         return null;
     }

@@ -207,6 +207,7 @@
   "registerEntitySubtitleOng": "Organisation Non Gouvernementale ou association.",
   "registerEntitySubtitleVocational": "Centre de formation technique et professionnelle agréé.",
   "registerEntitySubtitleAdministration": "Administration publique ou service gouvernemental.",
+  "registerEntitySubtitleProjectProgram": "Projet, programme ou structure sous tutelle d'un ministère.",
   "registerCreateAccountTitle": "Créer un compte",
   "registerSelectProfileSubtitle": "Sélectionnez votre profil pour commencer.",
   "registerRoleCompanyTitle": "Entreprise / Organisation",

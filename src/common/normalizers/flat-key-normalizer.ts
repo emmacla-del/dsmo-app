@@ -90,6 +90,7 @@ export function normalizeFlatKeys(
         case 'ctd': normalizeCtdS1(raw, out); break;
         case 'ong': normalizeOngS1(raw, out); break;
         case 'administration': normalizeAdministrationS1(raw, out); break;
+        case 'projectProgram': normalizeProjectProgramS1(raw, out); break;
     }
 
     // ── S2–S4: Table keys pass through unchanged ──────────────────────────────
@@ -210,6 +211,29 @@ function normalizeAdministrationS1(raw: Record<string, unknown>, out: Record<str
     set(out, 'ADMIN_S1Q11', pick(raw, 'hasSupervisedStructures', 'ADMIN_S1Q11'));
     set(out, 'ADMIN_S1Q12', pick(raw, 'supervisedStructureCount', 'ADMIN_S1Q12'));
 }
+function normalizeProjectProgramS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
+    set(out, 'PP_S1Q01', pick(raw, 'nature', 'PP_S1Q01'));
+    set(out, 'PP_S1Q02', pick(raw, 'projectProgramName', 'name', 'PP_S1Q02'));
+    set(out, 'PP_S1Q03', pick(raw, 'sigle', 'PP_S1Q03'));
+    set(out, 'PP_S1Q04', pick(raw, 'personInCharge', 'PP_S1Q04'));
+    set(out, 'PP_S1Q05', pick(raw, 'area', 'PP_S1Q05'));
+    set(out, 'PP_S1Q06_REGION', pick(raw, 'region', 'PP_S1Q06_REGION'));
+    set(out, 'PP_S1Q06_DEPT', pick(raw, 'department', 'PP_S1Q06_DEPT'));
+    set(out, 'PP_S1Q06_SUBDIV', pick(raw, 'subdivision', 'PP_S1Q06_SUBDIV'));
+    set(out, 'PP_S1Q06_LOCALITY', pick(raw, 'locality', 'PP_S1Q06_LOCALITY'));
+    set(out, 'PP_S1Q07_TEL1', pick(raw, 'phone1', 'PP_S1Q07_TEL1'));
+    set(out, 'PP_S1Q07_TEL2', pick(raw, 'phone2', 'PP_S1Q07_TEL2'));
+    set(out, 'PP_S1Q07_BP', pick(raw, 'poBox', 'PP_S1Q07_BP'));
+    set(out, 'PP_S1Q08', pick(raw, 'sector', 'PP_S1Q08'));
+    set(out, 'PP_S1Q09', pick(raw, 'branch', 'PP_S1Q09'));
+    set(out, 'PP_S1Q10', pick(raw, 'mainMission', 'PP_S1Q10'));
+    set(out, 'PP_S1Q11', pick(raw, 'headOffice', 'PP_S1Q11'));
+    set(out, 'PP_S1Q12', pick(raw, 'supervisingMinistry', 'PP_S1Q12'));
+    set(out, 'PP_S1Q13', pick(raw, 'status', 'PP_S1Q13'));
+    set(out, 'PP_S1Q14', pick(raw, 'stopReason', 'PP_S1Q14'));
+    set(out, 'PP_S1Q15', pick(raw, 'permanentWorkers', 'PP_S1Q15'));
+    set(out, 'PP_S1Q16', pick(raw, 'vacancies', 'PP_S1Q16'));
+}
 
 // ─── buildNestedDto ───────────────────────────────────────────────────────────
 //
@@ -250,6 +274,22 @@ export function buildNestedDto(
         case 'ctd': out['ctd'] = buildCtdDto(normalized); break;
         case 'ong': out['ong'] = buildOngDto(normalized); break;
         case 'administration': out['administration'] = buildAdministrationDto(normalized); break;
+        case 'projectProgram': out['projectProgram'] = buildProjectProgramDto(normalized); break;
+    }
+
+    // Projects & Programs — dedicated Section 2/3/4 fields (not part of
+    // SharedSectionsDto's S21Q01/S22Q01/S3Q01/S4Q02 shape, which belongs
+    // to the enterprise-family questionnaire and doesn't apply here).
+    if (entityType === 'projectProgram') {
+        out['activities'] = buildProjectProgramActivities(normalized);
+        out['outcomes'] = buildProjectProgramOutcomes(normalized);
+        out['countedPermanent'] = buildCspTable(normalized, 'pp_s4q01');
+        out['countedTemporary'] = buildCspTable(normalized, 'pp_s4q02');
+        out['recruitedPermanent'] = buildCspTable(normalized, 'pp_s4q03');
+        out['recruitedTemporary'] = buildCspTable(normalized, 'pp_s4q04');
+        out['disabledRecruitments'] = buildPermTempTable(normalized, 'pp_s4q05');
+        out['vulnerableRecruitments'] = buildPermTempTable(normalized, 'pp_s4q06');
+        return out;
     }
 
     // Administration's S21Q01/S22Q01/S3Q01 use SFP status rows
@@ -400,6 +440,75 @@ function buildAdministrationDto(n: Record<string, unknown>): Record<string, unkn
     setNum(r, 'hasSupervisedStructures', n['ADMIN_S1Q11'], mapYesNo);
     setNum(r, 'supervisedStructureCount', n['ADMIN_S1Q12']);
     return r;
+}
+
+function buildProjectProgramDto(n: Record<string, unknown>): Record<string, unknown> {
+    const r: Record<string, unknown> = {};
+    setNum(r, 'nature', n['PP_S1Q01'], mapNature);
+    setIfPresent(r, 'name', n['PP_S1Q02']);
+    setIfPresent(r, 'sigle', n['PP_S1Q03']);
+    setIfPresent(r, 'personInCharge', n['PP_S1Q04']);
+    setNum(r, 'area', n['PP_S1Q05'], mapArea);
+    setIfPresent(r, 'region', n['PP_S1Q06_REGION']);
+    setIfPresent(r, 'department', n['PP_S1Q06_DEPT']);
+    setIfPresent(r, 'subdivision', n['PP_S1Q06_SUBDIV']);
+    setIfPresent(r, 'locality', n['PP_S1Q06_LOCALITY']);
+    setIfPresent(r, 'phone1', n['PP_S1Q07_TEL1']);
+    setIfPresent(r, 'phone2', n['PP_S1Q07_TEL2']);
+    setIfPresent(r, 'poBox', n['PP_S1Q07_BP']);
+    setNum(r, 'sector', n['PP_S1Q08'], mapSector);
+    setIfPresent(r, 'branch', n['PP_S1Q09']);
+    setIfPresent(r, 'mainMission', n['PP_S1Q10']);
+    setIfPresent(r, 'headOffice', n['PP_S1Q11']);
+    setIfPresent(r, 'supervisingMinistry', n['PP_S1Q12']);
+    setNum(r, 'status', n['PP_S1Q13'], mapPPStatus);
+    setNum(r, 'stopReason', n['PP_S1Q14'], mapStopReason);
+    setNum(r, 'permanentWorkers', n['PP_S1Q15']);
+    setNum(r, 'vacancies', n['PP_S1Q16']);
+    return r;
+}
+
+// Section 2's activities table — a variable-count repeating collection
+// (up to 13 rows on the paper form, see AstFieldType.repeatingTable).
+// Rows where every field is empty are dropped rather than persisted as
+// meaningless blank records (per the Phase 1 instruction).
+function buildProjectProgramActivities(n: Record<string, unknown>): Record<string, unknown>[] {
+    const fields = ['description', 'targetPopulation', 'supportType', 'scope', 'startDate', 'duration'] as const;
+    const rows: Record<string, unknown>[] = [];
+    for (let i = 1; i <= 13; i++) {
+        const row: Record<string, unknown> = {};
+        for (const f of fields) {
+            const v = n[`s2_row${i}_${f}`];
+            if (typeof v === 'string' && v.trim() !== '') row[f] = v.trim();
+        }
+        if (Object.keys(row).length > 0) rows.push(row);
+    }
+    return rows;
+}
+
+// Section 3's outcomes/perspectives KPI grid — 4 fixed rows x 3 period
+// columns, all plain integers.
+function buildProjectProgramOutcomes(n: Record<string, unknown>): Record<string, unknown> {
+    const rows = [
+        ['employed', 'employed'],
+        ['self_employed', 'selfEmployed'],
+        ['jobs_created', 'jobsCreated'],
+        ['trained', 'trained'],
+    ] as const;
+    const periods = [
+        ['current', 'current'],
+        ['outlook_dec', 'outlookDec'],
+        ['outlook_june', 'outlookJune'],
+    ] as const;
+    const out: Record<string, unknown> = {};
+    for (const [flatRow, dtoRow] of rows) {
+        const rowObj: Record<string, unknown> = {};
+        for (const [flatPeriod, dtoPeriod] of periods) {
+            setNum(rowObj, dtoPeriod, n[`s3kpi_${flatRow}_${flatPeriod}`]);
+        }
+        if (Object.keys(rowObj).length > 0) out[dtoRow] = rowObj;
+    }
+    return out;
 }
 
 // ─── Nested DTO builders (S2–S4) ──────────────────────────────────────────────
@@ -750,6 +859,40 @@ function mapYesNo(v: string): number {
     return 0;
 }
 
+// Projects & Programs — PP_S1Q01 "Nature de la structure" (matches
+// ProjectProgramIdentificationDto's nature: @IsIn([1,2,3,4])).
+function mapNature(v: string): number {
+    if (!v) return 0;
+    const lv = v.toLowerCase();
+    if (lv.includes('projet') || lv.includes('project')) return 1;
+    if (lv.includes('programme') || lv.includes('program')) return 2;
+    if (lv.includes('sous-tutelle') || lv.includes('supervision')) return 3;
+    if (lv.includes('autre') || lv.includes('other')) return 4;
+    return 0;
+}
+
+// PP_S1Q13 "Situation du Projet / Programme" (matches status: @IsIn([1,2,3])).
+function mapPPStatus(v: string): number {
+    if (!v) return 0;
+    const lv = v.toLowerCase();
+    if (lv.includes('arrêt') || lv.includes('stopped')) return 1;
+    if (lv.includes('actif') || lv.includes('active')) return 2;
+    if (lv.includes('démarrage') || lv.includes('starting')) return 3;
+    return 0;
+}
+
+// PP_S1Q14 "Si en arrêt, quel est le principal motif ?" (matches
+// stopReason: @IsIn([1,2,3,4]), only sent when status = Stopped).
+function mapStopReason(v: string): number {
+    if (!v) return 0;
+    const lv = v.toLowerCase();
+    if (lv.includes('terme') || lv.includes('expired')) return 1;
+    if (lv.includes('fonds') || lv.includes('funds')) return 2;
+    if (lv.includes('insuffisant') || lv.includes('insufficient')) return 3;
+    if (lv.includes('autre') || lv.includes('other')) return 4;
+    return 0;
+}
+
 function mapSize(v: string): number {
     if (!v) return 0;
     if (v.includes('TPE')) return 1;
@@ -872,6 +1015,9 @@ function toInt(value: unknown): number {
     'administrationName', 'sigle',
     'hasProject', 'projectCount',
     'hasSupervisedStructures', 'supervisedStructureCount',
+    // Projects & Programs
+    'nature', 'projectProgramName', 'personInCharge', 'sector',
+    'status', 'stopReason', 'supervisingMinistry',
     // Meta
     'surveyYear', 'organizationType', 'formType', 'entityType',
     'isDraft', 'userId', 'formId',

@@ -758,6 +758,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
           ),
         );
         break;
+      case 'repeating_table':
+        field = ActivitiesTableFieldWidget(ctrl: _ctrl, field: f);
+        break;
       default:
         field = SimpleField(ctrl: _ctrl, field: f);
     }

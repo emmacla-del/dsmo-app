@@ -19,6 +19,8 @@ import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
 import '../../core/focus/utils/table_response_status.dart';
+import '../../core/focus/renderers/activities_table.dart'
+    show kActivitiesTableRowCount, kActivitiesTableFieldSuffixes;
 import '../../data/api_client.dart';
 import '../../services/sync_queue_service.dart';
 
@@ -466,6 +468,19 @@ class OnefopFormController extends ChangeNotifier {
     for (final e in kHybridTables.entries) {
       for (final rk in e.value.rowKeys) {
         final id = '${e.key}_${rk}_${e.value.textSuffix}';
+        _htv[id] = _data[id]?.toString() ?? '';
+        hybridController(id);
+      }
+    }
+    // Projects & Programs — Section 2's activities table: every cell
+    // (including the coded dropdowns) is hybrid-controller-backed, same
+    // mechanism as kHybridTables above, just 6 fields x up to 13 rows
+    // instead of 1 field x 3 rows — see ActivitiesTable. Run
+    // unconditionally like the loop above (harmless no-op for every
+    // other entity type, whose schema never renders these cells).
+    for (var n = 1; n <= kActivitiesTableRowCount; n++) {
+      for (final suffix in kActivitiesTableFieldSuffixes) {
+        final id = 's2_row${n}_$suffix';
         _htv[id] = _data[id]?.toString() ?? '';
         hybridController(id);
       }
@@ -1219,7 +1234,13 @@ class OnefopFormController extends ChangeNotifier {
       's3q03',
       's4q01',
       's4q02',
-      's4q03'
+      's4q03',
+      'pp_s4q01',
+      'pp_s4q02',
+      'pp_s4q03',
+      'pp_s4q04',
+      'pp_s4q05',
+      'pp_s4q06',
     ]) {
       w = TableCellEngine.dispatch(w, p, rows: _tableRowsForPrefix(p));
     }

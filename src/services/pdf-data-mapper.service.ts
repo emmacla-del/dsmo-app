@@ -14,7 +14,7 @@ import {
 // ─────────────────────────────────────────────
 
 type FlatData = Record<string, unknown>;
-type EntityType = 'enterprise' | 'cooperative' | 'ctd' | 'ong' | 'administration';
+type EntityType = 'enterprise' | 'cooperative' | 'ctd' | 'ong' | 'administration' | 'projectProgram';
 type LabelMap = Record<string, string>;
 
 // The reporting year printed all over the form ("...du 1er Janvier
@@ -702,6 +702,117 @@ function buildS2S4Administration(f: FlatData) {
     };
 }
 
+// Projects & Programs — Section 2's activities table (variable-count
+// repeating rows, up to 13 — see AstFieldType.repeatingTable) and
+// Section 3's outcomes/perspectives KPI grid (4 fixed rows x 3 period
+// columns). Neither shape existed before this entity — Section 2's
+// coded fields (targetPopulation/supportType/scope) are displayed as
+// "code — label" for the PDF, matching the source instrument's legend,
+// not the raw stored code.
+const PP_TARGET_POPULATION_LABELS: LabelMap = {
+    '1': 'Jeune non diplômé / Non-graduate youth',
+    '2': 'Jeune diplômé / Graduate youth',
+    '3': 'Femme / Women',
+    '4': 'Monde rural / Rural',
+    '5': 'Population urbaine / Urban population',
+    '6': 'Autre / Other',
+};
+
+const PP_SUPPORT_TYPE_LABELS: LabelMap = {
+    '1': 'Gratuit / Free',
+    '2': 'Tarifé / Fee-based',
+    '3': 'Aide financière remboursable / Reimbursable financial assistance',
+    '4': 'Aide financière non remboursable / Non-reimbursable financial assistance',
+    '5': 'Autre / Other',
+};
+
+const PP_SCOPE_LABELS: LabelMap = {
+    '1': 'National / National',
+    '2': 'Régional / Regional',
+    '3': 'Local / Local',
+    '4': 'Autre / Other',
+};
+
+interface ActivityRow {
+    index: number;
+    description: string;
+    targetPopulation: string;
+    supportType: string;
+    scope: string;
+    startDate: string;
+    duration: string;
+}
+
+function buildActivityRows(f: FlatData): ActivityRow[] {
+    const rows: ActivityRow[] = [];
+    for (let i = 1; i <= 13; i++) {
+        const description = str(f, `s2_row${i}_description`);
+        const targetPopulation = str(f, `s2_row${i}_targetPopulation`);
+        const supportType = str(f, `s2_row${i}_supportType`);
+        const scope = str(f, `s2_row${i}_scope`);
+        const startDate = str(f, `s2_row${i}_startDate`);
+        const duration = str(f, `s2_row${i}_duration`);
+        if (!description && !targetPopulation && !supportType && !scope && !startDate && !duration) {
+            continue;
+        }
+        rows.push({
+            index: i,
+            description,
+            targetPopulation: PP_TARGET_POPULATION_LABELS[targetPopulation] ?? targetPopulation,
+            supportType: PP_SUPPORT_TYPE_LABELS[supportType] ?? supportType,
+            scope: PP_SCOPE_LABELS[scope] ?? scope,
+            startDate,
+            duration,
+        });
+    }
+    return rows;
+}
+
+interface OutcomeRow {
+    label: string;
+    current: number;
+    outlookDec: number;
+    outlookJune: number;
+}
+
+function buildOutcomeRows(f: FlatData): OutcomeRow[] {
+    const rows: [string, string][] = [
+        ['employed', 'Bénéficiaires insérés comme employés / Beneficiaries inserted as employees'],
+        ['self_employed', 'Bénéficiaires insérés en auto emploi / Beneficiaries inserted in self-employment'],
+        ['jobs_created', 'Emplois créés par les bénéficiaires employeurs / Jobs created by beneficiary employers'],
+        ['trained', 'Bénéficiaires formés / Beneficiaries trained'],
+    ];
+    return rows.map(([slug, label]): OutcomeRow => ({
+        label,
+        current: int(f, `s3kpi_${slug}_current`),
+        outlookDec: int(f, `s3kpi_${slug}_outlook_dec`),
+        outlookJune: int(f, `s3kpi_${slug}_outlook_june`),
+    }));
+}
+
+function buildS2S4ProjectProgram(f: FlatData) {
+    return {
+        activitiesRows: buildActivityRows(f),
+        outcomesRows: buildOutcomeRows(f),
+        // S4Q01/S4Q02 — counted (recensé) permanent/temporary
+        countedPermanentRows: buildCspAgeRows(f, 'pp_s4q01', CSP_ROWS, CSP_LABELS),
+        countedPermanentTotals: buildCspAgeTotals(f, 'pp_s4q01'),
+        countedTemporaryRows: buildCspAgeRows(f, 'pp_s4q02', CSP_ROWS, CSP_LABELS),
+        countedTemporaryTotals: buildCspAgeTotals(f, 'pp_s4q02'),
+        // S4Q03/S4Q04 — recruited (recruté) permanent/temporary
+        recruitedPermanentRows: buildCspAgeRows(f, 'pp_s4q03', CSP_ROWS, CSP_LABELS),
+        recruitedPermanentTotals: buildCspAgeTotals(f, 'pp_s4q03'),
+        recruitedTemporaryRows: buildCspAgeRows(f, 'pp_s4q04', CSP_ROWS, CSP_LABELS),
+        recruitedTemporaryTotals: buildCspAgeTotals(f, 'pp_s4q04'),
+        // S4Q05 — disability, S4Q06 — vulnerable (both csp_status_gender_
+        // table shaped for this entity, unlike the other four entities)
+        disabledRecruitmentsRows: buildPermTempRows(f, 'pp_s4q05', CSP_ROWS, CSP_LABELS),
+        disabledRecruitmentsTotals: buildPermTempTotals(f, 'pp_s4q05'),
+        vulnerableRecruitmentsRows: buildPermTempRows(f, 'pp_s4q06', CSP_ROWS, CSP_LABELS),
+        vulnerableRecruitmentsTotals: buildPermTempTotals(f, 'pp_s4q06'),
+    };
+}
+
 // ─────────────────────────────────────────────
 // PUBLIC ENTITY MAPPERS
 // ─────────────────────────────────────────────
@@ -866,6 +977,47 @@ export function mapAdministrationData(f: FlatData, quarterCode?: string | null) 
     };
 }
 
+// Structural implementation only — bindings are complete (every
+// PP_S1Q01-16 field and Section 2/3/4 table has a mapper output and a
+// projet-program.hbs reference), but visual fidelity against the source
+// PDF (Questionnaire_Projet_et_Programmes.pdf) has not been verified,
+// matching the same deferred-visual-QA status Administration's mapper
+// carried after its own Phase 1.
+export function mapProjectProgramData(f: FlatData, quarterCode?: string | null) {
+    return {
+        respondentName: str(f, 'S0Q01'),
+        respondentFunction: str(f, 'S0Q02'),
+        respondentPhone1: str(f, 'S0Q03_TEL1'),
+        respondentPhone2: str(f, 'S0Q03_TEL2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL'),
+        nature: str(f, 'PP_S1Q01'),
+        projectProgramName: str(f, 'PP_S1Q02'),
+        sigle: str(f, 'PP_S1Q03'),
+        personInCharge: str(f, 'PP_S1Q04'),
+        area: mapArea(f['PP_S1Q05']),
+        region: str(f, 'PP_S1Q06_REGION'),
+        department: str(f, 'PP_S1Q06_DEPT'),
+        subdivision: str(f, 'PP_S1Q06_SUBDIV'),
+        locality: str(f, 'PP_S1Q06_LOCALITY'),
+        phone1: str(f, 'PP_S1Q07_TEL1'),
+        phone2: str(f, 'PP_S1Q07_TEL2'),
+        poBox: str(f, 'PP_S1Q07_BP'),
+        businessSector: mapSector(f['PP_S1Q08']),
+        branchActivity: str(f, 'PP_S1Q09'),
+        mainMission: str(f, 'PP_S1Q10'),
+        headOffice: str(f, 'PP_S1Q11'),
+        supervisingMinistry: str(f, 'PP_S1Q12'),
+        status: str(f, 'PP_S1Q13'),
+        stopReason: str(f, 'PP_S1Q14'),
+        permanentWorkers: f['PP_S1Q15'] != null ? String(f['PP_S1Q15']) : '',
+        vacancies: f['PP_S1Q16'] != null ? String(f['PP_S1Q16']) : '',
+        ...buildS2S4ProjectProgram(f),
+        surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
+        ...collectionPeriodStrings(quarterCode),
+        copy: 'Original',
+    };
+}
+
 // ─────────────────────────────────────────────
 // DIAGNOSTIC HELPER  (dev / debug only)
 // ─────────────────────────────────────────────
@@ -900,6 +1052,13 @@ const ENTITY_EXPECTED_KEYS: Record<EntityType, string[]> = {
         'ADMIN_S1Q05_TEL1', 'ADMIN_S1Q05_TEL2', 'ADMIN_S1Q05_BP',
         'ADMIN_S1Q06', 'ADMIN_S1Q07', 'ADMIN_S1Q08', 'ADMIN_S1Q09', 'ADMIN_S1Q10',
         'ADMIN_S1Q11', 'ADMIN_S1Q12',
+    ],
+    projectProgram: [
+        'PP_S1Q01', 'PP_S1Q02', 'PP_S1Q03', 'PP_S1Q04', 'PP_S1Q05',
+        'PP_S1Q06_REGION', 'PP_S1Q06_DEPT', 'PP_S1Q06_SUBDIV', 'PP_S1Q06_LOCALITY',
+        'PP_S1Q07_TEL1', 'PP_S1Q07_TEL2', 'PP_S1Q07_BP',
+        'PP_S1Q08', 'PP_S1Q09', 'PP_S1Q10', 'PP_S1Q11', 'PP_S1Q12',
+        'PP_S1Q13', 'PP_S1Q14', 'PP_S1Q15', 'PP_S1Q16',
     ],
 };
 

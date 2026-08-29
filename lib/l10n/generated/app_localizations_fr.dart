@@ -608,6 +608,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Administration publique ou service gouvernemental.';
 
   @override
+  String get registerEntitySubtitleProjectProgram =>
+      'Projet, programme ou structure sous tutelle d\'un ministère.';
+
+  @override
   String get registerCreateAccountTitle => 'Créer un compte';
 
   @override

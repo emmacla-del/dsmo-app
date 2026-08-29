@@ -1962,6 +1962,12 @@ const s4q01 = FormQuestionAst(
   sectionId: "section4",
   order: 1,
   type: AstFieldType.table,
+  // Was unrestricted (entityTypes: null) — harmless while only the
+  // original 4 entities + Administration existed, since all 5 use this
+  // shared internship table. Made explicit now that Projects & Programs
+  // (paperCode "S4Q01" too, by coincidence of independent numbering)
+  // must NOT inherit it — see ppS4Q01 below, which has its own S4Q01.
+  entityTypes: ["enterprise", "cooperative", "ctd", "ong", "administration"],
   tableSpec: {
     "template": "internship_table",
     "prefix": "s4q01",
@@ -2191,6 +2197,574 @@ FormQuestionAst tableResponseStatus({
     );
 
 // ============================================================
+// PROJECTS & PROGRAMS — dedicated questionnaire, Phase 1 structural
+// implementation. Source: Questionnaire_Projet_et_Programmes.pdf.
+//
+// Unlike Administration, this is NOT a variant of the shared
+// section2/section3/section4 — its Sections 2-4 have their own paper
+// codes (S2/S3Q01-04/S4Q01-06) and structure entirely distinct from the
+// enterprise-family "Emploi et Travail"/"Départs"/"Stage et Formation"
+// sections, so it gets its own dedicated sections rather than reusing
+// the shared ones the way Administration reused S21Q01/S22Q01/S3Q01.
+//
+// Section 4's S4Q01-S4Q04 pairing ("recensé" vs "recruté", each split
+// permanent/temporary) is a genuine 4-way distinction confirmed from the
+// source PDF, not a duplication: "recensé" (counted) is a headcount of
+// current staff; "recruté" (recruited) is new hires during the
+// reporting period — the same census-vs-recruitment distinction other
+// entities draw between their Section 1 headcount fields and their
+// Section 2.2 recruitment tables, just both expressed as full CSP
+// tables here rather than one side being a single header number.
+// ============================================================
+
+const section1ProjectProgram = SectionAst(
+  id: "section1_projectProgram",
+  title: LocalizedText(
+    fr: "SECTION 1. IDENTIFICATION DE LA STRUCTURE",
+    en: "SECTION 1. STRUCTURE DETAILS",
+  ),
+  order: 1,
+  entityTypes: ["projectProgram"],
+);
+
+const section1ProjectProgramQuestions = <FormQuestionAst>[
+  FormQuestionAst(
+    id: "PP_S1Q01",
+    paperCode: "S1Q01",
+    label: LocalizedText(
+        fr: "Nature de la structure", en: "Nature of the structure"),
+    sectionId: "section1_projectProgram",
+    order: 1,
+    type: AstFieldType.radio,
+    options: [
+      LocalizedOption("Projet/ Project", LocalizedText(fr: "Projet", en: "Project")),
+      LocalizedOption("Programme/ Program", LocalizedText(fr: "Programme", en: "Program")),
+      LocalizedOption(
+        "Structure sous-tutelle/ Structure under supervision",
+        LocalizedText(
+            fr: "Structure sous-tutelle", en: "Structure under supervision"),
+      ),
+      LocalizedOption("Autres/ Other", LocalizedText(fr: "Autres", en: "Other")),
+    ],
+    requiredField: true,
+    path: "projectProgram.nature",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q02",
+    paperCode: "S1Q02",
+    label: LocalizedText(fr: "Nom", en: "Name"),
+    sectionId: "section1_projectProgram",
+    order: 2,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.name",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q03",
+    paperCode: "S1Q03",
+    label: LocalizedText(fr: "Sigle ou acronyme", en: "Abbreviation or acronym"),
+    sectionId: "section1_projectProgram",
+    order: 3,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.sigle",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q04",
+    paperCode: "S1Q04",
+    label: LocalizedText(
+        fr: "Nom du Responsable", en: "Name of the person in charge"),
+    sectionId: "section1_projectProgram",
+    order: 4,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.personInCharge",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q05",
+    paperCode: "S1Q05",
+    label: LocalizedText(fr: "Milieu de résidence", en: "Area"),
+    sectionId: "section1_projectProgram",
+    order: 5,
+    type: AstFieldType.radio,
+    options: [
+      LocalizedOption("Urbain/ Urban", LocalizedText(fr: "Urbain", en: "Urban")),
+      LocalizedOption("Rural/ Rural", LocalizedText(fr: "Rural", en: "Rural")),
+    ],
+    requiredField: true,
+    path: "projectProgram.area",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q06_REGION",
+    paperCode: "S1Q06",
+    label: LocalizedText(fr: "Région", en: "Region"),
+    sectionId: "section1_projectProgram",
+    order: 6,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.region",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q06_DEPT",
+    paperCode: "S1Q06",
+    label: LocalizedText(fr: "Département", en: "Division"),
+    sectionId: "section1_projectProgram",
+    order: 7,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.department",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q06_SUBDIV",
+    paperCode: "S1Q06",
+    label: LocalizedText(fr: "Arrondissement", en: "Subdivision"),
+    sectionId: "section1_projectProgram",
+    order: 8,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.subdivision",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q06_LOCALITY",
+    paperCode: "S1Q06",
+    label: LocalizedText(
+      fr: "Quartier/Village/Localité",
+      en: "Neighborhood/Village/Locality",
+    ),
+    sectionId: "section1_projectProgram",
+    order: 9,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.locality",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q07_TEL1",
+    paperCode: "S1Q07",
+    label: LocalizedText(fr: "Téléphone 1", en: "Tel 1"),
+    sectionId: "section1_projectProgram",
+    order: 10,
+    type: AstFieldType.tel,
+    requiredField: true,
+    path: "projectProgram.phone1",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q07_TEL2",
+    paperCode: "S1Q07",
+    label: LocalizedText(fr: "Téléphone 2", en: "Tel 2"),
+    sectionId: "section1_projectProgram",
+    order: 11,
+    type: AstFieldType.tel,
+    // NO requiredField - phone2 is optional
+    path: "projectProgram.phone2",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q07_BP",
+    paperCode: "S1Q07",
+    label: LocalizedText(fr: "Boîte postale", en: "PO Box"),
+    sectionId: "section1_projectProgram",
+    order: 12,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.poBox",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q08",
+    paperCode: "S1Q08",
+    label: LocalizedText(fr: "Secteur d'activité", en: "Business sector"),
+    sectionId: "section1_projectProgram",
+    order: 13,
+    type: AstFieldType.radio,
+    options: [
+      LocalizedOption("Primaire/ Primary", LocalizedText(fr: "Primaire", en: "Primary")),
+      LocalizedOption(
+          "Secondaire/ Secondary", LocalizedText(fr: "Secondaire", en: "Secondary")),
+      LocalizedOption(
+          "Tertiaire/ Tertiary", LocalizedText(fr: "Tertiaire", en: "Tertiary")),
+    ],
+    requiredField: true,
+    path: "projectProgram.sector",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q09",
+    paperCode: "S1Q09",
+    label: LocalizedText(fr: "Branche d'activité", en: "Branch of activity"),
+    sectionId: "section1_projectProgram",
+    order: 14,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.branch",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q10",
+    paperCode: "S1Q10",
+    label: LocalizedText(
+        fr: "Objectif ou mission principale", en: "Objective or main mission"),
+    sectionId: "section1_projectProgram",
+    order: 15,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.mainMission",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q11",
+    paperCode: "S1Q11",
+    label: LocalizedText(fr: "Siège social", en: "Head office"),
+    sectionId: "section1_projectProgram",
+    order: 16,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.headOffice",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q12",
+    paperCode: "S1Q12",
+    label: LocalizedText(
+      fr: "Ministère/ Organisme tutelle",
+      en: "Ministry/ Organisation under supervision",
+    ),
+    sectionId: "section1_projectProgram",
+    order: 17,
+    type: AstFieldType.text,
+    requiredField: true,
+    path: "projectProgram.supervisingMinistry",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q13",
+    paperCode: "S1Q13",
+    label: LocalizedText(
+      fr: "Situation du Projet / Programme",
+      en: "Project / Programme Status",
+    ),
+    sectionId: "section1_projectProgram",
+    order: 18,
+    type: AstFieldType.radio,
+    options: [
+      LocalizedOption("En arrêt/ Stopped", LocalizedText(fr: "En arrêt", en: "Stopped")),
+      LocalizedOption("Actif/ Active", LocalizedText(fr: "Actif", en: "Active")),
+      LocalizedOption(
+        "En cours de démarrage/ Starting up",
+        LocalizedText(fr: "En cours de démarrage", en: "Starting up"),
+      ),
+    ],
+    requiredField: true,
+    path: "projectProgram.status",
+  ),
+  // Conditional on S1Q13 = Stopped — same dependsOn/dependsValue
+  // mechanism already exercised by Administration's S1Q09/S1Q11.
+  FormQuestionAst(
+    id: "PP_S1Q14",
+    paperCode: "S1Q14",
+    label: LocalizedText(
+      fr: "Si en arrêt, quel est le principal motif ?",
+      en: "If stopped, what is the main reason?",
+    ),
+    sectionId: "section1_projectProgram",
+    order: 19,
+    type: AstFieldType.radio,
+    options: [
+      LocalizedOption(
+          "Arrivé à terme/ Expired", LocalizedText(fr: "Arrivé à terme", en: "Expired")),
+      LocalizedOption(
+        "Manque de fonds/ Lack of funds",
+        LocalizedText(fr: "Manque de fonds", en: "Lack of funds"),
+      ),
+      LocalizedOption(
+        "Résultats insuffisants/ Insufficient results",
+        LocalizedText(fr: "Résultats insuffisants", en: "Insufficient results"),
+      ),
+      LocalizedOption("Autre/ Other", LocalizedText(fr: "Autre", en: "Other")),
+    ],
+    dependsOn: "PP_S1Q13",
+    dependsValue: "En arrêt/ Stopped",
+    requiredField: true,
+    path: "projectProgram.stopReason",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q15",
+    paperCode: "S1Q15",
+    label: LocalizedText(
+        fr: "Nombre d'employé permanent", en: "Number of permanent workers"),
+    sectionId: "section1_projectProgram",
+    order: 20,
+    type: AstFieldType.number,
+    requiredField: true,
+    path: "projectProgram.permanentWorkers",
+  ),
+  FormQuestionAst(
+    id: "PP_S1Q16",
+    paperCode: "S1Q16",
+    label: LocalizedText(fr: "Nombre de poste vacant", en: "Number of vacancies"),
+    sectionId: "section1_projectProgram",
+    order: 21,
+    type: AstFieldType.number,
+    requiredField: true,
+    path: "projectProgram.vacancies",
+  ),
+];
+
+// ============================================================
+// SECTION 2 — services/activities offered by the structure. The paper
+// form shows a 13-row blank repeating table (Prestations offertes /
+// Population cible / Nature de l'appui / Rayon d'action / Date de
+// début / Durée) — no fixed row semantics, unlike the app's existing
+// 3-row free-entry tables (reasons/skills/training). Modeled as a
+// single AstFieldType.repeatingTable field; the row count (13) is a
+// display capacity matching the paper form, not a hard cap on the
+// conceptual data model — see ActivitiesTable and the backend's
+// ProjectProgramActivity child table, which persists only the rows
+// actually filled in.
+// ============================================================
+
+const section2ProjectProgram = SectionAst(
+  id: "section2_projectProgram",
+  title: LocalizedText(
+    fr: "SECTION 2. RENSEIGNEMENTS SUR LA STRUCTURE SOUS-TUTELLE/ PROJET ET PROGRAMME",
+    en: "SECTION 2. INFORMATION ON THE STRUCTURE UNDER SUPERVISION/PROJECT AND PROGRAM",
+  ),
+  order: 2,
+  entityTypes: ["projectProgram"],
+);
+
+const section2ProjectProgramQuestions = <FormQuestionAst>[
+  FormQuestionAst(
+    id: "PP_S2_ACTIVITIES",
+    label: LocalizedText(
+      fr: "Prestations offertes, population cible, nature de l'appui, "
+          "rayon d'action, date de début et durée",
+      en: "Services offered, target population, type of support, scope "
+          "of action, start date and duration",
+    ),
+    sectionId: "section2_projectProgram",
+    order: 1,
+    type: AstFieldType.repeatingTable,
+    entityTypes: ["projectProgram"],
+    tableSpec: {
+      "template": "activities_table",
+      "prefix": "s2",
+      "rows": 13,
+      "fields": [
+        "description",
+        "targetPopulation",
+        "supportType",
+        "scope",
+        "startDate",
+        "duration",
+      ],
+    },
+    path: "projectProgram.activities",
+  ),
+];
+
+// ============================================================
+// SECTION 3 — outcomes/perspectives. A small fixed 4-row x 3-column KPI
+// grid (no CSP/gender/age breakdown), structurally unlike any existing
+// table — a new "kpi_period_table" template. Still numeric/homogeneous,
+// so it reuses the existing GridRenderSpec/TableSpecBuilder/
+// TableCellEngine numeric-grid machinery (field.type stays 'table').
+// ============================================================
+
+const section3ProjectProgram = SectionAst(
+  id: "section3_projectProgram",
+  title: LocalizedText(
+    fr: "SECTION 3. EMPLOI ET TRAVAIL/ INFORMATIONS SUR L'ACTIVITE DE LA STRUCTURE SOUS-TUTELLE / PROJET / PROGRAMME",
+    en: "SECTION 3. EMPLOYMENT AND LABOUR/ INFORMATION ON THE ACTIVITY OF THE STRUCTURE UNDER SUPERVISION/ PROJECT / PROGRAM",
+  ),
+  order: 3,
+  entityTypes: ["projectProgram"],
+);
+
+const section3ProjectProgramQuestions = <FormQuestionAst>[
+  FormQuestionAst(
+    id: "PP_S3_OUTCOMES",
+    label: LocalizedText(
+      fr: "Nombre de bénéficiaires insérés comme employés, en auto "
+          "emploi, d'emplois créés par les bénéficiaires employeurs et "
+          "de bénéficiaires formés dans les domaines divers",
+      en: "Number of beneficiaries inserted as employees, in "
+          "self-employment, jobs created by beneficiary employers, and "
+          "beneficiaries trained in various fields",
+    ),
+    sectionId: "section3_projectProgram",
+    order: 1,
+    type: AstFieldType.table,
+    entityTypes: ["projectProgram"],
+    // No paperCode: this one table stands in for the paper form's
+    // S3Q01-04 rows collectively, and deliberately has no
+    // tableResponseStatus companion either — the paper form has no
+    // response-status selector for it (unlike the recensement/
+    // recrutement/départs tables elsewhere in the app).
+    tableSpec: {
+      "template": "kpi_period_table",
+      "prefix": "s3kpi",
+      "rows": ["employed", "self_employed", "jobs_created", "trained"],
+      "periods": ["current", "outlook_dec", "outlook_june"],
+    },
+    path: "projectProgram.outcomes",
+  ),
+];
+
+// ============================================================
+// SECTION 4 — recruitment/headcount tables, reusing the existing CSP
+// (cadres/foremen/workers) row infrastructure verbatim — same
+// templates as the shared csp_gender_age_table/csp_status_gender_table
+// Enterprise already uses, just under Projects & Programs' own
+// S4Q01-S4Q06 paper codes. S4Q01/S4Q02 ("recensé") vs S4Q03/S4Q04
+// ("recruté") are a genuine 4-way distinction confirmed from the
+// source PDF (headcount census vs new recruitment flow) — see the
+// file-level comment above this whole Projects & Programs block.
+// ============================================================
+
+const section4ProjectProgram = SectionAst(
+  id: "section4_projectProgram",
+  title: LocalizedText(
+    fr: "SECTION 4. DETAILS SUR LES RESENCEMENTS ET RECRUTEMENTS CONCERNANT L'ACTIVITE DE LA STRUCTURE SOUS-TUTELLE / PROJET / PROGRAMME",
+    en: "SECTION 4. DETAILS ON APPOINTMENTS AND RECRUITMENTS CONCERNING THE ACTIVITY OF THE STRUCTURE UNDER SUPERVISION/ PROJECT / PROGRAM",
+  ),
+  order: 4,
+  entityTypes: ["projectProgram"],
+);
+
+const ppS4Q01 = FormQuestionAst(
+  id: "PP_S4Q01",
+  paperCode: "S4Q01",
+  label: LocalizedText(
+    fr: "Combien de permanents avez-vous recensé selon la catégorie "
+        "socioprofessionnelle, le sexe et la tranche d'âge du premier "
+        "Janvier 2026 à ce jour?",
+    en: "How many permanent workers per socio-professional category, "
+        "gender and age group did you count from the 1st of January "
+        "2026 to the present day?",
+  ),
+  sectionId: "section4_projectProgram",
+  order: 1,
+  type: AstFieldType.table,
+  entityTypes: ["projectProgram"],
+  tableSpec: {
+    "template": "csp_gender_age_table",
+    "prefix": "pp_s4q01",
+    "rows": ["cadres", "foremen", "workers"],
+    "genders": ["male", "female", "total"],
+    "age_bands": ["15_24", "25_34", "35_plus"],
+  },
+);
+
+const ppS4Q02 = FormQuestionAst(
+  id: "PP_S4Q02",
+  paperCode: "S4Q02",
+  label: LocalizedText(
+    fr: "Combien de temporaires avez-vous recensé selon la catégorie "
+        "socioprofessionnelle, le sexe et la tranche d'âge du premier "
+        "Janvier 2026 à ce jour ?",
+    en: "How many temporary workers per socio-professional category, "
+        "gender and age group did you count from the 1st of January "
+        "2026 to the present day?",
+  ),
+  sectionId: "section4_projectProgram",
+  order: 2,
+  type: AstFieldType.table,
+  entityTypes: ["projectProgram"],
+  tableSpec: {
+    "template": "csp_gender_age_table",
+    "prefix": "pp_s4q02",
+    "rows": ["cadres", "foremen", "workers"],
+    "genders": ["male", "female", "total"],
+    "age_bands": ["15_24", "25_34", "35_plus"],
+  },
+);
+
+const ppS4Q03 = FormQuestionAst(
+  id: "PP_S4Q03",
+  paperCode: "S4Q03",
+  label: LocalizedText(
+    fr: "Combien de permanents avez-vous recruté selon la catégorie "
+        "socioprofessionnelle, le sexe et la tranche d'âge du premier "
+        "Janvier 2026 à ce jour?",
+    en: "How many permanent workers per socio-professional category, "
+        "gender and age group did you recruit from the 1st of January "
+        "2026 to the present day?",
+  ),
+  sectionId: "section4_projectProgram",
+  order: 3,
+  type: AstFieldType.table,
+  entityTypes: ["projectProgram"],
+  tableSpec: {
+    "template": "csp_gender_age_table",
+    "prefix": "pp_s4q03",
+    "rows": ["cadres", "foremen", "workers"],
+    "genders": ["male", "female", "total"],
+    "age_bands": ["15_24", "25_34", "35_plus"],
+  },
+);
+
+const ppS4Q04 = FormQuestionAst(
+  id: "PP_S4Q04",
+  paperCode: "S4Q04",
+  label: LocalizedText(
+    fr: "Combien de temporaires avez-vous recruté selon la catégorie "
+        "socioprofessionnelle, le sexe et la tranche d'âge du premier "
+        "Janvier 2026 à ce jour ?",
+    en: "How many temporary workers per socio-professional category, "
+        "gender and age group did you recruit from the 1st of January "
+        "2026 to the present day?",
+  ),
+  sectionId: "section4_projectProgram",
+  order: 4,
+  type: AstFieldType.table,
+  entityTypes: ["projectProgram"],
+  tableSpec: {
+    "template": "csp_gender_age_table",
+    "prefix": "pp_s4q04",
+    "rows": ["cadres", "foremen", "workers"],
+    "genders": ["male", "female", "total"],
+    "age_bands": ["15_24", "25_34", "35_plus"],
+  },
+);
+
+const ppS4Q05 = FormQuestionAst(
+  id: "PP_S4Q05",
+  paperCode: "S4Q05",
+  label: LocalizedText(
+    fr: "Combien de personnes en situation de handicap avez-vous "
+        "recruté selon la catégorie socio professionnelle, le sexe et "
+        "le statut du 1er Janvier 2026 à ce jour?",
+    en: "How many workers with a disability per socio-professional "
+        "category, gender, and status did you recruit from the 1st of "
+        "January 2026 to the present day?",
+  ),
+  sectionId: "section4_projectProgram",
+  order: 5,
+  type: AstFieldType.table,
+  entityTypes: ["projectProgram"],
+  tableSpec: {
+    "template": "csp_status_gender_table",
+    "prefix": "pp_s4q05",
+    "rows": ["cadres", "foremen", "workers"],
+  },
+);
+
+const ppS4Q06 = FormQuestionAst(
+  id: "PP_S4Q06",
+  paperCode: "S4Q06",
+  label: LocalizedText(
+    fr: "Combien de personnes vulnérables avez-vous recruté selon le "
+        "statut et la nature de la vulnérabilité du 1er Janvier 2026 à "
+        "ce jour?",
+    en: "How many vulnerable workers per socio-professional category, "
+        "gender, and status did you recruit from the 1st of January "
+        "2026 to the present day?",
+  ),
+  sectionId: "section4_projectProgram",
+  order: 6,
+  type: AstFieldType.table,
+  entityTypes: ["projectProgram"],
+  tableSpec: {
+    "template": "csp_status_gender_table",
+    "prefix": "pp_s4q06",
+    "rows": ["cadres", "foremen", "workers"],
+  },
+);
+
+// ============================================================
 // EXPORT COLLECTIONS
 // ============================================================
 
@@ -2201,9 +2775,13 @@ const List<SectionAst> allSections = [
   section1Ctd,
   section1Ong,
   section1Administration,
+  section1ProjectProgram,
   section2,
+  section2ProjectProgram,
   section3,
+  section3ProjectProgram,
   section4,
+  section4ProjectProgram,
 ];
 
 // FIX-3: s3q02_reason_4_text removed from this list (no 4th reason in any PDF)
@@ -2217,6 +2795,48 @@ final List<FormQuestionAst> allQuestions = [
   ...section1CtdQuestions,
   ...section1OngQuestions,
   ...section1AdministrationQuestions,
+  ...section1ProjectProgramQuestions,
+
+  // Projects & Programs — Sections 2/3/4 (dedicated, not shared with the
+  // enterprise-family sections below).
+  ...section2ProjectProgramQuestions,
+  ...section3ProjectProgramQuestions,
+  ppS4Q01,
+  tableResponseStatus(
+      paperCode: 'S4Q01',
+      sectionId: 'section4_projectProgram',
+      order: 1,
+      entityTypes: const ["projectProgram"]),
+  ppS4Q02,
+  tableResponseStatus(
+      paperCode: 'S4Q02',
+      sectionId: 'section4_projectProgram',
+      order: 2,
+      entityTypes: const ["projectProgram"]),
+  ppS4Q03,
+  tableResponseStatus(
+      paperCode: 'S4Q03',
+      sectionId: 'section4_projectProgram',
+      order: 3,
+      entityTypes: const ["projectProgram"]),
+  ppS4Q04,
+  tableResponseStatus(
+      paperCode: 'S4Q04',
+      sectionId: 'section4_projectProgram',
+      order: 4,
+      entityTypes: const ["projectProgram"]),
+  ppS4Q05,
+  tableResponseStatus(
+      paperCode: 'S4Q05',
+      sectionId: 'section4_projectProgram',
+      order: 5,
+      entityTypes: const ["projectProgram"]),
+  ppS4Q06,
+  tableResponseStatus(
+      paperCode: 'S4Q06',
+      sectionId: 'section4_projectProgram',
+      order: 6,
+      entityTypes: const ["projectProgram"]),
 
   // Section 2.1 — job applications
   s21q01,
@@ -2300,10 +2920,23 @@ final List<FormQuestionAst> allQuestions = [
 
   // Section 4 — internship and training
   s4q01,
-  tableResponseStatus(paperCode: 'S4Q01', sectionId: 'section4', order: 1),
+  // Both wrappers below were unrestricted (entityTypes: null) — made
+  // explicit for the same reason as s4q01's own entityTypes above:
+  // Projects & Programs' PP_S4Q01/PP_S4Q02 (paperCode "S4Q01"/"S4Q02"
+  // too, by coincidence) get their own dedicated wrappers further down
+  // instead of silently inheriting these.
+  tableResponseStatus(
+      paperCode: 'S4Q01',
+      sectionId: 'section4',
+      order: 1,
+      entityTypes: const ["enterprise", "cooperative", "ctd", "ong", "administration"]),
   s4q02,
   s4q02Administration,
-  tableResponseStatus(paperCode: 'S4Q02', sectionId: 'section4', order: 2),
+  tableResponseStatus(
+      paperCode: 'S4Q02',
+      sectionId: 'section4',
+      order: 2,
+      entityTypes: const ["enterprise", "cooperative", "ctd", "ong", "administration"]),
   s4q02_domain_1_text,
   s4q02_domain_2_text,
   s4q02_domain_3_text,

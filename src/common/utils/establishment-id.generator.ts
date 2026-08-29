@@ -8,6 +8,7 @@ export class EstablishmentIdGenerator {
         'CTD': 'CT',
         'ONG': 'ON',
         'ADMINISTRATION': 'AD',
+        'PROJECT_PROGRAM': 'PP',
     };
 
     /**
@@ -51,7 +52,7 @@ export class EstablishmentIdGenerator {
      * Validate establishment ID format
      */
     static isValid(establishmentId: string): boolean {
-        const pattern = /^(EN|CO|CT|ON|AD)[0-9]{2}[0-9]{4}[0-9]{2}$/;
+        const pattern = /^(EN|CO|CT|ON|AD|PP)[0-9]{2}[0-9]{4}[0-9]{2}$/;
         return pattern.test(establishmentId);
     }
 
@@ -78,6 +79,7 @@ export class EstablishmentIdGenerator {
             'CT': 'CTD',
             'ON': 'ONG',
             'AD': 'ADMINISTRATION',
+            'PP': 'PROJECT_PROGRAM',
         };
 
         return {

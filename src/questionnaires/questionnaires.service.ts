@@ -10,6 +10,7 @@ import {
   CtdQuestionnaireDto,
   OngQuestionnaireDto,
   AdministrationQuestionnaireDto,
+  ProjectProgramQuestionnaireDto,
 } from '../dto/onefop-questionnaire.dto';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -52,6 +53,12 @@ const FINAL_REQUIRED_FIELDS: Record<string, string[]> = {
   administration: [
     'name', 'area', 'region', 'department', 'subdivision', 'locality',
     'phone1', 'sector', 'mainMission', 'hasProject', 'hasSupervisedStructures',
+  ],
+  projectProgram: [
+    'nature', 'name', 'personInCharge', 'area', 'region', 'department',
+    'subdivision', 'locality', 'phone1', 'poBox', 'sector', 'branch',
+    'mainMission', 'headOffice', 'supervisingMinistry', 'status',
+    'permanentWorkers', 'vacancies',
   ],
 };
 
@@ -137,6 +144,24 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'administration.hasProject': 'Existence de projet / Existence of a project',
   'administration.hasSupervisedStructures':
     'Existence de structures sous tutelle / Existence of supervised structures',
+  'projectProgram.nature': 'Nature de la structure / Nature of the structure',
+  'projectProgram.name': 'Nom / Name',
+  'projectProgram.personInCharge': 'Nom du Responsable / Name of the person in charge',
+  'projectProgram.area': 'Milieu de résidence / Area',
+  'projectProgram.region': 'Région / Region',
+  'projectProgram.department': 'Département / Department',
+  'projectProgram.subdivision': 'Arrondissement / Subdivision',
+  'projectProgram.locality': 'Localité / Locality',
+  'projectProgram.phone1': 'Téléphone / Phone',
+  'projectProgram.poBox': 'Boîte postale / PO Box',
+  'projectProgram.sector': "Secteur d'activité / Business sector",
+  'projectProgram.branch': "Branche d'activité / Branch of activity",
+  'projectProgram.mainMission': 'Objectif ou mission principale / Objective or main mission',
+  'projectProgram.headOffice': 'Siège social / Head office',
+  'projectProgram.supervisingMinistry': 'Ministère tutelle / Supervising ministry',
+  'projectProgram.status': 'Situation du Projet / Programme / Project / Programme Status',
+  'projectProgram.permanentWorkers': 'Employés permanents / Permanent workers',
+  'projectProgram.vacancies': 'Postes vacants / Vacancies',
   'S21Q01_RESPONSE_STATUS': 'Demandes d\'emploi — statut / Job applications — status',
   'S22Q01_RESPONSE_STATUS': 'Recrutements permanents — statut / Permanent recruitments — status',
   'S22Q02_RESPONSE_STATUS': 'Recrutements temporaires — statut / Temporary recruitments — status',
@@ -164,11 +189,71 @@ const FINAL_TABLE_RESPONSE_FIELDS = [
   'S4Q03_RESPONSE_STATUS',
 ] as const;
 
+// Which of the 14 Enterprise-family response-status fields actually exist
+// in each entity's compiled AST schema (lib/core/focus/compiler/
+// onefop_ast.dart) — enforceFinalRequiredFields() below must only require
+// a field for entities whose questionnaire actually renders it, otherwise
+// final submission is permanently impossible for any entity whose Section
+// 2/3/4 differs from the shared Enterprise/Cooperative/CTD/ONG shape.
+//
+// Enterprise/Cooperative/CTD/ONG share the full 14-field shape (their
+// tableResponseStatus() entries in onefop_ast.dart are either unrestricted
+// or explicitly list all four) — unchanged from before this fix.
+//
+// Administration's AST excludes S22Q02/S22Q03/S23Q01/S23Q02/S3Q03/S4Q03
+// (those questions don't exist in the Administration questionnaire), so
+// their response-status companions never exist in an Administration
+// submission's flat data either — confirmed in onefop_ast.dart's
+// tableResponseStatus() calls, each restricted away from "administration".
+//
+// Projects & Programs has its own, structurally disjoint Sections 2-4
+// (PP_S2_ACTIVITIES, PP_S3_OUTCOMES, PP_S4Q01-06) — it has none of
+// S21Q01/S22Q01-05/S23Q01-02/S3Q01-03. Its own S4Q01/S4Q02/S4Q03
+// response-status wrappers (entityTypes: ["projectProgram"]) happen to be
+// registered under the same paper codes as the Enterprise-family ones
+// (disjoint entityTypes, no id collision — see onefop_ast.dart), so those
+// three are legitimately present and stay required; the rest are not.
+const FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS: readonly string[] = FINAL_TABLE_RESPONSE_FIELDS;
+
+const FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY: Record<string, readonly string[]> = {
+  enterprise: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
+  cooperative: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
+  ctd: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
+  ong: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
+  administration: [
+    'S21Q01_RESPONSE_STATUS',
+    'S22Q01_RESPONSE_STATUS',
+    'S22Q04_RESPONSE_STATUS',
+    'S22Q05_RESPONSE_STATUS',
+    'S3Q01_RESPONSE_STATUS',
+    'S3Q02_RESPONSE_STATUS',
+    'S4Q01_RESPONSE_STATUS',
+    'S4Q02_RESPONSE_STATUS',
+  ],
+  projectProgram: [
+    'S4Q01_RESPONSE_STATUS',
+    'S4Q02_RESPONSE_STATUS',
+    'S4Q03_RESPONSE_STATUS',
+  ],
+};
+
 const TABLE_RESPONSE_STATUSES = new Set(['REPORTED', 'NONE', 'NOT_APPLICABLE']);
 
 // ============================================================
 // NORMALIZATION HELPER - Converts any entity type to uppercase
 // ============================================================
+// PROJECT_PROGRAM's mechanical .toLowerCase() would keep the underscore
+// ('project_program'), unlike every other entity type (single word, no
+// separator). Every lowercase-keyed lookup in this file (FINAL_REQUIRED_
+// FIELDS, the DTO's nested property name, flat-key-normalizer's entity
+// switch) uses 'projectProgram' instead — matching the frontend's own
+// entityTypeForSchema() convention — so this is the one call site that
+// needs a special case rather than a plain .toLowerCase().
+function toLowerEntityType(normalizedEntityType: string): string {
+  if (normalizedEntityType === 'PROJECT_PROGRAM') return 'projectProgram';
+  return normalizedEntityType.toLowerCase();
+}
+
 function normalizeEntityType(type: string): string {
   const upper = type?.toUpperCase() || '';
   if (upper === 'ENTERPRISE' || upper === 'ENTREPRISE') return 'ENTREPRISE';
@@ -176,10 +261,9 @@ function normalizeEntityType(type: string): string {
   if (upper === 'CTD') return 'CTD';
   if (upper === 'ONG') return 'ONG';
   if (upper === 'ADMINISTRATION') return 'ADMINISTRATION';
+  if (upper === 'PROJECT_PROGRAM') return 'PROJECT_PROGRAM';
   // Previously fell back to ENTREPRISE — an unrecognized/unsupported
-  // entity type (e.g. PROJECT_PROGRAM — still an architecture placeholder
-  // with no questionnaire handling yet) must not be silently
-  // miscategorized as a company.
+  // entity type must not be silently miscategorized as a company.
   throw new BadRequestException(`Unsupported entity type: ${type}`);
 }
 
@@ -311,7 +395,7 @@ export class QuestionnairesService {
       debugLog('📥 Raw dto.data (first 2000 chars):', dto.data);
     }
 
-    const normalized = normalizeFlatKeys(dto.data, normalizedEntityType.toLowerCase());
+    const normalized = normalizeFlatKeys(dto.data, toLowerEntityType(normalizedEntityType));
 
     if (debugSubmit) {
       debugLog('🔄 Normalized keys sample (S0/S1):', {
@@ -324,7 +408,7 @@ export class QuestionnairesService {
       });
     }
 
-    const nestedData = buildNestedDto(normalized, normalizedEntityType.toLowerCase());
+    const nestedData = buildNestedDto(normalized, toLowerEntityType(normalizedEntityType));
 
     if (debugSubmit) {
       debugLog('🔄 respondent :', nestedData['respondent']);
@@ -350,6 +434,9 @@ export class QuestionnairesService {
         break;
       case 'ADMINISTRATION':
         questionnaireData = plainToClass(AdministrationQuestionnaireDto, nestedData);
+        break;
+      case 'PROJECT_PROGRAM':
+        questionnaireData = plainToClass(ProjectProgramQuestionnaireDto, nestedData);
         break;
       default:
         throw new BadRequestException('Invalid entity type');
@@ -383,7 +470,7 @@ export class QuestionnairesService {
       this.enforceFinalRequiredFields(
         questionnaireData,
         normalized as Record<string, unknown>,
-        normalizedEntityType.toLowerCase(),
+        toLowerEntityType(normalizedEntityType),
       );
     }
 
@@ -455,6 +542,11 @@ export class QuestionnairesService {
     const respondent = questionnaireData.respondent;
 
     let entityDetailRelation: Record<string, any> = {};
+    // Projects & Programs' Section 2 activities — populated only when
+    // normalizedEntityType === 'PROJECT_PROGRAM' below; a real child
+    // record per filled-in row, wired into the createMany block further
+    // down alongside the other fact-row tables.
+    let projectProgramActivityRows: Record<string, any>[] = [];
     if (normalizedEntityType === 'ENTREPRISE' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
       const e = questionnaireData.enterprise;
       entityDetailRelation = {
@@ -583,6 +675,66 @@ export class QuestionnairesService {
           },
         },
       };
+    } else if (normalizedEntityType === 'PROJECT_PROGRAM' && 'projectProgram' in questionnaireData && questionnaireData.projectProgram) {
+      const p = questionnaireData.projectProgram;
+      const outcomes = (questionnaireData as any).outcomes ?? {};
+      entityDetailRelation = {
+        projectProgramDetail: {
+          create: {
+            nature: String(p.nature ?? ''),
+            name: p.name ?? '',
+            sigle: p.sigle ?? null,
+            personInCharge: p.personInCharge ?? '',
+            area: this.mapArea(p.area as 1 | 2),
+            region: p.region ?? '',
+            department: p.department ?? '',
+            subdivision: p.subdivision ?? '',
+            locality: p.locality ?? null,
+            phone1: p.phone1 ?? '',
+            phone2: p.phone2 ?? null,
+            poBox: p.poBox ?? null,
+            sector: this.mapSector(p.sector as 1 | 2 | 3),
+            sectorId,
+            branch: p.branch ?? null,
+            mainMission: p.mainMission ?? '',
+            headOffice: p.headOffice ?? null,
+            supervisingMinistry: p.supervisingMinistry ?? null,
+            status: String(p.status ?? ''),
+            stopReason: p.stopReason != null ? String(p.stopReason) : null,
+            permanentWorkers: p.permanentWorkers ?? 0,
+            vacancies: p.vacancies ?? null,
+            employedCurrent: outcomes.employed?.current ?? null,
+            employedOutlookDec: outcomes.employed?.outlookDec ?? null,
+            employedOutlookJune: outcomes.employed?.outlookJune ?? null,
+            selfEmployedCurrent: outcomes.selfEmployed?.current ?? null,
+            selfEmployedOutlookDec: outcomes.selfEmployed?.outlookDec ?? null,
+            selfEmployedOutlookJune: outcomes.selfEmployed?.outlookJune ?? null,
+            jobsCreatedCurrent: outcomes.jobsCreated?.current ?? null,
+            jobsCreatedOutlookDec: outcomes.jobsCreated?.outlookDec ?? null,
+            jobsCreatedOutlookJune: outcomes.jobsCreated?.outlookJune ?? null,
+            trainedCurrent: outcomes.trained?.current ?? null,
+            trainedOutlookDec: outcomes.trained?.outlookDec ?? null,
+            trainedOutlookJune: outcomes.trained?.outlookJune ?? null,
+          },
+        },
+      };
+      // Section 2's activities — a real child record per filled-in row
+      // (see prisma/schema.prisma's ProjectProgramActivity), not the
+      // generic createMany-of-fact-rows pattern the CSP tables below use.
+      const activities = (questionnaireData as any).activities as
+        | Array<Record<string, unknown>>
+        | undefined;
+      if (activities && activities.length > 0) {
+        projectProgramActivityRows = activities.map((row, i) => ({
+          rowIndex: i + 1,
+          description: (row.description as string) ?? null,
+          targetPopulation: (row.targetPopulation as string) ?? null,
+          supportType: (row.supportType as string) ?? null,
+          scope: (row.scope as string) ?? null,
+          startDate: (row.startDate as string) ?? null,
+          duration: (row.duration as string) ?? null,
+        }));
+      }
     }
 
     // Administration's S21Q01/S22Q01/S3Q01 use SFP status categories
@@ -600,18 +752,41 @@ export class QuestionnairesService {
     // The four csp/gender/age prefixes previously ran as four separate
     // createMany round trips against the same table — they only differ by
     // the `tableName` discriminator column, so one combined createMany call
-    // produces identical rows.
-    const cspGenderAgeRows = this.buildCspGenderAgeRows(flat, [
-      { prefix: 's21q01', tableName: 's21q01' },
-      { prefix: 's22q01', tableName: 's22q01' },
-      { prefix: 's22q02', tableName: 's22q02' },
-      { prefix: 's23q01', tableName: 's23q01' },
-    ], factRowCspCategories);
+    // produces identical rows. Projects & Programs has its own 4 CSP
+    // gender/age tables (S4Q01-04: counted/recruited x permanent/
+    // temporary) instead of s21q01/s22q01/s22q02/s23q01 — always standard
+    // CSP rows, never Administration's SFP substitution.
+    const cspGenderAgeRows = normalizedEntityType === 'PROJECT_PROGRAM'
+      ? this.buildCspGenderAgeRows(flat, [
+          { prefix: 'pp_s4q01', tableName: 'pp_s4q01' },
+          { prefix: 'pp_s4q02', tableName: 'pp_s4q02' },
+          { prefix: 'pp_s4q03', tableName: 'pp_s4q03' },
+          { prefix: 'pp_s4q04', tableName: 'pp_s4q04' },
+        ], ['cadres', 'foremen', 'workers'])
+      : this.buildCspGenderAgeRows(flat, [
+          { prefix: 's21q01', tableName: 's21q01' },
+          { prefix: 's22q01', tableName: 's22q01' },
+          { prefix: 's22q02', tableName: 's22q02' },
+          { prefix: 's23q01', tableName: 's23q01' },
+        ], factRowCspCategories);
     const diplomaRows = this.buildDiplomaRows(flat);
-    const disabilityRows = this.buildDisabilityRows(flat, 's22q04');
-    const vulnerableRows = normalizedEntityType === 'ENTREPRISE'
-      ? this.buildVulnerableEnterpriseRows(flat)
-      : this.buildVulnerableOtherRows(flat);
+    // Projects & Programs' S4Q05 (disability) is the same csp_status_
+    // gender_table shape as S22Q04, just under its own prefix — reused
+    // directly, no new table/enum needed (CADRES/FOREMEN/WORKERS were
+    // already valid CspCategory values before this phase).
+    const disabilityRows = normalizedEntityType === 'PROJECT_PROGRAM'
+      ? this.buildDisabilityRows(flat, 'pp_s4q05')
+      : this.buildDisabilityRows(flat, 's22q04');
+    // S4Q06 (vulnerable) is ALSO csp_status_gender_table-shaped for this
+    // entity, unlike the other four entities' named-vulnerability-type
+    // S22Q05 — VulnerableType already has CADRES_VULN/FOREMEN_VULN/
+    // WORKERS_VULN/TOTAL_VULN (unused until now), so no schema change is
+    // needed; see buildCspVulnerableRows below.
+    const vulnerableRows = normalizedEntityType === 'PROJECT_PROGRAM'
+      ? this.buildCspVulnerableRows(flat, 'pp_s4q06')
+      : normalizedEntityType === 'ENTREPRISE'
+        ? this.buildVulnerableEnterpriseRows(flat)
+        : this.buildVulnerableOtherRows(flat);
     const firstTimeWorkerRows = this.buildFirstTimeWorkerRows(flat);
     const jobApplicationRows = this.buildJobApplicationRows(flat, factRowCspCategoriesWithTotal);
     const registeredSeekerRows = this.buildRegisteredSeekerRows(flat);
@@ -672,6 +847,9 @@ export class QuestionnairesService {
           internshipData: internshipRows.length ? { createMany: { data: internshipRows as any, skipDuplicates: true } } : undefined,
           skillNeeds: skillNeedRows.length ? { createMany: { data: skillNeedRows as any, skipDuplicates: true } } : undefined,
           trainingNeeds: trainingNeedRows.length ? { createMany: { data: trainingNeedRows as any, skipDuplicates: true } } : undefined,
+          projectProgramActivities: projectProgramActivityRows.length
+            ? { createMany: { data: projectProgramActivityRows as any, skipDuplicates: true } }
+            : undefined,
         },
       });
     } catch (err: any) {
@@ -869,7 +1047,15 @@ export class QuestionnairesService {
     if (entityType === 'cooperative' && entityData?.type === 3 && !entityData?.typeOther) {
       missingFields.push('cooperative.typeOther');
     }
-    for (const field of FINAL_TABLE_RESPONSE_FIELDS) {
+    // Only require the response-status fields that actually exist in this
+    // entity's compiled schema — see FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY.
+    // entityType is already one of the six known values by this point
+    // (normalizeEntityType/the DTO-class switch upstream reject anything
+    // else before this method is ever called), so the fallback to the
+    // full 14-field list is unreachable defensive code, not a live path.
+    const applicableTableResponseFields =
+      FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY[entityType] ?? FINAL_TABLE_RESPONSE_FIELDS;
+    for (const field of applicableTableResponseFields) {
       const status = flat[field];
       if (typeof status !== 'string' || !TABLE_RESPONSE_STATUSES.has(status)) {
         missingFields.push(field);
@@ -1023,6 +1209,40 @@ export class QuestionnairesService {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
           if (value !== 0) records.push({ cspCategory: this.up(row), status: this.up(status), gender: this.up(gender), value });
+        }
+      }
+    }
+    return records;
+  }
+
+  // Projects & Programs' S4Q06 — csp_status_gender_table shaped (unlike
+  // the other four entities' named-vulnerability-type S22Q05), so this
+  // mirrors buildDisabilityRows's loop exactly but writes into
+  // OnefopVulnerableData's vulnerableType column using its existing
+  // CADRES_VULN/FOREMEN_VULN/WORKERS_VULN/TOTAL_VULN values.
+  private buildCspVulnerableRows(flat: FlatFormData, prefix: string): object[] {
+    const rows = ['cadres', 'foremen', 'workers', 'total'];
+    const vulnerableTypeMap: Record<string, string> = {
+      cadres: 'CADRES_VULN',
+      foremen: 'FOREMEN_VULN',
+      workers: 'WORKERS_VULN',
+      total: 'TOTAL_VULN',
+    };
+    const statuses = ['permanent', 'temporary', 'total'];
+    const genders = ['male', 'female', 'total'];
+    const records: object[] = [];
+    for (const row of rows) {
+      for (const status of statuses) {
+        for (const gender of genders) {
+          const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
+          if (value !== 0) {
+            records.push({
+              vulnerableType: vulnerableTypeMap[row],
+              status: this.up(status),
+              gender: this.up(gender),
+              value,
+            });
+          }
         }
       }
     }
@@ -1462,28 +1682,28 @@ export class QuestionnairesService {
   async getAllQuestionnaires() {
     return (this.prisma as any).onefopSubmission.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true },
     });
   }
 
   async getQuestionnaireById(id: string) {
     return (this.prisma as any).onefopSubmission.findUnique({
       where: { id },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
     });
   }
 
   async listByStatus(status: string, limit: number, offset: number) {
     return (this.prisma as any).onefopSubmission.findMany({
       where: { status }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true },
     });
   }
 
   async getById(id: string) {
     const submission = await (this.prisma as any).onefopSubmission.findUnique({
       where: { id },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     return submission;

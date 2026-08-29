@@ -601,6 +601,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Public administration or government service.';
 
   @override
+  String get registerEntitySubtitleProjectProgram =>
+      'Project, programme, or structure under a ministry\'s supervision.';
+
+  @override
   String get registerCreateAccountTitle => 'Create an account';
 
   @override

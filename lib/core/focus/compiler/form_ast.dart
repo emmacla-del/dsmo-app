@@ -16,6 +16,16 @@ enum AstFieldType {
   tel,
   date,
   textarea,
+
+  /// A variable-count, heterogeneous-column repeating table (e.g. Projects
+  /// & Programs' Section 2 activities list — a free-text description plus
+  /// several coded fields per row, unlike [table]'s fixed numeric matrix).
+  /// Deliberately a distinct type rather than reusing [table] so none of
+  /// the existing numeric-grid machinery (TableCellEngine, the coherence
+  /// checker's CSP/SFP assumptions, grid init/recalc) is ever invoked for
+  /// it — see ActivitiesTable/ActivitiesTableFieldWidget, the only code
+  /// that interprets this type.
+  repeatingTable,
 }
 
 /// ===========================================================

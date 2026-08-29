@@ -107,6 +107,8 @@ String _schemaEntityKey(String entityType) {
       return 'ong';
     case 'ADMINISTRATION':
       return 'administration';
+    case 'PROJECT_PROGRAM':
+      return 'projectProgram';
     default:
       return 'enterprise';
   }

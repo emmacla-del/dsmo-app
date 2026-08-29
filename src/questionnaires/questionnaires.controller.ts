@@ -19,6 +19,7 @@ import {
   mapCtdData,
   mapOngData,
   mapAdministrationData,
+  mapProjectProgramData,
   diagnoseMappingKeys,
 } from '../services/pdf-data-mapper.service';
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
@@ -36,6 +37,8 @@ function normalizeEntityTypeForPreview(raw: string): string {
     ctd: 'ctd',
     ong: 'ong',
     administration: 'administration',
+    project_program: 'projectProgram',
+    projectprogram: 'projectProgram',
   };
   return map[raw?.toLowerCase()?.trim()] ?? raw?.toLowerCase()?.trim() ?? '';
 }
@@ -114,6 +117,9 @@ export class QuestionnairesController {
             break;
           case 'administration':
             mappedData = mapAdministrationData(normalized, quarterCode);
+            break;
+          case 'projectProgram':
+            mappedData = mapProjectProgramData(normalized, quarterCode);
             break;
           default:
             console.error(`❌ Unknown entityType after normalization: "${entityType}"`);

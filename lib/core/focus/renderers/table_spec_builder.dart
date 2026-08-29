@@ -56,6 +56,9 @@ class TableSpecBuilder {
       case 'training_table':
         return _buildTraining(prefix, locale);
 
+      case 'kpi_period_table':
+        return _buildKpiPeriod(prefix, locale);
+
       default:
         return GridRenderSpec(
           id: prefix,
@@ -816,6 +819,64 @@ class TableSpecBuilder {
         }
         return _cell(id);
       },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Projects & Programs — Section 3 outcomes/perspectives KPI grid.
+  // A small fixed 4-row x 3-column table, no gender/age breakdown and
+  // no computed total row/column (the paper form has none) — closest
+  // existing precedent is _buildInternship's shape (rowLabels + matrix,
+  // no switchers, no categoryGridGroups).
+  // ─────────────────────────────────────────────────────────────
+  static GridRenderSpec _buildKpiPeriod(String prefix, Locale locale) {
+    const dataRows = ['employed', 'self_employed', 'jobs_created', 'trained'];
+    const rowLabelsI18n = [
+      LocalizedText(
+        fr: 'Nombre de bénéficiaires insérés comme employés',
+        en: 'Number of beneficiaries inserted as employees',
+      ),
+      LocalizedText(
+        fr: 'Nombre de bénéficiaires insérés en auto emploi',
+        en: 'Number of beneficiaries inserted in self-employment',
+      ),
+      LocalizedText(
+        fr: "Nombre d'emplois créés par les bénéficiaires employeurs",
+        en: 'Number of jobs created by beneficiary employers',
+      ),
+      LocalizedText(
+        fr: 'Nombre de bénéficiaires formés dans les domaines divers',
+        en: 'Number of beneficiaries trained in various fields',
+      ),
+    ];
+    const periods = ['current', 'outlook_dec', 'outlook_june'];
+    const periodLabelsI18n = [
+      LocalizedText(
+        fr: 'Du 1er Janvier 2026 à ce jour',
+        en: 'From 1st January 2026 to date',
+      ),
+      LocalizedText(
+        fr: 'Perspectives au 31/12/2026',
+        en: 'Outlook at 31/12/2026',
+      ),
+      LocalizedText(
+        fr: 'Perspectives au 30/06/2026',
+        en: 'Outlook at 30/06/2026',
+      ),
+    ];
+    final matrix = [
+      for (final r in dataRows)
+        [for (final p in periods) '${prefix}_${r}_$p'],
+    ];
+    return GridRenderSpec(
+      id: prefix,
+      rowLabels: rowLabelsI18n.map((t) => t.of(locale)).toList(),
+      matrix: matrix,
+      headers: [for (final p in periodLabelsI18n) HeaderNode(p.of(locale))],
+      cornerLabel: const LocalizedText(fr: 'Indicateur', en: 'Indicator').of(locale),
+      rowKeys: [for (final r in dataRows) '${prefix}_$r'],
+      cellSpec: _cell,
+      isTotalCell: _isTotal,
     );
   }
 }

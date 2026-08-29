@@ -5,8 +5,10 @@ import { EstablishmentIdGenerator } from './establishment-id.generator';
 // because ENTITY_PREFIX only ever listed the original four entity types,
 // even after Administration was wired up elsewhere (AST, DTO, Prisma,
 // questionnaires.service.ts). This exercises generate()/isValid()/parse()
-// for all five now-supported types, plus the explicit-failure path for an
+// for all six now-supported types, plus the explicit-failure path for an
 // unrecognized type, against a mocked PrismaService (no live database).
+// PROJECT_PROGRAM/'PP' was added in the Projects & Programs structural
+// implementation phase — see establishment-id.generator.ts's ENTITY_PREFIX.
 
 function makePrisma(lastEstablishmentId: string | null = null) {
   return {
@@ -27,6 +29,7 @@ describe('EstablishmentIdGenerator', () => {
     ['CTD', 'CT'],
     ['ONG', 'ON'],
     ['ADMINISTRATION', 'AD'],
+    ['PROJECT_PROGRAM', 'PP'],
   ])('generates a first-serial ID for %s with prefix %s', async (entityType, prefix) => {
     const prisma = makePrisma();
     const id = await EstablishmentIdGenerator.generate(prisma, entityType, '12');
@@ -49,21 +52,28 @@ describe('EstablishmentIdGenerator', () => {
     expect(id).toBe(`AD${currentYear2}000412`);
   });
 
-  it('still throws explicitly for an unrecognized entity type (e.g. PROJECT_PROGRAM)', async () => {
+  it('still throws explicitly for an unrecognized entity type (e.g. VOCATIONAL, '
+    + 'still an architecture placeholder with no establishment-ID support)', async () => {
     const prisma = makePrisma();
     await expect(
-      EstablishmentIdGenerator.generate(prisma, 'PROJECT_PROGRAM', '12'),
-    ).rejects.toThrow('Unknown entity type: PROJECT_PROGRAM');
+      EstablishmentIdGenerator.generate(prisma, 'VOCATIONAL', '12'),
+    ).rejects.toThrow('Unknown entity type: VOCATIONAL');
     expect(prisma.company.findFirst).not.toHaveBeenCalled();
   });
 
+  it('is case-insensitive on PROJECT_PROGRAM, matching the existing behavior', async () => {
+    const prisma = makePrisma();
+    const id = await EstablishmentIdGenerator.generate(prisma, 'project_program', '05');
+    expect(id).toBe(`PP${currentYear2}000105`);
+  });
+
   describe('isValid', () => {
-    it.each(['EN', 'CO', 'CT', 'ON', 'AD'])('accepts a well-formed %s-prefixed ID', (prefix) => {
+    it.each(['EN', 'CO', 'CT', 'ON', 'AD', 'PP'])('accepts a well-formed %s-prefixed ID', (prefix) => {
       expect(EstablishmentIdGenerator.isValid(`${prefix}26000112`)).toBe(true);
     });
 
-    it('rejects a prefix outside the five known types', () => {
-      expect(EstablishmentIdGenerator.isValid('PP26000112')).toBe(false);
+    it('rejects a prefix outside the six known types', () => {
+      expect(EstablishmentIdGenerator.isValid('XX26000112')).toBe(false);
     });
   });
 
@@ -73,6 +83,17 @@ describe('EstablishmentIdGenerator', () => {
       expect(parsed).toEqual({
         prefix: 'AD',
         entityType: 'ADMINISTRATION',
+        year: '2026',
+        serial: 1,
+        subdivisionCode: '12',
+      });
+    });
+
+    it('round-trips a PROJECT_PROGRAM ID', () => {
+      const parsed = EstablishmentIdGenerator.parse('PP26000112');
+      expect(parsed).toEqual({
+        prefix: 'PP',
+        entityType: 'PROJECT_PROGRAM',
         year: '2026',
         serial: 1,
         subdivisionCode: '12',
