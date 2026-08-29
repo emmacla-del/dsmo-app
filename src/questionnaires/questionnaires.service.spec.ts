@@ -253,3 +253,57 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
     expect(() => callEnforce(incompleteData, flat, 'projectProgram')).toThrow(BadRequestException);
   });
 });
+
+// P1 audit fix regression coverage.
+//
+// resolveGeoFields() (extracted from the inline chains that used to live
+// directly in submitQuestionnaire) picks the submitting entity's region/
+// department/subdivision/sector out of whichever one of the six per-entity
+// DTO branches is present. Before this fix, the PROJECT_PROGRAM branch was
+// missing from all four chains, so every Projects & Programs submission
+// got a null region/department on OnefopSubmission — invisible to
+// REGIONAL/DIVISIONAL reviewer queues (onefop.service.ts's role-based
+// `where.region`/`where.department` filters) even though the entity's own
+// detail record had the correct region all along. This locks in that
+// PROJECT_PROGRAM resolves exactly like the other five, and guards against
+// a future refactor silently dropping it again.
+describe('QuestionnairesService — resolveGeoFields (P1: geo resolution per entity)', () => {
+  const service = new QuestionnairesService({} as PrismaService);
+  const resolve = (entityForGeo: any) => (service as any).resolveGeoFields(entityForGeo);
+
+  it('resolves region/department/subdivision/sector from projectProgram when it is the only entity branch present', () => {
+    const result = resolve({
+      projectProgram: {
+        region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1er', sector: 'Éducation',
+      },
+    });
+    expect(result).toEqual({
+      region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1er', sector: 'Éducation',
+    });
+  });
+
+  it.each([
+    ['enterprise'], ['cooperative'], ['ctd'], ['ong'], ['administration'], ['projectProgram'],
+  ])('resolves geo fields from the %s branch when it is the only one present', (key) => {
+    const result = resolve({
+      [key]: { region: 'Littoral', department: 'Wouri', subdivision: 'Douala 1er', sector: 'Commerce' },
+    });
+    expect(result).toEqual({
+      region: 'Littoral', department: 'Wouri', subdivision: 'Douala 1er', sector: 'Commerce',
+    });
+  });
+
+  it('returns nulls (not a thrown error) when no entity branch is present, for every field', () => {
+    expect(resolve({})).toEqual({ region: null, department: null, subdivision: null, sector: null });
+  });
+
+  it('does not let projectProgram override an earlier branch when both are present (documents precedence order)', () => {
+    const result = resolve({
+      enterprise: { region: 'Nord', department: 'Bénoué', subdivision: 'Garoua 1er', sector: 'Agriculture' },
+      projectProgram: { region: 'Centre', department: 'Mfoundi', subdivision: 'Yaoundé 1er', sector: 'Éducation' },
+    });
+    expect(result).toEqual({
+      region: 'Nord', department: 'Bénoué', subdivision: 'Garoua 1er', sector: 'Agriculture',
+    });
+  });
+});

@@ -323,6 +323,52 @@ export class QuestionnairesService {
     }
   }
 
+  // Picks the submitting entity's region/department/subdivision/sector out
+  // of whichever one of the six per-entity DTO branches is actually present
+  // on `questionnaireData`. Extracted to its own method (rather than left
+  // inline in submitQuestionnaire) so it's unit-testable in isolation —
+  // this is the exact chain a P1 audit finding was raised against for
+  // silently omitting PROJECT_PROGRAM, leaving every one of its submissions
+  // without a region/department on OnefopSubmission and therefore invisible
+  // to REGIONAL/DIVISIONAL reviewer queues.
+  private resolveGeoFields(entityForGeo: any): {
+    region: string | null;
+    department: string | null;
+    subdivision: string | null;
+    sector: string | null;
+  } {
+    return {
+      region:
+        entityForGeo.enterprise?.region ??
+        entityForGeo.cooperative?.region ??
+        entityForGeo.ctd?.region ??
+        entityForGeo.ong?.region ??
+        entityForGeo.administration?.region ??
+        entityForGeo.projectProgram?.region ?? null,
+      department:
+        entityForGeo.enterprise?.department ??
+        entityForGeo.cooperative?.department ??
+        entityForGeo.ctd?.department ??
+        entityForGeo.ong?.department ??
+        entityForGeo.administration?.department ??
+        entityForGeo.projectProgram?.department ?? null,
+      subdivision:
+        entityForGeo.enterprise?.subdivision ??
+        entityForGeo.cooperative?.subdivision ??
+        entityForGeo.ctd?.subdivision ??
+        entityForGeo.ong?.subdivision ??
+        entityForGeo.administration?.subdivision ??
+        entityForGeo.projectProgram?.subdivision ?? null,
+      sector:
+        entityForGeo.enterprise?.sector ??
+        entityForGeo.cooperative?.sector ??
+        entityForGeo.ctd?.sector ??
+        entityForGeo.ong?.sector ??
+        entityForGeo.administration?.sector ??
+        entityForGeo.projectProgram?.sector ?? null,
+    };
+  }
+
   async submitQuestionnaire(dto: OnefopSubmissionDto): Promise<OnefopResponseDto> {
     const isDraft = dto.isDraft ?? false;
 
@@ -478,30 +524,8 @@ export class QuestionnairesService {
 
     // Resolve geo + sector IDs before transaction
     const entityForGeo = (questionnaireData as any);
-    const geoRegion =
-      entityForGeo.enterprise?.region ??
-      entityForGeo.cooperative?.region ??
-      entityForGeo.ctd?.region ??
-      entityForGeo.ong?.region ??
-      entityForGeo.administration?.region ?? null;
-    const geoDept =
-      entityForGeo.enterprise?.department ??
-      entityForGeo.cooperative?.department ??
-      entityForGeo.ctd?.department ??
-      entityForGeo.ong?.department ??
-      entityForGeo.administration?.department ?? null;
-    const geoSubdiv =
-      entityForGeo.enterprise?.subdivision ??
-      entityForGeo.cooperative?.subdivision ??
-      entityForGeo.ctd?.subdivision ??
-      entityForGeo.ong?.subdivision ??
-      entityForGeo.administration?.subdivision ?? null;
-    const geoSector =
-      entityForGeo.enterprise?.sector ??
-      entityForGeo.cooperative?.sector ??
-      entityForGeo.ctd?.sector ??
-      entityForGeo.ong?.sector ??
-      entityForGeo.administration?.sector ?? null;
+    const { region: geoRegion, department: geoDept, subdivision: geoSubdiv, sector: geoSector } =
+      this.resolveGeoFields(entityForGeo);
     // Administration has no permanentWorkers/vacancies equivalent (its S1
     // asks about projects/supervised structures instead) — headline
     // worker/vacancy figures are correctly null for this entity type.

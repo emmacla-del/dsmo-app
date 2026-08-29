@@ -369,3 +369,71 @@ describe('DataManagementService.streamOnefopSubmissionsExcel — sheet-by-sheet 
     expect(selectCalls[0][0].include).toBeUndefined();
   });
 });
+
+// P2 audit fix regression coverage.
+//
+// onefopSheetDefs() used to only define sheets for ENTREPRISE/COOPERATIVE/
+// CTD/ONG, so Administration and Projects & Programs submissions — while
+// correctly persisted in Postgres — never got their entity-specific fields
+// into the bulk Excel/SPSS export at all. This locks in that both newer
+// entity types now have a sheet definition, that approvedOnefopInclude()
+// (shared by both the Excel per-entity-sheet fetch and the flat CSV/SPSS
+// export) actually fetches their detail relations, and that the export
+// pipeline accepts and renders a real Administration sheet end to end.
+describe('DataManagementService — onefopSheetDefs (P2: Administration/Projects & Programs export sheets)', () => {
+  it('defines a sheet for all six ONEFOP entity types, including the two newer ones', () => {
+    const { service } = makeService();
+    const defs = service.onefopSheetDefs() as Array<{ formType: string; detailKey: string }>;
+    const byFormType = new Map(defs.map((d) => [d.formType, d.detailKey]));
+    expect(byFormType.get('ENTREPRISE')).toBe('enterpriseDetail');
+    expect(byFormType.get('COOPERATIVE')).toBe('cooperativeDetail');
+    expect(byFormType.get('CTD')).toBe('ctdDetail');
+    expect(byFormType.get('ONG')).toBe('ongDetail');
+    expect(byFormType.get('ADMINISTRATION')).toBe('administrationDetail');
+    expect(byFormType.get('PROJECT_PROGRAM')).toBe('projectProgramDetail');
+  });
+
+  it('approvedOnefopInclude fetches administrationDetail and projectProgramDetail, so the new sheet columns are never left empty', () => {
+    const { service } = makeService();
+    const include = service.approvedOnefopInclude();
+    expect(include.administrationDetail).toBe(true);
+    expect(include.projectProgramDetail).toBe(true);
+  });
+
+  it('writes a real Administration sheet (header + data row) through the same streaming Excel pipeline as the original four entities', async () => {
+    const { service, prisma } = makeService();
+    prisma.onefopSubmission.findMany.mockImplementation(async (args: any) => {
+      if (args.distinct?.includes('formType')) return [{ formType: 'ADMINISTRATION' }];
+      if (args.include) {
+        if (args.cursor) return [];
+        return [
+          {
+            id: 'sub-1',
+            submissionId: 'S-0002',
+            status: 'APPROVED',
+            surveyYear: 2026,
+            formType: 'ADMINISTRATION',
+            company: { name: 'MINEFOP', taxNumber: 'TX2', region: 'Centre', department: 'Mfoundi', establishmentId: 'EST2' },
+            respondent: { respondentName: 'Awa', respondentFunction: 'SG', phone1: '677000001' },
+            administrationDetail: { name: 'Délégation Régionale', mainMission: 'Emploi et formation' },
+          },
+        ];
+      }
+      return [];
+    });
+
+    const { res, finished, buffer } = fakeExcelRes();
+    await service.streamOnefopSubmissionsExcel({}, res);
+    await finished;
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer() as any);
+    expect(wb.worksheets.map((s) => s.name)).toEqual(['Administrations']);
+    const sheet = wb.worksheets[0];
+    const headerRow = sheet.getRow(1).values as unknown[];
+    expect(headerRow).toContain('Mission principale');
+    const dataRow = sheet.getRow(2).values as unknown[];
+    expect(dataRow).toContain('S-0002');
+    expect(dataRow).toContain('Délégation Régionale');
+  });
+});

@@ -658,6 +658,8 @@ export class DataManagementService {
             cooperativeDetail: true,
             ctdDetail: true,
             ongDetail: true,
+            administrationDetail: true,
+            projectProgramDetail: true,
             cspGenderAge: true,
             diplomaData: true,
             disabilityData: true,
@@ -862,7 +864,7 @@ export class DataManagementService {
     private onefopSheetDefs(): Array<{
         formType: string;
         title: string;
-        detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail';
+        detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail' | 'administrationDetail' | 'projectProgramDetail';
         columns: Partial<ExcelJS.Column>[];
     }> {
         return [
@@ -944,6 +946,52 @@ export class DataManagementService {
                     { header: 'Secteur', key: 'sector', width: 18 },
                     { header: 'Branche', key: 'branch', width: 18 },
                     { header: 'Mission principale', key: 'mainMission', width: 28 },
+                    { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
+                    { header: 'Postes vacants', key: 'vacancies', width: 14 },
+                ],
+            },
+            {
+                formType: 'ADMINISTRATION',
+                title: 'Administrations',
+                detailKey: 'administrationDetail',
+                columns: [
+                    { header: "Nom de l'administration", key: 'name', width: 26 },
+                    { header: 'Sigle', key: 'sigle', width: 14 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Téléphone 1', key: 'phone1', width: 16 },
+                    { header: 'Téléphone 2', key: 'phone2', width: 16 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Secteur', key: 'sector', width: 18 },
+                    { header: 'Branche', key: 'branch', width: 18 },
+                    { header: 'Mission principale', key: 'mainMission', width: 28 },
+                    { header: 'Existence de projet', key: 'hasProject', width: 18 },
+                    { header: 'Nombre de projets', key: 'projectCount', width: 16 },
+                    { header: 'Structures sous tutelle', key: 'hasSupervisedStructures', width: 20 },
+                    { header: 'Nombre de structures sous tutelle', key: 'supervisedStructureCount', width: 22 },
+                ],
+            },
+            {
+                formType: 'PROJECT_PROGRAM',
+                title: 'Projets et Programmes',
+                detailKey: 'projectProgramDetail',
+                columns: [
+                    { header: 'Nature de la structure', key: 'nature', width: 22 },
+                    { header: 'Nom', key: 'name', width: 26 },
+                    { header: 'Sigle', key: 'sigle', width: 14 },
+                    { header: 'Responsable', key: 'personInCharge', width: 22 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Téléphone 1', key: 'phone1', width: 16 },
+                    { header: 'Téléphone 2', key: 'phone2', width: 16 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Secteur', key: 'sector', width: 18 },
+                    { header: 'Branche', key: 'branch', width: 18 },
+                    { header: 'Mission principale', key: 'mainMission', width: 28 },
+                    { header: 'Siège social', key: 'headOffice', width: 20 },
+                    { header: 'Ministère de tutelle', key: 'supervisingMinistry', width: 22 },
+                    { header: 'Statut du projet / programme', key: 'status', width: 22 },
+                    { header: "Motif d'arrêt", key: 'stopReason', width: 20 },
                     { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
                     { header: 'Postes vacants', key: 'vacancies', width: 14 },
                 ],
