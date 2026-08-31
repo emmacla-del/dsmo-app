@@ -138,7 +138,52 @@ export class CreateCompanyDto {
 
   @IsOptional()
   @IsString()
-  trainingDomains?: string;    // For vocational
+  trainingDomains?: string;    // For vocationalCenter
+
+  // ── Vocational Training (VT) identification — verbatim option lists
+  // from the source questionnaire (see kCfpTypeOptions etc. in
+  // register_constants.dart). Distinct from vocationalCenter above.
+  @IsOptional()
+  @IsString()
+  sigle?: string;
+
+  @IsOptional()
+  @IsString()
+  cfpType?: string;
+
+  @IsOptional()
+  @IsString()
+  educationSystem?: string;
+
+  @IsOptional()
+  @IsString()
+  functionalStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  nonFunctionalReason?: string;
+
+  @IsOptional()
+  @IsString()
+  nonFunctionalReasonOther?: string;
+
+  // ── VT Promoteur/Directeur (1.16) — a second contact block, distinct
+  // from the respondent below (1.15). VT-only.
+  @IsOptional()
+  @IsString()
+  promoterName?: string;
+
+  @IsOptional()
+  @IsString()
+  promoterSex?: string;
+
+  @IsOptional()
+  @IsString()
+  promoterPhone1?: string;
+
+  @IsOptional()
+  @IsString()
+  promoterPhone2?: string;
 
   // ── Respondent Contact (Section 0) ──
   @IsOptional()

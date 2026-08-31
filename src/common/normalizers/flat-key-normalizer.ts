@@ -91,6 +91,7 @@ export function normalizeFlatKeys(
         case 'ong': normalizeOngS1(raw, out); break;
         case 'administration': normalizeAdministrationS1(raw, out); break;
         case 'projectProgram': normalizeProjectProgramS1(raw, out); break;
+        case 'vocationalTraining': normalizeVocationalTrainingS1(raw, out); break;
     }
 
     // ── S2–S4: Table keys pass through unchanged ──────────────────────────────
@@ -235,6 +236,31 @@ function normalizeProjectProgramS1(raw: Record<string, unknown>, out: Record<str
     set(out, 'PP_S1Q16', pick(raw, 'vacancies', 'PP_S1Q16'));
 }
 
+// Vocational Training (VT-4). Unlike every other entity's S1 normalizer,
+// this one does NOT rename its ~150 Detail-scalar AST ids into a
+// separate canonical registry key — VT's own onefop_ast.dart ids
+// (VT1_1, VT2_1, … VT9_4) already ARE stable, globally-unique keys (VT-2,
+// frozen), so there is no legacy-alias canonicalization to do for them;
+// they reach buildVocationalTrainingDto unchanged via the existing
+// generic pass-through loop below (same mechanism that already carries
+// every S2–S4 table key for the other six entities). The one thing that
+// DOES need redirecting here is §1.15's respondent identification: VT's
+// AST embeds it inside Section 1 (VT1_15_NAME/_FUNCTION/_TEL1/_TEL2/
+// _EMAIL — design note §1 Decision 5, §11), not a separate S0 section,
+// so it must be steered into the same S0Q01/S0Q02/S0Q03_* canonical keys
+// every other entity's shared respondent block already reads — without
+// this, buildNestedDto's entity-agnostic respondent block (below) would
+// see nothing for a Vocational Training submission. respondentSex
+// (VT1_15_SEX) is deliberately NOT included here — it stays on
+// vocationalTrainingDetail only, never on respondent.* (Decision 5).
+function normalizeVocationalTrainingS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
+    set(out, 'S0Q01', pick(raw, 'VT1_15_NAME'));
+    set(out, 'S0Q02', pick(raw, 'VT1_15_FUNCTION'));
+    set(out, 'S0Q03_TEL1', pick(raw, 'VT1_15_TEL1'));
+    set(out, 'S0Q03_TEL2', pick(raw, 'VT1_15_TEL2'));
+    set(out, 'S0Q03_EMAIL', pick(raw, 'VT1_15_EMAIL'));
+}
+
 // ─── buildNestedDto ───────────────────────────────────────────────────────────
 //
 // Converts the normalized flat object into the nested shape that
@@ -275,6 +301,7 @@ export function buildNestedDto(
         case 'ong': out['ong'] = buildOngDto(normalized); break;
         case 'administration': out['administration'] = buildAdministrationDto(normalized); break;
         case 'projectProgram': out['projectProgram'] = buildProjectProgramDto(normalized); break;
+        case 'vocationalTraining': out['vocationalTraining'] = buildVocationalTrainingDto(normalized); break;
     }
 
     // Projects & Programs — dedicated Section 2/3/4 fields (not part of
@@ -289,6 +316,27 @@ export function buildNestedDto(
         out['recruitedTemporary'] = buildCspTable(normalized, 'pp_s4q04');
         out['disabledRecruitments'] = buildPermTempTable(normalized, 'pp_s4q05');
         out['vulnerableRecruitments'] = buildPermTempTable(normalized, 'pp_s4q06');
+        return out;
+    }
+
+    // Vocational Training (VT-4) — 12 dedicated child-row arrays, matching
+    // VocationalTrainingQuestionnaireDto (VT-3) 1:1. VT has no economic-
+    // sector/CSP concept (design note §2), so — like Project & Programs
+    // above — it early-returns before the enterprise-family
+    // SharedSectionsDto block below, which does not apply to it.
+    if (entityType === 'vocationalTraining') {
+        out['diplomaData'] = buildVtDiplomaDataRows(normalized);
+        out['traineeAgeFlow'] = buildVtTraineeAgeFlowRows(normalized);
+        out['trainerAge'] = buildVtTrainerAgeRows(normalized);
+        out['educationLevelFlow'] = buildVtEducationLevelFlowRows(normalized);
+        out['traineeVulnerable'] = buildVtTraineeVulnerableRows(normalized);
+        out['trainerDisability'] = buildVtTrainerDisabilityRows(normalized);
+        out['scholarship'] = buildVtScholarshipRows(normalized);
+        out['specialtyRows'] = buildVtSpecialtyRows(normalized);
+        out['curriculum'] = buildVtCurriculumRows(normalized);
+        out['infrastructure'] = buildVtInfrastructureRows(normalized);
+        out['furniture'] = buildVtFurnitureRows(normalized);
+        out['trainerRoster'] = buildVtTrainerRosterRows(normalized);
         return out;
     }
 
@@ -507,6 +555,544 @@ function buildProjectProgramOutcomes(n: Record<string, unknown>): Record<string,
             setNum(rowObj, dtoPeriod, n[`s3kpi_${flatRow}_${flatPeriod}`]);
         }
         if (Object.keys(rowObj).length > 0) out[dtoRow] = rowObj;
+    }
+    return out;
+}
+
+// ─── Vocational Training (VT-4) ────────────────────────────────────────────────
+//
+// Sibling extension point cloned from Project & Programs: a dedicated
+// entity-scalar builder (buildVocationalTrainingDto, mirrors
+// buildProjectProgramDto) plus dedicated child-row array builders
+// (mirrors buildProjectProgramActivities), wired through buildNestedDto's
+// early-return block above — not the enterprise-family
+// SharedSectionsDto/buildCspTable path, which does not apply to VT.
+//
+// Row-key vocabularies below are copied verbatim from
+// lib/core/focus/compiler/onefop_ast.dart's _vtAcademicDiplomaRows /
+// _vtProfessionalDiplomaRows / _vtAgeBandRows / _vtTrainerAgeBandRows /
+// _vtEducationLevelRows / _vtVulnerableCategoryRows /
+// _vtTrainerDisabilityRows / _vtInfrastructureRows / _vtFurnitureRows /
+// _vtGenders / _vtFlowStatuses (VT-2, frozen) — the AST tableSpec
+// "prefix" values are copied the same way. Every row key here is a
+// lowercased Prisma enum member with underscores intact, so
+// `.toUpperCase()` round-trips it back to the exact enum value
+// (verified: e.g. "sans_diplome_academique" → "SANS_DIPLOME_ACADEMIQUE").
+
+const VT_ACADEMIC_DIPLOMA_ROWS = [
+    'doctorat', 'master2', 'maitrise', 'licence', 'deug_dut', 'bacc_general',
+    'bacc_technique', 'probatoire', 'bepc', 'cep', 'sans_diplome_academique',
+] as const;
+const VT_PROFESSIONAL_DIPLOMA_ROWS = [
+    'dipleg_dipes2', 'ingenieur_master_pro', 'dipceg_dipes1', 'licence_pro',
+    'bts_hnd', 'bep_bp_bacpro', 'capieg', 'capiaeg', 'cap', 'dqp', 'cqp',
+    'autres_pro', 'sans_diplome_professionnel',
+] as const;
+const VT_AGE_BAND_ROWS = [
+    'under_14', 'age_14', 'age_15', 'age_16', 'age_17', 'age_18', 'age_19',
+    'age_20', 'age_21', 'age_22', 'age_23', 'age_24', 'age_25', 'age_26',
+    'age_27', 'age_28', 'age_29', 'age_30', 'age_31', 'age_32', 'age_33',
+    'age_34', 'age_35', 'above_35',
+] as const;
+const VT_TRAINER_AGE_BAND_ROWS = ['age_18_24', 'age_25_39', 'age_40_59', 'age_60_plus'] as const;
+const VT_EDUCATION_LEVEL_ROWS = [
+    'non_alphabetise', 'primaire', 'premier_cycle_general',
+    'premier_cycle_technique', 'second_cycle_general',
+    'second_cycle_technique', 'enseignement_normal', 'enseignement_superieur',
+] as const;
+const VT_VULNERABLE_CATEGORY_ROWS = [
+    'moteur', 'visuel', 'auditif', 'polyhandicapes', 'refugies',
+    'orphelins_vulnerables', 'deplaces_internes', 'retournes', 'bororo',
+    'baka', 'baguieli',
+] as const;
+const VT_TRAINER_DISABILITY_ROWS = ['moteur', 'visuel', 'auditif', 'polyhandicapes'] as const;
+const VT_INFRASTRUCTURE_ROWS = [
+    'salle_classe', 'ateliers_pratiques', 'laboratoires',
+    'blocs_administratifs', 'salle_reunion', 'salle_formateurs', 'bureaux',
+    'magasin', 'espaces_temporaires',
+] as const;
+const VT_FURNITURE_ROWS = [
+    'banc_1_place', 'banc_2_places', 'banc_3_places', 'banc_4_places_plus',
+    'chaises_formateurs', 'tables_formateurs', 'armoires', 'tableaux',
+] as const;
+const VT_GENDER_ROWS = ['male', 'female', 'total'] as const;
+const VT_FLOW_STATUS_ROWS = ['entrant', 'sortant', 'abandon'] as const;
+
+// Matches VocationalTrainingIdentificationDto (VT-3) / OnefopVocationalTrainingDetail
+// (VT-1) field-for-field. `name` aside, every field is optional on both —
+// no blanket-required behavior is added here. Boolean fields read the
+// same "Oui/ Yes"/"Non/ No" AST option values as every other entity's
+// Yes/No questions (see _vtYesNoOptions in onefop_ast.dart), converted
+// with setBool rather than mapYesNo/setNum because
+// VocationalTrainingIdentificationDto types these fields as native
+// boolean, not the six-entity numeric-code convention (1/2) — VT-3 froze
+// that shape; this function targets it as given, not the older
+// convention. The 18 String[] fields (§2/§3/§6/§7/§9, including all five
+// §7.1.3 comms-channel fields) always resolve to [] when absent, never
+// omitted/null, via setStrArray.
+function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, unknown> {
+    const r: Record<string, unknown> = {};
+
+    // §1 — identification
+    setIfPresent(r, 'structureCode', n['VT1_1']);
+    setIfPresent(r, 'name', n['VT1_2']);
+    setIfPresent(r, 'sigle', n['VT1_3']);
+    setIfPresent(r, 'region', n['VT1_4']);
+    setIfPresent(r, 'department', n['VT1_5']);
+    setIfPresent(r, 'subdivision', n['VT1_6']);
+    setIfPresent(r, 'commune', n['VT1_7']);
+    setIfPresent(r, 'locality', n['VT1_8']);
+    setIfPresent(r, 'area', n['VT1_9']);
+    setIfPresent(r, 'educationSystem', n['VT1_10']);
+    setIfPresent(r, 'cfpType', n['VT1_11']);
+    setIfPresent(r, 'functionalStatus', n['VT1_12']);
+    setIfPresent(r, 'nonFunctionalReason', n['VT1_13']);
+    setIfPresent(r, 'nonFunctionalReasonOther', n['VT1_13_OTHER']);
+    setNum(r, 'yearOfEstablishment', n['VT1_14']);
+    // Critical rule: respondentSex → vocationalTrainingDetail.respondentSex
+    // only (design note §1 Decision 5) — never onto respondent.*.
+    setIfPresent(r, 'respondentSex', n['VT1_15_SEX']);
+    setIfPresent(r, 'promoterName', n['VT1_16_NAME']);
+    setIfPresent(r, 'promoterSex', n['VT1_16_SEX']);
+    setIfPresent(r, 'promoterPhone1', n['VT1_16_TEL1']);
+    setIfPresent(r, 'promoterPhone2', n['VT1_16_TEL2']);
+    setIfPresent(r, 'promoterEmail', n['VT1_16_EMAIL']);
+
+    // §2 — general information
+    setBool(r, 'hasStateAgreement', n['VT2_1']);
+    setStrArray(r, 'agreementTypes', n['VT2_2']);
+    setNum(r, 'siteCount', n['VT2_3']);
+    setBool(r, 'sharesInfrastructure', n['VT2_4']);
+    setIfPresent(r, 'sharedWithSchoolName', n['VT2_5']);
+    setBool(r, 'hasSpecialNeedsTrainers', n['VT2_6']);
+    setNum(r, 'specialNeedsTrainerTotal', n['VT2_7']);
+    setNum(r, 'specialNeedsTrainerFemale', n['VT2_8']);
+    setBool(r, 'hasAccessRamps', n['VT2_9']);
+    setBool(r, 'hasDirectorOffice', n['VT2_10']);
+    setIfPresent(r, 'poBox', n['VT2_11']);
+    setIfPresent(r, 'email', n['VT2_12']);
+    setIfPresent(r, 'website', n['VT2_13']);
+    setBool(r, 'isAccredited', n['VT2_14']);
+    setNum(r, 'lastAccreditationYear', n['VT2_15']);
+    setIfPresent(r, 'accreditationOrderNumber', n['VT2_16']);
+    setIfPresent(r, 'accreditationOrderDate', n['VT2_17']);
+    setStrArray(r, 'trainingTypesOffered', n['VT2_18']);
+    setNum(r, 'totalTraineesDeclared', n['VT2_19']);
+    setNum(r, 'totalTrainersDeclared', n['VT2_20']);
+    setNum(r, 'traineesFromLowerSecondary', n['VT2_21']);
+    setNum(r, 'traineesFromUpperSecondary', n['VT2_22']);
+    setBool(r, 'hasEnergySource', n['VT2_23']);
+    setBool(r, 'isEnergySourceFunctional', n['VT2_24']);
+    setStrArray(r, 'energySourceTypes', n['VT2_25']);
+    setBool(r, 'hasWaterSource', n['VT2_26']);
+    setStrArray(r, 'waterSourceTypes', n['VT2_27']);
+    setBool(r, 'hasHandwashingDevice', n['VT2_28']);
+    setBool(r, 'hasReceivedHealthCampaign', n['VT2_29']);
+    setBool(r, 'hasFirstAidBox', n['VT2_30']);
+    setBool(r, 'hasDispensary', n['VT2_31']);
+    setBool(r, 'hasFunctionalLibrary', n['VT2_32']);
+    setIfPresent(r, 'fenceStatus', n['VT2_33']);
+    setBool(r, 'hasSchoolCouncil', n['VT2_34']);
+    setBool(r, 'hasLevelCouncil', n['VT2_35']);
+    setBool(r, 'hasDisciplinaryCouncil', n['VT2_36']);
+    setBool(r, 'hasFunctionalLatrines', n['VT2_37']);
+    setStrArray(r, 'latrineTypes', n['VT2_38']);
+    setBool(r, 'latrinesSeparateByGender', n['VT2_39']);
+    setBool(r, 'latrinesSeparateFromStaff', n['VT2_40']);
+    setBool(r, 'hasPlayground', n['VT2_41']);
+    setStrArray(r, 'playgroundTypes', n['VT2_42']);
+    setBool(r, 'hasIctTools', n['VT2_43']);
+    setNum(r, 'ictToolsForTrainersCount', n['VT2_44']);
+    setNum(r, 'ictToolsInternetCount', n['VT2_45']);
+    setBool(r, 'trainersIctTrained', n['VT2_46']);
+    setNum(r, 'trainersIctTrainedTotal', n['VT2_47']);
+    setNum(r, 'trainersIctTrainedFemale', n['VT2_48']);
+    setBool(r, 'trainersViolenceTraining', n['VT2_49']);
+    setBool(r, 'trainersPssTraining', n['VT2_50']);
+    setBool(r, 'hasBoarding', n['VT2_51']);
+    setBool(r, 'hasGbvMechanism', n['VT2_52']);
+    setBool(r, 'hasCanteen', n['VT2_53']);
+
+    // §3 — education in emergencies
+    setBool(r, 'facedCrisis', n['VT3_1']);
+    setStrArray(r, 'crisisTypes', n['VT3_2']);
+    setBool(r, 'crisisClosedCenter', n['VT3_3']);
+    setNum(r, 'closureDurationWeeks', n['VT3_4']);
+    setBool(r, 'siteRelocated', n['VT3_5']);
+    setIfPresent(r, 'relocationLocality', n['VT3_6']);
+    setBool(r, 'traineesReassigned', n['VT3_7']);
+    setIfPresent(r, 'reassignedTo', n['VT3_8']);
+    setBool(r, 'hasEarlyWarningSystem', n['VT3_9']);
+    setIfPresent(r, 'earlyWarningDescription', n['VT3_10']);
+    setBool(r, 'earlyWarningFunctional', n['VT3_11']);
+    setBool(r, 'trainersInnovativePedagogyTrained', n['VT3_12']);
+    setNum(r, 'trainersInnovativePedagogyMale', n['VT3_13']);
+    setNum(r, 'trainersInnovativePedagogyFemale', n['VT3_14']);
+    setBool(r, 'trainersCrisisPedagogyTrained', n['VT3_15']);
+    setNum(r, 'trainersCrisisPedagogyMale', n['VT3_16']);
+    setNum(r, 'trainersCrisisPedagogyFemale', n['VT3_17']);
+    setBool(r, 'trainersDrrmTrained', n['VT3_18']);
+    setNum(r, 'trainersDrrmMale', n['VT3_19']);
+    setNum(r, 'trainersDrrmFemale', n['VT3_20']);
+    setBool(r, 'trainersEvacuationDrillTrained', n['VT3_21']);
+    setNum(r, 'trainersEvacuationDrillMale', n['VT3_22']);
+    setNum(r, 'trainersEvacuationDrillFemale', n['VT3_23']);
+    setBool(r, 'trainersOtherEmergencyTrained', n['VT3_24']);
+    setNum(r, 'trainersOtherEmergencyMale', n['VT3_25']);
+    setNum(r, 'trainersOtherEmergencyFemale', n['VT3_26']);
+    setBool(r, 'hasStudentRecordsSecurity', n['VT3_27']);
+    setBool(r, 'hasTextbookSecurity', n['VT3_28']);
+    setBool(r, 'hasContingencyPlan', n['VT3_29']);
+    setBool(r, 'traineesTrainedOnProtection', n['VT3_30']);
+
+    // §5.1 — study guides
+    setBool(r, 'hasTraineeStudyGuides', n['VT5_1']);
+    setNum(r, 'traineeStudyGuideCount', n['VT5_2']);
+    setBool(r, 'hasTrainerStudyGuides', n['VT5_3']);
+    setNum(r, 'trainerStudyGuideCount', n['VT5_4']);
+
+    // §6 — orientation / post-training follow-up
+    setBool(r, 'hasCareerGuidanceService', n['VT6_1']);
+    setStrArray(r, 'careerGuidanceTimings', n['VT6_2']);
+    // 6.1.2 — two Detail booleans (design note Decision 4, frozen).
+    setBool(r, 'traineesChooseWithSupport', n['VT6_3']);
+    setBool(r, 'collaboratesWithCiopCosup', n['VT6_4']);
+    setStrArray(r, 'guidanceSupportTypes', n['VT6_5']);
+    setIfPresent(r, 'guidanceSupportOther', n['VT6_6']);
+    setBool(r, 'hasPostTrainingFollowUp', n['VT6_7']);
+    setStrArray(r, 'followUpMechanisms', n['VT6_8']);
+    setIfPresent(r, 'followUpMechanismOther', n['VT6_9']);
+    setBool(r, 'hasInsertionSupportUnit', n['VT6_10']);
+    setBool(r, 'hasTraineeDatabaseTool', n['VT6_11']);
+    setBool(r, 'hasJobSearchSupportTool', n['VT6_12']);
+    // No 6.1.2 code exists for §7.3 or §4.12 — see below; VT6_13 (§6.3)
+    // is a specialty-row table, handled by buildVtSpecialtyRows, not here.
+
+    // §7 — cross-cutting themes. No §7.3 key exists anywhere in this
+    // function (design note Decision 4, frozen) — the printed instrument's
+    // own numbering jumps 7.2 → 7.4, and no substitute field is invented.
+    setBool(r, 'hasHivAidsRules', n['VT7_1']);
+    setBool(r, 'hivRulesCoverSafety', n['VT7_2']);
+    setBool(r, 'hivRulesCoverStigmaHiv', n['VT7_3']);
+    setBool(r, 'hivRulesCoverStigmaOther', n['VT7_4']);
+    setBool(r, 'hivRulesCoverHarassment', n['VT7_5']);
+    setBool(r, 'hasDisciplinaryProcedures', n['VT7_6']);
+    // 7.1.3 — five string[] fields, always [] when absent, never null,
+    // no channel enum (design note Decision 2, frozen).
+    setStrArray(r, 'pupilsCommsChannels', n['VT7_7']);
+    setStrArray(r, 'teachingStaffCommsChannels', n['VT7_8']);
+    setStrArray(r, 'nonTeachingStaffCommsChannels', n['VT7_9']);
+    setStrArray(r, 'parentsCommsChannels', n['VT7_10']);
+    setStrArray(r, 'schoolCouncilCommsChannels', n['VT7_11']);
+    setBool(r, 'addressesIstIssues', n['VT7_12']);
+    setBool(r, 'traineesReceivedFullSexEd', n['VT7_13']);
+    setBool(r, 'genericLifeSkillsInSyllabus', n['VT7_14']);
+    setBool(r, 'genericLifeSkillsExtracurricular', n['VT7_15']);
+    setBool(r, 'reproHealthEdInSyllabus', n['VT7_16']);
+    setBool(r, 'reproHealthEdExtracurricular', n['VT7_17']);
+    setBool(r, 'hivTransmissionEdInSyllabus', n['VT7_18']);
+    setBool(r, 'hivTransmissionEdExtracurricular', n['VT7_19']);
+    setBool(r, 'trainersDeliveredSexEd', n['VT7_20']);
+    setBool(r, 'trainersPassedOnToStudents', n['VT7_21']);
+    setBool(r, 'heldParentOrientationSessions', n['VT7_22']);
+
+    // §8.5 — trainer occupational status: the six exact Detail integers,
+    // NOT a child/fact table (design note: "embedded not normalized").
+    setNum(r, 'vacataireProfMale', n['VT8_5_VP_M']);
+    setNum(r, 'vacataireProfFemale', n['VT8_5_VP_F']);
+    setNum(r, 'vacataireNonProfMale', n['VT8_5_VNP_M']);
+    setNum(r, 'vacataireNonProfFemale', n['VT8_5_VNP_F']);
+    setNum(r, 'permanentMale', n['VT8_5_PERM_M']);
+    setNum(r, 'permanentFemale', n['VT8_5_PERM_F']);
+
+    // §9 — difficulties and perspectives. No §4.12 key exists anywhere in
+    // this function (design note Decision 1, frozen) — leftover number
+    // under table 4.11, nothing to collect, no substitute field invented.
+    setBool(r, 'facesDifficulties', n['VT9_1']);
+    setStrArray(r, 'difficultyTypes', n['VT9_2']);
+    setStrArray(r, 'difficultyOtherTexts', n['VT9_3']);
+    setStrArray(r, 'perspectives', n['VT9_4']);
+
+    return r;
+}
+
+// 4.1/4.2/8.1/8.2 → OnefopVtDiplomaData. Flat key: `${prefix}_${diplomaRow}_${gender}`.
+// Only cells the client actually sent become rows (no zero-filled rows
+// manufactured for untouched cells); once a cell is sent, its numeric
+// value defaults to 0 via toInt.
+function buildVtDiplomaDataRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const specs = [
+        { prefix: 's4q1', personType: 'TRAINEE', diplomaKind: 'ACADEMIC', rows: VT_ACADEMIC_DIPLOMA_ROWS },
+        { prefix: 's4q2', personType: 'TRAINEE', diplomaKind: 'PROFESSIONAL', rows: VT_PROFESSIONAL_DIPLOMA_ROWS },
+        { prefix: 's8q1', personType: 'TRAINER', diplomaKind: 'ACADEMIC', rows: VT_ACADEMIC_DIPLOMA_ROWS },
+        { prefix: 's8q2', personType: 'TRAINER', diplomaKind: 'PROFESSIONAL', rows: VT_PROFESSIONAL_DIPLOMA_ROWS },
+    ] as const;
+    const out: Record<string, unknown>[] = [];
+    for (const { prefix, personType, diplomaKind, rows } of specs) {
+        for (const diploma of rows) {
+            for (const gender of VT_GENDER_ROWS) {
+                const raw = n[`${prefix}_${diploma}_${gender}`];
+                if (raw === undefined || raw === null || raw === '') continue;
+                out.push({
+                    personType,
+                    diplomaKind,
+                    diploma: diploma.toUpperCase(),
+                    gender: gender.toUpperCase(),
+                    value: toInt(raw),
+                });
+            }
+        }
+    }
+    return out;
+}
+
+// 4.7 → OnefopVtTraineeAgeFlow. Flat key: `${prefix}_${ageBand}_${flowStatus}_${gender}`.
+function buildVtTraineeAgeFlowRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const ageBand of VT_AGE_BAND_ROWS) {
+        for (const flowStatus of VT_FLOW_STATUS_ROWS) {
+            for (const gender of VT_GENDER_ROWS) {
+                const raw = n[`s4q7_${ageBand}_${flowStatus}_${gender}`];
+                if (raw === undefined || raw === null || raw === '') continue;
+                out.push({
+                    ageBand: ageBand.toUpperCase(),
+                    flowStatus: flowStatus.toUpperCase(),
+                    gender: gender.toUpperCase(),
+                    value: toInt(raw),
+                });
+            }
+        }
+    }
+    return out;
+}
+
+// 8.3 → OnefopVtTrainerAge. Flat key: `s8q3_${ageBand}_${gender}` (no flowStatus dimension).
+function buildVtTrainerAgeRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const ageBand of VT_TRAINER_AGE_BAND_ROWS) {
+        for (const gender of VT_GENDER_ROWS) {
+            const raw = n[`s8q3_${ageBand}_${gender}`];
+            if (raw === undefined || raw === null || raw === '') continue;
+            out.push({ ageBand: ageBand.toUpperCase(), gender: gender.toUpperCase(), value: toInt(raw) });
+        }
+    }
+    return out;
+}
+
+// 4.8 → OnefopVtEducationLevelFlow. Flat key: `s4q8_${educationLevel}_${flowStatus}_${gender}`.
+function buildVtEducationLevelFlowRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const educationLevel of VT_EDUCATION_LEVEL_ROWS) {
+        for (const flowStatus of VT_FLOW_STATUS_ROWS) {
+            for (const gender of VT_GENDER_ROWS) {
+                const raw = n[`s4q8_${educationLevel}_${flowStatus}_${gender}`];
+                if (raw === undefined || raw === null || raw === '') continue;
+                out.push({
+                    educationLevel: educationLevel.toUpperCase(),
+                    flowStatus: flowStatus.toUpperCase(),
+                    gender: gender.toUpperCase(),
+                    value: toInt(raw),
+                });
+            }
+        }
+    }
+    return out;
+}
+
+// 4.9 → OnefopVtTraineeVulnerable. Flat key: `s4q9_${category}_${flowStatus}_${gender}`.
+function buildVtTraineeVulnerableRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const category of VT_VULNERABLE_CATEGORY_ROWS) {
+        for (const flowStatus of VT_FLOW_STATUS_ROWS) {
+            for (const gender of VT_GENDER_ROWS) {
+                const raw = n[`s4q9_${category}_${flowStatus}_${gender}`];
+                if (raw === undefined || raw === null || raw === '') continue;
+                out.push({
+                    category: category.toUpperCase(),
+                    flowStatus: flowStatus.toUpperCase(),
+                    gender: gender.toUpperCase(),
+                    value: toInt(raw),
+                });
+            }
+        }
+    }
+    return out;
+}
+
+// 8.6 → OnefopVtTrainerDisability. Flat key: `s8q6_${category}_${gender}` (no flowStatus).
+function buildVtTrainerDisabilityRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const category of VT_TRAINER_DISABILITY_ROWS) {
+        for (const gender of VT_GENDER_ROWS) {
+            const raw = n[`s8q6_${category}_${gender}`];
+            if (raw === undefined || raw === null || raw === '') continue;
+            out.push({ category: category.toUpperCase(), gender: gender.toUpperCase(), value: toInt(raw) });
+        }
+    }
+    return out;
+}
+
+// 4.11 → OnefopVtScholarship. Flat key: `s4q11_${category}_${status}_${gender}`.
+function buildVtScholarshipRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const categories = ['other_admin', 'international'] as const;
+    const statuses = ['granted', 'received'] as const;
+    const out: Record<string, unknown>[] = [];
+    for (const category of categories) {
+        for (const status of statuses) {
+            for (const gender of VT_GENDER_ROWS) {
+                const raw = n[`s4q11_${category}_${status}_${gender}`];
+                if (raw === undefined || raw === null || raw === '') continue;
+                out.push({
+                    category: category.toUpperCase(),
+                    status: status.toUpperCase(),
+                    gender: gender.toUpperCase(),
+                    value: toInt(raw),
+                });
+            }
+        }
+    }
+    return out;
+}
+
+// 4.3, 4.4, 4.5, 4.6, 4.10, 6.3, 8.4, 8.7 → OnefopVtSpecialtyRow. Flat key:
+// `${prefix}_row${i}_${field}`. tableCode/rowIndex/specialtyText plus only
+// the named columns each table actually uses (design note §13.1, frozen)
+// — never cell1..cell4. 4.3/4.4/4.5 keep three distinct tableCode values,
+// never merged. A row is skipped when specialtyText is empty AND no
+// numeric value was supplied for it (matches the "skip empty specialty
+// row" requirement).
+function buildVtSpecialtyRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const specs = [
+        { prefix: 's4q3', tableCode: '4.3', rows: 12, fields: ['fiMale', 'fiFemale', 'fcMale', 'fcFemale'] },
+        { prefix: 's4q4', tableCode: '4.4', rows: 12, fields: ['fiMale', 'fiFemale', 'fcMale', 'fcFemale'] },
+        { prefix: 's4q5', tableCode: '4.5', rows: 12, fields: ['fiMale', 'fiFemale', 'fcMale', 'fcFemale'] },
+        { prefix: 's4q6', tableCode: '4.6', rows: 12, fields: ['year1Male', 'year1Female', 'year2Male', 'year2Female'] },
+        { prefix: 's4q10', tableCode: '4.10', rows: 10, fields: ['male', 'female', 'total'] },
+        { prefix: 's6q3', tableCode: '6.3', rows: 10, fields: ['male', 'female', 'total'] },
+        { prefix: 's8q4', tableCode: '8.4', rows: 10, fields: ['fiMale', 'fiFemale', 'fcMale', 'fcFemale'] },
+        { prefix: 's8q7', tableCode: '8.7', rows: 10, fields: ['fiCount', 'fcCount'] },
+    ] as const;
+    const out: Record<string, unknown>[] = [];
+    for (const { prefix, tableCode, rows, fields } of specs) {
+        for (let i = 1; i <= rows; i++) {
+            const specialtyTextRaw = n[`${prefix}_row${i}_specialtyText`];
+            const hasText = typeof specialtyTextRaw === 'string' && specialtyTextRaw.trim() !== '';
+            const cells: Record<string, unknown> = {};
+            let hasNumeric = false;
+            for (const f of fields) {
+                const raw = n[`${prefix}_row${i}_${f}`];
+                if (raw !== undefined && raw !== null && raw !== '') {
+                    cells[f] = toInt(raw);
+                    hasNumeric = true;
+                }
+            }
+            if (!hasText && !hasNumeric) continue;
+            const row: Record<string, unknown> = { tableCode, rowIndex: i, ...cells };
+            if (hasText) row['specialtyText'] = (specialtyTextRaw as string).trim();
+            out.push(row);
+        }
+    }
+    return out;
+}
+
+// 5.2 → OnefopVtCurriculum. Flat key: `s5q2_row${i}_${field}`, 15 rows.
+function buildVtCurriculumRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (let i = 1; i <= 15; i++) {
+        const specialtyTextRaw = n[`s5q2_row${i}_specialtyText`];
+        const hasText = typeof specialtyTextRaw === 'string' && specialtyTextRaw.trim() !== '';
+        const hasCurriculum = toBoolFromYesNo(n[`s5q2_row${i}_hasCurriculum`]);
+        const isApproved = toBoolFromYesNo(n[`s5q2_row${i}_isApproved`]);
+        if (!hasText && hasCurriculum === undefined && isApproved === undefined) continue;
+        const row: Record<string, unknown> = { rowIndex: i };
+        if (hasText) row['specialtyText'] = (specialtyTextRaw as string).trim();
+        if (hasCurriculum !== undefined) row['hasCurriculum'] = hasCurriculum;
+        if (isApproved !== undefined) row['isApproved'] = isApproved;
+        out.push(row);
+    }
+    return out;
+}
+
+// 5.3 → OnefopVtInfrastructure. Flat key: `s5q3_${infrastructureType}_${column}`.
+function buildVtInfrastructureRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const columns = ['totalCount', 'permanentGoodCount', 'permanentBadCount', 'temporaryCount'] as const;
+    const out: Record<string, unknown>[] = [];
+    for (const type of VT_INFRASTRUCTURE_ROWS) {
+        const row: Record<string, unknown> = {};
+        let any = false;
+        for (const col of columns) {
+            const raw = n[`s5q3_${type}_${col}`];
+            if (raw !== undefined && raw !== null && raw !== '') {
+                row[col] = toInt(raw);
+                any = true;
+            }
+        }
+        if (!any) continue;
+        row['infrastructureType'] = type.toUpperCase();
+        out.push(row);
+    }
+    return out;
+}
+
+// 5.4 → OnefopVtFurniture. Flat key: `s5q4_${furnitureType}_${column}`.
+function buildVtFurnitureRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const columns = ['goodCount', 'badCount'] as const;
+    const out: Record<string, unknown>[] = [];
+    for (const type of VT_FURNITURE_ROWS) {
+        const row: Record<string, unknown> = {};
+        let any = false;
+        for (const col of columns) {
+            const raw = n[`s5q4_${type}_${col}`];
+            if (raw !== undefined && raw !== null && raw !== '') {
+                row[col] = toInt(raw);
+                any = true;
+            }
+        }
+        if (!any) continue;
+        row['furnitureType'] = type.toUpperCase();
+        out.push(row);
+    }
+    return out;
+}
+
+// 8.8 → OnefopVtTrainerRoster. Flat key: `s8q8_row${i}_${field}`, 14 rows.
+// trainerStatus stays the literal string sent ('1'/'2'/'3' expected, not
+// VtTrainerStatus — DTO validation, not this normalizer, enforces the
+// exact accepted values). A row is non-empty when it has a name (last OR
+// first) or any other filled cell. A row whose academicDiploma or
+// professionalDiploma is 'TOTAL' is dropped outright — TOTAL is not a
+// valid value for a person's diploma (design note §13.2/§13.3).
+function buildVtTrainerRosterRows(n: Record<string, unknown>): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (let i = 1; i <= 14; i++) {
+        const lastNameRaw = n[`s8q8_row${i}_lastName`];
+        const firstNameRaw = n[`s8q8_row${i}_firstName`];
+        const sexRaw = n[`s8q8_row${i}_sex`];
+        const trainerStatusRaw = n[`s8q8_row${i}_trainerStatus`];
+        const isAdminPersonnelRaw = n[`s8q8_row${i}_isAdminPersonnel`];
+        const academicDiplomaRaw = n[`s8q8_row${i}_academicDiploma`];
+        const professionalDiplomaRaw = n[`s8q8_row${i}_professionalDiploma`];
+
+        const hasLastName = typeof lastNameRaw === 'string' && lastNameRaw.trim() !== '';
+        const hasFirstName = typeof firstNameRaw === 'string' && firstNameRaw.trim() !== '';
+        const hasOtherCell = [sexRaw, trainerStatusRaw, isAdminPersonnelRaw, academicDiplomaRaw, professionalDiplomaRaw]
+            .some((v) => v !== undefined && v !== null && v !== '');
+        if (!hasLastName && !hasFirstName && !hasOtherCell) continue;
+
+        const academicDiploma = typeof academicDiplomaRaw === 'string' ? academicDiplomaRaw.trim().toUpperCase() : undefined;
+        const professionalDiploma = typeof professionalDiplomaRaw === 'string' ? professionalDiplomaRaw.trim().toUpperCase() : undefined;
+        if (academicDiploma === 'TOTAL' || professionalDiploma === 'TOTAL') continue;
+
+        const row: Record<string, unknown> = { rowIndex: i };
+        if (hasLastName) row['lastName'] = (lastNameRaw as string).trim();
+        if (hasFirstName) row['firstName'] = (firstNameRaw as string).trim();
+        if (typeof sexRaw === 'string' && sexRaw.trim() !== '') row['sex'] = sexRaw.trim();
+        if (typeof trainerStatusRaw === 'string' && trainerStatusRaw.trim() !== '') row['trainerStatus'] = trainerStatusRaw.trim();
+        const isAdminPersonnel = toBoolFromYesNo(isAdminPersonnelRaw);
+        if (isAdminPersonnel !== undefined) row['isAdminPersonnel'] = isAdminPersonnel;
+        if (academicDiploma) row['academicDiploma'] = academicDiploma;
+        if (professionalDiploma) row['professionalDiploma'] = professionalDiploma;
+        out.push(row);
     }
     return out;
 }
@@ -973,6 +1559,45 @@ function toInt(value: unknown): number {
     if (value === undefined || value === null || value === '') return 0;
     const n = parseInt(String(value), 10);
     return isNaN(n) ? 0 : n;
+}
+
+// Vocational Training (VT-4) helpers — VocationalTrainingIdentificationDto
+// (VT-3) types boolean/string[] fields natively (not the six-entity
+// numeric-code convention mapYesNo/setNum target), so these are new,
+// narrowly-scoped helpers rather than reuses of the existing ones.
+
+/** Same "Oui/ Yes"/"Non/ No" string matching as mapYesNo, returning a real
+ *  boolean instead of a numeric code (matches VocationalTrainingIdentificationDto's
+ *  native boolean fields). Already-boolean input passes through unchanged. */
+function toBoolFromYesNo(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') return value;
+    if (typeof value !== 'string') return undefined;
+    const lv = value.toLowerCase();
+    if (lv.includes('oui') || lv.includes('yes')) return true;
+    if (lv.includes('non') || lv.includes('no')) return false;
+    return undefined;
+}
+
+/** Writes a boolean to out[key] only if value resolves to true/false. */
+function setBool(out: Record<string, unknown>, key: string, value: unknown): void {
+    const b = toBoolFromYesNo(value);
+    if (b !== undefined) out[key] = b;
+}
+
+/** Coerces value to a string[], defaulting to [] — never omitted, never
+ *  null. Matches every VT String[] Detail column's Prisma default ([]),
+ *  and explicitly the §7.1.3 requirement that missing/unselected ticks
+ *  produce [] rather than null or an omitted key. */
+function toStrArray(value: unknown): string[] {
+    if (Array.isArray(value)) return value.map((v) => String(v));
+    if (typeof value === 'string' && value.trim() !== '') return [value];
+    return [];
+}
+
+/** Always writes out[key], even to [] — unlike set()/setIfPresent(), which
+ *  omit the key entirely when the source value is absent. */
+function setStrArray(out: Record<string, unknown>, key: string, value: unknown): void {
+    out[key] = toStrArray(value);
 }
 
 /**

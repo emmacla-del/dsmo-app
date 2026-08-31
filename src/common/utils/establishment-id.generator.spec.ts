@@ -9,6 +9,16 @@ import { EstablishmentIdGenerator } from './establishment-id.generator';
 // unrecognized type, against a mocked PrismaService (no live database).
 // PROJECT_PROGRAM/'PP' was added in the Projects & Programs structural
 // implementation phase — see establishment-id.generator.ts's ENTITY_PREFIX.
+// VOCATIONAL_TRAINING/'VT' was added when VT company registration was found
+// to throw "Unknown entity type: VOCATIONAL_TRAINING" (ENTITY_PREFIX had
+// never been updated despite VT being wired up in AST/DTO/Prisma/
+// questionnaires.service.ts).
+// VOCATIONAL_TRAINING_CENTER/'VC' was added 2026-08-31 after production
+// logs showed registerCompany throwing "Unknown entity type:
+// VOCATIONAL_TRAINING_CENTER" — this is the unrelated, DSMO-only, no-ONEFOP-
+// questionnaire entity type (EntityType.vocationalCenter in
+// minefop_models.dart), which had never been wired into ENTITY_PREFIX or the
+// Company.entityType Prisma enum at all.
 
 function makePrisma(lastEstablishmentId: string | null = null) {
   return {
@@ -30,6 +40,8 @@ describe('EstablishmentIdGenerator', () => {
     ['ONG', 'ON'],
     ['ADMINISTRATION', 'AD'],
     ['PROJECT_PROGRAM', 'PP'],
+    ['VOCATIONAL_TRAINING', 'VT'],
+    ['VOCATIONAL_TRAINING_CENTER', 'VC'],
   ])('generates a first-serial ID for %s with prefix %s', async (entityType, prefix) => {
     const prisma = makePrisma();
     const id = await EstablishmentIdGenerator.generate(prisma, entityType, '12');
@@ -52,12 +64,11 @@ describe('EstablishmentIdGenerator', () => {
     expect(id).toBe(`AD${currentYear2}000412`);
   });
 
-  it('still throws explicitly for an unrecognized entity type (e.g. VOCATIONAL, '
-    + 'still an architecture placeholder with no establishment-ID support)', async () => {
+  it('still throws explicitly for an unrecognized entity type', async () => {
     const prisma = makePrisma();
     await expect(
-      EstablishmentIdGenerator.generate(prisma, 'VOCATIONAL', '12'),
-    ).rejects.toThrow('Unknown entity type: VOCATIONAL');
+      EstablishmentIdGenerator.generate(prisma, 'NOT_A_REAL_TYPE', '12'),
+    ).rejects.toThrow('Unknown entity type: NOT_A_REAL_TYPE');
     expect(prisma.company.findFirst).not.toHaveBeenCalled();
   });
 
@@ -67,12 +78,36 @@ describe('EstablishmentIdGenerator', () => {
     expect(id).toBe(`PP${currentYear2}000105`);
   });
 
+  it('is case-insensitive on VOCATIONAL_TRAINING, matching the existing behavior', async () => {
+    const prisma = makePrisma();
+    const id = await EstablishmentIdGenerator.generate(prisma, 'vocational_training', '05');
+    expect(id).toBe(`VT${currentYear2}000105`);
+  });
+
+  it('increments the serial for VOCATIONAL_TRAINING the same way as the existing types', async () => {
+    const prisma = makePrisma(`VT${currentYear2}000312`);
+    const id = await EstablishmentIdGenerator.generate(prisma, 'VOCATIONAL_TRAINING', '12');
+    expect(id).toBe(`VT${currentYear2}000412`);
+  });
+
+  it('is case-insensitive on VOCATIONAL_TRAINING_CENTER, matching the existing behavior', async () => {
+    const prisma = makePrisma();
+    const id = await EstablishmentIdGenerator.generate(prisma, 'vocational_training_center', '05');
+    expect(id).toBe(`VC${currentYear2}000105`);
+  });
+
+  it('increments the serial for VOCATIONAL_TRAINING_CENTER the same way as the existing types', async () => {
+    const prisma = makePrisma(`VC${currentYear2}000312`);
+    const id = await EstablishmentIdGenerator.generate(prisma, 'VOCATIONAL_TRAINING_CENTER', '12');
+    expect(id).toBe(`VC${currentYear2}000412`);
+  });
+
   describe('isValid', () => {
-    it.each(['EN', 'CO', 'CT', 'ON', 'AD', 'PP'])('accepts a well-formed %s-prefixed ID', (prefix) => {
+    it.each(['EN', 'CO', 'CT', 'ON', 'AD', 'PP', 'VT', 'VC'])('accepts a well-formed %s-prefixed ID', (prefix) => {
       expect(EstablishmentIdGenerator.isValid(`${prefix}26000112`)).toBe(true);
     });
 
-    it('rejects a prefix outside the six known types', () => {
+    it('rejects a prefix outside the eight known types', () => {
       expect(EstablishmentIdGenerator.isValid('XX26000112')).toBe(false);
     });
   });
@@ -94,6 +129,28 @@ describe('EstablishmentIdGenerator', () => {
       expect(parsed).toEqual({
         prefix: 'PP',
         entityType: 'PROJECT_PROGRAM',
+        year: '2026',
+        serial: 1,
+        subdivisionCode: '12',
+      });
+    });
+
+    it('round-trips a VOCATIONAL_TRAINING ID', () => {
+      const parsed = EstablishmentIdGenerator.parse('VT26000112');
+      expect(parsed).toEqual({
+        prefix: 'VT',
+        entityType: 'VOCATIONAL_TRAINING',
+        year: '2026',
+        serial: 1,
+        subdivisionCode: '12',
+      });
+    });
+
+    it('round-trips a VOCATIONAL_TRAINING_CENTER ID', () => {
+      const parsed = EstablishmentIdGenerator.parse('VC26000112');
+      expect(parsed).toEqual({
+        prefix: 'VC',
+        entityType: 'VOCATIONAL_TRAINING_CENTER',
         year: '2026',
         serial: 1,
         subdivisionCode: '12',

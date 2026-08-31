@@ -125,6 +125,18 @@ export class AuthController {
     firstName?: string;
     lastName?: string;
     branch?: string;
+    // VOCATIONAL_TRAINING-specific identification fields, see
+    // AuthService.registerCompany's companyData type for context.
+    sigle?: string;
+    cfpType?: string;
+    educationSystem?: string;
+    functionalStatus?: string;
+    nonFunctionalReason?: string;
+    nonFunctionalReasonOther?: string;
+    promoterName?: string;
+    promoterSex?: string;
+    promoterPhone1?: string;
+    promoterPhone2?: string;
   }) {
     return this.authService.registerCompany(
       body.email,
@@ -161,6 +173,16 @@ export class AuthController {
         respondentFirstName: body.respondentFirstName ?? body.firstName,
         respondentLastName: body.respondentLastName ?? body.lastName,
         branch: body.branch,
+        sigle: body.sigle,
+        cfpType: body.cfpType,
+        educationSystem: body.educationSystem,
+        functionalStatus: body.functionalStatus,
+        nonFunctionalReason: body.nonFunctionalReason,
+        nonFunctionalReasonOther: body.nonFunctionalReasonOther,
+        promoterName: body.promoterName,
+        promoterSex: body.promoterSex,
+        promoterPhone1: body.promoterPhone1,
+        promoterPhone2: body.promoterPhone2,
       }
     );
   }

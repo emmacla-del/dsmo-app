@@ -515,6 +515,23 @@ export class AuthService {
       respondentPhone?: string;
       respondentPhone2?: string;
       respondentFunction?: string;
+      // VOCATIONAL_TRAINING-specific identification fields — see the
+      // 2026-08-30 VT registration audit. cfpType/educationSystem/
+      // functionalStatus/nonFunctionalReason are plain strings (no VT enum
+      // backs them, matching the AST's own posture on these fields).
+      sigle?: string;
+      cfpType?: string;
+      educationSystem?: string;
+      functionalStatus?: string;
+      nonFunctionalReason?: string;
+      nonFunctionalReasonOther?: string;
+      // 1.16 — Promoteur/Directeur du CFP, a second contact block distinct
+      // from the respondent above (1.15). VT-only; no other entity type
+      // collects a second contact at registration time.
+      promoterName?: string;
+      promoterSex?: string;
+      promoterPhone1?: string;
+      promoterPhone2?: string;
     },
   ) {
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
@@ -605,6 +622,16 @@ export class AuthService {
           respondentPhone: companyData.respondentPhone,
           respondentPhone2: companyData.respondentPhone2,
           respondentFunction: companyData.respondentFunction,
+          sigle: companyData.sigle,
+          cfpType: companyData.cfpType,
+          educationSystem: companyData.educationSystem,
+          functionalStatus: companyData.functionalStatus,
+          nonFunctionalReason: companyData.nonFunctionalReason,
+          nonFunctionalReasonOther: companyData.nonFunctionalReasonOther,
+          promoterName: companyData.promoterName,
+          promoterSex: companyData.promoterSex,
+          promoterPhone1: companyData.promoterPhone1,
+          promoterPhone2: companyData.promoterPhone2,
           establishmentId: establishmentId,
           establishmentIdGeneratedAt: establishmentId ? new Date() : undefined,
         },

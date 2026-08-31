@@ -16,6 +16,7 @@ import {
     mapOngData,
     mapAdministrationData,
     mapProjectProgramData,
+    mapVocationalTrainingData,
 } from '../services/pdf-data-mapper.service';
 
 // normalizeFlatKeys() branches on the French spelling ('entreprise'), matching
@@ -28,6 +29,7 @@ const NORMALIZER_ENTITY_TYPE: Record<string, string> = {
     ONG: 'ong',
     ADMINISTRATION: 'administration',
     PROJECT_PROGRAM: 'projectProgram',
+    VOCATIONAL_TRAINING: 'vocationalTraining',
 };
 
 // The data mappers / .hbs templates use the English spelling ('enterprise').
@@ -38,6 +40,7 @@ const MAPPER_ENTITY_TYPE: Record<string, string> = {
     ONG: 'ong',
     ADMINISTRATION: 'administration',
     PROJECT_PROGRAM: 'projectProgram',
+    VOCATIONAL_TRAINING: 'vocationalTraining',
 };
 
 const MAPPERS: Record<string, (f: Record<string, unknown>, quarterCode?: string | null) => Record<string, unknown>> = {
@@ -47,6 +50,7 @@ const MAPPERS: Record<string, (f: Record<string, unknown>, quarterCode?: string 
     ong: mapOngData,
     administration: mapAdministrationData,
     projectProgram: mapProjectProgramData,
+    vocationalTraining: mapVocationalTrainingData,
 };
 
 interface SubmissionForPdf {

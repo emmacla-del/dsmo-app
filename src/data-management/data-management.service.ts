@@ -309,6 +309,138 @@ const BREAKDOWN_SHEET_DEFS: BreakdownSheetDef[] = [
         ],
         rowMapper: (item) => ({ year: item.year, skillDescription: item.skillDescription, count: item.count }),
     },
+    // VT (Formation Professionnelle) breakdown tables — 11 of the 12 OnefopVt*
+    // child tables. OnefopVtTrainerRoster (8.8) is deliberately excluded: it
+    // holds named individuals (PII) and, per the design note §9, stays out of
+    // the default statistical export — any roster export is separate,
+    // explicitly labelled, and gated the same way this endpoint already is.
+    {
+        title: 'FP - Diplômes', relationKey: 'vtDiplomaData', modelName: 'onefopVtDiplomaData',
+        columns: [
+            { header: 'Type de personne', key: 'personType', width: 16 },
+            { header: 'Type de diplôme', key: 'diplomaKind', width: 16 },
+            { header: 'Diplôme', key: 'diploma', width: 24 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ personType: item.personType, diplomaKind: item.diplomaKind, diploma: item.diploma, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Flux âge apprenants', relationKey: 'vtTraineeAgeFlow', modelName: 'onefopVtTraineeAgeFlow',
+        columns: [
+            { header: "Tranche d'âge", key: 'ageBand', width: 14 },
+            { header: 'Statut de flux', key: 'flowStatus', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ ageBand: item.ageBand, flowStatus: item.flowStatus, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Âge formateurs', relationKey: 'vtTrainerAge', modelName: 'onefopVtTrainerAge',
+        columns: [
+            { header: "Tranche d'âge", key: 'ageBand', width: 16 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ ageBand: item.ageBand, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Flux niveau éducation', relationKey: 'vtEducationLevelFlow', modelName: 'onefopVtEducationLevelFlow',
+        columns: [
+            { header: "Niveau d'éducation", key: 'educationLevel', width: 24 },
+            { header: 'Statut de flux', key: 'flowStatus', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ educationLevel: item.educationLevel, flowStatus: item.flowStatus, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Apprenants vulnérables', relationKey: 'vtTraineeVulnerable', modelName: 'onefopVtTraineeVulnerable',
+        columns: [
+            { header: 'Catégorie', key: 'category', width: 22 },
+            { header: 'Statut de flux', key: 'flowStatus', width: 14 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ category: item.category, flowStatus: item.flowStatus, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Handicap formateurs', relationKey: 'vtTrainerDisability', modelName: 'onefopVtTrainerDisability',
+        columns: [
+            { header: 'Catégorie', key: 'category', width: 18 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ category: item.category, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Bourses', relationKey: 'vtScholarship', modelName: 'onefopVtScholarship',
+        columns: [
+            { header: 'Catégorie', key: 'category', width: 18 },
+            { header: 'Statut', key: 'status', width: 12 },
+            { header: 'Genre', key: 'gender', width: 10 },
+            { header: 'Valeur', key: 'value', width: 10 },
+        ],
+        rowMapper: (item) => ({ category: item.category, status: item.status, gender: item.gender, value: item.value }),
+    },
+    {
+        title: 'FP - Filières (spécialités)', relationKey: 'vtSpecialtyRows', modelName: 'onefopVtSpecialtyRow',
+        columns: [
+            { header: 'Tableau', key: 'tableCode', width: 12 },
+            { header: 'N° ligne', key: 'rowIndex', width: 10 },
+            { header: 'Filière', key: 'specialtyText', width: 28 },
+            { header: 'FI Hommes', key: 'fiMale', width: 12 },
+            { header: 'FI Femmes', key: 'fiFemale', width: 12 },
+            { header: 'FC Hommes', key: 'fcMale', width: 12 },
+            { header: 'FC Femmes', key: 'fcFemale', width: 12 },
+            { header: 'Année 1 Hommes', key: 'year1Male', width: 14 },
+            { header: 'Année 1 Femmes', key: 'year1Female', width: 14 },
+            { header: 'Année 2 Hommes', key: 'year2Male', width: 14 },
+            { header: 'Année 2 Femmes', key: 'year2Female', width: 14 },
+            { header: 'Hommes', key: 'male', width: 10 },
+            { header: 'Femmes', key: 'female', width: 10 },
+            { header: 'Total', key: 'total', width: 10 },
+            { header: 'FI (effectif)', key: 'fiCount', width: 12 },
+            { header: 'FC (effectif)', key: 'fcCount', width: 12 },
+        ],
+        rowMapper: (item) => ({
+            tableCode: item.tableCode, rowIndex: item.rowIndex, specialtyText: item.specialtyText,
+            fiMale: item.fiMale, fiFemale: item.fiFemale, fcMale: item.fcMale, fcFemale: item.fcFemale,
+            year1Male: item.year1Male, year1Female: item.year1Female, year2Male: item.year2Male, year2Female: item.year2Female,
+            male: item.male, female: item.female, total: item.total,
+            fiCount: item.fiCount, fcCount: item.fcCount,
+        }),
+    },
+    {
+        title: 'FP - Curricula', relationKey: 'vtCurricula', modelName: 'onefopVtCurriculum',
+        columns: [
+            { header: 'N° ligne', key: 'rowIndex', width: 10 },
+            { header: 'Filière', key: 'specialtyText', width: 28 },
+            { header: 'Curriculum existant', key: 'hasCurriculum', width: 18 },
+            { header: 'Curriculum approuvé', key: 'isApproved', width: 18 },
+        ],
+        rowMapper: (item) => ({ rowIndex: item.rowIndex, specialtyText: item.specialtyText, hasCurriculum: item.hasCurriculum, isApproved: item.isApproved }),
+    },
+    {
+        title: 'FP - Infrastructures', relationKey: 'vtInfrastructure', modelName: 'onefopVtInfrastructure',
+        columns: [
+            { header: "Type d'infrastructure", key: 'infrastructureType', width: 24 },
+            { header: 'Total', key: 'totalCount', width: 10 },
+            { header: 'Permanent bon état', key: 'permanentGoodCount', width: 18 },
+            { header: 'Permanent mauvais état', key: 'permanentBadCount', width: 20 },
+            { header: 'Temporaire', key: 'temporaryCount', width: 12 },
+        ],
+        rowMapper: (item) => ({ infrastructureType: item.infrastructureType, totalCount: item.totalCount, permanentGoodCount: item.permanentGoodCount, permanentBadCount: item.permanentBadCount, temporaryCount: item.temporaryCount }),
+    },
+    {
+        title: 'FP - Mobilier', relationKey: 'vtFurniture', modelName: 'onefopVtFurniture',
+        columns: [
+            { header: 'Type de mobilier', key: 'furnitureType', width: 20 },
+            { header: 'Bon état', key: 'goodCount', width: 12 },
+            { header: 'Mauvais état', key: 'badCount', width: 12 },
+        ],
+        rowMapper: (item) => ({ furnitureType: item.furnitureType, goodCount: item.goodCount, badCount: item.badCount }),
+    },
 ];
 
 // Every pivoted value column (the ones built from ENUM_PIVOT_CONFIGS /
@@ -660,6 +792,7 @@ export class DataManagementService {
             ongDetail: true,
             administrationDetail: true,
             projectProgramDetail: true,
+            vocationalTrainingDetail: true,
             cspGenderAge: true,
             diplomaData: true,
             disabilityData: true,
@@ -864,7 +997,7 @@ export class DataManagementService {
     private onefopSheetDefs(): Array<{
         formType: string;
         title: string;
-        detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail' | 'administrationDetail' | 'projectProgramDetail';
+        detailKey: 'enterpriseDetail' | 'cooperativeDetail' | 'ctdDetail' | 'ongDetail' | 'administrationDetail' | 'projectProgramDetail' | 'vocationalTrainingDetail';
         columns: Partial<ExcelJS.Column>[];
     }> {
         return [
@@ -994,6 +1127,34 @@ export class DataManagementService {
                     { header: "Motif d'arrêt", key: 'stopReason', width: 20 },
                     { header: 'Effectif permanent', key: 'permanentWorkers', width: 16 },
                     { header: 'Postes vacants', key: 'vacancies', width: 14 },
+                ],
+            },
+            {
+                // Flattened Detail columns only here — the 11 statistical
+                // OnefopVt* child/fact tables (diplomas, age flows,
+                // specialties, infrastructure, etc.) each get their own
+                // long-format sheet via BREAKDOWN_SHEET_DEFS below, same as
+                // PROJECT_PROGRAM's activities and the shared six-entity fact
+                // tables. OnefopVtTrainerRoster (8.8, named individuals) is
+                // deliberately not among them — see BREAKDOWN_SHEET_DEFS.
+                formType: 'VOCATIONAL_TRAINING',
+                title: 'Formation Professionnelle',
+                detailKey: 'vocationalTrainingDetail',
+                columns: [
+                    { header: 'Nom du CFP', key: 'name', width: 26 },
+                    { header: 'Sigle', key: 'sigle', width: 14 },
+                    { header: 'Type de CFP', key: 'cfpType', width: 18 },
+                    { header: 'Statut fonctionnel', key: 'functionalStatus', width: 18 },
+                    { header: 'Milieu', key: 'area', width: 12 },
+                    { header: 'Commune', key: 'commune', width: 18 },
+                    { header: 'Localité', key: 'locality', width: 18 },
+                    { header: 'Boîte postale', key: 'poBox', width: 16 },
+                    { header: 'Email', key: 'email', width: 22 },
+                    { header: 'Année de création', key: 'yearOfEstablishment', width: 16 },
+                    { header: 'Nom du promoteur', key: 'promoterName', width: 22 },
+                    { header: 'Téléphone promoteur', key: 'promoterPhone1', width: 18 },
+                    { header: 'Effectif apprenants déclaré', key: 'totalTraineesDeclared', width: 20 },
+                    { header: 'Effectif formateurs déclaré', key: 'totalTrainersDeclared', width: 20 },
                 ],
             },
         ];

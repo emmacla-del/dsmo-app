@@ -294,6 +294,7 @@ export class OnefopService {
             'COOPERATIVE': 'Coopérative',
             'CTD': 'CTD',
             'ONG': 'ONG',
+            'VOCATIONAL_TRAINING': 'Formation professionnelle',
         };
         return labels[entityType] || entityType;
     }

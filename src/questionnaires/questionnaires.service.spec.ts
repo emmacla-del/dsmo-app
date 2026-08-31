@@ -306,4 +306,239 @@ describe('QuestionnairesService — resolveGeoFields (P1: geo resolution per ent
       region: 'Nord', department: 'Bénoué', subdivision: 'Garoua 1er', sector: 'Agriculture',
     });
   });
+
+  it('VT-5: resolves region/department/subdivision from vocationalTraining (no sector — VT has no economic-sector concept)', () => {
+    const result = resolve({
+      vocationalTraining: { region: 'Ouest', department: 'Mifi', subdivision: 'Bafoussam 1er' },
+    });
+    expect(result).toEqual({
+      region: 'Ouest', department: 'Mifi', subdivision: 'Bafoussam 1er', sector: null,
+    });
+  });
+});
+
+// VT-5 persistence coverage. Unlike buildCspGenderAgeRows/enforceFinal
+// RequiredFields/resolveGeoFields above (pure functions of their inputs,
+// testable via `new QuestionnairesService({} as PrismaService)`), the
+// Detail-relation-building and child-array wiring live inline in
+// submitQuestionnaire itself — the same is true of every existing entity's
+// own Detail block (Administration/Project & Programs included), so this
+// is not a VT-specific testability gap needing a refactor. Verifying the
+// actual createMany/create payload therefore requires a full (mocked)
+// submitQuestionnaire() call rather than a private-method invocation.
+//
+// Sibling-strategy finding (source-of-truth item 4, "existing sibling
+// persistence patterns"): submitQuestionnaire has no update/replace path
+// for ANY of the six existing entities. A resubmission with the same
+// formId is treated as an idempotent duplicate — onefopSubmission.
+// findUnique returns the already-created row and submitQuestionnaire
+// returns success without touching the DB again (see the `if (!isDraft
+// && dto.formId)` block near the top of the method); a different formId
+// always creates a brand-new OnefopSubmission row. There is no deleteMany
+// + createMany (or any other) child-replacement strategy anywhere in this
+// file for Administration, Project & Programs, or any of the other four
+// entities. VOCATIONAL_TRAINING is wired into this exact same shared
+// function, so it inherits this exact same behavior automatically — Test
+// B below verifies that real, established behavior (idempotent-duplicate-
+// returns-existing; a new formId creates a separate row) rather than the
+// deleteMany+createMany strategy the task specification speculated might
+// exist, since inspection did not find one to clone.
+describe('QuestionnairesService — Vocational Training persistence (VT-5)', () => {
+  function buildMockPrisma(): any {
+    return {
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'company-1', establishmentId: 'EST-1' }),
+      },
+      submissionRound: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+        }),
+      },
+      onefopSubmission: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({ submissionId: data.submissionId })),
+      },
+      subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
+      department: { findFirst: jest.fn().mockResolvedValue(null) },
+      region: { findFirst: jest.fn().mockResolvedValue(null) },
+      sector: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+  }
+
+  const respondentFlat = {
+    VT1_15_NAME: 'Jean Dupont',
+    VT1_15_FUNCTION: 'Directeur',
+    VT1_15_TEL1: '699999999',
+    VT1_15_EMAIL: 'jean@test.cm',
+    VT1_15_SEX: 'Féminin',
+  };
+
+  // Test A — create: Detail + one diploma row + one specialty row + one
+  // roster row, all reaching the correct relation on the create() payload.
+  it('Test A: create wires Detail, one diploma row, one specialty row (correct tableCode), and one roster row into the create() payload', async () => {
+    const prisma = buildMockPrisma();
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'vt-form-1',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: true,
+      data: {
+        ...respondentFlat,
+        VT1_2: 'Centre Test',
+        VT1_9: 'Urbain/ Urban',
+        s4q1_licence_male: '7',
+        s4q3_row1_specialtyText: 'Coupe-Couture',
+        s4q3_row1_fiMale: '5',
+        s8q8_row1_lastName: 'Ateba',
+        s8q8_row1_firstName: 'Paul',
+      },
+    } as any);
+
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(1);
+    const data = prisma.onefopSubmission.create.mock.calls[0][0].data;
+
+    // Exactly one OnefopVocationalTrainingDetail, written as the 1:1 relation.
+    expect(data.vocationalTrainingDetail.create.name).toBe('Centre Test');
+    expect(data.vocationalTrainingDetail.create.area).toBe('Urbain/ Urban');
+    // Critical rule: respondentSex on Detail only.
+    expect(data.vocationalTrainingDetail.create.respondentSex).toBe('Féminin');
+
+    // The diploma row lands in vtDiplomaData (OnefopVtDiplomaData), not
+    // the six-entity shared diplomaData relation.
+    expect(data.vtDiplomaData.createMany.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ personType: 'TRAINEE', diplomaKind: 'ACADEMIC', diploma: 'LICENCE', gender: 'MALE', value: 7 }),
+    ]));
+    expect(data.diplomaData).toBeUndefined(); // no VT rows leak into the shared enterprise-family relation
+
+    // The specialty row carries the correct tableCode, in vtSpecialtyRows.
+    expect(data.vtSpecialtyRows.createMany.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ tableCode: '4.3', specialtyText: 'Coupe-Couture', fiMale: 5 }),
+    ]));
+
+    // The roster row is included, in vtTrainerRoster.
+    expect(data.vtTrainerRoster.createMany.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ lastName: 'Ateba', firstName: 'Paul' }),
+    ]));
+
+    // Shared respondent write path used; respondent.sex is never written
+    // (OnefopRespondent has no sex column at all).
+    expect(data.respondent.create.respondentName).toBe('Jean Dupont');
+    expect(data.respondent.create).not.toHaveProperty('sex');
+
+    // checkCoherence not invoked for VT: no coherence flags on the payload.
+    expect(data.flags).toBeUndefined();
+  });
+
+  it('sparse VT drafts save successfully: only Detail.name (+respondent, required for every entity) present, all 12 child relations skipped (no placeholder rows)', async () => {
+    const prisma = buildMockPrisma();
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'vt-form-sparse',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: true,
+      // respondent is @IsDefined() on BaseQuestionnaireDto for every
+      // entity (frozen, shared, not a VT-5 concern) — skipMissingProperties
+      // doesn't exempt it, so "sparse" here means sparse VT Detail/child
+      // data, not an entirely empty submission.
+      data: { ...respondentFlat, VT1_2: 'Centre Minimal' },
+    } as any);
+
+    const data = prisma.onefopSubmission.create.mock.calls[0][0].data;
+    expect(data.vocationalTrainingDetail.create.name).toBe('Centre Minimal');
+    for (const rel of [
+      'vtDiplomaData', 'vtTraineeAgeFlow', 'vtTrainerAge', 'vtEducationLevelFlow',
+      'vtTraineeVulnerable', 'vtTrainerDisability', 'vtScholarship', 'vtSpecialtyRows',
+      'vtCurricula', 'vtInfrastructure', 'vtFurniture', 'vtTrainerRoster',
+    ]) {
+      expect(data[rel]).toBeUndefined();
+    }
+  });
+
+  // enforceFinalRequiredFields is not applied to VT: a non-draft submission
+  // with only Detail.name present must NOT throw (it would for any of the
+  // six existing entities missing their own required fields).
+  it('does not apply enforceFinalRequiredFields to a non-draft VT submission', async () => {
+    const prisma = buildMockPrisma();
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.submitQuestionnaire({
+      formId: 'vt-form-final-sparse',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: false,
+      data: { ...respondentFlat, VT1_2: 'Centre Minimal' },
+    } as any)).resolves.toMatchObject({ success: true });
+  });
+
+  // Test C — §4.12 remains absent from persisted output, under any input shape.
+  it('Test C: no relation/row/field is created specifically for 4.12', async () => {
+    const prisma = buildMockPrisma();
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'vt-form-412',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: true,
+      data: {
+        ...respondentFlat,
+        VT1_2: 'Centre Test',
+        '4.12': 'stray',
+        VT4_12: 'stray',
+        s4q12_anything: 'stray',
+      },
+    } as any);
+
+    const data = prisma.onefopSubmission.create.mock.calls[0][0].data;
+    expect(Object.keys(data.vocationalTrainingDetail.create).some((k) => k.toLowerCase().includes('412'))).toBe(false);
+    expect(data.vtSpecialtyRows).toBeUndefined(); // no specialty rows at all in this input
+  });
+
+  // Test B — the real, established sibling "update" behavior: idempotent
+  // duplicate-formId handling, not deleteMany+createMany (see the
+  // sibling-strategy finding in this describe block's header comment).
+  it('Test B: resubmitting the same formId does not create a second row (idempotent, matches the real sibling behavior)', async () => {
+    const prisma = buildMockPrisma();
+    // Simulate the row already existing from a prior successful submit.
+    prisma.onefopSubmission.findUnique.mockResolvedValue({ submissionId: 'vt-form-dup' });
+    const service = new QuestionnairesService(prisma);
+
+    const result = await service.submitQuestionnaire({
+      formId: 'vt-form-dup',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: false,
+      data: { VT1_2: 'Centre Test' },
+    } as any);
+
+    expect(result.submissionId).toBe('vt-form-dup');
+    expect(prisma.onefopSubmission.create).not.toHaveBeenCalled();
+  });
+
+  it('Test B (continued): a different formId creates a wholly separate row rather than replacing the first — no established mechanism accumulates or replaces child rows because each submission is its own row', async () => {
+    const prisma = buildMockPrisma();
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'vt-form-v1', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: true,
+      data: { ...respondentFlat, VT1_2: 'Centre V1', s4q1_licence_male: '1' },
+    } as any);
+    await service.submitQuestionnaire({
+      formId: 'vt-form-v2', userId: 'user-1', entityType: 'VOCATIONAL_TRAINING', isDraft: true,
+      data: { ...respondentFlat, VT1_2: 'Centre V2' },
+    } as any);
+
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(2);
+    const firstCallData = prisma.onefopSubmission.create.mock.calls[0][0].data;
+    const secondCallData = prisma.onefopSubmission.create.mock.calls[1][0].data;
+    expect(firstCallData.vtDiplomaData.createMany.data.length).toBe(1);
+    // The second, distinct submission carries no trace of the first's
+    // diploma row — nothing "accumulates" because they are different rows.
+    expect(secondCallData.vtDiplomaData).toBeUndefined();
+  });
 });

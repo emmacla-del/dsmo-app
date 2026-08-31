@@ -27,6 +27,17 @@ function makeService(prismaOverrides: Record<string, any> = {}) {
     onefopTrainingNeed: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
     onefopFactRecruitment: { findFirst: jest.fn().mockResolvedValue(null) },
     onefopFactSkillNeed: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtDiplomaData: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtTraineeAgeFlow: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtTrainerAge: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtEducationLevelFlow: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtTraineeVulnerable: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtTrainerDisability: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtScholarship: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtSpecialtyRow: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtCurriculum: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtInfrastructure: { findFirst: jest.fn().mockResolvedValue(null) },
+    onefopVtFurniture: { findFirst: jest.fn().mockResolvedValue(null) },
     ...prismaOverrides,
   };
   const service = new DataManagementService(prisma as any);
@@ -258,6 +269,49 @@ describe('DataManagementService.streamApprovedOnefopSubmissionsCsv — Pass B (m
     expect(include.factSkillNeeds).toBeUndefined();
     expect(include.cspGenderAge).toBe(true);
   });
+
+  // VT-8 gap-closing regression coverage (2026-08-30): buildFlatColumns/
+  // approvedOnefopInclude both build off onefopSheetDefs(), which already
+  // carries a VOCATIONAL_TRAINING entry (VT-8's flat Excel sheet) — so VT's
+  // Detail-level fields (name, cfpType, totalTraineesDeclared, etc.) flow
+  // through the flat SPSS/CSV export automatically, with no VT-specific
+  // code needed here. This locks that in; the 11 OnefopVt* breakdown tables
+  // stay Excel-only (their own long-format sheets), matching how the
+  // shared six-entity fact tables' *own* per-entity data — as opposed to
+  // their small-enum pivots — is handled: only ENTREPRISE/COOPERATIVE/CTD/
+  // ONG's ten shared fact tables get pivoted into flat columns, and VT's
+  // own child tables were never meant to follow that path either.
+  it('includes vocationalTrainingDetail in the fetch and its columns in Pass A, so a VT submission renders with real data in Pass B', async () => {
+    const { service, prisma } = makeService();
+
+    // buildFlatColumns' static columns come from onefopSheetDefs(), not the
+    // DB — no mocked data needed to see VT's columns show up in Pass A.
+    const columns = await service.buildFlatColumns({ status: 'APPROVED' });
+    const columnKeys = columns.map((c: any) => c.key);
+    expect(columnKeys).toContain('cfpType');
+    expect(columnKeys).toContain('totalTraineesDeclared');
+
+    prisma.onefopSubmission.findMany.mockResolvedValueOnce([
+      {
+        id: 'sub-1',
+        submissionId: 'S-0004',
+        status: 'APPROVED',
+        surveyYear: 2026,
+        formType: 'VOCATIONAL_TRAINING',
+        company: { name: 'CFP Test', taxNumber: 'TX4', region: 'Centre', department: 'Mfoundi', establishmentId: 'EST4' },
+        respondent: { respondentName: 'Awa', respondentFunction: 'Directeur', phone1: '677000003' },
+        vocationalTrainingDetail: { name: 'CFP Test', cfpType: 'PUBLIC', totalTraineesDeclared: 120 },
+      },
+    ]);
+    const { res, chunks } = fakeRes();
+    await service.streamApprovedOnefopSubmissionsCsv({}, res);
+
+    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].include.vocationalTrainingDetail).toBe(true);
+    const body = chunks.join('');
+    expect(body).toContain('S-0004');
+    expect(body).toContain('PUBLIC');
+    expect(body).toContain('120');
+  });
 });
 
 describe('DataManagementService.streamOnefopSubmissionsExcel — sheet-by-sheet streaming (mocked DB)', () => {
@@ -435,5 +489,69 @@ describe('DataManagementService — onefopSheetDefs (P2: Administration/Projects
     const dataRow = sheet.getRow(2).values as unknown[];
     expect(dataRow).toContain('S-0002');
     expect(dataRow).toContain('Délégation Régionale');
+  });
+});
+
+// VT-8 gap-closing regression coverage (2026-08-30): the 11 statistical
+// OnefopVt* child/fact tables used to have no long-format breakdown sheet at
+// all (see VOCATIONAL_TRAINING_DESIGN_NOTE.md). This locks in that one of
+// them renders end to end alongside the flat VT sheet, and that the named
+// trainer roster (8.8, PII) stays excluded from BREAKDOWN_SHEET_DEFS.
+describe('DataManagementService — VOCATIONAL_TRAINING breakdown sheets (VT-8)', () => {
+  it('writes the flat VT sheet plus a VtDiplomaData breakdown sheet, and never a trainer-roster sheet', async () => {
+    const { service, prisma } = makeService({
+      onefopVtDiplomaData: { findFirst: jest.fn().mockResolvedValue({ id: 'vtd-1' }) },
+    });
+    prisma.onefopSubmission.findMany.mockImplementation(async (args: any) => {
+      if (args.distinct?.includes('formType')) return [{ formType: 'VOCATIONAL_TRAINING' }];
+      if (args.include) {
+        if (args.cursor) return [];
+        return [
+          {
+            id: 'sub-1',
+            submissionId: 'S-0003',
+            status: 'APPROVED',
+            surveyYear: 2026,
+            formType: 'VOCATIONAL_TRAINING',
+            company: { name: 'CFP Test', taxNumber: 'TX3', region: 'Centre', department: 'Mfoundi', establishmentId: 'EST3' },
+            respondent: { respondentName: 'Awa', respondentFunction: 'Directeur', phone1: '677000002' },
+            vocationalTrainingDetail: { name: 'CFP Test', totalTraineesDeclared: 120 },
+          },
+        ];
+      }
+      if (args.select) {
+        if (args.cursor) return [];
+        return [
+          {
+            id: 'sub-1',
+            submissionId: 'S-0003',
+            formType: 'VOCATIONAL_TRAINING',
+            region: 'Centre',
+            company: { name: 'CFP Test' },
+            vtDiplomaData: [
+              { personType: 'TRAINEE', diplomaKind: 'ACADEMIC', diploma: 'CEP', gender: 'MALE', value: 12 },
+            ],
+          },
+        ];
+      }
+      return [];
+    });
+
+    const { res, finished, buffer } = fakeExcelRes();
+    await service.streamOnefopSubmissionsExcel({}, res);
+    await finished;
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer() as any);
+    const sheetNames = wb.worksheets.map((s) => s.name);
+    expect(sheetNames).toContain('Formation Professionnelle');
+    expect(sheetNames).toContain('FP - Diplômes');
+    expect(sheetNames.some((n) => n.toLowerCase().includes('roster') || n.includes('formateurs (nominatif)'))).toBe(false);
+
+    const diplomaSheet = wb.worksheets[sheetNames.indexOf('FP - Diplômes')];
+    const dataRow = diplomaSheet.getRow(2).values as unknown[];
+    expect(dataRow).toContain('S-0003');
+    expect(dataRow).toContain('CEP');
+    expect(dataRow).toContain(12);
   });
 });

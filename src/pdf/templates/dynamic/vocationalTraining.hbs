@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Recensement Annuel de la Formation Professionnelle {{surveyYear}}</title>
+    <style>
+        /* No @page rule here — page size/margins are controlled entirely by
+           OnefopPuppeteerService's page.pdf({format:'A4', margin:'15mm'})
+           call, matching every other dynamic/*.hbs template. A template-level
+           @page rule would compete with that call rather than complement it. */
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Arial", "Helvetica", sans-serif;
+            font-size: 9.5px;
+            color: #111;
+            margin: 0;
+        }
+
+        .page {
+            page-break-after: always;
+            padding: 4px 2px;
+        }
+
+        .page:last-child {
+            page-break-after: auto;
+        }
+
+        /* ---------- Header ---------- */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        .header-table td {
+            vertical-align: top;
+            text-align: center;
+            font-size: 9px;
+            font-weight: bold;
+            width: 30%;
+        }
+
+        .header-table td.logo {
+            width: 40%;
+        }
+
+        .header-table img {
+            height: 55px;
+        }
+
+        .title-box {
+            border: 2px solid #0aa1c0;
+            border-radius: 14px;
+            padding: 8px 14px;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .title-box h1 {
+            font-size: 12px;
+            margin: 2px 0;
+        }
+
+        .title-box h2 {
+            font-size: 10px;
+            font-style: italic;
+            font-weight: normal;
+            margin: 2px 0;
+        }
+
+        .warning-box {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            font-size: 7.6px;
+            margin-bottom: 6px;
+        }
+
+        .warning-box u {
+            font-weight: bold;
+        }
+
+        /* ---------- Section headers ---------- */
+        .section-title {
+            background: #d9d9d9;
+            border: 1px solid #000;
+            text-align: center;
+            font-weight: bold;
+            font-size: 10px;
+            padding: 4px;
+            margin: 8px 0 0 0;
+        }
+
+        .section-title .en {
+            font-style: italic;
+            font-weight: normal;
+            display: block;
+            font-size: 9px;
+        }
+
+        /* ---------- Generic bordered field grid (Section 1 style) ---------- */
+        table.field-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+
+        table.field-grid td,
+        table.field-grid th {
+            border: 1px solid #000;
+            padding: 3px 4px;
+            vertical-align: top;
+        }
+
+        .field-num {
+            width: 3%;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .field-label {
+            width: 40%;
+        }
+
+        .field-label .fr {
+            display: block;
+        }
+
+        .field-label .en {
+            display: block;
+            font-style: italic;
+        }
+
+        .field-value {
+            width: 20%;
+        }
+
+        .field-boxes {
+            text-align: center;
+        }
+
+        .fill-line {
+            display: inline-block;
+            min-width: 40px;
+            border-bottom: 1px dotted #333;
+            padding: 0 2px;
+        }
+
+        /* boxed digit cells, e.g. I__I__I__I */
+        .digit-boxes {
+            white-space: nowrap;
+        }
+
+        .digit-boxes .box {
+            display: inline-block;
+            width: 13px;
+            height: 14px;
+            border: 1px solid #000;
+            text-align: center;
+            margin-right: 1px;
+            font-size: 9px;
+            line-height: 14px;
+        }
+
+        /* Yes/No radio pair */
+        .yesno {
+            white-space: nowrap;
+        }
+
+        .yesno .opt {
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .yesno .circle {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 1px solid #000;
+            border-radius: 50%;
+            margin-right: 3px;
+            vertical-align: middle;
+        }
+
+        .yesno .circle.checked {
+            background: #000;
+        }
+
+        .checkbox {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border: 1px solid #000;
+            margin-right: 3px;
+            vertical-align: middle;
+        }
+
+        .checkbox.checked {
+            background: #000;
+        }
+
+        /* ---------- Data tables (Sections 4/5/8 style) ---------- */
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 4px 0 8px 0;
+        }
+
+        table.data-table th,
+        table.data-table td {
+            border: 1px solid #000;
+            padding: 2px 3px;
+            text-align: center;
+            font-size: 9px;
+        }
+
+        table.data-table th {
+            background: #eee;
+            font-weight: bold;
+        }
+
+        table.data-table td.rowlabel {
+            text-align: left;
+        }
+
+        table.data-table tfoot td {
+            font-weight: bold;
+            background: #f5f5f5;
+        }
+
+        .nb-note {
+            font-size: 8px;
+            font-style: italic;
+            margin: 2px 0 8px 0;
+        }
+
+        .legend {
+            font-size: 7px;
+            color: #333;
+            margin: 2px 0 8px 0;
+            line-height: 1.4;
+        }
+
+        .signature-row {
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        .signature-row table {
+            width: 100%;
+        }
+
+        .signature-row td {
+            width: 33%;
+            text-align: center;
+            vertical-align: top;
+            font-size: 8.5px;
+            padding-top: 40px;
+            border-top: 1px solid #000;
+        }
+    </style>
+</head>
+
+<body>
+
+    {{!-- =====================================================================
+    Reusable partials expected to be registered on the Handlebars env:
+    pageHeader - ministry header + title block (all pages)
+    Helpers expected:
+    yesno value -> renders Oui/Non circles, "value" is boolean|null
+    checkbox checked -> renders a tickbox
+    digitBoxes value length -> renders N boxed-digit cells, filled from value
+    eq a b -> equality helper for radio/select comparisons
+    inc index -> index+1, for 1-based row numbering in each
+    ===================================================================== --}}
+
+    <!-- ============================================================ -->
+    <!-- PAGE 1 : COVER + SECTION 1 IDENTIFICATION                     -->
+    <!-- ============================================================ -->
+    <div class="page">
+
+        <table class="header-table">
+            <tr>
+                <td>
+                    REPUBLIQUE DU CAMEROUN<br>Paix &ndash; Travail &ndash; Patrie<br>-----------<br>
+                    MINISTERE DE L'EMPLOI ET DE LA FORMATION PROFESSIONNELLE<br>-----------
+                </td>
+                <td class="logo">{{#if armoiriesBase64}}<img src="{{armoiriesBase64}}" alt="Armoiries">{{/if}}</td>
+                <td>
+                    REPUBLIC OF CAMEROON<br>Peace &ndash; Work &ndash; Fatherland<br>-----------<br>
+                    MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING<br>-----------
+                </td>
+            </tr>
+        </table>
+
+        <div class="title-box">
+            <h1>RECENSEMENT ANNUEL DE LA FORMATION PROFESSIONNELLE {{surveyYear}}</h1>
+            <h2>ANNUAL VOCATIONAL TRAINING SURVEY {{surveyYear}}</h2>
+            <h1>QUESTIONNAIRE DE COLLECTE DE DONNEES AUPRES DES CFP PUBLICS ET PRIVES</h1>
+            <h2>QUESTIONNAIRE FOR DATA COLLECTION FROM PUBLIC AND PRIVATE</h2>
+        </div>
+
+        <div class="warning-box">
+            <u>AVERTISSEMENT / WARNING</u><br>
+            Les informations contenues dans ce document sont confidentielles et ne pourront être utilisées à des fins de
+            poursuites judiciaires, de contrôle fiscal ou de répression économique, conformément à la Loi N&deg;
+            2020/010 du
+            20 juillet 2020 relative aux recensements et enquêtes Statistiques. / <i>The information contained in this
+                document
+                are strictly confidential and cannot be used for purposes of legal proceedings, tax audit or economic
+                repression</i>
+        </div>
+
+        <div class="section-title">
+            SECTION 1 : IDENTIFICATION ET LOCALISATION DE LA STRUCTURE
+            <span class="en">IDENTIFICATION AND LOCALISATION OF TRAINING CENTER</span>
+        </div>
+
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">1.1</td>
+                <td class="field-label"><span class="fr">Code de la Structure</span><span class="en">Structure Code (à
+                        ne pas remplir / not to be filled in)</span></td>
+                <td colspan="2">{{digitBoxes identification.structureCode 13}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.2</td>
+                <td class="field-label"><span class="fr">Nom du CFP</span><span class="en">Name of VTC</span></td>
+                <td colspan="2">{{identification.nomCFP}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.3</td>
+                <td class="field-label"><span class="fr">Sigle</span><span class="en">Initials</span></td>
+                <td colspan="2">{{identification.sigle}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.4</td>
+                <td class="field-label"><span class="fr">Région</span><span class="en">Region</span></td>
+                <td>{{identification.region.name}}</td>
+                <td>{{digitBoxes identification.region.code 2}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.5</td>
+                <td class="field-label"><span class="fr">Département</span><span class="en">Division</span></td>
+                <td>{{identification.departement.name}}</td>
+                <td>{{digitBoxes identification.departement.code 2}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.6</td>
+                <td class="field-label"><span class="fr">Arrondissement</span><span class="en">Sub-Division</span></td>
+                <td>{{identification.arrondissement.name}}</td>
+                <td>{{digitBoxes identification.arrondissement.code 4}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.7</td>
+                <td class="field-label"><span class="fr">Commune</span><span class="en">Council</span></td>
+                <td colspan="2">{{identification.commune}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.8</td>
+                <td class="field-label"><span class="fr">Village-Quartier</span><span class="en">Village-Quarter</span>
+                </td>
+                <td colspan="2">{{identification.villageQuartier}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">1.9</td>
+                <td class="field-label"><span class="fr">Milieu d'implantation</span><span class="en">Area of
+                        residence</span></td>
+                <td colspan="2">
+                    <span class="yesno">
+                        <span class="opt"><span
+                                class="circle {{#if (eq identification.milieu 'urbain')}}checked{{/if}}"></span>1 =
+                            Urbain / Urban</span>
+                        <span class="opt"><span
+                                class="circle {{#if (eq identification.milieu 'rural')}}checked{{/if}}"></span>2 = Rural
+                            / Rural</span>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">1.10</td>
+                <td class="field-label"><span class="fr">Ordre d'enseignement de la Structure</span><span
+                        class="en">Education system of the training institution</span></td>
+                <td colspan="2">
+                    {{#each ordreEnseignementOptions}}
+                    <div>{{checkbox (eq ../identification.ordreEnseignement value)}} {{label}}</div>
+                    {{/each}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">1.11</td>
+                <td class="field-label"><span class="fr">Type de CFP</span><span class="en">Type of VTC</span></td>
+                <td colspan="2">
+                    {{#each typeCFPOptions}}
+                    <div>{{checkbox (eq ../identification.typeCFP value)}} {{label}}</div>
+                    {{/each}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">1.12</td>
+                <td class="field-label"><span class="fr">Situation du Centre de formation</span><span
+                        class="en">Description of training center</span></td>
+                <td colspan="2">
+                    <div>{{checkbox (eq identification.situation 'fonctionnelle')}} 1 = Fonctionnelle / Functional</div>
+                    <div>{{checkbox (eq identification.situation 'non-fonctionnelle')}} 2 = Non-fonctionnelle /
+                        Non-functional</div>
+                    <div>{{checkbox (eq identification.situation 'fermee')}} 3 = Fermée / Closed</div>
+                </td>
+            </tr>
+            {{#if (eq identification.situation 'non-fonctionnelle')}}
+            <tr>
+                <td class="field-num">1.13</td>
+                <td class="field-label"><span class="fr">Si « Non-fonctionnelle », préciser la raison</span><span
+                        class="en">If Non-functional, state the reason</span></td>
+                <td colspan="2">
+                    {{#each raisonNonFonctionnelleOptions}}
+                    <div>{{checkbox (eq ../identification.raisonNonFonctionnelle value)}} {{label}}</div>
+                    {{/each}}
+                    {{#if (eq identification.raisonNonFonctionnelle 'autres')}}
+                    <div>Autres (préciser) : {{identification.raisonAutrePrecision}}</div>
+                    {{/if}}
+                </td>
+            </tr>
+            {{/if}}
+            <tr>
+                <td class="field-num">1.14</td>
+                <td class="field-label"><span class="fr">Année d'ouverture</span><span class="en">Year of
+                        establishment</span></td>
+                <td colspan="2">{{digitBoxes identification.anneeOuverture 4}}</td>
+            </tr>
+        </table>
+
+        <table class="field-grid">
+            <tr>
+                <th colspan="2">1.15. Informations sur le répondant / <i>Respondent information</i></th>
+                <th colspan="2">1.16. Noms et contacts du Promoteur/Directeur du CFP / <i>Name and contact of
+                        Head/Promoter of VTC</i></th>
+            </tr>
+            <tr>
+                <td colspan="2">Qualité du répondant : {{identification.respondent.qualite}}</td>
+                <td colspan="2">Noms et prénoms : {{identification.promoteur.nomPrenoms}}</td>
+            </tr>
+            <tr>
+                <td colspan="2">Noms et prénoms : {{identification.respondent.nomPrenoms}}</td>
+                <td colspan="2">
+                    Sexe :
+                    {{checkbox (eq identification.promoteur.sexe 'M')}} Masculin
+                    {{checkbox (eq identification.promoteur.sexe 'F')}} Féminin
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    Sexe :
+                    {{checkbox (eq identification.respondent.sexe 'M')}} Masculin
+                    {{checkbox (eq identification.respondent.sexe 'F')}} Féminin
+                </td>
+                <td colspan="2">Téléphone 1 (WhatsApp) : {{identification.promoteur.telephone1}} &nbsp; Téléphone 2 :
+                    {{identification.promoteur.telephone2}}</td>
+            </tr>
+            <tr>
+                <td colspan="2">Téléphone (WhatsApp) : {{identification.respondent.telephone1}} &nbsp; Téléphone 2 :
+                    {{identification.respondent.telephone2}}</td>
+                <td colspan="2">Email : {{identification.promoteur.email}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PAGE 2 : SECTION 2 INFORMATIONS GENERALES SUR L'ETABLISSEMENT -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 2 : INFORMATIONS GENERALES SUR L'ETABLISSEMENT
+            <span class="en">GENERAL INFORMATION</span>
+        </div>
+
+        <h3>2.1 Renseignements généraux / General Information</h3>
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">2.1.1</td>
+                <td class="field-label">Votre structure dispose-t-elle d'une convention avec l'Etat ?</td>
+                <td colspan="2">{{yesno general.conventionEtat}}</td>
+            </tr>
+            {{#if general.conventionEtat}}
+            <tr>
+                <td class="field-num">2.1.2</td>
+                <td class="field-label">Si oui, préciser le(s) type(s)</td>
+                <td colspan="2">
+                    {{#each conventionTypeOptions}}
+                    <div>{{checkbox (includes ../general.conventionTypes value)}} {{label}}</div>
+                    {{/each}}
+                </td>
+            </tr>
+            {{/if}}
+            <tr>
+                <td class="field-num">2.1.3</td>
+                <td class="field-label">Nombre de sites occupés par votre structure</td>
+                <td colspan="2">{{digitBoxes general.nombreSites 2}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.4</td>
+                <td class="field-label">Utilise-t-il des infrastructures en commun avec un autre établissement ?</td>
+                <td colspan="2">{{yesno general.infrastructureCommune}}</td>
+            </tr>
+            {{#if general.infrastructureCommune}}
+            <tr>
+                <td class="field-num">2.1.5</td>
+                <td class="field-label">Si oui, nom de l'établissement</td>
+                <td colspan="2">{{general.etablissementPartageNom}}</td>
+            </tr>
+            {{/if}}
+            <tr>
+                <td class="field-num">2.1.6</td>
+                <td class="field-label">Formateurs formés à l'accueil des enfants à besoins éducatifs spéciaux ?</td>
+                <td colspan="2">{{yesno general.formateursBesoinsSpeciaux}}</td>
+            </tr>
+            {{#if general.formateursBesoinsSpeciaux}}
+            <tr>
+                <td class="field-num">2.1.7</td>
+                <td class="field-label">Effectif de ces formateurs</td>
+                <td>Total : {{digitBoxes general.effectifFormateursSpeciaux.total 3}}</td>
+                <td>Femmes : {{digitBoxes general.effectifFormateursSpeciaux.femmes 3}}</td>
+            </tr>
+            {{/if}}
+            <tr>
+                <td class="field-num">2.1.8</td>
+                <td class="field-label">Rampes d'accès pour enfants à motricité réduite ?</td>
+                <td colspan="2">{{yesno general.rampesAcces}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.9</td>
+                <td class="field-label">Existe-t-il un bureau pour le directeur ?</td>
+                <td colspan="2">{{yesno general.bureauDirecteur}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.10</td>
+                <td class="field-label">Boîte postale</td>
+                <td>{{digitBoxes general.boitePostale 5}}</td>
+                <td>Ville : {{general.ville}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.11</td>
+                <td class="field-label">Email</td>
+                <td colspan="2">{{general.email}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.12</td>
+                <td class="field-label">Site Web</td>
+                <td colspan="2">{{general.siteWeb}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.13</td>
+                <td class="field-label">Êtes-vous agréé ?</td>
+                <td colspan="2">
+                    {{yesno general.agree}}
+                    {{#if general.agree}}
+                    <br>Année du dernier agrément : {{digitBoxes general.anneeAgrement 4}}
+                    &nbsp; Arrêté n&deg; {{general.arreteNumero}} du {{general.arreteDate}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.14</td>
+                <td class="field-label">Types de formation dispensés</td>
+                <td colspan="2">
+                    <div>{{checkbox (includes general.typesFormation 'FI')}} Formation Initiale (FI)</div>
+                    <div>{{checkbox (includes general.typesFormation 'FC')}} Formation Continue (FC)</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.15</td>
+                <td class="field-label">Total apprenants / Total formateurs</td>
+                <td>Apprenants : {{general.totalApprenants}}</td>
+                <td>Formateurs : {{general.totalFormateurs}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.1.16</td>
+                <td class="field-label">Apprenants venant du 1er / 2nd cycle du secondaire</td>
+                <td>1er cycle : {{general.apprenantsPremierCycle}}</td>
+                <td>2nd cycle : {{general.apprenantsSecondCycle}}</td>
+            </tr>
+        </table>
+
+        <h3>2.2 Autres équipements et commodités</h3>
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">2.2.1</td>
+                <td class="field-label">Source d'énergie ? {{#if general.energie.disponible}}Fonctionnelle ? {{yesno
+                    general.energie.fonctionnelle}}{{/if}}</td>
+                <td colspan="2">
+                    {{yesno general.energie.disponible}}
+                    {{#if general.energie.disponible}}
+                    <br>{{#each energieSourceOptions}}{{checkbox (includes ../general.energie.sources value)}} {{label}}
+                    &nbsp;{{/each}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.2</td>
+                <td class="field-label">Source d'approvisionnement en eau ?</td>
+                <td colspan="2">
+                    {{yesno general.eau.disponible}}
+                    {{#if general.eau.disponible}}
+                    <br>{{#each eauSourceOptions}}{{checkbox (includes ../general.eau.sources value)}} {{label}}
+                    &nbsp;{{/each}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.3</td>
+                <td class="field-label">Dispositif fonctionnel de lavage des mains ?</td>
+                <td colspan="2">{{yesno general.lavageMains}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.4</td>
+                <td class="field-label">A reçu une campagne de santé ?</td>
+                <td colspan="2">{{yesno general.campagneSante}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.5</td>
+                <td class="field-label">Boîte à pharmacie / produits de premiers soins ?</td>
+                <td colspan="2">{{yesno general.boitePharmacie}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.6</td>
+                <td class="field-label">Dispose d'une infirmerie ?</td>
+                <td colspan="2">{{yesno general.infirmerie}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.7</td>
+                <td class="field-label">Bibliothèque fonctionnelle ?</td>
+                <td colspan="2">{{yesno general.bibliotheque}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.8</td>
+                <td class="field-label">Le centre est-il limité par une clôture ?</td>
+                <td colspan="2">
+                    <div>{{checkbox (eq general.cloture 'entierement')}} Oui, entièrement</div>
+                    <div>{{checkbox (eq general.cloture 'partiellement')}} Oui, partiellement</div>
+                    <div>{{checkbox (eq general.cloture 'non')}} Non</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.9</td>
+                <td class="field-label">Conseil d'établissement fonctionnel ?</td>
+                <td colspan="2">{{yesno general.conseilEtablissement}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.10</td>
+                <td class="field-label">Conseil de niveau ?</td>
+                <td colspan="2">{{yesno general.conseilNiveau}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.11</td>
+                <td class="field-label">Conseil de discipline ?</td>
+                <td colspan="2">{{yesno general.conseilDiscipline}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.12</td>
+                <td class="field-label">Latrines fonctionnelles et adaptées ?</td>
+                <td colspan="2">
+                    {{yesno general.latrines.fonctionnelles}}
+                    {{#if general.latrines.fonctionnelles}}
+                    <br>Type :
+                    {{#each latrineTypeOptions}}{{checkbox (includes ../general.latrines.types value)}} {{label}}
+                    &nbsp;{{/each}}
+                    <br>Bloc filles distinct des garçons ? {{yesno general.latrines.blocFillesDistinct}}
+                    <br>Élèves séparés des formateurs ? {{yesno general.latrines.elevesFormateursSepares}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.13</td>
+                <td class="field-label">Dispose d'aires de jeux ?</td>
+                <td colspan="2">
+                    {{yesno general.airesJeux.disponible}}
+                    {{#if general.airesJeux.disponible}}
+                    <br>{{#each aireJeuxTypeOptions}}{{checkbox (includes ../general.airesJeux.types value)}} {{label}}
+                    &nbsp;{{/each}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.14</td>
+                <td class="field-label">Outils informatiques (ordinateurs/tablettes) ?</td>
+                <td colspan="2">
+                    {{yesno general.ict.disponible}}
+                    {{#if general.ict.disponible}}
+                    <br>Nombre total : {{digitBoxes general.ict.nombre 4}}
+                    &nbsp; Connectés à Internet : {{digitBoxes general.ict.nombreConnecte 4}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.15</td>
+                <td class="field-label">Formateurs formés aux TIC ?</td>
+                <td colspan="2">
+                    {{yesno general.formationTIC.recue}}
+                    {{#if general.formationTIC.recue}}
+                    <br>Total : {{digitBoxes general.formationTIC.total 3}} &nbsp; Femmes : {{digitBoxes
+                    general.formationTIC.femmes 3}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.16</td>
+                <td class="field-label">Formation sur les violences en milieu scolaire ?</td>
+                <td colspan="2">{{yesno general.formationViolences}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.17</td>
+                <td class="field-label">Sessions PSS (appui psychosocial) ?</td>
+                <td colspan="2">{{yesno general.formationPSS}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.18</td>
+                <td class="field-label">Dispose d'un internat ?</td>
+                <td colspan="2">{{yesno general.internat}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.19</td>
+                <td class="field-label">Dispositif de lutte contre les VBG ?</td>
+                <td colspan="2">{{yesno general.dispositifVBG}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">2.2.20</td>
+                <td class="field-label">Dispose d'une cantine scolaire ?</td>
+                <td colspan="2">{{yesno general.cantine}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PAGE 3 : SECTION 3 EDUCATION EN SITUATION D'URGENCE          -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 3 : INFORMATIONS SUR L'EDUCATION EN SITUATION D'URGENCE
+            <span class="en">INFORMATIONS IN EDUCATION IN EMERGENCIES</span>
+        </div>
+
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">3.1</td>
+                <td class="field-label">Le centre a-t-il fait face à une situation de crise au cours de l'année ?</td>
+                <td colspan="2">{{yesno urgence.crise.subie}}</td>
+            </tr>
+            {{#if urgence.crise.subie}}
+            <tr>
+                <td></td>
+                <td class="field-label">Type(s) de crise</td>
+                <td colspan="2">
+                    {{#each typeCriseOptions}}{{checkbox (includes ../urgence.crise.types value)}}
+                    {{label}}<br>{{/each}}
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td class="field-label">Fermeture provisoire du centre ?</td>
+                <td colspan="2">
+                    {{yesno urgence.crise.fermetureProvisoire}}
+                    {{#if urgence.crise.fermetureProvisoire}} &nbsp; Durée (semaines) : {{digitBoxes
+                    urgence.crise.dureeFermetureSemaines 2}}{{/if}}
+                </td>
+            </tr>
+            {{/if}}
+            <tr>
+                <td class="field-num">3.2</td>
+                <td class="field-label">Site déplacé suite à la crise ?</td>
+                <td colspan="2">
+                    {{yesno urgence.siteDeplace.deplace}}
+                    {{#if urgence.siteDeplace.deplace}} &nbsp; Localité : {{urgence.siteDeplace.localite}}{{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">3.3</td>
+                <td class="field-label">Apprenants réaffectés dans d'autres établissements ?</td>
+                <td colspan="2">
+                    {{yesno urgence.reaffectation.effectuee}}
+                    {{#if urgence.reaffectation.effectuee}} &nbsp; Lesquels : {{urgence.reaffectation.lesquels}}{{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">3.4</td>
+                <td class="field-label">Dispositif d'alerte précoce d'urgence ?</td>
+                <td colspan="2">
+                    {{yesno urgence.alertePrecoce.existe}}
+                    {{#if urgence.alertePrecoce.existe}}
+                    <br>Description : {{urgence.alertePrecoce.description}}
+                    <br>À jour et fonctionnel ? {{yesno urgence.alertePrecoce.aJour}}
+                    {{/if}}
+                </td>
+            </tr>
+
+            {{#each formationUrgenceRows}}
+            <tr>
+                <td class="field-num">{{code}}</td>
+                <td class="field-label">{{label}}</td>
+                <td colspan="2">
+                    {{yesno formee}}
+                    {{#if formee}} &nbsp; Homme : {{digitBoxes hommes 4}} &nbsp; Femme : {{digitBoxes femmes 4}}{{/if}}
+                </td>
+            </tr>
+            {{/each}}
+
+            <tr>
+                <td class="field-num">3.10</td>
+                <td class="field-label">Dispositif de sécurisation contre les risques ?</td>
+                <td>Dossiers apprenants : {{yesno urgence.securisation.dossiersApprenants}}</td>
+                <td>Manuels scolaires : {{yesno urgence.securisation.manuelsScolaires}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">3.11</td>
+                <td class="field-label">Plan de préparation ou de contingence ?</td>
+                <td colspan="2">{{yesno urgence.planContingence}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">3.12</td>
+                <td class="field-label">Apprenants formés aux mesures de protection en cas d'attaque ?</td>
+                <td colspan="2">{{yesno urgence.apprenantsFormesProtection}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PAGE 4+ : SECTION 4 INFORMATIONS SUR LES APPRENANTS          -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 4 : INFORMATIONS SUR LES APPRENANTS
+            <span class="en">DETAILS ON TRAINEES</span>
+        </div>
+
+        <h3>4.1 Effectifs des apprenants par diplôme académique le plus élevé</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Diplôme académique</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.parDiplomeAcademique}}
+                <tr>
+                    <td class="rowlabel">{{label}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{apprenants.parDiplomeAcademiqueTotal.hommes}}</td>
+                    <td>{{apprenants.parDiplomeAcademiqueTotal.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>4.2 Apprenants par diplôme professionnel le plus élevé</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Diplôme professionnel</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.parDiplomeProfessionnel}}
+                <tr>
+                    <td class="rowlabel">{{label}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{apprenants.parDiplomeProfessionnelTotal.hommes}}</td>
+                    <td>{{apprenants.parDiplomeProfessionnelTotal.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <p class="nb-note">NB : le total masculin/féminin du tableau 4.1 doit être égal à celui du tableau 4.2.</p>
+
+        <h3>4.3 Apprenants en âge de travailler, non occupés et qualifiés, par spécialité et type de formation</h3>
+        {{#> specialtyTable rows=apprenants.nonOccupesParSpecialite}}{{/specialtyTable}}
+
+        <h3>4.4 Apprenants par spécialité et type de formation travaillant dans le secteur informel</h3>
+        {{#> specialtyTable rows=apprenants.secteurInformelParSpecialite}}{{/specialtyTable}}
+
+        <h3>4.5 Apprenants par spécialité et type de formation</h3>
+        {{#> specialtyTable rows=apprenants.parSpecialite}}{{/specialtyTable}}
+        <p class="nb-note">NB : total masculin/féminin du tableau 4.2 = total masculin/féminin du tableau 4.5.</p>
+
+        <h3>4.6 Apprenants par année d'étude (Formation Initiale) et par sexe</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="text-align:left;">Spécialité</th>
+                    <th colspan="2">1ère année</th>
+                    <th colspan="2">2ème année</th>
+                </tr>
+                <tr>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.parAnneeEtude}}
+                <tr>
+                    <td class="rowlabel">{{specialite}}</td>
+                    <td>{{annee1.hommes}}</td>
+                    <td>{{annee1.femmes}}</td>
+                    <td>{{annee2.hommes}}</td>
+                    <td>{{annee2.femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{apprenants.parAnneeEtudeTotal.annee1.hommes}}</td>
+                    <td>{{apprenants.parAnneeEtudeTotal.annee1.femmes}}</td>
+                    <td>{{apprenants.parAnneeEtudeTotal.annee2.hommes}}</td>
+                    <td>{{apprenants.parAnneeEtudeTotal.annee2.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>4.7 Apprenants par âge</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">Tranche d'âge</th>
+                    <th colspan="2">Entrants</th>
+                    <th colspan="2">Sortants ({{previousYearLabel}})</th>
+                    <th colspan="2">Abandons ({{previousYearLabel}})</th>
+                </tr>
+                <tr>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.parAge}}
+                <tr>
+                    <td class="rowlabel">{{trancheAge}}</td>
+                    <td>{{entrants.hommes}}</td>
+                    <td>{{entrants.femmes}}</td>
+                    <td>{{sortants.hommes}}</td>
+                    <td>{{sortants.femmes}}</td>
+                    <td>{{abandons.hommes}}</td>
+                    <td>{{abandons.femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{apprenants.parAgeTotal.entrants.hommes}}</td>
+                    <td>{{apprenants.parAgeTotal.entrants.femmes}}</td>
+                    <td>{{apprenants.parAgeTotal.sortants.hommes}}</td>
+                    <td>{{apprenants.parAgeTotal.sortants.femmes}}</td>
+                    <td>{{apprenants.parAgeTotal.abandons.hommes}}</td>
+                    <td>{{apprenants.parAgeTotal.abandons.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>4.8 Entrants, sortants et abandons par niveau d'études à l'entrée</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">Niveau d'études</th>
+                    <th colspan="3">Entrants</th>
+                    <th colspan="3">Sortants</th>
+                    <th colspan="3">Abandons</th>
+                </tr>
+                <tr>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.parNiveauEtude}}
+                <tr>
+                    <td class="rowlabel">{{niveau}}</td>
+                    <td>{{entrants.hommes}}</td>
+                    <td>{{entrants.femmes}}</td>
+                    <td>{{entrants.total}}</td>
+                    <td>{{sortants.hommes}}</td>
+                    <td>{{sortants.femmes}}</td>
+                    <td>{{sortants.total}}</td>
+                    <td>{{abandons.hommes}}</td>
+                    <td>{{abandons.femmes}}</td>
+                    <td>{{abandons.total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>4.9 Personnes socialement vulnérables par sexe</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">Type</th>
+                    <th colspan="3">Entrants</th>
+                    <th colspan="3">Sortants</th>
+                    <th colspan="3">Abandons</th>
+                </tr>
+                <tr>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.vulnerabilites}}
+                <tr>
+                    <td class="rowlabel">{{type}}</td>
+                    <td>{{entrants.hommes}}</td>
+                    <td>{{entrants.femmes}}</td>
+                    <td>{{entrants.total}}</td>
+                    <td>{{sortants.hommes}}</td>
+                    <td>{{sortants.femmes}}</td>
+                    <td>{{sortants.total}}</td>
+                    <td>{{abandons.hommes}}</td>
+                    <td>{{abandons.femmes}}</td>
+                    <td>{{abandons.total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>4.10 Sortants par spécialité ({{previousYearLabel}})</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Spécialité</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.sortantsParSpecialite}}
+                <tr>
+                    <td class="rowlabel">{{specialite}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                    <td>{{total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>4.11 Apprenants par type de bourse</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="text-align:left;">Type de bourse</th>
+                    <th colspan="3">Octroyée</th>
+                    <th colspan="3">Bénéficiée</th>
+                </tr>
+                <tr>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                    <th>H</th>
+                    <th>F</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each apprenants.bourses}}
+                <tr>
+                    <td class="rowlabel">{{type}}</td>
+                    <td>{{octroyee.hommes}}</td>
+                    <td>{{octroyee.femmes}}</td>
+                    <td>{{octroyee.total}}</td>
+                    <td>{{beneficiee.hommes}}</td>
+                    <td>{{beneficiee.femmes}}</td>
+                    <td>{{beneficiee.total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    {{! ---------- Reusable partial for the repeated FI/FC-by-specialty tables (4.3, 4.4, 4.5, 8.4) ---------- }}
+    {{#*inline "specialtyTable"}}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th rowspan="2">N&deg;</th>
+                <th rowspan="2" style="text-align:left;">Spécialités</th>
+                <th colspan="2">Formation Initiale (FI)</th>
+                <th colspan="2">Formation Continue (FC)</th>
+            </tr>
+            <tr>
+                <th>Hommes</th>
+                <th>Femmes</th>
+                <th>Hommes</th>
+                <th>Femmes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each rows}}
+            <tr>
+                <td>{{inc @index}}</td>
+                <td class="rowlabel">{{specialite}}</td>
+                <td>{{fi.hommes}}</td>
+                <td>{{fi.femmes}}</td>
+                <td>{{fc.hommes}}</td>
+                <td>{{fc.femmes}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+    {{/inline}}
+
+    <!-- ============================================================ -->
+    <!-- SECTION 5 : MANUELS, EQUIPEMENTS ET INFRASTRUCTURES           -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 5 : INFORMATIONS SUR LES MANUELS D'APPRENTISSAGE, EQUIPEMENTS ET INFRASTRUCTURES
+        </div>
+
+        <h3>5.1 Manuels d'apprentissage pour l'année en cours</h3>
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">5.1.1</td>
+                <td class="field-label">Manuels d'apprentissage pour apprenants ?</td>
+                <td colspan="2">
+                    {{yesno manuels.pourApprenants.disponible}}
+                    {{#if manuels.pourApprenants.disponible}} &nbsp; Nombre : {{digitBoxes manuels.pourApprenants.nombre
+                    5}}{{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">5.1.2</td>
+                <td class="field-label">Manuels d'apprentissage pour formateurs ?</td>
+                <td colspan="2">
+                    {{yesno manuels.pourFormateurs.disponible}}
+                    {{#if manuels.pourFormateurs.disponible}} &nbsp; Nombre : {{digitBoxes manuels.pourFormateurs.nombre
+                    5}}{{/if}}
+                </td>
+            </tr>
+        </table>
+
+        <h3>5.2 Référentiel de formation</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>N&deg;</th>
+                    <th style="text-align:left;">Spécialités</th>
+                    <th>Référentiel existe ?</th>
+                    <th>Homologué ?</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each manuels.referentiels}}
+                <tr>
+                    <td>{{inc @index}}</td>
+                    <td class="rowlabel">{{specialite}}</td>
+                    <td>{{#if existe}}Oui{{else}}Non{{/if}}</td>
+                    <td>{{#if existe}}{{#if homologue}}Oui{{else}}Non{{/if}}{{else}}&ndash;{{/if}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>5.3 Nombre d'infrastructures selon leur état</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Type d'infrastructure</th>
+                    <th>Total locaux</th>
+                    <th>Bon état (définitif)</th>
+                    <th>Mauvais état (définitif)</th>
+                    <th>Provisoire</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each manuels.infrastructures}}
+                <tr>
+                    <td class="rowlabel">{{type}}</td>
+                    <td>{{total}}</td>
+                    <td>{{bonEtat}}</td>
+                    <td>{{mauvaisEtat}}</td>
+                    <td>{{provisoire}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>5.4 Equipements mobiliers</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Équipement</th>
+                    <th>Bon état</th>
+                    <th>Mauvais état</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each manuels.mobilier.tablesBancs}}
+                <tr>
+                    <td class="rowlabel">Tables-bancs {{places}}</td>
+                    <td>{{bonEtat}}</td>
+                    <td>{{mauvaisEtat}}</td>
+                </tr>
+                {{/each}}
+                <tr>
+                    <td class="rowlabel">Chaises formateurs</td>
+                    <td>{{manuels.mobilier.chaisesFormateurs.bonEtat}}</td>
+                    <td>{{manuels.mobilier.chaisesFormateurs.mauvaisEtat}}</td>
+                </tr>
+                <tr>
+                    <td class="rowlabel">Tables formateurs</td>
+                    <td>{{manuels.mobilier.tablesFormateurs.bonEtat}}</td>
+                    <td>{{manuels.mobilier.tablesFormateurs.mauvaisEtat}}</td>
+                </tr>
+                <tr>
+                    <td class="rowlabel">Armoires/placards</td>
+                    <td>{{manuels.mobilier.armoires.bonEtat}}</td>
+                    <td>{{manuels.mobilier.armoires.mauvaisEtat}}</td>
+                </tr>
+                <tr>
+                    <td class="rowlabel">Tableaux</td>
+                    <td>{{manuels.mobilier.tableaux.bonEtat}}</td>
+                    <td>{{manuels.mobilier.tableaux.mauvaisEtat}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 6 : ORIENTATION PROFESSIONNELLE ET SUIVI POST-FORMATION -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 6 : ORIENTATION PROFESSIONNELLE ET INFORMATIONS SUR LE SUIVI POST-FORMATION
+        </div>
+
+        <h3>6.1 Orientation professionnelle</h3>
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">6.1.1</td>
+                <td class="field-label">Service d'orientation professionnelle dans le centre ?</td>
+                <td colspan="2">
+                    {{yesno orientation.serviceExiste}}
+                    {{#if orientation.serviceExiste}}
+                    <br>{{#each momentOrientationOptions}}{{checkbox (includes ../orientation.moments value)}} {{label}}
+                    &nbsp;{{/each}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">6.1.2</td>
+                <td class="field-label">Apprenants choisissent-ils leur filière avec ce service ?</td>
+                <td colspan="2">
+                    {{yesno orientation.choixAvecService}}
+                    {{#unless orientation.choixAvecService}}
+                    <br>Collabore avec structures publiques (ex. CIOP) ? {{yesno orientation.collaborationCIOP}}
+                    {{/unless}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">6.1.3</td>
+                <td class="field-label">Accompagnement assuré aux apprenants</td>
+                <td colspan="2">
+                    {{#each accompagnementOptions}}{{checkbox (includes ../orientation.accompagnements value)}}
+                    {{label}}<br>{{/each}}
+                    {{#if orientation.accompagnementAutrePrecision}}Autres :
+                    {{orientation.accompagnementAutrePrecision}}{{/if}}
+                </td>
+            </tr>
+        </table>
+
+        <h3>6.2 Suivi post-formation des sortants</h3>
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">6.2.1</td>
+                <td class="field-label">Suivi post-formation effectué ?</td>
+                <td colspan="2">
+                    {{yesno orientation.suiviPostFormation.effectue}}
+                    {{#if orientation.suiviPostFormation.effectue}}
+                    <br>{{#each mecanismeSuiviOptions}}{{checkbox (includes ../orientation.suiviPostFormation.mecanismes
+                    value)}} {{label}} &nbsp;{{/each}}
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">6.2.2</td>
+                <td class="field-label">Cellule d'appui à l'insertion des sortants ?</td>
+                <td colspan="2">{{yesno orientation.celluleInsertion}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">6.2.3</td>
+                <td class="field-label">Outil de gestion de la base de données des apprenants/sortants ?</td>
+                <td colspan="2">{{yesno orientation.outilGestionBDD}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">6.2.4</td>
+                <td class="field-label">Outil d'accompagnement recherche d'emploi / GIE / plans d'affaires ?</td>
+                <td colspan="2">{{yesno orientation.outilAccompagnementEmploi}}</td>
+            </tr>
+        </table>
+
+        <h3>6.3 Sortants insérés par spécialité ({{previousYearLabel}})</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Spécialité</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each orientation.sortantsInseresParSpecialite}}
+                <tr>
+                    <td class="rowlabel">{{specialite}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                    <td>{{total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 7 : THEMES TRANSVERSAUX (VIH/SIDA, IST)               -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 7 : PRISE EN COMPTE DES THÈMES TRANSVERSAUX DANS LE PROGRAMME D'ÉDUCATION
+        </div>
+
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">7.1</td>
+                <td class="field-label">Règlement intérieur intègre des directives liées au VIH/SIDA ?</td>
+                <td colspan="2">{{yesno transversal.reglementVIH.integre}}</td>
+            </tr>
+            {{#if transversal.reglementVIH.integre}}
+            <tr>
+                <td class="field-num">7.1.1</td>
+                <td class="field-label">Ces directives couvrent-elles :</td>
+                <td colspan="2">
+                    <div>Sécurité physique : {{yesno transversal.reglementVIH.securitePhysique}}</div>
+                    <div>Stigmatisation (personnes vivant avec le VIH) : {{yesno
+                        transversal.reglementVIH.stigmatisationVIH}}</div>
+                    <div>Stigmatisation (race/ethnie/religion) : {{yesno transversal.reglementVIH.stigmatisationAutre}}
+                    </div>
+                    <div>Harcèlement et abus sexuels : {{yesno transversal.reglementVIH.harcelement}}</div>
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">7.1.2</td>
+                <td class="field-label">Procédures disciplinaires en cas de violation ?</td>
+                <td colspan="2">{{yesno transversal.proceduresDisciplinaires}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">7.1.3</td>
+                <td class="field-label">Parties prenantes informées</td>
+                <td colspan="2">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;">Catégorie</th>
+                                <th>Informée ?</th>
+                                <th>Mode de communication</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#each transversal.partiesPrenantesInformees}}
+                            <tr>
+                                <td class="rowlabel">{{categorie}}</td>
+                                <td>{{yesno informee}}</td>
+                                <td>{{modeCommunication}}</td>
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            {{/if}}
+            <tr>
+                <td class="field-num">7.2</td>
+                <td class="field-label">Prise en compte des questions liées aux IST ?</td>
+                <td colspan="2">{{yesno transversal.priseEnCompteIST}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">7.4</td>
+                <td class="field-label">Éducation sexuelle et VIH axée sur les compétences pour la vie courante ?</td>
+                <td colspan="2">
+                    {{yesno transversal.educationSexuelleVIH.dispensee}}
+                    {{#if transversal.educationSexuelleVIH.dispensee}}
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;">Thème</th>
+                                <th>Programme officiel</th>
+                                <th>Activités périscolaires</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#each transversal.educationSexuelleVIH.themes}}
+                            <tr>
+                                <td class="rowlabel">{{theme}}</td>
+                                <td>{{checkbox programmeOfficiel}}</td>
+                                <td>{{checkbox activitesPeriscolaires}}</td>
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
+                    {{/if}}
+                </td>
+            </tr>
+            <tr>
+                <td class="field-num">7.5</td>
+                <td class="field-label">Formateurs formés et ayant dispensé cette éducation ?</td>
+                <td colspan="2">{{yesno transversal.formateursFormesEtDispensent}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">7.6</td>
+                <td class="field-label">Ces formateurs ont-ils dispensé l'enseignement reçu aux élèves ?</td>
+                <td colspan="2">{{yesno transversal.enseignementRetransmis}}</td>
+            </tr>
+            <tr>
+                <td class="field-num">7.7</td>
+                <td class="field-label">Sessions d'orientation organisées pour les parents/tuteurs ?</td>
+                <td colspan="2">{{yesno transversal.sessionsParents}}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 8 : INFORMATIONS SUR LES FORMATEURS                   -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 8 : INFORMATIONS SUR LES FORMATEURS
+            <span class="en">DETAILS ON TRAINERS</span>
+        </div>
+
+        <h3>8.1 Formateurs par diplôme académique le plus élevé</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Diplôme académique</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.parDiplomeAcademique}}
+                <tr>
+                    <td class="rowlabel">{{label}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{formateurs.parDiplomeAcademiqueTotal.hommes}}</td>
+                    <td>{{formateurs.parDiplomeAcademiqueTotal.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>8.2 Formateurs par diplôme professionnel le plus élevé</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Diplôme professionnel</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.parDiplomeProfessionnel}}
+                <tr>
+                    <td class="rowlabel">{{label}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{formateurs.parDiplomeProfessionnelTotal.hommes}}</td>
+                    <td>{{formateurs.parDiplomeProfessionnelTotal.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>8.3 Formateurs par tranche d'âge</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Tranche d'âge</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.parTrancheAge}}
+                <tr>
+                    <td class="rowlabel">{{tranche}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td class="rowlabel">Total</td>
+                    <td>{{formateurs.parTrancheAgeTotal.hommes}}</td>
+                    <td>{{formateurs.parTrancheAgeTotal.femmes}}</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>8.4 Formateurs par spécialité et type de formation</h3>
+        {{#> specialtyTable rows=formateurs.parSpecialite}}{{/specialtyTable}}
+
+        <h3>8.5 Formateurs par statut professionnel</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Statut</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.parStatut}}
+                <tr>
+                    <td class="rowlabel">{{statut}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                    <td>{{total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>8.6 Formateurs par type de handicap</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">Type de handicap</th>
+                    <th>Hommes</th>
+                    <th>Femmes</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.parHandicap}}
+                <tr>
+                    <td class="rowlabel">{{type}}</td>
+                    <td>{{hommes}}</td>
+                    <td>{{femmes}}</td>
+                    <td>{{total}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>8.7 Capacité d'accueil</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>N&deg;</th>
+                    <th style="text-align:left;">Spécialité</th>
+                    <th>Formation Initiale (FI)</th>
+                    <th>Formation Continue (FC)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.capaciteAccueil}}
+                <tr>
+                    <td>{{inc @index}}</td>
+                    <td class="rowlabel">{{specialite}}</td>
+                    <td>{{fi}}</td>
+                    <td>{{fc}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+
+        <h3>8.8 État nominatif du personnel formateur et administratif</h3>
+        <table class="data-table" style="font-size:8px;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th style="text-align:left;">Nom</th>
+                    <th style="text-align:left;">Prénom</th>
+                    <th>Sexe</th>
+                    <th>Statut</th>
+                    <th>Admin. ?</th>
+                    <th>Diplôme académique</th>
+                    <th>Diplôme professionnel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each formateurs.personnel}}
+                <tr>
+                    <td>{{id}}</td>
+                    <td class="rowlabel">{{nom}}</td>
+                    <td class="rowlabel">{{prenom}}</td>
+                    <td>{{#if (eq sexe 'M')}}1{{else}}2{{/if}}</td>
+                    <td>{{statutCode}}</td>
+                    <td>{{#if personnelAdministratif}}1{{else}}2{{/if}}</td>
+                    <td>{{diplomeAcademiqueCode}}</td>
+                    <td>{{diplomeProfessionnelCode}}</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+        <!-- Legend text and codes verified verbatim against table 8.8 of the
+             source PDF (p.18): "Sexe/Sex 1=Homme/Man 2=Femme/Woman",
+             "Personnel administratif 1=oui 2=Non", the three-status
+             "1=Formateurs vacataires professionnels ... 3=Formateurs
+             Permanents", and the two numbered diploma lists — the source
+             prints these inline inside the table's own header cells; kept
+             as a footnote here instead, since a hand-column-width header
+             can't hold the full numbered lists at a legible size. -->
+        <p class="legend">
+            <strong>Sexe :</strong> 1=Homme/Man ; 2=Femme/Woman
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <strong>Personnel administratif :</strong> 1=Oui ; 2=Non
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <strong>Statut :</strong>
+            {{#each formateurs.legendeStatut}}{{#unless @first}}; {{/unless}}{{code}}={{label}}{{/each}}
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <strong>Diplôme académique :</strong>
+            {{#each formateurs.legendeDiplomeAcademique}}{{#unless @first}}; {{/unless}}{{code}}={{label}}{{/each}}
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <strong>Diplôme professionnel :</strong>
+            {{#each formateurs.legendeDiplomeProfessionnel}}{{#unless @first}}; {{/unless}}{{code}}={{label}}{{/each}}
+        </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 9 : DIFFICULTES ET PERSPECTIVES + SIGNATURES          -->
+    <!-- ============================================================ -->
+    <div class="page">
+        <div class="section-title">
+            SECTION 9 : DIFFICULTÉS ET PERSPECTIVES
+            <span class="en">DIFFICULTIES AND PROSPECTS</span>
+        </div>
+
+        <table class="field-grid">
+            <tr>
+                <td class="field-num">9.1</td>
+                <td class="field-label">Rencontrez-vous des difficultés dans le processus de formation ?</td>
+                <td colspan="2">{{yesno difficultes.rencontrees}}</td>
+            </tr>
+            {{#if difficultes.rencontrees}}
+            <tr>
+                <td></td>
+                <td class="field-label">Lesquelles</td>
+                <td colspan="2">
+                    {{#each difficulteOptions}}{{checkbox (includes ../difficultes.types value)}} {{label}}<br>{{/each}}
+                    {{#each difficultes.autresPrecisions}}
+                    <div>Autre : {{this}}</div>
+                    {{/each}}
+                </td>
+            </tr>
+            {{/if}}
+        </table>
+
+        <h3>9.2 Cinq principales perspectives</h3>
+        <ol>
+            {{#each difficultes.perspectives}}
+            <li>{{this}}</li>
+            {{/each}}
+        </ol>
+
+        <p style="margin-top:20px;">Merci pour votre collaboration / <i>Thank you for your collaboration</i></p>
+
+        <div class="signature-row">
+            <table>
+                <tr>
+                    <td>Nom, signature et cachet du directeur ou Promoteur du
+                        CFP<br>{{identification.promoteur.nomPrenoms}}</td>
+                    <td>Nom, signature et cachet du Délégué Départemental ou Régional</td>
+                    <td>Nom, signature et cachet du Secrétaire Technique Régional de l'ONEFOP</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -74,7 +74,7 @@ export class OnefopPuppeteerService {
             }, null, 2));
 
             const html = template(templateData);
-            const pdf = await this.htmlToPdf(html);
+            const pdf = await this.htmlToPdf(html, data.formType);
             console.log(`✅ PDF generated successfully (${pdf.length} bytes)`);
 
             return pdf;
@@ -94,9 +94,24 @@ export class OnefopPuppeteerService {
             logoBase64 = `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`;
         } catch (_) { /* logo missing — header renders without it */ }
 
+        // vocationalTraining.hbs's header shows the national coat of arms
+        // (verified against the source PDF's own header), not the ONEFOP
+        // logo the other six templates use — the source PDF for the VT
+        // questionnaire is issued directly by the Ministry, not ONEFOP as
+        // an agency, and its header reflects that. Loaded unconditionally
+        // (cheap, same pattern as logoBase64 above) rather than only for
+        // formType === 'VOCATIONAL_TRAINING', so this stays a one-line
+        // addition if another future template needs the same asset.
+        let armoiriesBase64 = '';
+        try {
+            const armoiriesPath = path.join(__dirname, 'assets', 'armoiries_cameroon.png');
+            armoiriesBase64 = `data:image/png;base64,${fs.readFileSync(armoiriesPath).toString('base64')}`;
+        } catch (_) { /* armoiries asset missing — header renders without it */ }
+
         return {
             ...data,
             logoBase64,
+            armoiriesBase64,
         };
     }
 
@@ -114,13 +129,47 @@ export class OnefopPuppeteerService {
             if (value === null || value === undefined || value === 0) return '';
             return `<span style="color:#1F3864;font-weight:bold">${value}</span>`;
         });
+
+        // Vocational Training (vocationalTraining.hbs) — its own paper-form
+        // replica widgets (digit boxes, Oui/Non circles, tickboxes), styled
+        // via that template's own .yesno/.checkbox/.digit-boxes CSS classes.
+        // Not used by any of the other six templates.
+        Handlebars.registerHelper('yesno', (value: any) => {
+            const isYes = value === true;
+            const isNo = value === false;
+            return new Handlebars.SafeString(
+                `<span class="yesno">` +
+                `<span class="opt"><span class="circle${isYes ? ' checked' : ''}"></span>Oui / Yes</span>` +
+                `<span class="opt"><span class="circle${isNo ? ' checked' : ''}"></span>Non / No</span>` +
+                `</span>`
+            );
+        });
+
+        Handlebars.registerHelper('checkbox', (checked: any) => {
+            return new Handlebars.SafeString(`<span class="checkbox${checked ? ' checked' : ''}"></span>`);
+        });
+
+        Handlebars.registerHelper('digitBoxes', (value: any, length: any) => {
+            const digits = (value === null || value === undefined ? '' : String(value)).replace(/\D/g, '');
+            const n = typeof length === 'number' ? length : 0;
+            let html = '<span class="digit-boxes">';
+            for (let i = 0; i < n; i++) {
+                html += `<span class="box">${digits.charAt(i) || ''}</span>`;
+            }
+            html += '</span>';
+            return new Handlebars.SafeString(html);
+        });
+
+        Handlebars.registerHelper('inc', (index: any) => (typeof index === 'number' ? index + 1 : index));
+
+        Handlebars.registerHelper('includes', (arr: any, value: any) => Array.isArray(arr) && arr.includes(value));
     }
 
     private getTemplatePath(formType: string): string {
         return path.join(__dirname, 'templates', 'dynamic', `${formType}.hbs`);
     }
 
-    private async htmlToPdf(html: string): Promise<Buffer> {
+    private async htmlToPdf(html: string, formType?: string): Promise<Buffer> {
         let page: any;
         try {
             if (!this.browser || !this.browser.isConnected()) {
@@ -140,15 +189,33 @@ export class OnefopPuppeteerService {
                 timeout: 30000,
             });
 
+            // Only vocationalTraining.hbs's source PDF was verified to
+            // print a "Page X sur Y" footer on every page — scoped to that
+            // formType rather than added to all seven templates, since the
+            // other six haven't been checked against their own source PDFs
+            // for this and shouldn't change behavior as a side effect of
+            // the VT work.
+            const isVocationalTraining = formType === 'VOCATIONAL_TRAINING';
+
             const pdf = await page.pdf({
                 format: 'A4',
                 printBackground: true,
                 margin: {
                     top: '15mm',
-                    bottom: '15mm',
+                    bottom: isVocationalTraining ? '18mm' : '15mm',
                     left: '15mm',
                     right: '15mm',
                 },
+                ...(isVocationalTraining
+                    ? {
+                        displayHeaderFooter: true,
+                        headerTemplate: '<span></span>',
+                        footerTemplate:
+                            '<div style="width:100%;font-size:8px;text-align:center;color:#000;">' +
+                            'Page <span class="pageNumber"></span> sur <span class="totalPages"></span>' +
+                            '</div>',
+                    }
+                    : {}),
             });
 
             await page.close();

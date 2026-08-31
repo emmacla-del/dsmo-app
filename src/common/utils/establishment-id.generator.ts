@@ -9,6 +9,8 @@ export class EstablishmentIdGenerator {
         'ONG': 'ON',
         'ADMINISTRATION': 'AD',
         'PROJECT_PROGRAM': 'PP',
+        'VOCATIONAL_TRAINING': 'VT',
+        'VOCATIONAL_TRAINING_CENTER': 'VC',
     };
 
     /**
@@ -52,7 +54,7 @@ export class EstablishmentIdGenerator {
      * Validate establishment ID format
      */
     static isValid(establishmentId: string): boolean {
-        const pattern = /^(EN|CO|CT|ON|AD|PP)[0-9]{2}[0-9]{4}[0-9]{2}$/;
+        const pattern = /^(EN|CO|CT|ON|AD|PP|VT|VC)[0-9]{2}[0-9]{4}[0-9]{2}$/;
         return pattern.test(establishmentId);
     }
 
@@ -80,6 +82,8 @@ export class EstablishmentIdGenerator {
             'ON': 'ONG',
             'AD': 'ADMINISTRATION',
             'PP': 'PROJECT_PROGRAM',
+            'VT': 'VOCATIONAL_TRAINING',
+            'VC': 'VOCATIONAL_TRAINING_CENTER',
         };
 
         return {

@@ -218,6 +218,24 @@ model Company {
   respondentFirstName        String?
   respondentLastName         String?
   enterpriseSize             String?
+  // Vocational Training (VT) registration-time identification — verbatim
+  // option lists from the source questionnaire, plain strings (no VT enum
+  // backs them, matching onefop_ast.dart's own posture on these fields).
+  // Distinct from the unrelated vocationalCenter entity type, which has no
+  // fields here beyond the generic ones above.
+  sigle                      String?
+  cfpType                    String?
+  educationSystem            String?
+  functionalStatus           String?
+  nonFunctionalReason        String?
+  nonFunctionalReasonOther   String?
+  // 1.16 — Promoteur/Directeur du CFP, a second contact block distinct
+  // from respondentFirstName/respondentLastName/respondentPhone(2) above
+  // (1.15). VT-only; no other entity type populates these.
+  promoterName               String?
+  promoterSex                String?
+  promoterPhone1             String?
+  promoterPhone2             String?
   establishmentId            String?
   establishmentIdGeneratedAt DateTime?               @db.Timestamp(6)
   attestationUrl             String?
@@ -658,6 +676,19 @@ model OnefopSubmission {
   administrationDetail  OnefopAdministrationDetail?
   projectProgramDetail  OnefopProjectProgramDetail?
   projectProgramActivities ProjectProgramActivity[]
+  vocationalTrainingDetail OnefopVocationalTrainingDetail?
+  vtDiplomaData         OnefopVtDiplomaData[]
+  vtTraineeAgeFlow      OnefopVtTraineeAgeFlow[]
+  vtTrainerAge          OnefopVtTrainerAge[]
+  vtEducationLevelFlow  OnefopVtEducationLevelFlow[]
+  vtTraineeVulnerable   OnefopVtTraineeVulnerable[]
+  vtTrainerDisability   OnefopVtTrainerDisability[]
+  vtScholarship         OnefopVtScholarship[]
+  vtSpecialtyRows       OnefopVtSpecialtyRow[]
+  vtCurricula           OnefopVtCurriculum[]
+  vtInfrastructure      OnefopVtInfrastructure[]
+  vtFurniture           OnefopVtFurniture[]
+  vtTrainerRoster       OnefopVtTrainerRoster[]
   cooperativeDetail     OnefopCooperativeDetail?
   cspGenderAge          OnefopCspGenderAge[]
   ctdDetail             OnefopCtdDetail?
@@ -854,6 +885,424 @@ model ProjectProgramActivity {
   @@unique([submissionId, rowIndex])
   @@index([submissionId])
   @@map("project_program_activities")
+}
+
+// Phase 1 — Vocational Training (VT-1). Additive only, per
+// VOCATIONAL_TRAINING_DESIGN_NOTE.md — no existing entity's table, enum,
+// or shared fact table is reused or modified. 1 Detail (1:1) + 12
+// child/fact tables (1:N), 16 enums. Every Detail column stays nullable
+// except `name`/`submissionId`/`id` — the [Plat] required-field policy is
+// deliberately left open for VT-2, enforced in application code only,
+// matching the existing six entities' convention.
+model OnefopVocationalTrainingDetail {
+  id                String   @id @default(uuid())
+  submissionId      String   @unique
+
+  // §1 — identification
+  structureCode     String?          // 1.1, admin-assigned
+  name              String           // 1.2
+  sigle             String?          // 1.3
+  region            String?          // 1.4
+  department        String?          // 1.5
+  subdivision       String?          // 1.6
+  commune           String?          // 1.7 — new geo concept, no fourth admin level added
+  locality          String?          // 1.8 Village-Quartier — reuses existing convention
+  area              String?          // 1.9 Urbain/Rural
+  educationSystem   String?          // 1.10
+  cfpType           String?          // 1.11
+  functionalStatus  String?          // 1.12
+  nonFunctionalReason      String?   // 1.13
+  nonFunctionalReasonOther String?
+  yearOfEstablishment Int?           // 1.14
+  respondentSex     String?          // 1.15 — VT-local only, NOT on OnefopRespondent
+  promoterName      String?          // 1.16
+  promoterSex       String?
+  promoterPhone1    String?
+  promoterPhone2    String?
+  promoterEmail     String?
+
+  // §2 — general information (one column per numbered item, 2.1.1–2.1.16, 2.2.1–2.2.20)
+  hasStateAgreement         Boolean?
+  agreementTypes            String[] @default([])
+  siteCount                 Int?
+  sharesInfrastructure      Boolean?
+  sharedWithSchoolName      String?
+  hasSpecialNeedsTrainers   Boolean?
+  specialNeedsTrainerTotal  Int?
+  specialNeedsTrainerFemale Int?
+  hasAccessRamps            Boolean?
+  hasDirectorOffice         Boolean?
+  poBox                     String?
+  email                     String?
+  website                   String?
+  isAccredited              Boolean?
+  lastAccreditationYear     Int?
+  accreditationOrderNumber  String?
+  accreditationOrderDate    String?
+  trainingTypesOffered      String[] @default([])
+  totalTraineesDeclared     Int?
+  totalTrainersDeclared     Int?
+  traineesFromLowerSecondary Int?
+  traineesFromUpperSecondary Int?
+  hasEnergySource           Boolean?
+  isEnergySourceFunctional  Boolean?
+  energySourceTypes         String[] @default([])
+  hasWaterSource            Boolean?
+  waterSourceTypes          String[] @default([])
+  hasHandwashingDevice      Boolean?
+  hasReceivedHealthCampaign Boolean?
+  hasFirstAidBox            Boolean?
+  hasDispensary             Boolean?
+  hasFunctionalLibrary      Boolean?
+  fenceStatus               String?
+  hasSchoolCouncil          Boolean?
+  hasLevelCouncil           Boolean?
+  hasDisciplinaryCouncil    Boolean?
+  hasFunctionalLatrines     Boolean?
+  latrineTypes              String[] @default([])
+  latrinesSeparateByGender  Boolean?
+  latrinesSeparateFromStaff Boolean?
+  hasPlayground             Boolean?
+  playgroundTypes           String[] @default([])
+  hasIctTools               Boolean?
+  ictToolsForTrainersCount  Int?
+  ictToolsInternetCount     Int?
+  trainersIctTrained        Boolean?
+  trainersIctTrainedTotal   Int?
+  trainersIctTrainedFemale  Int?
+  trainersViolenceTraining  Boolean?
+  trainersPssTraining       Boolean?
+  hasBoarding               Boolean?
+  hasGbvMechanism           Boolean?
+  hasCanteen                Boolean?
+
+  // §3 — education in emergencies
+  facedCrisis                       Boolean?
+  crisisTypes                       String[] @default([])
+  crisisClosedCenter                Boolean?
+  closureDurationWeeks              Int?
+  siteRelocated                     Boolean?
+  relocationLocality                String?
+  traineesReassigned                Boolean?
+  reassignedTo                      String?
+  hasEarlyWarningSystem             Boolean?
+  earlyWarningDescription           String?
+  earlyWarningFunctional            Boolean?
+  trainersInnovativePedagogyTrained Boolean?
+  trainersInnovativePedagogyMale    Int?
+  trainersInnovativePedagogyFemale  Int?
+  trainersCrisisPedagogyTrained     Boolean?
+  trainersCrisisPedagogyMale        Int?
+  trainersCrisisPedagogyFemale      Int?
+  trainersDrrmTrained               Boolean?
+  trainersDrrmMale                  Int?
+  trainersDrrmFemale                Int?
+  trainersEvacuationDrillTrained    Boolean?
+  trainersEvacuationDrillMale       Int?
+  trainersEvacuationDrillFemale     Int?
+  trainersOtherEmergencyTrained     Boolean?
+  trainersOtherEmergencyMale        Int?
+  trainersOtherEmergencyFemale      Int?
+  hasStudentRecordsSecurity         Boolean?
+  hasTextbookSecurity               Boolean?
+  hasContingencyPlan                Boolean?
+  traineesTrainedOnProtection       Boolean?
+
+  // §5.1 — study guides
+  hasTraineeStudyGuides    Boolean?
+  traineeStudyGuideCount   Int?
+  hasTrainerStudyGuides    Boolean?
+  trainerStudyGuideCount   Int?
+
+  // §6 — orientation / post-training follow-up
+  hasCareerGuidanceService   Boolean?   // 6.1.1
+  careerGuidanceTimings      String[] @default([])
+  traineesChooseWithSupport  Boolean?   // 6.1.2a
+  collaboratesWithCiopCosup  Boolean?   // 6.1.2b
+  guidanceSupportTypes       String[] @default([])   // 6.1.3
+  guidanceSupportOther       String?
+  hasPostTrainingFollowUp    Boolean?   // 6.2.1
+  followUpMechanisms         String[] @default([])
+  followUpMechanismOther     String?
+  hasInsertionSupportUnit    Boolean?   // 6.2.2
+  hasTraineeDatabaseTool     Boolean?   // 6.2.3
+  hasJobSearchSupportTool    Boolean?   // 6.2.4
+  // No 7.3 field — the printed instrument's own numbering jumps 7.2 → 7.4.
+
+  // §7 — cross-cutting themes
+  hasHivAidsRules            Boolean?   // 7.1
+  hivRulesCoverSafety        Boolean?   // 7.1.1
+  hivRulesCoverStigmaHiv     Boolean?
+  hivRulesCoverStigmaOther   Boolean?
+  hivRulesCoverHarassment    Boolean?
+  hasDisciplinaryProcedures  Boolean?   // 7.1.2
+  // 7.1.3 — five stakeholder rows, blank channel headers on the printed
+  // form. One String[] per stakeholder; values populated only once
+  // MINEFOP supplies a written channel list (VT-2). No VtCommsChannel enum.
+  pupilsCommsChannels             String[] @default([])
+  teachingStaffCommsChannels      String[] @default([])
+  nonTeachingStaffCommsChannels   String[] @default([])
+  parentsCommsChannels            String[] @default([])
+  schoolCouncilCommsChannels      String[] @default([])
+  addressesIstIssues         Boolean?   // 7.2
+  traineesReceivedFullSexEd  Boolean?   // 7.4
+  genericLifeSkillsInSyllabus        Boolean?
+  genericLifeSkillsExtracurricular   Boolean?
+  reproHealthEdInSyllabus            Boolean?
+  reproHealthEdExtracurricular       Boolean?
+  hivTransmissionEdInSyllabus        Boolean?
+  hivTransmissionEdExtracurricular   Boolean?
+  trainersDeliveredSexEd     Boolean?   // 7.5
+  trainersPassedOnToStudents Boolean?   // 7.6
+  heldParentOrientationSessions Boolean?  // 7.7
+  // Page-15 "Scolaire/Social/Profesionnel" fragment — unfinished layout,
+  // no code, no stem. Not captured.
+
+  // §8.5 — trainer occupational status (fixed 3-row × gender grid, embedded not normalized)
+  vacataireProfMale       Int?
+  vacataireProfFemale     Int?
+  vacataireNonProfMale    Int?
+  vacataireNonProfFemale  Int?
+  permanentMale           Int?
+  permanentFemale         Int?
+
+  // §9 — difficulties and perspectives
+  facesDifficulties      Boolean?
+  difficultyTypes        String[] @default([])
+  difficultyOtherTexts   String[] @default([])
+  perspectives           String[] @default([])
+  // §4.12 — leftover number under table 4.11, no title/grid/instruction. Not collected.
+
+  createdAt         DateTime @default(now())
+  submission        OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("onefop_vocational_training_details")
+}
+
+model OnefopVtDiplomaData {
+  id           String        @id @default(uuid())
+  submissionId String
+  personType   VtPersonType
+  diplomaKind  VtDiplomaKind
+  diploma      VtDiplomaCode
+  gender       VtGender
+  value        Int?
+  createdAt    DateTime      @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, personType, diplomaKind, diploma, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_diploma_data")
+}
+
+model OnefopVtTraineeAgeFlow {
+  id           String       @id @default(uuid())
+  submissionId String
+  ageBand      VtAgeBand
+  flowStatus   VtFlowStatus
+  gender       VtGender
+  value        Int?
+  createdAt    DateTime     @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, ageBand, flowStatus, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_trainee_age_flow")
+}
+
+model OnefopVtTrainerAge {
+  id           String           @id @default(uuid())
+  submissionId String
+  ageBand      VtTrainerAgeBand
+  gender       VtGender
+  value        Int?
+  createdAt    DateTime         @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, ageBand, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_trainer_age")
+}
+
+model OnefopVtEducationLevelFlow {
+  id             String           @id @default(uuid())
+  submissionId   String
+  educationLevel VtEducationLevel
+  flowStatus     VtFlowStatus
+  gender         VtGender
+  value          Int?
+  createdAt      DateTime         @default(now())
+  submission     OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, educationLevel, flowStatus, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_education_level_flow")
+}
+
+model OnefopVtTraineeVulnerable {
+  id           String               @id @default(uuid())
+  submissionId String
+  category     VtVulnerableCategory
+  flowStatus   VtFlowStatus
+  gender       VtGender
+  value        Int?
+  createdAt    DateTime             @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, category, flowStatus, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_trainee_vulnerable")
+}
+
+model OnefopVtTrainerDisability {
+  id           String                  @id @default(uuid())
+  submissionId String
+  category     VtTrainerDisabilityType
+  gender       VtGender
+  value        Int?
+  createdAt    DateTime                @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, category, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_trainer_disability")
+}
+
+model OnefopVtScholarship {
+  id           String               @id @default(uuid())
+  submissionId String
+  category     VtScholarshipCategory
+  status       VtScholarshipStatus
+  gender       VtGender
+  value        Int?
+  createdAt    DateTime             @default(now())
+  submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, category, status, gender])
+  @@index([submissionId])
+  @@map("onefop_vt_scholarship")
+}
+
+// 4.3, 4.4, 4.5, 4.6, 4.10, 6.3, 8.4, 8.7 — repeating respondent rows, one
+// specialty/filière per row. Named nullable columns, not generic cellN —
+// tableCode decides which are filled, unused columns stay null:
+//   4.3, 4.4, 4.5, 8.4 -> fiMale/fiFemale/fcMale/fcFemale
+//   4.6                -> year1Male/year1Female/year2Male/year2Female
+//   4.10, 6.3           -> male/female/total
+//   8.7 (page 17, FI/FC only, no gender split, no printed Total row)
+//                       -> fiCount/fcCount
+model OnefopVtSpecialtyRow {
+  id            String   @id @default(uuid())
+  submissionId  String
+  tableCode     String
+  rowIndex      Int
+  specialtyText String?
+
+  // 4.3, 4.4, 4.5, 8.4
+  fiMale        Int?
+  fiFemale      Int?
+  fcMale        Int?
+  fcFemale      Int?
+
+  // 4.6
+  year1Male     Int?
+  year1Female   Int?
+  year2Male     Int?
+  year2Female   Int?
+
+  // 4.10, 6.3
+  male          Int?
+  female        Int?
+  total         Int?
+
+  // 8.7
+  fiCount       Int?
+  fcCount       Int?
+
+  createdAt     DateTime @default(now())
+  submission    OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, tableCode, rowIndex])
+  @@index([submissionId])
+  @@index([submissionId, tableCode])
+  @@map("onefop_vt_specialty_rows")
+}
+
+model OnefopVtCurriculum {
+  id            String   @id @default(uuid())
+  submissionId  String
+  rowIndex      Int
+  specialtyText String?
+  hasCurriculum Boolean?
+  isApproved    Boolean?
+  createdAt     DateTime @default(now())
+  submission    OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, rowIndex])
+  @@index([submissionId])
+  @@map("onefop_vt_curricula")
+}
+
+model OnefopVtInfrastructure {
+  id                 String               @id @default(uuid())
+  submissionId       String
+  infrastructureType VtInfrastructureType
+  totalCount         Int?
+  permanentGoodCount Int?
+  permanentBadCount  Int?
+  temporaryCount     Int?
+  createdAt          DateTime             @default(now())
+  submission         OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, infrastructureType])
+  @@index([submissionId])
+  @@map("onefop_vt_infrastructure")
+}
+
+model OnefopVtFurniture {
+  id            String          @id @default(uuid())
+  submissionId  String
+  furnitureType VtFurnitureType
+  goodCount     Int?
+  badCount      Int?
+  createdAt     DateTime        @default(now())
+  submission    OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, furnitureType])
+  @@index([submissionId])
+  @@map("onefop_vt_furniture")
+}
+
+// 8.8 — named individuals, one row per person, only non-empty rows
+// persisted. Operational/reviewer use only; excluded from the default
+// statistical/SPSS export (enforced at export-query level in a later
+// phase, not by any DB-level access control — same unencrypted posture
+// as the existing promoter/respondent name fields).
+// trainerStatus is String? ("1"/"2"/"3" as printed), NOT VtTrainerStatus
+// — that enum's TOTAL member is structurally invalid on a named-person
+// row and stays reserved for 8.5's vocabulary only (8.5 itself is
+// embedded as plain Int? columns on Detail, not through this enum).
+// academicDiploma/professionalDiploma reuse VtDiplomaCode; application
+// code (not the DB) enforces the value is never TOTAL and that academic
+// members only populate academicDiploma, professional members only
+// professionalDiploma.
+model OnefopVtTrainerRoster {
+  id                  String         @id @default(uuid())
+  submissionId        String
+  rowIndex            Int
+  lastName            String
+  firstName           String
+  sex                 String?
+  trainerStatus       String?
+  isAdminPersonnel    Boolean?
+  academicDiploma     VtDiplomaCode?
+  professionalDiploma VtDiplomaCode?
+  createdAt           DateTime       @default(now())
+  submission          OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, rowIndex])
+  @@index([submissionId])
+  @@map("onefop_vt_trainer_roster")
 }
 
 model OnefopCooperativeDetail {
@@ -1361,6 +1810,13 @@ enum OnefopEntityType {
   ONG
   ADMINISTRATION
   PROJECT_PROGRAM
+  VOCATIONAL_TRAINING
+  // DSMO-only registration category (Centre de formation professionnelle),
+  // no ONEFOP questionnaire — see EntityType.vocationalCenter in
+  // minefop_models.dart. Added 2026-08-31 after registerCompany was found
+  // to 500 on it: this value was never wired into the Company.entityType
+  // enum despite being a selectable option in the Flutter register screen.
+  VOCATIONAL_TRAINING_CENTER
 }
 
 enum OnefopStatus {
@@ -1501,6 +1957,179 @@ enum PositionType {
   INSPECTEUR_REGIONAL_FORMATIONS
   CONSEILLER_REGIONAL_FORMATIONS
   STAFF
+}
+
+// Vocational Training (VT-1) — 16 enums, per VOCATIONAL_TRAINING_DESIGN_NOTE.md.
+// No VtCommsChannel enum (§7.1.3 channel labels are not invented; plain
+// String[] columns on OnefopVocationalTrainingDetail instead).
+enum VtGender {
+  MALE
+  FEMALE
+  TOTAL
+}
+
+enum VtPersonType {
+  TRAINEE
+  TRAINER
+}
+
+enum VtDiplomaKind {
+  ACADEMIC
+  PROFESSIONAL
+}
+
+enum VtDiplomaCode {
+  DOCTORAT
+  MASTER2
+  MAITRISE
+  LICENCE
+  DEUG_DUT
+  BACC_GENERAL
+  BACC_TECHNIQUE
+  PROBATOIRE
+  BEPC
+  CEP
+  SANS_DIPLOME_ACADEMIQUE
+  DIPLEG_DIPES2
+  INGENIEUR_MASTER_PRO
+  DIPCEG_DIPES1
+  LICENCE_PRO
+  BTS_HND
+  BEP_BP_BACPRO
+  CAPIEG
+  CAPIAEG
+  CAP
+  DQP
+  CQP
+  AUTRES_PRO
+  SANS_DIPLOME_PROFESSIONNEL
+  TOTAL
+}
+
+enum VtAgeBand {
+  UNDER_14
+  AGE_14
+  AGE_15
+  AGE_16
+  AGE_17
+  AGE_18
+  AGE_19
+  AGE_20
+  AGE_21
+  AGE_22
+  AGE_23
+  AGE_24
+  AGE_25
+  AGE_26
+  AGE_27
+  AGE_28
+  AGE_29
+  AGE_30
+  AGE_31
+  AGE_32
+  AGE_33
+  AGE_34
+  AGE_35
+  ABOVE_35
+  TOTAL
+}
+
+enum VtTrainerAgeBand {
+  AGE_18_24
+  AGE_25_39
+  AGE_40_59
+  AGE_60_PLUS
+  TOTAL
+}
+
+enum VtFlowStatus {
+  ENTRANT
+  SORTANT
+  ABANDON
+}
+
+enum VtEducationLevel {
+  NON_ALPHABETISE
+  PRIMAIRE
+  PREMIER_CYCLE_GENERAL
+  PREMIER_CYCLE_TECHNIQUE
+  SECOND_CYCLE_GENERAL
+  SECOND_CYCLE_TECHNIQUE
+  ENSEIGNEMENT_NORMAL
+  ENSEIGNEMENT_SUPERIEUR
+  TOTAL
+}
+
+enum VtVulnerableCategory {
+  MOTEUR
+  VISUEL
+  AUDITIF
+  POLYHANDICAPES
+  REFUGIES
+  ORPHELINS_VULNERABLES
+  DEPLACES_INTERNES
+  RETOURNES
+  BORORO
+  BAKA
+  BAGUIELI
+  TOTAL
+}
+
+enum VtTrainerDisabilityType {
+  MOTEUR
+  VISUEL
+  AUDITIF
+  POLYHANDICAPES
+  TOTAL
+}
+
+enum VtTrainingType {
+  INITIAL
+  CONTINUING
+}
+
+// TOTAL is 8.5's vocabulary only (8.5 is embedded as plain Int? columns
+// on OnefopVocationalTrainingDetail, not through this enum). Never used
+// to type OnefopVtTrainerRoster.trainerStatus — that column is String?.
+enum VtTrainerStatus {
+  VACATAIRE_PROFESSIONNEL
+  VACATAIRE_NON_PROFESSIONNEL
+  PERMANENT
+  TOTAL
+}
+
+enum VtInfrastructureType {
+  SALLE_CLASSE
+  ATELIERS_PRATIQUES
+  LABORATOIRES
+  BLOCS_ADMINISTRATIFS
+  SALLE_REUNION
+  SALLE_FORMATEURS
+  BUREAUX
+  MAGASIN
+  ESPACES_TEMPORAIRES
+}
+
+enum VtFurnitureType {
+  BANC_1_PLACE
+  BANC_2_PLACES
+  BANC_3_PLACES
+  BANC_4_PLACES_PLUS
+  CHAISES_FORMATEURS
+  TABLES_FORMATEURS
+  ARMOIRES
+  TABLEAUX
+}
+
+enum VtScholarshipCategory {
+  OTHER_ADMIN
+  INTERNATIONAL
+  TOTAL
+}
+
+enum VtScholarshipStatus {
+  GRANTED
+  RECEIVED
 }
 
 enum RoundStatus {

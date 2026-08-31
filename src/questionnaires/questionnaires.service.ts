@@ -11,6 +11,7 @@ import {
   OngQuestionnaireDto,
   AdministrationQuestionnaireDto,
   ProjectProgramQuestionnaireDto,
+  VocationalTrainingQuestionnaireDto,
 } from '../dto/onefop-questionnaire.dto';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -251,6 +252,12 @@ const TABLE_RESPONSE_STATUSES = new Set(['REPORTED', 'NONE', 'NOT_APPLICABLE']);
 // needs a special case rather than a plain .toLowerCase().
 function toLowerEntityType(normalizedEntityType: string): string {
   if (normalizedEntityType === 'PROJECT_PROGRAM') return 'projectProgram';
+  // Same underscore problem as PROJECT_PROGRAM above — a plain
+  // .toLowerCase() would keep 'vocational_training', not the camelCase
+  // 'vocationalTraining' every lowercase-keyed lookup in this file (and
+  // the AST's entityTypes filter, flat-key-normalizer's entity switch)
+  // actually uses.
+  if (normalizedEntityType === 'VOCATIONAL_TRAINING') return 'vocationalTraining';
   return normalizedEntityType.toLowerCase();
 }
 
@@ -262,6 +269,7 @@ function normalizeEntityType(type: string): string {
   if (upper === 'ONG') return 'ONG';
   if (upper === 'ADMINISTRATION') return 'ADMINISTRATION';
   if (upper === 'PROJECT_PROGRAM') return 'PROJECT_PROGRAM';
+  if (upper === 'VOCATIONAL_TRAINING') return 'VOCATIONAL_TRAINING';
   // Previously fell back to ENTREPRISE — an unrecognized/unsupported
   // entity type must not be silently miscategorized as a company.
   throw new BadRequestException(`Unsupported entity type: ${type}`);
@@ -344,21 +352,26 @@ export class QuestionnairesService {
         entityForGeo.ctd?.region ??
         entityForGeo.ong?.region ??
         entityForGeo.administration?.region ??
-        entityForGeo.projectProgram?.region ?? null,
+        entityForGeo.projectProgram?.region ??
+        entityForGeo.vocationalTraining?.region ?? null,
       department:
         entityForGeo.enterprise?.department ??
         entityForGeo.cooperative?.department ??
         entityForGeo.ctd?.department ??
         entityForGeo.ong?.department ??
         entityForGeo.administration?.department ??
-        entityForGeo.projectProgram?.department ?? null,
+        entityForGeo.projectProgram?.department ??
+        entityForGeo.vocationalTraining?.department ?? null,
       subdivision:
         entityForGeo.enterprise?.subdivision ??
         entityForGeo.cooperative?.subdivision ??
         entityForGeo.ctd?.subdivision ??
         entityForGeo.ong?.subdivision ??
         entityForGeo.administration?.subdivision ??
-        entityForGeo.projectProgram?.subdivision ?? null,
+        entityForGeo.projectProgram?.subdivision ??
+        entityForGeo.vocationalTraining?.subdivision ?? null,
+      // No vocationalTraining fallback here — VT has no economic-sector
+      // concept (design note §2, frozen); sector correctly stays null for VT.
       sector:
         entityForGeo.enterprise?.sector ??
         entityForGeo.cooperative?.sector ??
@@ -484,6 +497,9 @@ export class QuestionnairesService {
       case 'PROJECT_PROGRAM':
         questionnaireData = plainToClass(ProjectProgramQuestionnaireDto, nestedData);
         break;
+      case 'VOCATIONAL_TRAINING':
+        questionnaireData = plainToClass(VocationalTrainingQuestionnaireDto, nestedData);
+        break;
       default:
         throw new BadRequestException('Invalid entity type');
     }
@@ -512,7 +528,18 @@ export class QuestionnairesService {
       console.log('\n── ✅ Validation passed ───────────────────────────\n');
     }
 
-    if (!isDraft) {
+    // VT-5: enforceFinalRequiredFields is deliberately not applied to
+    // VOCATIONAL_TRAINING. FINAL_REQUIRED_FIELDS has no 'vocationalTraining'
+    // entry (so the entity-specific list is harmlessly empty either way),
+    // but FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY also has none — its `??`
+    // fallback would silently apply the full 14-field enterprise-family
+    // xxx_RESPONSE_STATUS list (a fallback the comment above that map notes
+    // is normally unreachable for the six known entities) to VT, which has
+    // none of those AST fields at all, permanently blocking every VT final
+    // submission. Skipping the call entirely — the smallest existing
+    // entity-aware bypass — avoids reopening that map or its fallback
+    // behavior for the six existing entities.
+    if (!isDraft && normalizedEntityType !== 'VOCATIONAL_TRAINING') {
       this.enforceFinalRequiredFields(
         questionnaireData,
         normalized as Record<string, unknown>,
@@ -542,8 +569,13 @@ export class QuestionnairesService {
 
     // Coherence flags don't block submission — a draft is legitimately
     // incomplete, so these checks only make sense once the respondent has
-    // declared the form final.
-    const coherenceFlags = isDraft
+    // declared the form final. VT-5: checkCoherence is not invoked for
+    // VOCATIONAL_TRAINING — its own coherence rules (design note §10) are a
+    // later, still-frozen phase; checkCoherence's own logic only reads
+    // enterprise-family s22q0x/s3q0x flat keys, which no VT submission ever
+    // produces, so this gate is a deliberate scope boundary, not a
+    // workaround for a real collision.
+    const coherenceFlags = isDraft || normalizedEntityType === 'VOCATIONAL_TRAINING'
       ? []
       : this.checkCoherence(flat, normalizedEntityType, headlineWorkers, headlineVacancies);
 
@@ -571,6 +603,28 @@ export class QuestionnairesService {
     // record per filled-in row, wired into the createMany block further
     // down alongside the other fact-row tables.
     let projectProgramActivityRows: Record<string, any>[] = [];
+    // Vocational Training's 12 child-row arrays (VT-5) — populated only
+    // when normalizedEntityType === 'VOCATIONAL_TRAINING' below. Unlike
+    // the six existing entities' shared fact tables (diplomaRows,
+    // cspGenderAgeRows, etc. — re-derived from `flat` via buildXxxRows()
+    // further down), these come directly from buildNestedDto's own VT-4
+    // arrays on `questionnaireData` — VT-4 already produced Prisma-ready
+    // rows from the flat keys inside the normalizer, so re-parsing them
+    // again here would duplicate that frozen logic. Read-only pass-through
+    // (same pattern as projectProgramActivityRows above, VT's closest
+    // sibling: its own entity-specific child table, not a shared one).
+    let vtDiplomaDataRows: Record<string, any>[] = [];
+    let vtTraineeAgeFlowRows: Record<string, any>[] = [];
+    let vtTrainerAgeRows: Record<string, any>[] = [];
+    let vtEducationLevelFlowRows: Record<string, any>[] = [];
+    let vtTraineeVulnerableRows: Record<string, any>[] = [];
+    let vtTrainerDisabilityRows: Record<string, any>[] = [];
+    let vtScholarshipRows: Record<string, any>[] = [];
+    let vtSpecialtyRows: Record<string, any>[] = [];
+    let vtCurriculaRows: Record<string, any>[] = [];
+    let vtInfrastructureRows: Record<string, any>[] = [];
+    let vtFurnitureRows: Record<string, any>[] = [];
+    let vtTrainerRosterRows: Record<string, any>[] = [];
     if (normalizedEntityType === 'ENTREPRISE' && 'enterprise' in questionnaireData && questionnaireData.enterprise) {
       const e = questionnaireData.enterprise;
       entityDetailRelation = {
@@ -759,6 +813,199 @@ export class QuestionnairesService {
           duration: (row.duration as string) ?? null,
         }));
       }
+    } else if (normalizedEntityType === 'VOCATIONAL_TRAINING' && 'vocationalTraining' in questionnaireData && questionnaireData.vocationalTraining) {
+      // VT-5. Field names/nullability match VocationalTrainingIdentificationDto
+      // (VT-3) / OnefopVocationalTrainingDetail (VT-1) exactly — no remapping
+      // or reinterpretation. `name` is the DTO/Prisma's one required field
+      // (`?? ''` mirrors every sibling's own required-name fallback);
+      // everything else is `?? null` (or `?? []` for the 18 array columns,
+      // already guaranteed [] by the normalizer's setStrArray, never
+      // undefined — the `?? []` here is redundant-but-harmless, matching
+      // this block's own "don't trust upstream silently" style). No
+      // sectorId — VT has no economic-sector concept (design note §2).
+      const v = questionnaireData.vocationalTraining;
+      entityDetailRelation = {
+        vocationalTrainingDetail: {
+          create: {
+            structureCode: v.structureCode ?? null,
+            name: v.name ?? '',
+            sigle: v.sigle ?? null,
+            region: v.region ?? null,
+            department: v.department ?? null,
+            subdivision: v.subdivision ?? null,
+            commune: v.commune ?? null,
+            locality: v.locality ?? null,
+            area: v.area ?? null,
+            educationSystem: v.educationSystem ?? null,
+            cfpType: v.cfpType ?? null,
+            functionalStatus: v.functionalStatus ?? null,
+            nonFunctionalReason: v.nonFunctionalReason ?? null,
+            nonFunctionalReasonOther: v.nonFunctionalReasonOther ?? null,
+            yearOfEstablishment: v.yearOfEstablishment ?? null,
+            respondentSex: v.respondentSex ?? null,
+            promoterName: v.promoterName ?? null,
+            promoterSex: v.promoterSex ?? null,
+            promoterPhone1: v.promoterPhone1 ?? null,
+            promoterPhone2: v.promoterPhone2 ?? null,
+            promoterEmail: v.promoterEmail ?? null,
+
+            hasStateAgreement: v.hasStateAgreement ?? null,
+            agreementTypes: v.agreementTypes ?? [],
+            siteCount: v.siteCount ?? null,
+            sharesInfrastructure: v.sharesInfrastructure ?? null,
+            sharedWithSchoolName: v.sharedWithSchoolName ?? null,
+            hasSpecialNeedsTrainers: v.hasSpecialNeedsTrainers ?? null,
+            specialNeedsTrainerTotal: v.specialNeedsTrainerTotal ?? null,
+            specialNeedsTrainerFemale: v.specialNeedsTrainerFemale ?? null,
+            hasAccessRamps: v.hasAccessRamps ?? null,
+            hasDirectorOffice: v.hasDirectorOffice ?? null,
+            poBox: v.poBox ?? null,
+            email: v.email ?? null,
+            website: v.website ?? null,
+            isAccredited: v.isAccredited ?? null,
+            lastAccreditationYear: v.lastAccreditationYear ?? null,
+            accreditationOrderNumber: v.accreditationOrderNumber ?? null,
+            accreditationOrderDate: v.accreditationOrderDate ?? null,
+            trainingTypesOffered: v.trainingTypesOffered ?? [],
+            totalTraineesDeclared: v.totalTraineesDeclared ?? null,
+            totalTrainersDeclared: v.totalTrainersDeclared ?? null,
+            traineesFromLowerSecondary: v.traineesFromLowerSecondary ?? null,
+            traineesFromUpperSecondary: v.traineesFromUpperSecondary ?? null,
+            hasEnergySource: v.hasEnergySource ?? null,
+            isEnergySourceFunctional: v.isEnergySourceFunctional ?? null,
+            energySourceTypes: v.energySourceTypes ?? [],
+            hasWaterSource: v.hasWaterSource ?? null,
+            waterSourceTypes: v.waterSourceTypes ?? [],
+            hasHandwashingDevice: v.hasHandwashingDevice ?? null,
+            hasReceivedHealthCampaign: v.hasReceivedHealthCampaign ?? null,
+            hasFirstAidBox: v.hasFirstAidBox ?? null,
+            hasDispensary: v.hasDispensary ?? null,
+            hasFunctionalLibrary: v.hasFunctionalLibrary ?? null,
+            fenceStatus: v.fenceStatus ?? null,
+            hasSchoolCouncil: v.hasSchoolCouncil ?? null,
+            hasLevelCouncil: v.hasLevelCouncil ?? null,
+            hasDisciplinaryCouncil: v.hasDisciplinaryCouncil ?? null,
+            hasFunctionalLatrines: v.hasFunctionalLatrines ?? null,
+            latrineTypes: v.latrineTypes ?? [],
+            latrinesSeparateByGender: v.latrinesSeparateByGender ?? null,
+            latrinesSeparateFromStaff: v.latrinesSeparateFromStaff ?? null,
+            hasPlayground: v.hasPlayground ?? null,
+            playgroundTypes: v.playgroundTypes ?? [],
+            hasIctTools: v.hasIctTools ?? null,
+            ictToolsForTrainersCount: v.ictToolsForTrainersCount ?? null,
+            ictToolsInternetCount: v.ictToolsInternetCount ?? null,
+            trainersIctTrained: v.trainersIctTrained ?? null,
+            trainersIctTrainedTotal: v.trainersIctTrainedTotal ?? null,
+            trainersIctTrainedFemale: v.trainersIctTrainedFemale ?? null,
+            trainersViolenceTraining: v.trainersViolenceTraining ?? null,
+            trainersPssTraining: v.trainersPssTraining ?? null,
+            hasBoarding: v.hasBoarding ?? null,
+            hasGbvMechanism: v.hasGbvMechanism ?? null,
+            hasCanteen: v.hasCanteen ?? null,
+
+            facedCrisis: v.facedCrisis ?? null,
+            crisisTypes: v.crisisTypes ?? [],
+            crisisClosedCenter: v.crisisClosedCenter ?? null,
+            closureDurationWeeks: v.closureDurationWeeks ?? null,
+            siteRelocated: v.siteRelocated ?? null,
+            relocationLocality: v.relocationLocality ?? null,
+            traineesReassigned: v.traineesReassigned ?? null,
+            reassignedTo: v.reassignedTo ?? null,
+            hasEarlyWarningSystem: v.hasEarlyWarningSystem ?? null,
+            earlyWarningDescription: v.earlyWarningDescription ?? null,
+            earlyWarningFunctional: v.earlyWarningFunctional ?? null,
+            trainersInnovativePedagogyTrained: v.trainersInnovativePedagogyTrained ?? null,
+            trainersInnovativePedagogyMale: v.trainersInnovativePedagogyMale ?? null,
+            trainersInnovativePedagogyFemale: v.trainersInnovativePedagogyFemale ?? null,
+            trainersCrisisPedagogyTrained: v.trainersCrisisPedagogyTrained ?? null,
+            trainersCrisisPedagogyMale: v.trainersCrisisPedagogyMale ?? null,
+            trainersCrisisPedagogyFemale: v.trainersCrisisPedagogyFemale ?? null,
+            trainersDrrmTrained: v.trainersDrrmTrained ?? null,
+            trainersDrrmMale: v.trainersDrrmMale ?? null,
+            trainersDrrmFemale: v.trainersDrrmFemale ?? null,
+            trainersEvacuationDrillTrained: v.trainersEvacuationDrillTrained ?? null,
+            trainersEvacuationDrillMale: v.trainersEvacuationDrillMale ?? null,
+            trainersEvacuationDrillFemale: v.trainersEvacuationDrillFemale ?? null,
+            trainersOtherEmergencyTrained: v.trainersOtherEmergencyTrained ?? null,
+            trainersOtherEmergencyMale: v.trainersOtherEmergencyMale ?? null,
+            trainersOtherEmergencyFemale: v.trainersOtherEmergencyFemale ?? null,
+            hasStudentRecordsSecurity: v.hasStudentRecordsSecurity ?? null,
+            hasTextbookSecurity: v.hasTextbookSecurity ?? null,
+            hasContingencyPlan: v.hasContingencyPlan ?? null,
+            traineesTrainedOnProtection: v.traineesTrainedOnProtection ?? null,
+
+            hasTraineeStudyGuides: v.hasTraineeStudyGuides ?? null,
+            traineeStudyGuideCount: v.traineeStudyGuideCount ?? null,
+            hasTrainerStudyGuides: v.hasTrainerStudyGuides ?? null,
+            trainerStudyGuideCount: v.trainerStudyGuideCount ?? null,
+
+            hasCareerGuidanceService: v.hasCareerGuidanceService ?? null,
+            careerGuidanceTimings: v.careerGuidanceTimings ?? [],
+            traineesChooseWithSupport: v.traineesChooseWithSupport ?? null,
+            collaboratesWithCiopCosup: v.collaboratesWithCiopCosup ?? null,
+            guidanceSupportTypes: v.guidanceSupportTypes ?? [],
+            guidanceSupportOther: v.guidanceSupportOther ?? null,
+            hasPostTrainingFollowUp: v.hasPostTrainingFollowUp ?? null,
+            followUpMechanisms: v.followUpMechanisms ?? [],
+            followUpMechanismOther: v.followUpMechanismOther ?? null,
+            hasInsertionSupportUnit: v.hasInsertionSupportUnit ?? null,
+            hasTraineeDatabaseTool: v.hasTraineeDatabaseTool ?? null,
+            hasJobSearchSupportTool: v.hasJobSearchSupportTool ?? null,
+
+            hasHivAidsRules: v.hasHivAidsRules ?? null,
+            hivRulesCoverSafety: v.hivRulesCoverSafety ?? null,
+            hivRulesCoverStigmaHiv: v.hivRulesCoverStigmaHiv ?? null,
+            hivRulesCoverStigmaOther: v.hivRulesCoverStigmaOther ?? null,
+            hivRulesCoverHarassment: v.hivRulesCoverHarassment ?? null,
+            hasDisciplinaryProcedures: v.hasDisciplinaryProcedures ?? null,
+            pupilsCommsChannels: v.pupilsCommsChannels ?? [],
+            teachingStaffCommsChannels: v.teachingStaffCommsChannels ?? [],
+            nonTeachingStaffCommsChannels: v.nonTeachingStaffCommsChannels ?? [],
+            parentsCommsChannels: v.parentsCommsChannels ?? [],
+            schoolCouncilCommsChannels: v.schoolCouncilCommsChannels ?? [],
+            addressesIstIssues: v.addressesIstIssues ?? null,
+            traineesReceivedFullSexEd: v.traineesReceivedFullSexEd ?? null,
+            genericLifeSkillsInSyllabus: v.genericLifeSkillsInSyllabus ?? null,
+            genericLifeSkillsExtracurricular: v.genericLifeSkillsExtracurricular ?? null,
+            reproHealthEdInSyllabus: v.reproHealthEdInSyllabus ?? null,
+            reproHealthEdExtracurricular: v.reproHealthEdExtracurricular ?? null,
+            hivTransmissionEdInSyllabus: v.hivTransmissionEdInSyllabus ?? null,
+            hivTransmissionEdExtracurricular: v.hivTransmissionEdExtracurricular ?? null,
+            trainersDeliveredSexEd: v.trainersDeliveredSexEd ?? null,
+            trainersPassedOnToStudents: v.trainersPassedOnToStudents ?? null,
+            heldParentOrientationSessions: v.heldParentOrientationSessions ?? null,
+
+            vacataireProfMale: v.vacataireProfMale ?? null,
+            vacataireProfFemale: v.vacataireProfFemale ?? null,
+            vacataireNonProfMale: v.vacataireNonProfMale ?? null,
+            vacataireNonProfFemale: v.vacataireNonProfFemale ?? null,
+            permanentMale: v.permanentMale ?? null,
+            permanentFemale: v.permanentFemale ?? null,
+
+            facesDifficulties: v.facesDifficulties ?? null,
+            difficultyTypes: v.difficultyTypes ?? [],
+            difficultyOtherTexts: v.difficultyOtherTexts ?? [],
+            perspectives: v.perspectives ?? [],
+          },
+        },
+      };
+
+      // 12 child arrays — pass-through from questionnaireData (already
+      // Prisma-shaped by VT-4's normalizer), not re-derived from `flat`.
+      // Undefined -> [] only; no field remapping, no reinterpretation.
+      const qd = questionnaireData as any;
+      vtDiplomaDataRows = qd.diplomaData ?? [];
+      vtTraineeAgeFlowRows = qd.traineeAgeFlow ?? [];
+      vtTrainerAgeRows = qd.trainerAge ?? [];
+      vtEducationLevelFlowRows = qd.educationLevelFlow ?? [];
+      vtTraineeVulnerableRows = qd.traineeVulnerable ?? [];
+      vtTrainerDisabilityRows = qd.trainerDisability ?? [];
+      vtScholarshipRows = qd.scholarship ?? [];
+      vtSpecialtyRows = qd.specialtyRows ?? [];
+      vtCurriculaRows = qd.curriculum ?? [];
+      vtInfrastructureRows = qd.infrastructure ?? [];
+      vtFurnitureRows = qd.furniture ?? [];
+      vtTrainerRosterRows = qd.trainerRoster ?? [];
     }
 
     // Administration's S21Q01/S22Q01/S3Q01 use SFP status categories
@@ -874,6 +1121,34 @@ export class QuestionnairesService {
           projectProgramActivities: projectProgramActivityRows.length
             ? { createMany: { data: projectProgramActivityRows as any, skipDuplicates: true } }
             : undefined,
+          // VT-5: the 12 Vocational Training child relations — writes
+          // skipped when empty (design note: sparse VT drafts must save;
+          // no placeholder rows). Relation names verified against
+          // prisma/schema.prisma's OnefopSubmission model, not guessed.
+          vtDiplomaData: vtDiplomaDataRows.length
+            ? { createMany: { data: vtDiplomaDataRows as any, skipDuplicates: true } } : undefined,
+          vtTraineeAgeFlow: vtTraineeAgeFlowRows.length
+            ? { createMany: { data: vtTraineeAgeFlowRows as any, skipDuplicates: true } } : undefined,
+          vtTrainerAge: vtTrainerAgeRows.length
+            ? { createMany: { data: vtTrainerAgeRows as any, skipDuplicates: true } } : undefined,
+          vtEducationLevelFlow: vtEducationLevelFlowRows.length
+            ? { createMany: { data: vtEducationLevelFlowRows as any, skipDuplicates: true } } : undefined,
+          vtTraineeVulnerable: vtTraineeVulnerableRows.length
+            ? { createMany: { data: vtTraineeVulnerableRows as any, skipDuplicates: true } } : undefined,
+          vtTrainerDisability: vtTrainerDisabilityRows.length
+            ? { createMany: { data: vtTrainerDisabilityRows as any, skipDuplicates: true } } : undefined,
+          vtScholarship: vtScholarshipRows.length
+            ? { createMany: { data: vtScholarshipRows as any, skipDuplicates: true } } : undefined,
+          vtSpecialtyRows: vtSpecialtyRows.length
+            ? { createMany: { data: vtSpecialtyRows as any, skipDuplicates: true } } : undefined,
+          vtCurricula: vtCurriculaRows.length
+            ? { createMany: { data: vtCurriculaRows as any, skipDuplicates: true } } : undefined,
+          vtInfrastructure: vtInfrastructureRows.length
+            ? { createMany: { data: vtInfrastructureRows as any, skipDuplicates: true } } : undefined,
+          vtFurniture: vtFurnitureRows.length
+            ? { createMany: { data: vtFurnitureRows as any, skipDuplicates: true } } : undefined,
+          vtTrainerRoster: vtTrainerRosterRows.length
+            ? { createMany: { data: vtTrainerRosterRows as any, skipDuplicates: true } } : undefined,
         },
       });
     } catch (err: any) {
@@ -1706,28 +1981,28 @@ export class QuestionnairesService {
   async getAllQuestionnaires() {
     return (this.prisma as any).onefopSubmission.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true },
     });
   }
 
   async getQuestionnaireById(id: string) {
     return (this.prisma as any).onefopSubmission.findUnique({
       where: { id },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true, vocationalTrainingDetail: true, vtDiplomaData: true, vtTraineeAgeFlow: true, vtTrainerAge: true, vtEducationLevelFlow: true, vtTraineeVulnerable: true, vtTrainerDisability: true, vtScholarship: true, vtSpecialtyRows: true, vtCurricula: true, vtInfrastructure: true, vtFurniture: true, vtTrainerRoster: true },
     });
   }
 
   async listByStatus(status: string, limit: number, offset: number) {
     return (this.prisma as any).onefopSubmission.findMany({
       where: { status }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true },
     });
   }
 
   async getById(id: string) {
     const submission = await (this.prisma as any).onefopSubmission.findUnique({
       where: { id },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true, vocationalTrainingDetail: true, vtDiplomaData: true, vtTraineeAgeFlow: true, vtTrainerAge: true, vtEducationLevelFlow: true, vtTraineeVulnerable: true, vtTrainerDisability: true, vtScholarship: true, vtSpecialtyRows: true, vtCurricula: true, vtInfrastructure: true, vtFurniture: true, vtTrainerRoster: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     return submission;

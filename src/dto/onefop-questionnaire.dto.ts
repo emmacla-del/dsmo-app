@@ -8,6 +8,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsInt,
+  IsBoolean,
   Min,
   Max,
   IsIn,
@@ -709,6 +710,384 @@ export class ProjectProgramOutcomesDto {
 }
 
 // ─────────────────────────────────────────────
+// VOCATIONAL TRAINING (VT-3) — DTO representation only.
+//
+// Sibling pattern cloned: ProjectProgramQuestionnaireDto (this file) —
+// the only existing entity whose top-level DTO combines one
+// XxxIdentificationDto (Detail) with separate child-row array fields
+// (ProjectProgramActivityDto[]) rather than folding everything into one
+// flat identification block. Field names and nullability throughout
+// this section come directly from prisma/schema.prisma
+// (OnefopVocationalTrainingDetail + the 12 OnefopVt* models) — not from
+// VOCATIONAL_TRAINING_DESIGN_NOTE.md prose or onefop_ast.dart paperCode/
+// path values. Every VT* child DTO below is an array of row-DTOs whose
+// fields match their Prisma model's own columns 1:1 (mirroring
+// ProjectProgramActivityDto's relationship to ProjectProgramActivity),
+// not a nested per-enum-member convenience shape — that would mean
+// inventing property names (e.g. "doctorat") that don't exist as Prisma
+// columns, which VT-3 is scoped not to do.
+//
+// No @ArrayMaxSize on any VT array field, unlike ProjectProgramActivityDto
+// (capped at 13): Prisma itself imposes no array-size constraint (child
+// rows are unbounded), and a DTO-level cap here would be business
+// validation this phase is scoped not to add.
+// ─────────────────────────────────────────────
+
+const VT_PERSON_TYPES = ['TRAINEE', 'TRAINER'];
+const VT_DIPLOMA_KINDS = ['ACADEMIC', 'PROFESSIONAL'];
+const VT_DIPLOMA_CODES = [
+  'DOCTORAT', 'MASTER2', 'MAITRISE', 'LICENCE', 'DEUG_DUT', 'BACC_GENERAL',
+  'BACC_TECHNIQUE', 'PROBATOIRE', 'BEPC', 'CEP', 'SANS_DIPLOME_ACADEMIQUE',
+  'DIPLEG_DIPES2', 'INGENIEUR_MASTER_PRO', 'DIPCEG_DIPES1', 'LICENCE_PRO',
+  'BTS_HND', 'BEP_BP_BACPRO', 'CAPIEG', 'CAPIAEG', 'CAP', 'DQP', 'CQP',
+  'AUTRES_PRO', 'SANS_DIPLOME_PROFESSIONNEL', 'TOTAL',
+];
+// TOTAL excluded — "TOTAL is not a valid value for a person's diploma"
+// (roster academicDiploma/professionalDiploma only).
+const VT_DIPLOMA_CODES_NO_TOTAL = VT_DIPLOMA_CODES.filter((c) => c !== 'TOTAL');
+const VT_GENDERS = ['MALE', 'FEMALE', 'TOTAL'];
+const VT_AGE_BANDS = [
+  'UNDER_14', 'AGE_14', 'AGE_15', 'AGE_16', 'AGE_17', 'AGE_18', 'AGE_19',
+  'AGE_20', 'AGE_21', 'AGE_22', 'AGE_23', 'AGE_24', 'AGE_25', 'AGE_26',
+  'AGE_27', 'AGE_28', 'AGE_29', 'AGE_30', 'AGE_31', 'AGE_32', 'AGE_33',
+  'AGE_34', 'AGE_35', 'ABOVE_35', 'TOTAL',
+];
+const VT_TRAINER_AGE_BANDS = ['AGE_18_24', 'AGE_25_39', 'AGE_40_59', 'AGE_60_PLUS', 'TOTAL'];
+const VT_FLOW_STATUSES = ['ENTRANT', 'SORTANT', 'ABANDON'];
+const VT_EDUCATION_LEVELS = [
+  'NON_ALPHABETISE', 'PRIMAIRE', 'PREMIER_CYCLE_GENERAL',
+  'PREMIER_CYCLE_TECHNIQUE', 'SECOND_CYCLE_GENERAL',
+  'SECOND_CYCLE_TECHNIQUE', 'ENSEIGNEMENT_NORMAL',
+  'ENSEIGNEMENT_SUPERIEUR', 'TOTAL',
+];
+const VT_VULNERABLE_CATEGORIES = [
+  'MOTEUR', 'VISUEL', 'AUDITIF', 'POLYHANDICAPES', 'REFUGIES',
+  'ORPHELINS_VULNERABLES', 'DEPLACES_INTERNES', 'RETOURNES', 'BORORO',
+  'BAKA', 'BAGUIELI', 'TOTAL',
+];
+const VT_TRAINER_DISABILITY_TYPES = ['MOTEUR', 'VISUEL', 'AUDITIF', 'POLYHANDICAPES', 'TOTAL'];
+const VT_SCHOLARSHIP_CATEGORIES = ['OTHER_ADMIN', 'INTERNATIONAL', 'TOTAL'];
+const VT_SCHOLARSHIP_STATUSES = ['GRANTED', 'RECEIVED'];
+const VT_INFRASTRUCTURE_TYPES = [
+  'SALLE_CLASSE', 'ATELIERS_PRATIQUES', 'LABORATOIRES',
+  'BLOCS_ADMINISTRATIFS', 'SALLE_REUNION', 'SALLE_FORMATEURS', 'BUREAUX',
+  'MAGASIN', 'ESPACES_TEMPORAIRES',
+];
+const VT_FURNITURE_TYPES = [
+  'BANC_1_PLACE', 'BANC_2_PLACES', 'BANC_3_PLACES', 'BANC_4_PLACES_PLUS',
+  'CHAISES_FORMATEURS', 'TABLES_FORMATEURS', 'ARMOIRES', 'TABLEAUX',
+];
+// Roster trainerStatus is plain string '1'/'2'/'3' (printed codes), not
+// VtTrainerStatus — that enum's TOTAL member is structurally invalid on
+// a named-person row (see OnefopVtTrainerRoster's schema.prisma comment).
+const VT_ROSTER_TRAINER_STATUSES = ['1', '2', '3'];
+
+// Matches OnefopVtDiplomaData columns exactly (id/submissionId/createdAt
+// excluded — assigned at persistence, out of scope here). Covers 4.1,
+// 4.2, 8.1, 8.2 in one array, differentiated per-row by personType/
+// diplomaKind, matching the single Prisma model they share.
+export class VtDiplomaDataDto {
+  @IsIn(VT_PERSON_TYPES) personType!: string;
+  @IsIn(VT_DIPLOMA_KINDS) diplomaKind!: string;
+  @IsIn(VT_DIPLOMA_CODES) diploma!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtTraineeAgeFlow columns exactly (4.7).
+export class VtTraineeAgeFlowDto {
+  @IsIn(VT_AGE_BANDS) ageBand!: string;
+  @IsIn(VT_FLOW_STATUSES) flowStatus!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtTrainerAge columns exactly (8.3).
+export class VtTrainerAgeDto {
+  @IsIn(VT_TRAINER_AGE_BANDS) ageBand!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtEducationLevelFlow columns exactly (4.8).
+export class VtEducationLevelFlowDto {
+  @IsIn(VT_EDUCATION_LEVELS) educationLevel!: string;
+  @IsIn(VT_FLOW_STATUSES) flowStatus!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtTraineeVulnerable columns exactly (4.9).
+export class VtTraineeVulnerableDto {
+  @IsIn(VT_VULNERABLE_CATEGORIES) category!: string;
+  @IsIn(VT_FLOW_STATUSES) flowStatus!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtTrainerDisability columns exactly (8.6).
+export class VtTrainerDisabilityDto {
+  @IsIn(VT_TRAINER_DISABILITY_TYPES) category!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtScholarship columns exactly (4.11).
+export class VtScholarshipDto {
+  @IsIn(VT_SCHOLARSHIP_CATEGORIES) category!: string;
+  @IsIn(VT_SCHOLARSHIP_STATUSES) status!: string;
+  @IsIn(VT_GENDERS) gender!: string;
+  @IsOptional() @IsInt() value?: number;
+}
+
+// Matches OnefopVtSpecialtyRow columns exactly. Covers 4.3, 4.4, 4.5,
+// 4.6, 4.10, 6.3, 8.4, 8.7 in one array, differentiated per-row by
+// tableCode — 4.3/4.4/4.5 remain three distinct tableCode values here,
+// not merged. Named cell columns only, no cell1..cell4 (design note
+// §13.1, closed).
+export class VtSpecialtyRowDto {
+  @IsString() @IsNotEmpty() @ToString() tableCode!: string;
+  @IsInt() rowIndex!: number;
+  @IsOptional() @IsString() @ToString() specialtyText?: string;
+
+  @IsOptional() @IsInt() fiMale?: number;
+  @IsOptional() @IsInt() fiFemale?: number;
+  @IsOptional() @IsInt() fcMale?: number;
+  @IsOptional() @IsInt() fcFemale?: number;
+
+  @IsOptional() @IsInt() year1Male?: number;
+  @IsOptional() @IsInt() year1Female?: number;
+  @IsOptional() @IsInt() year2Male?: number;
+  @IsOptional() @IsInt() year2Female?: number;
+
+  @IsOptional() @IsInt() male?: number;
+  @IsOptional() @IsInt() female?: number;
+  @IsOptional() @IsInt() total?: number;
+
+  @IsOptional() @IsInt() fiCount?: number;
+  @IsOptional() @IsInt() fcCount?: number;
+}
+
+// Matches OnefopVtCurriculum columns exactly (5.2).
+export class VtCurriculumDto {
+  @IsInt() rowIndex!: number;
+  @IsOptional() @IsString() @ToString() specialtyText?: string;
+  @IsOptional() @IsBoolean() hasCurriculum?: boolean;
+  @IsOptional() @IsBoolean() isApproved?: boolean;
+}
+
+// Matches OnefopVtInfrastructure columns exactly (5.3).
+export class VtInfrastructureDto {
+  @IsIn(VT_INFRASTRUCTURE_TYPES) infrastructureType!: string;
+  @IsOptional() @IsInt() totalCount?: number;
+  @IsOptional() @IsInt() permanentGoodCount?: number;
+  @IsOptional() @IsInt() permanentBadCount?: number;
+  @IsOptional() @IsInt() temporaryCount?: number;
+}
+
+// Matches OnefopVtFurniture columns exactly (5.4).
+export class VtFurnitureDto {
+  @IsIn(VT_FURNITURE_TYPES) furnitureType!: string;
+  @IsOptional() @IsInt() goodCount?: number;
+  @IsOptional() @IsInt() badCount?: number;
+}
+
+// Matches OnefopVtTrainerRoster columns exactly (8.8). trainerStatus is
+// string '1'/'2'/'3', not VtTrainerStatus. academicDiploma/
+// professionalDiploma accept any VtDiplomaCode except TOTAL — the
+// academic-only/professional-only split invariant (design note §13.3)
+// is an application-level rule, not a Prisma constraint, and is
+// deliberately not enforced here (DTO-level business validation is out
+// of scope for VT-3).
+export class VtTrainerRosterDto {
+  @IsInt() rowIndex!: number;
+  @IsString() @IsNotEmpty() @ToString() lastName!: string;
+  @IsString() @IsNotEmpty() @ToString() firstName!: string;
+  @IsOptional() @IsString() @ToString() sex?: string;
+  @IsOptional() @IsIn(VT_ROSTER_TRAINER_STATUSES) trainerStatus?: string;
+  @IsOptional() @IsBoolean() isAdminPersonnel?: boolean;
+  @IsOptional() @IsIn(VT_DIPLOMA_CODES_NO_TOTAL) academicDiploma?: string;
+  @IsOptional() @IsIn(VT_DIPLOMA_CODES_NO_TOTAL) professionalDiploma?: string;
+}
+
+// Matches OnefopVocationalTrainingDetail columns exactly. `name` is the
+// only required field (Prisma: `name String`, every other column is
+// nullable) — no blanket required validators added beyond that one
+// schema-derived fact. respondentSex lives here only, per design note
+// Decision 5 — not duplicated onto RespondentDto (untouched). The five
+// §7.1.3 comms-channel fields are plain string arrays, empty allowed, no
+// channel enum, no non-empty validator.
+export class VocationalTrainingIdentificationDto {
+  // §1 — identification
+  @IsOptional() @IsString() @ToString() structureCode?: string;
+  @IsString() @IsNotEmpty() @ToString() name!: string;
+  @IsOptional() @IsString() @ToString() sigle?: string;
+  @IsOptional() @IsString() @ToString() region?: string;
+  @IsOptional() @IsString() @ToString() department?: string;
+  @IsOptional() @IsString() @ToString() subdivision?: string;
+  @IsOptional() @IsString() @ToString() commune?: string;
+  @IsOptional() @IsString() @ToString() locality?: string;
+  @IsOptional() @IsString() @ToString() area?: string;
+  @IsOptional() @IsString() @ToString() educationSystem?: string;
+  @IsOptional() @IsString() @ToString() cfpType?: string;
+  @IsOptional() @IsString() @ToString() functionalStatus?: string;
+  @IsOptional() @IsString() @ToString() nonFunctionalReason?: string;
+  @IsOptional() @IsString() @ToString() nonFunctionalReasonOther?: string;
+  @IsOptional() @IsInt() yearOfEstablishment?: number;
+  @IsOptional() @IsString() @ToString() respondentSex?: string;
+  @IsOptional() @IsString() @ToString() promoterName?: string;
+  @IsOptional() @IsString() @ToString() promoterSex?: string;
+  @IsOptional() @IsString() @ToString() promoterPhone1?: string;
+  @IsOptional() @IsString() @ToString() promoterPhone2?: string;
+  @IsOptional() @IsString() @ToString() promoterEmail?: string;
+
+  // §2 — general information
+  @IsOptional() @IsBoolean() hasStateAgreement?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) agreementTypes?: string[];
+  @IsOptional() @IsInt() siteCount?: number;
+  @IsOptional() @IsBoolean() sharesInfrastructure?: boolean;
+  @IsOptional() @IsString() @ToString() sharedWithSchoolName?: string;
+  @IsOptional() @IsBoolean() hasSpecialNeedsTrainers?: boolean;
+  @IsOptional() @IsInt() specialNeedsTrainerTotal?: number;
+  @IsOptional() @IsInt() specialNeedsTrainerFemale?: number;
+  @IsOptional() @IsBoolean() hasAccessRamps?: boolean;
+  @IsOptional() @IsBoolean() hasDirectorOffice?: boolean;
+  @IsOptional() @IsString() @ToString() poBox?: string;
+  @IsOptional() @IsString() @ToString() email?: string;
+  @IsOptional() @IsString() @ToString() website?: string;
+  @IsOptional() @IsBoolean() isAccredited?: boolean;
+  @IsOptional() @IsInt() lastAccreditationYear?: number;
+  @IsOptional() @IsString() @ToString() accreditationOrderNumber?: string;
+  @IsOptional() @IsString() @ToString() accreditationOrderDate?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) trainingTypesOffered?: string[];
+  @IsOptional() @IsInt() totalTraineesDeclared?: number;
+  @IsOptional() @IsInt() totalTrainersDeclared?: number;
+  @IsOptional() @IsInt() traineesFromLowerSecondary?: number;
+  @IsOptional() @IsInt() traineesFromUpperSecondary?: number;
+  @IsOptional() @IsBoolean() hasEnergySource?: boolean;
+  @IsOptional() @IsBoolean() isEnergySourceFunctional?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) energySourceTypes?: string[];
+  @IsOptional() @IsBoolean() hasWaterSource?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) waterSourceTypes?: string[];
+  @IsOptional() @IsBoolean() hasHandwashingDevice?: boolean;
+  @IsOptional() @IsBoolean() hasReceivedHealthCampaign?: boolean;
+  @IsOptional() @IsBoolean() hasFirstAidBox?: boolean;
+  @IsOptional() @IsBoolean() hasDispensary?: boolean;
+  @IsOptional() @IsBoolean() hasFunctionalLibrary?: boolean;
+  @IsOptional() @IsString() @ToString() fenceStatus?: string;
+  @IsOptional() @IsBoolean() hasSchoolCouncil?: boolean;
+  @IsOptional() @IsBoolean() hasLevelCouncil?: boolean;
+  @IsOptional() @IsBoolean() hasDisciplinaryCouncil?: boolean;
+  @IsOptional() @IsBoolean() hasFunctionalLatrines?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) latrineTypes?: string[];
+  @IsOptional() @IsBoolean() latrinesSeparateByGender?: boolean;
+  @IsOptional() @IsBoolean() latrinesSeparateFromStaff?: boolean;
+  @IsOptional() @IsBoolean() hasPlayground?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) playgroundTypes?: string[];
+  @IsOptional() @IsBoolean() hasIctTools?: boolean;
+  @IsOptional() @IsInt() ictToolsForTrainersCount?: number;
+  @IsOptional() @IsInt() ictToolsInternetCount?: number;
+  @IsOptional() @IsBoolean() trainersIctTrained?: boolean;
+  @IsOptional() @IsInt() trainersIctTrainedTotal?: number;
+  @IsOptional() @IsInt() trainersIctTrainedFemale?: number;
+  @IsOptional() @IsBoolean() trainersViolenceTraining?: boolean;
+  @IsOptional() @IsBoolean() trainersPssTraining?: boolean;
+  @IsOptional() @IsBoolean() hasBoarding?: boolean;
+  @IsOptional() @IsBoolean() hasGbvMechanism?: boolean;
+  @IsOptional() @IsBoolean() hasCanteen?: boolean;
+
+  // §3 — education in emergencies
+  @IsOptional() @IsBoolean() facedCrisis?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) crisisTypes?: string[];
+  @IsOptional() @IsBoolean() crisisClosedCenter?: boolean;
+  @IsOptional() @IsInt() closureDurationWeeks?: number;
+  @IsOptional() @IsBoolean() siteRelocated?: boolean;
+  @IsOptional() @IsString() @ToString() relocationLocality?: string;
+  @IsOptional() @IsBoolean() traineesReassigned?: boolean;
+  @IsOptional() @IsString() @ToString() reassignedTo?: string;
+  @IsOptional() @IsBoolean() hasEarlyWarningSystem?: boolean;
+  @IsOptional() @IsString() @ToString() earlyWarningDescription?: string;
+  @IsOptional() @IsBoolean() earlyWarningFunctional?: boolean;
+  @IsOptional() @IsBoolean() trainersInnovativePedagogyTrained?: boolean;
+  @IsOptional() @IsInt() trainersInnovativePedagogyMale?: number;
+  @IsOptional() @IsInt() trainersInnovativePedagogyFemale?: number;
+  @IsOptional() @IsBoolean() trainersCrisisPedagogyTrained?: boolean;
+  @IsOptional() @IsInt() trainersCrisisPedagogyMale?: number;
+  @IsOptional() @IsInt() trainersCrisisPedagogyFemale?: number;
+  @IsOptional() @IsBoolean() trainersDrrmTrained?: boolean;
+  @IsOptional() @IsInt() trainersDrrmMale?: number;
+  @IsOptional() @IsInt() trainersDrrmFemale?: number;
+  @IsOptional() @IsBoolean() trainersEvacuationDrillTrained?: boolean;
+  @IsOptional() @IsInt() trainersEvacuationDrillMale?: number;
+  @IsOptional() @IsInt() trainersEvacuationDrillFemale?: number;
+  @IsOptional() @IsBoolean() trainersOtherEmergencyTrained?: boolean;
+  @IsOptional() @IsInt() trainersOtherEmergencyMale?: number;
+  @IsOptional() @IsInt() trainersOtherEmergencyFemale?: number;
+  @IsOptional() @IsBoolean() hasStudentRecordsSecurity?: boolean;
+  @IsOptional() @IsBoolean() hasTextbookSecurity?: boolean;
+  @IsOptional() @IsBoolean() hasContingencyPlan?: boolean;
+  @IsOptional() @IsBoolean() traineesTrainedOnProtection?: boolean;
+
+  // §5.1 — study guides
+  @IsOptional() @IsBoolean() hasTraineeStudyGuides?: boolean;
+  @IsOptional() @IsInt() traineeStudyGuideCount?: number;
+  @IsOptional() @IsBoolean() hasTrainerStudyGuides?: boolean;
+  @IsOptional() @IsInt() trainerStudyGuideCount?: number;
+
+  // §6 — orientation / post-training follow-up
+  @IsOptional() @IsBoolean() hasCareerGuidanceService?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) careerGuidanceTimings?: string[];
+  @IsOptional() @IsBoolean() traineesChooseWithSupport?: boolean;
+  @IsOptional() @IsBoolean() collaboratesWithCiopCosup?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) guidanceSupportTypes?: string[];
+  @IsOptional() @IsString() @ToString() guidanceSupportOther?: string;
+  @IsOptional() @IsBoolean() hasPostTrainingFollowUp?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) followUpMechanisms?: string[];
+  @IsOptional() @IsString() @ToString() followUpMechanismOther?: string;
+  @IsOptional() @IsBoolean() hasInsertionSupportUnit?: boolean;
+  @IsOptional() @IsBoolean() hasTraineeDatabaseTool?: boolean;
+  @IsOptional() @IsBoolean() hasJobSearchSupportTool?: boolean;
+
+  // §7 — cross-cutting themes
+  @IsOptional() @IsBoolean() hasHivAidsRules?: boolean;
+  @IsOptional() @IsBoolean() hivRulesCoverSafety?: boolean;
+  @IsOptional() @IsBoolean() hivRulesCoverStigmaHiv?: boolean;
+  @IsOptional() @IsBoolean() hivRulesCoverStigmaOther?: boolean;
+  @IsOptional() @IsBoolean() hivRulesCoverHarassment?: boolean;
+  @IsOptional() @IsBoolean() hasDisciplinaryProcedures?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) pupilsCommsChannels?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) teachingStaffCommsChannels?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) nonTeachingStaffCommsChannels?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) parentsCommsChannels?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) schoolCouncilCommsChannels?: string[];
+  @IsOptional() @IsBoolean() addressesIstIssues?: boolean;
+  @IsOptional() @IsBoolean() traineesReceivedFullSexEd?: boolean;
+  @IsOptional() @IsBoolean() genericLifeSkillsInSyllabus?: boolean;
+  @IsOptional() @IsBoolean() genericLifeSkillsExtracurricular?: boolean;
+  @IsOptional() @IsBoolean() reproHealthEdInSyllabus?: boolean;
+  @IsOptional() @IsBoolean() reproHealthEdExtracurricular?: boolean;
+  @IsOptional() @IsBoolean() hivTransmissionEdInSyllabus?: boolean;
+  @IsOptional() @IsBoolean() hivTransmissionEdExtracurricular?: boolean;
+  @IsOptional() @IsBoolean() trainersDeliveredSexEd?: boolean;
+  @IsOptional() @IsBoolean() trainersPassedOnToStudents?: boolean;
+  @IsOptional() @IsBoolean() heldParentOrientationSessions?: boolean;
+
+  // §8.5 — trainer occupational status (embedded, not normalized)
+  @IsOptional() @IsInt() vacataireProfMale?: number;
+  @IsOptional() @IsInt() vacataireProfFemale?: number;
+  @IsOptional() @IsInt() vacataireNonProfMale?: number;
+  @IsOptional() @IsInt() vacataireNonProfFemale?: number;
+  @IsOptional() @IsInt() permanentMale?: number;
+  @IsOptional() @IsInt() permanentFemale?: number;
+
+  // §9 — difficulties and perspectives
+  @IsOptional() @IsBoolean() facesDifficulties?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) difficultyTypes?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) difficultyOtherTexts?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) perspectives?: string[];
+}
+
+// ─────────────────────────────────────────────
 // TOP LEVEL DISCRIMINATED UNION
 // ─────────────────────────────────────────────
 
@@ -791,10 +1170,60 @@ export class ProjectProgramQuestionnaireDto extends BaseQuestionnaireDto {
   @IsOptional() @ValidateNested() @Type(() => DisabledRecruitmentsDto) vulnerableRecruitments?: DisabledRecruitmentsDto;
 }
 
+// VT-3: DTO representation only. respondent!: RespondentDto is inherited
+// unchanged from BaseQuestionnaireDto — §1.15's name/function/phone1/
+// phone2/email target the same shared RespondentDto every other entity
+// uses (RespondentDto itself is untouched); respondentSex is VT-local
+// (VocationalTrainingIdentificationDto.respondentSex), not added here.
+export class VocationalTrainingQuestionnaireDto extends BaseQuestionnaireDto {
+  organizationType: 'vocationalTraining' = 'vocationalTraining';
+
+  @IsDefined()
+  @ValidateNested() @Type(() => VocationalTrainingIdentificationDto)
+  vocationalTraining!: VocationalTrainingIdentificationDto;
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtDiplomaDataDto)
+  diplomaData?: VtDiplomaDataDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtTraineeAgeFlowDto)
+  traineeAgeFlow?: VtTraineeAgeFlowDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtTrainerAgeDto)
+  trainerAge?: VtTrainerAgeDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtEducationLevelFlowDto)
+  educationLevelFlow?: VtEducationLevelFlowDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtTraineeVulnerableDto)
+  traineeVulnerable?: VtTraineeVulnerableDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtTrainerDisabilityDto)
+  trainerDisability?: VtTrainerDisabilityDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtScholarshipDto)
+  scholarship?: VtScholarshipDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtSpecialtyRowDto)
+  specialtyRows?: VtSpecialtyRowDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtCurriculumDto)
+  curriculum?: VtCurriculumDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtInfrastructureDto)
+  infrastructure?: VtInfrastructureDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtFurnitureDto)
+  furniture?: VtFurnitureDto[];
+
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => VtTrainerRosterDto)
+  trainerRoster?: VtTrainerRosterDto[];
+}
+
 export type AnyQuestionnaireDto =
   | EnterpriseQuestionnaireDto
   | CooperativeQuestionnaireDto
   | CtdQuestionnaireDto
   | OngQuestionnaireDto
   | ProjectProgramQuestionnaireDto
-  | AdministrationQuestionnaireDto;
+  | AdministrationQuestionnaireDto
+  | VocationalTrainingQuestionnaireDto;
