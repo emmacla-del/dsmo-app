@@ -169,7 +169,39 @@ export class OnefopPuppeteerService {
         return path.join(__dirname, 'templates', 'dynamic', `${formType}.hbs`);
     }
 
+    // --single-process Chrome (required in this container's memory-
+    // constrained environment — see maxConcurrentRenders' comment above) has
+    // a confirmed, reproducible failure on the very first render right after
+    // the browser is (re-)launched: "Navigating frame was detached" in
+    // production, "Target closed" in a local Windows repro — different
+    // messages for the same underlying single-process frame-initialization
+    // race, since printToPDF's own architecture doesn't fully expect
+    // single-process mode. Confirmed live in production during the React
+    // migration's PDF-preview work: the first PDF request after any browser
+    // (re-)launch failed with that exact error every time, while every
+    // subsequent request on the same already-launched browser succeeded
+    // reliably. Removing --single-process would fix this outright but risks
+    // reintroducing the OOM/crash concern that flag exists for under
+    // concurrent load, which can't be verified against this host's actual
+    // memory limits from here — so instead of touching that flag, this
+    // retries exactly once, scoped to only the render that itself triggered
+    // a fresh launch (a healthy, already-warm browser never retries), which
+    // matches the confirmed failure window precisely.
     private async htmlToPdf(html: string, formType?: string): Promise<Buffer> {
+        const wasFreshLaunch = !this.browser || !this.browser.isConnected();
+        try {
+            return await this.renderPdf(html, formType);
+        } catch (error) {
+            if (!wasFreshLaunch) throw error;
+            console.warn(
+                '⚠️ PDF render failed on a freshly-launched browser, retrying once:',
+                (error as Error).message,
+            );
+            return this.renderPdf(html, formType);
+        }
+    }
+
+    private async renderPdf(html: string, formType?: string): Promise<Buffer> {
         let page: any;
         try {
             if (!this.browser || !this.browser.isConnected()) {
