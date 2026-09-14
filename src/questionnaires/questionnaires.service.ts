@@ -1198,44 +1198,62 @@ export class QuestionnairesService {
     // Recruitments (S22Q01 permanent + S22Q02 temporary) re-partitioned by
     // diploma instead of age in S22Q03 — same recruited population, the
     // grand totals must agree, overall and per gender.
-    const byAge = {
-      male: n('s22q01_total_male_total') + n('s22q02_total_male_total'),
-      female: n('s22q01_total_female_total') + n('s22q02_total_female_total'),
-      total: n('s22q01_total_total_total') + n('s22q02_total_total_total'),
-    };
-    const byDiploma = {
-      male: n('s22q03_total_male_total'),
-      female: n('s22q03_total_female_total'),
-      total: n('s22q03_total_total_total'),
-    };
-    (['male', 'female', 'total'] as const).forEach((gender) => {
-      if (byAge[gender] !== byDiploma[gender] && (byAge[gender] > 0 || byDiploma[gender] > 0)) {
-        flags.push({
-          code: 'S22Q03_DIPLOMA_MISMATCH',
-          message: `Répartition des recrutements par diplôme (S22Q03: ${byDiploma[gender]}, ${gender}) ` +
-            `ne correspond pas au total des recrutements permanents + temporaires ` +
-            `(S22Q01+S22Q02: ${byAge[gender]}, ${gender}).`,
-        });
-      }
-    });
+    //
+    // ADMINISTRATION has no S22Q02/S22Q03 in its schema (see onefop_ast.dart)
+    // — flat[...] reads 0 for both while S22Q01 can carry real data, which
+    // would otherwise spuriously flag every administration submission that
+    // reports any recruitment at all. The Flutter live-hint checker
+    // (lib/screens/onefop/onefop_coherence_checker.dart) already guards this
+    // for exactly that reason; this backend copy hadn't matched it — ported
+    // over during the React migration's coherence-checker port when the
+    // discrepancy surfaced.
+    if (entityType !== 'ADMINISTRATION') {
+      const byAge = {
+        male: n('s22q01_total_male_total') + n('s22q02_total_male_total'),
+        female: n('s22q01_total_female_total') + n('s22q02_total_female_total'),
+        total: n('s22q01_total_total_total') + n('s22q02_total_total_total'),
+      };
+      const byDiploma = {
+        male: n('s22q03_total_male_total'),
+        female: n('s22q03_total_female_total'),
+        total: n('s22q03_total_total_total'),
+      };
+      (['male', 'female', 'total'] as const).forEach((gender) => {
+        if (byAge[gender] !== byDiploma[gender] && (byAge[gender] > 0 || byDiploma[gender] > 0)) {
+          flags.push({
+            code: 'S22Q03_DIPLOMA_MISMATCH',
+            message: `Répartition des recrutements par diplôme (S22Q03: ${byDiploma[gender]}, ${gender}) ` +
+              `ne correspond pas au total des recrutements permanents + temporaires ` +
+              `(S22Q01+S22Q02: ${byAge[gender]}, ${gender}).`,
+          });
+        }
+      });
+    }
 
     // Dismissals appear in three different tables — the departures table
     // (S3Q01, "dismissal" column), the dismissal-reasons table (S3Q02), and
     // the dismissal/technical-unemployment table (S3Q03, "dismissal"
     // column) — all three describe the same dismissals and should agree.
-    (['male', 'female'] as const).forEach((gender) => {
-      const departures = n(`s3q01_total_dismissal_${gender}`);
-      const reasons = n(`s3q02_total_${gender}`);
-      const dismissalUnemployment = n(`s3q03_total_dismissal_${gender}`);
-      const values = [departures, reasons, dismissalUnemployment];
-      if (new Set(values).size > 1 && values.some((v) => v > 0)) {
-        flags.push({
-          code: 'S3_DISMISSAL_MISMATCH',
-          message: `Le nombre de licenciements (${gender}) diffère entre S3Q01 (${departures}), ` +
-            `S3Q02 (${reasons}) et S3Q03 (${dismissalUnemployment}).`,
-        });
-      }
-    });
+    //
+    // ADMINISTRATION has no S3Q03 (deliberately unimplemented pending visual
+    // PDF verification — see onefop_ast.dart), so the same false-positive
+    // risk applies here; guarded for the same reason as the S22Q03 check
+    // above.
+    if (entityType !== 'ADMINISTRATION') {
+      (['male', 'female'] as const).forEach((gender) => {
+        const departures = n(`s3q01_total_dismissal_${gender}`);
+        const reasons = n(`s3q02_total_${gender}`);
+        const dismissalUnemployment = n(`s3q03_total_dismissal_${gender}`);
+        const values = [departures, reasons, dismissalUnemployment];
+        if (new Set(values).size > 1 && values.some((v) => v > 0)) {
+          flags.push({
+            code: 'S3_DISMISSAL_MISMATCH',
+            message: `Le nombre de licenciements (${gender}) diffère entre S3Q01 (${departures}), ` +
+              `S3Q02 (${reasons}) et S3Q03 (${dismissalUnemployment}).`,
+          });
+        }
+      });
+    }
 
     // Disability/vulnerable/first-time recruits are each a subset of total
     // recruits, and S22Q04/S22Q05/S23Q02 all share the same permanent-vs-
