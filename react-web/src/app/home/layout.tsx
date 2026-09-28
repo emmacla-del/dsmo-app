@@ -1,0 +1,191 @@
+"use client";
+
+import { useState, useEffect, type ReactNode } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { clearToken, getCachedUser, getMe } from "@/lib/api-client";
+import { useAuthStore } from "@/lib/auth-store";
+import { useRequireAuth } from "@/lib/use-require-auth";
+import { navItemsForRole, resolveEffectiveRole, roleLabel } from "@/lib/role-navigation";
+import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
+import { getActiveQuarter } from "@/lib/onefop-submission";
+
+/**
+ * Phase 3 home shell — role-aware navigation ported from home_screen.dart's
+ * _buildTabs/_buildDrawer (see role-navigation.ts for the exact mapping).
+ * Deliberately real Next.js routes per destination (/home/<slug>) rather
+ * than Flutter's in-memory tab-index switching: bookmarkable URLs and
+ * working browser back/forward are a "materially better browser-native web
+ * experience" (the plan's own Phase 5 acceptance criterion, applied here to
+ * navigation too), not a mechanical port of Flutter's own mechanism.
+ *
+ * Only one destination is real today (the ONEFOP declaration entry point,
+ * /onefop/preview, built earlier this migration) — every other item links
+ * to an honest "not yet migrated" placeholder rather than a fabricated
+ * screen, per the plan's Phase 6 per-module retirement model.
+ */
+export default function HomeLayout({ children }: { children: ReactNode }) {
+  const t = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
+  const authState = useRequireAuth();
+  const authUser = useAuthStore((s) => s.user);
+  const meQuery = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: getMe,
+    enabled: authState === "authed",
+    initialData: authUser ?? getCachedUser() ?? undefined,
+  });
+  const quarterQuery = useQuery({
+    queryKey: ["onefop", "active-quarter"],
+    queryFn: getActiveQuarter,
+    enabled: authState === "authed",
+  });
+  const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || authState !== "authed") {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--cam-bg)", color: "var(--cam-text-muted)" }}>
+        {t("common.loading")}
+      </div>
+    );
+  }
+
+  const user = meQuery.data ?? authUser ?? getCachedUser();
+  const effectiveRole = user ? resolveEffectiveRole(user) : null;
+  const navItems = (effectiveRole ? navItemsForRole(effectiveRole) : []).filter(
+    (item) => !item.rawRoles || (!!user && item.rawRoles.includes(user.role)),
+  );
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--cam-bg)", color: "var(--cam-text)", fontFamily: "var(--cam-font-sans)" }}>
+      <aside
+        style={{
+          width: 240,
+          flexShrink: 0,
+          borderRight: "var(--cam-border-width) solid var(--cam-border)",
+          background: "var(--cam-surface)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--cam-border)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 6, background: "var(--cam-green)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 11 }}>
+              R.C.
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: "13px", color: "var(--cam-text)" }}>CAM-LEAP · MINEFOP</div>
+              <div style={{ fontSize: "11px", color: "var(--cam-text-muted)" }}>
+                {quarterQuery.data?.label ?? quarterQuery.data?.code ?? "Campagne en cours"}
+              </div>
+            </div>
+          </div>
+          {user && (
+            <div style={{ marginTop: 12, padding: "8px 10px", background: "var(--cam-bg)", borderRadius: 6, border: "1px solid var(--cam-border)" }}>
+              <div style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--cam-text)", overflowWrap: "break-word" }}>
+                {user.email}
+              </div>
+              <div style={{ fontSize: "10.5px", color: "var(--cam-green)", fontWeight: 700, marginTop: 2 }}>
+                {roleLabel(effectiveRole!)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Global New Declaration CTA button: EXCLUSIVELY for COMPANY roles */}
+        {user?.role === "COMPANY" && (
+          <div style={{ padding: "12px 16px 4px" }}>
+            <button
+              type="button"
+              onClick={() => setIsNewDeclarationOpen(true)}
+              className="cam-button cam-button-primary cam-button-block"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                fontSize: 12.5,
+                padding: "8px 12px",
+              }}
+            >
+              <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span>
+              {t("homeLayout.newDeclarationButton")}
+            </button>
+          </div>
+        )}
+
+        <nav style={{ flex: 1, padding: "8px 0", overflowY: "auto" }}>
+          {navItems.map((item) => {
+            const href = item.route ?? `/home/${item.slug}`;
+            const active = item.route ? pathname === item.route : pathname === `/home/${item.slug}`;
+            return (
+              <Link
+                key={item.slug}
+                href={href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "10px 20px",
+                  fontSize: "12.5px",
+                  color: active ? "var(--cam-green)" : "var(--cam-text)",
+                  background: active ? "rgba(0, 122, 94, 0.08)" : "transparent",
+                  borderLeft: active ? "3px solid var(--cam-green)" : "3px solid transparent",
+                  textDecoration: "none",
+                  fontWeight: active ? 700 : 500,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div style={{ padding: "var(--cam-space-4)", borderTop: "var(--cam-border-width) solid var(--cam-border)" }}>
+          <button
+            type="button"
+            onClick={() => {
+              clearToken();
+              router.replace("/");
+            }}
+            style={{
+              width: "100%",
+              background: "none",
+              border: "var(--cam-border-width) solid var(--cam-border-strong)",
+              borderRadius: "var(--cam-radius-sm)",
+              padding: "var(--cam-space-2) var(--cam-space-3)",
+              fontSize: "var(--cam-font-size-sm)",
+              cursor: "pointer",
+            }}
+          >
+            {t("homeLayout.logoutButton")}
+          </button>
+        </div>
+      </aside>
+
+      <main style={{ flex: 1, padding: "var(--cam-space-6) var(--cam-space-5)", minWidth: 0 }}>
+        {meQuery.isLoading && <p>{t("common.loading")}</p>}
+        {meQuery.isError && (
+          <p role="alert" style={{ color: "var(--cam-error)" }}>
+            {(meQuery.error as Error).message}
+          </p>
+        )}
+        {children}
+      </main>
+
+      {/* New Declaration Dialog (DSMO vs ONEFOP -> Entity selection) */}
+      <NewDeclarationDialog
+        isOpen={isNewDeclarationOpen}
+        onClose={() => setIsNewDeclarationOpen(false)}
+      />
+    </div>
+  );
+}
