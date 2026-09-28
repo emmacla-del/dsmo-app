@@ -1,8 +1,23 @@
-// src/data-management/data-management.service.ts
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { EligibilityEngineService } from '../questionnaires/eligibility-engine.service';
+import {
+    CanonicalSchemaAdapterService,
+    AnalyticalPartition,
+    AnalyticalVariableDefinition,
+} from './canonical-schema-adapter.service';
+import {
+    buildOnefopExportWhere,
+    buildSpssExportWhere,
+    resolveExportPartition,
+    type OnefopExportFilters,
+} from './spss/export-filters';
+import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
 import * as ExcelJS from 'exceljs';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // ── Pivot configs for the ONEFOP export ─────────────────────────────────────
 // These 10 breakdown tables have a small, fixed set of categories (CSP ×
@@ -23,8 +38,8 @@ const ENUM_PIVOT_CONFIGS: EnumPivotConfig[] = [
     },
     {
         relationKey: 'diplomaData', valueField: 'value',
-        keyBuilder: (i) => `dipl_${i.diploma}_${i.gender}_${i.ageBand ?? 'NA'}`,
-        headerBuilder: (i) => `Diplôme ${i.diploma} ${i.gender}${i.ageBand ? ' ' + i.ageBand : ''}`,
+        keyBuilder: (i) => i.cspCategory ? `dipl_${i.cspCategory}_${i.diploma}_${i.gender}_${i.ageBand ?? 'NA'}` : `dipl_${i.diploma}_${i.gender}_${i.ageBand ?? 'NA'}`,
+        headerBuilder: (i) => i.cspCategory ? `Diplôme ${i.cspCategory} ${i.diploma} ${i.gender}${i.ageBand ? ' ' + i.ageBand : ''}` : `Diplôme ${i.diploma} ${i.gender}${i.ageBand ? ' ' + i.ageBand : ''}`,
     },
     {
         relationKey: 'disabilityData', valueField: 'value',
@@ -120,7 +135,7 @@ const INDEXED_PIVOT_CONFIGS: IndexedPivotConfig[] = [
 // reads) so this doesn't risk changing Excel export behavior.
 const ENUM_PIVOT_MODELS: Record<string, { modelName: string; fields: string[] }> = {
     cspGenderAge: { modelName: 'onefopCspGenderAge', fields: ['tableName', 'cspCategory', 'gender', 'ageBand'] },
-    diplomaData: { modelName: 'onefopDiplomaData', fields: ['diploma', 'gender', 'ageBand'] },
+    diplomaData: { modelName: 'onefopDiplomaData', fields: ['cspCategory', 'diploma', 'gender', 'ageBand'] },
     disabilityData: { modelName: 'onefopDisabilityData', fields: ['cspCategory', 'status', 'gender'] },
     vulnerableData: { modelName: 'onefopVulnerableData', fields: ['vulnerableType', 'status', 'gender'] },
     firstTimeWorkers: { modelName: 'onefopFirstTimeWorker', fields: ['contractType', 'cspCategory', 'gender', 'ageBand'] },
@@ -167,12 +182,13 @@ const BREAKDOWN_SHEET_DEFS: BreakdownSheetDef[] = [
     {
         title: 'Diplômes', relationKey: 'diplomaData', modelName: 'onefopDiplomaData',
         columns: [
+            { header: 'Catégorie CSP', key: 'cspCategory', width: 14 },
             { header: 'Diplôme', key: 'diploma', width: 16 },
             { header: 'Genre', key: 'gender', width: 10 },
             { header: "Tranche d'âge", key: 'ageBand', width: 14 },
             { header: 'Valeur', key: 'value', width: 10 },
         ],
-        rowMapper: (item) => ({ diploma: item.diploma, gender: item.gender, ageBand: item.ageBand, value: item.value }),
+        rowMapper: (item) => ({ cspCategory: item.cspCategory, diploma: item.diploma, gender: item.gender, ageBand: item.ageBand, value: item.value }),
     },
     {
         title: 'Situations de handicap', relationKey: 'disabilityData', modelName: 'onefopDisabilityData',
@@ -288,26 +304,30 @@ const BREAKDOWN_SHEET_DEFS: BreakdownSheetDef[] = [
         ],
         rowMapper: (item) => ({ domainIndex: item.domainIndex, trainingDomain: item.trainingDomain, maleCount: item.maleCount, femaleCount: item.femaleCount, totalCount: item.totalCount }),
     },
+    // onefopFactRecruitment and onefopFactSkillNeed are permanently empty —
+    // no ETL path writes to them. Their entries have been removed from this
+    // array so Excel exports do not include misleading empty sheets.
+    // If an ETL path is added in the future, restore entries here.
     {
-        title: 'Recrutements (détail)', relationKey: 'factRecruitments', modelName: 'onefopFactRecruitment',
+        title: 'Projets - Activités', relationKey: 'projectProgramActivities', modelName: 'projectProgramActivity',
         columns: [
-            { header: 'Année', key: 'year', width: 10 },
-            { header: 'CSP', key: 'csp', width: 14 },
-            { header: 'Genre', key: 'gender', width: 10 },
-            { header: "Tranche d'âge", key: 'ageGroup', width: 14 },
-            { header: 'Nombre', key: 'count', width: 10 },
-            { header: 'Type de recrutement', key: 'recruitmentType', width: 20 },
+            { header: 'N° ligne', key: 'rowIndex', width: 10 },
+            { header: 'Activité', key: 'description', width: 30 },
+            { header: 'Population cible', key: 'targetPopulation', width: 18 },
+            { header: "Type d'appui", key: 'supportType', width: 16 },
+            { header: 'Portée', key: 'scope', width: 14 },
+            { header: 'Date début', key: 'startDate', width: 14 },
+            { header: 'Durée', key: 'duration', width: 12 },
         ],
-        rowMapper: (item) => ({ year: item.year, csp: item.csp, gender: item.gender, ageGroup: item.ageGroup, count: item.count, recruitmentType: item.recruitmentType }),
-    },
-    {
-        title: 'Besoins compétences (détail)', relationKey: 'factSkillNeeds', modelName: 'onefopFactSkillNeed',
-        columns: [
-            { header: 'Année', key: 'year', width: 10 },
-            { header: 'Compétence', key: 'skillDescription', width: 32 },
-            { header: 'Nombre', key: 'count', width: 10 },
-        ],
-        rowMapper: (item) => ({ year: item.year, skillDescription: item.skillDescription, count: item.count }),
+        rowMapper: (item) => ({
+            rowIndex: item.rowIndex,
+            description: item.description,
+            targetPopulation: item.targetPopulation,
+            supportType: item.supportType,
+            scope: item.scope,
+            startDate: item.startDate,
+            duration: item.duration,
+        }),
     },
     // VT (Formation Professionnelle) breakdown tables — 11 of the 12 OnefopVt*
     // child tables. OnefopVtTrainerRoster (8.8) is deliberately excluded: it
@@ -460,7 +480,22 @@ interface FlatColumn {
 
 @Injectable()
 export class DataManagementService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        @Optional() private eligibilityEngine?: EligibilityEngineService,
+        @Optional() private canonicalAdapter?: CanonicalSchemaAdapterService,
+    ) { }
+
+    private resolvePartition(filters: any, where: any): AnalyticalPartition {
+        if (filters?.partition === 'TVET' || filters?.entityType === 'VOCATIONAL_TRAINING' || where?.formType === 'VOCATIONAL_TRAINING') {
+            return 'TVET';
+        }
+        if (filters?.partition === 'ALL') {
+            return 'ALL';
+        }
+        return 'DEMAND';
+    }
+
 
     async getRegions() {
         return this.prisma.region.findMany({
@@ -647,28 +682,29 @@ export class DataManagementService {
         );
     }
 
-    // Only APPROVED submissions are exported: these are the validated records
-    // entities have submitted through the ONEFOP questionnaire. Shared by
-    // the Excel export, and by both passes of the streaming SPSS export
+    // Only statistically eligible submissions are exported: Axis 1 Approved
+    // AND Axis 2 has zero open blocking anomalies (Axe 3 Statistical Eligibility).
+    // Shared by the Excel export, and by both passes of the streaming SPSS export
     // below — one filter definition, so the two can never quietly drift
     // apart and export a different set of submissions from each other.
-    private buildApprovedOnefopWhere(filters: {
-        region?: string;
-        department?: string;
-        year?: number;
-        fromDate?: string;
-        toDate?: string;
-    }): any {
-        const where: any = { status: 'APPROVED' };
-        if (filters.region) where.region = filters.region;
-        if (filters.department) where.department = filters.department;
-        if (filters.year) where.surveyYear = Number(filters.year);
-        if (filters.fromDate || filters.toDate) {
-            where.createdAt = {};
-            if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate);
-            if (filters.toDate) where.createdAt.lte = new Date(filters.toDate);
-        }
-        return where;
+    private eligibilityWhere() {
+        return this.eligibilityEngine
+            ? this.eligibilityEngine.getStatisticalEligibilityWhere()
+            : EligibilityEngineService.getStatisticalEligibilityWhere();
+    }
+
+    /// Rows for every ONEFOP export. Without `statuses` this is the official
+    /// statistical base (APPROVED, no open blocking anomaly); with `statuses`
+    /// it is exactly those administrative statuses — see export-filters.ts.
+    private buildApprovedOnefopWhere(filters: OnefopExportFilters): any {
+        return buildOnefopExportWhere(filters, this.eligibilityWhere());
+    }
+
+    /// SPSS/CSV rows additionally restricted to the partition whose variables
+    /// the file carries, so a demand file never contains TVET rows (and the
+    /// reverse) — they would otherwise come out almost entirely blank.
+    private buildSpssWhere(filters: OnefopExportFilters): any {
+        return buildSpssExportWhere(filters, this.eligibilityWhere());
     }
 
     /// The .sps syntax half of the SPSS export — fast and bounded regardless
@@ -676,14 +712,13 @@ export class DataManagementService {
     /// (Pass A, see the comment above ENUM_PIVOT_MODELS), never the
     /// submissions' own data. Call this first, then stream the CSV via
     /// streamApprovedOnefopSubmissionsCsv with the same filters.
-    async buildSpssManifest(filters: {
-        region?: string;
-        department?: string;
-        year?: number;
-        fromDate?: string;
-        toDate?: string;
-    }): Promise<{ sps: string }> {
-        const where = this.buildApprovedOnefopWhere(filters);
+    async buildSpssManifest(filters: OnefopExportFilters): Promise<{ sps: string }> {
+        const where = this.buildSpssWhere(filters);
+        if (this.canonicalAdapter) {
+            const partition = resolveExportPartition(filters);
+            const variables = this.canonicalAdapter.getVariablesForPartition(partition);
+            return { sps: this.canonicalAdapter.buildSpssSyntax(variables, 'onefop_submissions.csv') };
+        }
         const columns = await this.buildFlatColumns(where);
         return { sps: this.buildSpssSyntax(columns, 'onefop_submissions.csv') };
     }
@@ -696,16 +731,53 @@ export class DataManagementService {
     /// the entire export has finished — see the comment above
     /// ENUM_PIVOT_MODELS for why this needs two passes.
     async streamApprovedOnefopSubmissionsCsv(
-        filters: {
-            region?: string;
-            department?: string;
-            year?: number;
-            fromDate?: string;
-            toDate?: string;
-        },
+        filters: OnefopExportFilters,
         res: Response,
     ): Promise<void> {
-        const where = this.buildApprovedOnefopWhere(filters);
+        const where = this.buildSpssWhere(filters);
+
+        if (this.canonicalAdapter) {
+            const partition = resolveExportPartition(filters);
+            const variables = this.canonicalAdapter.getVariablesForPartition(partition);
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.csv"');
+            res.write('﻿' + variables.map((v) => this.csvEscape(v.labelFr)).join(',') + '\r\n');
+
+            const BATCH_SIZE = 250;
+            let cursor: string | undefined;
+
+            try {
+                for (; ;) {
+                    const batch: any[] = await this.prisma.onefopSubmission.findMany({
+                        where,
+                        orderBy: { id: 'asc' },
+                        take: BATCH_SIZE,
+                        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+                        include: this.approvedOnefopInclude(),
+                    });
+                    if (batch.length === 0) break;
+
+                    let chunk = '';
+                    for (const s of batch) {
+                        chunk += variables.map((v) => this.csvEscape(this.canonicalAdapter!.extractValue(v, s))).join(',') + '\r\n';
+                    }
+
+                    if (!res.write(chunk)) {
+                        await new Promise<void>((resolve) => res.once('drain', resolve));
+                    }
+
+                    cursor = batch[batch.length - 1].id;
+                    if (batch.length < BATCH_SIZE) break;
+                }
+            } catch (err) {
+                console.error('❌ SPSS CSV export failed mid-stream:', err);
+            } finally {
+                res.end();
+            }
+            return;
+        }
+
         const columns = await this.buildFlatColumns(where);
         const detailKeyByFormType = new Map(this.onefopSheetDefs().map((d) => [d.formType, d.detailKey]));
         const remapByFormType = this.buildFormTypeRemap();
@@ -776,6 +848,176 @@ export class DataManagementService {
         }
     }
 
+    /// Generates and streams a native IBM SPSS .sav dataset (variable and
+    /// value labels, formats, measurement levels, -99 user-missing) — written
+    /// in-process by SavWriter, no Python/pyreadstat dependency. The file is
+    /// built in a temp directory first so a failure still produces a clean
+    /// HTTP error (and the header gets the exact case count) instead of a
+    /// truncated download.
+    async streamApprovedOnefopSubmissionsSav(
+        filters: OnefopExportFilters,
+        res: Response,
+    ): Promise<void> {
+        // Outside the try: an invalid filter is a 400, not a generation failure.
+        const where = this.buildSpssWhere(filters);
+        const partition = resolveExportPartition(filters);
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onefop-sav-'));
+        const tmpSav = path.join(tmpDir, 'onefop_submissions.sav');
+
+        try {
+            let writer: SavWriter;
+            let rowsOf: (batch: any[]) => unknown[][];
+
+            if (this.canonicalAdapter) {
+                const adapter = this.canonicalAdapter;
+                const variables = adapter.getVariablesForPartition(partition);
+                writer = new SavWriter(variables.map((v) => this.toSavVariable(v)), {
+                    fileLabel: 'CAM-LEAP / ONEFOP - Registre Analytique Canonique',
+                });
+                rowsOf = (batch) => batch.map((s) => variables.map((v) => adapter.extractValue(v, s)));
+            } else {
+                const columns = await this.buildFlatColumns(where);
+                const used = new Set<string>();
+                writer = new SavWriter(
+                    columns.map((c, i) => ({
+                        name: this.sanitizeSpssVarName(c.header, i + 1, used),
+                        label: c.header,
+                        type: c.numeric ? ('numeric' as const) : ('string' as const),
+                        width: c.numeric ? 10 : 254,
+                        missingValues: c.numeric ? [-99] : undefined,
+                    })),
+                    { fileLabel: 'CAM-LEAP / ONEFOP' },
+                );
+                const detailKeyByFormType = new Map(this.onefopSheetDefs().map((d) => [d.formType, d.detailKey]));
+                const remapByFormType = this.buildFormTypeRemap();
+                rowsOf = (batch) => {
+                    const pivots = ENUM_PIVOT_CONFIGS.map((cfg) => this.pivotColumnsAndValues(batch, cfg));
+                    const indexedPivots = INDEXED_PIVOT_CONFIGS.map((cfg) => this.indexedPivotColumnsAndValues(batch, cfg));
+                    return batch.map((s) => {
+                        const detailKey = detailKeyByFormType.get(s.formType);
+                        const detail = detailKey ? (s[detailKey] ?? {}) : {};
+                        const remap = remapByFormType.get(s.formType);
+                        const row: Record<string, unknown> = { ...this.commonRow(s), formType: s.formType };
+                        for (const [k, v] of Object.entries(detail)) row[remap?.get(k) ?? k] = v;
+                        for (const p of pivots) Object.assign(row, p.valuesBySubmission.get(s.id) ?? {});
+                        for (const p of indexedPivots) Object.assign(row, p.valuesBySubmission.get(s.id) ?? {});
+                        return columns.map((c) => row[c.key]);
+                    });
+                };
+            }
+
+            await this.writeSavFile(tmpSav, writer, where, rowsOf);
+
+            res.setHeader('Content-Type', 'application/x-spss-sav');
+            res.setHeader('Content-Disposition', 'attachment; filename="onefop_submissions.sav"');
+            res.setHeader('Content-Length', String(fs.statSync(tmpSav).size));
+            const fileStream = fs.createReadStream(tmpSav);
+            fileStream.pipe(res);
+            await new Promise<void>((resolve) => {
+                fileStream.on('end', resolve);
+                fileStream.on('error', (err) => {
+                    console.error('❌ Error streaming .sav file:', err);
+                    res.destroy(err);
+                    resolve();
+                });
+            });
+        } catch (err) {
+            console.error('❌ SPSS .sav export failed:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ message: 'Erreur lors de la génération du fichier SPSS .sav: ' + (err as any)?.message });
+            }
+        } finally {
+            try {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            } catch (cleanupErr) {
+                console.warn('⚠️ Could not remove temp dir:', cleanupErr);
+            }
+        }
+    }
+
+    /// Canonical variable → SavWriter variable. Numeric display formats keep
+    /// the previous pyreadstat output (F10.0, F14.0 for payroll/turnover)
+    /// unless the registry asks for something wider.
+    private toSavVariable(v: AnalyticalVariableDefinition): SavVariable {
+        const numeric = v.spssDataType === 'NUMERIC';
+        const lower = v.variableName.toLowerCase();
+        const minWidth = lower.includes('payroll') || lower.includes('turnover') ? 14 : 10;
+        const measure = !numeric || v.measurementLevel === 'NOMINAL'
+            ? 'nominal'
+            : v.measurementLevel === 'ORDINAL' ? 'ordinal' : 'scale';
+        return {
+            name: v.variableName,
+            label: v.labelFr || v.labelEn || v.variableName,
+            type: numeric ? 'numeric' : 'string',
+            width: numeric ? Math.max(v.spssWidth || 0, minWidth) : v.spssWidth || 254,
+            valueLabels: v.valueLabels,
+            missingValues: numeric ? [-99] : undefined,
+            measure,
+        };
+    }
+
+    /// Keyset-paginated pass over `where`, encoded straight into the .sav file
+    /// (peak memory = one batch), then the real case count is patched into
+    /// the header.
+    private async writeSavFile(
+        filePath: string,
+        writer: SavWriter,
+        where: any,
+        rowsOf: (batch: any[]) => unknown[][],
+    ): Promise<void> {
+        const out = fs.createWriteStream(filePath);
+        const closed = new Promise<void>((resolve, reject) => {
+            out.once('finish', resolve);
+            out.once('error', reject);
+        });
+        const write = async (buf: Buffer) => {
+            if (buf.length > 0 && !out.write(buf)) {
+                await new Promise<void>((resolve) => out.once('drain', resolve));
+            }
+        };
+
+        try {
+            await write(writer.header());
+            const BATCH_SIZE = 250;
+            let cursor: string | undefined;
+            for (; ;) {
+                const batch: any[] = await this.prisma.onefopSubmission.findMany({
+                    where,
+                    orderBy: { id: 'asc' },
+                    take: BATCH_SIZE,
+                    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+                    include: this.approvedOnefopInclude(),
+                });
+                if (batch.length === 0) break;
+                for (const row of rowsOf(batch)) await write(writer.encodeCase(row));
+                cursor = batch[batch.length - 1].id;
+                if (batch.length < BATCH_SIZE) break;
+            }
+            await write(writer.finish());
+        } finally {
+            out.end();
+        }
+        await closed;
+
+        if (writer.truncatedValues.size > 0) {
+            // Silent data loss would be worse than a noisy log: a registry
+            // width is too small for real values — widen it in the adapter.
+            console.warn(
+                '⚠️ SPSS .sav export truncated values to fit variable widths:',
+                Object.fromEntries(writer.truncatedValues),
+            );
+        }
+
+        const fd = fs.openSync(filePath, 'r+');
+        try {
+            const count = Buffer.alloc(4);
+            count.writeInt32LE(writer.casesWritten, 0);
+            fs.writeSync(fd, count, 0, 4, SAV_NCASES_OFFSET);
+        } finally {
+            fs.closeSync(fd);
+        }
+    }
+
     // The exact set of relations the flat SPSS export reads — factRecruitments/
     // factSkillNeeds are Excel-only (their own long-format sheets there, see
     // buildOnefopWorkbook) so they're deliberately left out here to keep
@@ -806,6 +1048,21 @@ export class DataManagementService {
             internshipData: true,
             skillNeeds: true,
             trainingNeeds: true,
+            projectProgramActivities: true,
+            // VT statistical child tables — required for TVET .sav/.csv export;
+            // previously absent, causing all VT breakdown variables to be
+            // system-missing.
+            vtDiplomaData: true,
+            vtTraineeAgeFlow: true,
+            vtTrainerAge: true,
+            vtEducationLevelFlow: true,
+            vtTraineeVulnerable: true,
+            vtTrainerDisability: true,
+            vtScholarship: true,
+            vtSpecialtyRows: true,
+            vtCurricula: true,
+            vtInfrastructure: true,
+            vtFurniture: true,
         };
     }
 
@@ -817,7 +1074,18 @@ export class DataManagementService {
     // the database — via bounded `distinct` queries (see the comment above
     // ENUM_PIVOT_MODELS), not by reading the submissions themselves.
     private async buildFlatColumns(where: any): Promise<FlatColumn[]> {
+        if (this.canonicalAdapter) {
+            const partition = this.resolvePartition({}, where);
+            const variables = this.canonicalAdapter.getVariablesForPartition(partition);
+            return variables.map((v) => ({
+                key: v.variableName,
+                header: v.labelFr,
+                numeric: v.spssDataType === 'NUMERIC',
+            }));
+        }
+
         const columns: FlatColumn[] = [];
+
 
         for (const c of this.commonColumns()) {
             columns.push({
@@ -1176,13 +1444,7 @@ export class DataManagementService {
     // the next one starts — more round trips than a single pass, but the
     // only way to keep peak memory bounded to one sheet's one batch.
     async streamOnefopSubmissionsExcel(
-        filters: {
-            region?: string;
-            department?: string;
-            year?: number;
-            fromDate?: string;
-            toDate?: string;
-        },
+        filters: OnefopExportFilters,
         res: Response,
     ): Promise<void> {
         const where = this.buildApprovedOnefopWhere(filters);
@@ -1366,6 +1628,80 @@ export class DataManagementService {
             .map((c, i) => `  ${varNames[i]} ${this.spssQuote(c.header)}`)
             .join('\n');
 
+        // Missing values declaration for numeric variables (-99 convention for non-response/not applicable)
+        const numericVarNames = columns
+            .map((c, i) => (c.numeric ? varNames[i] : null))
+            .filter((n): n is string => Boolean(n));
+
+        const missingValuesBlock = numericVarNames.length > 0
+            ? [
+                '* Declaration des valeurs manquantes (-99 = Non renseigne / Non applicable).',
+                'MISSING VALUES',
+                ...this.chunkVariableList(numericVarNames, 8).map((chunk) => `  ${chunk.join(' ')} (-99)`),
+                '  .',
+                'EXECUTE.',
+                '',
+              ].join('\n')
+            : '';
+
+        // Value labels for standard categorical variables
+        const valueLabelsParts: string[] = [];
+
+        const formTypeIdx = columns.findIndex((c) => c.key === 'formType');
+        if (formTypeIdx !== -1) {
+            valueLabelsParts.push([
+                `VALUE LABELS ${varNames[formTypeIdx]}`,
+                `  'ENTREPRISE' "Entreprise"`,
+                `  'COOPERATIVE' "Cooperative"`,
+                `  'CTD' "Collectivite Territoriale Decentralisee"`,
+                `  'ONG' "ONG / Association"`,
+                `  'ADMINISTRATION' "Administration Publique"`,
+                `  'PROJECT_PROGRAM' "Projet / Programme"`,
+                `  'VOCATIONAL_TRAINING' "Centre de Formation Professionnelle"`,
+                `  .`,
+            ].join('\n'));
+        }
+
+        const statusIdx = columns.findIndex((c) => c.key === 'status');
+        if (statusIdx !== -1) {
+            valueLabelsParts.push([
+                `VALUE LABELS ${varNames[statusIdx]}`,
+                `  'DRAFT' "Brouillon"`,
+                `  'PENDING_REVIEW' "En cours d'instruction"`,
+                `  'APPROVED' "Vise / Approuve"`,
+                `  'REJECTED' "Rejete"`,
+                `  'CORRECTION_REQUESTED' "Correction demandee"`,
+                `  .`,
+            ].join('\n'));
+        }
+
+        const regionIdx = columns.findIndex((c) => c.key === 'region');
+        if (regionIdx !== -1) {
+            valueLabelsParts.push([
+                `VALUE LABELS ${varNames[regionIdx]}`,
+                `  'ADAMAOUA' "Adamaoua"`,
+                `  'CENTRE' "Centre"`,
+                `  'EST' "Est"`,
+                `  'EXTREME_NORD' "Extreme-Nord"`,
+                `  'LITTORAL' "Littoral"`,
+                `  'NORD' "Nord"`,
+                `  'NORD_OUEST' "Nord-Ouest"`,
+                `  'OUEST' "Ouest"`,
+                `  'SUD' "Sud"`,
+                `  'SUD_OUEST' "Sud-Ouest"`,
+                `  .`,
+            ].join('\n'));
+        }
+
+        const valueLabelsBlock = valueLabelsParts.length > 0
+            ? [
+                '* Etiquettes de valeurs pour variables categorielles.',
+                ...valueLabelsParts,
+                'EXECUTE.',
+                '',
+              ].join('\n')
+            : '';
+
         return [
             '* Encoding: UTF-8.',
             '* Généré par DSMO — export SPSS des soumissions ONEFOP.',
@@ -1391,7 +1727,17 @@ export class DataManagementService {
             '  .',
             'EXECUTE.',
             '',
+            ...(missingValuesBlock ? [missingValuesBlock] : []),
+            ...(valueLabelsBlock ? [valueLabelsBlock] : []),
         ].join('\n');
+    }
+
+    private chunkVariableList(list: string[], size: number): string[][] {
+        const chunks: string[][] = [];
+        for (let i = 0; i < list.length; i += size) {
+            chunks.push(list.slice(i, i + size));
+        }
+        return chunks;
     }
 
     private identityColumns(): Partial<ExcelJS.Column>[] {

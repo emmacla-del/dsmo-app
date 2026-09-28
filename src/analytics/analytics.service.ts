@@ -81,7 +81,12 @@ export class AnalyticsService {
                     totalEmployees,
                 });
             } else if (granularity === 'semester') {
-                const s1 = declarations.filter((d) => !d.fillingDate || new Date(d.fillingDate).getMonth() < 6);
+                // Declarations with a null fillingDate cannot be reliably
+                // assigned to a semester.  Previously they were silently
+                // included in S1, which inflated that period's totals.
+                // They are excluded from period-granular counts; year-level
+                // aggregation (granularity === 'year') still includes them.
+                const s1 = declarations.filter((d) => d.fillingDate && new Date(d.fillingDate).getMonth() < 6);
                 const s2 = declarations.filter((d) => d.fillingDate && new Date(d.fillingDate).getMonth() >= 6);
 
                 trends.push({
@@ -101,7 +106,9 @@ export class AnalyticsService {
                     const qStart = (q - 1) * 3;
                     const qEnd = q * 3;
                     const qDecls = declarations.filter((d) => {
-                        if (!d.fillingDate) return q === 1;
+                        // Exclude null-fillingDate records from quarter counts
+                        // (previously they were silently assigned to Q1).
+                        if (!d.fillingDate) return false;
                         const month = new Date(d.fillingDate).getMonth();
                         return month >= qStart && month < qEnd;
                     });

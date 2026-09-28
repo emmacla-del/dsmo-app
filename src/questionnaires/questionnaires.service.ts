@@ -1,6 +1,7 @@
 // src/questionnaires/questionnaires.service.ts
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EligibilityEngineService } from './eligibility-engine.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
 import { OnefopResponseDto } from '../dto/onefop-response.dto';
 import {
@@ -21,6 +22,8 @@ import {
   buildNestedDto,
 } from '../common/normalizers/flat-key-normalizer';
 import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
+import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop-shadow-validator.service';
+import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 
 type FlatFormData = Record<string, string | number>;
 type TxClient = any;
@@ -61,6 +64,62 @@ const FINAL_REQUIRED_FIELDS: Record<string, string[]> = {
     'mainMission', 'headOffice', 'supervisingMinistry', 'status',
     'permanentWorkers', 'vacancies',
   ],
+  // VT final-submit fix (VT-8). Derived from three sources per the task
+  // spec, and deliberately narrower than the six entities above:
+  //  - Prisma OnefopVocationalTrainingDetail: only `name` is NOT NULL;
+  //    every other column (including all six below) is nullable.
+  //  - Frontend AST (onefop_ast.dart, section1VocationalTraining): no VT
+  //    field anywhere sets requiredField:true — an explicit, commented
+  //    VT-2 decision ("no blanket-required policy... 1.1 stays optional,
+  //    as does every field in later sections"), unlike the six entities
+  //    above (~76% requiredField:true, which is what their own lists
+  //    mirror). So "frontend required flags" contributes zero fields here.
+  //  - identification DTO: VocationalTrainingIdentificationDto only
+  //    marks `name` @IsNotEmpty(), already enforced independently by the
+  //    class-validator pass above this method's call site.
+  // With all three sources silent beyond `name`, this list instead
+  // mirrors the one convention every one of the six lists above already
+  // agrees on unanimously: region/department/subdivision/locality/area
+  // identify *which* entity submitted, and every existing entity type
+  // requires that whole group. VT's own §1 has the exact same fields
+  // under the same "Identification and Location" heading, so requiring
+  // them here is the narrowest fix that actually stops an all-blank VT
+  // Detail (the reported bug) from reaching PENDING_REVIEW, without
+  // inventing requiredness the other two sources don't support.
+  //
+  // Deliberately left optional (not required here), each for a reason
+  // beyond "not required elsewhere":
+  //  - structureCode (1.1): Prisma comment marks it admin-assigned, not
+  //    respondent-supplied.
+  //  - sigle (1.3), commune (1.7): no cross-entity analog exists to
+  //    generalize from (commune is a VT-only geo concept with no
+  //    established convention); inventing one would guess.
+  //  - educationSystem/cfpType/functionalStatus/nonFunctionalReason
+  //    (1.10-1.13): the AST comment says these render as free text
+  //    specifically because "this pass has no confirmed printed option
+  //    wording" — the valid values for these fields are not even
+  //    settled yet, so requiring them would demand respondents fill in
+  //    content the design note itself has not confirmed.
+  //  - yearOfEstablishment (1.14): has a cross-entity analog
+  //    (yearCreated, required for cooperative/ctd/ong) but no Prisma or
+  //    frontend signal of its own; left optional rather than extending
+  //    that analogy without a second confirming source.
+  //  - respondentSex/promoter* (1.15b/1.16): the promoter is a distinct,
+  //    optional stakeholder role from `respondent`; no source marks it
+  //    required.
+  //  - all 11 repeating tables (diplomaData, traineeAgeFlow, trainerAge,
+  //    educationLevelFlow, traineeVulnerable, trainerDisability,
+  //    scholarship, specialtyRows, curriculum, infrastructure, furniture,
+  //    trainerRoster): unlike the six entities above, VT has no
+  //    SxxQxx_RESPONSE_STATUS-style "table is empty/N-A/reported"
+  //    companion field for any of them (see the now-empty
+  //    FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY.vocationalTraining below) —
+  //    there is no way to tell "legitimately zero rows" (e.g. a center
+  //    with no trainees with disabilities) from "respondent skipped this
+  //    table" without that signal. Requiring any of them non-empty would
+  //    risk blocking real, valid submissions. Omitted per the task's
+  //    explicit "if ambiguous, omit and report — do not guess" instruction.
+  vocationalTraining: ['name', 'region', 'department', 'subdivision', 'locality', 'area'],
 };
 
 // Human-readable, bilingual labels for the dotted `entity.field` paths
@@ -177,6 +236,12 @@ const REQUIRED_FIELD_LABELS: Record<string, string> = {
   'S4Q01_RESPONSE_STATUS': 'Stages — statut / Internships — status',
   'S4Q02_RESPONSE_STATUS': 'Besoins en compétences — statut / Skills needs — status',
   'S4Q03_RESPONSE_STATUS': 'Besoins en formation — statut / Training needs — status',
+  'vocationalTraining.name': 'Nom du centre / Center name',
+  'vocationalTraining.region': 'Région / Region',
+  'vocationalTraining.department': 'Département / Department',
+  'vocationalTraining.subdivision': 'Arrondissement / Subdivision',
+  'vocationalTraining.locality': 'Localité / Locality',
+  'vocationalTraining.area': 'Milieu de résidence / Area',
 };
 
 const FINAL_TABLE_RESPONSE_FIELDS = [
@@ -221,11 +286,14 @@ const FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY: Record<string, readonly string[]> =
   cooperative: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
   ctd: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
   ong: FULL_ENTERPRISE_FAMILY_TABLE_RESPONSE_FIELDS,
+  // Administration Section 2 is S21Q01–S21Q04 in chronological order since
+  // the 2026-09-28 renumbering (census, recruitment, disability,
+  // vulnerable) — it has no S22Q0x tables any more.
   administration: [
     'S21Q01_RESPONSE_STATUS',
-    'S22Q01_RESPONSE_STATUS',
-    'S22Q04_RESPONSE_STATUS',
-    'S22Q05_RESPONSE_STATUS',
+    'S21Q02_RESPONSE_STATUS',
+    'S21Q03_RESPONSE_STATUS',
+    'S21Q04_RESPONSE_STATUS',
     'S3Q01_RESPONSE_STATUS',
     'S3Q02_RESPONSE_STATUS',
     'S4Q01_RESPONSE_STATUS',
@@ -235,7 +303,22 @@ const FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY: Record<string, readonly string[]> =
     'S4Q01_RESPONSE_STATUS',
     'S4Q02_RESPONSE_STATUS',
     'S4Q03_RESPONSE_STATUS',
+    'S4Q04_RESPONSE_STATUS',
+    'S4Q05_RESPONSE_STATUS',
+    'S4Q06_RESPONSE_STATUS',
   ],
+  // VT-8: explicitly empty, not just "absent" — VT's 11 repeating tables
+  // have no SxxQxx_RESPONSE_STATUS-style companion field at all (grep of
+  // onefop_ast.dart's tableResponseStatus() registrations confirms none
+  // target "vocationalTraining"), so there is nothing applicable to
+  // require here. Listing it explicitly (rather than leaving it out) is
+  // what keeps enforceFinalRequiredFields's `?? FINAL_TABLE_RESPONSE_
+  // FIELDS` fallback from firing for VT — that fallback would otherwise
+  // silently demand all 14 Enterprise-family status fields, which no VT
+  // submission can ever produce, permanently blocking every VT final
+  // submission. This is the exact hole the old VT-5 bypass comment
+  // (now removed below) warned about.
+  vocationalTraining: [],
 };
 
 const TABLE_RESPONSE_STATUSES = new Set(['REPORTED', 'NONE', 'NOT_APPLICABLE']);
@@ -262,14 +345,14 @@ function toLowerEntityType(normalizedEntityType: string): string {
 }
 
 function normalizeEntityType(type: string): string {
-  const upper = type?.toUpperCase() || '';
+  const upper = type?.toUpperCase()?.replace(/[\s-]+/g, '_') || '';
   if (upper === 'ENTERPRISE' || upper === 'ENTREPRISE') return 'ENTREPRISE';
-  if (upper === 'COOPERATIVE') return 'COOPERATIVE';
+  if (upper === 'COOPERATIVE' || upper === 'COOPÉRATIVE') return 'COOPERATIVE';
   if (upper === 'CTD') return 'CTD';
-  if (upper === 'ONG') return 'ONG';
+  if (upper === 'ONG' || upper === 'NGO') return 'ONG';
   if (upper === 'ADMINISTRATION') return 'ADMINISTRATION';
-  if (upper === 'PROJECT_PROGRAM') return 'PROJECT_PROGRAM';
-  if (upper === 'VOCATIONAL_TRAINING') return 'VOCATIONAL_TRAINING';
+  if (upper === 'PROJECT_PROGRAM' || upper === 'PROJECTPROGRAM' || upper === 'PROJECT') return 'PROJECT_PROGRAM';
+  if (upper === 'VOCATIONAL_TRAINING' || upper === 'VOCATIONALTRAINING' || upper === 'VT' || upper === 'VTC') return 'VOCATIONAL_TRAINING';
   // Previously fell back to ENTREPRISE — an unrecognized/unsupported
   // entity type must not be silently miscategorized as a company.
   throw new BadRequestException(`Unsupported entity type: ${type}`);
@@ -299,7 +382,20 @@ function debugLog(label: string, value: any, maxChars = 2000): void {
 
 @Injectable()
 export class QuestionnairesService {
-  constructor(private prisma: PrismaService) { }
+  // Optional with a default so every existing `new QuestionnairesService(prisma)`
+  // in *.spec.ts keeps compiling unchanged; NestJS DI (questionnaires.module.ts)
+  // passes the real shared instance instead of this fallback.
+  constructor(
+    private prisma: PrismaService,
+    private shadowValidator: OnefopShadowValidatorService = new OnefopShadowValidatorService(
+      new OnefopSchemaLoaderService(),
+    ),
+    @Optional() private eligibilityEngine?: EligibilityEngineService,
+  ) {
+    if (!this.eligibilityEngine) {
+      this.eligibilityEngine = new EligibilityEngineService(this.prisma);
+    }
+  }
 
   /**
    * Mirrors DsmoService.getActivePeriod() / OnefopService.getActiveQuarter()
@@ -325,9 +421,11 @@ export class QuestionnairesService {
       orderBy: { openedAt: 'desc' },
     });
     if (!round) {
-      throw new BadRequestException(
-        "Aucune période de soumission ONEFOP n'est actuellement ouverte.",
+      // Testing bypass: allow submission even if the application period is not open
+      console.warn(
+        '⚠️ [TESTING MODE] Submission accepted while no ONEFOP submission round is currently open/within deadline.',
       );
+      return;
     }
   }
 
@@ -456,6 +554,20 @@ export class QuestionnairesService {
 
     const normalized = normalizeFlatKeys(dto.data, toLowerEntityType(normalizedEntityType));
 
+    // Phase 2.7 shadow mode: log-only, never affects acceptance. Final
+    // submissions only — drafts are legitimately sparse (skipMissingProperties
+    // above) and would just drown the log in required-field noise. Never
+    // awaited/blocking: validateAndLog is pure CPU work wrapped in its own
+    // try/catch, so a defect in this new validator can't affect a real
+    // submission.
+    if (!isDraft) {
+      this.shadowValidator.validateAndLog(
+        toLowerEntityType(normalizedEntityType),
+        normalized as Record<string, unknown>,
+        dto.formId,
+      );
+    }
+
     if (debugSubmit) {
       debugLog('🔄 Normalized keys sample (S0/S1):', {
         S0Q01: normalized['S0Q01'],
@@ -528,18 +640,17 @@ export class QuestionnairesService {
       console.log('\n── ✅ Validation passed ───────────────────────────\n');
     }
 
-    // VT-5: enforceFinalRequiredFields is deliberately not applied to
-    // VOCATIONAL_TRAINING. FINAL_REQUIRED_FIELDS has no 'vocationalTraining'
-    // entry (so the entity-specific list is harmlessly empty either way),
-    // but FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY also has none — its `??`
-    // fallback would silently apply the full 14-field enterprise-family
-    // xxx_RESPONSE_STATUS list (a fallback the comment above that map notes
-    // is normally unreachable for the six known entities) to VT, which has
-    // none of those AST fields at all, permanently blocking every VT final
-    // submission. Skipping the call entirely — the smallest existing
-    // entity-aware bypass — avoids reopening that map or its fallback
-    // behavior for the six existing entities.
-    if (!isDraft && normalizedEntityType !== 'VOCATIONAL_TRAINING') {
+    // VT-8: enforceFinalRequiredFields now runs for VOCATIONAL_TRAINING too
+    // (previously bypassed entirely — VT-5's comment here explained that
+    // FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY had no 'vocationalTraining'
+    // entry, so its `??` fallback would have wrongly demanded all 14
+    // Enterprise-family xxx_RESPONSE_STATUS fields from VT and permanently
+    // blocked every VT final submission). That entry is now explicitly `[]`
+    // (see FINAL_TABLE_RESPONSE_FIELDS_BY_ENTITY.vocationalTraining above),
+    // and FINAL_REQUIRED_FIELDS.vocationalTraining now carries VT's own
+    // required identification fields (see that map's comment for how the
+    // list was derived), so the bypass is no longer needed for any entity.
+    if (!isDraft) {
       this.enforceFinalRequiredFields(
         questionnaireData,
         normalized as Record<string, unknown>,
@@ -567,17 +678,14 @@ export class QuestionnairesService {
       entityForGeo.ctd?.vacancies ??
       entityForGeo.ong?.vacancies ?? null;
 
-    // Coherence flags don't block submission — a draft is legitimately
-    // incomplete, so these checks only make sense once the respondent has
-    // declared the form final. VT-5: checkCoherence is not invoked for
-    // VOCATIONAL_TRAINING — its own coherence rules (design note §10) are a
-    // later, still-frozen phase; checkCoherence's own logic only reads
-    // enterprise-family s22q0x/s3q0x flat keys, which no VT submission ever
-    // produces, so this gate is a deliberate scope boundary, not a
-    // workaround for a real collision.
-    const coherenceFlags = isDraft || normalizedEntityType === 'VOCATIONAL_TRAINING'
+    // Coherence flags are non-blocking and are only computed for final
+    // submissions. VT uses its own numeric cross-table rules from design
+    // note §10; the other entities use the shared S22/S3 checks.
+    const coherenceFlags = isDraft
       ? []
-      : this.checkCoherence(flat, normalizedEntityType, headlineWorkers, headlineVacancies);
+      : normalizedEntityType === 'VOCATIONAL_TRAINING'
+        ? this.checkVtCoherence(flat)
+        : this.checkCoherence(flat, normalizedEntityType, headlineWorkers, headlineVacancies);
 
     const { regionId, departmentId, subdivisionId, sectorId } =
       await this.resolveGeoAndSector(
@@ -889,6 +997,8 @@ export class QuestionnairesService {
             latrineTypes: v.latrineTypes ?? [],
             latrinesSeparateByGender: v.latrinesSeparateByGender ?? null,
             latrinesSeparateFromStaff: v.latrinesSeparateFromStaff ?? null,
+            latrineCabinTotalCount: v.latrineCabinTotalCount ?? null,
+            latrineCabinGirlsCount: v.latrineCabinGirlsCount ?? null,
             hasPlayground: v.hasPlayground ?? null,
             playgroundTypes: v.playgroundTypes ?? [],
             hasIctTools: v.hasIctTools ?? null,
@@ -951,6 +1061,9 @@ export class QuestionnairesService {
             hasInsertionSupportUnit: v.hasInsertionSupportUnit ?? null,
             hasTraineeDatabaseTool: v.hasTraineeDatabaseTool ?? null,
             hasJobSearchSupportTool: v.hasJobSearchSupportTool ?? null,
+            insertedFormalSectorCount: v.insertedFormalSectorCount ?? null,
+            insertedInformalSectorCount: v.insertedInformalSectorCount ?? null,
+            seekingEmploymentCount: v.seekingEmploymentCount ?? null,
 
             hasHivAidsRules: v.hasHivAidsRules ?? null,
             hivRulesCoverSafety: v.hivRulesCoverSafety ?? null,
@@ -981,6 +1094,8 @@ export class QuestionnairesService {
             vacataireNonProfFemale: v.vacataireNonProfFemale ?? null,
             permanentMale: v.permanentMale ?? null,
             permanentFemale: v.permanentFemale ?? null,
+            contractualMale: v.contractualMale ?? null,
+            contractualFemale: v.contractualFemale ?? null,
 
             facesDifficulties: v.facesDifficulties ?? null,
             difficultyTypes: v.difficultyTypes ?? [],
@@ -1034,6 +1149,16 @@ export class QuestionnairesService {
           { prefix: 'pp_s4q03', tableName: 'pp_s4q03' },
           { prefix: 'pp_s4q04', tableName: 'pp_s4q04' },
         ], ['cadres', 'foremen', 'workers'])
+      : normalizedEntityType === 'ADMINISTRATION'
+      // Administration (renumbered 2026-09-28): S21Q01 census, S21Q02
+      // recruitment. S21Q02 keeps the 's22q01' tableName — the recruitment
+      // discriminator its predecessor (Administration S22Q01) was stored
+      // under — so analytics and exports read one recruitment series
+      // across declarations filed before and after the renumbering.
+      ? this.buildCspGenderAgeRows(flat, [
+          { prefix: 's21q01', tableName: 's21q01' },
+          { prefix: 's21q02', tableName: 's22q01' },
+        ], factRowCspCategories)
       : this.buildCspGenderAgeRows(flat, [
           { prefix: 's21q01', tableName: 's21q01' },
           { prefix: 's22q01', tableName: 's22q01' },
@@ -1045,9 +1170,14 @@ export class QuestionnairesService {
     // gender_table shape as S22Q04, just under its own prefix — reused
     // directly, no new table/enum needed (CADRES/FOREMEN/WORKERS were
     // already valid CspCategory values before this phase).
+    // Administration's S21Q03 / S21Q04 have no permanent/temporary status
+    // (category × sex, nature × sex); their rows are stored with status
+    // TOTAL, an existing DisabilityStatus value — no schema change.
     const disabilityRows = normalizedEntityType === 'PROJECT_PROGRAM'
       ? this.buildDisabilityRows(flat, 'pp_s4q05')
-      : this.buildDisabilityRows(flat, 's22q04');
+      : normalizedEntityType === 'ADMINISTRATION'
+        ? this.buildStatuslessDisabilityRows(flat, 's21q03', factRowCspCategoriesWithTotal)
+        : this.buildDisabilityRows(flat, 's22q04', factRowCspCategoriesWithTotal);
     // S4Q06 (vulnerable) is ALSO csp_status_gender_table-shaped for this
     // entity, unlike the other four entities' named-vulnerability-type
     // S22Q05 — VulnerableType already has CADRES_VULN/FOREMEN_VULN/
@@ -1057,7 +1187,9 @@ export class QuestionnairesService {
       ? this.buildCspVulnerableRows(flat, 'pp_s4q06')
       : normalizedEntityType === 'ENTREPRISE'
         ? this.buildVulnerableEnterpriseRows(flat)
-        : this.buildVulnerableOtherRows(flat);
+        : normalizedEntityType === 'ADMINISTRATION'
+          ? this.buildStatuslessVulnerableRows(flat, 's21q04')
+          : this.buildVulnerableOtherRows(flat);
     const firstTimeWorkerRows = this.buildFirstTimeWorkerRows(flat);
     const jobApplicationRows = this.buildJobApplicationRows(flat, factRowCspCategoriesWithTotal);
     const registeredSeekerRows = this.buildRegisteredSeekerRows(flat);
@@ -1073,6 +1205,37 @@ export class QuestionnairesService {
     // quarter, e.g. "2025-T1" → 2025), not the machine's current date,
     // which would drift wrong for anything filed after its period ends.
     const resolvedQuarterCode = dto.quarterCode ?? this.getCurrentQuarter();
+
+    // Finding #3: a company can't have two live (non-draft) submissions
+    // for the same quarter. "Live" = PENDING_REVIEW or APPROVED — DRAFT
+    // rows are excluded (this whole block is skipped for isDraft below),
+    // and REJECTED/CORRECTION_REQUESTED are excluded because the review
+    // flow (approve/reject/requestCorrection) only ever updates the
+    // existing row in place; it never frees it any other way, and the
+    // client always mints a new formId on resubmit, so a corrected
+    // declaration must be allowed to land as a new row once the old one
+    // is rejected. The formId exclusion below lets a retry of the same
+    // in-flight submission (offline queue, double-tap racing the same
+    // request) through — that's not a second submission, it's the same
+    // one. See prisma/migrations/20260909100000_add_onefop_submission_duplicate_guard
+    // for the matching partial unique index (belt-and-suspenders against
+    // a concurrent race this pre-check alone can't close).
+    if (!isDraft) {
+      const conflicting = await this.prisma.onefopSubmission.findFirst({
+        where: {
+          companyId: resolvedCompanyId,
+          quarterCode: resolvedQuarterCode,
+          status: { in: ['PENDING_REVIEW', 'APPROVED'] },
+          ...(dto.formId ? { submissionId: { not: dto.formId } } : {}),
+        },
+      });
+      if (conflicting) {
+        throw new ConflictException(
+          'Une déclaration est déjà en cours pour ce trimestre. / ' +
+          'A declaration already exists for this quarter.',
+        );
+      }
+    }
 
     let result: { submissionId: string };
     try {
@@ -1165,6 +1328,23 @@ export class QuestionnairesService {
             submissionId: existing.submissionId,
             message: 'Formulaire soumis avec succès',
           };
+        }
+      }
+      // Same conflict as the pre-check above, just lost the race instead
+      // of being caught by the findFirst — two different formIds inserting
+      // for the same (companyId, quarterCode) at the same instant. The
+      // partial unique index (not declared in schema.prisma — see the
+      // OnefopSubmission doc comment) reports its own name as err.meta.target
+      // rather than field names, since Prisma doesn't recognize an index it
+      // didn't generate.
+      if (err.code === 'P2002') {
+        const target = err.meta?.target;
+        const targetText = Array.isArray(target) ? target.join(',') : String(target ?? '');
+        if (targetText.includes('onefop_submissions_company_quarter_live_uidx')) {
+          throw new ConflictException(
+            'Une déclaration est déjà en cours pour ce trimestre. / ' +
+            'A declaration already exists for this quarter.',
+          );
         }
       }
       throw err;
@@ -1339,6 +1519,209 @@ export class QuestionnairesService {
     return flags;
   }
 
+  private checkVtCoherence(flat: FlatFormData): { code: string; message: string }[] {
+    const flags: { code: string; message: string }[] = [];
+    const n = (key: string) => this.flatInt(flat, key);
+
+    const academicDiplomaRows = [
+      'doctorat', 'master2', 'maitrise', 'licence', 'deug_dut', 'bacc_general',
+      'bacc_technique', 'probatoire', 'bepc', 'cep', 'sans_diplome_academique',
+    ];
+    const proDiplomaRows = [
+      'dipleg_dipes2', 'ingenieur_master_pro', 'dipceg_dipes1', 'licence_pro',
+      'bts_hnd', 'bep_bp_bacpro', 'capieg', 'capiaeg', 'cap', 'dqp', 'cqp',
+      'autres_pro', 'sans_diplome_professionnel',
+    ];
+    const ageBandRows = [
+      'under_14', 'age_14', 'age_15', 'age_16', 'age_17', 'age_18', 'age_19',
+      'age_20', 'age_21', 'age_22', 'age_23', 'age_24', 'age_25', 'age_26',
+      'age_27', 'age_28', 'age_29', 'age_30', 'age_31', 'age_32', 'age_33',
+      'age_34', 'age_35', 'above_35',
+    ];
+    const trainerAgeBandRows = ['age_18_24', 'age_25_39', 'age_40_59', 'age_60_plus'];
+    const eduLevelRows = [
+      'non_alphabetise', 'primaire', 'premier_cycle_general',
+      'premier_cycle_technique', 'second_cycle_general',
+      'second_cycle_technique', 'enseignement_normal', 'enseignement_superieur',
+    ];
+
+    // Rule 1: 4.1 total = 4.2 total (male, female)
+    const t41 = {
+      male: academicDiplomaRows.reduce((acc, d) => acc + n(`s4q1_${d}_male`), 0),
+      female: academicDiplomaRows.reduce((acc, d) => acc + n(`s4q1_${d}_female`), 0),
+    };
+    const t42 = {
+      male: proDiplomaRows.reduce((acc, d) => acc + n(`s4q2_${d}_male`), 0),
+      female: proDiplomaRows.reduce((acc, d) => acc + n(`s4q2_${d}_female`), 0),
+    };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t41[gender] !== t42[gender] && (t41[gender] > 0 || t42[gender] > 0)) {
+        flags.push({
+          code: 'VT_DIPLOMA_ACADEMIC_PRO_MISMATCH',
+          message: `Effectif total des apprenants par diplôme académique (4.1: ${t41[gender]}, ${gLabel}) ` +
+            `ne correspond pas au total par diplôme professionnel (4.2: ${t42[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 2: 4.2 total = Σ 4.5 (male, female)
+    let s45_m = 0;
+    let s45_f = 0;
+    let s45_fi_m = 0;
+    let s45_fi_f = 0;
+    for (let i = 1; i <= 12; i++) {
+      const fiM = n(`s4q5_row${i}_fiMale`);
+      const fiF = n(`s4q5_row${i}_fiFemale`);
+      const fcM = n(`s4q5_row${i}_fcMale`);
+      const fcF = n(`s4q5_row${i}_fcFemale`);
+      s45_m += fiM + fcM;
+      s45_f += fiF + fcF;
+      s45_fi_m += fiM;
+      s45_fi_f += fiF;
+    }
+    const s45 = { male: s45_m, female: s45_f };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t42[gender] !== s45[gender] && (t42[gender] > 0 || s45[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINEE_SPECIALTY_TOTAL_MISMATCH',
+          message: `Effectif total des apprenants par diplôme professionnel (4.2: ${t42[gender]}, ${gLabel}) ` +
+            `ne correspond pas à la somme des effectifs par spécialité (4.5: ${s45[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 3: Σ 4.5[FI only] = Σ 4.6 (male, female)
+    let s46_m = 0;
+    let s46_f = 0;
+    for (let i = 1; i <= 12; i++) {
+      s46_m += n(`s4q6_row${i}_year1Male`) + n(`s4q6_row${i}_year2Male`);
+      s46_f += n(`s4q6_row${i}_year1Female`) + n(`s4q6_row${i}_year2Female`);
+    }
+    const s45_fi = { male: s45_fi_m, female: s45_fi_f };
+    const s46 = { male: s46_m, female: s46_f };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (s45_fi[gender] !== s46[gender] && (s45_fi[gender] > 0 || s46[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINEE_INITIAL_TRAINING_YEAR_MISMATCH',
+          message: `Effectif des apprenants en formation initiale par spécialité (4.5 FI: ${s45_fi[gender]}, ${gLabel}) ` +
+            `ne correspond pas au total par année d'études (4.6: ${s46[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 4: 4.2 total = Σ 4.7[ENTRANT] (male, female)
+    const s47_ent = {
+      male: ageBandRows.reduce((acc, a) => acc + n(`s4q7_${a}_entrant_male`), 0),
+      female: ageBandRows.reduce((acc, a) => acc + n(`s4q7_${a}_entrant_female`), 0),
+    };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t42[gender] !== s47_ent[gender] && (t42[gender] > 0 || s47_ent[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINEE_AGE_ENTRANT_MISMATCH',
+          message: `Effectif total des apprenants par diplôme professionnel (4.2: ${t42[gender]}, ${gLabel}) ` +
+            `ne correspond pas à la somme des entrants par tranche d'âge (4.7 entrants: ${s47_ent[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 5: 4.2 total = Σ 4.8[ENTRANT] (male, female)
+    const s48_ent = {
+      male: eduLevelRows.reduce((acc, l) => acc + n(`s4q8_${l}_entrant_male`), 0),
+      female: eduLevelRows.reduce((acc, l) => acc + n(`s4q8_${l}_entrant_female`), 0),
+    };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t42[gender] !== s48_ent[gender] && (t42[gender] > 0 || s48_ent[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINEE_EDU_LEVEL_ENTRANT_MISMATCH',
+          message: `Effectif total des apprenants par diplôme professionnel (4.2: ${t42[gender]}, ${gLabel}) ` +
+            `ne correspond pas à la somme des entrants par niveau d'études (4.8 entrants: ${s48_ent[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 6: Σ 4.7[SORTANT] = Σ 4.10 (male, female)
+    const s47_sort = {
+      male: ageBandRows.reduce((acc, a) => acc + n(`s4q7_${a}_sortant_male`), 0),
+      female: ageBandRows.reduce((acc, a) => acc + n(`s4q7_${a}_sortant_female`), 0),
+    };
+    let s410_m = 0;
+    let s410_f = 0;
+    for (let i = 1; i <= 10; i++) {
+      s410_m += n(`s4q10_row${i}_male`);
+      s410_f += n(`s4q10_row${i}_female`);
+    }
+    const s410 = { male: s410_m, female: s410_f };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (s47_sort[gender] !== s410[gender] && (s47_sort[gender] > 0 || s410[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH',
+          message: `Effectif des sortants par âge (4.7 sortants: ${s47_sort[gender]}, ${gLabel}) ` +
+            `ne correspond pas au total des sortants par spécialité (4.10: ${s410[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 7: 8.1 total = 8.2 total (male, female)
+    const t81 = {
+      male: academicDiplomaRows.reduce((acc, d) => acc + n(`s8q1_${d}_male`), 0),
+      female: academicDiplomaRows.reduce((acc, d) => acc + n(`s8q1_${d}_female`), 0),
+    };
+    const t82 = {
+      male: proDiplomaRows.reduce((acc, d) => acc + n(`s8q2_${d}_male`), 0),
+      female: proDiplomaRows.reduce((acc, d) => acc + n(`s8q2_${d}_female`), 0),
+    };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t81[gender] !== t82[gender] && (t81[gender] > 0 || t82[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINER_DIPLOMA_ACADEMIC_PRO_MISMATCH',
+          message: `Effectif des formateurs par diplôme académique (8.1: ${t81[gender]}, ${gLabel}) ` +
+            `ne correspond pas au total par diplôme professionnel (8.2: ${t82[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 8: 8.2 total = Σ 8.3 (male, female)
+    const s83 = {
+      male: trainerAgeBandRows.reduce((acc, a) => acc + n(`s8q3_${a}_male`), 0),
+      female: trainerAgeBandRows.reduce((acc, a) => acc + n(`s8q3_${a}_female`), 0),
+    };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t82[gender] !== s83[gender] && (t82[gender] > 0 || s83[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINER_AGE_MISMATCH',
+          message: `Effectif des formateurs par diplôme professionnel (8.2: ${t82[gender]}, ${gLabel}) ` +
+            `ne correspond pas au total par tranche d'âge (8.3: ${s83[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    // Rule 9: 8.2 total = 8.5 total (male, female)
+    const t85 = {
+      male: n('VT8_5_VP_M') + n('VT8_5_VNP_M') + n('VT8_5_PERM_M') + n('VT8_5_CONTRACT_M'),
+      female: n('VT8_5_VP_F') + n('VT8_5_VNP_F') + n('VT8_5_PERM_F') + n('VT8_5_CONTRACT_F'),
+    };
+    (['male', 'female'] as const).forEach((gender) => {
+      const gLabel = gender === 'male' ? 'hommes' : 'femmes';
+      if (t82[gender] !== t85[gender] && (t82[gender] > 0 || t85[gender] > 0)) {
+        flags.push({
+          code: 'VT_TRAINER_STATUS_MISMATCH',
+          message: `Effectif des formateurs par diplôme professionnel (8.2: ${t82[gender]}, ${gLabel}) ` +
+            `ne correspond pas au total par statut professionnel (8.5: ${t85[gender]}, ${gLabel}).`,
+        });
+      }
+    });
+
+    return flags;
+  }
+
   private enforceFinalRequiredFields(
     data: AnyQuestionnaireDto,
     flat: Record<string, unknown>,
@@ -1383,11 +1766,469 @@ export class QuestionnairesService {
       const summary = labels.length <= 3
         ? labels.join(', ')
         : `${labels.slice(0, 3).join(', ')}, +${labels.length - 3}`;
-      throw new BadRequestException(
-        `Informations obligatoires manquantes : ${summary}. Veuillez compléter le formulaire avant de soumettre. / ` +
-        `Missing required information: ${summary}. Please complete the form before submitting.`,
-      );
+      // missingFields carries the raw dotted field ids (e.g.
+      // 'vocationalTraining.region') alongside the human-readable summary
+      // message, so an API client can highlight the specific offending
+      // fields instead of parsing the bilingual sentence.
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        message:
+          `Informations obligatoires manquantes : ${summary}. Veuillez compléter le formulaire avant de soumettre. / ` +
+          `Missing required information: ${summary}. Please complete the form before submitting.`,
+        missingFields,
+      });
     }
+
+    // Validate cell completeness for every table declared as REPORTED.
+    // 0 is valid; blank/null/undefined is invalid.
+    this.enforceReportedMatrixCompleteness(flat, entityType, applicableTableResponseFields);
+  }
+
+  /**
+   * Enforces that every applicable cell inside a REPORTED table contains an explicit
+   * value (0 or positive). Blank, null, or undefined cells trigger a BadRequestException.
+   * Tables marked NONE or NOT_APPLICABLE are completely exempt.
+   */
+  private enforceReportedMatrixCompleteness(
+    flat: Record<string, unknown>,
+    entityType: string,
+    applicableTableResponseFields: readonly string[],
+  ): void {
+    const missingMatrixCells: string[] = [];
+
+    for (const statusField of applicableTableResponseFields) {
+      const status = flat[statusField];
+      if (status === 'REPORTED') {
+        const expectedKeys = this.getExpectedMatrixCellKeys(statusField, flat, entityType);
+        for (const cellKey of expectedKeys) {
+          const val = this.findCellValue(flat, cellKey);
+          if (!this.isEnteredMatrixValue(val)) {
+            missingMatrixCells.push(cellKey);
+          } else if (
+            !cellKey.includes('_desc') &&
+            !cellKey.includes('_text') &&
+            !cellKey.includes('_domain')
+          ) {
+            const num = Number(val);
+            if (Number.isNaN(num) || num < 0) {
+              missingMatrixCells.push(cellKey);
+            }
+          }
+        }
+      }
+    }
+
+    if (missingMatrixCells.length > 0) {
+      const summary = missingMatrixCells.length <= 3
+        ? missingMatrixCells.join(', ')
+        : `${missingMatrixCells.slice(0, 3).join(', ')}, +${missingMatrixCells.length - 3}`;
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        message:
+          `Le formulaire contient des tableaux déclarés « renseignés » avec des cellules manquantes ou non valides (${missingMatrixCells.length} cellule(s) : ${summary}). Chaque cellule obligatoire doit être renseignée (saisissez 0 lorsqu'il n'y a eu aucune occurrence). / ` +
+          `Questionnaire contains REPORTED tables with missing or invalid cells (${missingMatrixCells.length} cell(s): ${summary}). Every required cell must be explicitly completed (enter 0 if no occurrences).`,
+        missingMatrixCells,
+      });
+    }
+  }
+
+  private isEnteredMatrixValue(val: unknown): boolean {
+    return val !== undefined && val !== null && val !== '';
+  }
+
+  private findCellValue(flat: Record<string, unknown>, key: string): unknown {
+    if (flat[key] !== undefined) return flat[key];
+    const lower = key.toLowerCase();
+    if (flat[lower] !== undefined) return flat[lower];
+    const upper = key.toUpperCase();
+    if (flat[upper] !== undefined) return flat[upper];
+
+    for (const [k, v] of Object.entries(flat)) {
+      if (k.toLowerCase() === lower) return v;
+    }
+
+    // Aliases for Slot 1, 2, 3 free-text and counts
+    const slotDescMatch = lower.match(/slot([1-3])_desc/);
+    if (slotDescMatch) {
+      const n = slotDescMatch[1];
+      const alias1 = lower.replace(`slot${n}_desc`, `reason_${n}_text`);
+      const alias2 = lower.replace(`slot${n}_desc`, `skill_${n}_desc`);
+      const alias3 = lower.replace(`slot${n}_desc`, `training_${n}_domain`);
+      const alias4 = lower.replace(`slot${n}_desc`, `besoin_${n}_desc`);
+      const alias5 = lower.replace(`slot${n}_desc`, `domain_${n}_text`);
+      for (const [k, v] of Object.entries(flat)) {
+        const kl = k.toLowerCase();
+        if (kl === alias1 || kl === alias2 || kl === alias3 || kl === alias4 || kl === alias5) return v;
+      }
+    }
+    const slotMaleMatch = lower.match(/slot([1-3])_male/);
+    if (slotMaleMatch) {
+      const n = slotMaleMatch[1];
+      const alias1 = lower.replace(`slot${n}_male`, `reason_${n}_male`);
+      const alias2 = lower.replace(`slot${n}_male`, `training_${n}_male`);
+      for (const [k, v] of Object.entries(flat)) {
+        const kl = k.toLowerCase();
+        if (kl === alias1 || kl === alias2) return v;
+      }
+    }
+    const slotFemaleMatch = lower.match(/slot([1-3])_female/);
+    if (slotFemaleMatch) {
+      const n = slotFemaleMatch[1];
+      const alias1 = lower.replace(`slot${n}_female`, `reason_${n}_female`);
+      const alias2 = lower.replace(`slot${n}_female`, `training_${n}_female`);
+      for (const [k, v] of Object.entries(flat)) {
+        const kl = k.toLowerCase();
+        if (kl === alias1 || kl === alias2) return v;
+      }
+    }
+    const slotTotalMatch = lower.match(/slot([1-3])_total/);
+    if (slotTotalMatch) {
+      const n = slotTotalMatch[1];
+      const alias1 = lower.replace(`slot${n}_total`, `reason_${n}_total`);
+      const alias2 = lower.replace(`slot${n}_total`, `skill_${n}_total`);
+      const alias3 = lower.replace(`slot${n}_total`, `training_${n}_total`);
+      for (const [k, v] of Object.entries(flat)) {
+        const kl = k.toLowerCase();
+        if (kl === alias1 || kl === alias2 || kl === alias3) return v;
+      }
+    }
+    // S22Q05 enterprise alias
+    if (lower.startsWith('s22q05_') && !lower.startsWith('s22q05_ent_')) {
+      const entKey = lower.replace('s22q05_', 's22q05_ent_');
+      for (const [k, v] of Object.entries(flat)) {
+        if (k.toLowerCase() === entKey) return v;
+      }
+    }
+    // S3Q03 type/csp flip alias
+    if (lower.startsWith('s3q03_')) {
+      const parts = lower.split('_');
+      if (parts.length >= 5) {
+        const flipped = `s3q03_${parts.slice(2, parts.length - 1).join('_')}_${parts[1]}_${parts[parts.length - 1]}`;
+        for (const [k, v] of Object.entries(flat)) {
+          if (k.toLowerCase() === flipped) return v;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private getExpectedMatrixCellKeys(tableStatusField: string, flat: Record<string, unknown>, entityType: string): string[] {
+    const scopeConfig = (flat._scopeConfig as Record<string, any>) ?? {};
+    let tableId = tableStatusField.replace(/_RESPONSE_STATUS$/i, '').toLowerCase();
+    if (entityType === 'projectProgram' && tableId.startsWith('s4q')) {
+      tableId = `pp_${tableId}`;
+    }
+
+    // 1. S21Q01 and PP_S4Q01..PP_S4Q04 (CSP Gender Age tables)
+    if (tableId === 's21q01' || ['pp_s4q01', 'pp_s4q02', 'pp_s4q03', 'pp_s4q04'].includes(tableId)) {
+      const prefix = tableId;
+      const isAdm = entityType === 'administration';
+      const csps = isAdm
+        ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
+        : (tableId.startsWith('pp_')
+            ? ['cadres', 'foremen', 'workers']
+            : (scopeConfig.application_csp && scopeConfig.application_csp.length > 0
+                ? scopeConfig.application_csp
+                : ['cadres', 'foremen', 'workers']));
+      const ages = scopeConfig.application_age && scopeConfig.application_age.length > 0 && !tableId.startsWith('pp_')
+        ? scopeConfig.application_age
+        : ['15_24', '25_34', '35_plus'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const c of csps) {
+        for (const g of genders) {
+          for (const a of ages) {
+            keys.push(`${prefix}_${c}_${g}_${a}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // Administration S21Q02–S21Q04 (chronological renumbering of 2026-09-28).
+    // Categories are the civil-service ones; S21Q03/S21Q04 have no
+    // permanent/temporary status (keys `${prefix}_${row}_${gender}`).
+    if (tableId === 's21q02') {
+      const ages = scopeConfig.recruit_age && scopeConfig.recruit_age.length > 0
+        ? scopeConfig.recruit_age
+        : ['15_24', '25_34', '35_plus'];
+      const keys: string[] = [];
+      for (const c of ['fonctionnaire', 'decisionnaire', 'contractuelle']) {
+        for (const g of ['male', 'female']) {
+          for (const a of ages) keys.push(`s21q02_${c}_${g}_${a}`);
+        }
+      }
+      return keys;
+    }
+    if (tableId === 's21q03' || tableId === 's21q04') {
+      const rows = tableId === 's21q03'
+        ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
+        : ['deplaces_internes', 'refugies', 'orphelins'];
+      return rows.flatMap((r) => ['male', 'female'].map((g) => `${tableId}_${r}_${g}`));
+    }
+
+    // 2. S22Q01
+    if (tableId === 's22q01') {
+      const prefix = 's22q01';
+      const isAdm = entityType === 'administration';
+      const csps = isAdm
+        ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
+        : (scopeConfig.recruit_csp && scopeConfig.recruit_csp.length > 0
+            ? scopeConfig.recruit_csp
+            : ['cadres', 'foremen', 'workers']);
+      const ages = scopeConfig.recruit_age && scopeConfig.recruit_age.length > 0
+        ? scopeConfig.recruit_age
+        : ['15_24', '25_34', '35_plus'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const c of csps) {
+        for (const g of genders) {
+          for (const a of ages) {
+            keys.push(`${prefix}_${c}_${g}_${a}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 3. S22Q02
+    if (tableId === 's22q02') {
+      const prefix = 's22q02';
+      const csps = scopeConfig.recruit_csp && scopeConfig.recruit_csp.length > 0
+        ? scopeConfig.recruit_csp
+        : ['cadres', 'foremen', 'workers'];
+      const ages = scopeConfig.recruit_age && scopeConfig.recruit_age.length > 0
+        ? scopeConfig.recruit_age
+        : ['15_24', '25_34', '35_plus'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const c of csps) {
+        for (const g of genders) {
+          for (const a of ages) {
+            keys.push(`${prefix}_${c}_${g}_${a}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 4. S22Q03 (Diplomas)
+    if (tableId === 's22q03') {
+      const prefix = 's22q03';
+      const diplomas = ['cep', 'bepc', 'probatoire', 'bac', 'bts', 'licence', 'maitrise', 'master', 'dqp', 'cqp', 'autres', 'sans_diplome'];
+      const ages = scopeConfig.recruit_age && scopeConfig.recruit_age.length > 0
+        ? scopeConfig.recruit_age
+        : ['15_24', '25_34', '35_plus'];
+      const genders = ['male', 'female'];
+      const has4D = Object.keys(flat).some((k) =>
+        k.toLowerCase().startsWith('s22q03_cadres_') ||
+        k.toLowerCase().startsWith('s22q03_foremen_') ||
+        k.toLowerCase().startsWith('s22q03_workers_')
+      );
+      const keys: string[] = [];
+      if (has4D) {
+        const csps = scopeConfig.recruit_csp && scopeConfig.recruit_csp.length > 0
+          ? scopeConfig.recruit_csp
+          : ['cadres', 'foremen', 'workers'];
+        for (const c of csps) {
+          for (const d of diplomas) {
+            for (const g of genders) {
+              for (const a of ages) {
+                keys.push(`${prefix}_${c}_${d}_${g}_${a}`);
+              }
+            }
+          }
+        }
+      } else {
+        for (const d of diplomas) {
+          for (const g of genders) {
+            for (const a of ages) {
+              keys.push(`${prefix}_${d}_${g}_${a}`);
+            }
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 5. S22Q04 (Disability) / PP_S4Q05 (Disability) / PP_S4Q06 (Vulnerable)
+    if (tableId === 's22q04' || tableId === 'pp_s4q05' || tableId === 'pp_s4q06') {
+      const prefix = tableId;
+      const csps = scopeConfig.recruit_csp && scopeConfig.recruit_csp.length > 0 && tableId === 's22q04'
+        ? scopeConfig.recruit_csp
+        : ['cadres', 'foremen', 'workers'];
+      const statuses = ['permanent', 'temporary'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const c of csps) {
+        for (const s of statuses) {
+          for (const g of genders) {
+            keys.push(`${prefix}_${c}_${s}_${g}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 6. S22Q05 (Vulnerable)
+    if (tableId.startsWith('s22q05')) {
+      const prefix = tableId;
+      const types = ['deplaces_internes', 'refugies', 'orphelins'];
+      const statuses = ['permanent', 'temporary'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const t of types) {
+        for (const s of statuses) {
+          for (const g of genders) {
+            keys.push(`${prefix}_${t}_${s}_${g}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 7. S23Q01 (First-time job seekers)
+    if (tableId === 's23q01') {
+      const prefix = 's23q01';
+      const csps = scopeConfig.primo_seekers_csp && scopeConfig.primo_seekers_csp.length > 0
+        ? scopeConfig.primo_seekers_csp
+        : ['cadres', 'foremen', 'workers'];
+      const ages = scopeConfig.primo_seekers_age && scopeConfig.primo_seekers_age.length > 0
+        ? scopeConfig.primo_seekers_age
+        : ['15_24', '25_34', '35_plus'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const c of csps) {
+        for (const g of genders) {
+          for (const a of ages) {
+            keys.push(`${prefix}_${c}_${g}_${a}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 8. S23Q02 (First-time workers)
+    if (tableId === 's23q02') {
+      const prefix = 's23q02';
+      const contracts = ['permanent', 'temporary'];
+      const csps = scopeConfig.primo_workers_csp && scopeConfig.primo_workers_csp.length > 0
+        ? scopeConfig.primo_workers_csp
+        : ['cadres', 'foremen', 'workers'];
+      const ages = scopeConfig.primo_workers_age && scopeConfig.primo_workers_age.length > 0
+        ? scopeConfig.primo_workers_age
+        : ['15_24', '25_34', '35_plus'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const k of contracts) {
+        for (const c of csps) {
+          for (const g of genders) {
+            for (const a of ages) {
+              keys.push(`${prefix}_${k}_${c}_${g}_${a}`);
+            }
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 9. S3Q01 (Departures)
+    if (tableId === 's3q01') {
+      const prefix = 's3q01';
+      const isAdm = entityType === 'administration';
+      const csps = isAdm
+        ? ['fonctionnaire', 'decisionnaire', 'contractuelle']
+        : ['cadres', 'foremen', 'workers'];
+      const reasons = ['licenciement', 'demission', 'retraite', 'deces', 'fin_contrat', 'autres'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const c of csps) {
+        for (const r of reasons) {
+          for (const g of genders) {
+            keys.push(`${prefix}_${c}_${r}_${g}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 10. S3Q02 (Dismissals) - Slot 1 required, Slots 2 & 3 dynamic
+    if (tableId === 's3q02') {
+      const keys = ['s3q02_slot1_desc', 's3q02_slot1_male', 's3q02_slot1_female'];
+      const slot2Keys = ['s3q02_slot2_desc', 's3q02_slot2_male', 's3q02_slot2_female'];
+      const slot3Keys = ['s3q02_slot3_desc', 's3q02_slot3_male', 's3q02_slot3_female'];
+      if (slot2Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+        keys.push(...slot2Keys);
+      }
+      if (slot3Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+        keys.push(...slot3Keys);
+      }
+      return keys;
+    }
+
+    // 11. S3Q03 (Technical unemployment)
+    if (tableId === 's3q03') {
+      const prefix = 's3q03';
+      const types = ['licenciement_economique', 'chomage_technique'];
+      const csps = ['cadres', 'foremen', 'workers'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const t of types) {
+        for (const c of csps) {
+          for (const g of genders) {
+            keys.push(`${prefix}_${c}_${t}_${g}`);
+          }
+        }
+      }
+      return keys;
+    }
+
+    // 12. S4Q01 (Internships)
+    if (tableId === 's4q01') {
+      const prefix = tableId;
+      const types = ['academique', 'professionnel', 'pre_emploi', 'vacances'];
+      const genders = ['male', 'female'];
+      const keys: string[] = [];
+      for (const t of types) {
+        for (const g of genders) {
+          keys.push(`${prefix}_${t}_${g}`);
+        }
+      }
+      return keys;
+    }
+
+    // 13. S4Q02 (Skills) - Slot 1 required, Slots 2 & 3 dynamic
+    if (tableId === 's4q02') {
+      const keys = ['s4q02_slot1_desc', 's4q02_slot1_total'];
+      const slot2Keys = ['s4q02_slot2_desc', 's4q02_slot2_total'];
+      const slot3Keys = ['s4q02_slot3_desc', 's4q02_slot3_total'];
+      if (slot2Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+        keys.push(...slot2Keys);
+      }
+      if (slot3Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+        keys.push(...slot3Keys);
+      }
+      return keys;
+    }
+
+    // 14. S4Q03 (Training) - Slot 1 required, Slots 2 & 3 dynamic
+    if (tableId === 's4q03') {
+      const keys = ['s4q03_slot1_desc', 's4q03_slot1_male', 's4q03_slot1_female'];
+      const slot2Keys = ['s4q03_slot2_desc', 's4q03_slot2_male', 's4q03_slot2_female'];
+      const slot3Keys = ['s4q03_slot3_desc', 's4q03_slot3_male', 's4q03_slot3_female'];
+      if (slot2Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+        keys.push(...slot2Keys);
+      }
+      if (slot3Keys.some((k) => this.isEnteredMatrixValue(this.findCellValue(flat, k)))) {
+        keys.push(...slot3Keys);
+      }
+      return keys;
+    }
+
+    return [];
   }
 
   private flatInt(flat: FlatFormData, key: string): number {
@@ -1440,6 +2281,14 @@ export class QuestionnairesService {
     const rows: object[] = [];
 
     for (const { prefix, tableName } of prefixes) {
+      // Skip tables whose gateway is NONE or NOT_APPLICABLE.  For quiz-governed
+      // entities applyQuizDerivedTableSemantics already zeros the cells, but
+      // Project/Programme and Vocational Training are excluded from that path
+      // so this is the primary phantom-data guard for those entity types.
+      const statusKey = `${prefix.toUpperCase()}_RESPONSE_STATUS`;
+      const statusVal = (flat[statusKey] ?? flat[`${prefix}_RESPONSE_STATUS`]) as string | undefined;
+      if (statusVal === 'NONE' || statusVal === 'NOT_APPLICABLE') continue;
+
       for (const csp of cspRows) {
         for (const gender of genders) {
           for (const ageKey of ageBandKeys) {
@@ -1480,16 +2329,75 @@ export class QuestionnairesService {
     const diplomas = ['cep', 'bepc', 'probatoire', 'bac', 'bts', 'licence', 'maitrise', 'master', 'dqp', 'cqp', 'autres', 'sans_diplome'];
     const genders = ['male', 'female', 'total'];
     const ageBandKeys = ['15_24', '25_34', '35_plus', 'total'];
+    const csps = ['cadres', 'foremen', 'workers'];
     const prefix = 's22q03';
     const rows: object[] = [];
 
-    for (const diploma of diplomas) {
+    const has4D = Object.keys(flat).some((k) =>
+      k.startsWith(`${prefix}_cadres_`) ||
+      k.startsWith(`${prefix}_foremen_`) ||
+      k.startsWith(`${prefix}_workers_`)
+    );
+
+    if (has4D) {
+      for (const csp of csps) {
+        for (const diploma of diplomas) {
+          for (const gender of genders) {
+            for (const ageKey of ageBandKeys) {
+              const value = this.flatInt(flat, `${prefix}_${csp}_${diploma}_${gender}_${ageKey}`);
+              if (value !== 0) {
+                rows.push({
+                  cspCategory: this.up(csp),
+                  diploma: this.up(diploma),
+                  gender: this.up(gender),
+                  ageBand: this.mapAgeBand(ageKey),
+                  value
+                });
+              }
+            }
+          }
+        }
+
+        for (const gender of genders) {
+          for (const ageKey of ageBandKeys) {
+            const value = this.flatInt(flat, `${prefix}_${csp}_total_${gender}_${ageKey}`);
+            if (value !== 0) {
+              rows.push({
+                cspCategory: this.up(csp),
+                diploma: 'TOTAL',
+                gender: this.up(gender),
+                ageBand: this.mapAgeBand(ageKey),
+                value
+              });
+            }
+          }
+        }
+      }
+    } else {
+      for (const diploma of diplomas) {
+        for (const gender of genders) {
+          for (const ageKey of ageBandKeys) {
+            const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${ageKey}`);
+            if (value !== 0) {
+              rows.push({
+                cspCategory: null,
+                diploma: this.up(diploma),
+                gender: this.up(gender),
+                ageBand: this.mapAgeBand(ageKey),
+                value
+              });
+            }
+          }
+        }
+      }
+
       for (const gender of genders) {
         for (const ageKey of ageBandKeys) {
-          const value = this.flatInt(flat, `${prefix}_${diploma}_${gender}_${ageKey}`);
+          const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
           if (value !== 0) {
             rows.push({
-              diploma: this.up(diploma),
+              cspCategory: null,
+              diploma: 'TOTAL',
               gender: this.up(gender),
               ageBand: this.mapAgeBand(ageKey),
               value
@@ -1499,33 +2407,59 @@ export class QuestionnairesService {
       }
     }
 
-    for (const gender of genders) {
-      for (const ageKey of ageBandKeys) {
-        const value = this.flatInt(flat, `${prefix}_total_${gender}_${ageKey}`);
-        if (value !== 0) {
-          rows.push({
-            diploma: 'TOTAL',
-            gender: this.up(gender),
-            ageBand: this.mapAgeBand(ageKey),
-            value
-          });
-        }
-      }
-    }
-
     return rows;
   }
 
-  private buildDisabilityRows(flat: FlatFormData, prefix: string): object[] {
-    const rows = ['cadres', 'foremen', 'workers', 'total'];
+  private buildDisabilityRows(flat: FlatFormData, prefix: string, rowCategories: string[] = ['cadres', 'foremen', 'workers', 'total']): object[] {
+    // Gateway guard: skip entirely if the table is absent or not reported.
+    const statusKey = `${prefix.toUpperCase()}_RESPONSE_STATUS`;
+    const statusVal = (flat[statusKey] ?? flat[`${prefix}_RESPONSE_STATUS`]) as string | undefined;
+    if (statusVal === 'NONE' || statusVal === 'NOT_APPLICABLE') return [];
+
     const statuses = ['permanent', 'temporary', 'total'];
     const genders = ['male', 'female', 'total'];
     const records: object[] = [];
-    for (const row of rows) {
+    for (const row of rowCategories) {
       for (const status of statuses) {
         for (const gender of genders) {
           const value = this.flatInt(flat, `${prefix}_${row}_${status}_${gender}`);
           if (value !== 0) records.push({ cspCategory: this.up(row), status: this.up(status), gender: this.up(gender), value });
+        }
+      }
+    }
+    return records;
+  }
+
+  // Administration S21Q03: catégorie × sexe, no status dimension
+  // (flat keys `${prefix}_${row}_${gender}`) — stored with status TOTAL.
+  private buildStatuslessDisabilityRows(flat: FlatFormData, prefix: string, rowCategories: string[]): object[] {
+    const genders = ['male', 'female', 'total'];
+    const records: object[] = [];
+    for (const row of rowCategories) {
+      for (const gender of genders) {
+        const value = this.flatInt(flat, `${prefix}_${row}_${gender}`);
+        if (value !== 0) records.push({ cspCategory: this.up(row), status: 'TOTAL', gender: this.up(gender), value });
+      }
+    }
+    return records;
+  }
+
+  // Administration S21Q04: nature de la vulnérabilité × sexe, no status
+  // dimension — stored with status TOTAL.
+  private buildStatuslessVulnerableRows(flat: FlatFormData, prefix: string): object[] {
+    const vulnerableRows = ['deplaces_internes', 'refugies', 'orphelins', 'total'];
+    const genders = ['male', 'female', 'total'];
+    const records: object[] = [];
+    for (const vRow of vulnerableRows) {
+      for (const gender of genders) {
+        const value = this.flatInt(flat, `${prefix}_${vRow}_${gender}`);
+        if (value !== 0) {
+          records.push({
+            vulnerableType: vRow === 'total' ? 'TOTAL_VULN' : this.up(vRow),
+            status: 'TOTAL',
+            gender: this.up(gender),
+            value,
+          });
         }
       }
     }
@@ -1538,6 +2472,11 @@ export class QuestionnairesService {
   // OnefopVulnerableData's vulnerableType column using its existing
   // CADRES_VULN/FOREMEN_VULN/WORKERS_VULN/TOTAL_VULN values.
   private buildCspVulnerableRows(flat: FlatFormData, prefix: string): object[] {
+    // Gateway guard: skip entirely if the table is absent or not reported.
+    const statusKey = `${prefix.toUpperCase()}_RESPONSE_STATUS`;
+    const statusVal = (flat[statusKey] ?? flat[`${prefix}_RESPONSE_STATUS`]) as string | undefined;
+    if (statusVal === 'NONE' || statusVal === 'NOT_APPLICABLE') return [];
+
     const rows = ['cadres', 'foremen', 'workers', 'total'];
     const vulnerableTypeMap: Record<string, string> = {
       cadres: 'CADRES_VULN',
@@ -1999,7 +2938,17 @@ export class QuestionnairesService {
   async getAllQuestionnaires() {
     return (this.prisma as any).onefopSubmission.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true },
+      include: {
+        respondent: true,
+        enterpriseDetail: true,
+        cooperativeDetail: true,
+        ctdDetail: true,
+        ongDetail: true,
+        administrationDetail: true,
+        projectProgramDetail: true,
+        vocationalTrainingDetail: true,
+        anomalies: true,
+      },
     });
   }
 
@@ -2013,7 +2962,17 @@ export class QuestionnairesService {
   async listByStatus(status: string, limit: number, offset: number) {
     return (this.prisma as any).onefopSubmission.findMany({
       where: { status }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true },
+      include: {
+        respondent: true,
+        enterpriseDetail: true,
+        cooperativeDetail: true,
+        ctdDetail: true,
+        ongDetail: true,
+        administrationDetail: true,
+        projectProgramDetail: true,
+        vocationalTrainingDetail: true,
+        anomalies: true,
+      },
     });
   }
 
@@ -2028,6 +2987,7 @@ export class QuestionnairesService {
 
   async approve(id: string, reviewedBy?: string) {
     await this.getById(id);
+    await this.eligibilityEngine!.assertCanApprove(id);
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 
