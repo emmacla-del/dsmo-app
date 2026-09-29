@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getDossierDiagnostic } from "@/lib/api-client";
+import { ApiError, getDossierDiagnostic } from "@/lib/api-client";
 
 function axis1Label(status: string) {
   if (status === "APPROVED") return "Visé";
@@ -20,6 +20,12 @@ function axis1Colors(status: string): { bg: string; color: string } {
   return { bg: "rgba(217,119,6,0.1)", color: "#d97706" };
 }
 
+// apiFetch throws ApiError carrying the HTTP status. The backend answers 404
+// both for unknown ids and for dossiers outside the agent's territory.
+function isNotFound(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
+}
+
 function SubmissionDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -32,7 +38,24 @@ function SubmissionDetailContent() {
   const diagnosticQuery = useQuery({
     queryKey: ["admin", "diagnostic", id],
     queryFn: () => getDossierDiagnostic(id),
+    retry: (failureCount, error) => !isNotFound(error) && failureCount < 3,
   });
+
+  if (diagnosticQuery.isError && isNotFound(diagnosticQuery.error)) {
+    return (
+      <div className="cam-admin-page">
+        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+          <div>
+            <strong style={{ display: "block", color: "var(--cam-text)" }}>Dossier introuvable</strong>
+            <span>Ce dossier n&apos;existe pas ou vous n&apos;avez pas accès à cette région.</span>
+          </div>
+          <Link href="/admin/dossiers" className="cam-button cam-button-sm">
+            ← Retour aux dossiers
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const diag = diagnosticQuery.data;
 
