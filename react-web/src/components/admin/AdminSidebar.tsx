@@ -203,6 +203,12 @@ function NavLink({
 
 // ── AdminSidebar ──────────────────────────────────────────────────────────────
 
+/**
+ * Admin navigation rail. Requires the `cam-admin-rail` class (admin-console.css)
+ * for its width, height and positioning: sticky rail on desktop, off-canvas
+ * drawer below 1024px. Do not set those inline — inline styles would override
+ * the drawer media query. `layout.tsx` (the only consumer) passes the class.
+ */
 export function AdminSidebar({
   user,
   pendingCount = 0,
@@ -235,11 +241,7 @@ export function AdminSidebar({
       className={className}
       aria-label="Navigation principale"
       style={{
-        width: 196,
         flexShrink: 0,
-        height: "100vh",
-        position: "sticky",
-        top: 0,
         display: "flex",
         flexDirection: "column",
         background: "var(--cam-green-dark)",
