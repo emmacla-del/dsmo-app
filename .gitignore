@@ -62,3 +62,16 @@ secrets.json
 
 dist/
 *.tsbuildinfo
+
+# Build artifacts
+.cache/
+.next/
+.scratch/
+scratch/
+
+# Agent working files
+Claude outputs/
+
+# Test output
+test/failures/
+test/goldens/
