@@ -1,0 +1,57 @@
+-- Finding #3: a company could accumulate more than one live (non-draft)
+-- ONEFOP submission for the same quarter — nothing enforced uniqueness on
+-- (companyId, quarterCode). formId-based idempotency (see the P2002 catch
+-- in QuestionnairesService.submitQuestionnaire) only protects against a
+-- retry of the *same* client-generated formId; every call to submit() on
+-- the Flutter side mints a brand-new formId
+-- ('ONEFOP_${establishmentId}_${quarterCode}_${now}'), so a double-tap, a
+-- second device, or a genuine resubmission all create a fresh row instead
+-- of colliding on formId.
+--
+-- Scope of "occupying the slot", decided by the requester (not inferred
+-- here): PENDING_REVIEW and APPROVED only.
+--   - DRAFT is excluded — SubmissionDraft is the primary draft mechanism,
+--     but submitQuestionnaire also writes status: 'DRAFT' OnefopSubmission
+--     rows (questionnaires.service.ts ~1098), and those must stay
+--     unconstrained.
+--   - REJECTED and CORRECTION_REQUESTED are excluded — the review flow
+--     (approve/reject/requestCorrection in questionnaires.service.ts
+--     ~2018-2031) only ever updates the existing row's status in place;
+--     it never creates a follow-up row and nothing reopens the original.
+--     Since the client always mints a new formId, the *only* way a
+--     rejected/correction-requested company can ever file again is by
+--     creating a brand-new row for the same (companyId, quarterCode) — if
+--     those statuses occupied the slot, this index would block every
+--     legitimate correction.
+--
+-- Prisma's schema DSL cannot express a WHERE predicate on @@unique/
+-- @@index, so this is raw SQL. See the doc comment on model
+-- OnefopSubmission in schema.prisma for why nothing there mirrors this
+-- index, and what that means for `prisma migrate dev`/`diff`.
+--
+-- NOT applied by this commit — the file only exists on disk until
+-- `prisma migrate deploy` (or equivalent) is run by hand.
+--
+-- Columns are the literal Prisma field names (no @map on this model
+-- besides the table itself), so they're case-sensitive identifiers in
+-- Postgres and must stay double-quoted.
+--
+-- CONCURRENTLY note: CREATE INDEX CONCURRENTLY cannot run inside a
+-- transaction block, and depending on how this file is executed it may
+-- be wrapped in one. The statement below is the plain (locking) form,
+-- which briefly locks "onefop_submissions" for writes while it builds —
+-- acceptable for this table's size, but if a zero-downtime build is
+-- preferred, run the CONCURRENTLY variant by hand, outside a transaction,
+-- instead of this file:
+--   CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS
+--     "onefop_submissions_company_quarter_live_uidx"
+--     ON "onefop_submissions" ("companyId", "quarterCode")
+--     WHERE "status" IN ('PENDING_REVIEW', 'APPROVED');
+--
+-- This will fail to apply if duplicate (companyId, quarterCode) rows
+-- already exist among PENDING_REVIEW/APPROVED — that's what the
+-- accompanying detection query is for. Resolve those first.
+
+CREATE UNIQUE INDEX IF NOT EXISTS "onefop_submissions_company_quarter_live_uidx"
+  ON "onefop_submissions" ("companyId", "quarterCode")
+  WHERE "status" IN ('PENDING_REVIEW', 'APPROVED');
