@@ -88,8 +88,6 @@ export interface AdminSidebarProps {
   inscriptionsCount?: number;
   /** Badge count on "Anomalies" */
   anomaliesCount?: number;
-  /** Active campaign short label shown under the brand */
-  activeCampaignLabel?: string;
   /** Current locale for the FR | EN switcher */
   locale?: "fr" | "en";
   onLocaleChange?: (locale: "fr" | "en") => void;
@@ -210,7 +208,6 @@ export function AdminSidebar({
   pendingCount = 0,
   inscriptionsCount = 0,
   anomaliesCount = 0,
-  activeCampaignLabel,
   locale = "fr",
   onLocaleChange,
   id,
@@ -273,32 +270,10 @@ export function AdminSidebar({
         </div>
       </div>
 
-      {/* ── Active campaign indicator ── */}
-      {activeCampaignLabel && (
-        <div
-          style={{
-            margin: "0 10px 10px",
-            padding: "5px 9px",
-            borderRadius: 6,
-            background: "rgba(240,180,41,0.12)",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flexShrink: 0,
-          }}
-        >
-          <span
-            aria-hidden="true"
-            style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--cam-flag-yellow)", flexShrink: 0 }}
-          />
-          <span style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {activeCampaignLabel}
-          </span>
-        </div>
-      )}
-
       {/* ── Nav sections ── */}
-      <nav style={{ flex: 1, paddingBottom: "var(--cam-space-4)" }}>
+      {/* Grow to push the footer down, but never shrink below content: on short
+          viewports the rail scrolls instead of the footer overlapping the nav. */}
+      <nav style={{ flex: "1 0 auto", paddingBottom: "var(--cam-space-4)" }}>
         {NAV.map((section) => (
           <div key={section.group} style={{ marginTop: 18 }}>
             {/* Section label */}

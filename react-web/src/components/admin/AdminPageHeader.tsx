@@ -104,6 +104,7 @@ export function AdminPageHeader({
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "space-between",
+        flexWrap: "wrap",
         gap: "var(--cam-space-6)",
         paddingBottom: "var(--cam-space-5)",
         borderBottom: "var(--cam-border-width) solid var(--cam-border)",

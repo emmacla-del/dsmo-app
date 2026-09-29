@@ -387,52 +387,26 @@
   min-width: 0;
 }
 
-.cam-admin-topbar {
-  position: sticky;
-  top: 0;
-  z-index: calc(var(--cam-z-nav) - 1);
-  display: flex;
+/* Active campaign pill (page header actions) */
+.cam-admin-campaign-pill {
+  display: inline-flex;
   align-items: center;
-  gap: var(--cam-space-3);
-  min-height: 60px;
-  padding: 0 var(--cam-space-6);
-  background: var(--cam-surface);
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
-  font-size: var(--cam-font-size-xs);
-}
-
-.cam-admin-topbar-title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.cam-admin-topbar-title strong {
-  font-size: var(--cam-font-size-xl);
-  font-weight: 700;
-  color: var(--cam-green-dark);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-}
-
-.cam-admin-topbar-title span {
-  font-size: var(--cam-font-size-xs);
-  color: var(--cam-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: var(--cam-space-2);
+  padding: 4px var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-flag-yellow);
+  border-radius: var(--cam-radius-full);
+  background: rgba(240, 180, 41, 0.1);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.cam-admin-topbar-right {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-  flex-shrink: 0;
+.cam-admin-campaign-pill > span {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-flag-yellow);
 }
 
 .cam-admin-scope {
@@ -448,24 +422,7 @@
   white-space: nowrap;
 }
 
-.cam-admin-topbar-search {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-2);
-  padding: var(--cam-space-2) var(--cam-space-3);
-  background: var(--cam-bg);
-  border-radius: var(--cam-radius-control);
-  width: 200px;
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
-}
-
-.cam-admin-topbar-search svg {
-  flex-shrink: 0;
-  color: var(--cam-text-muted);
-}
-
-/* Cameroon flag circle (topbar right) */
+/* Cameroon flag circle (page header actions) */
 .cam-admin-flag-circle {
   width: 24px;
   height: 24px;
@@ -478,6 +435,11 @@
 
 .cam-admin-flag-circle span {
   flex: 1;
+}
+
+/* Tablet / phone only: holds the drawer toggle above the page header. */
+.cam-admin-mobilebar {
+  display: none;
 }
 
 .cam-admin-menu-button {
@@ -540,22 +502,14 @@
     display: inline-grid;
   }
 
-  .cam-admin-topbar {
-    padding: 0 var(--cam-space-4);
+  .cam-admin-mobilebar {
+    display: flex;
+    align-items: center;
+    padding: var(--cam-space-2) var(--cam-space-4) 0;
   }
 
   .cam-admin-main {
     padding: var(--cam-space-5) var(--cam-space-4);
-  }
-}
-
-@media (max-width: 639px) {
-  .cam-admin-topbar-title span {
-    display: none;
-  }
-
-  .cam-admin-topbar-search {
-    display: none;
   }
 }
 

@@ -12,16 +12,21 @@ import { listCampaigns } from "@/lib/campaigns";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import type { UserRole } from "@/lib/user-types";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
-const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
-  "/admin/pilotage":      { title: "Tableau de bord", sub: "Supervision des collectes et indicateurs de performance" },
-  "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage" },
-  "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs" },
-  "/admin/diffusion":     { title: "Données et exports", sub: "Homologation et diffusion des données statistiques certifiées" },
+// Layout-level page header: the fallback for admin pages that don't render
+// their own AdminPageHeader yet. When a page is refactored to render its own
+// header, remove its entry here so it never shows two <h1>s.
+// `group` / `nav` mirror the page's section and label in AdminSidebar.
+const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string }> = {
+  "/admin/pilotage":      { title: "Tableau de bord", sub: "Supervision des collectes et indicateurs de performance", group: "Supervision", nav: "Tableau de bord" },
+  "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
+  "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions" },
+  "/admin/diffusion":     { title: "Données et exports", sub: "Homologation et diffusion des données statistiques certifiées", group: "Données", nav: "Exports" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
-  "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP" },
-  "/admin/campagnes":     { title: "Gestion des campagnes", sub: "Pilotage des campagnes de collecte statistique nationale" },
-  "/admin/parametres":    { title: "Paramètres", sub: "Configuration de la plateforme CAM-LEAP" },
+  "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
+  "/admin/campagnes":     { title: "Gestion des campagnes", sub: "Pilotage des campagnes de collecte statistique nationale", group: "Collecte", nav: "Campagnes" },
+  "/admin/parametres":    { title: "Paramètres", sub: "Configuration de la plateforme CAM-LEAP", group: "Administration", nav: "Paramètres" },
 };
 
 const ADMIN_ROLES: UserRole[] = [
@@ -113,6 +118,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pageTitle = Object.entries(PAGE_TITLES)
     .filter(([prefix]) => pathname.startsWith(prefix))
     .sort((a, b) => b[0].length - a[0].length)[0]?.[1] ?? { title: "Console NEFOP", sub: "Observatoire National de l'Emploi et de la Formation Professionnelle" };
+  const breadcrumb = pageTitle.group && pageTitle.nav ? [{ label: pageTitle.group }, { label: pageTitle.nav }] : undefined;
 
   return (
     <div className={`cam-admin${menuOpen ? " is-menu-open" : ""}`}>
@@ -125,13 +131,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           roleLabel: user?.role ? directoryRoleLabel(user.role) : "Agent",
         }}
         pendingCount={pendingCount}
-        activeCampaignLabel={activeCampaign?.name}
       />
 
       <div className="cam-admin-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
 
       <div className="cam-admin-body">
-        <header className="cam-admin-topbar">
+        <div className="cam-admin-mobilebar">
           <button
             type="button"
             className="cam-admin-menu-button"
@@ -146,32 +151,37 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <line x1="4" y1="17" x2="20" y2="17" />
             </svg>
           </button>
-          <div className="cam-admin-topbar-title">
-            <strong>{pageTitle.title}</strong>
-            <span>{pageTitle.sub}</span>
-          </div>
-          <div className="cam-admin-topbar-right">
-            <div className="cam-admin-scope" title="Ressort territorial de votre compte">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-              </svg>
-              {scope}
-            </div>
-            <div className="cam-admin-topbar-search" aria-hidden="true">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <span>Rechercher…</span>
-            </div>
-            <div className="cam-admin-flag-circle" aria-label="Cameroun" title="Cameroun">
-              <span style={{ background: "#007a3d" }} />
-              <span style={{ background: "#ce1126" }} />
-              <span style={{ background: "#fcd116" }} />
-            </div>
-          </div>
-        </header>
+        </div>
 
-        <main className="cam-admin-main">{children}</main>
+        <main className="cam-admin-main">
+          <AdminPageHeader
+            breadcrumb={breadcrumb}
+            title={pageTitle.title}
+            subtitle={pageTitle.sub}
+            actions={
+              <>
+                {activeCampaign && (
+                  <span className="cam-admin-campaign-pill" title="Campagne de collecte active">
+                    <span aria-hidden="true" />
+                    {activeCampaign.name}
+                  </span>
+                )}
+                <span className="cam-admin-scope" title="Ressort territorial de votre compte">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                  </svg>
+                  {scope}
+                </span>
+                <span className="cam-admin-flag-circle" role="img" aria-label="Cameroun" title="Cameroun">
+                  <span style={{ background: "var(--cam-flag-green)" }} />
+                  <span style={{ background: "var(--cam-flag-red)" }} />
+                  <span style={{ background: "var(--cam-flag-yellow)" }} />
+                </span>
+              </>
+            }
+          />
+          {children}
+        </main>
       </div>
     </div>
   );
