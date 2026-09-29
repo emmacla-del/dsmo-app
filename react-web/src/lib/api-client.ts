@@ -516,6 +516,7 @@ export interface AdminQuestionnairesPage {
   total: number;
 }
 
+// TODO(backend, S): delete QuestionnairesService.getAllQuestionnaires in a follow-up — dead code since 40529d79 (GET /admin/questionnaires now uses listForAdmin)
 export function listAdminQuestionnaires(
   params: { status?: string; region?: string; search?: string; limit?: number; offset?: number } = {},
 ) {
