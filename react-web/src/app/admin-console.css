@@ -480,13 +480,16 @@
     inset: 0 auto 0 0;
     width: min(var(--cam-admin-rail-width), 86vw);
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
     z-index: var(--cam-z-dialog);
     box-shadow: none;
   }
 
   .cam-admin.is-menu-open .cam-admin-rail {
     transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s linear 0s;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
   }
 
@@ -514,7 +517,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cam-admin-rail {
+  .cam-admin-rail,
+  .cam-admin.is-menu-open .cam-admin-rail {
     transition: none;
   }
 }
