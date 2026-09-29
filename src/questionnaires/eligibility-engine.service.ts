@@ -216,6 +216,8 @@ export class EligibilityEngineService {
       correctionsUnderReviewCount,
       blockingAnomaliesCount,
       approvedCandidates,
+      statusGroups,
+      regionGroups,
     ] = await Promise.all([
       this.prisma.onefopSubmission.count({ where: baseWhere }),
       this.prisma.onefopSubmission.count({
@@ -244,7 +246,30 @@ export class EligibilityEngineService {
           },
         },
       }),
+      // Dashboard aggregates are computed here, over the whole territory, so
+      // the client never derives national figures from a paginated list.
+      this.prisma.onefopSubmission.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.onefopSubmission.groupBy({
+        by: ['region'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
     ]);
+
+    const statusCounts: PilotageQueues['statusCounts'] = {
+      PENDING_REVIEW: 0,
+      APPROVED: 0,
+      CORRECTION_REQUESTED: 0,
+      REJECTED: 0,
+    };
+    for (const g of statusGroups) {
+      if (g.status in statusCounts) statusCounts[g.status as keyof typeof statusCounts] = g._count._all;
+    }
+    const regionCounts = regionGroups.map((g) => ({ region: g.region, count: g._count._all }));
 
     // Statistically ready = APPROVED and ZERO open blocking anomalies
     const statisticallyReadyCount = approvedCandidates.filter((s) => s._count.anomalies === 0).length;
@@ -257,6 +282,9 @@ export class EligibilityEngineService {
       pendingDivisionalVisasCount: 0, // Reserved for multi-tier divisional routing
       correctionsUnderReviewCount,
       statisticallyReadyCount,
+      statusCounts,
+      approvedCount: statusCounts.APPROVED,
+      regionCounts,
     };
   }
 

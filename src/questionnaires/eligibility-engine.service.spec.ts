@@ -313,3 +313,39 @@ describe('EligibilityEngineService', () => {
     });
   });
 });
+
+describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', () => {
+  it('computes status and region counts server-side over the whole territory', async () => {
+    const prisma: any = {
+      onefopSubmission: {
+        count: jest.fn(async () => 1200),
+        findMany: jest.fn(async () => [{ id: 'a', _count: { anomalies: 0 } }, { id: 'b', _count: { anomalies: 2 } }]),
+        groupBy: jest.fn(async ({ by }: any) =>
+          by[0] === 'status'
+            ? [
+                { status: 'APPROVED', _count: { _all: 700 } },
+                { status: 'PENDING_REVIEW', _count: { _all: 400 } },
+                { status: 'REJECTED', _count: { _all: 100 } },
+              ]
+            : [
+                { region: 'Littoral', _count: { _all: 800 } },
+                { region: null, _count: { _all: 400 } },
+              ],
+        ),
+      },
+      onefopAnomaly: { count: jest.fn(async () => 3) },
+    };
+    const engine = new EligibilityEngineService(prisma);
+
+    const queues = await engine.getPilotageQueues({ role: 'REGIONAL', region: 'Littoral' });
+
+    expect(queues.statusCounts).toEqual({ PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 100 });
+    expect(queues.approvedCount).toBe(700);
+    expect(queues.regionCounts).toEqual([{ region: 'Littoral', count: 800 }, { region: null, count: 400 }]);
+    // Aggregates use the same territory filter as the other queue counts.
+    const scoped = { region: { equals: 'Littoral', mode: 'insensitive' } };
+    for (const call of prisma.onefopSubmission.groupBy.mock.calls) {
+      expect(call[0]).toMatchObject({ where: scoped, _count: { _all: true } });
+    }
+  });
+});

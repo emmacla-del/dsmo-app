@@ -2961,6 +2961,61 @@ export class QuestionnairesService {
     });
   }
 
+  /**
+   * One page of the admin dossier list plus `total`, the count of the SAME
+   * filtered query (territory + status + region + search), so "sur N" always
+   * matches what the filters produce. Filters are combined with AND rather than
+   * spread into one object: a region filter must narrow the caller's territory,
+   * never replace its region key and escape it.
+   */
+  async listForAdmin(
+    filters: { status?: string; region?: string; search?: string; limit: number; offset: number },
+    territory?: Territory,
+  ): Promise<{ items: any[]; total: number }> {
+    const and: Record<string, unknown>[] = [territoryWhere(territory)];
+    if (filters.status) and.push({ status: filters.status });
+    if (filters.region) and.push({ region: { equals: filters.region, mode: 'insensitive' } });
+    if (filters.search) {
+      const contains = { contains: filters.search, mode: 'insensitive' };
+      and.push({
+        OR: [
+          { submissionId: contains },
+          { respondent: { respondentName: contains } },
+          { enterpriseDetail: { companyName: contains } },
+          { cooperativeDetail: { cooperativeName: contains } },
+          { ongDetail: { ongName: contains } },
+          { administrationDetail: { name: contains } },
+          { projectProgramDetail: { name: contains } },
+          { vocationalTrainingDetail: { name: contains } },
+        ],
+      });
+    }
+    const where = { AND: and };
+
+    const [items, total] = await Promise.all([
+      (this.prisma as any).onefopSubmission.findMany({
+        where,
+        // id breaks createdAt ties so offset paging never repeats or skips rows.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: filters.limit,
+        skip: filters.offset,
+        include: {
+          respondent: true,
+          enterpriseDetail: true,
+          cooperativeDetail: true,
+          ctdDetail: true,
+          ongDetail: true,
+          administrationDetail: true,
+          projectProgramDetail: true,
+          vocationalTrainingDetail: true,
+          anomalies: true,
+        },
+      }),
+      (this.prisma as any).onefopSubmission.count({ where }),
+    ]);
+    return { items, total };
+  }
+
   async listByStatus(status: string, limit: number, offset: number, territory?: Territory) {
     return (this.prisma as any).onefopSubmission.findMany({
       where: { status, ...territoryWhere(territory) }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,

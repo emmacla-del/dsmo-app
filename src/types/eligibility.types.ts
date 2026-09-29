@@ -59,4 +59,10 @@ export interface PilotageQueues {
   correctionsUnderReviewCount: number;
   statisticallyReadyCount: number;
   totalSubmissionsCount: number;
+  /** Submissions per administrative status, over the caller's whole territory. */
+  statusCounts: Record<'PENDING_REVIEW' | 'APPROVED' | 'CORRECTION_REQUESTED' | 'REJECTED', number>;
+  /** Same figure as statusCounts.APPROVED, named for the pipeline's "Approuvées" stage. */
+  approvedCount: number;
+  /** Submissions per stored region value (null = no region recorded). */
+  regionCounts: Array<{ region: string | null; count: number }>;
 }

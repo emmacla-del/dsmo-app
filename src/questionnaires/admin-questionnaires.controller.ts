@@ -1,5 +1,6 @@
 // src/questionnaires/admin-questionnaires.controller.ts
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -17,6 +18,28 @@ import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { BulkVisaDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { territoryFromUser } from '../auth/territory';
+import { OnefopStatus } from '@prisma/client';
+
+const LIST_MAX_LIMIT = 100;
+const SEARCH_MAX_LENGTH = 100;
+
+// Query params arrive as strings (the global ValidationPipe runs with
+// transform: false), and Prisma rejects a string `take`/`skip`. Parse here and
+// answer a clear 400 rather than letting Prisma fail with a 500.
+function parseIntParam(raw: unknown, fallback: number, min: number, max: number, message: string): number {
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const text = String(raw).trim();
+  if (!/^\d+$/.test(text)) throw new BadRequestException(message);
+  const value = Number(text);
+  if (value < min || value > max) throw new BadRequestException(message);
+  return value;
+}
+
+function optionalText(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const text = raw.trim().slice(0, SEARCH_MAX_LENGTH);
+  return text || undefined;
+}
 
 @Controller('admin/questionnaires')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -77,18 +100,35 @@ export class AdminQuestionnairesController {
     return this.eligibilityEngine.resolveAnomaly(id, req.user, dto);
   }
 
+  /**
+   * Paginated dossier list: { items, total }. `total` counts the filtered
+   * query (territory + status + region + search), not the whole table.
+   */
   @Get()
   async getAll(
     @Query('status') status?: string,
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('region') region?: string,
+    @Query('search') search?: string,
     @Request() req?: any,
   ) {
-    const territory = territoryFromUser(req?.user);
-    if (status) {
-      return this.service.listByStatus(status, limit ?? 100, offset ?? 0, territory);
+    const statusFilter = optionalText(status);
+    if (statusFilter && !(Object.values(OnefopStatus) as string[]).includes(statusFilter)) {
+      throw new BadRequestException('Statut de dossier inconnu.');
     }
-    return this.service.getAllQuestionnaires(territory);
+    return this.service.listForAdmin(
+      {
+        status: statusFilter,
+        region: optionalText(region),
+        search: optionalText(search),
+        limit: parseIntParam(limit, LIST_MAX_LIMIT, 1, LIST_MAX_LIMIT,
+          `Le paramètre « limit » doit être un entier entre 1 et ${LIST_MAX_LIMIT}.`),
+        offset: parseIntParam(offset, 0, 0, Number.MAX_SAFE_INTEGER,
+          'Le paramètre « offset » doit être un entier positif ou nul.'),
+      },
+      territoryFromUser(req?.user),
+    );
   }
 
   @Get('pending')
