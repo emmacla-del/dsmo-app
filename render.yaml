@@ -13,3 +13,17 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  - type: web
+    name: dsmo-react-web
+    runtime: node
+    plan: starter
+    rootDir: react-web
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://dsmo-app-2.onrender.com/api
+    buildFilter:
+      paths:
+        - react-web/**
