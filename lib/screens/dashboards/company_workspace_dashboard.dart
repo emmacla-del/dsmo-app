@@ -1142,17 +1142,17 @@ class CampaignDetailsDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _CampaignDetailRow(label: 'Status', value: statusText),
+              _CampaignDetailRow(label: context.l10n.statusColumnHeader, value: statusText),
               _CampaignDetailRow(
-                  label: 'Description', value: description?.trim().isNotEmpty == true ? description! : unavailable),
-              _CampaignDetailRow(label: 'Start date', value: _date(data?['startDate'])),
-              _CampaignDetailRow(label: 'End date', value: _date(data?['deadline'])),
-              _CampaignDetailRow(label: 'Target users', value: unavailable),
+                  label: context.l10n.landingConfigDescriptionFieldLabel, value: description?.trim().isNotEmpty == true ? description! : unavailable),
+              _CampaignDetailRow(label: context.l10n.campaignDetailStartDateLabel, value: _date(data?['startDate'])),
+              _CampaignDetailRow(label: context.l10n.campaignDetailEndDateLabel, value: _date(data?['deadline'])),
+              _CampaignDetailRow(label: context.l10n.campaignDetailTargetUsersLabel, value: unavailable),
               _CampaignDetailRow(
-                  label: 'Available forms',
+                  label: context.l10n.campaignDetailAvailableFormsLabel,
                   value: collectionTypeLabels[collectionType]?.of(context.loc) ?? collectionType),
               _CampaignDetailRow(
-                  label: 'Submissions',
+                  label: context.l10n.submissionsTitle,
                   value: data?['submissionCount']?.toString() ?? unavailable),
             ],
           ),
@@ -1160,7 +1160,7 @@ class CampaignDetailsDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Close')),
+            onPressed: () => Navigator.pop(context), child: Text(context.l10n.registerReceiptCloseButton)),
         if (onOpen != null)
           FilledButton.icon(
             onPressed: () {
@@ -1168,7 +1168,7 @@ class CampaignDetailsDialog extends StatelessWidget {
               onOpen!();
             },
             icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('Open campaign'),
+            label: Text(context.l10n.openCampaignButton),
           ),
       ],
     );

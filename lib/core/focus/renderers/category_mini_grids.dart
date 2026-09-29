@@ -75,12 +75,16 @@ class SegmentButton extends StatelessWidget {
   // Never combined with [selected] — the active tab reads as "current"
   // via its own highlight, not as "done".
   final bool done;
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only — see
+  // table_renderer.dart's own `polished` doc comment.
+  final bool polished;
   const SegmentButton({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
     this.done = false,
+    this.polished = false,
   });
 
   @override
@@ -116,6 +120,7 @@ class SegmentButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
+                  fontFamily: polished ? GridTheme.polishedFontFamily : null,
                   fontSize: 13,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected ? AppColors.deepEmerald : AppColors.silver,
@@ -148,6 +153,12 @@ class MiniCategoryGrid extends StatefulWidget {
   // row and focus the last cell" — mirroring the desktop controller's own
   // forward-lands-at-top/backward-lands-at-bottom convention.
   final bool? autoFocusFromEnd;
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only (see
+  // table_renderer.dart's own `polished` doc comment) — swaps this grid's
+  // header/label/cell styling and framing for the Wizard-matched
+  // GridTheme.polished* look. Never set for Spreadsheet Mode or any other
+  // entity.
+  final bool polished;
 
   const MiniCategoryGrid({
     super.key,
@@ -160,6 +171,7 @@ class MiniCategoryGrid extends StatefulWidget {
     this.onExitTable,
     this.onExitPrevious,
     this.autoFocusFromEnd,
+    this.polished = false,
   });
 
   @override
@@ -310,23 +322,29 @@ class _MiniCategoryGridState extends State<MiniCategoryGrid> {
     // actual (now much shorter) list at all.
     final editableColsPerRow =
         visibleRows.isEmpty ? spec.colCount : visibleCells.length ~/ visibleRows.length;
+    final headerStyle =
+        widget.polished ? GridTheme.polishedHeaderStyle : GridTheme.headerStyle;
+    final labelStyle =
+        widget.polished ? GridTheme.polishedLabelStyle : GridTheme.labelStyle;
+    final borderColor =
+        widget.polished ? GridTheme.polishedBorder : GridTheme.borderColor;
+    final headerBg = widget.polished ? GridTheme.polishedBackground : OL.tableHdrBg;
 
     final cells = <GridCell>[
       GridCell(
         id: 'corner',
         row: 0,
         col: 0,
-        backgroundColor: OL.tableHdrBg,
-        child: Text(spec.cornerLabel,
-            style: GridTheme.headerStyle.copyWith(fontSize: 11)),
+        backgroundColor: headerBg,
+        child: Text(spec.cornerLabel, style: headerStyle.copyWith(fontSize: 11)),
       ),
       for (int c = 0; c < spec.colCount; c++)
         GridCell(
           id: 'hdr_$c',
           row: 0,
           col: c + 1,
-          backgroundColor: OL.tableHdrBg,
-          child: Text(spec.headers[c].title, style: GridTheme.headerStyle),
+          backgroundColor: headerBg,
+          child: Text(spec.headers[c].title, style: headerStyle),
         ),
       for (int vi = 0; vi < visibleRows.length; vi++) ...[
         GridCell(
@@ -336,8 +354,7 @@ class _MiniCategoryGridState extends State<MiniCategoryGrid> {
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child:
-                Text(spec.rowLabels[visibleRows[vi]], style: GridTheme.labelStyle),
+            child: Text(spec.rowLabels[visibleRows[vi]], style: labelStyle),
           ),
         ),
         for (int c = 0; c < spec.colCount; c++)
@@ -370,6 +387,7 @@ class _MiniCategoryGridState extends State<MiniCategoryGrid> {
                 onExitTable: _onExitTableBoundary,
                 onExitPrevious: _onExitPreviousBoundary,
                 height: dataRowHeight - 2,
+                polished: widget.polished,
               ),
             );
           }(),
@@ -399,7 +417,7 @@ class _MiniCategoryGridState extends State<MiniCategoryGrid> {
     return Container(
       foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: GridTheme.borderColor, width: GridTheme.borderWidth),
+        border: Border.all(color: borderColor, width: GridTheme.borderWidth),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -416,7 +434,7 @@ class _MiniCategoryGridState extends State<MiniCategoryGrid> {
             headerRowHeight,
             for (int _ in visibleRows) dataRowHeight,
           ],
-          borderColor: GridTheme.borderColor,
+          borderColor: borderColor,
           borderWidth: GridTheme.borderWidth,
         ),
       ),
@@ -697,6 +715,11 @@ class CategoryGridGroupsView extends StatefulWidget {
   // in this widget's standalone tests, where categoryFillStatus falls back
   // to numberValues != 0.
   final Map<String, int>? enteredValues;
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only — see
+  // table_renderer.dart's own `polished` doc comment. Threaded into every
+  // card/grid this view builds below; never set by Spreadsheet Mode or
+  // any other entity.
+  final bool polished;
 
   const CategoryGridGroupsView({
     super.key,
@@ -714,6 +737,7 @@ class CategoryGridGroupsView extends StatefulWidget {
     this.isCategorySkipped,
     this.onCategorySkipChanged,
     this.enteredValues,
+    this.polished = false,
   });
 
   @override
@@ -866,6 +890,7 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
                           done: visibleIndices[k] <= _peak &&
                               visibleIndices[k] != gi,
                           onTap: () => _selectGroup(visibleIndices[k]),
+                          polished: widget.polished,
                         ),
                       )
                     : SegmentButton(
@@ -874,6 +899,7 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
                         done: visibleIndices[k] <= _peak &&
                             visibleIndices[k] != gi,
                         onTap: () => _selectGroup(visibleIndices[k]),
+                        polished: widget.polished,
                       ),
               ],
             ],
@@ -881,7 +907,10 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
           const SizedBox(height: 12),
         ],
         if (widget.mobile) ...[
-          _ProgressLine(started: startedCount, total: group.categories.length),
+          _ProgressLine(
+              started: startedCount,
+              total: group.categories.length,
+              polished: widget.polished),
           const SizedBox(height: 10),
         ],
         for (int ci = 0; ci < group.categories.length; ci++) ...[
@@ -901,6 +930,7 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
                 for (final c in g.categories) c
             ].fold<int>(0,
                 (sum, c) => sum + categoryGenderSubtotal(c, widget.numberValues, 'female')),
+            polished: widget.polished,
           ),
         ],
       ],
@@ -943,6 +973,7 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
       onExitPrevious: widget.mobile && ci > 0
           ? () => _openCategory(gi, ci - 1, categories, focusStart: false)
           : widget.onExitPrevious,
+      polished: widget.polished,
     );
 
     // Every category is a real collapsible card — tap the header to
@@ -962,7 +993,9 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-            color: expanded ? GridTheme.borderColor : OL.borderColor),
+            color: expanded
+                ? (widget.polished ? GridTheme.polishedBorder : GridTheme.borderColor)
+                : OL.borderColor),
         borderRadius: BorderRadius.circular(10),
         color: OL.tableRowEven,
       ),
@@ -1001,12 +1034,15 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(category.label,
-                            style: OL.qcStyle.copyWith(
-                                fontSize: 14.5, fontWeight: FontWeight.w600)),
+                            style: (widget.polished
+                                    ? GridTheme.polishedHeaderStyle
+                                    : OL.qcStyle)
+                                .copyWith(fontSize: 14.5, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 2),
                         Text(
                           _subtitleFor(status, subtotal, locale),
                           style: TextStyle(
+                            fontFamily: widget.polished ? GridTheme.polishedFontFamily : null,
                             fontSize: 12,
                             fontWeight: status == CategoryFillStatus.complete
                                 ? FontWeight.w700
@@ -1049,7 +1085,9 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
                           fr: 'Aucun cas à signaler pour cette catégorie.',
                           en: 'Nothing to report for this category.',
                         ).of(locale),
-                        style: const TextStyle(
+                        style: TextStyle(
+                            fontFamily:
+                                widget.polished ? GridTheme.polishedFontFamily : null,
                             fontSize: 12.5,
                             color: AppColors.slate,
                             fontStyle: FontStyle.italic),
@@ -1067,8 +1105,11 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
                               fr: 'Aucun cas à signaler pour cette catégorie',
                               en: 'Nothing to report for this category',
                             ).of(locale),
-                            style: const TextStyle(
-                                fontSize: 12.5, color: AppColors.slate),
+                            style: TextStyle(
+                                fontFamily:
+                                    widget.polished ? GridTheme.polishedFontFamily : null,
+                                fontSize: 12.5,
+                                color: AppColors.slate),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1122,22 +1163,26 @@ class _CategoryGridGroupsViewState extends State<CategoryGridGroupsView> {
 class _ProgressLine extends StatelessWidget {
   final int started;
   final int total;
-  const _ProgressLine({required this.started, required this.total});
+  final bool polished;
+  const _ProgressLine({required this.started, required this.total, this.polished = false});
 
   @override
   Widget build(BuildContext context) {
     final locale = context.loc;
+    final fontFamily = polished ? GridTheme.polishedFontFamily : null;
     final rest = locale.languageCode == 'en'
         ? '/$total categor${total > 1 ? 'ies' : 'y'} started'
         : '/$total catégorie${total > 1 ? 's' : ''} commencée${total > 1 ? 's' : ''}';
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 12.5, color: AppColors.slate),
+        style: TextStyle(fontFamily: fontFamily, fontSize: 12.5, color: AppColors.slate),
         children: [
           TextSpan(
             text: '$started',
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, color: AppColors.deepEmerald),
+            style: TextStyle(
+                fontFamily: fontFamily,
+                fontWeight: FontWeight.w700,
+                color: AppColors.deepEmerald),
           ),
           TextSpan(text: rest),
         ],
@@ -1158,7 +1203,8 @@ class _ProgressLine extends StatelessWidget {
 class _GrandTotalSummary extends StatelessWidget {
   final int male;
   final int female;
-  const _GrandTotalSummary({required this.male, required this.female});
+  final bool polished;
+  const _GrandTotalSummary({required this.male, required this.female, this.polished = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1169,14 +1215,18 @@ class _GrandTotalSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: OL.totalCellBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: OL.catStatusComplete.withValues(alpha: 0.25)),
+        border: Border.all(
+            color: polished
+                ? GridTheme.polishedBorder
+                : OL.catStatusComplete.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
           Text(
               const LocalizedText(fr: 'Total général', en: 'Grand total')
                   .of(locale),
-              style: OL.qcStyle.copyWith(fontSize: 12.5)),
+              style: (polished ? GridTheme.polishedHeaderStyle : OL.qcStyle)
+                  .copyWith(fontSize: 12.5)),
           const Spacer(),
           _stat('M', male),
           const SizedBox(width: 20),
@@ -1190,10 +1240,17 @@ class _GrandTotalSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.slate)),
+          Text(label,
+              style: TextStyle(
+                  fontFamily: polished ? GridTheme.polishedFontFamily : null,
+                  fontSize: 11,
+                  color: AppColors.slate)),
           Text(value == 0 ? '—' : '$value',
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.deepEmerald)),
+              style: TextStyle(
+                  fontFamily: polished ? GridTheme.polishedFontFamily : null,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.deepEmerald)),
         ],
       );
 }

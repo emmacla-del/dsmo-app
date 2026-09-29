@@ -34,6 +34,13 @@ class LeadingGroupTabs extends StatefulWidget {
   final VoidCallback? onExitTable;
   final VoidCallback? onExitPrevious;
   final TextEditingController Function(String)? hybridController;
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only (see
+  // table_renderer.dart's own `polished` doc comment) — the mobile-only
+  // rendering for a leadingGroup table (S23Q02 today), which reuses
+  // GenericSpreadsheetTable directly rather than the card widgets the
+  // other tables use. Swaps the tab strip and the wrapped table's own
+  // typography/framing to match; never set by Spreadsheet Mode.
+  final bool polished;
 
   const LeadingGroupTabs({
     super.key,
@@ -47,6 +54,7 @@ class LeadingGroupTabs extends StatefulWidget {
     this.onExitTable,
     this.onExitPrevious,
     this.hybridController,
+    this.polished = false,
   });
 
   @override
@@ -76,6 +84,7 @@ class _LeadingGroupTabsState extends State<LeadingGroupTabs> {
                   label: groups[i].label,
                   selected: i == selected,
                   onTap: () => setState(() => _selected = i),
+                  polished: widget.polished,
                 ),
               ),
             ],
@@ -97,11 +106,12 @@ class _LeadingGroupTabsState extends State<LeadingGroupTabs> {
               // at every pixel — Flutter's own rounded-rect border painter
               // traces a real curve here, always covering that gap.
               foregroundDecoration: BoxDecoration(
-                // Black, matching the GenericSpreadsheetTable it wraps —
-                // that table always paints GridTheme.borderColor (real
-                // black) gridlines, so a softer OL.borderColor frame here
-                // would show as a two-tone seam at the edge.
-                border: Border.all(color: GridTheme.borderColor),
+                // Matches whatever border GenericSpreadsheetTable itself
+                // paints (black Excel gridlines normally, the soft
+                // polished border when widget.polished) — a mismatched
+                // frame here would show as a two-tone seam at the edge.
+                border: Border.all(
+                    color: widget.polished ? GridTheme.polishedBorder : GridTheme.borderColor),
                 borderRadius: BorderRadius.circular(10),
               ),
               // Re-keyed per selected group so switching tabs mounts a
@@ -119,6 +129,7 @@ class _LeadingGroupTabsState extends State<LeadingGroupTabs> {
                 onExitTable: widget.onExitTable,
                 onExitPrevious: widget.onExitPrevious,
                 hybridController: widget.hybridController,
+                polished: widget.polished,
               ),
             ),
           ),
@@ -132,7 +143,13 @@ class _TabButton extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _TabButton({required this.label, required this.selected, required this.onTap});
+  final bool polished;
+  const _TabButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.polished = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +174,7 @@ class _TabButton extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
+            fontFamily: polished ? GridTheme.polishedFontFamily : null,
             fontSize: 13,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             color: selected ? AppColors.deepEmerald : AppColors.silver,

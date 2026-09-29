@@ -188,7 +188,7 @@ class _ActivitiesTableState extends State<ActivitiesTable> {
       return SizedBox(
         width: width,
         child: DropdownButtonFormField<String>(
-          value: (_dropdownValues[id]?.isEmpty ?? true) ? null : _dropdownValues[id],
+          initialValue: (_dropdownValues[id]?.isEmpty ?? true) ? null : _dropdownValues[id],
           isExpanded: true,
           decoration: InputDecoration(
             labelText: f.label.of(locale),

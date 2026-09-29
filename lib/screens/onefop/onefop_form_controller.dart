@@ -21,6 +21,9 @@ import '../../core/focus/utils/field_validator.dart';
 import '../../core/focus/utils/table_response_status.dart';
 import '../../core/focus/renderers/activities_table.dart'
     show kActivitiesTableRowCount, kActivitiesTableFieldSuffixes;
+import '../../core/focus/renderers/vt_routing.dart' show isVtTableTemplate;
+import '../../core/focus/renderers/vt_table_defs.dart' show vtTableDefFor;
+import '../../core/focus/renderers/vt_table_types.dart';
 import '../../data/api_client.dart';
 import '../../services/sync_queue_service.dart';
 
@@ -63,7 +66,13 @@ class OnefopFormController extends ChangeNotifier {
   // of a hard-coded date; see _applyCampaignPeriodLabels().
   final DateTime? campaignPeriodStart;
   final DateTime? campaignPeriodEnd;
-  final void Function(Map<String, dynamic>) onSave;
+  // FutureOr, not void: callers persisting to DraftService/the backend
+  // return a real Future, and it must be awaited so a rejected save can be
+  // caught instead of vanishing as an unhandled async error — see
+  // _lastSavedAt/_saveFailed's own doc comments for why that mattered.
+  // Still callable with a plain synchronous void callback (e.g. tests),
+  // since a non-Future return also satisfies FutureOr<void>.
+  final FutureOr<void> Function(Map<String, dynamic>) onSave;
   final VoidCallback? onCancel;
   final String? userId;
   final VoidCallback? onSubmitSuccess;
@@ -118,6 +127,7 @@ class OnefopFormController extends ChangeNotifier {
   final Map<String, String> _tv = {};
   final Map<String, String> _htv = {};
   final Map<String, TextEditingController> _hctrl = {};
+  final Map<String, TextEditingController> _gctrl = {};
 
   Map<String, dynamic> get data => _data;
   Map<String, TextEditingController> get ctrl => _ctrl;
@@ -131,6 +141,21 @@ class OnefopFormController extends ChangeNotifier {
   final Set<String> _touched = {};
   bool _dirty = false;
   bool _saving = false;
+  // Wall-clock time of the last CONFIRMED-persisted save (onSave resolved
+  // without throwing) — shown in the shell title bar as "Enregistré à
+  // HH:MM"/"Saved at HH:MM" rather than a bare, timeless "Saved" label
+  // (VTC-UX-BENCHMARK "Saving": header status must be Saving…/Saved at
+  // 14:32/Could not save — retry, not a transient toast alone). Null until
+  // the first successful save this session.
+  DateTime? _lastSavedAt;
+  // True when the most recent save attempt (autosave or the interactive
+  // Save button) threw — onSave now returns/may return a Future, and a
+  // rejected one used to vanish as an unhandled async error while the
+  // title bar still reported "Enregistré"/"Saved". A respondent must never
+  // be told their statistical declaration is saved when it silently
+  // wasn't. Cleared by the next save attempt that succeeds; _dirty stays
+  // true on failure so the data is not mistaken for confirmed-persisted.
+  bool _saveFailed = false;
   final Set<String> _dirtyT = {};
   bool _loading = true;
   String? _err;
@@ -240,6 +265,8 @@ class OnefopFormController extends ChangeNotifier {
   Set<String> get touched => _touched;
   bool get dirty => _dirty;
   bool get saving => _saving;
+  DateTime? get lastSavedAt => _lastSavedAt;
+  bool get saveFailed => _saveFailed;
   bool get loading => _loading;
   String? get error => _err;
   int get currentPage => _si;
@@ -255,15 +282,25 @@ class OnefopFormController extends ChangeNotifier {
   final ValueNotifier<int> version = ValueNotifier<int>(0);
   void _bump() => version.value++;
 
-  // ── Coherence hints — recomputed on every change, see
-  // onefop_coherence_checker.dart. Non-blocking; purely informational. ──
+  // ── Coherence hints — see onefop_coherence_checker.dart. Non-blocking;
+  // purely informational. Recomputed on a debounce (_schedCoherenceCheck,
+  // called from the same explicit answer-mutation sites as
+  // _schedRevalidate) rather than from every notifyListeners() call —
+  // notifyListeners() also fires on schema load, page navigation, and
+  // focus changes, none of which change _data, so hooking the recompute
+  // there reran this full-form check far more often than any answer
+  // actually changed. ──
   List<CoherenceFlag> _coherenceFlags = const [];
   List<CoherenceFlag> get coherenceFlags => _coherenceFlags;
+  Timer? _coherenceTimer;
 
-  @override
-  void notifyListeners() {
-    _coherenceFlags = OnefopCoherenceChecker.check(_data, entityType);
-    super.notifyListeners();
+  void _schedCoherenceCheck() {
+    _coherenceTimer?.cancel();
+    _coherenceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (_disposed) return;
+      _coherenceFlags = OnefopCoherenceChecker.check(_data, entityType);
+      notifyListeners();
+    });
   }
 
   // ── Autosave ────────────────────────────────────────────────
@@ -290,6 +327,7 @@ class OnefopFormController extends ChangeNotifier {
     _valTimer?.cancel();
     _asTimer?.cancel();
     _gridRecalcTimer?.cancel();
+    _coherenceTimer?.cancel();
     version.dispose();
     _fm?.dispose();
     for (final e in _ctrl.entries) {
@@ -333,6 +371,11 @@ class OnefopFormController extends ChangeNotifier {
       }
 
       _restorePosition();
+      // Synchronous, one-time: a resumed draft can already carry
+      // incoherent data, so the banner shouldn't wait for the first edit's
+      // debounce. Subsequent recomputation goes through
+      // _schedCoherenceCheck() instead.
+      _coherenceFlags = OnefopCoherenceChecker.check(_data, entityType);
 
       _loading = false;
       notifyListeners();
@@ -358,6 +401,9 @@ class OnefopFormController extends ChangeNotifier {
   // there is no second campaign-period source to keep in sync.
   static const List<String> kPeriodBasedQuestionIds = [
     'S21Q01',
+    'S21Q02', // Administration S21Q02–S21Q04 (renumbered 2026-09-28)
+    'S21Q03',
+    'S21Q04',
     'S22Q01',
     'S22Q02',
     'S22Q03',
@@ -380,9 +426,13 @@ class OnefopFormController extends ChangeNotifier {
   static const List<String> _kFrPeriodPhrases = [
     "du premier Janvier 2025 à ce jour",
     "du 1er Janvier 2025 à ce jour",
+    "du premier Janvier 2026 à ce jour",
+    "du 1er Janvier 2026 à ce jour",
   ];
-  static const String _kEnPeriodPhrase =
-      "from the 1st of January 2025 to the present day";
+  static const List<String> _kEnPeriodPhrases = [
+    "from the 1st of January 2025 to the present day",
+    "from the 1st of January 2026 to the present day",
+  ];
 
   void _applyCampaignPeriodLabels(FormSchemaV2 s) {
     final periodFr = _periodPhraseFr(campaignPeriodStart, campaignPeriodEnd);
@@ -399,7 +449,10 @@ class OnefopFormController extends ChangeNotifier {
       for (final phrase in _kFrPeriodPhrases) {
         fr = fr.replaceAll(phrase, periodFr);
       }
-      final en = label.en.replaceAll(_kEnPeriodPhrase, periodEn);
+      var en = label.en;
+      for (final phrase in _kEnPeriodPhrases) {
+        en = en.replaceAll(phrase, periodEn);
+      }
       s.fields[idx] =
           s.fields[idx].copyWith(label: LocalizedText(fr: fr, en: en));
     }
@@ -506,7 +559,16 @@ class OnefopFormController extends ChangeNotifier {
 
   TextEditingController hybridController(String id) {
     return _hctrl.putIfAbsent(id, () {
-      final c = TextEditingController(text: _htv[id] ?? '');
+      // _htv[id] is only pre-populated for the fixed id sets _initHybrid()
+      // walks (kHybridTables, ActivitiesTable) — VT's row-editor text cells
+      // (specialtyText, roster names) span too many prefix/row
+      // combinations across 8+ tables to enumerate the same way, and are
+      // never pre-seeded. Falling back to _data[id] here (the real loaded
+      // value on a reopened draft/submission) instead of defaulting
+      // straight to '' avoids a first-open blank field silently
+      // overwriting real data on this cell's very first keystroke.
+      final c =
+          TextEditingController(text: _htv[id] ?? _data[id]?.toString() ?? '');
       c.addListener(() {
         _htv[id] = c.text;
         _data[id] = c.text;
@@ -514,6 +576,24 @@ class OnefopFormController extends ChangeNotifier {
         _bump();
       });
       if (!_data.containsKey(id)) _data[id] = '';
+      return c;
+    });
+  }
+
+  /// Same lazy, id-keyed controller pattern as [hybridController], but for
+  /// a VT grid cell's numeric value — writes go through [onGridCellChanged]
+  /// (int-or-absent, same convention as every other numeric table cell)
+  /// rather than storing raw text, so a VT spreadsheet cell (see
+  /// VtSpreadsheetTable) behaves identically to the bottom-sheet row
+  /// editor's own numeric fields, just without the sheet's local
+  /// TextEditingController rebuilt per row-open.
+  TextEditingController gridNumberController(String id) {
+    return _gctrl.putIfAbsent(id, () {
+      final c = TextEditingController(text: _data[id]?.toString() ?? '');
+      c.addListener(() {
+        final t = c.text.trim();
+        onGridCellChanged(id, t.isEmpty ? null : int.tryParse(t));
+      });
       return c;
     });
   }
@@ -551,6 +631,27 @@ class OnefopFormController extends ChangeNotifier {
     }
     schedAS();
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // RAW VALUE (arbitrary per-id string/bool cells outside the AST field
+  // list — e.g. VT's row-editor picker/toggle cells, synthesized from a
+  // VtTableDef rather than declared one-by-one as FormQuestionAst entries,
+  // so setRadioValue's FieldSchema-keyed API doesn't apply)
+  // ═══════════════════════════════════════════════════════════
+
+  // No input validation/coercion — caller must pass only well-formed values
+  // (fixed VtOption strings or real bools). Safe for current VtRowEditor
+  // callers; do not reuse for free-text or user-typed input without adding
+  // validation first.
+  void setRawValue(String id, dynamic value) {
+    if (value == null || (value is String && value.isEmpty)) {
+      _data.remove(id);
+    } else {
+      _data[id] = value;
+    }
+    schedAS();
+    _bump();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -656,8 +757,24 @@ class OnefopFormController extends ChangeNotifier {
       cleanValue = v.replaceAll(RegExp(r'[^0-9]'), '');
       if (cleanValue.length > 9) cleanValue = cleanValue.substring(0, 9);
     }
-    _data[id] =
-        f.type == 'number' ? (int.tryParse(cleanValue) ?? 0) : cleanValue;
+    // Empty and zero are distinct declaration states. Removing a numeric
+    // answer must not manufacture a reported zero; an explicitly entered
+    // "0" still parses and persists as the numeric value 0.
+    if (cleanValue.isEmpty) {
+      _data.remove(id);
+    } else if (f.type == 'number') {
+      // A malformed value is not a reported value either. This is normally
+      // prevented by the numeric input formatter, but keeping the controller
+      // defensive also protects pasted/programmatic changes.
+      final parsed = int.tryParse(cleanValue);
+      if (parsed == null) {
+        _data.remove(id);
+      } else {
+        _data[id] = parsed;
+      }
+    } else {
+      _data[id] = cleanValue;
+    }
     _tv[id] = cleanValue;
     if (cleanValue != v && _ctrl.containsKey(id)) {
       final c = _ctrl[id]!;
@@ -672,6 +789,7 @@ class OnefopFormController extends ChangeNotifier {
     schedAS();
     _valCache.remove(id);
     _schedRevalidate();
+    _schedCoherenceCheck();
     _bump();
   }
 
@@ -753,10 +871,23 @@ class OnefopFormController extends ChangeNotifier {
     if (_saveInFlight) return;
     _saveInFlight = true;
     _saving = true;
-    _dirty = false;
     notifyListeners();
-    onSave(Map.from(_data));
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      // Awaited even though onSave is declared FutureOr<void> — awaiting a
+      // non-Future value is a no-op, so this is safe either way. Awaiting
+      // is what lets a thrown/rejected save be caught below instead of
+      // becoming an unhandled async error while the title bar still
+      // claimed "Enregistré"/"Saved".
+      await onSave(Map.from(_data));
+      _dirty = false;
+      _saveFailed = false;
+      _lastSavedAt = DateTime.now();
+    } catch (e, st) {
+      debugPrint('onSave failed: $e\n$st');
+      // _dirty stays true: the data was never confirmed persisted, so it
+      // must keep reading as unsaved work rather than silently-lost work.
+      _saveFailed = true;
+    }
     _saveInFlight = false;
     _saving = false;
     notifyListeners();
@@ -765,13 +896,17 @@ class OnefopFormController extends ChangeNotifier {
   /// Synchronously persist any edits still waiting on the debounce timer.
   /// Must run before [dispose] — Cancel/back-navigation tear down the
   /// widget well inside the 3s autosave window otherwise, dropping the
-  /// user's last edits silently.
+  /// user's last edits silently. Fire-and-forget by necessity (the
+  /// controller is being torn down, so there is no UI left to report a
+  /// failure to), but still guarded so a rejected save can't surface as an
+  /// unhandled exception during dispose.
   void flushPendingSave() {
     _asTimer?.cancel();
     _asTimer = null;
     if (!_dirty) return;
     _dirty = false;
-    onSave(Map.from(_data));
+    Future.sync(() => onSave(Map.from(_data)))
+        .catchError((e, st) => debugPrint('onSave (flush) failed: $e\n$st'));
   }
 
   /// Same as [flushPendingSave] but for an interactive "Save" button click:
@@ -912,12 +1047,7 @@ class OnefopFormController extends ChangeNotifier {
   // VISIBILITY & NAVIGATION
   // ═══════════════════════════════════════════════════════════
 
-  bool isFieldVisible(FieldSchema f) {
-    if (f.dependsOn != null && f.dependsOn!.isNotEmpty) {
-      if (_data[f.dependsOn] != f.dependsValue) return false;
-    }
-    return true;
-  }
+  bool isFieldVisible(FieldSchema f) => f.isVisibleGiven(_data);
 
   int get pageCount => _schema?.sections.length ?? 1;
 
@@ -933,11 +1063,53 @@ class OnefopFormController extends ChangeNotifier {
     return _schema!.sections[idxs.first];
   }
 
+  // "Simple" here means: buildFieldLabel should prefix each individual
+  // question with its own paperCode. Written for the original ONEFOP
+  // entities, where every section past section0/section1_* is almost
+  // entirely tables (whose own header/RowNum column already carries the
+  // code, so an inline prefix on the field label would be redundant) —
+  // section0/section1_* are their one genuinely flat, question-by-
+  // question section. VT's questionnaire doesn't follow that shape: most
+  // of its sections (2, 3, 6, 7, 9, plus the simple fields interspersed
+  // between VT's own tables in 4/5/8) are flat individual questions
+  // outside any table, with no other place their own code would ever
+  // show — live-reported: "not all questions in the VT simple forms are
+  // having question codes" (VT's section2_vocationalTraining and later
+  // never matched section1_*, only VT's own Section 1 did). Every VT
+  // section id ends in "_vocationalTraining" (see onefop_ast.dart) — none
+  // of any other entity's section ids do, so this is scoped to VT alone
+  // and changes nothing for section0/section1_*/every other entity's
+  // sections. Shared by both desktop Simple Mode and mobile (see
+  // simple_mode_shell.dart's own doc comment: "buildField is supplied by
+  // the caller... so simple-field rendering can never drift" between
+  // them) — deliberately, since the same completeness gap exists on both.
   bool isSimpleSection(String sectionId) =>
-      sectionId == 'section0' || sectionId.startsWith('section1_');
+      sectionId == 'section0' ||
+      sectionId.startsWith('section1_') ||
+      sectionId.endsWith('_vocationalTraining');
 
   List<String> computeVisibleFieldIds() {
     if (_schema == null) return [];
+    // Callers that already track their own current-section/page state and
+    // hand it here via setRevealedFieldIds (already ordered, already
+    // scoped to what's actually mounted) don't need — and, critically,
+    // can't correctly get — a second scoping pass through _si: Simple
+    // Mode's page navigation keeps ctrl.currentPage/_si in sync with its
+    // own section cursor, so intersecting with the _si-based walk below
+    // was a no-op there, but VT Wizard mode's own section navigation
+    // (VtWizardShell._goToSection) is a plain local setState with no
+    // link to _si at all — _si can sit on whatever section it started on
+    // while the wizard shows a completely different one, so intersecting
+    // revealedFieldIds against sectionIndicesForPage(_si)'s field list
+    // could yield nothing (fields from the wrong section) and silently
+    // break focusFieldOffset. Trust the caller's own scoping instead.
+    final revealed = _revealedFieldIds;
+    if (revealed != null) {
+      return revealed.where((id) {
+        final f = _schema!.getField(id);
+        return f != null && isFieldVisible(f);
+      }).toList();
+    }
     final result = <String>[];
     for (final idx in sectionIndicesForPage(_si)) {
       for (final id in _schema!.sections[idx].fieldIds) {
@@ -948,18 +1120,23 @@ class OnefopFormController extends ChangeNotifier {
         result.add(id);
       }
     }
-    final revealed = _revealedFieldIds;
-    if (revealed == null) return result;
-    final revealedSet = revealed.toSet();
-    return result.where(revealedSet.contains).toList();
+    return result;
   }
 
   void focusFieldOffset(int delta) {
     if (_schema == null) return;
-    if (_visibleFieldIds.isEmpty ||
-        (_fm!.activeId != null && !_visibleFieldIds.contains(_fm!.activeId))) {
-      _visibleFieldIds = computeVisibleFieldIds();
-    }
+    // Always recompute rather than trusting the cached _visibleFieldIds —
+    // a value-changing mutator just before this call (e.g. setRadioValue
+    // answering a conditional-reveal trigger) already eagerly recomputes
+    // and caches _visibleFieldIds itself, but at that instant the widget
+    // tree hasn't rebuilt yet, so setRevealedFieldIds still holds the
+    // OLD, pre-reveal list — that stale cache satisfies both staleness
+    // checks below (non-empty, still contains activeId) and was never
+    // invalidated again, so a later Tab off the trigger field silently
+    // skipped straight past the field it had just revealed. Recomputing
+    // fresh here (well after that rebuild has actually happened) is cheap
+    // for section-sized field lists and removes the staleness window.
+    _visibleFieldIds = computeVisibleFieldIds();
     final fieldIds = _visibleFieldIds;
     final activeId = _fm!.activeId;
     if (activeId == null) return;
@@ -996,7 +1173,12 @@ class OnefopFormController extends ChangeNotifier {
   void focusFieldId(String fieldId,
       {bool preferFirst = true, bool scroll = true}) {
     final field = _schema?.getField(fieldId);
-    if (field != null && field.type == 'table') {
+    final vtCell = field == null
+        ? null
+        : _firstFocusableVtCellId(field, preferFirst: preferFirst);
+    if (vtCell != null) {
+      _fm!.focus(vtCell);
+    } else if (field != null && field.type == 'table') {
       final cells = TableCellEngine.cellIds(field);
       if (cells.isNotEmpty) {
         _fm!.focus(preferFirst ? cells.first : cells.last);
@@ -1014,10 +1196,73 @@ class OnefopFormController extends ChangeNotifier {
     if (scroll) scrollToField(fieldId, alignEnd: !preferFirst);
   }
 
-  void exitTable(String fieldId) {
-    if (_visibleFieldIds.isEmpty || !_visibleFieldIds.contains(fieldId)) {
-      _visibleFieldIds = computeVisibleFieldIds();
+  // VT tables (both `type: table` and `type: repeatingTable` — see
+  // vt_routing.dart's isVtTableTemplate) render through VtSpreadsheetTable/
+  // VtRowEditor, whose cells use VtTableDef-synthesized ids (e.g.
+  // "s4q1_doctorat_male") — never the field's own schema id, and
+  // TableCellEngine (built for ordinary ONEFOP tables) has no vt_* case
+  // and returns an empty cell list for every one of them. Landing focus on
+  // the raw field id (this function's old fallback for a "table"-typed
+  // field with no known cells) attaches to no real widget at all — no VT
+  // cell's FocusNode is ever keyed by the bare field id — so crossing a
+  // section boundary onto a VT table's first/last unit left the
+  // controller's activeId pointing at a node nothing in the tree uses:
+  // the page changed correctly, but nothing was actually focused/
+  // typeable. Live-reported as "pressing Enter from the last cell of
+  // section 3 doesn't reach section 4" (VT4_1, a `type: table` diploma
+  // grid) — the same gap exists for every VT table anywhere in the form,
+  // both `type: table` and `type: repeatingTable`, in both directions.
+  //
+  // Resolves to the first (or, entering backward, last) visible cell of
+  // the table's first (or last) row — row 0 is always shown regardless of
+  // isRoster/progressiveRows (only trailing rows past the last filled one
+  // are ever hidden — see vtVisibleRows), so this never needs that full
+  // dependency chain, just the same dependsOnKey check vtCellVisible
+  // itself uses (duplicated here, not imported, to avoid pulling
+  // vt_row_editor.dart's own import of this controller into a cycle —
+  // see vt_table_types.dart's own doc comment on why it stays
+  // controller-free).
+  String? _firstFocusableVtCellId(FieldSchema field,
+      {required bool preferFirst}) {
+    final spec = field.tableSpec;
+    final template = spec?['template'] as String?;
+    if (!isVtTableTemplate(template)) return null;
+    final def = vtTableDefFor(template!, spec!);
+    if (def == null || def.rows.isEmpty || def.cells.isEmpty) return null;
+    final row = preferFirst ? def.rows.first : def.rows.last;
+    final cellsInOrder = preferFirst ? def.cells : def.cells.reversed.toList();
+
+    bool visible(VtCellDef c) {
+      if (c.dependsOnKey == null) return true;
+      final sibling = def.cells.firstWhere((o) => o.key == c.dependsOnKey);
+      final siblingId = def.cellId(row, sibling);
+      final decoded = sibling.decodeBoolean != null
+          ? sibling.decodeBoolean!(_data[siblingId])
+          : _data[siblingId] as bool?;
+      return decoded == true;
     }
+
+    // Prefer a cell kind that actually has a real attached FocusNode
+    // (number/text — the only VT cell kinds VtSpreadsheetTable/
+    // VtRowEditor ever wire to ctrl.fm.getNode); fall back to any
+    // visible, non-computed cell so focus still lands somewhere sane on
+    // an all-boolean/radioCode table rather than returning null.
+    for (final c in cellsInOrder) {
+      if (c.kind != VtCellKind.number && c.kind != VtCellKind.text) continue;
+      if (!visible(c)) continue;
+      return def.cellId(row, c);
+    }
+    for (final c in cellsInOrder) {
+      if (c.kind == VtCellKind.computed) continue;
+      if (!visible(c)) continue;
+      return def.cellId(row, c);
+    }
+    return null;
+  }
+
+  void exitTable(String fieldId) {
+    // See focusFieldOffset's own comment on why this is unconditional.
+    _visibleFieldIds = computeVisibleFieldIds();
     final fieldIds = _visibleFieldIds;
     final idx = fieldIds.indexOf(fieldId);
     if (idx >= 0 && idx < fieldIds.length - 1) {
@@ -1030,9 +1275,8 @@ class OnefopFormController extends ChangeNotifier {
   }
 
   void exitTablePrevious(String fieldId) {
-    if (_visibleFieldIds.isEmpty || !_visibleFieldIds.contains(fieldId)) {
-      _visibleFieldIds = computeVisibleFieldIds();
-    }
+    // See focusFieldOffset's own comment on why this is unconditional.
+    _visibleFieldIds = computeVisibleFieldIds();
     final fieldIds = _visibleFieldIds;
     final idx = fieldIds.indexOf(fieldId);
     if (idx > 0) {
@@ -1089,13 +1333,68 @@ class OnefopFormController extends ChangeNotifier {
     return _fm!.handleKey(n, e);
   }
 
+  void _pruneInvisibleFields() {
+    if (_schema == null) return;
+    bool changed = false;
+    for (final sec in _schema!.sections) {
+      for (final fid in sec.fieldIds) {
+        final f = _schema!.getField(fid);
+        if (f != null && f.dependsOn != null && !f.isVisibleGiven(_data)) {
+          if (_data.containsKey(fid) ||
+              _tv.containsKey(fid) ||
+              _touched.contains(fid)) {
+            _data.remove(fid);
+            _tv.remove(fid);
+            _touched.remove(fid);
+            _valCache.remove(fid);
+            final c = _ctrl[fid];
+            if (c != null && c.text.isNotEmpty) {
+              c.text = '';
+            }
+            changed = true;
+          }
+        }
+      }
+    }
+    if (changed) {
+      _schedRevalidate();
+    }
+  }
+
   void setRadioValue(FieldSchema f, String value) {
     _data[f.id] = value;
     _tv[f.id] = value;
     _touched.add(f.id);
     _valCache.remove(f.id);
+    _pruneInvisibleFields();
     _visibleFieldIds = computeVisibleFieldIds();
     _schedRevalidate();
+    _schedCoherenceCheck();
+    notifyListeners();
+  }
+
+  // Same bookkeeping as setRadioValue, adapted for a checkbox field's
+  // List<String> value — setRawValue (used by both this method's callers
+  // before this fix) only writes _data and schedules autosave, so a
+  // dependsOn/"contains" field gated on a checkbox answer (e.g. VT6_6
+  // depends on VT6_5 contains "Autres/ Others") could go stale after the
+  // session's first edit: no touched-state, no validation-cache
+  // invalidation, no _visibleFieldIds recompute, and no reliable
+  // notifyListeners() to trigger a rebuild at all.
+  void setCheckboxValues(FieldSchema f, List<String>? values) {
+    if (values == null || values.isEmpty) {
+      _data.remove(f.id);
+      _tv[f.id] = '';
+    } else {
+      _data[f.id] = values;
+      _tv[f.id] = values.join(', ');
+    }
+    _touched.add(f.id);
+    _valCache.remove(f.id);
+    _pruneInvisibleFields();
+    _visibleFieldIds = computeVisibleFieldIds();
+    _schedRevalidate();
+    _schedCoherenceCheck();
     notifyListeners();
   }
 
@@ -1130,28 +1429,28 @@ class OnefopFormController extends ChangeNotifier {
       return;
     }
     if (_si < pageCount - 1) {
+      // Reset scroll BEFORE the page swap — see _resetScrollBeforePageChange's
+      // own doc comment for why this can't be deferred until after
+      // notifyListeners() the way it used to be.
+      _resetScrollBeforePageChange();
       _si++;
       _visibleFieldIds = computeVisibleFieldIds();
       _persistPosition();
       notifyListeners();
-      // _scrollToTop() already handles the scroll for a page change —
-      // also animating focusFirst()'s own scroll-into-view at the same
-      // time fights it on the same controller (two competing animations
-      // racing for the scroll position), which is what made page/sidebar
-      // navigation feel sluggish. Focus only; don't scroll twice.
+      // Focus only; don't scroll again — the reset above already put the
+      // viewport at the new page's top.
       focusFirst(scroll: false);
-      _scrollToTop();
     }
   }
 
   void prev() {
     if (_si > 0) {
+      _resetScrollBeforePageChange();
       _si--;
       _visibleFieldIds = computeVisibleFieldIds();
       _persistPosition();
       notifyListeners();
       focusFirst(scroll: false);
-      _scrollToTop();
     }
   }
 
@@ -1160,20 +1459,18 @@ class OnefopFormController extends ChangeNotifier {
   // original behavior unchanged. The vertical navigation's section/
   // subsection jumps (see onefop_section_units.dart's navigateToSection)
   // pass both false: they browse the outline without focusing a field,
-  // and do their own single scroll via scrollToUnit afterwards — animating
-  // _scrollToTop() at the same time would race it on the same
-  // ScrollController (see focusFirst's own doc comment on that race).
+  // and do their own single scroll via scrollToUnit afterwards.
   void goto(int page, {bool focus = true, bool scroll = true}) {
     // Leaving the page that failed validation clears the banner; landing
     // on it (e.g. the jump _previewSubmit() does via flagBlockedPage())
     // keeps it, so it shows exactly where the failure happened.
     if (page != _advanceBlockedPage) _advanceBlockedPage = null;
+    if (scroll) _resetScrollBeforePageChange();
     _si = page;
     _visibleFieldIds = computeVisibleFieldIds();
     _persistPosition();
     notifyListeners();
     if (focus) focusFirst(scroll: false);
-    if (scroll) _scrollToTop();
   }
 
   // Recomputes _visibleFieldIds *inside* the post-frame callback rather
@@ -1198,13 +1495,58 @@ class OnefopFormController extends ChangeNotifier {
     });
   }
 
-  void _scrollToTop() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mainScroll.hasClients) {
-        mainScroll.animateTo(0,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-      }
-    });
+  // Called synchronously, BEFORE _si changes and notifyListeners() swaps in
+  // the next/previous page's content — not after, and not animated, unlike
+  // the old _scrollToTop() this replaces. That old version deferred an
+  // animateTo(0) to a postFrameCallback, which only ran *after* the page
+  // swap's own frame had already laid out the new page's content. If that
+  // new page was shorter than wherever the user had scrolled to in the old
+  // one, Flutter's ScrollPosition clamps the still-nonzero offset down to
+  // the new (smaller) maxScrollExtent immediately, with no animation, as
+  // part of that same layout pass — so the deferred animateTo(0) ended up
+  // animating from THAT clamped point, not from where the user actually
+  // was. Net effect: an instant jump followed by a short animated scroll
+  // on any transition into a shorter page, but a single clean animated
+  // scroll on any transition into a page tall enough to keep the old
+  // offset valid — the same Suivant/Précédent action looking different
+  // depending on the two sections' relative lengths (VT-UX bug report:
+  // "inconsistent page animation... between sections" in the VTC wizard).
+  //
+  // Resetting here instead, while the CURRENT page's own (still-mounted)
+  // content is still what the scroll extent is measured against, means 0
+  // is already a valid, already-settled position by the time the next
+  // page's content lays out — nothing left to clamp, regardless of that
+  // page's height, so every transition behaves identically. jumpTo (not
+  // animateTo) because there's no next-frame gap left to animate across:
+  // this runs in the same synchronous call as the page-index change.
+  // Called synchronously, BEFORE _si changes and notifyListeners() swaps in
+  // the next/previous page's content — not after, and not animated, unlike
+  // the old _scrollToTop() this replaces. That old version deferred an
+  // animateTo(0) to a postFrameCallback, which only ran *after* the page
+  // swap's own frame had already laid out the new page's content. If that
+  // new page was shorter than wherever the user had scrolled to in the old
+  // one, Flutter's ScrollPosition clamps the still-nonzero offset down to
+  // the new (smaller) maxScrollExtent immediately, with no animation, as
+  // part of that same layout pass — so the deferred animateTo(0) ended up
+  // animating from THAT clamped point, not from where the user actually
+  // was. Net effect: an instant jump followed by a short animated scroll
+  // on any transition into a shorter page, but a single clean animated
+  // scroll on any transition into a page tall enough to keep the old
+  // offset valid — the same Suivant/Précédent action looking different
+  // depending on the two sections' relative lengths (VT-UX bug report:
+  // "inconsistent page animation... between sections" in the VTC wizard).
+  //
+  // Resetting here instead, while the CURRENT page's own (still-mounted)
+  // content is still what the scroll extent is measured against, means 0
+  // is already a valid, already-settled position by the time the next
+  // page's content lays out — nothing left to clamp, regardless of that
+  // page's height, so every transition behaves identically. jumpTo (not
+  // animateTo) because there's no next-frame gap left to animate across:
+  // this runs in the same synchronous call as the page-index change.
+  void _resetScrollBeforePageChange() {
+    if (mainScroll.hasClients) {
+      mainScroll.jumpTo(0);
+    }
   }
 
   void setSidebarMode(int mode) {
@@ -1221,6 +1563,9 @@ class OnefopFormController extends ChangeNotifier {
     var w = Map<String, int>.from(_aGrid);
     for (final p in [
       's21q01',
+      's21q02',
+      's21q03',
+      's21q04',
       's22q01',
       's22q02',
       's22q03',
@@ -1315,9 +1660,6 @@ class OnefopFormController extends ChangeNotifier {
   // REMOTE CALLS
   // ═══════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────
-// REPLACE the preview() method with this:
-// ─────────────────────────────────────────────────────────────
   Future<PreviewResult> preview(AppLocalizations l10n) async {
     final snapshot = collectAndMapData();
     _submissionSnapshot = snapshot;
@@ -1354,9 +1696,6 @@ class OnefopFormController extends ChangeNotifier {
     }
   }
 
-// ─────────────────────────────────────────────────────────────
-// REPLACE the submit() method with this:
-// ─────────────────────────────────────────────────────────────
   Future<SubmitResult> submit(AppLocalizations l10n) async {
     final snapshot = _submissionSnapshot;
     if (snapshot == null) {
@@ -1433,8 +1772,10 @@ class OnefopFormController extends ChangeNotifier {
     _tv[f.id] = value ?? '';
     _touched.add(f.id);
     _valCache.remove(f.id);
+    _pruneInvisibleFields();
     _visibleFieldIds = computeVisibleFieldIds();
     _schedRevalidate();
+    _schedCoherenceCheck();
     notifyListeners();
     _fm!.focusNext();
   }

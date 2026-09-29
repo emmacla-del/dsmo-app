@@ -1,6 +1,5 @@
 {
   "@@locale": "fr",
-
   "requiredField": "Champ obligatoire",
   "telExactly9Digits": "Le numéro doit contenir exactement 9 chiffres",
   "telMustStartWith2Or6": "Le numéro doit commencer par 2 (fixe) ou 6 (mobile)",
@@ -9,7 +8,11 @@
   "yearMin": "L'année doit être ≥ 1900",
   "yearMax": "L'année doit être ≤ {max}",
   "@yearMax": {
-    "placeholders": { "max": { "type": "int" } }
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
   },
   "requiredFieldConditional": "Champ obligatoire (conditionnel)",
   "tableResponseRequired": "Indiquez si les chiffres sont déclarés, si aucun cas n'est à signaler, ou si la question ne s'applique pas",
@@ -41,29 +44,43 @@
   "inconsistencyDetectedTitle": "Incohérence détectée",
   "inconsistenciesDetectedTitle": "{count} incohérences détectées",
   "@inconsistenciesDetectedTitle": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "missingFieldTitle": "Champ manquant",
   "missingFieldsTitle": "{count} champs manquants",
   "@missingFieldsTitle": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "sectionFallback": "Section {number}",
   "@sectionFallback": {
-    "placeholders": { "number": { "type": "int" } }
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
   },
   "male": "Homme",
   "female": "Femme",
   "total": "Total",
-
   "languageSettingTitle": "Langue",
   "languageSettingSubtitle": "Choisissez la langue d'affichage de l'application",
   "languageFrench": "Français",
   "languageEnglish": "English",
-
   "portalWhatsappNotFound": "WhatsApp est introuvable sur cet appareil. Composez directement le {phone}.",
   "@portalWhatsappNotFound": {
-    "placeholders": { "phone": { "type": "String" } }
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
   },
   "portalTwoFactorCodeError": "Code incorrect ou expiré. Réessayez.",
   "portalCredentialsError": "Identifiants incorrects. Vérifiez et réessayez.",
@@ -92,7 +109,11 @@
   "landingOperational": "Opérationnelle",
   "landingComponentPrefix": "Composante {roman}",
   "@landingComponentPrefix": {
-    "placeholders": { "roman": { "type": "String" } }
+    "placeholders": {
+      "roman": {
+        "type": "String"
+      }
+    }
   },
   "landingArchitectureTitle": "Le système d'information sur le marché du travail",
   "landingComponentsTitle": "Composantes du programme CAMLEAP",
@@ -176,7 +197,11 @@
   "registerAccessButton": "Accéder",
   "registerReceiptCopiedSnackbar": "{label} copié dans le presse-papier",
   "@registerReceiptCopiedSnackbar": {
-    "placeholders": { "label": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   },
   "registerReceiptCannotOpenAttestation": "Impossible d'ouvrir l'attestation.",
   "registerReceiptTitle": "REÇU D'ENREGISTREMENT",
@@ -190,7 +215,11 @@
   "registerDuplicateEmailOrNiu": "Cet email ou ce numéro NIU est déjà utilisé.",
   "registerSubmitErrorWithMessage": "Erreur lors de l'inscription : {error}",
   "@registerSubmitErrorWithMessage": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "registerCreateAccountButton": "Créer mon compte",
   "registerContinueButton": "Continuer",
@@ -205,9 +234,9 @@
   "registerEntitySubtitleCooperative": "Société coopérative ou groupement d'intérêt économique.",
   "registerEntitySubtitleCtd": "Collectivité Territoriale Décentralisée (commune, région).",
   "registerEntitySubtitleOng": "Organisation Non Gouvernementale ou association.",
-  "registerEntitySubtitleVocational": "Centre de formation technique et professionnelle agréé.",
   "registerEntitySubtitleAdministration": "Administration publique ou service gouvernemental.",
   "registerEntitySubtitleProjectProgram": "Projet, programme ou structure sous tutelle d'un ministère.",
+  "registerEntitySubtitleVocationalTraining": "Centre de formation professionnelle participant à l'enquête nationale ONEFOP.",
   "registerCreateAccountTitle": "Créer un compte",
   "registerSelectProfileSubtitle": "Sélectionnez votre profil pour commencer.",
   "registerRoleCompanyTitle": "Entreprise / Organisation",
@@ -286,6 +315,59 @@
   "platformName": "CAMLEAP",
   "platformTagline": "Intelligence du marché du travail",
   "platformFullName": "Plateforme camerounaise d'analyse de l'emploi et du travail",
+  "camleapNavAbout": "À propos",
+  "camleapNavOnefop": "ONEFOP",
+  "camleapNavRegistre": "Registre des formations",
+  "camleapNavEnquetes": "Enquêtes employeurs",
+  "camleapSignIn": "Se connecter",
+  "camleapEspaceDeclarant": "Espace déclarant",
+  "camleapHeroHeadline": "L'infrastructure numérique de l'ONEFOP pour l'information et l'observation du marché du travail",
+  "camleapHeroTagline": "Déclarations · Registre des entités · Enquêtes · Analyse (à venir)",
+  "camleapHeroBody": "CAMLEAP est la plateforme technique qui accompagne la mission de l'ONEFOP. Elle structure la collecte des déclarations, organise le registre des entités de formation et prépare les outils d'observation du marché du travail camerounais.",
+  "camleapHeroCtaPrimary": "Faire ma déclaration",
+  "camleapHeroCtaSecondary": "Découvrir ONEFOP",
+  "camleapAudienceTitle": "Vous êtes...",
+  "camleapEconomicEntitiesTitle": "Entités économiques",
+  "camleapEntreprise": "Entreprise",
+  "camleapCooperative": "Coopérative",
+  "camleapPublicEntitiesTitle": "Entités publiques",
+  "camleapCtd": "CTD",
+  "camleapOng": "ONG",
+  "camleapVocationalTrainingTitle": "Formation professionnelle",
+  "camleapVocationalTrainingBody": "Inscription au registre national des CFP (Centres de Formation).",
+  "camleapComingSoonBadge": "Bientôt disponible",
+  "camleapUnderstandTitle": "Comprendre ONEFOP",
+  "camleapUnderstandBody": "L'ONEFOP est en cours de restructuration pour mieux remplir sa mission d'observation du marché du travail. Deux composantes structurantes sont en déploiement progressif.",
+  "camleapLmisCardTitle": "LMIS - Système d'Information sur le Marché du Travail",
+  "camleapLmisCardBody": "L'infrastructure de collecte, d'intégration et de gestion des données emploi et formation à l'échelle nationale.",
+  "camleapLmisBadge": "En cours de déploiement",
+  "camleapObservatoireCardTitle": "Observatoire du Marché du Travail",
+  "camleapObservatoireCardBody": "La composante d'analyse et de diffusion de l'intelligence sur le marché du travail camerounais.",
+  "camleapAVenir": "À venir",
+  "camleapLearnMore": "En savoir plus",
+  "camleapAvailableTodayTitle": "Disponible aujourd'hui",
+  "camleapAvailable1": "Déclarations des entités (entreprises, coopératives, CTD, ONG)",
+  "camleapAvailable2": "Documentation technique",
+  "camleapAvailable3": "Espace déclarant pour les entités (accès sur demande)",
+  "camleapComing1": "Registre national des entités de formation (CFP)",
+  "camleapComing3": "Observatoire — tableaux de bord et rapports",
+  "camleapComing4": "Portail public de données",
+  "camleapAccessRequestTitle": "Demande d'accès",
+  "camleapAccessRequestBody": "Pour demander l'accès à l'espace déclarant, préciser votre fonction, entité et administration de rattachement.",
+  "camleapYaounde": "Yaoundé, Cameroun",
+  "camleapCopyright": "© {year} ONEFOP. Tous droits réservés.",
+  "@camleapCopyright": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "camleapComingSoonPageBody": "Cette page est en cours de préparation. Revenez bientôt ou contactez-nous à contact@onefop.cm pour plus d'informations.",
+  "camleapTitleDeclarerEntreprise": "Déclaration — Entreprise",
+  "camleapTitleDeclarerCooperative": "Déclaration — Coopérative",
+  "camleapTitleDeclarerCtd": "Déclaration — CTD",
+  "camleapTitleDeclarerOng": "Déclaration — ONG",
   "forgotPasswordTitle": "Mot de passe oublié",
   "forgotPasswordResetDoneTitle": "Mot de passe réinitialisé",
   "forgotPasswordStep1Subtitle": "Entrez l'adresse e-mail de votre compte pour commencer.",
@@ -313,30 +395,43 @@
   "emailVerifiedTitle": "Adresse e-mail vérifiée",
   "verificationFailedTitle": "Vérification impossible",
   "invalidVerificationLink": "Lien de vérification invalide. Veuillez refaire une demande depuis votre compte.",
-
   "activeCampaignsTitle": "Campagnes en cours",
   "updatedToday": "Mis à jour aujourd'hui",
   "updatedYesterday": "Mis à jour hier",
   "updatedDaysAgo": "Mis à jour il y a {days} jours",
   "@updatedDaysAgo": {
-    "placeholders": { "days": { "type": "int" } }
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
   },
   "noDeclarationsYet": "Aucune déclaration",
   "workersCurrentlyDeclared": "Travailleurs actuellement déclarés",
   "newDeclarationCta": "Nouvelle déclaration",
   "activeDeclarationsCount": "{count} déclarations actives · {lastUpdated}",
   "@activeDeclarationsCount": {
-    "placeholders": { "count": { "type": "int" }, "lastUpdated": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "lastUpdated": {
+        "type": "String"
+      }
+    }
   },
   "declarationsFiledTitle": "Déclarations déposées",
   "approvedCountSubtitle": "↑ {count} approuvées",
   "@approvedCountSubtitle": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "awaitingApprovalTitle": "En attente d'approbation",
   "underReview": "En cours de révision",
   "allUpToDate": "Tout est à jour",
-
   "onefopApproved": "Approuvé",
   "onefopUnderReview": "En révision",
   "onefopRejected": "Rejeté",
@@ -349,124 +444,195 @@
   "onefopModificationsRequestedSubtitle": "↓ Modifications demandées",
   "onefopFinalizeSubtitle": "→ Finalisez et soumettez",
   "onefopRequiredSubtitle": "→ Questionnaire requis",
-
   "establishmentIdInline": "ID Établissement : {id}",
   "@establishmentIdInline": {
-    "placeholders": { "id": { "type": "String" } }
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
   },
   "submissionSuccessTitle": "Soumission réussie !",
   "submissionSuccessSubtitle": "Votre formulaire ONEFOP a été soumis avec succès.",
   "connectionUnavailableTitle": "Connexion indisponible",
   "queuedOfflineSubtitle": "Votre formulaire a été enregistré sur cet appareil et sera envoyé automatiquement dès le retour de la connexion.",
   "doneButton": "Terminer",
-
+  "welcomeHeading": "Bienvenue",
+  "welcomeSubtitle": "Directeur / Promoteur, complétez le questionnaire ci-dessous pour votre établissement.",
+  "welcomeHeadingPersonalized": "Bienvenue, {name}",
+  "@welcomeHeadingPersonalized": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "welcomeSubtitlePersonalized": "En tant que {function}, veuillez compléter le questionnaire ci-dessous pour votre établissement.",
+  "@welcomeSubtitlePersonalized": {
+    "placeholders": {
+      "function": {
+        "type": "String"
+      }
+    }
+  },
   "legalNoticeTitle": "COLLECTE DES DONNÉES SUR LES EMPLOIS CRÉÉS PAR LE SECTEUR MODERNE DE L'ÉCONOMIE",
   "questionnaireBadge": "- Questionnaire {label} -",
   "@questionnaireBadge": {
-    "placeholders": { "label": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   },
   "entityShortOng": "ONG",
   "entityShortEnterprise": "ENTREPRISE",
   "entityShortCooperative": "COOPÉRATIVE",
   "entityShortCtd": "CTD",
+  "entityShortVocationalTraining": "CFP",
   "confidentialityNoticeHeading": "Avis de confidentialité",
   "confidentialityNoticeBody": "Les informations contenues dans ce document sont confidentielles et ne pourront être utilisées à des fins de poursuites judiciaires, de contrôle fiscal ou de répression économique, conformément à la Loi N° 2020/010 du 20 juillet 2020 relative aux recensements et enquêtes Statistiques.",
   "legalFooterLawReference": "Loi N° 2020/010 du 20 juillet 2020",
   "acknowledgeCheckboxLabel": "J'ai pris connaissance de cet avis",
   "beginButton": "Commencer",
   "goBackButton": "Retour",
-
+  "estimatedTimeCaption": "Temps estimé : 20-30 minutes",
   "onefopApprovedActivity": "ONEFOP {year} approuvé",
   "@onefopApprovedActivity": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "validatedByMinefop": "Validé par MINEFOP",
   "onefopSubmittedActivity": "ONEFOP {year} soumis",
   "@onefopSubmittedActivity": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "pendingMinefop": "En attente MINEFOP",
   "onefopRejectedActivity": "ONEFOP {year} rejeté",
   "@onefopRejectedActivity": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "correctionsRequired": "Corrections requises",
   "onefopToCorrectActivity": "ONEFOP {year} à corriger",
   "@onefopToCorrectActivity": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "modificationsRequested": "Modifications demandées",
-
   "dateUnknown": "Date inconnue",
   "dsmoApprovedTitle": "DSMO Q{year} approuvée",
   "@dsmoApprovedTitle": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "dsmoApprovedSubtitle": "Validée par MINEFOP",
   "dsmoApprovedBadge": "Approuvée",
   "dsmoPendingFinalTitle": "DSMO Q{year} en attente",
   "@dsmoPendingFinalTitle": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "dsmoPendingFinalSubtitle": "En attente validation finale",
   "dsmoPendingFinalBadge": "En cours",
   "dsmoDivisionReviewTitle": "DSMO Q{year} en révision",
   "@dsmoDivisionReviewTitle": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "dsmoDivisionReviewSubtitle": "En attente régionale",
   "dsmoDivisionReviewBadge": "Révision",
   "dsmoSubmittedTitle": "DSMO Q{year} soumise",
   "@dsmoSubmittedTitle": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "dsmoSubmittedSubtitle": "En attente de révision",
   "dsmoSubmittedBadge": "Soumise",
   "dsmoDraftTitle": "DSMO Q{year} brouillon",
   "@dsmoDraftTitle": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "dsmoDraftSubtitle": "Non finalisée",
   "dsmoDraftBadge": "Brouillon",
   "dsmoRejectedTitle": "DSMO Q{year} rejetée",
   "@dsmoRejectedTitle": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "dsmoRejectedSubtitle": "Corrections nécessaires",
   "dsmoRejectedBadge": "Rejetée",
-
   "noDeclarationsTitle": "Aucune déclaration",
   "noDeclarationsSubtitle": "Commencez par créer une déclaration DSMO",
   "emptyBadge": "Vide",
   "recentActivityTitle": "Activité récente",
   "viewAllLink": "Voir tout →",
-
   "menLabel": "Hommes",
   "womenLabel": "Femmes",
   "genderDistributionTitle": "Répartition par genre",
   "employeesLabel": "employés",
   "genderDistributionUnavailable": "Répartition par genre non renseignée",
-
   "loadingErrorTitle": "Erreur de chargement",
-
   "campaignFallbackName": "Campagne",
   "periodLabel": "Période : {period}",
   "@periodLabel": {
-    "placeholders": { "period": { "type": "String" } }
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
   },
   "periodUntil": "jusqu'au {date}",
   "@periodUntil": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "periodSince": "depuis {date}",
   "@periodSince": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "periodUndefined": "non définie",
   "deadlineUndefined": "Échéance non définie",
   "deadlinePassed": "Échéance dépassée",
   "remainingLabel": "restant",
-
   "campaignManagementTitle": "Gestion des Campagnes",
   "refreshTooltip": "Actualiser",
   "newCampaignButton": "Nouvelle campagne",
@@ -519,11 +685,20 @@
   "campaignAlreadyActiveTitle": "Campagne déjà active",
   "campaignConflictBody": "Une campagne \"{label}\" est déjà active : \"{name}\" (échéance {deadline}).\n\nCréer cette nouvelle campagne clôturera la précédente et ouvrira celle-ci à sa place. Continuer ?",
   "@campaignConflictBody": {
-    "placeholders": { "label": { "type": "String" }, "name": { "type": "String" }, "deadline": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "deadline": {
+        "type": "String"
+      }
+    }
   },
   "continueButton": "Continuer",
   "createCampaignButton": "Créer la campagne",
-
   "campaignPausedMsg": "Campagne mise en pause.",
   "typeLabel": "Type",
   "collectionLabel": "Collecte",
@@ -533,12 +708,20 @@
   "createdByLabel": "Créée par",
   "codeLabelPrefix": "Code: {code}",
   "@codeLabelPrefix": {
-    "placeholders": { "code": { "type": "String" } }
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
   },
   "progressTitle": "Progression",
   "completedPercent": "{rate}% complété",
   "@completedPercent": {
-    "placeholders": { "rate": { "type": "String" } }
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
   },
   "submittedLabel": "Soumises",
   "inProgressLabel": "En cours",
@@ -553,18 +736,39 @@
   "autoRemindersEnabled": "Rappels automatiques activés ({days})",
   "dayPrefix": "J-",
   "@autoRemindersEnabled": {
-    "placeholders": { "days": { "type": "String" } }
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
   },
   "autoRemindersDisabled": "Rappels automatiques désactivés",
   "reminderHistoryTitle": "Historique des rappels",
   "noRemindersYet": "Aucun rappel envoyé pour le moment.",
   "reminderStatsWithFailures": "{sent} destinataires · {failed} échecs · {date}",
   "@reminderStatsWithFailures": {
-    "placeholders": { "sent": { "type": "int" }, "failed": { "type": "int" }, "date": { "type": "String" } }
+    "placeholders": {
+      "sent": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "reminderStatsNoFailures": "{sent} destinataires · {date}",
   "@reminderStatsNoFailures": {
-    "placeholders": { "sent": { "type": "int" }, "date": { "type": "String" } }
+    "placeholders": {
+      "sent": {
+        "type": "int"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "submissionsTitle": "Soumissions",
   "noSubmissions": "Aucune soumission.",
@@ -575,11 +779,9 @@
   "reminderDaysLabel": "Jours de rappel (J-)",
   "saveButton": "Enregistrer",
   "deadlineRequiredError": "Veuillez sélectionner une échéance.",
-
   "exportButtonLabel": "Export",
   "exportDialogTitle": "Exporter le tableau de bord",
   "exportDialogButton": "Exporter",
-
   "exportSectionFilters": "Filtres",
   "exportSectionSummary": "Synthèse",
   "exportSectionBenchmarking": "Benchmarking",
@@ -589,7 +791,6 @@
   "exportSectionMobilityRetention": "Mobilité & Rétention",
   "exportSectionInclusion": "Inclusion",
   "exportSectionCompetencesFormation": "Compétences & Formation",
-
   "exportDescFilters": "Inclut les paramètres de période, région et secteur.",
   "exportDescSummary": "Inclut les principaux indicateurs et graphiques du tableau de bord Synthèse.",
   "exportDescBenchmarking": "Export du tableau de bord Benchmarking régional / national.",
@@ -599,7 +800,6 @@
   "exportDescMobilityRetention": "Export des départs, des motifs et des taux de rétention.",
   "exportDescInclusion": "Export des indicateurs d'inclusion et de parité.",
   "exportDescCompetencesFormation": "Export des compétences recherchées et du pipeline de formation.",
-
   "chartFiltersApplied": "Filtres appliqués",
   "chartSummaryKpis": "Indicateurs clés",
   "chartSummaryTrend": "Évolution de l'emploi",
@@ -623,11 +823,14 @@
   "chartInclusionYouth": "Emploi jeunes",
   "chartCompetencesSkills": "Compétences recherchées",
   "chartCompetencesTraining": "Formations demandées",
-
   "pdfExportTitle": "Observatoire de l'Emploi — Export",
   "pdfExportDate": "Date d'export : {date}",
   "@pdfExportDate": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "pdfFieldHeader": "Champ",
   "pdfValueHeader": "Valeur",
@@ -638,7 +841,6 @@
   "pdfSubdivisionLabel": "Sous-division",
   "pdfEntityTypeLabel": "Type d'entité",
   "pdfSectorLabel": "Secteur",
-
   "pdfDeclarationsLabel": "Déclarations",
   "pdfTotalWorkforceLabel": "Effectif total",
   "pdfRecruitmentsLabel": "Recrutements",
@@ -648,10 +850,8 @@
   "pdfLeadingSectorLabel": "Secteur leader",
   "pdfNotApplicable": "N/A",
   "pdfIndicatorHeader": "Indicateur",
-
   "pdfWorkforceHeader": "Effectif",
   "pdfEmployeesCountHeader": "Effectifs",
-
   "pdfDismissalsLabel": "Licenciements",
   "pdfResignationsLabel": "Démissions",
   "pdfRetirementsLabel": "Retraites",
@@ -661,34 +861,47 @@
   "pdfReasonHeader": "Motif",
   "pdfTechnicalUnemploymentNote": "{count} en chômage technique (hors total).",
   "@pdfTechnicalUnemploymentNote": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "pdfNetBalanceLabel": "Solde net",
-
   "pdfGenderDistributionTitle": "Répartition Femmes / Hommes",
   "pdfMenCountLine": "Hommes : {count} ({pct}%)",
   "@pdfMenCountLine": {
-    "placeholders": { "count": { "type": "num" }, "pct": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "pdfWomenCountLine": "Femmes : {count} ({pct}%)",
   "@pdfWomenCountLine": {
-    "placeholders": { "count": { "type": "num" }, "pct": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "pct": {
+        "type": "String"
+      }
+    }
   },
-
   "pdfBenchmarkingTitle": "Benchmarking régional",
   "pdfBenchmarkingEmptyHint": "Sélectionnez une région, un département ou un arrondissement pour comparer au national.",
   "pdfNationalComparisonNote": "La comparaison nationale n'est pas incluse dans l'export actuel.",
   "pdfLocalValueHeader": "Valeur locale",
   "pdfRemarkHeader": "Remarque",
   "pdfDeclaringCompaniesLabel": "Entreprises déclarantes",
-
   "pdfVacanciesLabel": "Postes vacants",
   "pdfGapLabel": "Écart",
   "pdfAbsorptionRateLabel": "Taux d'absorption",
   "pdfCspHeader": "CSP",
   "pdfShareHeader": "Part",
-
   "pdfTypeHeader": "Type",
   "pdfDeclarantsHeader": "Déclarants",
   "pdfEnterprisesLabel": "Entreprises",
@@ -705,32 +918,30 @@
   "pdfForemenLabel": "Agents de maîtrise",
   "pdfWorkersLabel": "Ouvriers",
   "pdfLevelHeader": "Niveau",
-
   "pdfSeekersRegisteredLabel": "Demandes enregistrées",
   "pdfFirstRecruitsLabel": "Primo-recrutés",
   "pdfConversionRateLabel": "Taux de conversion",
   "pdfPermanentLabel": "CDI / permanent",
   "pdfTemporaryLabel": "Temporaire",
   "pdfAgeRangeHeader": "Tranche",
-
   "pdfOtherLabel": "Autres",
-
   "pdfVulnerablePeopleLabel": "Personnes vulnérables",
   "pdfTotalRecruitmentsLabel": "Recrutements totaux",
   "pdfRecruits1534Label": "Recrutements 15-34",
   "pdfTotalRecruitmentsLabel2": "Total recrutements",
-
   "pdfSkillHeader": "Compétence",
   "pdfDemandHeader": "Demande",
   "pdfSupplyHeader": "Offre",
   "pdfTrainingHeader": "Formation",
-
   "pdfNoDataAvailable": "Aucune donnée disponible",
   "pdfExportError": "Export impossible : {error}",
   "@pdfExportError": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
-
   "companyDeclDraftsFilter": "Brouillons",
   "companyDeclApprovedFilter": "Approuvées",
   "companyDeclRejectedFilter": "Rejetées",
@@ -750,16 +961,23 @@
   "companyDeclResumeDraft": "Reprendre le brouillon",
   "companyDeclDsmoTitle": "Déclaration DSMO {period}",
   "@companyDeclDsmoTitle": {
-    "placeholders": { "period": { "type": "String" } }
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
   },
   "companyDeclOnefopTitle": "Questionnaire ONEFOP {period}",
   "@companyDeclOnefopTitle": {
-    "placeholders": { "period": { "type": "String" } }
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
   },
   "companyDeclStatusDivisionApproved": "Approuvée (division)",
   "companyDeclStatusRegionApproved": "Approuvée (région)",
   "companyDeclStatusCorrectionRequested": "Corrections requises",
-
   "companyAnalyticsTabBilanRh": "Bilan RH",
   "companyAnalyticsTabBenchmarking": "Benchmarking",
   "companyAnalyticsTabOpportunities": "Opportunités",
@@ -772,58 +990,94 @@
   "opportunitiesVacancyDetail": "{vacancies, plural, =0{Aucun poste vacant déclaré.} =1{1 poste vacant déclaré,} other{{vacancies} postes vacants déclarés,}} soit {rate}% de votre effectif permanent.",
   "@opportunitiesVacancyDetail": {
     "placeholders": {
-      "vacancies": { "type": "int" },
-      "rate": { "type": "String" }
+      "vacancies": {
+        "type": "int"
+      },
+      "rate": {
+        "type": "String"
+      }
     }
   },
   "opportunitiesBenchmarkGapTitle": "Écarts par rapport à votre secteur",
   "opportunitiesBenchmarkGapWorkforce": "Votre effectif ({mine}) est inférieur à la médiane de votre secteur ({median}).",
   "@opportunitiesBenchmarkGapWorkforce": {
     "placeholders": {
-      "mine": { "type": "int" },
-      "median": { "type": "int" }
+      "mine": {
+        "type": "int"
+      },
+      "median": {
+        "type": "int"
+      }
     }
   },
   "opportunitiesBenchmarkGapFeminization": "Votre taux de féminisation ({mine}%) est inférieur à la médiane de votre secteur ({median}%).",
   "@opportunitiesBenchmarkGapFeminization": {
     "placeholders": {
-      "mine": { "type": "String" },
-      "median": { "type": "String" }
+      "mine": {
+        "type": "String"
+      },
+      "median": {
+        "type": "String"
+      }
     }
   },
   "opportunitiesBenchmarkGapTurnover": "Votre taux de rotation ({mine}%) est supérieur à la médiane de votre secteur ({median}%).",
   "@opportunitiesBenchmarkGapTurnover": {
     "placeholders": {
-      "mine": { "type": "String" },
-      "median": { "type": "String" }
+      "mine": {
+        "type": "String"
+      },
+      "median": {
+        "type": "String"
+      }
     }
   },
   "opportunitiesDeadlinesTitle": "Échéances à venir",
   "opportunitiesDeadlineInDays": "{date} · dans {days, plural, =0{moins d'un jour} =1{1 jour} other{{days} jours}}",
   "@opportunitiesDeadlineInDays": {
     "placeholders": {
-      "date": { "type": "String" },
-      "days": { "type": "int" }
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
     }
   },
   "opportunitiesDeadlinePassed": "{date} · échéance dépassée",
   "@opportunitiesDeadlinePassed": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "companyAnalyticsHeaderYear": "Analytique {year}",
   "@companyAnalyticsHeaderYear": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "companyAnalyticsSectionBenchmarking": "Benchmarking Sectoriel",
   "companyAnalyticsBenchmarkingComingTitle": "Benchmarking sectoriel",
   "companyAnalyticsBenchmarkingComingDescription": "Comparez vos indicateurs RH avec les entreprises de votre secteur et région. Disponible dès que votre dossier est approuvé et que suffisamment d'entreprises ont soumis leur déclaration.",
   "companyAnalyticsPeerGroupCount": "{count} entreprises dans votre groupe de comparaison",
   "@companyAnalyticsPeerGroupCount": {
-    "placeholders": { "count": { "type": "String" } }
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
   },
   "companyAnalyticsBenchmarkError": "Erreur benchmarking : {error}",
   "@companyAnalyticsBenchmarkError": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "companyAnalyticsTotalWorkforce": "Effectif total",
   "companyAnalyticsRecruitmentsLabel": "Recrutements",
@@ -833,7 +1087,11 @@
   "companyAnalyticsBilanDeclarationSubtitle": "Données issues de votre déclaration ONEFOP approuvée",
   "companyAnalyticsBilanAggregatedSubtitle": "Données cumulées sur {quarterCount} déclarations ONEFOP approuvées cette année",
   "@companyAnalyticsBilanAggregatedSubtitle": {
-    "placeholders": { "quarterCount": { "type": "int" } }
+    "placeholders": {
+      "quarterCount": {
+        "type": "int"
+      }
+    }
   },
   "companyAnalyticsExportPdfButton": "Exporter en PDF",
   "companyAnalyticsBilanPdfExportError": "Impossible de générer le PDF. Veuillez réessayer.",
@@ -854,7 +1112,11 @@
   "companyAnalyticsGenderColumnFemale": "F",
   "companyAnalyticsPercentOfTotal": "{pct}% du total",
   "@companyAnalyticsPercentOfTotal": {
-    "placeholders": { "pct": { "type": "String" } }
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "companyAnalyticsDismissals": "Licenciements",
   "companyAnalyticsResignations": "Démissions",
@@ -873,25 +1135,45 @@
   "companyAnalyticsVulnerableWorkersRecruited": "{count} travailleur(s) vulnérable(s) recruté(s) ({displaced} déplacés, {refugees} réfugiés, {orphans} orphelins)",
   "@companyAnalyticsVulnerableWorkersRecruited": {
     "placeholders": {
-      "count": { "type": "int" },
-      "displaced": { "type": "int" },
-      "refugees": { "type": "int" },
-      "orphans": { "type": "int" }
+      "count": {
+        "type": "int"
+      },
+      "displaced": {
+        "type": "int"
+      },
+      "refugees": {
+        "type": "int"
+      },
+      "orphans": {
+        "type": "int"
+      }
     }
   },
   "companyAnalyticsDisabledWorkersRecruited": "{count} personne(s) en situation de handicap recrutée(s)",
   "@companyAnalyticsDisabledWorkersRecruited": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "companyAnalyticsPriorityProfilesShare": "{pct}% de vos recrutements concernent des profils prioritaires.",
   "@companyAnalyticsPriorityProfilesShare": {
-    "placeholders": { "pct": { "type": "String" } }
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
   },
   "companyAnalyticsBenchmarkLockedDefault": "Soumettez le questionnaire ONEFOP pour accéder aux analyses comparatives.",
   "companyAnalyticsNoOwnDataTitle": "Déclaration DSMO manquante",
   "companyAnalyticsNoOwnDataDetail": "Le benchmarking nécessite une déclaration DSMO annuelle approuvée pour {year}. Votre questionnaire ONEFOP est bien approuvé — il manque la déclaration DSMO de la même année.",
   "@companyAnalyticsNoOwnDataDetail": {
-    "placeholders": { "year": { "type": "int" } }
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
   },
   "companyAnalyticsBilanLockedUnderReview": "Votre déclaration ONEFOP est en cours de révision. Votre bilan RH sera disponible après approbation.",
   "companyAnalyticsBilanLockedDraft": "Vous avez un brouillon en cours. Finalisez et soumettez votre déclaration pour accéder à votre bilan.",
@@ -901,29 +1183,43 @@
   "companyAnalyticsInsufficientDataDetail": "{count} entreprise(s) dans votre groupe (minimum {min} requis).",
   "@companyAnalyticsInsufficientDataDetail": {
     "placeholders": {
-      "count": { "type": "int" },
-      "min": { "type": "int" }
+      "count": {
+        "type": "int"
+      },
+      "min": {
+        "type": "int"
+      }
     }
   },
   "companyAnalyticsPercentileTop": "Top {percentile}%",
   "@companyAnalyticsPercentileTop": {
-    "placeholders": { "percentile": { "type": "int" } }
+    "placeholders": {
+      "percentile": {
+        "type": "int"
+      }
+    }
   },
   "companyAnalyticsPercentileMedianPlus": "Médian+",
   "companyAnalyticsPercentileBottom": "Bottom {value}%",
   "@companyAnalyticsPercentileBottom": {
-    "placeholders": { "value": { "type": "int" } }
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
   },
   "companyAnalyticsYourCompany": "Votre entreprise",
   "companyAnalyticsSectorMedian": "Médiane secteur",
-
   "homeTabLabel": "Accueil",
   "onlineStatusLabel": "En ligne",
   "roleLabelCompany": "Établissement",
-
   "settingsUpdatePreferenceError": "Impossible de mettre à jour ce paramètre : {error}",
   "@settingsUpdatePreferenceError": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "settingsTabGeneral": "Général",
   "settingsTabNotifications": "Notifications",
@@ -979,42 +1275,1256 @@
   "settingsPasswordFieldsRequired": "Renseignez votre mot de passe actuel et le nouveau.",
   "settingsContactEmailReadOnlyHint": "Il s'agit de votre email de connexion. Contactez un administrateur pour le modifier.",
   "settingsRegistrationNumberReadOnlyHint": "Attribué lors de l'inscription, non modifiable ici.",
-
   "declarationsTabLabel": "Déclarations",
   "analyticsTabLabel": "Analytique",
   "settingsTabLabel": "Paramètres",
-
   "draftFoundTitle": "Brouillon trouvé",
   "draftFoundBody": "Vous avez un formulaire ONEFOP en cours de saisie. Voulez-vous reprendre ou vous vous êtes arrêté ?",
   "resumeDraftSubtitle": "Continuer avec vos données précédentes",
   "startOverTitle": "Recommencer",
   "startOverSubtitle": "Effacer le brouillon et partir à zéro",
-
   "entityTypeDialogTitle": "Type d'entité",
   "entityTypeDialogBody": "Sélectionnez le type de votre entité pour accéder au formulaire ONEFOP.",
   "entityTypeEnterprise": "Entreprise",
   "entityTypeCooperative": "Coopérative",
   "entityTypeCtd": "CTD",
   "entityTypeOng": "ONG",
-
   "newSubmissionDialogTitle": "Nouvelle soumission",
   "newSubmissionDialogBody": "Choisissez le type de document à créer",
   "dsmoDeclarationOptionTitle": "Déclaration DSMO",
   "dsmoDeclarationOptionSubtitle": "Déclaration sociale des main-d'œuvre",
   "onefopQuestionnaireOptionTitle": "Questionnaire ONEFOP",
   "onefopQuestionnaireOptionSubtitle": "Information sur le marché du travail",
-
   "companyProfileNotFoundError": "Profil entreprise introuvable. Contactez l'administrateur.",
   "missingEstablishmentIdError": "ID établissement manquant. Veuillez contacter l'administrateur.",
   "noOpenSubmissionPeriodError": "Aucune période de soumission n'est actuellement ouverte.",
   "unknownEntityTypeError": "Type d'entité non reconnu. Merci de contacter l'administrateur.",
   "profileLoadError": "Erreur lors du chargement du profil : {error}",
   "@profileLoadError": {
-    "placeholders": { "error": { "type": "String" } }
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "noOpenDsmoPeriodError": "Aucune période de déclaration DSMO n'est actuellement ouverte.",
-
   "attestationOpenError": "Impossible d'ouvrir l'attestation.",
   "attestationUnavailableError": "Aucune attestation n'est disponible pour ce compte.",
-  "attestationMenuLabel": "Mon attestation d'inscription"
+  "attestationMenuLabel": "Mon attestation d'inscription",
+  "adminResetPasswordTitle": "Réinitialiser un mot de passe",
+  "adminResetPasswordInstructions": "Vérifiez d'abord l'identité de l'utilisateur par un canal officiel (téléphone, en personne), puis envoyez-lui un lien de réinitialisation par e-mail.",
+  "adminResetPasswordEmailFieldLabel": "Email du compte utilisateur",
+  "emailInvalidShort": "Email invalide",
+  "adminResetPasswordSendButton": "Envoyer un lien de réinitialisation",
+  "adminResetPasswordSentMessage": "Un lien de réinitialisation a été envoyé à {email}.",
+  "@adminResetPasswordSentMessage": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "adminResetPasswordLinkExpiryNote": "Le lien expire dans 45 minutes et ne peut être utilisé qu'une seule fois.",
+  "adminResetPasswordSendAnotherButton": "Envoyer un autre lien",
+  "annuaireUsersTabLabel": "Utilisateurs",
+  "annuaireEntitiesTabLabel": "Entités",
+  "companiesSearchHint": "Rechercher par nom, NIU, identifiant, région...",
+  "companiesTotalCount": "{count, plural, =0{Aucune entreprise} =1{1 entreprise} other{{count} entreprises}}",
+  "@companiesTotalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companiesCreatedAtColumnHeader": "Créé le",
+  "companiesContactColumnHeader": "Contact",
+  "companiesSuspendedBadge": "Suspendu",
+  "companiesPaginationLabel": "Page {page} sur {totalPages}",
+  "@companiesPaginationLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "totalPages": {
+        "type": "int"
+      }
+    }
+  },
+  "companiesEmptyTitle": "Aucune entreprise trouvée",
+  "companiesEmptySubtitle": "Essayez une autre recherche.",
+  "companiesGenderBreakdownMenCount": "{count} hommes",
+  "@companiesGenderBreakdownMenCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "companiesGenderBreakdownWomenCount": "{count} femmes",
+  "@companiesGenderBreakdownWomenCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "companiesDetailIdentitySectionTitle": "Identité",
+  "companiesMainActivityLabel": "Activité principale",
+  "companiesLegalStatusLabel": "Statut juridique",
+  "companiesRegistrationNumberLabel": "N° d'enregistrement",
+  "companiesCnpsNumberLabel": "N° CNPS",
+  "companiesYearOfCreationLabel": "Année de création",
+  "companiesEnterpriseSizeLabel": "Taille d'entreprise",
+  "companiesRegisteredOnLabel": "Enregistré le",
+  "companiesSubdivisionLabel": "Subdivision",
+  "companiesAddressLabel": "Adresse",
+  "companiesDetailContactSectionTitle": "Contact entreprise",
+  "companiesAccountStatusLabel": "Statut du compte",
+  "companiesDetailRespondentSectionTitle": "Répondant",
+  "companiesGenderBreakdownRowLabel": "Répartition",
+  "companiesPreviousYearWorkforceLabel": "Effectif année précédente",
+  "companiesPreviousYearBreakdownLabel": "Répartition (année précédente)",
+  "createMinefopUserLoadFunctionsError": "Impossible de charger les fonctions.",
+  "createMinefopUserSelectRoleError": "Veuillez sélectionner un rôle",
+  "createMinefopUserAppBarTitle": "Nouvel agent MINEFOP",
+  "createMinefopUserFirstNameLabel": "Prénom",
+  "createMinefopUserProfessionalEmailLabel": "Email professionnel",
+  "createMinefopUserRoleSectionLabel": "Rôle",
+  "createMinefopUserSelectRoleHint": "Sélectionner un rôle",
+  "createMinefopUserPositionSectionLabel": "Poste",
+  "createMinefopUserMatriculeLabel": "Matricule",
+  "createMinefopUserCreateAccountButton": "Créer le compte",
+  "createMinefopUserLoadingFunctions": "Chargement des fonctions…",
+  "createMinefopUserNoFunctionsAvailable": "Aucune fonction disponible pour ce rôle.",
+  "createMinefopUserSelectFunctionHint": "Sélectionner la fonction",
+  "createMinefopUserLoadingUnits": "Chargement des unités…",
+  "createMinefopUserNoUnitsAvailable": "Aucune unité disponible.",
+  "createMinefopUserParentUnitHint": "Unité parente",
+  "createMinefopUserLoadingServices": "Chargement des services…",
+  "createMinefopUserNoServiceFound": "Aucun service trouvé sous cette unité.",
+  "createMinefopUserExactServiceHint": "Service exact",
+  "createMinefopUserLoadingRegions": "Chargement des régions…",
+  "createMinefopUserSelectRegionFirstNote": "Sélectionnez d'abord une région.",
+  "createMinefopUserLoadingDepartments": "Chargement des départements…",
+  "createMinefopUserCopiedToast": "{label} copié",
+  "@createMinefopUserCopiedToast": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "createMinefopUserAccountCreatedTitle": "Compte créé",
+  "createMinefopUserCredentialsWarning": "Ce mot de passe temporaire ne sera plus jamais affiché. Transmettez-le à l'agent (WhatsApp, téléphone, en personne) — il devra le changer à sa première connexion.",
+  "createMinefopUserDoneButton": "Terminé",
+  "createMinefopUserCopyTooltip": "Copier",
+  "landingConfigRestoreDialogTitle": "Restaurer cette version ?",
+  "landingConfigRestoreDialogBody": "La page d'accueil publique sera immédiatement remplacée par le contenu de cette version. L'état actuel est lui-même sauvegardé et pourra être restauré ensuite.",
+  "landingConfigRestoreButton": "Restaurer",
+  "landingConfigVersionRestoredToast": "Version restaurée",
+  "landingConfigRestoreFailedToast": "Échec de la restauration : {error}",
+  "@landingConfigRestoreFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigUpdatedToast": "Page d'accueil mise à jour",
+  "landingConfigSaveFailedToast": "Échec de l'enregistrement : {error}",
+  "@landingConfigSaveFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigAppBarTitle": "Page d'accueil publique",
+  "landingConfigDescriptionNote": "Contenu narratif de la page d'accueil publique (programme SIMT / CAMLEAP) : statut, phrase de soutien, composantes, piliers Collecter / Intégrer / Analyser / Informer, objet du programme, appel à l'accès. Réservé au SUPER_ADMIN.",
+  "landingConfigLastModifiedLabel": "Dernière modification : {date}",
+  "@landingConfigLastModifiedLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigStatusSectionTitle": "Statut du programme",
+  "landingConfigStatusLineFieldLabel": "Ligne de statut (sous la composante actuelle)",
+  "landingConfigHeroSectionTitle": "Hero",
+  "landingConfigMainTitleFieldLabel": "Titre principal",
+  "landingConfigSupportingLineFieldLabel": "Phrase de soutien (sous le titre)",
+  "landingConfigComponentsSectionTitle": "Composantes du programme (I–IV)",
+  "landingConfigCaptionFieldLabel": "Légende (sous les composantes)",
+  "landingConfigPillarsSectionTitle": "Piliers LMIS (Collecter / Intégrer / Analyser / Informer)",
+  "landingConfigCardIndexLabel": "Carte {index}",
+  "@landingConfigCardIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigKickerFieldLabel": "Mot-clé (au-dessus du titre)",
+  "landingConfigTitleFieldLabel": "Titre",
+  "landingConfigTextFieldLabel": "Texte",
+  "landingConfigArchSectionTitle": "Pipeline architecture SIMT",
+  "landingConfigArchSectionNote": "Actuellement non affiché sur la page publique — la section correspondante a été fusionnée avec le pipeline « données → intelligence » ci-dessous. Les modifications sont enregistrées mais restent invisibles.",
+  "landingConfigStepIndexLabel": "Étape {index}",
+  "@landingConfigStepIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigIntelSectionTitle": "Pipeline données → intelligence",
+  "landingConfigEcosystemSectionTitle": "Écosystème institutionnel",
+  "landingConfigBlockTitleFieldLabel": "Bloc {index} — titre",
+  "@landingConfigBlockTitleFieldLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigBlockTextFieldLabel": "Bloc {index} — texte",
+  "@landingConfigBlockTextFieldLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigAboutSectionTitle": "Objet du programme (pourquoi un SIMT)",
+  "landingConfigParagraphIndexLabel": "Paragraphe {index}",
+  "@landingConfigParagraphIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigObservatorySectionTitle": "Observatoire (page publique /observatory)",
+  "landingConfigObservatoryNote": "Contenu provisoire — aucun texte définitif n'a encore été fourni pour l'Observatoire public. La page publique affiche un badge « contenu en préparation » tant que ce texte reste la copie par défaut ci-dessous.",
+  "landingConfigDescriptionFieldLabel": "Description",
+  "landingConfigIndicatorIndexLabel": "Indicateur {index}",
+  "@landingConfigIndicatorIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigCtaSectionTitle": "Appel à l'accès",
+  "landingConfigSubtextFieldLabel": "Sous-texte",
+  "landingConfigAccessSectionTitle": "Accès à la plateforme",
+  "landingConfigAccessNoteFieldLabel": "Note d'accès (sous les boutons)",
+  "landingConfigPreviewSectionTitle": "Aperçu",
+  "landingConfigFrChipLabel": "FR",
+  "landingConfigEnChipLabel": "EN",
+  "landingConfigHistorySectionTitle": "Historique (restauration)",
+  "landingConfigNoHistoryMessage": "Aucune version antérieure enregistrée.",
+  "landingConfigComponentShortNameLabel": "Composante {roman} — nom court",
+  "@landingConfigComponentShortNameLabel": {
+    "placeholders": {
+      "roman": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigComponentDescriptionLabel": "Composante {roman} — description",
+  "@landingConfigComponentDescriptionLabel": {
+    "placeholders": {
+      "roman": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsLoadError": "Erreur de chargement : {error}",
+  "@regionsSectorsLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsAppBarTitle": "Régions & Secteurs",
+  "regionsSectorsNoResultsSubtitle": "Aucune région ou secteur ne correspond à votre recherche.",
+  "regionsSectorsSectionHeaderWithCount": "{title} ({count})",
+  "@regionsSectorsSectionHeaderWithCount": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "regionsSectorsSectorsLabel": "Secteurs",
+  "regionsSectorsOnefopSubmissionsStatLabel": "Soumissions ONEFOP",
+  "regionsSectorsSearchHint": "Rechercher une région ou un secteur…",
+  "regionsSectorsAllFilterChip": "Tout",
+  "regionsSectorsActionsColumnHeader": "Actions",
+  "regionsSectorsDeleteConfirmBody": "Supprimer définitivement {itemName} ?",
+  "@regionsSectorsDeleteConfirmBody": {
+    "placeholders": {
+      "itemName": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsEditRegionDialogTitle": "Modifier la région",
+  "regionsSectorsRegionUpdatedToast": "Région mise à jour",
+  "regionsSectorsGenericErrorToast": "Erreur : {error}",
+  "@regionsSectorsGenericErrorToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsRegionDeletedToast": "Région supprimée",
+  "regionsSectorsEditSectorDialogTitle": "Modifier le secteur",
+  "regionsSectorsSectorUpdatedToast": "Secteur mis à jour",
+  "regionsSectorsSectorDeletedToast": "Secteur supprimé",
+  "settingsSavedToast": "Paramètres enregistrés",
+  "systemSettingsScreenTitle": "Paramètres système",
+  "systemSettingsScreenSubtitle": "Configuration valable pour toute la plateforme. Réservé au SUPER_ADMIN.",
+  "securityPolicySectionTitle": "Politique de sécurité",
+  "passwordMinLengthLabel": "Longueur minimale du mot de passe",
+  "require2faStaffLabel": "Double authentification obligatoire (personnel MINEFOP)",
+  "require2faStaffSubtitle": "Empêche les comptes non-entreprise de désactiver leur 2FA.",
+  "maintenanceModeSectionTitle": "Mode maintenance",
+  "enableMaintenanceModeLabel": "Activer le mode maintenance",
+  "maintenanceModeSubtitle": "Bloque tous les accès sauf le SUPER_ADMIN, avec le message ci-dessous.",
+  "maintenanceMessageFieldLabel": "Message affiché aux utilisateurs",
+  "maintenanceMessageFieldHint": "La plateforme est actuellement en maintenance...",
+  "referenceDataSectionTitle": "Données de référence",
+  "referenceDataSectionDescription": "Gérer la taxonomie régions/secteurs utilisée par les filtres et formulaires de toute la plateforme.",
+  "manageRegionsSectorsButton": "Gérer les régions et secteurs",
+  "userStatusActivePluralLabel": "Actifs",
+  "userStatusSuspendedPluralLabel": "Suspendus",
+  "userStatusRejectedPluralLabel": "Rejetés",
+  "approveAgentDialogTitle": "Approuver l'agent",
+  "approveAgentConfirmBody": "Confirmer l'approbation de {name} ?",
+  "@approveAgentConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "approveActionLabel": "Approuver",
+  "userApprovedToast": "{name} approuvé avec succès",
+  "@userApprovedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "genericErrorToastNoSpace": "Erreur: {error}",
+  "@genericErrorToastNoSpace": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "userRejectedToast": "{name} rejeté",
+  "@userRejectedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userRoleUpdatedToast": "Rôle mis à jour : {role}",
+  "@userRoleUpdatedToast": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "suspendAccountDialogTitle": "Suspendre le compte",
+  "reactivateAccountDialogTitle": "Réactiver le compte",
+  "suspendAccountBody": "{name} ne pourra plus se connecter jusqu'à réactivation.",
+  "@suspendAccountBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reactivateAccountBody": "{name} pourra de nouveau se connecter.",
+  "@reactivateAccountBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "suspendActionLabel": "Suspendre",
+  "reactivateActionLabel": "Réactiver",
+  "userSuspendedToast": "{name} suspendu",
+  "@userSuspendedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userReactivatedToast": "{name} réactivé",
+  "@userReactivatedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userDeletedToast": "{name} supprimé",
+  "@userDeletedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectTooltip": "Rejeter",
+  "editRoleActionLabel": "Modifier le rôle",
+  "usersSearchFieldHint": "Rechercher par nom, email, matricule...",
+  "userAccountsCountLabel": "{count, plural, =1{{count} compte} other{{count} comptes}}",
+  "@userAccountsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "allRolesFilterLabel": "Tous les rôles",
+  "regionDepartmentColumnHeader": "Région / Département",
+  "noUsersFoundTitle": "Aucun compte trouvé",
+  "noUsersFoundSubtitle": "Essayez une autre recherche ou un autre filtre.",
+  "rejectUserSheetTitle": "Rejeter {name}",
+  "@rejectUserSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectReasonLabel": "Motif du rejet (optionnel)",
+  "rejectReasonHint": "Ex: Documents incomplets...",
+  "confirmRejectButton": "Confirmer le rejet",
+  "deleteUserSheetTitle": "Supprimer {name} ?",
+  "@deleteUserSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteUserIrreversibleWarning": "Action irréversible. Si ce compte a des déclarations, soumissions ou notifications liées, la suppression sera refusée — suspendez-le à la place.",
+  "typeEmailToConfirmLabel": "Tapez \"{email}\" pour confirmer",
+  "@typeEmailToConfirmLabel": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "newAgentButtonLabel": "Nouvel agent",
+  "regionDeptSelectorLoadRegionsError": "Impossible de charger les régions.",
+  "allRegionsCheckboxLabel": "Toutes les régions",
+  "noDepartmentsAvailableLabel": "Aucun département disponible",
+  "campaignDetailStartDateLabel": "Date de début",
+  "campaignDetailEndDateLabel": "Date de fin",
+  "campaignDetailTargetUsersLabel": "Utilisateurs ciblés",
+  "campaignDetailAvailableFormsLabel": "Formulaires disponibles",
+  "openCampaignButton": "Ouvrir la campagne",
+  "identificationTableSelectHint": "Choisir...",
+  "identificationTableTextInputHint": "Saisir...",
+  "companyDeclMyDeclarationsTitle": "Mes déclarations",
+  "companyDeclMyDeclarationsSubtitle": "Suivez vos déclarations d'emploi, vos soumissions et leur statut d'approbation",
+  "companyDeclFilterAllCount": "Tous {count}",
+  "@companyDeclFilterAllCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companyDeclFilterUnderReviewCount": "En cours de révision {count}",
+  "@companyDeclFilterUnderReviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companyDeclSearchHint": "Rechercher des déclarations...",
+  "companyDeclFilterAllCampaigns": "Toutes les campagnes",
+  "companyDeclHistoryTitle": "Historique des déclarations",
+  "companyDeclDefaultSubtitle": "Soumission de l'entreprise",
+  "companyDeclViewDetailsAction": "Voir les détails",
+  "companyDeclContinueDraftAction": "Continuer le brouillon",
+  "companyDeclTrackStatusAction": "Suivre le statut",
+  "companyDeclStepCreated": "Créée",
+  "companyDeclStatusTimelineTitle": "Chronologie du statut",
+  "companyRegGenderSumMismatchError": "Total ≠ H + F",
+  "companyRegSubmitSuccessMsg": "Déclaration soumise avec succès",
+  "companyRegSectionIdentificationTitle": "I. IDENTIFICATION DE L'ÉTABLISSEMENT",
+  "companyRegFieldCompanyName": "Raison Sociale",
+  "companyRegFieldTaxNumber": "N° Contribuable (NIU)",
+  "companyRegFieldParentCompanyLong": "Raison sociale de l'entreprise dont dépend l'établissement",
+  "companyRegFieldSecondaryActivity": "Activité secondaire",
+  "companyRegFieldCapital": "Capital social (XAF)",
+  "companyRegSectionWorkforceTitle": "II. EFFECTIFS AU 31 DÉCEMBRE",
+  "companyRegFieldTotalEmployees": "Total Employés",
+  "companyRegFieldLastYearTotal": "Total employés (année dernière)",
+  "companyRegSectionMovementsTitle": "III. MOUVEMENTS PAR CATÉGORIES",
+  "companyRegSubmitButton": "SOUMETTRE LA DÉCLARATION",
+  "lawComplianceNoteShort": "Conformément à la loi No 91/023 du 16 déc 1991.",
+  "companyRegRequiredFieldShort": "Champ requis",
+  "movementCategory13": "1-3",
+  "movementCategory46": "4-6",
+  "movementCategory79": "7-9",
+  "movementCategory1012": "10-12",
+  "movementRecruitmentLabel": "Recrutement",
+  "movementDismissalLabel": "Licenciement",
+  "movementRetirementLabel": "Retraite",
+  "declApprovalApprovedSuccessMsg": "Déclaration approuvée avec succès",
+  "declApprovalMissingRejectReasonWarning": "Veuillez entrer une raison de rejet",
+  "declApprovalRejectedMsg": "Déclaration rejetée",
+  "declApprovalPdfLoadError": "Impossible de charger le PDF : {error}",
+  "@declApprovalPdfLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalDraftTitle": "Brouillon — DSMO",
+  "declApprovalValidationTitle": "Validation DSMO",
+  "pdfCopyOriginalLabel": "ORIGINAL (Employeur)",
+  "pdfCopyDuplicateLabel": "DUPLICATA (Autorité)",
+  "pdfCopyTriplicateLabel": "TRIPLICATA (Archives)",
+  "declApprovalResumeEntryButton": "Reprendre la saisie",
+  "declApprovalNotFoundMsg": "Déclaration introuvable",
+  "declApprovalSectionEstablishmentInfo": "Informations de l'établissement",
+  "declApprovalSectionWorkforce": "Effectifs Main-d'œuvre",
+  "declApprovalSectionMovements": "Mouvements du personnel",
+  "declApprovalSectionAdditionalInfo": "Informations supplémentaires",
+  "declApprovalSectionComplianceSteps": "Étapes de conformité",
+  "declApprovalPanelApprovalTitle": "APPROBATION",
+  "declApprovalNotesLabel": "Notes administratives",
+  "declApprovalApproveButton": "APPROUVER LA DÉCLARATION",
+  "declApprovalPanelRejectTitle": "REJET",
+  "declApprovalRejectReasonLabel": "Motif du rejet (Obligatoire)",
+  "declApprovalRejectButton": "REJETER POUR CORRECTION",
+  "declApprovalYearLine": "Exercice : {year}",
+  "@declApprovalYearLine": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalCurrentStatusLine": "Statut Actuel : {status}",
+  "@declApprovalCurrentStatusLine": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalSubmissionDateLine": "Date de soumission : {date}",
+  "@declApprovalSubmissionDateLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalLabelMainActivityShort": "Activité princ.",
+  "declApprovalLabelSecondaryActivityShort": "Activité second.",
+  "fieldFaxLabel": "Fax",
+  "declApprovalLabelTaxNumberShort": "N° Contribuable",
+  "declApprovalLabelSocialCapital": "Capital social",
+  "declApprovalLabelParentCompany": "Entreprise mère",
+  "declApprovalWorkforceCurrentYearTitle": "Effectifs déclarés — Année en cours",
+  "declApprovalWorkforcePreviousYearTitle": "Effectifs — Année précédente",
+  "declApprovalNominativeListLine": "Liste nominative : {count} employé(s) saisi(s)",
+  "@declApprovalNominativeListLine": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "declApprovalNoMovementsMsg": "Aucun mouvement enregistré.",
+  "movementPromotionLabel": "Avancement",
+  "movementDeathLabel": "Décès",
+  "colMovementHeader": "Mouvement",
+  "colCat13Header": "Cat. 1–3",
+  "colCat46Header": "Cat. 4–6",
+  "colCat79Header": "Cat. 7–9",
+  "colCat1012Header": "Cat. 10–12",
+  "colNonDeclaredShortHeader": "Non Décl.",
+  "colTotalHeader": "TOTAL",
+  "declApprovalQualitativeUnavailableMsg": "Informations qualitatives non disponibles.",
+  "yesLabel": "Oui",
+  "noLabel": "Non",
+  "qHasTrainingCenterShort": "Centre de formation pour le personnel ?",
+  "qRecruitmentPlansNextShort": "Prévoit des recrutements l'année prochaine ?",
+  "qCamerounisationPlanShort": "Dispose d'un plan de camerounisation ?",
+  "qUsesTempAgenciesShort": "Recours aux entreprises de travail temporaire ?",
+  "qTempAgencyDetailsLabelShort": "Détails ETT",
+  "declApprovalNoValidationStepsMsg": "Aucune étape de validation enregistrée.",
+  "declApprovalDefaultStepType": "Contrôle automatique",
+  "statusSubmittedShort": "Soumis",
+  "statusDivisionApprovedShort": "Div. Approuvé",
+  "statusRegionApprovedShort": "Rég. Approuvé",
+  "declListApprovedToastMsg": "Déclaration approuvée",
+  "declListSearchCompanyHint": "Rechercher une entreprise...",
+  "declListNoPendingDeclarationsTitle": "Aucune déclaration en attente",
+  "tryDifferentSearchCriteria": "Essayez d'autres critères de recherche",
+  "declListSubmittedWillAppearHere": "Les déclarations soumises apparaîtront ici",
+  "clearFiltersButton": "Effacer les filtres",
+  "empListDraftLoadedFromSessionMsg": "Brouillon chargé depuis la session",
+  "empListDraftSavedMsg": "Brouillon sauvegardé ({count} employé(s))",
+  "@empListDraftSavedMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "empListEnterFullNameError": "Veuillez entrer le nom complet",
+  "empListSelectGenderError": "Veuillez sélectionner le sexe",
+  "empListInvalidAgeError": "Âge invalide (16-120 ans)",
+  "empListSelectNationalityError": "Veuillez sélectionner la nationalité",
+  "empListEnterCountryError": "Veuillez entrer le pays",
+  "empListSelectDiplomaError": "Veuillez sélectionner le diplôme",
+  "empListEnterFunctionError": "Veuillez entrer la fonction",
+  "empListInvalidSeniorityError": "Ancienneté invalide (0-60 ans)",
+  "empListSelectCategoryError": "Veuillez sélectionner la catégorie",
+  "empListInvalidSalaryError": "Veuillez entrer un salaire valide (> 0 FCFA)",
+  "empListDeleteEmployeeTitle": "Supprimer l'employé ?",
+  "empListDeleteEmployeeConfirm": "Voulez-vous retirer {name} de la liste ?",
+  "@empListDeleteEmployeeConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "empListEditEmployeeTitle": "MODIFIER L'EMPLOYÉ",
+  "empListAddEmployeeTitle": "AJOUTER UN EMPLOYÉ",
+  "empListStepProgressLabel": "Étape {step} sur 9",
+  "@empListStepProgressLabel": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      }
+    }
+  },
+  "confirmButton": "Confirmer",
+  "empListFullNameStepLabel": "Noms et Prénoms",
+  "empListFullNameHintExample": "Ex: TCHINDA Marc Arnold",
+  "empListGenderStepLabel": "Sexe",
+  "genderMaleOption": "Masculin (M)",
+  "genderFemaleOption": "Féminin (F)",
+  "empListAgeStepLabel": "Âge",
+  "empListAgeHintExample": "Ex: 32",
+  "yearsUnitSuffix": "ans",
+  "empListNationalityStepLabel": "Nationalité",
+  "nationalityCameroonianOption": "Camerounais",
+  "nationalityForeignOption": "Étranger",
+  "empListSpecifyCountryLabel": "Préciser le pays",
+  "empListCountryHintExample": "Ex: France, Nigeria, Chine...",
+  "empListDiplomaStepLabel": "Diplôme le plus élevé",
+  "empListSelectDiplomaHint": "Sélectionnez un diplôme",
+  "diplomaCepe": "CEPE",
+  "diplomaBepc": "BEPC",
+  "diplomaCap": "CAP",
+  "diplomaBac": "BAC",
+  "diplomaBts": "BTS",
+  "diplomaLicence": "Licence",
+  "diplomaMaster": "Master",
+  "diplomaDoctorat": "Doctorat",
+  "empListFunctionStepLabel": "Fonction / Poste occupé",
+  "empListFunctionHintExample": "Ex: Comptable, Ingénieur, Assistant...",
+  "empListSeniorityStepLabel": "Ancienneté dans l'entreprise",
+  "empListSeniorityHintExample": "Ex: 5",
+  "empListCategoryStepLabel": "Catégorie socioprofessionnelle",
+  "empListSelectCategoryHint": "Sélectionnez la catégorie (1-12)",
+  "nonDeclaredLabel": "Non déclaré",
+  "categoryNumberLabel": "Catégorie {number}",
+  "@categoryNumberLabel": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "empListCategoryScaleHelper": "Selon la grille officielle DSMO (1 = agent d'exécution, 12 = cadre supérieur)",
+  "empListSalaryStepLabel": "Salaire mensuel (FCFA) *",
+  "empListSalaryHintExample": "Ex: 250000",
+  "fcfaCurrencySuffix": "FCFA",
+  "mandatoryHelperText": "Obligatoire",
+  "empListImportSuccessMsg": "{count} employé(s) importé(s) avec succès",
+  "@empListImportSuccessMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "empListImportPartialMsg": "{count} importé(s), {errorCount} ligne(s) ignorée(s)",
+  "@empListImportPartialMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "errorCount": {
+        "type": "int"
+      }
+    }
+  },
+  "excelColCountry": "Pays",
+  "excelColDiploma": "Diplôme",
+  "excelColSeniorityYears": "Ancienneté (ans)",
+  "excelColSalary": "Salaire (FCFA)",
+  "empListSaveFileDialogTitle": "Enregistrer la liste des employés",
+  "exportSuccessMsg": "Export réussi !",
+  "movementsPromotionsPlural": "Promotions",
+  "empListPartAPreviewPageHeader": "Aperçu PARTIE A — Page {page}/{total}",
+  "@empListPartAPreviewPageHeader": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "empListSectionEstablishmentIdentity": "Identité de l'établissement",
+  "fieldCompanyNameFullLabel": "Nom / Raison sociale",
+  "empListTaxNumberNiuLabel": "N° contribuable (NIU)",
+  "empListWorkforceCurrentYearSection": "Effectifs — Année en cours",
+  "empListDeclaredTotalLabel": "Total déclaré",
+  "empListMovementDetailByCategory": "Détail des mouvements par catégorie",
+  "catRange13Label": "Cat. 1-3",
+  "catRange46Label": "Cat. 4-6",
+  "catRange79Label": "Cat. 7-9",
+  "catRange1012Label": "Cat. 10-12",
+  "nonDeclaredCategoryLabel": "Non Déclaré",
+  "empListQualitativeInfoSection": "Informations qualitatives",
+  "empListTrainingCenterLabelShort": "Centre de formation",
+  "empListRecruitmentPlansNextLabel": "Plans de recrutement (année suivante)",
+  "empListCamerounisationPlanLabel": "Plan de camerounisation",
+  "empListUsesTempAgenciesLabel": "Recours aux agences intérimaires",
+  "empListTempAgencyDetailsLabel": "Détails agence intérimaire",
+  "empListConfirmAndSubmitButton": "Confirmer et soumettre",
+  "empListMismatchTotalLine": "• Total employés : {actual} saisi(s) vs {declared} déclaré(s)",
+  "@empListMismatchTotalLine": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "declared": {
+        "type": "int"
+      }
+    }
+  },
+  "empListMismatchMenLine": "• Hommes : {actual} saisi(s) vs {declared} déclaré(s)",
+  "@empListMismatchMenLine": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "declared": {
+        "type": "int"
+      }
+    }
+  },
+  "empListMismatchWomenLine": "• Femmes : {actual} saisie(s) vs {declared} déclarée(s)",
+  "@empListMismatchWomenLine": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "declared": {
+        "type": "int"
+      }
+    }
+  },
+  "empListWorkforceInconsistencyTitle": "⚠️ Incohérence des effectifs",
+  "empListWorkforceMismatchIntro": "Le nombre d'employés saisi ne correspond pas aux effectifs déclarés dans la PARTIE A :\n",
+  "empListContinueSubmissionAnywayQuestion": "Voulez-vous continuer la soumission quand même ?",
+  "empListOfficialFormExactMatchNote": "Note : Le formulaire officiel exige une correspondance parfaite.",
+  "empListContinueDespiteErrorButton": "Continuer malgré l'erreur",
+  "empListAddAtLeastOneEmployeeError": "Ajoutez au moins un employé avant de soumettre",
+  "empListInvalidEmployeeDataError": "Certains employés ont des données invalides (nom vide ou salaire ≤ 0)",
+  "empListPreviewGenerationError": "Impossible de générer l'aperçu : {error}",
+  "@empListPreviewGenerationError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "empListSubmissionHttpError": "Erreur lors de la soumission. Code HTTP : {code}\n\n{data}",
+  "@empListSubmissionHttpError": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "data": {
+        "type": "String"
+      }
+    }
+  },
+  "empListQueuedDeclarationLabel": "Déclaration DSMO {year} — {company}",
+  "@empListQueuedDeclarationLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "empListDefaultDeadlineFallback": "31 Janvier {year}",
+  "@empListDefaultDeadlineFallback": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "empListQueuedOfflineFullMsg": "Votre déclaration a été enregistrée sur cet appareil et sera envoyée automatiquement dès le retour de la connexion. Vous pouvez fermer cet écran sans risque.",
+  "okButton": "OK",
+  "empListDeclarationSavedTitle": "Déclaration enregistrée !",
+  "empListTrackingNumberLine": "N° Suivi : {trackingNumber}",
+  "@empListTrackingNumberLine": {
+    "placeholders": {
+      "trackingNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "empListThreePdfCopiesAvailable": "3 exemplaires PDF disponibles :",
+  "printDownloadTooltip": "Imprimer / Télécharger",
+  "empListMandatoryProcedureTitle": "PROCÉDURE OBLIGATOIRE :",
+  "empListProcStepPrintCopies": "• Imprimez les 3 exemplaires",
+  "empListProcStepSignCopies": "• Signez chaque exemplaire",
+  "empListProcStepAddCompanyStamp": "• Ajoutez le cachet de l'entreprise",
+  "empListProcStepSendByRegisteredMail": "• Envoyez par PLI RECOMMANDÉ avant le {deadline}",
+  "@empListProcStepSendByRegisteredMail": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "empListProcStepEmploymentOffice": "• À la circonscription de l'emploi",
+  "empListLawComplianceNoteFull": "Conformément à la loi No 91/023 du 16 décembre 1991",
+  "successTitle": "Succès",
+  "empListSimpleSuccessMsg": "Déclaration soumise avec succès !\n\nLes PDF seront disponibles dans votre espace employeur.",
+  "empListSubmissionFailedTitle": "Échec de la soumission",
+  "empListAppBarTitle": "DÉCLARATION SUR LA SITUATION DE LA MAIN D'ŒUVRE",
+  "exportExcelTooltip": "Exporter Excel",
+  "importExcelTooltip": "Importer Excel",
+  "previewPartATooltip": "Aperçu PARTIE A",
+  "previewPdfTooltipLong": "Aperçu du PDF",
+  "empListRegisteredEmployeesLabel": "Employés enregistrés",
+  "empListInconsistencyBadge": "INCOHÉRENCE",
+  "empListEmptyStateMsg": "Aucun employé enregistré.\n\nAjoutez manuellement via le bouton +\nou importez un fichier Excel.",
+  "empListColNumero": "N°",
+  "empListColSeniority": "Ancienneté",
+  "notDeclaredAbbrev": "N/D",
+  "ageYearsValue": "{age} ans",
+  "@ageYearsValue": {
+    "placeholders": {
+      "age": {
+        "type": "int"
+      }
+    }
+  },
+  "seniorityYearsValue": "{years, plural, one{{years} an} other{{years} ans}}",
+  "@seniorityYearsValue": {
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "empListAddEmployeeFabLabel": "Ajouter employé",
+  "sendNotifStatusDivisionApproved": "Approuvé (Division)",
+  "sendNotifStatusRegionApproved": "Approuvé (Région)",
+  "sendNotifStatusFinalApproved": "Approuvé (Final)",
+  "sendNotifSuccessMsg": "Notification envoyée à {count} entreprises",
+  "@sendNotifSuccessMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sendNotifErrorMsg": "Erreur : {msg}",
+  "@sendNotifErrorMsg": {
+    "placeholders": {
+      "msg": {
+        "type": "String"
+      }
+    }
+  },
+  "sendNotifHeaderTitle": "Envoyer une notification",
+  "sendNotifHeaderSubtitle": "Ciblage multi-critères des entreprises",
+  "sendNotifEstimatedRecipientsLabel": "Destinataires estimés",
+  "sendNotifRecipientCountLine": "{count} entreprises",
+  "@sendNotifRecipientCountLine": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sendNotifActiveBadge": "Actives",
+  "sendNotifRecipientFiltersSection": "Filtres des destinataires",
+  "sendNotifDivisionDepartmentLabel": "Division / Département",
+  "sendNotifAllDivisionsHint": "Toutes les divisions",
+  "sendNotifSubmissionStatusLabel": "Statut de soumission",
+  "sendNotifAllStatusesHint": "Tous les statuts",
+  "sendNotifMessageContentSection": "Contenu du message",
+  "sendNotifSubjectLabel": "Sujet",
+  "sendNotifSubjectHintExample": "Ex: Rappel — Échéance DSM-O 2025",
+  "sendNotifSubjectRequiredError": "Le sujet est requis",
+  "sendNotifMessageFieldLabel": "Message",
+  "sendNotifMessageHintExample": "Rédigez votre message ici...",
+  "sendNotifMessageRequiredError": "Le message est requis",
+  "sendNotifSendButton": "Envoyer la notification",
+  "sendNotifClearFormButton": "Effacer le formulaire",
+  "homeTabAnalyticsDsmo": "Analytique DSMO",
+  "homeTabReports": "Rapports",
+  "homeTabCommunication": "Communication",
+  "annuaireLabel": "Annuaire",
+  "dashboardFallbackTitle": "Tableau de bord",
+  "roleLabelDivisional": "Division du Travail",
+  "roleLabelRegional": "Delegation Regionale",
+  "roleLabelCentral": "Direction Nationale",
+  "roleLabelSuperAdmin": "Super Admin · DSMO + ONEFOP",
+  "roleLabelSuperAdminDsmo": "Admin · Regulation MO",
+  "roleLabelSuperAdminOnefop": "Admin · ONEFOP",
+  "filterByZoneTitle": "Filtrer par zone",
+  "clearButton": "Effacer",
+  "departmentDivisionLabel": "Département / Division",
+  "allDepartmentsHint": "Tous les départements",
+  "applyFilterButton": "Appliquer le filtre",
+  "approvedHistoricalStatusOption": "Approuvé (historique)",
+  "logoutDialogTitle": "Déconnexion",
+  "logoutConfirmBody": "Voulez-vous vraiment vous déconnecter ?",
+  "logoutButton": "Déconnecter",
+  "drawerSectionConsultation": "Consultation",
+  "drawerViewQuestionnairesSubtitle": "Consulter les questionnaires",
+  "drawerSectionAdminDsmo": "Administration DSMO",
+  "drawerDeclarationsDsmoLabel": "Déclarations DSMO",
+  "drawerViewDeclarationsSubtitle": "Consulter les déclarations",
+  "drawerAnnuaireSubtitle": "Utilisateurs et entreprises",
+  "drawerResetPasswordSubtitle": "Après vérification d'identité",
+  "drawerSectionAdminOnefop": "Administration ONEFOP",
+  "drawerSectionSaisieOnefop": "Saisie ONEFOP",
+  "drawerNewQuestionnaireLabel": "Nouveau questionnaire",
+  "drawerAssistedEntrySubtitle": "Saisie assistée",
+  "navCollapseTooltip": "Réduire la navigation",
+  "navExpandTooltip": "Développer la navigation",
+  "filterByRegionTooltip": "Filtrer par région",
+  "connectionErrorTitle": "Erreur de connexion",
+  "navOnefopMinefopTag": "ONEFOP · MINEFOP",
+  "onefopAutoGuidedTitle": "Questionnaire auto-guidé",
+  "onefopContinueQuestionnaireButton": "Continuer le questionnaire",
+  "dearDirectorGreeting": "Cher Directeur",
+  "yourProgressHeading": "Votre progression",
+  "sectionsCompletedCount": "{completed}/{total} sections complétées",
+  "@sectionsCompletedCount": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "fieldsRemainingPlaceholder": "17/32 champs requis restants",
+  "completedSlashLabel": "Complété",
+  "minefopOnefopBrandTag": "MINEFOP / ONEFOP",
+  "submissionIdEntityTypeLine": "ID {establishmentId} · {entityTypeLabel}",
+  "@submissionIdEntityTypeLine": {
+    "placeholders": {
+      "establishmentId": {
+        "type": "String"
+      },
+      "entityTypeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "mastheadCnpsLabel": "CNPS",
+  "vtWizardSectionNumberLabel": "SECTION {index}",
+  "@vtWizardSectionNumberLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "vtWizardFieldsFilledCount": "{filled}/{total} champs",
+  "@vtWizardFieldsFilledCount": {
+    "placeholders": {
+      "filled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reportApprovalApprovedSnackbar": "Rapport approuvé",
+  "reportApprovalRejectedSnackbar": "Rapport rejeté",
+  "reportRejectionReasonDialogTitle": "Motif du rejet",
+  "reportRejectionReasonHint": "Expliquez pourquoi...",
+  "reportNoPendingApprovalsTitle": "Aucune approbation en attente",
+  "reportAllProcessedSubtitle": "Tous les rapports ont été traités",
+  "reportAuditEmptyTitle": "Aucune activité enregistrée",
+  "reportAuditEmptySubtitle": "Les actions des utilisateurs apparaîtront ici",
+  "reportAuditSystemActionFallback": "Action système",
+  "reportRegionLittoral": "Littoral",
+  "reportRegionCentre": "Centre",
+  "reportRegionNord": "Nord",
+  "reportRegionExtremeNord": "Extrême-Nord",
+  "reportRegionOuest": "Ouest",
+  "reportRegionSud": "Sud",
+  "reportRegionEst": "Est",
+  "reportRegionAdamaoua": "Adamaoua",
+  "reportRegionNordOuest": "Nord-Ouest",
+  "reportRegionSudOuest": "Sud-Ouest",
+  "reportBatchSelectRegionError": "Sélectionnez au moins une région",
+  "reportBatchGenerationStartedMsg": "Génération batch lancée",
+  "reportBatchJobRetryingMsg": "Reprise en cours",
+  "reportBatchByRegionTitle": "Génération batch par région",
+  "reportBatchLaunchButton": "Lancer la génération batch",
+  "reportBatchRecentJobsTitle": "Tâches récentes",
+  "reportBatchEmptyTitle": "Aucune tâche batch",
+  "reportBatchJobReportsCount": "{completed}/{total} rapports",
+  "@reportBatchJobReportsCount": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reportSelectTwoReportsError": "Sélectionnez deux rapports à comparer",
+  "reportMetricFeminizationLabel": "Féminisation",
+  "reportSelectReportHint": "Sélectionner un rapport",
+  "reportBaselineReportLabel": "Rapport de référence",
+  "reportTargetReportLabel": "Rapport à comparer",
+  "reportCompareButton": "Comparer",
+  "reportComparisonResultsTitle": "Résultats de la comparaison",
+  "reportBaselineColumnLabel": "Référence",
+  "reportComparedColumnLabel": "Comparé",
+  "reportSelectOneSectionError": "Sélectionnez au moins une section",
+  "reportEndDateAfterStartError": "La date de fin doit être postérieure à la date de début",
+  "reportPeriodMax36MonthsError": "La période ne peut pas dépasser 36 mois",
+  "reportGeneratedSuccessMsg": "Rapport généré avec succès",
+  "reportSectionLocationLabel": "LOCALISATION",
+  "reportNationalAllOption": "Nationale (toutes)",
+  "reportPeriod3MonthsLabel": "3 mois",
+  "reportPeriod6MonthsLabel": "6 mois",
+  "reportPeriod12MonthsLabel": "12 mois",
+  "reportPeriodYtdLabel": "Année en cours",
+  "reportPeriodCustomLabel": "Personnalisé",
+  "reportSectionPeriodLabel": "PÉRIODE",
+  "reportDateFromLabel": "Du",
+  "reportDateToLabel": "Au",
+  "reportSectionContentLabel": "CONTENU",
+  "reportSelectAllButton": "Tout sélectionner",
+  "reportDeselectAllButton": "Tout désélectionner",
+  "reportSubtitleWorkforceTrends": "Tendances temporelles",
+  "reportSubtitleSkillsAnalysis": "Analyse sectorielle",
+  "reportSubtitleDiversityInclusion": "Parité & inclusion",
+  "reportSubtitleRegionalDetail": "Détail par région",
+  "reportSectionNameLabel": "NOM DU RAPPORT (optionnel)",
+  "reportNameHintExample": "Briefing RH Littoral Juin 2026",
+  "reportGenerateButtonLabel": "GÉNÉRER LE RAPPORT",
+  "reportDownloadStartedMsg": "Téléchargement démarré",
+  "reportEmptyHistoryTitle": "Aucun rapport généré",
+  "reportEmptyHistorySubtitle": "Générez votre premier rapport dans l'onglet \"Générer\"",
+  "reportDownloadTooltip": "Télécharger",
+  "reportTabGenerate": "Générer",
+  "reportTabApprovals": "Approbations",
+  "reportTabHistory": "Historique",
+  "reportTabBatch": "Batch",
+  "reportTabAudit": "Audit",
+  "reportScreenTitle": "Générateur de rapport",
+  "onefopExportExcelDownloadedMsg": "Fichier Excel téléchargé : {path}",
+  "@onefopExportExcelDownloadedMsg": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportErrorMsg": "Erreur lors de l'export : {error}",
+  "@onefopExportErrorMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportSpssDownloadedMsg": "Fichiers SPSS téléchargés (CSV + syntaxe .sps) : {path}. Placez les deux fichiers dans le même dossier puis exécutez le .sps dans SPSS.",
+  "@onefopExportSpssDownloadedMsg": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportSpssErrorMsg": "Erreur lors de l'export SPSS : {error}",
+  "@onefopExportSpssErrorMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportPanelTitle": "Exporter les soumissions ONEFOP",
+  "onefopExportPanelDescription": "Compile toutes les soumissions approuvées (Entreprises, Coopératives, CTD, ONG) : données d'identification et sections 1 à 4 du questionnaire.",
+  "onefopExportGeneratingLabel": "Génération…",
+  "onefopExportExcelButton": "Exporter en Excel",
+  "onefopExportSpssButton": "Exporter en SPSS",
+  "onefopExportPdfComingSoonMsg": "Export PDF bientôt disponible",
+  "reportExportFiltersActiveCount": "{count, plural, =1{Filtres ({count} actif)} other{Filtres ({count} actifs)}}",
+  "@reportExportFiltersActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportExportFiltersOptionalLabel": "Filtres (optionnel)",
+  "onefopExportFilterDescription": "Restreint l'export à une région, un département, une année d'enquête et/ou une période précises.",
+  "onefopExportChooseRegionFirstHint": "Choisir une région d'abord",
+  "onefopExportSurveyYearLabel": "Année d'enquête",
+  "onefopExportYearHintExample": "Ex. {year}",
+  "@onefopExportYearHintExample": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "onefopExportAllPeriodOption": "Toute la période",
+  "onefopExportSubmissionPeriodLabel": "Période de soumission",
+  "soumissionsTypeDsmoOption": "DSMO",
+  "draftSavedSnackbar": "Brouillon enregistré",
+  "discardDraftDialogTitle": "Supprimer le brouillon ?",
+  "draftRelativeTimeJustNow": "à l'instant",
+  "draftRelativeTimeMinutesAgo": "il y a {minutes} min",
+  "@draftRelativeTimeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "draftRelativeTimeHoursAgo": "il y a {hours} h",
+  "@draftRelativeTimeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "draftRelativeTimeDaysAgo": "il y a {days} j",
+  "@draftRelativeTimeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "draftSaveNowButton": "Sauvegarder maintenant",
+  "draftLoadFailedMessage": "Impossible de charger les brouillons",
+  "draftEmptyStateMessage": "Aucun brouillon enregistré",
+  "offlineBannerOfflineWithPendingMsg": "Hors ligne — {count} élément(s) en attente",
+  "@offlineBannerOfflineWithPendingMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineBannerOfflineDegradedMsg": "Hors ligne — Mode dégradé",
+  "offlineBannerOnlinePendingMsg": "{count} élément(s) en attente d'envoi",
+  "@offlineBannerOnlinePendingMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pdfDownloadFolderNotFoundError": "Dossier de téléchargement introuvable.",
+  "pdfSavedToDownloadsMsg": "PDF enregistré dans Téléchargements",
+  "pdfSavedToDocumentsMsg": "PDF enregistré dans Documents",
+  "pdfDownloadFailedError": "Téléchargement échoué : {error}",
+  "@pdfDownloadFailedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "formPreviewTitle": "Formulaire officiel ONEFOP · CAM-LEAP",
+  "pdfReviewBeforeSubmitWarning": "Vérifiez les informations ci-dessous avant de soumettre définitivement.",
+  "loadingPdfEllipsis": "Chargement du PDF…",
+  "pdfLoadFailedError": "Impossible de charger le PDF.",
+  "submittingEllipsis": "Soumission…",
+  "customPeriodLabel": "Période personnalisée",
+  "periodAnalysisLabel": "Période d'analyse",
+  "yearLabel": "Année",
+  "quarterLabel": "Trimestre",
+  "semesterLabel": "Semestre",
+  "quarterT1Label": "T1 (Jan-Mar)",
+  "quarterT2Label": "T2 (Avr-Jun)",
+  "quarterT3Label": "T3 (Jul-Sep)",
+  "quarterT4Label": "T4 (Oct-Dec)",
+  "semesterS1Label": "S1 (Jan-Jun)",
+  "semesterS2Label": "S2 (Jul-Dec)",
+  "selectPeriodPrompt": "Sélectionner une période",
+  "newShortLabel": "Nouveau",
+  "serviceCategoryDeconcentratedLabel": "Services Déconcentrés",
+  "serviceCategoryCentralLabel": "Administration Centrale",
+  "serviceCategoryAffiliatedLabel": "Organismes Rattachés",
+  "selectServiceTypeAbovePrompt": "Sélectionnez un type de service ci-dessus.",
+  "noServiceFoundMessage": "Aucun service trouvé.",
+  "serviceTypeFieldLabel": "Type de service *",
+  "selectServiceTypeHint": "Sélectionner un type de service",
+  "serviceSelectedLabel": "Service sélectionné",
+  "servicesLoadFailedTitle": "Impossible de charger les services",
+  "serviceCategoryDeconcentratedShort": "Déconcentré",
+  "serviceCategoryCentralShort": "Centrale",
+  "serviceCategoryAffiliatedShort": "Rattaché"
 }

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modern Jobs tables — UX mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f4; --surface:#fff; --text:#0f172a; --muted:#4a5a50; --border:#475569; --grid:#64748b;
+    --green:#1e6b3a; --focus:#1a5c3a; --success-bg:#eaf3ec; --note:#fff8e6; --note-b:#e2c77a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px}
+  .bar{position:sticky;top:0;z-index:50;background:#0b1f14;color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .bar b{font-weight:600}
+  .seg{display:inline-flex;border:1px solid #3b5a47;border-radius:6px;overflow:hidden}
+  .seg button{background:transparent;color:#cfe3d6;border:0;padding:6px 12px;font:inherit;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:#fff;color:#0b1f14;font-weight:700}
+  .hint{color:#cfe3d6;font-size:12px}
+  .page{display:flex;justify-content:center;padding:20px 16px 60px}
+  .content{width:100%;max-width:1360px;transition:max-width .35s ease}
+  .content.narrow{max-width:820px}
+  .ruler{height:6px;border-left:2px solid var(--green);border-right:2px solid var(--green);position:relative;margin:0 0 18px}
+  .ruler::after{content:"largeur de contenu";position:absolute;left:50%;top:-8px;transform:translateX(-50%);background:var(--bg);padding:0 6px;font-size:11px;color:var(--green);font-weight:600}
+  .ruler::before{content:"";position:absolute;left:0;right:0;top:2px;border-top:1px dashed var(--green)}
+  section.q{margin-bottom:34px}
+  .code{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:var(--green);background:var(--success-bg);border-radius:3px;padding:1px 6px;margin-bottom:6px}
+  .qt{font-weight:600;margin:0 0 4px}
+  .cap{color:var(--muted);margin:0 0 10px;font-size:13px}
+  .frame{width:100%;max-width:1025px;border:1.5px solid var(--border);border-radius:4px;background:#fff;overflow-x:auto}
+  table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+  th,td{border-right:1.5px solid var(--grid);border-bottom:1.5px solid var(--grid)}
+  th:last-child,td:last-child{border-right:0}
+  thead th{font-weight:700;font-size:13px;padding:8px 10px;background:#fff;border-bottom-color:var(--border)}
+  thead tr.sub th{font-weight:600;font-size:12px;color:#334155;text-align:right;padding:6px 8px}
+  th.rowh{position:sticky;left:0;z-index:2;background:#fff;text-align:left;font-weight:600;padding:8px 12px;box-shadow:1px 0 0 0 var(--border)}
+  thead th.rowh{z-index:3;font-weight:700}
+  th.grp-end,td.grp-end{border-right:2.5px solid #1e293b}
+  td{padding:0;height:36px}
+  td input{width:100%;height:36px;border:0;background:transparent;text-align:right;padding:0 8px;font:600 13px "IBM Plex Mono",monospace;color:var(--text)}
+  td input::placeholder{color:#94a3b8}
+  td input:focus,th.rowh input:focus{outline:2px solid var(--focus);outline-offset:-2px}
+  td.calc{text-align:right;padding:0 8px;font:700 13px "IBM Plex Mono",monospace}
+  tr.total th,tr.total td{background:#fff;font-weight:700;border-top:2px solid var(--border)}
+  th.rowh.txt{padding:0}
+  th.rowh.txt .n{font:700 11px "IBM Plex Mono",monospace;color:#475569;padding-left:10px;width:22px;flex:none}
+  th.rowh.txt .w{display:flex;align-items:center;height:36px}
+  th.rowh.txt input{flex:1;min-width:0;height:36px;border:0;background:#fbfcfa;padding:0 10px;font:400 13px "IBM Plex Sans",sans-serif;color:var(--text);text-align:left}
+  th.rowh.txt input::placeholder{color:#8a948e;font-style:italic}
+  .badge{font-size:10px;font-weight:700;color:#8a5a00;background:var(--note);border:1px solid var(--note-b);border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+  .notes{background:#fff;border:1px solid #d8ddd3;border-radius:8px;padding:14px 18px;margin-bottom:26px}
+  .notes h2{font-size:15px;margin:0 0 8px}
+  .notes ul{margin:0;padding-left:18px;line-height:1.55}
+  .scrollnote{font-size:12px;color:var(--muted);margin-top:6px;display:none}
+  .content.narrow .scrollnote{display:block}
+  .tabs{display:flex;gap:4px;max-width:1025px;border-bottom:1.5px solid var(--border);margin-bottom:-1.5px;overflow-x:auto}
+  .tab{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid transparent;border-bottom:0;border-radius:6px 6px 0 0;background:transparent;font:600 13px "IBM Plex Sans",sans-serif;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .tab[aria-selected="true"]{background:#fff;border-color:var(--border);color:var(--text);position:relative;top:1.5px}
+  .tab .dot{width:16px;height:16px;border-radius:50%;border:1.5px solid #94a3b8;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#fff}
+  .tab.done .dot{background:var(--green);border-color:var(--green)}
+  .tab.part .dot{border-color:#b7791f;background:linear-gradient(90deg,#b7791f 50%,transparent 50%)}
+  .tab.calc{font-style:italic}
+  .frame.tabbed{border-top-left-radius:0}
+  th.ens,td.ens{background:#f3f7f4}
+  th.ens-start,td.ens-start{border-left:2.5px solid #1e293b}
+  .blocknav{max-width:1025px;display:flex;align-items:center;gap:8px;margin-top:10px}
+  .blocknav .prog{flex:1;font-size:12px;color:var(--muted)}
+  .nb{font:600 13px "IBM Plex Sans",sans-serif;padding:7px 14px;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer}
+  .nb.primary{background:var(--green);color:#fff;border-color:var(--green)}
+  .nb:disabled{opacity:.4;cursor:default}
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>Aperçu</b>
+  <div class="seg" role="group" aria-label="Taille de la fenêtre">
+    <button type="button" id="wide" aria-pressed="true">Fenêtre agrandie (1360px)</button>
+    <button type="button" id="narrow" aria-pressed="false">Fenêtre réduite (820px)</button>
+  </div>
+  <span class="hint">Tous les tableaux ont la même largeur : 1025px max, sinon 100 % de la zone.</span>
+</div>
+
+<div class="page"><div class="content" id="content">
+  <div class="ruler"></div>
+
+  <div class="notes">
+    <h2>Règles d'affichage</h2>
+    <ul>
+      <li><b>Même largeur partout, plafonnée à 1025px :</b> la largeur de S22Q04. Fenêtre agrandie, tous les tableaux s’arrêtent à 1025px (ils ne s’étirent plus sur toute la page). Fenêtre plus étroite, ils se resserrent ensemble à 100 % de la zone de contenu.</li>
+      <li><b>Première colonne fixe (170px)</b> et collée à gauche lors du défilement. Les colonnes numériques se partagent le reste à parts égales.</li>
+      <li><b>Tableaux à motifs / domaines :</b> la 1ʳᵉ colonne devient un champ texte (≈ 50 % de la largeur) ; Homme / Femme / Total se partagent le reste.</li>
+      <li><b>Tableaux longs (S3Q01, S21Q01…) :</b> un onglet par bloc au-dessus du tableau. On ne voit qu’un bloc à la fois + le bloc « Ensemble » calculé, donc aucun défilement horizontal, quelle que soit la taille de la fenêtre.</li>
+    </ul>
+  </div>
+
+  <!-- S3Q02 reasons -->
+  <section class="q">
+    <span class="code">S3Q02</span><span class="badge">1ʳᵉ colonne éditable</span>
+    <p class="qt">Quels sont les principaux motifs de licenciement ?</p>
+    <p class="cap">Saisissez le motif dans la première colonne, puis les effectifs par sexe.</p>
+    <div class="frame"><table>
+      <colgroup><col style="width:50%"><col><col><col></colgroup>
+      <thead><tr class="sub">
+        <th class="rowh" style="text-align:left;font-size:13px;color:var(--text)">Motif de licenciement</th>
+        <th>Homme</th><th>Femme</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><th class="rowh txt"><div class="w"><span class="n">1</span><input placeholder="Décrivez le motif de licenciement" value="Faute grave"></div></th><td><input value="3"></td><td><input value="1"></td><td class="calc">4</td></tr>
+        <tr><th class="rowh txt"><div class="w"><span class="n">2</span><input placeholder="Décrivez le motif de licenciement"></div></th><td><input placeholder="—"></td><td><input placeholder="—"></td><td class="calc">—</td></tr>
+        <tr><th class="rowh txt"><div class="w"><span class="n">3</span><input placeholder="Décrivez le motif de licenciement"></div></th><td><input placeholder="—"></td><td><input placeholder="—"></td><td class="calc">—</td></tr>
+        <tr class="total"><th class="rowh">Total</th><td class="calc">3</td><td class="calc">1</td><td class="calc">4</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- S4Q02 skills -->
+  <section class="q">
+    <span class="code">S4Q02</span><span class="badge">1ʳᵉ colonne éditable</span>
+    <p class="qt">Quels sont vos besoins en compétences ?</p>
+    <p class="cap">Même présentation que S3Q02 (idem pour S4Q03, besoins en formation).</p>
+    <div class="frame"><table>
+      <colgroup><col style="width:50%"><col><col><col></colgroup>
+      <thead><tr class="sub">
+        <th class="rowh" style="text-align:left;font-size:13px;color:var(--text)">Domaine de compétence</th>
+        <th>Homme</th><th>Femme</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><th class="rowh txt"><div class="w"><span class="n">1</span><input placeholder="Ex : Gestion, Comptabilité, Marketing, RH, Technique…"></div></th><td><input placeholder="—"></td><td><input placeholder="—"></td><td class="calc">—</td></tr>
+        <tr><th class="rowh txt"><div class="w"><span class="n">2</span><input placeholder="Ex : Gestion, Comptabilité, Marketing, RH, Technique…"></div></th><td><input placeholder="—"></td><td><input placeholder="—"></td><td class="calc">—</td></tr>
+        <tr><th class="rowh txt"><div class="w"><span class="n">3</span><input placeholder="Ex : Gestion, Comptabilité, Marketing, RH, Technique…"></div></th><td><input placeholder="—"></td><td><input placeholder="—"></td><td class="calc">—</td></tr>
+        <tr class="total"><th class="rowh">Total</th><td class="calc">—</td><td class="calc">—</td><td class="calc">—</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- S22Q04 -->
+  <section class="q">
+    <span class="code">S22Q04</span>
+    <p class="qt">Indiquez les recrutements de personnes en situation de handicap.</p>
+    <p class="cap">Répartition selon le statut d'emploi (Permanent, Temporaire) et le sexe</p>
+    <div class="frame"><table id="t22" style="min-width:calc(170px + 9 * 56px)">
+      <colgroup><col style="width:170px"><col><col><col><col><col><col><col><col><col></colgroup>
+      <thead>
+        <tr><th class="rowh" rowspan="2">Catégorie Socio-Professionnelle</th>
+          <th colspan="3" class="grp-end" style="text-align:center">Permanent</th>
+          <th colspan="3" class="grp-end" style="text-align:center">Temporaire</th>
+          <th colspan="3" style="text-align:center">Total</th></tr>
+        <tr class="sub"><th>Homme</th><th>Femme</th><th class="grp-end">Total</th><th>Homme</th><th>Femme</th><th class="grp-end">Total</th><th>Homme</th><th>Femme</th><th>Total</th></tr>
+      </thead>
+      <tbody id="b22"></tbody>
+    </table></div>
+    <p class="scrollnote">Fenêtre réduite : les 9 colonnes tiennent ; le tableau se resserre sans défiler.</p>
+  </section>
+
+  <!-- S3Q01 tabbed -->
+  <section class="q">
+    <span class="code">S3Q01</span><span class="badge">onglets par bloc</span>
+    <p class="qt">Départs par type et par sexe</p>
+    <p class="cap">Un bloc à la fois (H / F / T), avec le bloc « Ensemble » calculé toujours visible à droite. Plus de défilement horizontal.</p>
+    <div class="tabs" role="tablist" id="tabs31"></div>
+    <div class="frame"><table id="t31">
+      <colgroup><col style="width:170px"><col><col><col><col><col><col></colgroup>
+      <thead id="h31"></thead>
+      <tbody id="b31"></tbody>
+    </table></div>
+    <div class="blocknav">
+      <span id="prog31" class="prog"></span>
+      <button type="button" class="nb" id="prev31">← Bloc précédent</button>
+      <button type="button" class="nb primary" id="next31">Bloc suivant →</button>
+    </div>
+  </section>
+</div></div>
+
+<script>
+  const csp = ["Cadres","Agents de Maîtrise","Agents d'exécution"];
+  // S22Q04 body
+  const b22 = document.getElementById("b22");
+  const rowCells = (n, ends, total) => {
+    let h = "";
+    for (let i = 0; i < n; i++) {
+      const cls = ends.includes(i) ? ' class="grp-end"' : "";
+      const calc = total || (i % 3 === 2) || i >= n - 3;
+      h += calc ? `<td${cls ? cls.replace('"grp-end"','"calc grp-end"') : ' class="calc"'}>—</td>`
+                : `<td${cls}><input placeholder="—"></td>`;
+    }
+    return h;
+  };
+  csp.forEach(c => b22.insertAdjacentHTML("beforeend", `<tr><th class="rowh">${c}</th>${rowCells(9,[2,5],false)}</tr>`));
+  b22.insertAdjacentHTML("beforeend", `<tr class="total"><th class="rowh">TOTAL GÉNÉRAL</th>${rowCells(9,[2,5],true)}</tr>`);
+
+  // S3Q01 tabbed
+  const blocks=["Licenciement","Démission","Retraite","Autre"];
+  const vals={}; // key block|row|g
+  let active=0;
+  const tabs=document.getElementById("tabs31"), h31=document.getElementById("h31"), b31=document.getElementById("b31");
+  document.getElementById("t31").parentElement.classList.add("tabbed");
+  const v=(b,r,g)=>parseInt(vals[b+"|"+r+"|"+g]||"")||0;
+  const has=(b,r,g)=>(vals[b+"|"+r+"|"+g]??"")!=="";
+  const state=b=>{let n=0;for(let r=0;r<3;r++)for(let g=0;g<2;g++)if(has(b,r,g))n++;return n===0?"":n===6?"done":"part";};
+  const fmt=x=>(x||Object.values(vals).some(s=>s!==""))?String(x):"—";
+  function renderTabs(){
+    tabs.innerHTML=blocks.map((b,i)=>{const st=state(i);return `<button role="tab" class="tab ${st}" aria-selected="${i===active}" data-i="${i}"><span class="dot">${st==="done"?"✓":""}</span>${b}</button>`}).join("")
+      +`<span class="tab calc" title="Calculé automatiquement">Σ Ensemble (calculé)</span>`;
+    tabs.querySelectorAll("button").forEach(bt=>bt.onclick=()=>{active=+bt.dataset.i;render();});
+  }
+  function render(){
+    renderTabs();
+    h31.innerHTML=`<tr><th class="rowh" rowspan="2">Catégorie</th><th colspan="3" style="text-align:center">${blocks[active]}</th><th colspan="3" class="ens ens-start" style="text-align:center">Ensemble (calculé)</th></tr>
+      <tr class="sub"><th>Homme</th><th>Femme</th><th>Total</th><th class="ens ens-start">Homme</th><th class="ens">Femme</th><th class="ens">Total</th></tr>`;
+    let rows="";
+    for(let r=0;r<3;r++){
+      const a=v(active,r,0),b=v(active,r,1);
+      let eh=0,ef=0;blocks.forEach((_,i)=>{eh+=v(i,r,0);ef+=v(i,r,1);});
+      rows+=`<tr><th class="rowh">${csp[r]}</th>
+        <td><input data-r="${r}" data-g="0" value="${vals[active+"|"+r+"|0"]??""}" placeholder="—" inputmode="numeric"></td>
+        <td><input data-r="${r}" data-g="1" value="${vals[active+"|"+r+"|1"]??""}" placeholder="—" inputmode="numeric"></td>
+        <td class="calc">${fmt(a+b)}</td>
+        <td class="calc ens ens-start">${fmt(eh)}</td><td class="calc ens">${fmt(ef)}</td><td class="calc ens">${fmt(eh+ef)}</td></tr>`;
+    }
+    let th=0,tf=0,eh=0,ef=0;for(let r=0;r<3;r++){th+=v(active,r,0);tf+=v(active,r,1);blocks.forEach((_,i)=>{eh+=v(i,r,0);ef+=v(i,r,1);});}
+    rows+=`<tr class="total"><th class="rowh">TOTAL</th><td class="calc">${fmt(th)}</td><td class="calc">${fmt(tf)}</td><td class="calc">${fmt(th+tf)}</td><td class="calc ens ens-start">${fmt(eh)}</td><td class="calc ens">${fmt(ef)}</td><td class="calc ens">${fmt(eh+ef)}</td></tr>`;
+    b31.innerHTML=rows;
+    const inputs=[...b31.querySelectorAll("input")];
+    inputs.forEach((inp,idx)=>{
+      inp.oninput=()=>{vals[active+"|"+inp.dataset.r+"|"+inp.dataset.g]=inp.value.replace(/[^0-9]/g,"");const pos=idx;render();const again=b31.querySelectorAll("input")[pos];again.focus();again.setSelectionRange(again.value.length,again.value.length);};
+      inp.onkeydown=e=>{ if((e.key==="Tab"&&!e.shiftKey||e.key==="Enter")&&idx===inputs.length-1&&active<blocks.length-1){e.preventDefault();active++;render();b31.querySelector("input").focus();} };
+    });
+    const done=blocks.filter((_,i)=>state(i)==="done").length;
+    document.getElementById("prog31").textContent=`Bloc ${active+1} / ${blocks.length} · ${done} complété(s) · Tab sur la dernière cellule → bloc suivant`;
+    document.getElementById("prev31").disabled=active===0;
+    document.getElementById("next31").disabled=active===blocks.length-1;
+  }
+  document.getElementById("prev31").onclick=()=>{if(active>0){active--;render();}};
+  document.getElementById("next31").onclick=()=>{if(active<blocks.length-1){active++;render();b31.querySelector("input").focus();}};
+  vals["0|0|0"]="2";vals["0|0|1"]="1";vals["0|1|0"]="4";vals["0|1|1"]="0";vals["0|2|0"]="7";vals["0|2|1"]="3";vals["1|0|0"]="1";
+  render();
+
+  // Toggle
+  const content = document.getElementById("content");
+  const wide = document.getElementById("wide"), narrow = document.getElementById("narrow");
+  wide.onclick = () => { content.classList.remove("narrow"); wide.setAttribute("aria-pressed","true"); narrow.setAttribute("aria-pressed","false"); };
+  narrow.onclick = () => { content.classList.add("narrow"); narrow.setAttribute("aria-pressed","true"); wide.setAttribute("aria-pressed","false"); };
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 import '../../../widgets/common_widgets.dart';
@@ -217,7 +218,7 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
               onChanged: _onSearchChanged,
               style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
               decoration: InputDecoration(
-                hintText: 'Rechercher par nom, NIU, identifiant, région...',
+                hintText: context.l10n.companiesSearchHint,
                 hintStyle:
                     const TextStyle(fontFamily: 'Inter', color: UltraTheme.textMuted),
                 prefixIcon: const Icon(Icons.search_rounded,
@@ -246,7 +247,7 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
           _RefreshButton(onTap: _load),
         ]),
         const SizedBox(height: 8),
-        Text('$_total entreprise${_total == 1 ? '' : 's'}',
+        Text(context.l10n.companiesTotalCount(_total),
             style: const TextStyle(
                 fontFamily: 'Inter', fontSize: 12, color: UltraTheme.textMuted)),
       ]),
@@ -273,17 +274,17 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
             sortAscending: _sortAscending,
             showCheckboxColumn: false,
             columns: [
-              DataColumn(label: const Text('Nom', style: _tableHeaderStyle), onSort: _onSort),
-              DataColumn(label: const Text('Type', style: _tableHeaderStyle), onSort: _onSort),
-              DataColumn(label: const Text('NIU', style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.nameColumnHeader, style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.pdfTypeHeader, style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.niuLabel, style: _tableHeaderStyle), onSort: _onSort),
               DataColumn(
-                  label: const Text('Identifiant', style: _tableHeaderStyle), onSort: _onSort),
-              DataColumn(label: const Text('Région', style: _tableHeaderStyle), onSort: _onSort),
+                  label: Text(context.l10n.registerReceiptIdCopyLabel, style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.pdfRegionLabel, style: _tableHeaderStyle), onSort: _onSort),
               DataColumn(
-                  label: const Text('Département', style: _tableHeaderStyle), onSort: _onSort),
-              DataColumn(label: const Text('Créé le', style: _tableHeaderStyle), onSort: _onSort),
-              DataColumn(label: const Text('Contact', style: _tableHeaderStyle), onSort: _onSort),
-              DataColumn(label: const Text('Statut', style: _tableHeaderStyle), onSort: _onSort),
+                  label: Text(context.l10n.pdfDepartmentLabel, style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.companiesCreatedAtColumnHeader, style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.companiesContactColumnHeader, style: _tableHeaderStyle), onSort: _onSort),
+              DataColumn(label: Text(context.l10n.statusColumnHeader, style: _tableHeaderStyle), onSort: _onSort),
             ],
             rows: _companies.map((raw) {
               final c = raw as Map;
@@ -302,7 +303,7 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
                   DataCell(Text(_formatDate(c['createdAt'] as String?), style: _tableCellStyle)),
                   DataCell(Text(_dash(_contactValue(c)), style: _tableCellStyle)),
                   DataCell(StatusBadge(
-                    label: isActive ? 'Actif' : 'Suspendu',
+                    label: isActive ? context.l10n.companyAnalyticsBadgeActive : context.l10n.companiesSuspendedBadge,
                     color: isActive ? UltraTheme.success : UltraTheme.error,
                   )),
                 ],
@@ -323,7 +324,7 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
           icon: const Icon(Icons.chevron_left_rounded),
           color: UltraTheme.textSecondary,
         ),
-        Text('Page $_page sur $_totalPages',
+        Text(context.l10n.companiesPaginationLabel(_page, _totalPages),
             style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
@@ -351,15 +352,15 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
           child: const Icon(Icons.apartment_outlined, size: 40, color: UltraTheme.accent),
         ),
         const SizedBox(height: 20),
-        const Text('Aucune entreprise trouvée',
-            style: TextStyle(
+        Text(context.l10n.companiesEmptyTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: UltraTheme.textPrimary)),
         const SizedBox(height: 8),
-        const Text('Essayez une autre recherche.',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
+        Text(context.l10n.companiesEmptySubtitle,
+            style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
       ]),
     );
   }
@@ -377,8 +378,8 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
           child: const Icon(Icons.wifi_off_rounded, size: 36, color: UltraTheme.error),
         ),
         const SizedBox(height: 16),
-        const Text('Erreur de chargement',
-            style: TextStyle(
+        Text(context.l10n.loadingErrorTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -391,7 +392,7 @@ class _CompaniesScreenState extends ConsumerState<CompaniesScreen> {
         ElevatedButton.icon(
           onPressed: _load,
           icon: const Icon(Icons.refresh_rounded, size: 16),
-          label: const Text('Réessayer'),
+          label: Text(context.l10n.retry),
           style: ElevatedButton.styleFrom(
             backgroundColor: UltraTheme.primary,
             foregroundColor: Colors.white,
@@ -467,11 +468,11 @@ class _CompanyDetailSheet extends StatelessWidget {
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
-  String? _genderBreakdown(dynamic men, dynamic women) {
+  String? _genderBreakdown(BuildContext context, dynamic men, dynamic women) {
     if (men == null && women == null) return null;
     final parts = <String>[
-      if (men != null) '$men hommes',
-      if (women != null) '$women femmes',
+      if (men != null) context.l10n.companiesGenderBreakdownMenCount(men as num),
+      if (women != null) context.l10n.companiesGenderBreakdownWomenCount(women as num),
     ];
     return parts.join(' · ');
   }
@@ -506,41 +507,41 @@ class _CompanyDetailSheet extends StatelessWidget {
           Text(company['name'] as String? ?? '',
               style: UltraTheme.displayMedium.copyWith(fontSize: 18)),
           const SizedBox(height: 16),
-          _buildSection('Identité', [
-            MapEntry('Identifiant', company['establishmentId'] as String?),
-            MapEntry('NIU', company['taxNumber'] as String?),
-            MapEntry('Type d\'entité', _entityTypeLabel(company['entityType'] as String?)),
-            MapEntry('Secteur d\'activité', sector?['name'] as String?),
-            MapEntry('Activité principale', company['mainActivity'] as String?),
-            MapEntry('Statut juridique', company['legalStatus'] as String?),
-            MapEntry('N° d\'enregistrement', company['registrationNumber'] as String?),
-            MapEntry('N° CNPS', company['cnpsNumber'] as String?),
-            MapEntry('Année de création', company['yearOfCreation'] as String?),
-            MapEntry('Taille d\'entreprise', company['enterpriseSize'] as String?),
-            MapEntry('Enregistré le', _formatDate(company['createdAt'] as String?)),
+          _buildSection(context.l10n.companiesDetailIdentitySectionTitle, [
+            MapEntry(context.l10n.registerReceiptIdCopyLabel, company['establishmentId'] as String?),
+            MapEntry(context.l10n.niuLabel, company['taxNumber'] as String?),
+            MapEntry(context.l10n.entityTypeDialogTitle, _entityTypeLabel(company['entityType'] as String?)),
+            MapEntry(context.l10n.registerSectorLabel, sector?['name'] as String?),
+            MapEntry(context.l10n.companiesMainActivityLabel, company['mainActivity'] as String?),
+            MapEntry(context.l10n.companiesLegalStatusLabel, company['legalStatus'] as String?),
+            MapEntry(context.l10n.companiesRegistrationNumberLabel, company['registrationNumber'] as String?),
+            MapEntry(context.l10n.companiesCnpsNumberLabel, company['cnpsNumber'] as String?),
+            MapEntry(context.l10n.companiesYearOfCreationLabel, company['yearOfCreation'] as String?),
+            MapEntry(context.l10n.companiesEnterpriseSizeLabel, company['enterpriseSize'] as String?),
+            MapEntry(context.l10n.companiesRegisteredOnLabel, _formatDate(company['createdAt'] as String?)),
           ]),
-          _buildSection('Localisation', [
-            MapEntry('Région', company['region'] as String?),
-            MapEntry('Département', company['department'] as String?),
-            MapEntry('Subdivision', company['subdivision'] as String?),
-            MapEntry('Adresse', company['address'] as String?),
+          _buildSection(context.l10n.registerStepTitleLocation, [
+            MapEntry(context.l10n.pdfRegionLabel, company['region'] as String?),
+            MapEntry(context.l10n.pdfDepartmentLabel, company['department'] as String?),
+            MapEntry(context.l10n.companiesSubdivisionLabel, company['subdivision'] as String?),
+            MapEntry(context.l10n.companiesAddressLabel, company['address'] as String?),
           ]),
-          _buildSection('Contact entreprise', [
-            MapEntry('Téléphone', company['phone'] as String?),
-            MapEntry('Email du compte', user?['email'] as String?),
-            MapEntry('Statut du compte', user?['isActive'] == true ? 'Actif' : 'Suspendu'),
+          _buildSection(context.l10n.companiesDetailContactSectionTitle, [
+            MapEntry(context.l10n.settingsFieldPhone, company['phone'] as String?),
+            MapEntry(context.l10n.accountEmailLabel, user?['email'] as String?),
+            MapEntry(context.l10n.companiesAccountStatusLabel, user?['isActive'] == true ? context.l10n.companyAnalyticsBadgeActive : context.l10n.companiesSuspendedBadge),
           ]),
-          _buildSection('Répondant', [
-            MapEntry('Nom', respondentName.isEmpty ? null : respondentName),
-            MapEntry('Fonction', company['respondentFunction'] as String?),
-            MapEntry('Téléphone', company['respondentPhone'] as String?),
+          _buildSection(context.l10n.companiesDetailRespondentSectionTitle, [
+            MapEntry(context.l10n.nameColumnHeader, respondentName.isEmpty ? null : respondentName),
+            MapEntry(context.l10n.registerFunctionRowLabel, company['respondentFunction'] as String?),
+            MapEntry(context.l10n.settingsFieldPhone, company['respondentPhone'] as String?),
           ]),
-          _buildSection('Effectifs', [
-            MapEntry('Effectif total', company['totalEmployees']?.toString()),
-            MapEntry('Répartition', _genderBreakdown(company['menCount'], company['womenCount'])),
-            MapEntry('Effectif année précédente', company['lastYearTotal']?.toString()),
-            MapEntry('Répartition (année précédente)',
-                _genderBreakdown(company['lastYearMenCount'], company['lastYearWomenCount'])),
+          _buildSection(context.l10n.companyAnalyticsSectionEffectifs, [
+            MapEntry(context.l10n.companyAnalyticsTotalWorkforce, company['totalEmployees']?.toString()),
+            MapEntry(context.l10n.companiesGenderBreakdownRowLabel, _genderBreakdown(context, company['menCount'], company['womenCount'])),
+            MapEntry(context.l10n.companiesPreviousYearWorkforceLabel, company['lastYearTotal']?.toString()),
+            MapEntry(context.l10n.companiesPreviousYearBreakdownLabel,
+                _genderBreakdown(context, company['lastYearMenCount'], company['lastYearWomenCount'])),
           ]),
         ]),
       ),

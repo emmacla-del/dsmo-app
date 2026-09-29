@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import '../../data/api_client.dart';
 import '../../widgets/responsive_helpers.dart';
@@ -56,7 +57,7 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
       debugPrint('Error loading data: $e');
       setState(() => _isLoading = false);
       if (!mounted) return;
-      showAdminToast(context, 'Erreur de chargement : $e', UltraTheme.error,
+      showAdminToast(context, context.l10n.regionsSectorsLoadError(e.toString()), UltraTheme.error,
           Icons.error_outline_rounded);
     }
   }
@@ -66,8 +67,8 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
     return Scaffold(
       backgroundColor: UltraTheme.background,
       appBar: AppBar(
-        title: const Text('Régions & Secteurs',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(context.l10n.regionsSectorsAppBarTitle,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: UltraTheme.surface,
         elevation: 0,
         actions: [
@@ -141,23 +142,22 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
           child: !hasAny
               ? _buildEmptyState(
                   icon: Icons.table_rows_outlined,
-                  title: 'Aucun résultat',
-                  subtitle:
-                      'Aucune région ou secteur ne correspond à votre recherche.',
+                  title: context.l10n.companyDeclNoResultsTitle,
+                  subtitle: context.l10n.regionsSectorsNoResultsSubtitle,
                 )
               : ListView(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   children: [
                     if (regions.isNotEmpty) ...[
                       _buildSectionHeader(
-                          'Régions', regions.length, Icons.map_outlined,
+                          context.l10n.regionsLabel, regions.length, Icons.map_outlined,
                           UltraTheme.info),
                       const SizedBox(height: 10),
                       _buildRegionsTable(regions),
                       const SizedBox(height: 28),
                     ],
                     if (sectors.isNotEmpty) ...[
-                      _buildSectionHeader('Secteurs', sectors.length,
+                      _buildSectionHeader(context.l10n.regionsSectorsSectorsLabel, sectors.length,
                           Icons.business_outlined, UltraTheme.success),
                       const SizedBox(height: 10),
                       _buildSectorsTable(sectors),
@@ -175,7 +175,7 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
-        Text('$title ($count)',
+        Text(context.l10n.regionsSectorsSectionHeaderWithCount(title, count),
             style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13,
@@ -188,10 +188,10 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
   Widget _buildStatsStrip() {
     final totals = (_stats?['totals'] as Map?) ?? {};
     final items = <(String, dynamic)>[
-      ('Entreprises', totals['companies'] ?? 0),
-      ('Déclarations', totals['declarations'] ?? 0),
-      ('Soumissions ONEFOP', totals['onefopSubmissions'] ?? 0),
-      ('Utilisateurs', totals['users'] ?? 0),
+      (context.l10n.pdfEnterprisesLabel, totals['companies'] ?? 0),
+      (context.l10n.declarationsTabLabel, totals['declarations'] ?? 0),
+      (context.l10n.regionsSectorsOnefopSubmissionsStatLabel, totals['onefopSubmissions'] ?? 0),
+      (context.l10n.annuaireUsersTabLabel, totals['users'] ?? 0),
     ];
     return Wrap(
       spacing: 22,
@@ -229,25 +229,25 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
               onChanged: (v) => setState(() => _searchQuery = v),
               style: const TextStyle(
                   fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
-              decoration: const InputDecoration(
-                icon: Icon(Icons.search_rounded,
+              decoration: InputDecoration(
+                icon: const Icon(Icons.search_rounded,
                     size: 18, color: UltraTheme.textMuted),
-                hintText: 'Rechercher une région ou un secteur…',
-                hintStyle: TextStyle(
+                hintText: context.l10n.regionsSectorsSearchHint,
+                hintStyle: const TextStyle(
                     fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
         ),
         const SizedBox(width: 12),
-        _typeChip('ALL', 'Tout'),
+        _typeChip('ALL', context.l10n.regionsSectorsAllFilterChip),
         const SizedBox(width: 6),
-        _typeChip('REGION', 'Régions'),
+        _typeChip('REGION', context.l10n.regionsLabel),
         const SizedBox(width: 6),
-        _typeChip('SECTOR', 'Secteurs'),
+        _typeChip('SECTOR', context.l10n.regionsSectorsSectorsLabel),
       ],
     );
   }
@@ -300,13 +300,13 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
           icon: const Icon(Icons.edit_outlined, size: 18),
           color: UltraTheme.textSecondary,
           onPressed: onEdit,
-          tooltip: 'Modifier',
+          tooltip: context.l10n.editTooltip,
         ),
         IconButton(
           icon: const Icon(Icons.delete_outline_rounded, size: 18),
           color: UltraTheme.error,
           onPressed: onDelete,
-          tooltip: 'Supprimer',
+          tooltip: context.l10n.settingsDeleteButton,
         ),
       ],
     );
@@ -322,17 +322,17 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
           color: UltraTheme.textMuted),
       dataTextStyle: const TextStyle(
           fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
-      columns: const [
-        DataColumn(label: Text('Nom')),
-        DataColumn(label: Text('Code')),
-        DataColumn(label: Text('Entreprises'), numeric: true),
-        DataColumn(label: Text('Départements'), numeric: true),
-        DataColumn(label: Text('Actions')),
+      columns: [
+        DataColumn(label: Text(context.l10n.nameColumnHeader)),
+        DataColumn(label: Text(context.l10n.codeLabel)),
+        DataColumn(label: Text(context.l10n.pdfEnterprisesLabel), numeric: true),
+        DataColumn(label: Text(context.l10n.departmentsLabel), numeric: true),
+        DataColumn(label: Text(context.l10n.regionsSectorsActionsColumnHeader)),
       ],
       rows: regions.map((r) {
         final counts = r['_count'] as Map?;
         return DataRow(cells: [
-          DataCell(Text((r['name'] as String?) ?? 'Sans nom')),
+          DataCell(Text((r['name'] as String?) ?? context.l10n.unnamedCampaign)),
           DataCell(Text((r['code'] as String?) ?? '—')),
           DataCell(Text('${(counts?['companies']) ?? 0}')),
           DataCell(Text('${(counts?['departments']) ?? 0}')),
@@ -355,18 +355,18 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
           color: UltraTheme.textMuted),
       dataTextStyle: const TextStyle(
           fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
-      columns: const [
-        DataColumn(label: Text('Nom')),
-        DataColumn(label: Text('Code')),
-        DataColumn(label: Text('Catégorie')),
-        DataColumn(label: Text('Entreprises'), numeric: true),
-        DataColumn(label: Text('Actions')),
+      columns: [
+        DataColumn(label: Text(context.l10n.nameColumnHeader)),
+        DataColumn(label: Text(context.l10n.codeLabel)),
+        DataColumn(label: Text(context.l10n.companyAnalyticsCategoryHeader)),
+        DataColumn(label: Text(context.l10n.pdfEnterprisesLabel), numeric: true),
+        DataColumn(label: Text(context.l10n.regionsSectorsActionsColumnHeader)),
       ],
       rows: sectors.map((s) {
         final counts = s['_count'] as Map?;
         final category = (s['category'] as String?);
         return DataRow(cells: [
-          DataCell(Text((s['name'] as String?) ?? 'Sans nom')),
+          DataCell(Text((s['name'] as String?) ?? context.l10n.unnamedCampaign)),
           DataCell(Text((s['code'] as String?) ?? '—')),
           DataCell(Text(category?.isNotEmpty == true ? category! : '—')),
           DataCell(Text('${(counts?['companies']) ?? 0}')),
@@ -467,7 +467,7 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
                   ),
-                  child: const Text('Annuler'),
+                  child: Text(context.l10n.cancelButton),
                 ),
               ),
               const SizedBox(width: 12),
@@ -483,7 +483,7 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(UltraTheme.radiusMedium)),
                   ),
-                  child: const Text('Enregistrer'),
+                  child: Text(context.l10n.settingsSaveButton),
                 ),
               ),
             ]),
@@ -498,9 +498,9 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
       context,
       icon: Icons.delete_outline_rounded,
       iconColor: UltraTheme.error,
-      title: 'Confirmer la suppression',
-      body: 'Supprimer définitivement $itemName ?',
-      confirmLabel: 'Supprimer',
+      title: context.l10n.settingsConfirmDeleteTitle,
+      body: context.l10n.regionsSectorsDeleteConfirmBody(itemName),
+      confirmLabel: context.l10n.settingsDeleteButton,
       confirmColor: UltraTheme.error,
     );
     return confirmed == true;
@@ -508,22 +508,22 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
 
   Future<void> _editRegion(dynamic region) async {
     final result = await _showEditDialog(
-      title: 'Modifier la région',
+      title: context.l10n.regionsSectorsEditRegionDialogTitle,
       fields: {'name': region['name'] ?? '', 'code': region['code'] ?? ''},
-      labels: {'name': 'Nom', 'code': 'Code'},
+      labels: {'name': context.l10n.nameColumnHeader, 'code': context.l10n.codeLabel},
     );
     if (result == null || !mounted) return;
     try {
       final api = ref.read(apiClientProvider);
       await api.patch('/data-management/regions/${region['id']}', data: result);
       if (!mounted) return;
-      showAdminToast(context, 'Région mise à jour', UltraTheme.success,
+      showAdminToast(context, context.l10n.regionsSectorsRegionUpdatedToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
       _loadData();
     } catch (e) {
       if (!mounted) return;
       showAdminToast(
-          context, 'Erreur : $e', UltraTheme.error, Icons.error_outline_rounded);
+          context, context.l10n.regionsSectorsGenericErrorToast(e.toString()), UltraTheme.error, Icons.error_outline_rounded);
     }
   }
 
@@ -534,7 +534,7 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
       final api = ref.read(apiClientProvider);
       await api.delete('/data-management/regions/${region['id']}');
       if (!mounted) return;
-      showAdminToast(context, 'Région supprimée', UltraTheme.success,
+      showAdminToast(context, context.l10n.regionsSectorsRegionDeletedToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
       _loadData();
     } catch (e) {
@@ -546,20 +546,20 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
 
   Future<void> _editSector(dynamic sector) async {
     final result = await _showEditDialog(
-      title: 'Modifier le secteur',
+      title: context.l10n.regionsSectorsEditSectorDialogTitle,
       fields: {
         'name': sector['name'] ?? '',
         'code': sector['code'] ?? '',
         'category': sector['category'] ?? '',
       },
-      labels: {'name': 'Nom', 'code': 'Code', 'category': 'Catégorie'},
+      labels: {'name': context.l10n.nameColumnHeader, 'code': context.l10n.codeLabel, 'category': context.l10n.companyAnalyticsCategoryHeader},
     );
     if (result == null || !mounted) return;
     try {
       final api = ref.read(apiClientProvider);
       await api.patch('/data-management/sectors/${sector['id']}', data: result);
       if (!mounted) return;
-      showAdminToast(context, 'Secteur mis à jour', UltraTheme.success,
+      showAdminToast(context, context.l10n.regionsSectorsSectorUpdatedToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
       _loadData();
     } catch (e) {
@@ -576,7 +576,7 @@ class _RegionsSectorsScreenState extends ConsumerState<RegionsSectorsScreen> {
       final api = ref.read(apiClientProvider);
       await api.delete('/data-management/sectors/${sector['id']}');
       if (!mounted) return;
-      showAdminToast(context, 'Secteur supprimé', UltraTheme.success,
+      showAdminToast(context, context.l10n.regionsSectorsSectorDeletedToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
       _loadData();
     } catch (e) {

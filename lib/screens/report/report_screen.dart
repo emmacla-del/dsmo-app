@@ -1,6 +1,7 @@
 // lib/screens/report/report_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/period_selector.dart';
 import '../../providers/auth_provider.dart';
@@ -107,23 +108,23 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
 
   List<Tab> _getTabs() {
     final tabs = <Tab>[
-      const Tab(text: 'Générer', icon: Icon(Icons.add_chart_outlined)),
+      Tab(text: context.l10n.reportTabGenerate, icon: const Icon(Icons.add_chart_outlined)),
     ];
     if (_permissions.canApprove) {
-      tabs.add(const Tab(
-          text: 'Approbations', icon: Icon(Icons.check_circle_outline)));
+      tabs.add(Tab(
+          text: context.l10n.reportTabApprovals, icon: const Icon(Icons.check_circle_outline)));
     }
-    tabs.add(const Tab(text: 'Historique', icon: Icon(Icons.history_rounded)));
+    tabs.add(Tab(text: context.l10n.reportTabHistory, icon: const Icon(Icons.history_rounded)));
     if (_permissions.canBatchGenerate) {
-      tabs.add(const Tab(text: 'Batch', icon: Icon(Icons.grid_view_outlined)));
+      tabs.add(Tab(text: context.l10n.reportTabBatch, icon: const Icon(Icons.grid_view_outlined)));
     }
     if (_permissions.canCompare) {
-      tabs.add(const Tab(
-          text: 'Comparer', icon: Icon(Icons.compare_arrows_outlined)));
+      tabs.add(Tab(
+          text: context.l10n.reportCompareButton, icon: const Icon(Icons.compare_arrows_outlined)));
     }
     if (_permissions.canViewAudit) {
       tabs.add(
-          const Tab(text: 'Audit', icon: Icon(Icons.receipt_long_outlined)));
+          Tab(text: context.l10n.reportTabAudit, icon: const Icon(Icons.receipt_long_outlined)));
     }
     return tabs;
   }
@@ -142,9 +143,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Générateur de rapport',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            Text(
+              context.l10n.reportScreenTitle,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
             Row(
               children: [
@@ -161,7 +162,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshAll,
-            tooltip: 'Actualiser',
+            tooltip: context.l10n.refreshTooltip,
           ),
         ],
         bottom: TabBar(
@@ -196,7 +197,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                   ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Erreur: $e')),
+                  error: (e, _) => Center(child: Text(context.l10n.genericErrorToastNoSpace('$e'))),
                 );
               },
             ),
@@ -211,7 +212,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                   onRefresh: _refreshAll,
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Erreur: $e')),
+                error: (e, _) => Center(child: Text(context.l10n.genericErrorToastNoSpace('$e'))),
               );
             },
           ),
@@ -228,7 +229,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                   ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Erreur: $e')),
+                  error: (e, _) => Center(child: Text(context.l10n.genericErrorToastNoSpace('$e'))),
                 );
               },
             ),
@@ -242,7 +243,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                   data: (reports) => ReportCompareTab(reports: reports),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Erreur: $e')),
+                  error: (e, _) => Center(child: Text(context.l10n.genericErrorToastNoSpace('$e'))),
                 );
               },
             ),
@@ -256,7 +257,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen>
                   data: (entries) => ReportAuditTab(auditEntries: entries),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Erreur: $e')),
+                  error: (e, _) => Center(child: Text(context.l10n.genericErrorToastNoSpace('$e'))),
                 );
               },
             ),

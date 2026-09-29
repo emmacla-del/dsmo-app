@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import '../dsmo/declarations_list_screen.dart';
 import '../onefop/submissions_viewer_screen.dart';
@@ -86,11 +87,13 @@ class _SoumissionsScreenState extends State<SoumissionsScreen> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: UltraTheme.textPrimary),
-                items: const [
+                items: [
                   DropdownMenuItem(
-                      value: _SubmissionType.dsmo, child: Text('DSMO')),
+                      value: _SubmissionType.dsmo,
+                      child: Text(context.l10n.soumissionsTypeDsmoOption)),
                   DropdownMenuItem(
-                      value: _SubmissionType.onefop, child: Text('ONEFOP')),
+                      value: _SubmissionType.onefop,
+                      child: Text(context.l10n.camleapNavOnefop)),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _type = v);
@@ -102,7 +105,7 @@ class _SoumissionsScreenState extends State<SoumissionsScreen> {
           IconButton(
             icon: const Icon(Icons.download_rounded),
             onPressed: () => _openExportDialog(context),
-            tooltip: 'Exporter',
+            tooltip: context.l10n.exportDialogButton,
           ),
         ]),
       ),

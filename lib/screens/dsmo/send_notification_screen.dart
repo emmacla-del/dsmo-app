@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 
@@ -55,11 +56,11 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
     'Wouri',
   ];
 
-  static const _statusLabels = {
-    'SUBMITTED': 'Soumis',
-    'DIVISION_APPROVED': 'Approuvé (Division)',
-    'REGION_APPROVED': 'Approuvé (Région)',
-    'FINAL_APPROVED': 'Approuvé (Final)',
+  Map<String, String> _statusLabels(BuildContext context) => {
+    'SUBMITTED': context.l10n.statusSubmittedShort,
+    'DIVISION_APPROVED': context.l10n.sendNotifStatusDivisionApproved,
+    'REGION_APPROVED': context.l10n.sendNotifStatusRegionApproved,
+    'FINAL_APPROVED': context.l10n.sendNotifStatusFinalApproved,
   };
 
   @override
@@ -126,7 +127,7 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
               color: UltraTheme.success, size: 20),
         ),
         const SizedBox(width: 12),
-        Text('Notification envoyée à $count entreprises',
+        Text(context.l10n.sendNotifSuccessMsg(count),
             style: const TextStyle(
                 fontFamily: 'Inter', fontWeight: FontWeight.w500)),
       ]),
@@ -144,7 +145,7 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
         const Icon(Icons.error_rounded, color: UltraTheme.error, size: 20),
         const SizedBox(width: 12),
         Expanded(
-            child: Text('Erreur: $msg',
+            child: Text(context.l10n.sendNotifErrorMsg(msg),
                 style: const TextStyle(fontFamily: 'Inter'))),
       ]),
       backgroundColor: const Color(0xFF1E293B),
@@ -225,14 +226,14 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
         Expanded(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Envoyer une notification',
-                style: TextStyle(
+            Text(context.l10n.sendNotifHeaderTitle,
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: Colors.white)),
             const SizedBox(height: 4),
-            Text('Ciblage multi-critères des entreprises',
+            Text(context.l10n.sendNotifHeaderSubtitle,
                 style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
@@ -261,14 +262,14 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
         Expanded(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Destinataires estimés',
-                style: TextStyle(
+            Text(context.l10n.sendNotifEstimatedRecipientsLabel,
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: UltraTheme.textMuted)),
             const SizedBox(height: 2),
-            Text('$_recipientEstimate entreprises',
+            Text(context.l10n.sendNotifRecipientCountLine(_recipientEstimate),
                 style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 22,
@@ -282,8 +283,8 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
             color: UltraTheme.success.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Text('Actives',
-              style: TextStyle(
+          child: Text(context.l10n.sendNotifActiveBadge,
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -295,16 +296,17 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
 
   // ── Filters card ────────────────────────────────────────────
   Widget _buildFiltersCard() {
+    final statusLabels = _statusLabels(context);
     return _ModernCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const _SectionLabel(
-            label: 'Filtres des destinataires',
+        _SectionLabel(
+            label: context.l10n.sendNotifRecipientFiltersSection,
             icon: Icons.tune_rounded,
             color: UltraTheme.primary),
         const SizedBox(height: 16),
         _ModernDropdown<String>(
-          label: 'Région',
-          hint: 'Toutes les régions',
+          label: context.l10n.pdfRegionLabel,
+          hint: context.l10n.allRegionsCheckboxLabel,
           value: _selectedRegion,
           icon: Icons.map_outlined,
           items: _regions,
@@ -315,8 +317,8 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
         ),
         const SizedBox(height: 12),
         _ModernDropdown<String>(
-          label: 'Division / Département',
-          hint: 'Toutes les divisions',
+          label: context.l10n.sendNotifDivisionDepartmentLabel,
+          hint: context.l10n.sendNotifAllDivisionsHint,
           value: _selectedDepartment,
           icon: Icons.account_tree_outlined,
           items: _departments,
@@ -327,12 +329,12 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
         ),
         const SizedBox(height: 12),
         _ModernDropdown<String>(
-          label: 'Statut de soumission',
-          hint: 'Tous les statuts',
+          label: context.l10n.sendNotifSubmissionStatusLabel,
+          hint: context.l10n.sendNotifAllStatusesHint,
           value: _selectedStatus,
           icon: Icons.flag_outlined,
-          items: _statusLabels.keys.toList(),
-          labelBuilder: (v) => _statusLabels[v] ?? v,
+          items: statusLabels.keys.toList(),
+          labelBuilder: (v) => statusLabels[v] ?? v,
           onChanged: (v) {
             setState(() => _selectedStatus = v);
             _updateEstimate();
@@ -359,7 +361,7 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
                   }),
             if (_selectedStatus != null)
               _FilterChipBadge(
-                  label: _statusLabels[_selectedStatus!] ?? _selectedStatus!,
+                  label: statusLabels[_selectedStatus!] ?? _selectedStatus!,
                   onRemove: () {
                     setState(() => _selectedStatus = null);
                     _updateEstimate();
@@ -374,30 +376,30 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
   Widget _buildMessageCard() {
     return _ModernCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const _SectionLabel(
-            label: 'Contenu du message',
+        _SectionLabel(
+            label: context.l10n.sendNotifMessageContentSection,
             icon: Icons.edit_note_rounded,
             color: UltraTheme.accent),
         const SizedBox(height: 16),
         _ModernTextField(
           controller: _subjectController,
-          label: 'Sujet',
-          hint: 'Ex: Rappel — Échéance DSM-O 2025',
+          label: context.l10n.sendNotifSubjectLabel,
+          hint: context.l10n.sendNotifSubjectHintExample,
           icon: Icons.title_rounded,
           maxLength: 200,
           validator: (v) =>
-              (v == null || v.isEmpty) ? 'Le sujet est requis' : null,
+              (v == null || v.isEmpty) ? context.l10n.sendNotifSubjectRequiredError : null,
         ),
         const SizedBox(height: 12),
         _ModernTextField(
           controller: _messageController,
-          label: 'Message',
-          hint: 'Rédigez votre message ici...',
+          label: context.l10n.sendNotifMessageFieldLabel,
+          hint: context.l10n.sendNotifMessageHintExample,
           icon: Icons.message_outlined,
           maxLength: 1000,
           maxLines: 6,
           validator: (v) =>
-              (v == null || v.isEmpty) ? 'Le message est requis' : null,
+              (v == null || v.isEmpty) ? context.l10n.sendNotifMessageRequiredError : null,
         ),
       ]),
     );
@@ -424,13 +426,13 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
                   height: 22,
                   child: CircularProgressIndicator(
                       strokeWidth: 2.5, color: Colors.white))
-              : const Row(
+              : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.send_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('Envoyer la notification',
-                        style: TextStyle(
+                    const Icon(Icons.send_rounded, size: 18),
+                    const SizedBox(width: 8),
+                    Text(context.l10n.sendNotifSendButton,
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 15,
                             fontWeight: FontWeight.w600)),
@@ -459,8 +461,8 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          child: const Text('Effacer le formulaire',
-              style: TextStyle(
+          child: Text(context.l10n.sendNotifClearFormButton,
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w500)),

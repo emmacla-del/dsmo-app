@@ -1,7 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { QuestionnairesService } from './questionnaires.service';
+import { EligibilityEngineService } from './eligibility-engine.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CspCategory } from '../types/prisma.types';
+import { AnomalySeverity, AnomalyStatus, OnefopStatus } from '@prisma/client';
 
 // Phase 2 P0 fix regression coverage.
 //
@@ -140,17 +142,20 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
   ];
 
   const ADMIN_APPLICABLE_FIELDS = [
-    'S21Q01_RESPONSE_STATUS', 'S22Q01_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS',
-    'S22Q05_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS', 'S3Q02_RESPONSE_STATUS',
+    // Administration Section 2 is S21Q01–S21Q04 since the 2026-09-28 renumbering.
+    'S21Q01_RESPONSE_STATUS', 'S21Q02_RESPONSE_STATUS', 'S21Q03_RESPONSE_STATUS',
+    'S21Q04_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS', 'S3Q02_RESPONSE_STATUS',
     'S4Q01_RESPONSE_STATUS', 'S4Q02_RESPONSE_STATUS',
   ];
   const ADMIN_INAPPLICABLE_FIELDS = [
     'S22Q02_RESPONSE_STATUS', 'S22Q03_RESPONSE_STATUS', 'S23Q01_RESPONSE_STATUS',
     'S23Q02_RESPONSE_STATUS', 'S3Q03_RESPONSE_STATUS', 'S4Q03_RESPONSE_STATUS',
+    'S22Q01_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS', 'S22Q05_RESPONSE_STATUS',
   ];
 
   const PP_APPLICABLE_FIELDS = [
     'S4Q01_RESPONSE_STATUS', 'S4Q02_RESPONSE_STATUS', 'S4Q03_RESPONSE_STATUS',
+    'S4Q04_RESPONSE_STATUS', 'S4Q05_RESPONSE_STATUS', 'S4Q06_RESPONSE_STATUS',
   ];
   const PP_INAPPLICABLE_FIELDS = [
     'S21Q01_RESPONSE_STATUS', 'S22Q01_RESPONSE_STATUS', 'S22Q02_RESPONSE_STATUS',
@@ -164,7 +169,7 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
   function flatWithStatuses(fields: string[], omit: string[] = []): Record<string, unknown> {
     const flat: Record<string, unknown> = {};
     for (const f of fields) {
-      if (!omit.includes(f)) flat[f] = 'REPORTED';
+      if (!omit.includes(f)) flat[f] = 'NONE';
     }
     return flat;
   }
@@ -221,7 +226,7 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
     },
   );
 
-  it('Administration: absence of the 6 inapplicable response-status fields does NOT block final submission', () => {
+  it('Administration: absence of the 9 inapplicable response-status fields does NOT block final submission', () => {
     const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS);
     // Sanity: none of the inapplicable fields are present at all.
     for (const f of ADMIN_INAPPLICABLE_FIELDS) expect(flat[f]).toBeUndefined();
@@ -229,7 +234,7 @@ describe('QuestionnairesService — enforceFinalRequiredFields (entity-aware res
   });
 
   it('Administration: a genuinely applicable response-status field, if missing, is still validated', () => {
-    const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS, ['S22Q01_RESPONSE_STATUS']);
+    const flat = flatWithStatuses(ADMIN_APPLICABLE_FIELDS, ['S21Q02_RESPONSE_STATUS']);
     expect(() => callEnforce(administrationData, flat, 'administration')).toThrow(BadRequestException);
   });
 
@@ -356,6 +361,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       },
       onefopSubmission: {
         findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation(({ data }: any) =>
           Promise.resolve({ submissionId: data.submissionId })),
       },
@@ -459,10 +465,15 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     }
   });
 
-  // enforceFinalRequiredFields is not applied to VT: a non-draft submission
-  // with only Detail.name present must NOT throw (it would for any of the
-  // six existing entities missing their own required fields).
-  it('does not apply enforceFinalRequiredFields to a non-draft VT submission', async () => {
+  // VT-8: enforceFinalRequiredFields now IS applied to VT. Previously this
+  // test asserted the opposite (a non-draft submission with only
+  // Detail.name present resolved successfully) — that documented the
+  // reported bug (an all-but-empty VT final submit reaching PENDING_
+  // REVIEW), not a real design constraint, so it's rewritten here to match
+  // the fix instead of being deleted. See FINAL_REQUIRED_FIELDS.
+  // vocationalTraining's own comment for why region/department/
+  // subdivision/locality/area (not just name) are required on final submit.
+  it('applies enforceFinalRequiredFields to a non-draft VT submission: name-only is no longer enough', async () => {
     const prisma = buildMockPrisma();
     const service = new QuestionnairesService(prisma);
 
@@ -472,6 +483,76 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       entityType: 'VOCATIONAL_TRAINING',
       isDraft: false,
       data: { ...respondentFlat, VT1_2: 'Centre Minimal' },
+    } as any)).rejects.toMatchObject({
+      response: {
+        statusCode: 400,
+        missingFields: expect.arrayContaining([
+          'vocationalTraining.region',
+          'vocationalTraining.department',
+          'vocationalTraining.subdivision',
+          'vocationalTraining.locality',
+          'vocationalTraining.area',
+        ]),
+      },
+    });
+  });
+
+  // Task 4 (VT-8): same near-empty payload — draft accepted, final submit
+  // rejected — proven side by side so the isDraft gate itself (not just
+  // the required-field list) is under test.
+  it('the same sparse VT payload is accepted as a draft but rejected as a final submit', async () => {
+    const sparseData = { ...respondentFlat, VT1_2: 'Centre Minimal' };
+
+    const draftPrisma = buildMockPrisma();
+    const draftService = new QuestionnairesService(draftPrisma);
+    await expect(draftService.submitQuestionnaire({
+      formId: 'vt-form-draft-vs-final-draft',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: true,
+      data: sparseData,
+    } as any)).resolves.toMatchObject({ success: true });
+
+    const finalPrisma = buildMockPrisma();
+    const finalService = new QuestionnairesService(finalPrisma);
+    await expect(finalService.submitQuestionnaire({
+      formId: 'vt-form-draft-vs-final-final',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: false,
+      data: sparseData,
+    } as any)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // Task 4 (VT-8): a VT final submit that DOES carry the derived required
+  // list (name + region/department/subdivision/locality/area) must succeed
+  // — proves the new gate isn't simply rejecting every VT final submit.
+  it('a non-draft VT submission with name + region/department/subdivision/locality/area succeeds', async () => {
+    const prisma = buildMockPrisma();
+    // Finding #3's own duplicate-submission guard (unrelated to this fix —
+    // see questionnaires.service.ts's "Finding #3" comment) also runs for
+    // any non-draft submission that reaches this far; buildMockPrisma()
+    // doesn't stub onefopSubmission.findFirst because no other VT test
+    // exercises a full, required-fields-satisfying final submit. Stubbing
+    // it here (not in the shared helper) keeps this addition scoped to the
+    // one test that actually needs it.
+    prisma.onefopSubmission.findFirst = jest.fn().mockResolvedValue(null);
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.submitQuestionnaire({
+      formId: 'vt-form-final-complete',
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft: false,
+      data: {
+        ...respondentFlat,
+        VT1_2: 'Centre Complet',
+        VT1_4: 'Centre',
+        VT1_5: 'Mfoundi',
+        VT1_6: 'Yaoundé I',
+        VT1_8: 'Nlongkak',
+        VT1_9: 'Urbain/ Urban',
+      },
     } as any)).resolves.toMatchObject({ success: true });
   });
 
@@ -537,8 +618,674 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     const firstCallData = prisma.onefopSubmission.create.mock.calls[0][0].data;
     const secondCallData = prisma.onefopSubmission.create.mock.calls[1][0].data;
     expect(firstCallData.vtDiplomaData.createMany.data.length).toBe(1);
-    // The second, distinct submission carries no trace of the first's
-    // diploma row — nothing "accumulates" because they are different rows.
     expect(secondCallData.vtDiplomaData).toBeUndefined();
+  });
+
+  describe('VT §10 Coherence Rules', () => {
+    const baseVtFinal = {
+      ...respondentFlat,
+      VT1_2: 'Centre National de Formation',
+      VT1_4: 'CENTRE',
+      VT1_5: 'MFOUNDI',
+      VT1_6: 'YAOUNDE 1',
+      VT1_8: 'Nlongkak',
+      VT1_9: 'Urbain/ Urban',
+    };
+
+    it('generates no flags when VT numbers are fully coherent across tables', async () => {
+      const prisma = buildMockPrisma();
+      const service = new QuestionnairesService(prisma);
+
+      await service.submitQuestionnaire({
+        formId: 'vt-coherent',
+        userId: 'user-1',
+        entityType: 'VOCATIONAL_TRAINING',
+        isDraft: false,
+        data: {
+          ...baseVtFinal,
+          // 4.1 Academic: 10 M, 5 F
+          s4q1_licence_male: '10',
+          s4q1_licence_female: '5',
+          // 4.2 Pro: 10 M, 5 F (matches 4.1)
+          s4q2_bts_hnd_male: '10',
+          s4q2_bts_hnd_female: '5',
+          // 4.5 Specialty total: 10 M (6 FI + 4 FC), 5 F (3 FI + 2 FC) (matches 4.2)
+          s4q5_row1_fiMale: '6',
+          s4q5_row1_fcMale: '4',
+          s4q5_row1_fiFemale: '3',
+          s4q5_row1_fcFemale: '2',
+          // 4.6 Study year for FI: 6 M (4 Y1 + 2 Y2), 3 F (2 Y1 + 1 Y2) (matches 4.5 FI)
+          s4q6_row1_year1Male: '4',
+          s4q6_row1_year2Male: '2',
+          s4q6_row1_year1Female: '2',
+          s4q6_row1_year2Female: '1',
+          // 4.7 Trainee Age Entrants: 10 M, 5 F (matches 4.2)
+          s4q7_age_18_entrant_male: '10',
+          s4q7_age_18_entrant_female: '5',
+          // 4.7 Trainee Age Sortants: 4 M, 2 F
+          s4q7_age_20_sortant_male: '4',
+          s4q7_age_20_sortant_female: '2',
+          // 4.8 Education Level Entrants: 10 M, 5 F (matches 4.2)
+          s4q8_premier_cycle_technique_entrant_male: '10',
+          s4q8_premier_cycle_technique_entrant_female: '5',
+          // 4.10 Outgoing by specialty: 4 M, 2 F (matches 4.7 sortants)
+          s4q10_row1_male: '4',
+          s4q10_row1_female: '2',
+          // 8.1 Trainer academic: 8 M, 4 F
+          s8q1_licence_male: '8',
+          s8q1_licence_female: '4',
+          // 8.2 Trainer pro: 8 M, 4 F (matches 8.1)
+          s8q2_bts_hnd_male: '8',
+          s8q2_bts_hnd_female: '4',
+          // 8.3 Trainer age: 8 M, 4 F (matches 8.2)
+          s8q3_age_25_39_male: '8',
+          s8q3_age_25_39_female: '4',
+          // 8.5 Trainer status: 8 M (5 perm + 3 contract), 4 F (2 perm + 2 contract) (matches 8.2)
+          VT8_5_PERM_M: '5',
+          VT8_5_CONTRACT_M: '3',
+          VT8_5_PERM_F: '2',
+          VT8_5_CONTRACT_F: '2',
+        },
+      } as any);
+
+      expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(1);
+      const callData = prisma.onefopSubmission.create.mock.calls[0][0].data;
+      expect(callData.flags).toBeUndefined();
+    });
+
+    it('generates expected warning flags for all 9 §10 coherence rule violations', async () => {
+      const prisma = buildMockPrisma();
+      const service = new QuestionnairesService(prisma);
+
+      await service.submitQuestionnaire({
+        formId: 'vt-incoherent',
+        userId: 'user-1',
+        entityType: 'VOCATIONAL_TRAINING',
+        isDraft: false,
+        data: {
+          ...baseVtFinal,
+          // Rule 1 mismatch: 4.1 has 10 M, 4.2 has 12 M
+          s4q1_licence_male: '10',
+          s4q2_bts_hnd_male: '12',
+
+          // Rule 2 mismatch: 4.2 has 12 M, 4.5 sum has 15 M
+          s4q5_row1_fiMale: '10',
+          s4q5_row1_fcMale: '5',
+
+          // Rule 3 mismatch: 4.5 FI has 10 M, 4.6 sum has 8 M
+          s4q6_row1_year1Male: '5',
+          s4q6_row1_year2Male: '3',
+
+          // Rule 4 mismatch: 4.2 has 12 M, 4.7 entrants has 9 M
+          s4q7_age_18_entrant_male: '9',
+
+          // Rule 5 mismatch: 4.2 has 12 M, 4.8 entrants has 11 M
+          s4q8_premier_cycle_technique_entrant_male: '11',
+
+          // Rule 6 mismatch: 4.7 sortants has 6 M, 4.10 has 4 M
+          s4q7_age_20_sortant_male: '6',
+          s4q10_row1_male: '4',
+
+          // Rule 7 mismatch: 8.1 has 5 M, 8.2 has 7 M
+          s8q1_licence_male: '5',
+          s8q2_bts_hnd_male: '7',
+
+          // Rule 8 mismatch: 8.2 has 7 M, 8.3 has 6 M
+          s8q3_age_25_39_male: '6',
+
+          // Rule 9 mismatch: 8.2 has 7 M, 8.5 has 8 M
+          VT8_5_PERM_M: '4',
+          VT8_5_CONTRACT_M: '4',
+        },
+      } as any);
+
+      expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(1);
+      const callData = prisma.onefopSubmission.create.mock.calls[0][0].data;
+      expect(callData.flags).toBeDefined();
+      const flagCodes = callData.flags.map((f: any) => f.code);
+
+      expect(flagCodes).toContain('VT_DIPLOMA_ACADEMIC_PRO_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINEE_SPECIALTY_TOTAL_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINEE_INITIAL_TRAINING_YEAR_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINEE_AGE_ENTRANT_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINEE_EDU_LEVEL_ENTRANT_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINEE_OUTGOING_SPECIALTY_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINER_DIPLOMA_ACADEMIC_PRO_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINER_AGE_MISMATCH');
+      expect(flagCodes).toContain('VT_TRAINER_STATUS_MISMATCH');
+    });
+
+    it('skips coherence checks when isDraft is true', async () => {
+      const prisma = buildMockPrisma();
+      const service = new QuestionnairesService(prisma);
+
+      await service.submitQuestionnaire({
+        formId: 'vt-draft-mismatch',
+        userId: 'user-1',
+        entityType: 'VOCATIONAL_TRAINING',
+        isDraft: true,
+        data: {
+          ...respondentFlat,
+          VT1_2: 'Centre Draft',
+          s4q1_licence_male: '10',
+          s4q2_bts_hnd_male: '99', // huge mismatch, but draft
+        },
+      } as any);
+
+      expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(1);
+      const callData = prisma.onefopSubmission.create.mock.calls[0][0].data;
+      expect(callData.flags).toBeUndefined();
+    });
+  });
+
+  describe('QuestionnairesService.approve (Single-dossier Approval Gate)', () => {
+    let service: QuestionnairesService;
+    let prisma: any;
+    let eligibilityEngine: EligibilityEngineService;
+
+    beforeEach(() => {
+      prisma = {
+        onefopSubmission: {
+          findUnique: jest.fn(),
+          update: jest.fn(),
+        },
+      };
+      eligibilityEngine = new EligibilityEngineService(prisma);
+      service = new QuestionnairesService(prisma, undefined, eligibilityEngine);
+    });
+
+    it('throws NotFoundException when submission does not exist', async () => {
+      prisma.onefopSubmission.findUnique.mockResolvedValue(null);
+      await expect(service.approve('non-existent', 'admin-1')).rejects.toThrow(NotFoundException);
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('attempting to approve a submission with an OPEN BLOCKING anomaly must fail with BadRequestException and not update DB', async () => {
+      prisma.onefopSubmission.findUnique.mockResolvedValue({
+        id: 'sub-blocking',
+        status: OnefopStatus.PENDING_REVIEW,
+        anomalies: [
+          {
+            id: 'ano-1',
+            ruleCode: 'EFF_GENRE',
+            status: AnomalyStatus.OPEN,
+            isBlocking: true,
+            severity: AnomalySeverity.CRITICAL,
+          },
+        ],
+      });
+
+      await expect(service.approve('sub-blocking', 'admin-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('approval of a clean submission must succeed and set status to APPROVED with review metadata', async () => {
+      prisma.onefopSubmission.findUnique.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.PENDING_REVIEW,
+        anomalies: [],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.APPROVED,
+        reviewedBy: 'admin-1',
+        reviewedAt: new Date(),
+      });
+
+      const result = await service.approve('sub-clean', 'admin-1');
+
+      expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
+        where: { id: 'sub-clean' },
+        data: expect.objectContaining({
+          status: 'APPROVED',
+          reviewedBy: 'admin-1',
+          reviewedAt: expect.any(Date),
+        }),
+      });
+      expect(result.status).toBe(OnefopStatus.APPROVED);
+    });
+
+    it('approval of a submission with only non-blocking warning anomalies succeeds', async () => {
+      prisma.onefopSubmission.findUnique.mockResolvedValue({
+        id: 'sub-warning',
+        status: OnefopStatus.PENDING_REVIEW,
+        anomalies: [
+          {
+            id: 'ano-warn',
+            ruleCode: 'HINT',
+            status: AnomalyStatus.OPEN,
+            isBlocking: false,
+            severity: AnomalySeverity.WARNING,
+          },
+        ],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({
+        id: 'sub-warning',
+        status: OnefopStatus.APPROVED,
+      });
+
+      const result = await service.approve('sub-warning', 'admin-1');
+      expect(prisma.onefopSubmission.update).toHaveBeenCalled();
+      expect(result.status).toBe(OnefopStatus.APPROVED);
+    });
+
+    it('approval of a submission with a previously blocking anomaly now RESOLVED succeeds', async () => {
+      prisma.onefopSubmission.findUnique.mockResolvedValue({
+        id: 'sub-resolved',
+        status: OnefopStatus.PENDING_REVIEW,
+        anomalies: [
+          {
+            id: 'ano-resolved',
+            ruleCode: 'EFF_GENRE',
+            status: AnomalyStatus.RESOLVED,
+            isBlocking: true,
+            severity: AnomalySeverity.CRITICAL,
+          },
+        ],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({
+        id: 'sub-resolved',
+        status: OnefopStatus.APPROVED,
+      });
+
+      const result = await service.approve('sub-resolved', 'admin-1');
+      expect(prisma.onefopSubmission.update).toHaveBeenCalled();
+      expect(result.status).toBe(OnefopStatus.APPROVED);
+    });
+  });
+
+  describe('QuestionnairesService — REPORTED Matrix Completeness (Phase 4.3)', () => {
+    const service = new QuestionnairesService({} as PrismaService);
+
+    const ALL_STATUS_FIELDS = [
+      'S21Q01_RESPONSE_STATUS', 'S22Q01_RESPONSE_STATUS', 'S22Q02_RESPONSE_STATUS',
+      'S22Q03_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS', 'S22Q05_RESPONSE_STATUS',
+      'S23Q01_RESPONSE_STATUS', 'S23Q02_RESPONSE_STATUS', 'S3Q01_RESPONSE_STATUS',
+      'S3Q02_RESPONSE_STATUS', 'S3Q03_RESPONSE_STATUS', 'S4Q01_RESPONSE_STATUS',
+      'S4Q02_RESPONSE_STATUS', 'S4Q03_RESPONSE_STATUS',
+    ];
+
+    const validResp = { name: 'Jean Dupont', function: 'Directeur', phone1: '699999999', email: 'a@b.com' };
+    const entData = {
+      respondent: validResp,
+      enterprise: {
+        name: 'ACME', legalStatus: 'SARL', area: 1, region: 'Centre', department: 'Mfoundi',
+        subdivision: 'Yaoundé 1', locality: 'Bastos', phone1: '699999999', poBox: 'BP 1',
+        sector: 1, branch: 'Commerce', mainActivity: 'Vente', headOffice: 'Yaoundé',
+        permanentWorkers: 10, vacancies: 2, size: 1,
+      },
+    };
+
+    function callEnforce(data: Record<string, unknown>, flat: Record<string, unknown>, entityType: string) {
+      return (service as any).enforceFinalRequiredFields(data, flat, entityType);
+    }
+
+    const s21q01Keys: string[] = [];
+    for (const c of ['cadres', 'foremen', 'workers']) {
+      for (const g of ['male', 'female']) {
+        for (const a of ['15_24', '25_34', '35_plus']) {
+          s21q01Keys.push(`s21q01_${c}_${g}_${a}`);
+        }
+      }
+    }
+
+    function createFlatBase(s21Status: 'REPORTED' | 'NONE' | 'NOT_APPLICABLE' = 'REPORTED') {
+      const flat: Record<string, unknown> = {};
+      for (const f of ALL_STATUS_FIELDS) {
+        flat[f] = 'NONE';
+      }
+      flat['S21Q01_RESPONSE_STATUS'] = s21Status;
+      return flat;
+    }
+
+    // 1. status = REPORTED, all cells explicitly 0 -> valid (passes)
+    it('Test 1: status = REPORTED with all matrix cells explicitly 0 passes validation', () => {
+      const flat = createFlatBase('REPORTED');
+      for (const k of s21q01Keys) {
+        flat[k] = 0;
+      }
+      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+    });
+
+    // 2. status = REPORTED, positive values -> valid (passes)
+    it('Test 2: status = REPORTED with positive values across all cells passes validation', () => {
+      const flat = createFlatBase('REPORTED');
+      for (const k of s21q01Keys) {
+        flat[k] = 5;
+      }
+      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+    });
+
+    // 3. status = REPORTED, one cell blank -> rejected with BadRequestException
+    it('Test 3: status = REPORTED with even one blank cell throws BadRequestException', () => {
+      const flat = createFlatBase('REPORTED');
+      for (const k of s21q01Keys) {
+        flat[k] = 1;
+      }
+      // Leave one cell blank / undefined
+      delete flat[s21q01Keys[0]];
+      expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+
+      // Explicit empty string also fails
+      flat[s21q01Keys[0]] = '';
+      expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+    });
+
+    // 4. status = REPORTED, only one cell populated, others blank -> rejected with BadRequestException
+    it('Test 4: status = REPORTED with only one cell populated and others blank throws BadRequestException', () => {
+      const flat = createFlatBase('REPORTED');
+      flat[s21q01Keys[0]] = 10;
+      expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+    });
+
+    // 5. status = REPORTED, all cells blank -> rejected with BadRequestException
+    it('Test 5: status = REPORTED with all cells blank throws BadRequestException', () => {
+      const flat = createFlatBase('REPORTED');
+      // No cells populated at all
+      expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+    });
+
+    // 6. status = NONE, all cells blank -> valid (passes)
+    it('Test 6: status = NONE with all cells blank passes validation without error', () => {
+      const flat = createFlatBase('NONE');
+      // All cells are blank
+      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+    });
+
+    // 7. status = NOT_APPLICABLE, all cells blank -> valid (passes)
+    it('Test 7: status = NOT_APPLICABLE with all cells blank passes validation without error', () => {
+      const flat = createFlatBase('NOT_APPLICABLE');
+      // All cells are blank
+      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+    });
+
+    // 8. 0 is accepted as valid, not treated as missing
+    it('Test 8: numeric 0 and string "0" are accepted as valid explicit responses and not treated as missing', () => {
+      const flat = createFlatBase('REPORTED');
+      for (let i = 0; i < s21q01Keys.length; i++) {
+        flat[s21q01Keys[i]] = i % 2 === 0 ? 0 : '0';
+      }
+      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+    });
+
+    // 9. _scopeConfig absent -> default capacity enforced, blank fails
+    it('Test 9: absence of _scopeConfig enforces default standard capacity; subset completion fails without _scopeConfig', () => {
+      const flat = createFlatBase('REPORTED');
+      delete flat._scopeConfig;
+      // Populate only 2 cells out of 18
+      flat[s21q01Keys[0]] = 5;
+      flat[s21q01Keys[1]] = 3;
+      // Must fail because default capacity requires all 18 cells
+      expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+
+      // Now supply _scopeConfig that scopes S21Q01 to 1 CSP, 1 Age (2 cells total: male & female)
+      flat._scopeConfig = {
+        application_csp: ['cadres'],
+        application_age: ['15_24'],
+      };
+      // The 2 scoped cells are s21q01_cadres_male_15_24 and s21q01_cadres_female_15_24
+      flat['s21q01_cadres_male_15_24'] = 0;
+      flat['s21q01_cadres_female_15_24'] = 2;
+      expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+    });
+
+    // 10. Direct backend API submission via submitQuestionnaire rejects REPORTED table with missing cells
+    it('Test 10: submitQuestionnaire rejects final submission when a REPORTED table has missing cells', async () => {
+      const prisma: any = {
+        company: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'company-1', establishmentId: 'EST-1' }),
+        },
+        submissionRound: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+          }),
+        },
+        onefopSubmission: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockImplementation(({ data }: any) =>
+            Promise.resolve({ submissionId: data.submissionId })),
+        },
+        subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
+        department: { findFirst: jest.fn().mockResolvedValue(null) },
+        region: { findFirst: jest.fn().mockResolvedValue(null) },
+        sector: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const apiService = new QuestionnairesService(prisma);
+
+      const invalidPayload = {
+        formId: 'ent-form-invalid',
+        userId: 'user-1',
+        entityType: 'ENTREPRISE' as const,
+        isDraft: false,
+        data: {
+          ...validResp,
+          ...entData.enterprise,
+          ...createFlatBase('REPORTED'),
+          // S21Q01 cells are completely missing
+        },
+      };
+
+      await expect(apiService.submitQuestionnaire(invalidPayload)).rejects.toThrow(BadRequestException);
+    });
+
+    describe('Project / Program Section 4 Completeness Enforcement (S4Q01-S4Q06)', () => {
+      const ppValidResp = { name: 'Directeur PP', function: 'Coordinateur', phone1: '699999999', email: 'pp@proj.org' };
+      const ppData = {
+        respondent: ppValidResp,
+        projectProgram: {
+          nature: 'Projet',
+          name: 'PROJ-TEST',
+          personInCharge: 'M. Le Directeur',
+          area: 1,
+          region: 'Centre',
+          department: 'Mfoundi',
+          subdivision: 'Yaoundé 1',
+          locality: 'Bastos',
+          phone1: '699999999',
+          poBox: 'BP 1',
+          sector: 1,
+          branch: 'Agriculture',
+          mainMission: 'Developpement rural',
+          headOffice: 'Yaoundé',
+          supervisingMinistry: 'MINEFOP',
+          status: 'En cours',
+          permanentWorkers: 30,
+          vacancies: 5,
+        },
+      };
+
+      const ppStatusFields = [
+        'S4Q01_RESPONSE_STATUS',
+        'S4Q02_RESPONSE_STATUS',
+        'S4Q03_RESPONSE_STATUS',
+        'S4Q04_RESPONSE_STATUS',
+        'S4Q05_RESPONSE_STATUS',
+        'S4Q06_RESPONSE_STATUS',
+      ];
+
+      function createPpFlatBase(targetField?: string, targetStatus: 'REPORTED' | 'NONE' | 'NOT_APPLICABLE' = 'REPORTED') {
+        const flat: Record<string, unknown> = {};
+        for (const f of ppStatusFields) {
+          flat[f] = 'NONE';
+        }
+        if (targetField) {
+          flat[targetField] = targetStatus;
+        }
+        return flat;
+      }
+
+      const csps = ['cadres', 'foremen', 'workers'];
+      const genders = ['male', 'female'];
+      const ages = ['15_24', '25_34', '35_plus'];
+      const statuses = ['permanent', 'temporary'];
+
+      const ppS4q04Keys: string[] = [];
+      for (const c of csps) {
+        for (const g of genders) {
+          for (const a of ages) {
+            ppS4q04Keys.push(`pp_s4q04_${c}_${g}_${a}`);
+          }
+        }
+      }
+
+      const ppS4q05Keys: string[] = [];
+      for (const c of csps) {
+        for (const s of statuses) {
+          for (const g of genders) {
+            ppS4q05Keys.push(`pp_s4q05_${c}_${s}_${g}`);
+          }
+        }
+      }
+
+      const ppS4q06Keys: string[] = [];
+      for (const c of csps) {
+        for (const s of statuses) {
+          for (const g of genders) {
+            ppS4q06Keys.push(`pp_s4q06_${c}_${s}_${g}`);
+          }
+        }
+      }
+
+      it('Case A: Project/Program S4Q04 REPORTED with all 18 matrix cells explicitly populated passes validation', () => {
+        const flat = createPpFlatBase('S4Q04_RESPONSE_STATUS', 'REPORTED');
+        for (const k of ppS4q04Keys) {
+          flat[k] = 0;
+        }
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).not.toThrow();
+      });
+
+      it('Case B: Project/Program S4Q04 REPORTED with a blank cell throws BadRequestException', () => {
+        const flat = createPpFlatBase('S4Q04_RESPONSE_STATUS', 'REPORTED');
+        for (const k of ppS4q04Keys) {
+          flat[k] = 2;
+        }
+        delete flat[ppS4q04Keys[0]];
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).toThrow(BadRequestException);
+      });
+
+      it('Case C: Project/Program S4Q05 REPORTED with all 12 matrix cells explicitly populated passes validation', () => {
+        const flat = createPpFlatBase('S4Q05_RESPONSE_STATUS', 'REPORTED');
+        for (const k of ppS4q05Keys) {
+          flat[k] = 1;
+        }
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).not.toThrow();
+      });
+
+      it('Case D: Project/Program S4Q05 REPORTED with a blank cell throws BadRequestException', () => {
+        const flat = createPpFlatBase('S4Q05_RESPONSE_STATUS', 'REPORTED');
+        for (const k of ppS4q05Keys) {
+          flat[k] = 1;
+        }
+        flat[ppS4q05Keys[0]] = '';
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).toThrow(BadRequestException);
+      });
+
+      it('Case E: Project/Program S4Q06 REPORTED with all 12 matrix cells explicitly populated passes validation', () => {
+        const flat = createPpFlatBase('S4Q06_RESPONSE_STATUS', 'REPORTED');
+        for (const k of ppS4q06Keys) {
+          flat[k] = 0;
+        }
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).not.toThrow();
+      });
+
+      it('Case F: Project/Program S4Q06 REPORTED with a blank cell throws BadRequestException', () => {
+        const flat = createPpFlatBase('S4Q06_RESPONSE_STATUS', 'REPORTED');
+        for (const k of ppS4q06Keys) {
+          flat[k] = 0;
+        }
+        delete flat[ppS4q06Keys[5]];
+        expect(() => callEnforce(ppData, flat, 'projectProgram')).toThrow(BadRequestException);
+      });
+
+      it('Project/Program S4Q04-S4Q06 marked NONE or NOT_APPLICABLE pass with all cells blank', () => {
+        const flatNone = createPpFlatBase('S4Q04_RESPONSE_STATUS', 'NONE');
+        flatNone['S4Q05_RESPONSE_STATUS'] = 'NOT_APPLICABLE';
+        flatNone['S4Q06_RESPONSE_STATUS'] = 'NONE';
+        expect(() => callEnforce(ppData, flatNone, 'projectProgram')).not.toThrow();
+      });
+    });
+
+    describe('Dynamic Companion Slots Completeness (S3Q02, S4Q02, S4Q03)', () => {
+      it('S3Q02: Slot 1 complete, Slots 2 and 3 unentered passes validation', () => {
+        const flat = createFlatBase('NONE');
+        flat['S3Q02_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s3q02_slot1_desc'] = 'Motif economique';
+        flat['s3q02_slot1_male'] = 2;
+        flat['s3q02_slot1_female'] = 0;
+        expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+      });
+
+      it('S3Q02: Slot 1 complete, Slot 2 partially entered (missing counts) throws BadRequestException', () => {
+        const flat = createFlatBase('NONE');
+        flat['S3Q02_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s3q02_slot1_desc'] = 'Motif economique';
+        flat['s3q02_slot1_male'] = 2;
+        flat['s3q02_slot1_female'] = 0;
+        flat['s3q02_slot2_desc'] = 'Deuxieme motif';
+        expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+      });
+
+      it('S3Q02: Slot 1 complete, Slot 2 complete, Slot 3 unentered passes validation', () => {
+        const flat = createFlatBase('NONE');
+        flat['S3Q02_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s3q02_slot1_desc'] = 'Motif 1';
+        flat['s3q02_slot1_male'] = 1;
+        flat['s3q02_slot1_female'] = 1;
+        flat['s3q02_slot2_desc'] = 'Motif 2';
+        flat['s3q02_slot2_male'] = 0;
+        flat['s3q02_slot2_female'] = 3;
+        expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+      });
+
+      it('S3Q02: Slot 1 complete, Slot 2 complete, Slot 3 partially entered throws BadRequestException', () => {
+        const flat = createFlatBase('NONE');
+        flat['S3Q02_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s3q02_slot1_desc'] = 'Motif 1';
+        flat['s3q02_slot1_male'] = 1;
+        flat['s3q02_slot1_female'] = 1;
+        flat['s3q02_slot2_desc'] = 'Motif 2';
+        flat['s3q02_slot2_male'] = 0;
+        flat['s3q02_slot2_female'] = 3;
+        flat['s3q02_slot3_male'] = 1;
+        expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+      });
+
+      it('S4Q02: Slot 1 complete, Slot 2 unentered passes validation', () => {
+        const flat = createFlatBase('NONE');
+        flat['S4Q02_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s4q02_slot1_desc'] = 'Informatique';
+        flat['s4q02_slot1_total'] = 5;
+        expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+      });
+
+      it('S4Q02: Slot 1 complete, Slot 2 partially entered throws BadRequestException', () => {
+        const flat = createFlatBase('NONE');
+        flat['S4Q02_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s4q02_slot1_desc'] = 'Informatique';
+        flat['s4q02_slot1_total'] = 5;
+        flat['s4q02_slot2_desc'] = 'Comptabilite';
+        expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+      });
+
+      it('S4Q03: Slot 1 complete, Slot 2 unentered passes validation', () => {
+        const flat = createFlatBase('NONE');
+        flat['S4Q03_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s4q03_slot1_desc'] = 'Securite incendie';
+        flat['s4q03_slot1_male'] = 2;
+        flat['s4q03_slot1_female'] = 1;
+        expect(() => callEnforce(entData, flat, 'enterprise')).not.toThrow();
+      });
+
+      it('S4Q03: Slot 1 complete, Slot 2 partially entered throws BadRequestException', () => {
+        const flat = createFlatBase('NONE');
+        flat['S4Q03_RESPONSE_STATUS'] = 'REPORTED';
+        flat['s4q03_slot1_desc'] = 'Securite incendie';
+        flat['s4q03_slot1_male'] = 2;
+        flat['s4q03_slot1_female'] = 1;
+        flat['s4q03_slot2_desc'] = 'Sante au travail';
+        expect(() => callEnforce(entData, flat, 'enterprise')).toThrow(BadRequestException);
+      });
+    });
   });
 });

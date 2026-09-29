@@ -1,4 +1,4 @@
-﻿// onefop-questionnaire.dto.ts
+// onefop-questionnaire.dto.ts
 // FULLY UPDATED - Aligned with AST FIX-7
 // Only phone2 and conditional fields are optional
 // Supports draft/final workflow (validation at service layer)
@@ -127,6 +127,9 @@ export class DisabledRecruitmentsDto {
   @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) executives?: PermTempRowDto;
   @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) foremen?: PermTempRowDto;
   @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) fieldWorkers?: PermTempRowDto;
+  @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) civilServants?: PermTempRowDto;
+  @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) decisionStaff?: PermTempRowDto;
+  @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) contractStaff?: PermTempRowDto;
   @IsOptional() @ValidateNested() @Type(() => PermTempRowDto) total?: PermTempRowDto;
 }
 
@@ -982,6 +985,8 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsArray() @IsString({ each: true }) latrineTypes?: string[];
   @IsOptional() @IsBoolean() latrinesSeparateByGender?: boolean;
   @IsOptional() @IsBoolean() latrinesSeparateFromStaff?: boolean;
+  @IsOptional() @IsInt() latrineCabinTotalCount?: number;
+  @IsOptional() @IsInt() latrineCabinGirlsCount?: number;
   @IsOptional() @IsBoolean() hasPlayground?: boolean;
   @IsOptional() @IsArray() @IsString({ each: true }) playgroundTypes?: string[];
   @IsOptional() @IsBoolean() hasIctTools?: boolean;
@@ -1047,6 +1052,9 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsBoolean() hasInsertionSupportUnit?: boolean;
   @IsOptional() @IsBoolean() hasTraineeDatabaseTool?: boolean;
   @IsOptional() @IsBoolean() hasJobSearchSupportTool?: boolean;
+  @IsOptional() @IsInt() insertedFormalSectorCount?: number;
+  @IsOptional() @IsInt() insertedInformalSectorCount?: number;
+  @IsOptional() @IsInt() seekingEmploymentCount?: number;
 
   // §7 — cross-cutting themes
   @IsOptional() @IsBoolean() hasHivAidsRules?: boolean;
@@ -1079,6 +1087,8 @@ export class VocationalTrainingIdentificationDto {
   @IsOptional() @IsInt() vacataireNonProfFemale?: number;
   @IsOptional() @IsInt() permanentMale?: number;
   @IsOptional() @IsInt() permanentFemale?: number;
+  @IsOptional() @IsInt() contractualMale?: number;
+  @IsOptional() @IsInt() contractualFemale?: number;
 
   // §9 — difficulties and perspectives
   @IsOptional() @IsBoolean() facesDifficulties?: boolean;

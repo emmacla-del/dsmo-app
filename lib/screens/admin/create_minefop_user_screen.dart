@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/admin_kit.dart';
@@ -128,7 +129,7 @@ class _CreateMinefopUserScreenState
       if (!mounted) return;
       setState(() {
         _loadingPositionTypes = false;
-        _positionTypesError = 'Impossible de charger les fonctions.';
+        _positionTypesError = context.l10n.createMinefopUserLoadFunctionsError;
       });
     }
   }
@@ -289,7 +290,7 @@ class _CreateMinefopUserScreenState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_role == null) {
-      showAdminToast(context, 'Veuillez sélectionner un rôle', UltraTheme.error,
+      showAdminToast(context, context.l10n.createMinefopUserSelectRoleError, UltraTheme.error,
           Icons.error_rounded);
       return;
     }
@@ -355,8 +356,8 @@ class _CreateMinefopUserScreenState
         backgroundColor: UltraTheme.surface,
         elevation: 0,
         foregroundColor: UltraTheme.textPrimary,
-        title: const Text('Nouvel agent MINEFOP',
-            style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16)),
+        title: Text(context.l10n.createMinefopUserAppBarTitle,
+            style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -368,36 +369,36 @@ class _CreateMinefopUserScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SectionLabel('Identité'),
+                  _SectionLabel(context.l10n.companiesDetailIdentitySectionTitle),
                   const SizedBox(height: 10),
                   _TextField(
                     controller: _firstNameCtrl,
-                    label: 'Prénom',
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                    label: context.l10n.createMinefopUserFirstNameLabel,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requiredShort : null,
                   ),
                   const SizedBox(height: 12),
                   _TextField(
                     controller: _lastNameCtrl,
-                    label: 'Nom',
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                    label: context.l10n.nameColumnHeader,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.requiredShort : null,
                   ),
                   const SizedBox(height: 12),
                   _TextField(
                     controller: _emailCtrl,
-                    label: 'Email professionnel',
+                    label: context.l10n.createMinefopUserProfessionalEmailLabel,
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Requis';
-                      if (!v.contains('@')) return 'Email invalide';
+                      if (v == null || v.trim().isEmpty) return context.l10n.requiredShort;
+                      if (!v.contains('@')) return context.l10n.emailInvalidShort;
                       return null;
                     },
                   ),
                   const SizedBox(height: 24),
 
-                  const _SectionLabel('Rôle'),
+                  _SectionLabel(context.l10n.createMinefopUserRoleSectionLabel),
                   const SizedBox(height: 10),
                   _Dropdown<String>(
-                    hint: 'Sélectionner un rôle',
+                    hint: context.l10n.createMinefopUserSelectRoleHint,
                     value: _role,
                     items: _roles
                         .map((r) => DropdownMenuItem(value: r, child: Text(_roleLabels[r]!)))
@@ -407,7 +408,7 @@ class _CreateMinefopUserScreenState
 
                   if (_role != null) ...[
                     const SizedBox(height: 24),
-                    const _SectionLabel('Poste'),
+                    _SectionLabel(context.l10n.createMinefopUserPositionSectionLabel),
                     const SizedBox(height: 10),
                     _buildPositionTypeDropdown(),
                     if (_selectedPositionType != null) ...[
@@ -425,7 +426,7 @@ class _CreateMinefopUserScreenState
                     const SizedBox(height: 12),
                     _TextField(
                       controller: _matriculeCtrl,
-                      label: 'Matricule',
+                      label: context.l10n.createMinefopUserMatriculeLabel,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
@@ -433,7 +434,7 @@ class _CreateMinefopUserScreenState
 
                   if (_needsLocation) ...[
                     const SizedBox(height: 24),
-                    const _SectionLabel('Localisation'),
+                    _SectionLabel(context.l10n.registerStepTitleLocation),
                     const SizedBox(height: 10),
                     _buildRegionDropdown(),
                     if (_needsDepartment) ...[
@@ -460,8 +461,8 @@ class _CreateMinefopUserScreenState
                               height: 20,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2.4, valueColor: AlwaysStoppedAnimation(Colors.white)))
-                          : const Text('Créer le compte',
-                              style: TextStyle(
+                          : Text(context.l10n.createMinefopUserCreateAccountButton,
+                              style: const TextStyle(
                                   fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 15)),
                     ),
                   ),
@@ -475,11 +476,11 @@ class _CreateMinefopUserScreenState
   }
 
   Widget _buildPositionTypeDropdown() {
-    if (_loadingPositionTypes) return const _LoadingField(label: 'Chargement des fonctions…');
+    if (_loadingPositionTypes) return _LoadingField(label: context.l10n.createMinefopUserLoadingFunctions);
     if (_positionTypesError != null) return _ErrorNote(message: _positionTypesError!);
-    if (_positionTypes.isEmpty) return const _ErrorNote(message: 'Aucune fonction disponible pour ce rôle.');
+    if (_positionTypes.isEmpty) return _ErrorNote(message: context.l10n.createMinefopUserNoFunctionsAvailable);
     return _Dropdown<String>(
-      hint: 'Sélectionner la fonction',
+      hint: context.l10n.createMinefopUserSelectFunctionHint,
       value: _selectedPositionType,
       items: _positionTypes
           .map((e) => DropdownMenuItem(
@@ -490,10 +491,10 @@ class _CreateMinefopUserScreenState
   }
 
   Widget _buildParentUnitDropdown() {
-    if (_loadingParentUnits) return const _LoadingField(label: 'Chargement des unités…');
-    if (_parentUnits.isEmpty) return const _ErrorNote(message: 'Aucune unité disponible.');
+    if (_loadingParentUnits) return _LoadingField(label: context.l10n.createMinefopUserLoadingUnits);
+    if (_parentUnits.isEmpty) return _ErrorNote(message: context.l10n.createMinefopUserNoUnitsAvailable);
     return _Dropdown<String>(
-      hint: 'Unité parente',
+      hint: context.l10n.createMinefopUserParentUnitHint,
       value: _selectedParentUnit?['code'] as String?,
       items: _parentUnits
           .map((e) =>
@@ -504,10 +505,10 @@ class _CreateMinefopUserScreenState
   }
 
   Widget _buildServiceUnitDropdown() {
-    if (_loadingServiceUnits) return const _LoadingField(label: 'Chargement des services…');
-    if (_serviceUnits.isEmpty) return const _ErrorNote(message: 'Aucun service trouvé sous cette unité.');
+    if (_loadingServiceUnits) return _LoadingField(label: context.l10n.createMinefopUserLoadingServices);
+    if (_serviceUnits.isEmpty) return _ErrorNote(message: context.l10n.createMinefopUserNoServiceFound);
     return _Dropdown<String>(
-      hint: 'Service exact',
+      hint: context.l10n.createMinefopUserExactServiceHint,
       value: _selectedServiceUnit?['code'] as String?,
       items: _serviceUnits
           .map((e) =>
@@ -518,9 +519,9 @@ class _CreateMinefopUserScreenState
   }
 
   Widget _buildRegionDropdown() {
-    if (_loadingRegions) return const _LoadingField(label: 'Chargement des régions…');
+    if (_loadingRegions) return _LoadingField(label: context.l10n.createMinefopUserLoadingRegions);
     return _Dropdown<String>(
-      hint: 'Région',
+      hint: context.l10n.pdfRegionLabel,
       value: _selectedRegionId,
       items: _regions
           .map((r) => DropdownMenuItem(value: r['id'] as String, child: Text(r['name'] as String)))
@@ -532,11 +533,11 @@ class _CreateMinefopUserScreenState
 
   Widget _buildDepartmentDropdown() {
     if (_selectedRegionId == null) {
-      return const _ErrorNote(message: 'Sélectionnez d\'abord une région.');
+      return _ErrorNote(message: context.l10n.createMinefopUserSelectRegionFirstNote);
     }
-    if (_loadingDepartments) return const _LoadingField(label: 'Chargement des départements…');
+    if (_loadingDepartments) return _LoadingField(label: context.l10n.createMinefopUserLoadingDepartments);
     return _Dropdown<String>(
-      hint: 'Département',
+      hint: context.l10n.pdfDepartmentLabel,
       value: _departments.any((d) => d['name'] == _selectedDepartmentName)
           ? _selectedDepartmentName
           : null,
@@ -740,7 +741,7 @@ class _CredentialsReceiptDialog extends StatelessWidget {
 
   void _copy(BuildContext context, String value, String label) {
     Clipboard.setData(ClipboardData(text: value));
-    showAdminToast(context, '$label copié', UltraTheme.success, Icons.check_circle_rounded);
+    showAdminToast(context, context.l10n.createMinefopUserCopiedToast(label), UltraTheme.success, Icons.check_circle_rounded);
   }
 
   @override
@@ -762,23 +763,23 @@ class _CredentialsReceiptDialog extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Compte créé',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700)),
+                Text(context.l10n.createMinefopUserAccountCreatedTitle,
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700)),
                 Text(name,
                     style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
               ]),
             ),
           ]),
           const SizedBox(height: 20),
-          const Text(
-            'Ce mot de passe temporaire ne sera plus jamais affiché. Transmettez-le à l\'agent (WhatsApp, téléphone, en personne) — il devra le changer à sa première connexion.',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: UltraTheme.textMuted, height: 1.4),
+          Text(
+            context.l10n.createMinefopUserCredentialsWarning,
+            style: const TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: UltraTheme.textMuted, height: 1.4),
           ),
           const SizedBox(height: 16),
-          _CredentialRow(label: 'Email', value: email, onCopy: () => _copy(context, email, 'Email')),
+          _CredentialRow(label: context.l10n.registerEmailRowLabel, value: email, onCopy: () => _copy(context, email, 'Email')),
           const SizedBox(height: 10),
           _CredentialRow(
-              label: 'Mot de passe temporaire', value: password, onCopy: () => _copy(context, password, 'Mot de passe')),
+              label: context.l10n.temporaryPasswordLabel, value: password, onCopy: () => _copy(context, password, 'Mot de passe')),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -791,7 +792,7 @@ class _CredentialsReceiptDialog extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Terminé', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.createMinefopUserDoneButton, style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             ),
           ),
         ]),
@@ -830,7 +831,7 @@ class _CredentialRow extends StatelessWidget {
         IconButton(
           onPressed: onCopy,
           icon: const Icon(Icons.copy_rounded, size: 18, color: UltraTheme.primary),
-          tooltip: 'Copier',
+          tooltip: context.l10n.createMinefopUserCopyTooltip,
         ),
       ]),
     );

@@ -36,15 +36,19 @@ export function surveyYearFromQuarterCode(quarterCode?: string | null): number {
 // live DB round lookup, so a PDF regenerated long after its campaign closed
 // still prints the correct period. Falls back to today's calendar quarter
 // only for the no-quarterCode preview path (never for a filed submission).
-function collectionPeriodStrings(quarterCode?: string | null): {
+function collectionPeriodStrings(quarterCode?: string | null, locale?: 'fr' | 'en'): {
     collectionPeriodFr: string;
     collectionPeriodEn: string;
+    collectionPeriod: string;
 } {
     const period =
         collectionPeriodFromQuarterCode(quarterCode) ?? computeCollectionPeriod('QUARTERLY', new Date());
+    const collectionPeriodFr = formatCollectionPeriodFr(period);
+    const collectionPeriodEn = formatCollectionPeriodEn(period);
     return {
-        collectionPeriodFr: formatCollectionPeriodFr(period),
-        collectionPeriodEn: formatCollectionPeriodEn(period),
+        collectionPeriodFr,
+        collectionPeriodEn,
+        collectionPeriod: locale === 'en' ? collectionPeriodEn : collectionPeriodFr,
     };
 }
 
@@ -66,6 +70,13 @@ interface CspAgeRow {
     male: AgeBreakdown;
     female: AgeBreakdown;
     total: AgeBreakdown;
+}
+
+export interface CspDiplomaGroup {
+    csp: string;
+    label: string;
+    rows: CspAgeRow[];
+    totals: CspAgeRow;
 }
 
 interface MFT {
@@ -176,7 +187,7 @@ interface S23Q02Result {
 // ─────────────────────────────────────────────
 
 function int(f: FlatData, key: string): number {
-    const v = f[key];
+    const v = f[key] ?? f[key.toUpperCase()] ?? f[key.toLowerCase()];
     if (typeof v === 'number') return v;
     if (v === undefined || v === null || v === '') return 0;
     const n = parseInt(String(v), 10);
@@ -184,7 +195,7 @@ function int(f: FlatData, key: string): number {
 }
 
 function str(f: FlatData, key: string): string {
-    const v = f[key];
+    const v = f[key] ?? f[key.toUpperCase()] ?? f[key.toLowerCase()];
     return v !== undefined && v !== null ? String(v) : '';
 }
 
@@ -194,51 +205,101 @@ function str(f: FlatData, key: string): string {
 
 const CSP_ROWS: string[] = ['cadres', 'foremen', 'workers'];
 
-const CSP_LABELS: LabelMap = {
-    cadres: 'Cadres / Managers',
-    foremen: 'Agents de maîtrise / Foremen',
-    workers: 'Ouvriers / Workers',
+export const CSP_LABELS_FR: LabelMap = {
+    cadres: 'Cadres',
+    foremen: 'Agents de maîtrise',
+    workers: 'Ouvriers',
 };
+
+export const CSP_LABELS_EN: LabelMap = {
+    cadres: 'Managers',
+    foremen: 'Foremen / Supervisors',
+    workers: 'Workers',
+};
+
+export const CSP_LABELS: LabelMap = CSP_LABELS_FR;
 
 // Administration's S21Q01/S22Q01/S3Q01 use SFP status rows instead of CSP
 // rows — see mapAdministrationData below.
 const SFP_ROWS: string[] = ['fonctionnaire', 'decisionnaire', 'contractuelle'];
 
-const SFP_LABELS: LabelMap = {
-    fonctionnaire: 'Fonctionnaire / Civil servant',
-    decisionnaire: 'Décisionnaire / Decision-maker',
-    contractuelle: 'Contractuelle / Contractual',
+export const SFP_LABELS_FR: LabelMap = {
+    fonctionnaire: 'Fonctionnaire',
+    decisionnaire: 'Décisionnaire',
+    contractuelle: 'Contractuelle',
 };
 
-const DIPLOMA_MAP: [string, string][] = [
-    ['cep', 'CEP / FSLC'],
-    ['bepc', 'BEPC / CAP / GCE-OL'],
-    ['probatoire', 'Probatoire / Lower Sixth'],
-    ['bac', 'Baccalauréat / GCE-AL'],
-    ['bts', 'BTS / DUT / HND'],
-    ['licence', 'Licence / Bachelor'],
-    ['maitrise', 'Maîtrise / Master 1'],
-    ['master', 'Master / Master 2'],
-    ['dqp', 'DQP / PQD'],
-    ['cqp', 'CQP / CPQ'],
-    ['autres', 'Autres / Others'],
-    ['sans_diplome', 'Sans diplôme / Without diploma'],
+export const SFP_LABELS_EN: LabelMap = {
+    fonctionnaire: 'Civil servant',
+    decisionnaire: 'Decision-maker',
+    contractuelle: 'Contractual',
+};
+
+export const SFP_LABELS: LabelMap = SFP_LABELS_FR;
+
+export const DIPLOMA_MAP_FR: [string, string][] = [
+    ['cep', 'CEP'],
+    ['bepc', 'BEPC / CAP'],
+    ['probatoire', 'Probatoire'],
+    ['bac', 'Baccalauréat'],
+    ['bts', 'BTS / DUT'],
+    ['licence', 'Licence'],
+    ['maitrise', 'Maîtrise'],
+    ['master', 'Master'],
+    ['dqp', 'DQP'],
+    ['cqp', 'CQP'],
+    ['autres', 'Autres'],
+    ['sans_diplome', 'Sans diplôme'],
 ];
 
-const INTERNSHIP_MAP: [string, string][] = [
-    ['vacation', 'Stage de vacance / Vacation internship'],
-    ['academic', 'Stage académique / Academic internship'],
-    ['professional', 'Stage professionnel / Professional internship'],
-    ['pre_employment', 'Stage pré-emploi / Pre-employment internship'],
+export const DIPLOMA_MAP_EN: [string, string][] = [
+    ['cep', 'FSLC'],
+    ['bepc', 'GCE-OL'],
+    ['probatoire', 'Lower Sixth'],
+    ['bac', 'GCE-AL'],
+    ['bts', 'HND / DUT'],
+    ['licence', 'Bachelor'],
+    ['maitrise', 'Master 1'],
+    ['master', 'Master / Master 2'],
+    ['dqp', 'PQD'],
+    ['cqp', 'CPQ'],
+    ['autres', 'Others'],
+    ['sans_diplome', 'Without diploma'],
 ];
+
+export const DIPLOMA_MAP: [string, string][] = DIPLOMA_MAP_FR;
+
+export const INTERNSHIP_MAP_FR: [string, string][] = [
+    ['vacation', 'Stage de vacance'],
+    ['academic', 'Stage académique'],
+    ['professional', 'Stage professionnel'],
+    ['pre_employment', 'Stage pré-emploi'],
+];
+
+export const INTERNSHIP_MAP_EN: [string, string][] = [
+    ['vacation', 'Vacation internship'],
+    ['academic', 'Academic internship'],
+    ['professional', 'Professional internship'],
+    ['pre_employment', 'Pre-employment internship'],
+];
+
+export const INTERNSHIP_MAP: [string, string][] = INTERNSHIP_MAP_FR;
 
 const VULNERABLE_ENT_ROWS: string[] = ['deplaces_internes', 'refugies', 'orphelins'];
 
-const VULNERABLE_ENT_LABELS: LabelMap = {
-    deplaces_internes: 'Déplacés internes / Internal displaced',
-    refugies: 'Réfugiés / Refugees',
-    orphelins: 'Orphelins / Orphans',
+export const VULNERABLE_ENT_LABELS_FR: LabelMap = {
+    deplaces_internes: 'Déplacés internes',
+    refugies: 'Réfugiés',
+    orphelins: 'Orphelins',
 };
+
+export const VULNERABLE_ENT_LABELS_EN: LabelMap = {
+    deplaces_internes: 'Internally displaced persons',
+    refugies: 'Refugees',
+    orphelins: 'Orphans',
+};
+
+export const VULNERABLE_ENT_LABELS: LabelMap = VULNERABLE_ENT_LABELS_FR;
 
 // ─────────────────────────────────────────────
 // AGE BREAKDOWN BUILDER
@@ -261,10 +322,13 @@ function buildCspAgeRows(
     f: FlatData,
     prefix: string,
     rows: string[] = CSP_ROWS,
-    labels: LabelMap = CSP_LABELS,
+    labels?: LabelMap,
+    locale?: 'fr' | 'en',
 ): CspAgeRow[] {
+    const defaultLabels = locale === 'en' ? CSP_LABELS_EN : CSP_LABELS_FR;
+    const effectiveLabels = labels ?? defaultLabels;
     return rows.map((row): CspAgeRow => ({
-        label: labels[row] ?? row,
+        label: effectiveLabels[row] ?? row,
         male: ageBlock(f, `${prefix}_${row}_male`),
         female: ageBlock(f, `${prefix}_${row}_female`),
         total: ageBlock(f, `${prefix}_${row}_total`),
@@ -284,8 +348,40 @@ function buildCspAgeTotals(f: FlatData, prefix: string): CspAgeRow {
 // DIPLOMA TABLE
 // ─────────────────────────────────────────────
 
-function buildDiplomaRows(f: FlatData, prefix: string): CspAgeRow[] {
-    return DIPLOMA_MAP.map(([slug, label]): CspAgeRow => ({
+function buildDiplomaRows(f: FlatData, prefix: string, locale?: 'fr' | 'en'): CspAgeRow[] {
+    const csps = ['cadres', 'foremen', 'workers'];
+    const diplomaMap = locale === 'en' ? DIPLOMA_MAP_EN : DIPLOMA_MAP_FR;
+    const has4D = Object.keys(f).some((k) =>
+        k.startsWith(`${prefix}_cadres_`) ||
+        k.startsWith(`${prefix}_foremen_`) ||
+        k.startsWith(`${prefix}_workers_`)
+    );
+
+    if (has4D) {
+        return diplomaMap.map(([slug, label]): CspAgeRow => {
+            const sumGender = (gender: string): AgeBreakdown => {
+                let age15_24 = 0;
+                let age25_34 = 0;
+                let age35plus = 0;
+                let total = 0;
+                for (const csp of csps) {
+                    age15_24 += int(f, `${prefix}_${csp}_${slug}_${gender}_15_24`);
+                    age25_34 += int(f, `${prefix}_${csp}_${slug}_${gender}_25_34`);
+                    age35plus += int(f, `${prefix}_${csp}_${slug}_${gender}_35_plus`);
+                    total += int(f, `${prefix}_${csp}_${slug}_${gender}_total`);
+                }
+                return { age15_24, age25_34, age35plus, total };
+            };
+            return {
+                label,
+                male: sumGender('male'),
+                female: sumGender('female'),
+                total: sumGender('total'),
+            };
+        });
+    }
+
+    return diplomaMap.map(([slug, label]): CspAgeRow => ({
         label,
         male: ageBlock(f, `${prefix}_${slug}_male`),
         female: ageBlock(f, `${prefix}_${slug}_female`),
@@ -294,8 +390,231 @@ function buildDiplomaRows(f: FlatData, prefix: string): CspAgeRow[] {
 }
 
 function buildDiplomaTotals(f: FlatData, prefix: string): CspAgeRow {
+    const csps = ['cadres', 'foremen', 'workers'];
+    const has4D = Object.keys(f).some((k) =>
+        k.startsWith(`${prefix}_cadres_`) ||
+        k.startsWith(`${prefix}_foremen_`) ||
+        k.startsWith(`${prefix}_workers_`)
+    );
+
+    if (has4D) {
+        const sumGender = (gender: string): AgeBreakdown => {
+            let age15_24 = 0;
+            let age25_34 = 0;
+            let age35plus = 0;
+            let total = 0;
+            for (const csp of csps) {
+                age15_24 += int(f, `${prefix}_${csp}_total_${gender}_15_24`);
+                age25_34 += int(f, `${prefix}_${csp}_total_${gender}_25_34`);
+                age35plus += int(f, `${prefix}_${csp}_total_${gender}_35_plus`);
+                total += int(f, `${prefix}_${csp}_total_${gender}_total`);
+            }
+            return { age15_24, age25_34, age35plus, total };
+        };
+        return {
+            label: 'TOTAL',
+            male: sumGender('male'),
+            female: sumGender('female'),
+            total: sumGender('total'),
+        };
+    }
+
     // same key pattern as CSP totals
     return buildCspAgeTotals(f, prefix);
+}
+
+const CSP_GROUP_LABELS: Record<string, string> = {
+    cadres: '1. Cadres / Managers',
+    foremen: '2. Agents de maîtrise / Foremen',
+    workers: '3. Ouvriers / Workers',
+};
+
+const CSP_GROUP_LABELS_FR: Record<string, string> = {
+    cadres: '1. Cadres',
+    foremen: '2. Agents de maîtrise',
+    workers: '3. Ouvriers',
+};
+
+const CSP_GROUP_LABELS_EN: Record<string, string> = {
+    cadres: '1. Managers',
+    foremen: '2. Foremen / Supervisors',
+    workers: '3. Workers',
+};
+
+const CSP_SUBTOTAL_LABELS_FR: Record<string, string> = {
+    cadres: 'SOUS-TOTAL CADRES',
+    foremen: 'SOUS-TOTAL AGENTS DE MAÎTRISE',
+    workers: 'SOUS-TOTAL OUVRIERS',
+};
+
+const CSP_SUBTOTAL_LABELS_EN: Record<string, string> = {
+    cadres: 'SUBTOTAL MANAGERS',
+    foremen: 'SUBTOTAL FOREMEN / SUPERVISORS',
+    workers: 'SUBTOTAL WORKERS',
+};
+
+export function getOfficialBannerText(locale?: 'fr' | 'en'): string {
+    return locale === 'en'
+        ? 'Official ONEFOP Form · Document generated via the CAM-LEAP platform'
+        : 'Formulaire officiel ONEFOP · Document généré via la plateforme CAM-LEAP';
+}
+
+const DIPLOMA_TO_DEFAULT_CSP: Record<string, string> = {
+    licence: 'cadres',
+    maitrise: 'cadres',
+    master: 'cadres',
+    bts: 'foremen',
+    bac: 'foremen',
+    probatoire: 'foremen',
+    bepc: 'workers',
+    cep: 'workers',
+    dqp: 'workers',
+    cqp: 'workers',
+    autres: 'workers',
+    sans_diplome: 'workers',
+};
+
+export function buildDiplomaCspGroups(f: FlatData, prefix: string, locale?: 'fr' | 'en'): CspDiplomaGroup[] {
+    const isEn = locale === 'en';
+    const groupLabels = isEn ? CSP_GROUP_LABELS_EN : (locale === 'fr' ? CSP_GROUP_LABELS_FR : CSP_GROUP_LABELS);
+    const subtotalLabels = isEn ? CSP_SUBTOTAL_LABELS_EN : CSP_SUBTOTAL_LABELS_FR;
+    const has4D = Object.keys(f).some((k) =>
+        k.startsWith(`${prefix}_cadres_`) ||
+        k.startsWith(`${prefix}_foremen_`) ||
+        k.startsWith(`${prefix}_workers_`)
+    );
+
+    return CSP_ROWS.map((csp) => {
+        const rows = DIPLOMA_MAP.map(([slug, label]): CspAgeRow => {
+            const getGenderBlock = (gender: string): AgeBreakdown => {
+                const v4D = ageBlock(f, `${prefix}_${csp}_${slug}_${gender}`);
+                if (v4D.total > 0 || v4D.age15_24 > 0 || v4D.age25_34 > 0 || v4D.age35plus > 0) {
+                    return v4D;
+                }
+                if (!has4D && DIPLOMA_TO_DEFAULT_CSP[slug] === csp) {
+                    const v3D = ageBlock(f, `${prefix}_${slug}_${gender}`);
+                    if (v3D.total > 0 || v3D.age15_24 > 0 || v3D.age25_34 > 0 || v3D.age35plus > 0) {
+                        return v3D;
+                    }
+                }
+                return v4D;
+            };
+
+            const male = getGenderBlock('male');
+            const female = getGenderBlock('female');
+            const rawTotal = getGenderBlock('total');
+            const total: AgeBreakdown = {
+                age15_24: rawTotal.age15_24 || (male.age15_24 + female.age15_24),
+                age25_34: rawTotal.age25_34 || (male.age25_34 + female.age25_34),
+                age35plus: rawTotal.age35plus || (male.age35plus + female.age35plus),
+                total: rawTotal.total || (male.total + female.total),
+            };
+            return {
+                label,
+                male,
+                female,
+                total,
+            };
+        });
+
+        const rawMale = ageBlock(f, `${prefix}_${csp}_total_male`);
+        const rawFemale = ageBlock(f, `${prefix}_${csp}_total_female`);
+        const rawTot = ageBlock(f, `${prefix}_${csp}_total_total`);
+
+        const sumAge = (getter: (r: CspAgeRow) => AgeBreakdown): AgeBreakdown => {
+            const a = { age15_24: 0, age25_34: 0, age35plus: 0, total: 0 };
+            for (const r of rows) {
+                const bd = getter(r);
+                a.age15_24 += bd.age15_24;
+                a.age25_34 += bd.age25_34;
+                a.age35plus += bd.age35plus;
+                a.total += bd.total;
+            }
+            return a;
+        };
+
+        const sumMale = sumAge((r) => r.male);
+        const sumFemale = sumAge((r) => r.female);
+        const sumTot = sumAge((r) => r.total);
+
+        const totals: CspAgeRow = {
+            label: subtotalLabels[csp] ?? `SOUS-TOTAL ${(CSP_LABELS[csp] ?? csp).toUpperCase()}`,
+            male: {
+                age15_24: rawMale.age15_24 || sumMale.age15_24,
+                age25_34: rawMale.age25_34 || sumMale.age25_34,
+                age35plus: rawMale.age35plus || sumMale.age35plus,
+                total: rawMale.total || sumMale.total,
+            },
+            female: {
+                age15_24: rawFemale.age15_24 || sumFemale.age15_24,
+                age25_34: rawFemale.age25_34 || sumFemale.age25_34,
+                age35plus: rawFemale.age35plus || sumFemale.age35plus,
+                total: rawFemale.total || sumFemale.total,
+            },
+            total: {
+                age15_24: rawTot.age15_24 || sumTot.age15_24,
+                age25_34: rawTot.age25_34 || sumTot.age25_34,
+                age35plus: rawTot.age35plus || sumTot.age35plus,
+                total: rawTot.total || sumTot.total,
+            },
+        };
+
+        return {
+            csp,
+            label: groupLabels[csp] ?? CSP_GROUP_LABELS[csp] ?? csp,
+            rows,
+            totals,
+        };
+    });
+}
+
+export function buildDiplomaGrandTotals(groups: CspDiplomaGroup[], f: FlatData, prefix: string, locale?: 'fr' | 'en'): CspAgeRow {
+    const rawMale = ageBlock(f, `${prefix}_total_male`);
+    const rawFemale = ageBlock(f, `${prefix}_total_female`);
+    const rawTot = ageBlock(f, `${prefix}_total_total`);
+
+    const sumBd = (getter: (g: CspDiplomaGroup) => AgeBreakdown): AgeBreakdown => {
+        const a = { age15_24: 0, age25_34: 0, age35plus: 0, total: 0 };
+        for (const g of groups) {
+            const bd = getter(g);
+            a.age15_24 += bd.age15_24;
+            a.age25_34 += bd.age25_34;
+            a.age35plus += bd.age35plus;
+            a.total += bd.total;
+        }
+        return a;
+    };
+
+    const sumMale = sumBd((g) => g.totals.male);
+    const sumFemale = sumBd((g) => g.totals.female);
+    const sumTot = sumBd((g) => g.totals.total);
+
+    const isEn = locale === 'en';
+    const grandTotalLabel = isEn
+        ? 'GRAND TOTAL'
+        : (locale === 'fr' ? 'TOTAL GÉNÉRAL' : 'TOTAL GÉNÉRAL / GRAND TOTAL');
+
+    return {
+        label: grandTotalLabel,
+        male: {
+            age15_24: rawMale.age15_24 || sumMale.age15_24,
+            age25_34: rawMale.age25_34 || sumMale.age25_34,
+            age35plus: rawMale.age35plus || sumMale.age35plus,
+            total: rawMale.total || sumMale.total,
+        },
+        female: {
+            age15_24: rawFemale.age15_24 || sumFemale.age15_24,
+            age25_34: rawFemale.age25_34 || sumFemale.age25_34,
+            age35plus: rawFemale.age35plus || sumFemale.age35plus,
+            total: rawFemale.total || sumFemale.total,
+        },
+        total: {
+            age15_24: rawTot.age15_24 || sumTot.age15_24,
+            age25_34: rawTot.age25_34 || sumTot.age25_34,
+            age35plus: rawTot.age35plus || sumTot.age35plus,
+            total: rawTot.total || sumTot.total,
+        },
+    };
 }
 
 // ─────────────────────────────────────────────
@@ -333,6 +652,17 @@ function buildPermTempTotals(f: FlatData, prefix: string): PermTempTotals {
     };
 }
 
+// Rows × sex only (keys `${prefix}_${row}_{male,female,total}`) — tables
+// without a status dimension (Administration S21Q03 / S21Q04). The M/F/T
+// triple is exposed as `total` so templates read one shape.
+function buildSexRows(f: FlatData, prefix: string, rows: string[], labels: LabelMap): { label: string; total: MFT }[] {
+    return rows.map((row) => ({ label: labels[row] ?? row, total: mft(f, `${prefix}_${row}`) }));
+}
+
+function buildSexTotals(f: FlatData, prefix: string): { label: string; total: MFT } {
+    return { label: 'TOTAL', total: mft(f, `${prefix}_total`) };
+}
+
 // ─────────────────────────────────────────────
 // DEPARTURES TABLE
 // ─────────────────────────────────────────────
@@ -341,10 +671,13 @@ function buildDepartureRows(
     f: FlatData,
     prefix: string,
     rows: string[] = CSP_ROWS,
-    labels: LabelMap = CSP_LABELS,
+    labels?: LabelMap,
+    locale?: 'fr' | 'en',
 ): DepartureRow[] {
+    const defaultLabels = locale === 'en' ? CSP_LABELS_EN : CSP_LABELS_FR;
+    const effectiveLabels = labels ?? defaultLabels;
     return rows.map((row): DepartureRow => ({
-        label: labels[row] ?? row,
+        label: effectiveLabels[row] ?? row,
         dismissals: mft(f, `${prefix}_${row}_dismissal`),
         resignations: mft(f, `${prefix}_${row}_resignation`),
         retirements: mft(f, `${prefix}_${row}_retirement`),
@@ -371,8 +704,11 @@ function buildDepartureTotals(f: FlatData, prefix: string): DepartureTotals {
 function buildDismissalReasons(f: FlatData, prefix: string): DismissalReason[] {
     return ([1, 2, 3] as const).map((i): DismissalReason => ({
         index: i,
-        // ← READ _label FIRST, fallback to _text for legacy
-        text: str(f, `${prefix}_reason_${i}_label`) || str(f, `${prefix}_reason_${i}_text`),
+        // ← READ _label FIRST, fallback to _text / uppercase schema keys for legacy
+        text: str(f, `${prefix}_reason_${i}_label`) ||
+              str(f, `${prefix}_reason_${i}_text`) ||
+              str(f, `S3Q02_REASON_${i}_TEXT`) ||
+              str(f, `s3q02_reason_${i}_text`),
         male: int(f, `${prefix}_reason_${i}_male`),
         female: int(f, `${prefix}_reason_${i}_female`),
         total: int(f, `${prefix}_reason_${i}_total`),
@@ -392,9 +728,10 @@ function buildDismissalReasonsTotals(f: FlatData, prefix: string): ListTotals {
 // DISMISSAL + TECHNICAL UNEMPLOYMENT TABLE
 // ─────────────────────────────────────────────
 
-function buildDismissalTechRows(f: FlatData, prefix: string): DismissalTechRow[] {
+function buildDismissalTechRows(f: FlatData, prefix: string, locale?: 'fr' | 'en'): DismissalTechRow[] {
+    const labels = locale === 'en' ? CSP_LABELS_EN : CSP_LABELS_FR;
     return CSP_ROWS.map((row): DismissalTechRow => ({
-        label: CSP_LABELS[row] ?? row,
+        label: labels[row] ?? row,
         dismissal: mft(f, `${prefix}_${row}_dismissal`),
         technicalUnemployment: mft(f, `${prefix}_${row}_technical_unemployment`),
         total: mft(f, `${prefix}_${row}_total`),
@@ -414,8 +751,9 @@ function buildDismissalTechTotals(f: FlatData, prefix: string): DismissalTechTot
 // INTERNSHIPS  (always 4 rows + totals with label)
 // ─────────────────────────────────────────────
 
-function buildInternshipRows(f: FlatData, prefix: string): InternshipRow[] {
-    return INTERNSHIP_MAP.map(([slug, label]): InternshipRow => ({
+function buildInternshipRows(f: FlatData, prefix: string, locale?: 'fr' | 'en'): InternshipRow[] {
+    const map = locale === 'en' ? INTERNSHIP_MAP_EN : INTERNSHIP_MAP_FR;
+    return map.map(([slug, label]): InternshipRow => ({
         label,
         male: int(f, `${prefix}_${slug}_male`),
         female: int(f, `${prefix}_${slug}_female`),
@@ -439,11 +777,19 @@ function buildInternshipTotals(f: FlatData, prefix: string): ListTotals {
 function buildSkills(f: FlatData, prefix: string): SkillRow[] {
     return ([1, 2, 3] as const).map((i): SkillRow => ({
         index: i,
-        // ← READ _label FIRST, fallback to _description for legacy
-        description: str(f, `${prefix}_skill_${i}_label`) || str(f, `${prefix}_skill_${i}_text`),
-        male: int(f, `${prefix}_skill_${i}_male`),
-        female: int(f, `${prefix}_skill_${i}_female`),
-        total: int(f, `${prefix}_skill_${i}_total`),
+        // ← READ _label FIRST, fallback to _description / _domain / _skill for legacy
+        description: str(f, `${prefix}_domain_${i}_label`) ||
+                     str(f, `${prefix}_domain_${i}_text`) ||
+                     str(f, `${prefix}_skill_${i}_label`) ||
+                     str(f, `${prefix}_skill_${i}_text`) ||
+                     str(f, `${prefix}_skill_${i}_description`) ||
+                     str(f, `S4Q02_DOMAIN_${i}_TEXT`) ||
+                     str(f, `S4Q02_SKILL_${i}_TEXT`) ||
+                     str(f, `s4q02_domain_${i}_text`) ||
+                     str(f, `s4q02_skill_${i}_text`),
+        male: int(f, `${prefix}_skill_${i}_male`) || int(f, `${prefix}_domain_${i}_male`),
+        female: int(f, `${prefix}_skill_${i}_female`) || int(f, `${prefix}_domain_${i}_female`),
+        total: int(f, `${prefix}_skill_${i}_total`) || int(f, `${prefix}_domain_${i}_total`),
     }));
 }
 
@@ -463,11 +809,16 @@ function buildSkillsTotals(f: FlatData, prefix: string): ListTotals {
 function buildTrainingNeeds(f: FlatData, prefix: string): TrainingRow[] {
     return ([1, 2, 3] as const).map((i): TrainingRow => ({
         index: i,
-        // ← READ _label FIRST, fallback to _domain for legacy
-        domain: str(f, `${prefix}_domain_${i}_label`) || str(f, `${prefix}_domain_${i}_text`),
-        male: int(f, `${prefix}_domain_${i}_male`),
-        female: int(f, `${prefix}_domain_${i}_female`),
-        total: int(f, `${prefix}_domain_${i}_total`),
+        // ← READ _label FIRST, fallback to _domain / _skill for legacy
+        domain: str(f, `${prefix}_domain_${i}_label`) ||
+                str(f, `${prefix}_domain_${i}_text`) ||
+                str(f, `${prefix}_skill_${i}_label`) ||
+                str(f, `${prefix}_skill_${i}_text`) ||
+                str(f, `S4Q03_DOMAIN_${i}_TEXT`) ||
+                str(f, `s4q03_domain_${i}_text`),
+        male: int(f, `${prefix}_domain_${i}_male`) || int(f, `${prefix}_skill_${i}_male`),
+        female: int(f, `${prefix}_domain_${i}_female`) || int(f, `${prefix}_skill_${i}_female`),
+        total: int(f, `${prefix}_domain_${i}_total`) || int(f, `${prefix}_skill_${i}_total`),
     }));
 }
 
@@ -484,7 +835,7 @@ function buildTrainingTotals(f: FlatData, prefix: string): ListTotals {
 // S23Q02 — FIRST-TIME RECRUITMENTS
 // ─────────────────────────────────────────────
 
-function buildS23Q02(f: FlatData): S23Q02Result {
+function buildS23Q02(f: FlatData, locale?: 'fr' | 'en'): S23Q02Result {
     const prefix = 's23q02';
 
     const buildContractRows = (contract: string): CspAgeRow[] =>
@@ -500,7 +851,12 @@ function buildS23Q02(f: FlatData): S23Q02Result {
         male: ageBlock(f, `${prefix}_${contract}_subtotal_male`),
         female: ageBlock(f, `${prefix}_${contract}_subtotal_female`),
         total: ageBlock(f, `${prefix}_${contract}_subtotal_total`),
-    })
+    });
+
+    const isEn = locale === 'en';
+    const grandTotalLabel = isEn
+        ? 'GRAND TOTAL'
+        : (locale === 'fr' ? 'TOTAL GÉNÉRAL' : 'TOTAL GÉNÉRAL / GRAND TOTAL');
 
     return {
         permanent: buildContractRows('permanent'),
@@ -508,7 +864,7 @@ function buildS23Q02(f: FlatData): S23Q02Result {
         temporary: buildContractRows('temporary'),
         temporaryTotals: buildContractTotals('temporary'),
         grandTotals: {
-            label: 'TOTAL GÉNÉRAL',
+            label: grandTotalLabel,
             male: ageBlock(f, `${prefix}_grandtotal_male`),
             female: ageBlock(f, `${prefix}_grandtotal_female`),
             total: ageBlock(f, `${prefix}_grandtotal_total`),
@@ -583,6 +939,45 @@ function mapCooperativeType(v: unknown): number {
     return 0;
 }
 
+// PP_S1Q01/S1Q13/S1Q14 (ProjectProgram nature/status/stopReason) — the
+// stored option values are the byte-identical combined "FR/ EN" strings
+// from onefop_ast.dart (see its FIX-10 note), same convention as the
+// mappers above. projectProgram.hbs compares these fields with strict
+// `eq` against the numeric codes below, so leaving them as raw strings
+// (as mapProjectProgramData did before) means the checkboxes can never
+// render as checked.
+function mapNature(v: unknown): number {
+    if (typeof v === 'number') return v;
+    if (!v) return 0;
+    const s = String(v).toLowerCase();
+    if (s.includes('projet') || s.includes('project')) return 1;
+    if (s.includes('programme') || s.includes('program')) return 2;
+    if (s.includes('sous-tutelle') || s.includes('under supervision')) return 3;
+    if (s.includes('autre') || s.includes('other')) return 4;
+    return 0;
+}
+
+function mapProjectStatus(v: unknown): number {
+    if (typeof v === 'number') return v;
+    if (!v) return 0;
+    const s = String(v).toLowerCase();
+    if (s.includes('arrêt') || s.includes('stopped')) return 1;
+    if (s.includes('actif') || s.includes('active')) return 2;
+    if (s.includes('démarrage') || s.includes('starting')) return 3;
+    return 0;
+}
+
+function mapStopReason(v: unknown): number {
+    if (typeof v === 'number') return v;
+    if (!v) return 0;
+    const s = String(v).toLowerCase();
+    if (s.includes('arrivé') || s.includes('expired')) return 1;
+    if (s.includes('manque de fonds') || s.includes('lack of funds')) return 2;
+    if (s.includes('insuffisants') || s.includes('insufficient')) return 3;
+    if (s.includes('autre') || s.includes('other')) return 4;
+    return 0;
+}
+
 function mapCtdType(v: unknown): number {
     if (typeof v === 'number') return v;
     if (!v) return 0;
@@ -605,12 +1000,13 @@ function mapCouncilType(v: unknown): number {
 // VULNERABLE RECRUITMENTS  (entity-type-aware)
 // ─────────────────────────────────────────────
 
-function buildVulnerableRows(f: FlatData, entityType: EntityType): PermTempRow[] {
+function buildVulnerableRows(f: FlatData, entityType: EntityType, locale?: 'fr' | 'en'): PermTempRow[] {
     // Both enterprise (s22q05_ent) and all others (s22q05_oth) use the same
     // vulnerability-type row keys — confirmed by TableCellEngine.dispatch()
     // which passes ['deplaces_internes','refugies','orphelins'] for both prefixes.
     const prefix = entityType === 'enterprise' ? 's22q05_ent' : 's22q05_oth';
-    return buildPermTempRows(f, prefix, VULNERABLE_ENT_ROWS, VULNERABLE_ENT_LABELS);
+    const labels = locale === 'en' ? VULNERABLE_ENT_LABELS_EN : VULNERABLE_ENT_LABELS_FR;
+    return buildPermTempRows(f, prefix, VULNERABLE_ENT_ROWS, labels);
 }
 
 function buildVulnerableTotals(f: FlatData, entityType: EntityType): PermTempTotals {
@@ -620,42 +1016,48 @@ function buildVulnerableTotals(f: FlatData, entityType: EntityType): PermTempTot
 
 // ─────────────────────────────────────────────
 // COMBINED S2–S4 BUILDER
-// ─────────────────────────────────────────────
+function buildS2S4(f: FlatData, entityType: EntityType, locale?: 'fr' | 'en') {
+    const recruitmentsByDiplomaGroups = buildDiplomaCspGroups(f, 's22q03', locale);
+    const recruitmentsByDiplomaGrandTotals = buildDiplomaGrandTotals(recruitmentsByDiplomaGroups, f, 's22q03', locale);
 
-function buildS2S4(f: FlatData, entityType: EntityType) {
+    const isEn = locale === 'en';
+    const cspLabels = isEn ? CSP_LABELS_EN : CSP_LABELS_FR;
+
     return {
         // S2.1
-        jobApplicationsRows: buildCspAgeRows(f, 's21q01'),
+        jobApplicationsRows: buildCspAgeRows(f, 's21q01', CSP_ROWS, cspLabels, locale),
         jobApplicationsTotals: buildCspAgeTotals(f, 's21q01'),
         // S2.2 permanent
-        recruitmentsPermanentRows: buildCspAgeRows(f, 's22q01'),
+        recruitmentsPermanentRows: buildCspAgeRows(f, 's22q01', CSP_ROWS, cspLabels, locale),
         recruitmentsPermanentTotals: buildCspAgeTotals(f, 's22q01'),
         // S2.2 temporary
-        recruitmentsTemporaryRows: buildCspAgeRows(f, 's22q02'),
+        recruitmentsTemporaryRows: buildCspAgeRows(f, 's22q02', CSP_ROWS, cspLabels, locale),
         recruitmentsTemporaryTotals: buildCspAgeTotals(f, 's22q02'),
         // S2.2 by diploma
-        recruitmentsByDiplomaRows: buildDiplomaRows(f, 's22q03'),
+        recruitmentsByDiplomaRows: buildDiplomaRows(f, 's22q03', locale),
         recruitmentsByDiplomaTotals: buildDiplomaTotals(f, 's22q03'),
+        recruitmentsByDiplomaGroups,
+        recruitmentsByDiplomaGrandTotals,
         // S2.2 disabled
-        disabledRecruitmentsRows: buildPermTempRows(f, 's22q04', CSP_ROWS, CSP_LABELS),
+        disabledRecruitmentsRows: buildPermTempRows(f, 's22q04', CSP_ROWS, cspLabels),
         disabledRecruitmentsTotals: buildPermTempTotals(f, 's22q04'),
         // S2.2 vulnerable
-        vulnerableRecruitmentsRows: buildVulnerableRows(f, entityType),
+        vulnerableRecruitmentsRows: buildVulnerableRows(f, entityType, locale),
         vulnerableRecruitmentsTotals: buildVulnerableTotals(f, entityType),
         // S2.3 first-time job seekers
-        firstTimeJobSeekerRows: buildCspAgeRows(f, 's23q01'),
+        firstTimeJobSeekerRows: buildCspAgeRows(f, 's23q01', CSP_ROWS, cspLabels, locale),
         firstTimeJobSeekerTotals: buildCspAgeTotals(f, 's23q01'),
         // S2.3 first-time recruitments
-        s23q02: buildS23Q02(f),
+        s23q02: buildS23Q02(f, locale),
         // S3
-        departuresRows: buildDepartureRows(f, 's3q01'),
+        departuresRows: buildDepartureRows(f, 's3q01', CSP_ROWS, cspLabels, locale),
         departuresTotals: buildDepartureTotals(f, 's3q01'),
         dismissalReasons: buildDismissalReasons(f, 's3q02'),
         dismissalReasonsTotals: buildDismissalReasonsTotals(f, 's3q02'),
-        dismissalTechUnemploymentRows: buildDismissalTechRows(f, 's3q03'),
+        dismissalTechUnemploymentRows: buildDismissalTechRows(f, 's3q03', locale),
         dismissalTechUnemploymentTotals: buildDismissalTechTotals(f, 's3q03'),
         // S4
-        internshipsRows: buildInternshipRows(f, 's4q01'),
+        internshipsRows: buildInternshipRows(f, 's4q01', locale),
         internshipsTotals: buildInternshipTotals(f, 's4q01'),
         skills: buildSkills(f, 's4q02'),
         skillsTotals: buildSkillsTotals(f, 's4q02'),
@@ -675,27 +1077,31 @@ function buildS2S4(f: FlatData, entityType: EntityType) {
 // separate builder rather than reusing buildS2S4, since the two shapes
 // diverge in exactly which sections exist, not just which row labels
 // they use.
-function buildS2S4Administration(f: FlatData) {
+function buildS2S4Administration(f: FlatData, locale?: 'fr' | 'en') {
+    const isEn = locale === 'en';
+    const sfpLabels = isEn ? SFP_LABELS_EN : SFP_LABELS_FR;
     return {
         // 2.1 — census (S21Q01, SFP rows)
-        jobApplicationsRows: buildCspAgeRows(f, 's21q01', SFP_ROWS, SFP_LABELS),
+        jobApplicationsRows: buildCspAgeRows(f, 's21q01', SFP_ROWS, sfpLabels, locale),
         jobApplicationsTotals: buildCspAgeTotals(f, 's21q01'),
-        // 2.2 — recruitment (S22Q01-equivalent, SFP rows)
-        recruitmentsPermanentRows: buildCspAgeRows(f, 's22q01', SFP_ROWS, SFP_LABELS),
-        recruitmentsPermanentTotals: buildCspAgeTotals(f, 's22q01'),
-        // 2.2 — disabled (S22Q04, CSP rows — preserved as-is, see audit)
-        disabledRecruitmentsRows: buildPermTempRows(f, 's22q04', CSP_ROWS, CSP_LABELS),
-        disabledRecruitmentsTotals: buildPermTempTotals(f, 's22q04'),
-        // 2.2 — vulnerable (S22Q05, reuses the cooperative/ctd/ong prefix)
-        vulnerableRecruitmentsRows: buildVulnerableRows(f, 'administration'),
-        vulnerableRecruitmentsTotals: buildVulnerableTotals(f, 'administration'),
+        // Section 2 renumbered chronologically on 2026-09-28:
+        // S21Q02 — recruitment (SFP rows × sex × age; formerly S22Q01)
+        recruitmentsPermanentRows: buildCspAgeRows(f, 's21q02', SFP_ROWS, sfpLabels, locale),
+        recruitmentsPermanentTotals: buildCspAgeTotals(f, 's21q02'),
+        // S21Q03 — disabled (SFP rows × sex, no status; formerly S22Q04)
+        disabledRecruitmentsRows: buildSexRows(f, 's21q03', SFP_ROWS, sfpLabels),
+        disabledRecruitmentsTotals: buildSexTotals(f, 's21q03'),
+        // S21Q04 — vulnerable (nature × sex, no status; formerly S22Q05)
+        vulnerableRecruitmentsRows: buildSexRows(
+            f, 's21q04', VULNERABLE_ENT_ROWS, locale === 'en' ? VULNERABLE_ENT_LABELS_EN : VULNERABLE_ENT_LABELS_FR),
+        vulnerableRecruitmentsTotals: buildSexTotals(f, 's21q04'),
         // S3 — departures (S3Q01, SFP rows) + dismissal reasons (S3Q02)
-        departuresRows: buildDepartureRows(f, 's3q01', SFP_ROWS, SFP_LABELS),
+        departuresRows: buildDepartureRows(f, 's3q01', SFP_ROWS, sfpLabels, locale),
         departuresTotals: buildDepartureTotals(f, 's3q01'),
         dismissalReasons: buildDismissalReasons(f, 's3q02'),
         dismissalReasonsTotals: buildDismissalReasonsTotals(f, 's3q02'),
         // S4 — internship (S4Q01) + skills needs (S4Q02)
-        internshipsRows: buildInternshipRows(f, 's4q01'),
+        internshipsRows: buildInternshipRows(f, 's4q01', locale),
         internshipsTotals: buildInternshipTotals(f, 's4q01'),
         skills: buildSkills(f, 's4q02'),
         skillsTotals: buildSkillsTotals(f, 's4q02'),
@@ -709,29 +1115,59 @@ function buildS2S4Administration(f: FlatData) {
 // coded fields (targetPopulation/supportType/scope) are displayed as
 // "code — label" for the PDF, matching the source instrument's legend,
 // not the raw stored code.
-const PP_TARGET_POPULATION_LABELS: LabelMap = {
-    '1': 'Jeune non diplômé / Non-graduate youth',
-    '2': 'Jeune diplômé / Graduate youth',
-    '3': 'Femme / Women',
-    '4': 'Monde rural / Rural',
-    '5': 'Population urbaine / Urban population',
-    '6': 'Autre / Other',
+const PP_TARGET_POPULATION_LABELS_FR: LabelMap = {
+    '1': 'Jeune non diplômé',
+    '2': 'Jeune diplômé',
+    '3': 'Femme',
+    '4': 'Monde rural',
+    '5': 'Population urbaine',
+    '6': 'Autre',
 };
 
-const PP_SUPPORT_TYPE_LABELS: LabelMap = {
-    '1': 'Gratuit / Free',
-    '2': 'Tarifé / Fee-based',
-    '3': 'Aide financière remboursable / Reimbursable financial assistance',
-    '4': 'Aide financière non remboursable / Non-reimbursable financial assistance',
-    '5': 'Autre / Other',
+const PP_TARGET_POPULATION_LABELS_EN: LabelMap = {
+    '1': 'Non-graduate youth',
+    '2': 'Graduate youth',
+    '3': 'Women',
+    '4': 'Rural',
+    '5': 'Urban population',
+    '6': 'Other',
 };
 
-const PP_SCOPE_LABELS: LabelMap = {
-    '1': 'National / National',
-    '2': 'Régional / Regional',
-    '3': 'Local / Local',
-    '4': 'Autre / Other',
+const PP_TARGET_POPULATION_LABELS: LabelMap = PP_TARGET_POPULATION_LABELS_FR;
+
+const PP_SUPPORT_TYPE_LABELS_FR: LabelMap = {
+    '1': 'Gratuit',
+    '2': 'Tarifé',
+    '3': 'Aide financière remboursable',
+    '4': 'Aide financière non remboursable',
+    '5': 'Autre',
 };
+
+const PP_SUPPORT_TYPE_LABELS_EN: LabelMap = {
+    '1': 'Free',
+    '2': 'Fee-based',
+    '3': 'Reimbursable financial assistance',
+    '4': 'Non-reimbursable financial assistance',
+    '5': 'Other',
+};
+
+const PP_SUPPORT_TYPE_LABELS: LabelMap = PP_SUPPORT_TYPE_LABELS_FR;
+
+const PP_SCOPE_LABELS_FR: LabelMap = {
+    '1': 'National',
+    '2': 'Régional',
+    '3': 'Local',
+    '4': 'Autre',
+};
+
+const PP_SCOPE_LABELS_EN: LabelMap = {
+    '1': 'National',
+    '2': 'Regional',
+    '3': 'Local',
+    '4': 'Other',
+};
+
+const PP_SCOPE_LABELS: LabelMap = PP_SCOPE_LABELS_FR;
 
 interface ActivityRow {
     index: number;
@@ -743,7 +1179,11 @@ interface ActivityRow {
     duration: string;
 }
 
-function buildActivityRows(f: FlatData): ActivityRow[] {
+function buildActivityRows(f: FlatData, locale?: 'fr' | 'en'): ActivityRow[] {
+    const isEn = locale === 'en';
+    const targetMap = isEn ? PP_TARGET_POPULATION_LABELS_EN : PP_TARGET_POPULATION_LABELS_FR;
+    const supportMap = isEn ? PP_SUPPORT_TYPE_LABELS_EN : PP_SUPPORT_TYPE_LABELS_FR;
+    const scopeMap = isEn ? PP_SCOPE_LABELS_EN : PP_SCOPE_LABELS_FR;
     const rows: ActivityRow[] = [];
     for (let i = 1; i <= 13; i++) {
         const description = str(f, `s2_row${i}_description`);
@@ -758,9 +1198,9 @@ function buildActivityRows(f: FlatData): ActivityRow[] {
         rows.push({
             index: i,
             description,
-            targetPopulation: PP_TARGET_POPULATION_LABELS[targetPopulation] ?? targetPopulation,
-            supportType: PP_SUPPORT_TYPE_LABELS[supportType] ?? supportType,
-            scope: PP_SCOPE_LABELS[scope] ?? scope,
+            targetPopulation: targetMap[targetPopulation] ?? targetPopulation,
+            supportType: supportMap[supportType] ?? supportType,
+            scope: scopeMap[scope] ?? scope,
             startDate,
             duration,
         });
@@ -775,12 +1215,13 @@ interface OutcomeRow {
     outlookJune: number;
 }
 
-function buildOutcomeRows(f: FlatData): OutcomeRow[] {
+function buildOutcomeRows(f: FlatData, locale?: 'fr' | 'en'): OutcomeRow[] {
+    const isEn = locale === 'en';
     const rows: [string, string][] = [
-        ['employed', 'Bénéficiaires insérés comme employés / Beneficiaries inserted as employees'],
-        ['self_employed', 'Bénéficiaires insérés en auto emploi / Beneficiaries inserted in self-employment'],
-        ['jobs_created', 'Emplois créés par les bénéficiaires employeurs / Jobs created by beneficiary employers'],
-        ['trained', 'Bénéficiaires formés / Beneficiaries trained'],
+        ['employed', isEn ? 'Beneficiaries inserted as employees' : 'Bénéficiaires insérés comme employés'],
+        ['self_employed', isEn ? 'Beneficiaries inserted in self-employment' : 'Bénéficiaires insérés en auto emploi'],
+        ['jobs_created', isEn ? 'Jobs created by beneficiary employers' : 'Emplois créés par les bénéficiaires employeurs'],
+        ['trained', isEn ? 'Beneficiaries trained' : 'Bénéficiaires formés'],
     ];
     return rows.map(([slug, label]): OutcomeRow => ({
         label,
@@ -790,25 +1231,26 @@ function buildOutcomeRows(f: FlatData): OutcomeRow[] {
     }));
 }
 
-function buildS2S4ProjectProgram(f: FlatData) {
+function buildS2S4ProjectProgram(f: FlatData, locale?: 'fr' | 'en') {
+    const isEn = locale === 'en';
+    const cspLabels = isEn ? CSP_LABELS_EN : CSP_LABELS_FR;
     return {
-        activitiesRows: buildActivityRows(f),
-        outcomesRows: buildOutcomeRows(f),
+        activitiesRows: buildActivityRows(f, locale),
+        outcomesRows: buildOutcomeRows(f, locale),
         // S4Q01/S4Q02 — counted (recensé) permanent/temporary
-        countedPermanentRows: buildCspAgeRows(f, 'pp_s4q01', CSP_ROWS, CSP_LABELS),
+        countedPermanentRows: buildCspAgeRows(f, 'pp_s4q01', CSP_ROWS, cspLabels, locale),
         countedPermanentTotals: buildCspAgeTotals(f, 'pp_s4q01'),
-        countedTemporaryRows: buildCspAgeRows(f, 'pp_s4q02', CSP_ROWS, CSP_LABELS),
+        countedTemporaryRows: buildCspAgeRows(f, 'pp_s4q02', CSP_ROWS, cspLabels, locale),
         countedTemporaryTotals: buildCspAgeTotals(f, 'pp_s4q02'),
         // S4Q03/S4Q04 — recruited (recruté) permanent/temporary
-        recruitedPermanentRows: buildCspAgeRows(f, 'pp_s4q03', CSP_ROWS, CSP_LABELS),
+        recruitedPermanentRows: buildCspAgeRows(f, 'pp_s4q03', CSP_ROWS, cspLabels, locale),
         recruitedPermanentTotals: buildCspAgeTotals(f, 'pp_s4q03'),
-        recruitedTemporaryRows: buildCspAgeRows(f, 'pp_s4q04', CSP_ROWS, CSP_LABELS),
+        recruitedTemporaryRows: buildCspAgeRows(f, 'pp_s4q04', CSP_ROWS, cspLabels, locale),
         recruitedTemporaryTotals: buildCspAgeTotals(f, 'pp_s4q04'),
-        // S4Q05 — disability, S4Q06 — vulnerable (both csp_status_gender_
-        // table shaped for this entity, unlike the other four entities)
-        disabledRecruitmentsRows: buildPermTempRows(f, 'pp_s4q05', CSP_ROWS, CSP_LABELS),
+        // S4Q05 — disability, S4Q06 — vulnerable
+        disabledRecruitmentsRows: buildPermTempRows(f, 'pp_s4q05', CSP_ROWS, cspLabels),
         disabledRecruitmentsTotals: buildPermTempTotals(f, 'pp_s4q05'),
-        vulnerableRecruitmentsRows: buildPermTempRows(f, 'pp_s4q06', CSP_ROWS, CSP_LABELS),
+        vulnerableRecruitmentsRows: buildPermTempRows(f, 'pp_s4q06', CSP_ROWS, cspLabels),
         vulnerableRecruitmentsTotals: buildPermTempTotals(f, 'pp_s4q06'),
     };
 }
@@ -817,124 +1259,137 @@ function buildS2S4ProjectProgram(f: FlatData) {
 // PUBLIC ENTITY MAPPERS
 // ─────────────────────────────────────────────
 
-export function mapEnterpriseData(f: FlatData, quarterCode?: string | null) {
+export function mapEnterpriseData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     return {
-        respondentName: str(f, 'S0Q01'),
-        respondentFunction: str(f, 'S0Q02'),
-        respondentPhone1: str(f, 'S0Q03_TEL1'),
-        respondentPhone2: str(f, 'S0Q03_TEL2'),
-        respondentEmail: str(f, 'S0Q03_EMAIL'),
-        legalStatus: mapLegalStatus(f['S1Q01']),
-        companyName: str(f, 'S1Q02'),
-        area: mapArea(f['S1Q03']),
-        region: str(f, 'S1Q04_REGION'),
-        department: str(f, 'S1Q04_DEPT'),
-        subdivision: str(f, 'S1Q04_SUBDIV'),
-        locality: str(f, 'S1Q04_LOCALITY'),
-        phone1: str(f, 'S1Q05_TEL1'),
-        phone2: str(f, 'S1Q05_TEL2'),
-        poBox: str(f, 'S1Q05_BP'),
-        businessSector: mapSector(f['S1Q06']),
-        branchActivity: str(f, 'S1Q07'),
-        mainActivity: str(f, 'S1Q08'),
-        headOffice: str(f, 'S1Q09'),
-        permanentWorkers: f['S1Q10'] != null ? String(f['S1Q10']) : '',
-        vacancies: f['S1Q11'] != null ? String(f['S1Q11']) : '',
-        enterpriseSize: mapSize(f['S1Q12']),
-        ...buildS2S4(f, 'enterprise'),
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
+        respondentName: str(f, 'S0Q01') || str(f, 'respondentName'),
+        respondentFunction: str(f, 'S0Q02') || str(f, 'respondentFunction'),
+        respondentPhone1: str(f, 'S0Q03_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+        respondentPhone2: str(f, 'S0Q03_TEL2') || str(f, 'respondentPhone2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL') || str(f, 'respondentEmail') || str(f, 'email'),
+        legalStatus: mapLegalStatus(f['S1Q01'] ?? f['legalStatus']),
+        companyName: str(f, 'S1Q02') || str(f, 'companyName') || str(f, 'name'),
+        area: mapArea(f['S1Q03'] ?? f['area']),
+        region: str(f, 'S1Q04_REGION') || str(f, 'region'),
+        department: str(f, 'S1Q04_DEPT') || str(f, 'department'),
+        subdivision: str(f, 'S1Q04_SUBDIV') || str(f, 'subdivision'),
+        locality: str(f, 'S1Q04_LOCALITY') || str(f, 'locality'),
+        phone1: str(f, 'S1Q05_TEL1') || str(f, 'phone1') || str(f, 'phone'),
+        phone2: str(f, 'S1Q05_TEL2') || str(f, 'phone2'),
+        poBox: str(f, 'S1Q05_BP') || str(f, 'poBox'),
+        businessSector: mapSector(f['S1Q06'] ?? f['businessSector']),
+        branchActivity: str(f, 'S1Q07') || str(f, 'branchActivity'),
+        mainActivity: str(f, 'S1Q08') || str(f, 'mainActivity'),
+        headOffice: str(f, 'S1Q09') || str(f, 'headOffice'),
+        permanentWorkers: f['S1Q10'] != null ? String(f['S1Q10']) : (f['permanentWorkers'] != null ? String(f['permanentWorkers']) : ''),
+        vacancies: f['S1Q11'] != null ? String(f['S1Q11']) : (f['vacancies'] != null ? String(f['vacancies']) : ''),
+        enterpriseSize: mapSize(f['S1Q12'] ?? f['enterpriseSize']),
+        ...buildS2S4(f, 'enterprise', locale),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
     };
 }
 
-export function mapCooperativeData(f: FlatData, quarterCode?: string | null) {
+export function mapCooperativeData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     return {
-        respondentName: str(f, 'S0Q01'),
-        respondentFunction: str(f, 'S0Q02'),
-        respondentPhone1: str(f, 'S0Q03_TEL1'),
-        respondentPhone2: str(f, 'S0Q03_TEL2'),
-        respondentEmail: str(f, 'S0Q03_EMAIL'),
-        cooperativeName: str(f, 'COOP_S1Q01'),
-        cooperativeHeadOffice: str(f, 'COOP_S1Q02'),
-        yearOfCreation: str(f, 'COOP_S1Q03'),
-        area: mapArea(f['COOP_S1Q04']),
-        region: str(f, 'COOP_S1Q05_REGION'),
-        department: str(f, 'COOP_S1Q05_DEPT'),
-        subdivision: str(f, 'COOP_S1Q05_SUBDIV'),
-        locality: str(f, 'COOP_S1Q05_LOCALITY'),
-        phone1: str(f, 'COOP_S1Q06_TEL1'),
-        phone2: str(f, 'COOP_S1Q06_TEL2'),
-        poBox: str(f, 'COOP_S1Q06_BP'),
-        businessSector: mapSector(f['COOP_S1Q07']),
-        branchActivity: str(f, 'COOP_S1Q08'),
-        cooperativeMainActivity: str(f, 'COOP_S1Q09'),
-        cooperativeType: mapCooperativeType(f['COOP_S1Q10']),
-        cooperativeTypeOther: str(f, 'COOP_S1Q10_OTHER'),
-        permanentWorkers: f['COOP_S1Q11'] != null ? String(f['COOP_S1Q11']) : '',
-        vacancies: f['COOP_S1Q12'] != null ? String(f['COOP_S1Q12']) : '',
-        ...buildS2S4(f, 'cooperative'),
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
+        respondentName: str(f, 'S0Q01') || str(f, 'respondentName'),
+        respondentFunction: str(f, 'S0Q02') || str(f, 'respondentFunction'),
+        respondentPhone1: str(f, 'S0Q03_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+        respondentPhone2: str(f, 'S0Q03_TEL2') || str(f, 'respondentPhone2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL') || str(f, 'respondentEmail') || str(f, 'email'),
+        cooperativeName: str(f, 'COOP_S1Q01') || str(f, 'cooperativeName') || str(f, 'name'),
+        cooperativeHeadOffice: str(f, 'COOP_S1Q02') || str(f, 'cooperativeHeadOffice') || str(f, 'headOffice'),
+        yearOfCreation: str(f, 'COOP_S1Q03') || str(f, 'yearOfCreation'),
+        area: mapArea(f['COOP_S1Q04'] ?? f['area']),
+        region: str(f, 'COOP_S1Q05_REGION') || str(f, 'region'),
+        department: str(f, 'COOP_S1Q05_DEPT') || str(f, 'department'),
+        subdivision: str(f, 'COOP_S1Q05_SUBDIV') || str(f, 'subdivision'),
+        locality: str(f, 'COOP_S1Q05_LOCALITY') || str(f, 'locality'),
+        phone1: str(f, 'COOP_S1Q06_TEL1') || str(f, 'phone1') || str(f, 'phone'),
+        phone2: str(f, 'COOP_S1Q06_TEL2') || str(f, 'phone2'),
+        poBox: str(f, 'COOP_S1Q06_BP') || str(f, 'poBox'),
+        businessSector: mapSector(f['COOP_S1Q07'] ?? f['businessSector']),
+        branchActivity: str(f, 'COOP_S1Q08') || str(f, 'branchActivity'),
+        cooperativeMainActivity: str(f, 'COOP_S1Q09') || str(f, 'cooperativeMainActivity') || str(f, 'mainActivity'),
+        cooperativeType: mapCooperativeType(f['COOP_S1Q10'] ?? f['cooperativeType']),
+        cooperativeTypeOther: str(f, 'COOP_S1Q10_OTHER') || str(f, 'cooperativeTypeOther'),
+        permanentWorkers: f['COOP_S1Q11'] != null ? String(f['COOP_S1Q11']) : (f['permanentWorkers'] != null ? String(f['permanentWorkers']) : ''),
+        vacancies: f['COOP_S1Q12'] != null ? String(f['COOP_S1Q12']) : (f['vacancies'] != null ? String(f['vacancies']) : ''),
+        ...buildS2S4(f, 'cooperative', locale),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
     };
 }
 
-export function mapCtdData(f: FlatData, quarterCode?: string | null) {
+export function mapCtdData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     return {
-        respondentName: str(f, 'S0Q01'),
-        respondentFunction: str(f, 'S0Q02'),
-        respondentPhone1: str(f, 'S0Q03_TEL1'),
-        respondentPhone2: str(f, 'S0Q03_TEL2'),
-        respondentEmail: str(f, 'S0Q03_EMAIL'),
-        ctdType: mapCtdType(f['CTD_S1Q01']),
-        councilType: mapCouncilType(f['CTD_S1Q02']),
-        yearOfCreation: str(f, 'CTD_S1Q03'),
-        area: mapArea(f['CTD_S1Q04']),
-        region: str(f, 'CTD_S1Q05_REGION'),
-        department: str(f, 'CTD_S1Q05_DEPT'),
-        subdivision: str(f, 'CTD_S1Q05_SUBDIV'),
-        locality: str(f, 'CTD_S1Q05_LOCALITY'),
-        phone1: str(f, 'CTD_S1Q06_TEL1'),
-        phone2: str(f, 'CTD_S1Q06_TEL2'),
-        poBox: str(f, 'CTD_S1Q06_BP'),
-        businessSector: mapSector(f['CTD_S1Q07']),
-        branchActivity: str(f, 'CTD_S1Q08'),
-        permanentWorkers: f['CTD_S1Q09'] != null ? String(f['CTD_S1Q09']) : '',
-        vacancies: f['CTD_S1Q10'] != null ? String(f['CTD_S1Q10']) : '',
-        ...buildS2S4(f, 'ctd'),
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
+        respondentName: str(f, 'S0Q01') || str(f, 'respondentName'),
+        respondentFunction: str(f, 'S0Q02') || str(f, 'respondentFunction'),
+        respondentPhone1: str(f, 'S0Q03_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+        respondentPhone2: str(f, 'S0Q03_TEL2') || str(f, 'respondentPhone2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL') || str(f, 'respondentEmail') || str(f, 'email'),
+        ctdType: mapCtdType(f['CTD_S1Q01'] ?? f['ctdType']),
+        ctdName: str(f, 'CTD_S1Q01_NAME') || str(f, 'ctdName') || str(f, 'name'),
+        councilType: mapCouncilType(f['CTD_S1Q02'] ?? f['councilType']),
+        yearOfCreation: str(f, 'CTD_S1Q03') || str(f, 'yearOfCreation'),
+        area: mapArea(f['CTD_S1Q04'] ?? f['area']),
+        region: str(f, 'CTD_S1Q05_REGION') || str(f, 'region'),
+        department: str(f, 'CTD_S1Q05_DEPT') || str(f, 'department'),
+        subdivision: str(f, 'CTD_S1Q05_SUBDIV') || str(f, 'subdivision'),
+        locality: str(f, 'CTD_S1Q05_LOCALITY') || str(f, 'locality'),
+        phone1: str(f, 'CTD_S1Q06_TEL1') || str(f, 'phone1') || str(f, 'phone'),
+        phone2: str(f, 'CTD_S1Q06_TEL2') || str(f, 'phone2'),
+        poBox: str(f, 'CTD_S1Q06_BP') || str(f, 'poBox'),
+        businessSector: mapSector(f['CTD_S1Q07'] ?? f['businessSector']),
+        branchActivity: str(f, 'CTD_S1Q08') || str(f, 'branchActivity'),
+        permanentWorkers: f['CTD_S1Q09'] != null ? String(f['CTD_S1Q09']) : (f['permanentWorkers'] != null ? String(f['permanentWorkers']) : ''),
+        vacancies: f['CTD_S1Q10'] != null ? String(f['CTD_S1Q10']) : (f['vacancies'] != null ? String(f['vacancies']) : ''),
+        ...buildS2S4(f, 'ctd', locale),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
     };
 }
 
-export function mapOngData(f: FlatData, quarterCode?: string | null) {
+export function mapOngData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     return {
-        respondentName: str(f, 'S0Q01'),
-        respondentFunction: str(f, 'S0Q02'),
-        respondentPhone1: str(f, 'S0Q03_TEL1'),
-        respondentPhone2: str(f, 'S0Q03_TEL2'),
-        respondentEmail: str(f, 'S0Q03_EMAIL'),
-        ongName: str(f, 'ONG_S1Q01'),
-        headOffice: str(f, 'ONG_S1Q02'),
-        yearOfCreation: str(f, 'ONG_S1Q03'),
-        area: mapArea(f['ONG_S1Q04']),
-        region: str(f, 'ONG_S1Q05_REGION'),
-        department: str(f, 'ONG_S1Q05_DEPT'),
-        subdivision: str(f, 'ONG_S1Q05_SUBDIV'),
-        locality: str(f, 'ONG_S1Q05_LOCALITY'),
-        phone1: str(f, 'ONG_S1Q06_TEL1'),
-        phone2: str(f, 'ONG_S1Q06_TEL2'),
-        poBox: str(f, 'ONG_S1Q06_BP'),
-        businessSector: mapSector(f['ONG_S1Q07']),
-        branchActivity: str(f, 'ONG_S1Q08'),
-        mainMission: str(f, 'ONG_S1Q09'),
-        permanentWorkers: f['ONG_S1Q10'] != null ? String(f['ONG_S1Q10']) : '',
-        vacancies: f['ONG_S1Q11'] != null ? String(f['ONG_S1Q11']) : '',
-        ...buildS2S4(f, 'ong'),
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
+        respondentName: str(f, 'S0Q01') || str(f, 'respondentName'),
+        respondentFunction: str(f, 'S0Q02') || str(f, 'respondentFunction'),
+        respondentPhone1: str(f, 'S0Q03_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+        respondentPhone2: str(f, 'S0Q03_TEL2') || str(f, 'respondentPhone2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL') || str(f, 'respondentEmail') || str(f, 'email'),
+        ongName: str(f, 'ONG_S1Q01') || str(f, 'ongName') || str(f, 'name'),
+        headOffice: str(f, 'ONG_S1Q02') || str(f, 'headOffice'),
+        yearOfCreation: str(f, 'ONG_S1Q03') || str(f, 'yearOfCreation'),
+        area: mapArea(f['ONG_S1Q04'] ?? f['area']),
+        region: str(f, 'ONG_S1Q05_REGION') || str(f, 'region'),
+        department: str(f, 'ONG_S1Q05_DEPT') || str(f, 'department'),
+        subdivision: str(f, 'ONG_S1Q05_SUBDIV') || str(f, 'subdivision'),
+        locality: str(f, 'ONG_S1Q05_LOCALITY') || str(f, 'locality'),
+        phone1: str(f, 'ONG_S1Q06_TEL1') || str(f, 'phone1') || str(f, 'phone'),
+        phone2: str(f, 'ONG_S1Q06_TEL2') || str(f, 'phone2'),
+        poBox: str(f, 'ONG_S1Q06_BP') || str(f, 'poBox'),
+        businessSector: mapSector(f['ONG_S1Q07'] ?? f['businessSector']),
+        branchActivity: str(f, 'ONG_S1Q08') || str(f, 'branchActivity'),
+        mainMission: str(f, 'ONG_S1Q09') || str(f, 'mainMission'),
+        permanentWorkers: f['ONG_S1Q10'] != null ? String(f['ONG_S1Q10']) : (f['permanentWorkers'] != null ? String(f['permanentWorkers']) : ''),
+        vacancies: f['ONG_S1Q11'] != null ? String(f['ONG_S1Q11']) : (f['vacancies'] != null ? String(f['vacancies']) : ''),
+        ...buildS2S4(f, 'ong', locale),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
     };
 }
@@ -946,33 +1401,36 @@ export function mapOngData(f: FlatData, quarterCode?: string | null) {
 // s4q02Administration for the same documented choices on the frontend
 // side; this PDF mapper doesn't hardcode question wording itself (that
 // lives in administration.hbs), only the S1 field values.
-export function mapAdministrationData(f: FlatData, quarterCode?: string | null) {
+export function mapAdministrationData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     return {
-        respondentName: str(f, 'S0Q01'),
-        respondentFunction: str(f, 'S0Q02'),
-        respondentPhone1: str(f, 'S0Q03_TEL1'),
-        respondentPhone2: str(f, 'S0Q03_TEL2'),
-        respondentEmail: str(f, 'S0Q03_EMAIL'),
-        administrationName: str(f, 'ADMIN_S1Q01'),
-        sigle: str(f, 'ADMIN_S1Q02'),
-        area: mapArea(f['ADMIN_S1Q03']),
-        region: str(f, 'ADMIN_S1Q04_REGION'),
-        department: str(f, 'ADMIN_S1Q04_DEPT'),
-        subdivision: str(f, 'ADMIN_S1Q04_SUBDIV'),
-        locality: str(f, 'ADMIN_S1Q04_LOCALITY'),
-        phone1: str(f, 'ADMIN_S1Q05_TEL1'),
-        phone2: str(f, 'ADMIN_S1Q05_TEL2'),
-        poBox: str(f, 'ADMIN_S1Q05_BP'),
-        businessSector: mapSector(f['ADMIN_S1Q06']),
-        branchActivity: str(f, 'ADMIN_S1Q07'),
-        mainMission: str(f, 'ADMIN_S1Q08'),
-        hasProject: mapYesNo(f['ADMIN_S1Q09']),
-        projectCount: f['ADMIN_S1Q10'] != null ? String(f['ADMIN_S1Q10']) : '',
-        hasSupervisedStructures: mapYesNo(f['ADMIN_S1Q11']),
-        supervisedStructureCount: f['ADMIN_S1Q12'] != null ? String(f['ADMIN_S1Q12']) : '',
-        ...buildS2S4Administration(f),
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
+        respondentName: str(f, 'S0Q01') || str(f, 'respondentName'),
+        respondentFunction: str(f, 'S0Q02') || str(f, 'respondentFunction'),
+        respondentPhone1: str(f, 'S0Q03_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+        respondentPhone2: str(f, 'S0Q03_TEL2') || str(f, 'respondentPhone2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL') || str(f, 'respondentEmail') || str(f, 'email'),
+        administrationName: str(f, 'ADMIN_S1Q01') || str(f, 'administrationName') || str(f, 'name'),
+        sigle: str(f, 'ADMIN_S1Q02') || str(f, 'sigle'),
+        area: mapArea(f['ADMIN_S1Q03'] ?? f['area']),
+        region: str(f, 'ADMIN_S1Q04_REGION') || str(f, 'region'),
+        department: str(f, 'ADMIN_S1Q04_DEPT') || str(f, 'department'),
+        subdivision: str(f, 'ADMIN_S1Q04_SUBDIV') || str(f, 'subdivision'),
+        locality: str(f, 'ADMIN_S1Q04_LOCALITY') || str(f, 'locality'),
+        phone1: str(f, 'ADMIN_S1Q05_TEL1') || str(f, 'phone1') || str(f, 'phone'),
+        phone2: str(f, 'ADMIN_S1Q05_TEL2') || str(f, 'phone2'),
+        poBox: str(f, 'ADMIN_S1Q05_BP') || str(f, 'poBox'),
+        businessSector: mapSector(f['ADMIN_S1Q06'] ?? f['businessSector']),
+        branchActivity: str(f, 'ADMIN_S1Q07') || str(f, 'branchActivity'),
+        mainMission: str(f, 'ADMIN_S1Q08') || str(f, 'mainMission'),
+        hasProject: mapYesNo(f['ADMIN_S1Q09'] ?? f['hasProject']),
+        projectCount: f['ADMIN_S1Q10'] != null ? String(f['ADMIN_S1Q10']) : (f['projectCount'] != null ? String(f['projectCount']) : ''),
+        hasSupervisedStructures: mapYesNo(f['ADMIN_S1Q11'] ?? f['hasSupervisedStructures']),
+        supervisedStructureCount: f['ADMIN_S1Q12'] != null ? String(f['ADMIN_S1Q12']) : (f['supervisedStructureCount'] != null ? String(f['supervisedStructureCount']) : ''),
+        ...buildS2S4Administration(f, locale),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
     };
 }
@@ -983,37 +1441,40 @@ export function mapAdministrationData(f: FlatData, quarterCode?: string | null) 
 // PDF (Questionnaire_Projet_et_Programmes.pdf) has not been verified,
 // matching the same deferred-visual-QA status Administration's mapper
 // carried after its own Phase 1.
-export function mapProjectProgramData(f: FlatData, quarterCode?: string | null) {
+export function mapProjectProgramData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     return {
-        respondentName: str(f, 'S0Q01'),
-        respondentFunction: str(f, 'S0Q02'),
-        respondentPhone1: str(f, 'S0Q03_TEL1'),
-        respondentPhone2: str(f, 'S0Q03_TEL2'),
-        respondentEmail: str(f, 'S0Q03_EMAIL'),
-        nature: str(f, 'PP_S1Q01'),
-        projectProgramName: str(f, 'PP_S1Q02'),
-        sigle: str(f, 'PP_S1Q03'),
-        personInCharge: str(f, 'PP_S1Q04'),
-        area: mapArea(f['PP_S1Q05']),
-        region: str(f, 'PP_S1Q06_REGION'),
-        department: str(f, 'PP_S1Q06_DEPT'),
-        subdivision: str(f, 'PP_S1Q06_SUBDIV'),
-        locality: str(f, 'PP_S1Q06_LOCALITY'),
-        phone1: str(f, 'PP_S1Q07_TEL1'),
-        phone2: str(f, 'PP_S1Q07_TEL2'),
-        poBox: str(f, 'PP_S1Q07_BP'),
-        businessSector: mapSector(f['PP_S1Q08']),
-        branchActivity: str(f, 'PP_S1Q09'),
-        mainMission: str(f, 'PP_S1Q10'),
-        headOffice: str(f, 'PP_S1Q11'),
-        supervisingMinistry: str(f, 'PP_S1Q12'),
-        status: str(f, 'PP_S1Q13'),
-        stopReason: str(f, 'PP_S1Q14'),
-        permanentWorkers: f['PP_S1Q15'] != null ? String(f['PP_S1Q15']) : '',
-        vacancies: f['PP_S1Q16'] != null ? String(f['PP_S1Q16']) : '',
-        ...buildS2S4ProjectProgram(f),
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
+        respondentName: str(f, 'S0Q01') || str(f, 'respondentName'),
+        respondentFunction: str(f, 'S0Q02') || str(f, 'respondentFunction'),
+        respondentPhone1: str(f, 'S0Q03_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+        respondentPhone2: str(f, 'S0Q03_TEL2') || str(f, 'respondentPhone2'),
+        respondentEmail: str(f, 'S0Q03_EMAIL') || str(f, 'respondentEmail') || str(f, 'email'),
+        nature: mapNature(f['PP_S1Q01'] ?? f['nature']),
+        projectProgramName: str(f, 'PP_S1Q02') || str(f, 'projectProgramName') || str(f, 'name'),
+        sigle: str(f, 'PP_S1Q03') || str(f, 'sigle'),
+        personInCharge: str(f, 'PP_S1Q04') || str(f, 'personInCharge'),
+        area: mapArea(f['PP_S1Q05'] ?? f['area']),
+        region: str(f, 'PP_S1Q06_REGION') || str(f, 'region'),
+        department: str(f, 'PP_S1Q06_DEPT') || str(f, 'department'),
+        subdivision: str(f, 'PP_S1Q06_SUBDIV') || str(f, 'subdivision'),
+        locality: str(f, 'PP_S1Q06_LOCALITY') || str(f, 'locality'),
+        phone1: str(f, 'PP_S1Q07_TEL1') || str(f, 'phone1') || str(f, 'phone'),
+        phone2: str(f, 'PP_S1Q07_TEL2') || str(f, 'phone2'),
+        poBox: str(f, 'PP_S1Q07_BP') || str(f, 'poBox'),
+        businessSector: mapSector(f['PP_S1Q08'] ?? f['businessSector']),
+        branchActivity: str(f, 'PP_S1Q09') || str(f, 'branchActivity'),
+        mainMission: str(f, 'PP_S1Q10') || str(f, 'mainMission'),
+        headOffice: str(f, 'PP_S1Q11') || str(f, 'headOffice'),
+        supervisingMinistry: str(f, 'PP_S1Q12') || str(f, 'supervisingMinistry'),
+        status: mapProjectStatus(f['PP_S1Q13'] ?? f['status']),
+        stopReason: mapStopReason(f['PP_S1Q14'] ?? f['stopReason']),
+        permanentWorkers: f['PP_S1Q15'] != null ? String(f['PP_S1Q15']) : (f['permanentWorkers'] != null ? String(f['permanentWorkers']) : ''),
+        vacancies: f['PP_S1Q16'] != null ? String(f['PP_S1Q16']) : (f['vacancies'] != null ? String(f['vacancies']) : ''),
+        ...buildS2S4ProjectProgram(f, locale),
         surveyYear: (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode),
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
     };
 }
@@ -1301,8 +1762,18 @@ function vtSpecialtyGenderTotalRows(f: FlatData, prefix: string, count: number) 
     });
 }
 
-export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | null) {
+function localizeSlashString(strVal: string, locale?: 'fr' | 'en'): string {
+    if (!strVal || !strVal.includes('/')) return strVal;
+    const parts = strVal.split('/');
+    if (parts.length === 2) {
+        return locale === 'en' ? parts[1].trim() : parts[0].trim();
+    }
+    return locale === 'en' ? parts[parts.length - 1].trim() : parts[0].trim();
+}
+
+export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | null, locale?: 'fr' | 'en') {
     const surveyYear = (f['surveyYear'] as number | undefined) ?? surveyYearFromQuarterCode(quarterCode);
+    const isEn = locale === 'en';
     // Best-effort "previous academic year" label for the 4.7/4.10/6.3
     // column headers (PDF prints e.g. "(2024-2025)" alongside a
     // "2025-2026" survey year) — surveyYear is treated as the survey's
@@ -1312,28 +1783,28 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
     // §4.7 age-flow grid, §4.8 education-level-flow grid, §4.9 vulnerable
     // grid all share the same entrant/sortant/abandon × gender shape.
     const apprenantsParAge = VT_AGE_BAND_ROWS.map((r) => ({
-        trancheAge: r.label,
+        trancheAge: localizeSlashString(r.label, locale),
         entrants: vtHF(f, 's4q7', `${r.key}_entrant`),
         sortants: vtHF(f, 's4q7', `${r.key}_sortant`),
         abandons: vtHF(f, 's4q7', `${r.key}_abandon`),
     }));
     const apprenantsParNiveauEtude = VT_EDUCATION_LEVEL_ROWS.map((r) => ({
-        niveau: r.label,
+        niveau: localizeSlashString(r.label, locale),
         entrants: vtWithTotal(vtHF(f, 's4q8', `${r.key}_entrant`)),
         sortants: vtWithTotal(vtHF(f, 's4q8', `${r.key}_sortant`)),
         abandons: vtWithTotal(vtHF(f, 's4q8', `${r.key}_abandon`)),
     }));
     const apprenantsVulnerabilites = VT_VULNERABLE_CATEGORY_ROWS.map((r) => ({
-        type: r.label,
+        type: localizeSlashString(r.label, locale),
         entrants: vtWithTotal(vtHF(f, 's4q9', `${r.key}_entrant`)),
         sortants: vtWithTotal(vtHF(f, 's4q9', `${r.key}_sortant`)),
         abandons: vtWithTotal(vtHF(f, 's4q9', `${r.key}_abandon`)),
     }));
 
-    const apprenantsParDiplomeAcademique = vtDiplomaTableRows(f, 's4q1', VT_ACADEMIC_DIPLOMA_ROWS);
-    const apprenantsParDiplomeProfessionnel = vtDiplomaTableRows(f, 's4q2', VT_PROFESSIONAL_DIPLOMA_ROWS);
-    const formateursParDiplomeAcademique = vtDiplomaTableRows(f, 's8q1', VT_ACADEMIC_DIPLOMA_ROWS);
-    const formateursParDiplomeProfessionnel = vtDiplomaTableRows(f, 's8q2', VT_PROFESSIONAL_DIPLOMA_ROWS);
+    const apprenantsParDiplomeAcademique = vtDiplomaTableRows(f, 's4q1', VT_ACADEMIC_DIPLOMA_ROWS.map((r) => ({ ...r, label: localizeSlashString(r.label, locale) })));
+    const apprenantsParDiplomeProfessionnel = vtDiplomaTableRows(f, 's4q2', VT_PROFESSIONAL_DIPLOMA_ROWS.map((r) => ({ ...r, label: localizeSlashString(r.label, locale) })));
+    const formateursParDiplomeAcademique = vtDiplomaTableRows(f, 's8q1', VT_ACADEMIC_DIPLOMA_ROWS.map((r) => ({ ...r, label: localizeSlashString(r.label, locale) })));
+    const formateursParDiplomeProfessionnel = vtDiplomaTableRows(f, 's8q2', VT_PROFESSIONAL_DIPLOMA_ROWS.map((r) => ({ ...r, label: localizeSlashString(r.label, locale) })));
 
     const apprenantsParAnneeEtude = Array.from({ length: 12 }, (_, i) => {
         const idx = i + 1;
@@ -1344,35 +1815,35 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
         };
     });
 
-    const formateursParTrancheAge = VT_TRAINER_AGE_BAND_ROWS.map((r) => ({ tranche: r.label, ...vtHF(f, 's8q3', r.key) }));
+    const formateursParTrancheAge = VT_TRAINER_AGE_BAND_ROWS.map((r) => ({ tranche: localizeSlashString(r.label, locale), ...vtHF(f, 's8q3', r.key) }));
 
     // §8.5 is six embedded Detail integers (design note: "embedded, not
     // normalized"), not a grid — no s8q5_* flat keys exist for it.
-    const vp = { statut: 'Formateurs vacataires professionnels/ Part-time vocational trainers', ...vtHF(f, 'VT8_5_VP', '').hommes !== undefined ? { hommes: str(f, 'VT8_5_VP_M'), femmes: str(f, 'VT8_5_VP_F') } : { hommes: '', femmes: '' } };
-    const vnp = { statut: 'Formateurs vacataires non professionnels/ Part-time non vocational trainers', hommes: str(f, 'VT8_5_VNP_M'), femmes: str(f, 'VT8_5_VNP_F') };
-    const perm = { statut: 'Formateurs Permanents/ Permanent trainers', hommes: str(f, 'VT8_5_PERM_M'), femmes: str(f, 'VT8_5_PERM_F') };
+    const vp = { statut: isEn ? 'Part-time vocational trainers' : 'Formateurs vacataires professionnels', hommes: str(f, 'VT8_5_VP_M'), femmes: str(f, 'VT8_5_VP_F') };
+    const vnp = { statut: isEn ? 'Part-time non vocational trainers' : 'Formateurs vacataires non professionnels', hommes: str(f, 'VT8_5_VNP_M'), femmes: str(f, 'VT8_5_VNP_F') };
+    const perm = { statut: isEn ? 'Permanent trainers' : 'Formateurs Permanents', hommes: str(f, 'VT8_5_PERM_M'), femmes: str(f, 'VT8_5_PERM_F') };
     const statutTotalH = (parseInt(vp.hommes, 10) || 0) + (parseInt(vnp.hommes, 10) || 0) + (parseInt(perm.hommes, 10) || 0);
     const statutTotalF = (parseInt(vp.femmes, 10) || 0) + (parseInt(vnp.femmes, 10) || 0) + (parseInt(perm.femmes, 10) || 0);
     const formateursParStatut = [
         { ...vp, total: String((parseInt(vp.hommes, 10) || 0) + (parseInt(vp.femmes, 10) || 0)) },
         { ...vnp, total: String((parseInt(vnp.hommes, 10) || 0) + (parseInt(vnp.femmes, 10) || 0)) },
         { ...perm, total: String((parseInt(perm.hommes, 10) || 0) + (parseInt(perm.femmes, 10) || 0)) },
-        { statut: 'Total/ Total', hommes: String(statutTotalH), femmes: String(statutTotalF), total: String(statutTotalH + statutTotalF) },
+        { statut: 'Total', hommes: String(statutTotalH), femmes: String(statutTotalF), total: String(statutTotalH + statutTotalF) },
     ];
 
     const formateursParHandicap = VT_TRAINER_DISABILITY_ROWS.map((r) => {
         const hf = vtHF(f, 's8q6', r.key);
-        return { type: r.label, ...vtWithTotal(hf) };
+        return { type: localizeSlashString(r.label, locale), ...vtWithTotal(hf) };
     });
 
     const apprenantsBourses = VT_SCHOLARSHIP_ROWS.map((r) => ({
-        type: r.label,
+        type: localizeSlashString(r.label, locale),
         octroyee: vtWithTotal(vtHF(f, 's4q11', `${r.key}_granted`)),
         beneficiee: vtWithTotal(vtHF(f, 's4q11', `${r.key}_received`)),
     }));
 
     const manuelsInfrastructures = VT_INFRASTRUCTURE_ROWS.map((r) => ({
-        type: r.label,
+        type: localizeSlashString(r.label, locale),
         total: str(f, `s5q3_${r.key}_totalCount`),
         bonEtat: str(f, `s5q3_${r.key}_permanentGoodCount`),
         mauvaisEtat: str(f, `s5q3_${r.key}_permanentBadCount`),
@@ -1409,40 +1880,43 @@ export function mapVocationalTrainingData(f: FlatData, quarterCode?: string | nu
     });
 
     return {
+        officialBannerText: getOfficialBannerText(locale),
+        locale: locale || 'fr',
+        lang: locale || 'fr',
         surveyYear,
         previousYearLabel,
-        ...collectionPeriodStrings(quarterCode),
+        ...collectionPeriodStrings(quarterCode, locale),
         copy: 'Original',
 
         identification: {
-            structureCode: str(f, 'VT1_1'),
-            nomCFP: str(f, 'VT1_2'),
-            sigle: str(f, 'VT1_3'),
-            region: { name: str(f, 'VT1_4'), code: '' },
-            departement: { name: str(f, 'VT1_5'), code: '' },
-            arrondissement: { name: str(f, 'VT1_6'), code: '' },
-            commune: str(f, 'VT1_7'),
-            villageQuartier: str(f, 'VT1_8'),
+            structureCode: str(f, 'VT1_1') || str(f, 'structureCode'),
+            nomCFP: str(f, 'VT1_2') || str(f, 'cfpName') || str(f, 'name'),
+            sigle: str(f, 'VT1_3') || str(f, 'sigle'),
+            region: { name: str(f, 'VT1_4') || str(f, 'region'), code: '' },
+            departement: { name: str(f, 'VT1_5') || str(f, 'department'), code: '' },
+            arrondissement: { name: str(f, 'VT1_6') || str(f, 'subdivision'), code: '' },
+            commune: str(f, 'VT1_7') || str(f, 'commune'),
+            villageQuartier: str(f, 'VT1_8') || str(f, 'villageQuartier') || str(f, 'locality'),
             milieu: vtAreaKey(f, 'VT1_9'),
-            ordreEnseignement: str(f, 'VT1_10'),
-            typeCFP: str(f, 'VT1_11'),
+            ordreEnseignement: str(f, 'VT1_10') || str(f, 'ordreEnseignement'),
+            typeCFP: str(f, 'VT1_11') || str(f, 'typeCFP'),
             situation: vtSituationKey(f, 'VT1_12'),
-            raisonNonFonctionnelle: str(f, 'VT1_13'),
+            raisonNonFonctionnelle: str(f, 'VT1_13') || str(f, 'raisonNonFonctionnelle'),
             raisonAutrePrecision: str(f, 'VT1_13_OTHER'),
-            anneeOuverture: str(f, 'VT1_14'),
+            anneeOuverture: str(f, 'VT1_14') || str(f, 'anneeOuverture') || str(f, 'yearOfCreation'),
             respondent: {
-                qualite: str(f, 'S0Q02'),
-                nomPrenoms: str(f, 'S0Q01'),
+                qualite: str(f, 'S0Q02') || str(f, 'VT1_15_TITLE') || str(f, 'respondentFunction'),
+                nomPrenoms: str(f, 'S0Q01') || str(f, 'VT1_15_NAME') || str(f, 'VT1_15_NOM') || str(f, 'respondentName'),
                 sexe: vtSexKey(f, 'VT1_15_SEX'),
-                telephone1: str(f, 'S0Q03_TEL1'),
-                telephone2: str(f, 'S0Q03_TEL2'),
+                telephone1: str(f, 'S0Q03_TEL1') || str(f, 'VT1_15_TEL1') || str(f, 'respondentPhone1') || str(f, 'respondentPhone'),
+                telephone2: str(f, 'S0Q03_TEL2') || str(f, 'VT1_15_TEL2') || str(f, 'respondentPhone2'),
             },
             promoteur: {
-                nomPrenoms: str(f, 'VT1_16_NAME'),
+                nomPrenoms: str(f, 'VT1_16_NAME') || str(f, 'promoterName'),
                 sexe: vtSexKey(f, 'VT1_16_SEX'),
-                telephone1: str(f, 'VT1_16_TEL1'),
-                telephone2: str(f, 'VT1_16_TEL2'),
-                email: str(f, 'VT1_16_EMAIL'),
+                telephone1: str(f, 'VT1_16_TEL1') || str(f, 'promoterPhone1'),
+                telephone2: str(f, 'VT1_16_TEL2') || str(f, 'promoterPhone2'),
+                email: str(f, 'VT1_16_EMAIL') || str(f, 'promoterEmail'),
             },
         },
         // Structural only for 1.10/1.11/1.13 — see the block comment above

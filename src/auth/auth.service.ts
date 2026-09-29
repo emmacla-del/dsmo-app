@@ -15,6 +15,8 @@ import { NotificationService } from '../dsmo/notification.service';
 import { PdfService } from '../dsmo/pdf.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { computeOnefopFeatures } from '../common/onefop-features.util';
+import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
+import { assertCanManageRole, manageableRolesFor } from './staff-scope';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -539,13 +541,24 @@ export class AuthService {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
 
-    const existingCompany = await this.prisma.company.findUnique({
-      where: { taxNumber: companyData.taxNumber },
-    });
-    if (existingCompany) {
-      throw new BadRequestException(
-        'Une entreprise avec ce numéro contribuable existe déjà',
-      );
+    // Only enforce the NIU-uniqueness check for entity types that actually
+    // collect one (enterprise/cooperative/CTD/ONG/VT). Administration and
+    // ProjectProgram registration has no taxNumber field in the UI (public
+    // administrations and supervised projects/programs don't have a
+    // taxpayer number), so companyData.taxNumber arrives as ''. Company.
+    // taxNumber is @unique, so checking/storing '' verbatim would let the
+    // first such registration through and reject every subsequent one with
+    // a false "already exists" — skip the check, and see the synthetic
+    // fallback generated below instead of storing the empty string.
+    if (companyData.taxNumber) {
+      const existingCompany = await this.prisma.company.findUnique({
+        where: { taxNumber: companyData.taxNumber },
+      });
+      if (existingCompany) {
+        throw new BadRequestException(
+          'Une entreprise avec ce numéro contribuable existe déjà',
+        );
+      }
     }
 
     // ✅ GENERATE ESTABLISHMENT ID
@@ -563,6 +576,15 @@ export class AuthService {
         subdivisionCode,
       );
     }
+
+    // Entity types with no real NIU still need a unique, non-empty value
+    // to satisfy Company.taxNumber's unique constraint. Derive it from the
+    // just-generated establishmentId (already guaranteed unique) rather
+    // than storing '' — falls back to a random id on the rare path where
+    // establishmentId itself couldn't be generated.
+    const resolvedTaxNumber =
+      companyData.taxNumber ||
+      `NA-${establishmentId ?? crypto.randomUUID()}`;
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -594,7 +616,7 @@ export class AuthService {
           subdivision: companyData.subdivision,
           address: companyData.address,
           fax: companyData.fax,
-          taxNumber: companyData.taxNumber,
+          taxNumber: resolvedTaxNumber,
           cnpsNumber: companyData.cnpsNumber,
           socialCapital: companyData.socialCapital,
           entityType: companyData.entityType as any,
@@ -774,9 +796,10 @@ export class AuthService {
     return { available: !user };
   }
 
-  async approveUser(id: string) {
+  async approveUser(id: string, actorRole: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    assertCanManageRole(actorRole, user.role);
     if (user.role === 'COMPANY') {
       throw new BadRequestException('Les entreprises sont automatiquement approuvées');
     }
@@ -789,9 +812,10 @@ export class AuthService {
     });
   }
 
-  async rejectUser(id: string) {
+  async rejectUser(id: string, actorRole: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    assertCanManageRole(actorRole, user.role);
     if (user.role === 'COMPANY') {
       throw new BadRequestException('Les entreprises ne peuvent pas être rejetées');
     }
@@ -820,33 +844,21 @@ export class AuthService {
    * roster, and approveUser/rejectUser already special-case COMPANY out
    * of the equivalent pending-list query above.
    */
-  async listUsers(params: {
-    search?: string;
-    role?: string;
-    status?: string;
-    isActive?: string;
-    page?: number;
-    pageSize?: number;
-  }) {
+  async listUsers(
+    params: Omit<UserListFilterParams, 'allowedRoles'> & {
+      page?: number;
+      pageSize?: number;
+    },
+    actorRole: string,
+  ) {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize =
       params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
 
-    const where: any = { role: { not: 'COMPANY' } };
-    if (params.role) where.role = params.role;
-    if (params.status) where.status = params.status;
-    if (params.isActive !== undefined) where.isActive = params.isActive === 'true';
-
-    const term = params.search?.trim();
-    if (term) {
-      where.OR = [
-        { email: { contains: term, mode: 'insensitive' } },
-        { firstName: { contains: term, mode: 'insensitive' } },
-        { lastName: { contains: term, mode: 'insensitive' } },
-        { matricule: { contains: term, mode: 'insensitive' } },
-        { serviceCode: { contains: term, mode: 'insensitive' } },
-      ];
-    }
+    const where: any = buildUserListWhere({
+      ...params,
+      allowedRoles: manageableRolesFor(actorRole),
+    });
 
     const [total, users] = await Promise.all([
       this.prisma.user.count({ where }),
@@ -875,7 +887,7 @@ export class AuthService {
     return { users, total, page, pageSize };
   }
 
-  async updateUserRole(id: string, role: string, actingUserId: string) {
+  async updateUserRole(id: string, role: string, actingUserId: string, actorRole: string) {
     if (id === actingUserId) {
       throw new BadRequestException('Vous ne pouvez pas modifier votre propre rôle');
     }
@@ -884,6 +896,9 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    // Both the account and the role being granted must be in scope.
+    assertCanManageRole(actorRole, user.role);
+    assertCanManageRole(actorRole, role);
     if (user.role === 'COMPANY') {
       throw new BadRequestException(
         'Le rôle des comptes entreprise ne peut pas être modifié',
@@ -895,7 +910,7 @@ export class AuthService {
     });
   }
 
-  async setUserActive(id: string, isActive: boolean, actingUserId: string) {
+  async setUserActive(id: string, isActive: boolean, actingUserId: string, actorRole: string) {
     if (id === actingUserId) {
       throw new BadRequestException(
         isActive
@@ -905,6 +920,7 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    assertCanManageRole(actorRole, user.role);
     return this.prisma.user.update({
       where: { id },
       data: { isActive },
@@ -958,12 +974,13 @@ export class AuthService {
    * instead. Only accounts with zero linked records can actually be
    * hard-deleted.
    */
-  async deleteUser(id: string, actingUserId: string) {
+  async deleteUser(id: string, actingUserId: string, actorRole: string) {
     if (id === actingUserId) {
       throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte');
     }
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    assertCanManageRole(actorRole, user.role);
     try {
       await this.prisma.user.delete({ where: { id } });
       return { message: 'Utilisateur supprimé avec succès.' };

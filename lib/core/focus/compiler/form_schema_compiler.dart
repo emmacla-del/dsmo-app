@@ -7,6 +7,7 @@ import '../schema/form_schema_v2.dart';
 import '../schema/grid_schema.dart';
 import '../schema/navigation_graph.dart';
 import '../schema/types.dart';
+import '../renderers/vt_table_defs.dart';
 import 'form_ast.dart';
 
 class FormSchemaCompiler {
@@ -90,6 +91,7 @@ class FormSchemaCompiler {
               tableSpec: q.tableSpec,
               dependsOn: q.dependsOn,
               dependsValue: q.dependsValue,
+              dependsOperator: q.dependsOperator,
               // questionText stays a plain (French) String as a last-resort
               // fallback only — every render site now prefers the
               // locale-aware `label` (LocalizedText) and falls back to this
@@ -134,8 +136,12 @@ class FormSchemaCompiler {
     // 4. Build grids for table fields
     final grids = <GridSchema>[];
     for (final field in allFields) {
-      if (field.type == 'table' && field.tableSpec != null) {
-        final grid = _buildGridFromTableSpec(field);
+      if ((field.type == 'table' || field.type == 'repeating_table') &&
+          field.tableSpec != null) {
+        final template = field.tableSpec!['template'] as String?;
+        final grid = (template != null && template.startsWith('vt_'))
+            ? _buildVtGrid(field.tableSpec!)
+            : (field.type == 'table' ? _buildGridFromTableSpec(field) : null);
         if (grid != null) {
           grids.add(grid);
         }
@@ -197,6 +203,30 @@ class FormSchemaCompiler {
     );
   }
 
+  // VT tables (Sections 4/5/8) never had a GridSchema at all — every
+  // vt_* template fell through _buildGridFromTableSpec's `default: return
+  // null` below, since none of the hand-written per-template builders
+  // there know about VT's shape. Reuses the real VtTableDef
+  // (vtTableDefFor, vt_table_defs.dart) instead of re-deriving VT's row/
+  // cell layout a second time, so this can never drift from what
+  // VtSpreadsheetTable/VtRowEditor actually render and register with
+  // ctrl.fm.getNode(id) — see VtTableDef.cellId(). Built from the
+  // table's full row list, not the runtime-filtered visible subset
+  // (roster/progressiveRows reveal rows as they're filled) — a
+  // not-yet-revealed row simply has no live focus target yet, same as
+  // any other "schema knows about it, nothing to focus there yet" case.
+  static GridSchema? _buildVtGrid(Map<String, dynamic> tableSpec) {
+    final template = tableSpec['template'] as String;
+    final def = vtTableDefFor(template, tableSpec);
+    if (def == null) return null;
+
+    final matrix = <List<String>>[
+      for (final row in def.rows)
+        [for (final cell in def.cells) def.cellId(row, cell)],
+    ];
+    return GridSchema(id: def.prefix, matrix: matrix);
+  }
+
   // Helper to build GridSchema from tableSpec
   static GridSchema? _buildGridFromTableSpec(FieldSchema field) {
     final tableSpec = field.tableSpec;
@@ -220,6 +250,11 @@ class FormSchemaCompiler {
         return _buildDismissalUnemploymentGrid(prefix, tableSpec);
       case 'internship_table':
         return _buildInternshipGrid(prefix);
+      case 'vulnerable_table':
+      case 'vulnerable_named_rows_table':
+        return _buildVulnerableNamedRowsGrid(prefix, tableSpec);
+      case 'kpi_period_table':
+        return _buildKpiPeriodGrid(prefix, tableSpec);
       default:
         return null;
     }
@@ -257,32 +292,39 @@ class FormSchemaCompiler {
     return GridSchema(id: prefix, matrix: matrix);
   }
 
+  /// Optional status dimension of a table. Absent → [fallback] (every
+  /// existing table, keys unchanged); an explicit empty list → no status
+  /// dimension at all (Administration S21Q03/S21Q04, which have no
+  /// permanent/temporary split), giving `${prefix}_${row}_$gender` keys.
+  static List<String> _statusesOf(
+      Map<String, dynamic> tableSpec, List<String> fallback) {
+    final raw = tableSpec['statuses'];
+    if (raw is List) return raw.cast<String>();
+    return fallback;
+  }
+
+  static String _cellKey(String prefix, String row, String? status, String gender) =>
+      status == null ? '${prefix}_${row}_$gender' : '${prefix}_${row}_${status}_$gender';
+
   static GridSchema _buildCspStatusGenderGrid(
       String prefix, Map<String, dynamic> tableSpec) {
     final rows = (tableSpec['rows'] as List?)?.cast<String>() ??
         ['cadres', 'foremen', 'workers'];
-    final statuses = ['permanent', 'temporary'];
+    final declared = _statusesOf(tableSpec, ['permanent', 'temporary']);
+    final List<String?> statuses = declared.isEmpty ? [null] : [...declared];
     final genders = ['male', 'female', 'total'];
 
     final matrix = <List<String>>[];
 
-    for (final row in rows) {
+    for (final row in [...rows, 'total']) {
       final rowCells = <String>[];
       for (final status in statuses) {
         for (final gender in genders) {
-          rowCells.add('${prefix}_${row}_${status}_$gender');
+          rowCells.add(_cellKey(prefix, row, status, gender));
         }
       }
       matrix.add(rowCells);
     }
-
-    final totalRow = <String>[];
-    for (final status in statuses) {
-      for (final gender in genders) {
-        totalRow.add('${prefix}_total_${status}_$gender');
-      }
-    }
-    matrix.add(totalRow);
 
     return GridSchema(id: prefix, matrix: matrix);
   }
@@ -475,6 +517,50 @@ class FormSchemaCompiler {
       totalRow.add('${prefix}_total_$gender');
     }
     matrix.add(totalRow);
+
+    return GridSchema(id: prefix, matrix: matrix);
+  }
+
+  static GridSchema _buildVulnerableNamedRowsGrid(
+      String prefix, Map<String, dynamic> tableSpec) {
+    const dataRows = ['deplaces_internes', 'refugies', 'orphelins'];
+    // With statuses, a status-total column group follows them (unchanged
+    // S22Q05 keys); without, the table is nature × sex only (S21Q04).
+    final declared = _statusesOf(tableSpec, ['permanent', 'temporary']);
+    final List<String?> statuses =
+        declared.isEmpty ? [null] : [...declared, 'total'];
+    const genders = ['male', 'female', 'total'];
+
+    final matrix = <List<String>>[];
+
+    for (final row in [...dataRows, 'total']) {
+      final rowCells = <String>[];
+      for (final status in statuses) {
+        for (final gender in genders) {
+          rowCells.add(_cellKey(prefix, row, status, gender));
+        }
+      }
+      matrix.add(rowCells);
+    }
+
+    return GridSchema(id: prefix, matrix: matrix);
+  }
+
+  static GridSchema _buildKpiPeriodGrid(
+      String prefix, Map<String, dynamic> tableSpec) {
+    final rows = (tableSpec['rows'] as List?)?.cast<String>() ??
+        ['employed', 'self_employed', 'jobs_created', 'trained'];
+    final periods = (tableSpec['periods'] as List?)?.cast<String>() ??
+        ['current', 'outlook_dec', 'outlook_june'];
+
+    final matrix = <List<String>>[];
+    for (final row in rows) {
+      final rowCells = <String>[];
+      for (final period in periods) {
+        rowCells.add('${prefix}_${row}_$period');
+      }
+      matrix.add(rowCells);
+    }
 
     return GridSchema(id: prefix, matrix: matrix);
   }

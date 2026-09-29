@@ -9,7 +9,7 @@
     carried after its own Phase 1. }}
 {{#with this}}
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{lang}}">
 
 <head>
   <meta charset="utf-8" />
@@ -299,25 +299,25 @@
   <table class="dt">
     <thead>
       <tr>
-        <th style="width:16%;background:#BFBFBF;color:#000">Sexe/ <em>Sex</em></th>
-        <th colspan="4">Masculin/ <em>Male</em></th>
-        <th colspan="4">F&#233;minin/ <em>Female</em></th>
-        <th colspan="4">TOTAL</th>
+        <th style="width:16%;background:#BFBFBF;color:#000">{{t "common.table.sex"}}</th>
+        <th colspan="4">{{t "common.table.male"}}</th>
+        <th colspan="4">{{t "common.table.female"}}</th>
+        <th colspan="4">{{t "common.table.total"}}</th>
       </tr>
       <tr>
-        <th class="g">Tranche d&#8217;&#226;ge (ans)/<br /><em>Age group (years)</em></th>
-        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-        <th class="g">35 et +<br /><em>35 and<br />above</em></th>
-        <th class="g">Total</th>
-        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-        <th class="g">35 et +<br /><em>35 and<br />above</em></th>
-        <th class="g">Total</th>
-        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-        <th class="g">35 et +<br /><em>35 and<br />above</em></th>
-        <th class="g">Total</th>
+        <th class="g">{{t "common.table.age_group"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
+        <th class="g">{{t "common.table.total"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
+        <th class="g">{{t "common.table.total"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
+        <th class="g">{{t "common.table.total"}}</th>
       </tr>
     </thead>
     <tbody>
@@ -363,18 +363,18 @@
   <table class="dt">
     <thead>
       <tr>
-        <th rowspan="2" style="width:28%;background:#D0CECE;color:#000">{{#if headerLabel}}{{{headerLabel}}}{{else}}CSP/ <em>SPC</em>{{/if}}</th>
-        <th class="r" colspan="3">Permanent/ <em>Permanent</em></th>
-        <th class="r" colspan="3">Temporaire/ <em>Temporary</em></th>
-        <th class="r">Total</th>
+        <th rowspan="2" style="width:28%;background:#D0CECE;color:#000">{{#if headerLabel}}{{{headerLabel}}}{{else}}{{t "common.table.csp"}}{{/if}}</th>
+        <th class="r" colspan="3">{{t "common.table.permanent"}}</th>
+        <th class="r" colspan="3">{{t "common.table.temporary"}}</th>
+        <th class="r">{{t "common.table.total"}}</th>
       </tr>
       <tr>
-        <th class="r">M</th>
-        <th class="r">F</th>
-        <th class="r">T</th>
-        <th class="r">M</th>
-        <th class="r">F</th>
-        <th class="r">T</th>
+        <th class="r">{{t "common.table.m"}}</th>
+        <th class="r">{{t "common.table.f"}}</th>
+        <th class="r">{{t "common.table.t"}}</th>
+        <th class="r">{{t "common.table.m"}}</th>
+        <th class="r">{{t "common.table.f"}}</th>
+        <th class="r">{{t "common.table.t"}}</th>
         <th class="r">&nbsp;</th>
       </tr>
     </thead>
@@ -411,166 +411,131 @@
   <div class="page">
 
     <div class="hdr">
-      <div class="hdr-top">
-        <div class="hdr-fr">
-          <div class="co">REPUBLIQUE DU CAMEROUN</div>
-          <div>Paix &#8211; Travail &#8211; Patrie</div>
-          <div class="sep">-----------</div>
-          <div><strong>MINISTERE DE L&#8217;EMPLOI ET DE LA FORMATION PROFESSIONNELLE</strong></div>
-          <div class="sep">-----------</div>
-          <div>SECRETARIAT GENERAL</div>
-          <div class="sep">-----------</div>
-          <div>OBSERVATOIRE NATIONAL DE L&#8217;EMPLOI ET DE LA FORMATION PROFESSIONNELLE</div>
-          <div class="sep">-----------</div>
-        </div>
-        <div class="hdr-logo-c">
-          {{#if logoBase64}}<img src="{{logoBase64}}" alt="ONEFOP" />{{/if}}
-          <div class="ltag">OBSERVATOIRE NATIONAL DE L&#8217;EMPLOI<br />ET DE LA FORMATION PROFESSIONNELLE</div>
-        </div>
-        <div class="hdr-en">
-          <div class="co">REPUBLIC OF CAMEROON</div>
-          <div>Peace &#8211; Work &#8211; Fatherland</div>
-          <div class="sep">-----------</div>
-          <div><strong>MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING</strong></div>
-          <div class="sep">-----------</div>
-          <div>SECRETARIAT GENERAL</div>
-          <div class="sep">-----------</div>
-          <div>NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL TRAINING</div>
-          <div class="sep">-----------</div>
-        </div>
-      </div>
+      {{> letterhead}}
       <div class="hdr-bar">
-        <div class="t1">COLLECTE DES DONNEES SUR LES EMPLOIS CREES PAR LE SECTEUR MODERNE DE L&#8217;ECONOMIE /
-          COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY</div>
-        <div class="t2">- Questionnaire Projets, Programmes et Structures sous-tutelle / Questionnaire on Projects,
-          Programs and Structures under supervision -</div>
+        <div class="t1">{{t "common.survey_title"}}</div>
+        <div class="t2">{{t "projectProgram.subtitle"}}</div>
+        <div style="font-size:6.5pt;color:#D9E1F2;margin-top:1.2mm;letter-spacing:0.3px;">{{#if officialBannerText}}{{officialBannerText}}{{else}}Formulaire officiel ONEFOP &middot; Document g&eacute;n&eacute;r&eacute; via la plateforme CAM-LEAP{{/if}}</div>
       </div>
     </div>
 
     <div class="conf">
-      <strong>Les informations contenues dans ce document sont confidentielles et ne pourront &#234;tre utilis&#233;es
-        &#224; des fins de poursuites judiciaires, de contr&#244;le fiscal ou de r&#233;pression &#233;conomique,
-        conform&#233;ment &#224; la Loi N&#176; 2020/010 du 20 juillet 2020 relative aux recensements et enqu&#234;tes
-        Statistiques.</strong> / <em>The information contained in this document is confidential and may not be used for
-        legal proceedings, fiscal control or economic repression, in accordance with Law N<sup>o</sup> 2020/010 of 20
-        July 2020 on censuses and statistical surveys.</em>
+      <strong>{{t "common.confidentiality"}}</strong>
     </div>
 
-    <div class="sec">SECTION 0. &nbsp; IDENTIFICATION DU REPONDANT / <em>IDENTIFICATION OF RESPONDENT</em></div>
+    <div class="sec">{{t "projectProgram.sec0_title"}}</div>
 
     <table class="ftable">
       <tr>
         <td class="fc">S0Q01</td>
-        <td>Noms, pr&#233;noms du r&#233;pondant/ <em>Respondent&#8217;s full name</em> : {{respondentName}}</td>
+        <td>{{t "common.s0.name"}} {{respondentName}}</td>
       </tr>
       <tr>
         <td class="fc">S0Q02</td>
-        <td>Fonction du r&#233;pondant/ <em>Respondent&#8217;s function</em> : {{respondentFunction}}</td>
+        <td>{{t "common.s0.function"}} {{respondentFunction}}</td>
       </tr>
       <tr>
         <td class="fc" style="vertical-align:top">S0Q03</td>
         <td>
-          Contacts r&#233;pondant/ <em>Respondent&#8217;s contacts</em> :
+          {{t "common.s0.contacts"}}
           T&#233;l 1 : {{respondentPhone1}} &nbsp; T&#233;l 2 : {{respondentPhone2}}<br />
           E-mail : {{respondentEmail}}
         </td>
       </tr>
     </table>
 
-    <div class="sec-s1"><em>SECTION 1. &nbsp; IDENTIFICATION DE LA STRUCTURE / STRUCTURE DETAILS</em></div>
+    <div class="sec">{{t "projectProgram.sec1_title"}}</div>
 
     <table class="ftable">
       <tr>
         <td class="fc">S1Q01</td>
-        <td>Nature de la structure/ <em>Nature of the structure</em> &nbsp;
-          <span class="radio-opt">{{#if (eq nature 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Projet/ <em>Project</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq nature 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Programme/ <em>Program</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq nature 3)}}&#9745;{{else}}&#9744;{{/if}} 3.Structure sous-tutelle/ <em>Under supervision</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq nature 4)}}&#9745;{{else}}&#9744;{{/if}} 4.Autres/ <em>Other</em></span>
+        <td>{{t "projectProgram.s1q01"}} &nbsp;
+          <span class="radio-opt">{{#if (eq nature 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q01_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q01_2"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 3)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q01_3"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq nature 4)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q01_4"}}</span>
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q02</td>
-        <td>Nom/ <em>Name</em> : {{projectProgramName}}</td>
+        <td>{{t "projectProgram.s1q02"}} {{projectProgramName}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q03</td>
-        <td>Sigle ou acronyme/ <em>Abbreviation or acronym</em> : {{sigle}}</td>
+        <td>{{t "projectProgram.s1q03"}} {{sigle}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q04</td>
-        <td>Nom du Responsable/ <em>Name of the person in charge</em> : {{personInCharge}}</td>
+        <td>{{t "projectProgram.s1q04"}} {{personInCharge}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q05</td>
-        <td>Milieu de r&#233;sidence/ <em>Area</em> &nbsp;
-          <span class="radio-opt">{{#if (eq area 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Urbain/ <em>Urban</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq area 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Rural/ <em>Rural</em></span>
+        <td>{{t "projectProgram.s1q05"}} &nbsp;
+          <span class="radio-opt">{{#if (eq area 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q05_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq area 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q05_2"}}</span>
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q06</td>
-        <td>R&#233;gion/ <em>Region</em> : {{region}} &nbsp;
-          D&#233;partement/ <em>Division</em> : {{department}}<br />
-          Arrondissement/ <em>Subdivision</em> : {{subdivision}} &nbsp;
-          Quartier/Village/Localit&#233;/ <em>Neighborhood/Village/Locality</em> : {{locality}}
+        <td>{{t "projectProgram.s1q06_region"}} {{region}} &nbsp; {{t "projectProgram.s1q06_dept"}} {{department}}<br />
+          {{t "projectProgram.s1q06_subdiv"}} {{subdivision}} &nbsp; {{t "projectProgram.s1q06_locality"}} {{locality}}
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q07</td>
-        <td>T&#233;l 1/ <em>Tel 1</em> : {{phone1}} &nbsp;
-          T&#233;l 2/ <em>Tel 2</em> : {{phone2}} &nbsp;
-          BP/ <em>PO Box</em> : {{poBox}}
+        <td>{{t "projectProgram.s1q07_tel1"}} {{phone1}} &nbsp; {{t "projectProgram.s1q07_tel2"}} {{phone2}} &nbsp; {{t "projectProgram.s1q07_bp"}} {{poBox}}
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q08</td>
-        <td>Secteur d&#8217;activit&#233;/ <em>Business sector</em> &nbsp;
-          <span class="radio-opt">{{#if (eq businessSector 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Primaire/ <em>Primary</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq businessSector 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Secondaire/ <em>Secondary</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq businessSector 3)}}&#9745;{{else}}&#9744;{{/if}} 3.Tertiaire/ <em>Tertiary</em></span>
+        <td>{{t "projectProgram.s1q08"}} &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q08_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q08_2"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 3)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q08_3"}}</span>
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q09</td>
-        <td>Branche d&#8217;activit&#233;/ <em>Branch of activity</em> : {{branchActivity}}</td>
+        <td>{{t "projectProgram.s1q09"}} {{branchActivity}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q10</td>
-        <td>Objectif ou mission principale/ <em>Objective or main mission</em> : {{mainMission}}</td>
+        <td>{{t "projectProgram.s1q10"}} {{mainMission}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q11</td>
-        <td>Si&#232;ge social/ <em>Head office</em> : {{headOffice}}</td>
+        <td>{{t "common.s1.head_office"}} {{headOffice}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q12</td>
-        <td>Minist&#232;re/ Organisme tutelle/ <em>Ministry/ Organisation under supervision</em> : {{supervisingMinistry}}</td>
+        <td>{{t "projectProgram.s1q12"}} {{supervisingMinistry}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q13</td>
-        <td>Situation du Projet / Programme/ <em>Project / Programme Status</em> &nbsp;
-          <span class="radio-opt">{{#if (eq status 1)}}&#9745;{{else}}&#9744;{{/if}} 1.En arr&#234;t/ <em>Stopped</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq status 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Actif/ <em>Active</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq status 3)}}&#9745;{{else}}&#9744;{{/if}} 3.En cours de d&#233;marrage/ <em>Starting up</em></span>
+        <td>{{t "projectProgram.s1q13"}} &nbsp;
+          <span class="radio-opt">{{#if (eq status 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q13_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq status 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q13_2"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq status 3)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q13_3"}}</span>
         </td>
       </tr>
+      {{#if (eq status 1)}}
       <tr>
         <td class="fc">S1Q14</td>
-        <td>Si en arr&#234;t, motif/ <em>If stopped, reason</em> &nbsp;
-          <span class="radio-opt">{{#if (eq stopReason 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Arriv&#233; &#224; terme/ <em>Expired</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq stopReason 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Manque de fonds/ <em>Lack of funds</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq stopReason 3)}}&#9745;{{else}}&#9744;{{/if}} 3.R&#233;sultats insuffisants/ <em>Insufficient results</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq stopReason 4)}}&#9745;{{else}}&#9744;{{/if}} 4.Autre/ <em>Other</em></span>
+        <td>{{t "projectProgram.s1q14"}} &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q14_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q14_2"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 3)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q14_3"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq stopReason 4)}}&#9745;{{else}}&#9744;{{/if}} {{t "projectProgram.s1q14_4"}}</span>
         </td>
       </tr>
+      {{/if}}
       <tr>
         <td class="fc">S1Q15</td>
-        <td>Nombre d&#8217;employ&#233; permanent/ <em>Number of permanent workers</em> : {{permanentWorkers}}</td>
+        <td>{{t "common.s1.permanent_workers"}} {{permanentWorkers}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q16</td>
-        <td>Nombre de poste vacant/ <em>Number of vacancies</em> : {{vacancies}}</td>
+        <td>{{t "common.s1.vacancies"}} {{vacancies}}</td>
       </tr>
     </table>
 
@@ -579,19 +544,18 @@
   {{! ══ PAGE 2: Section 2 activities table ══════════════════════════════ }}
   <div class="page">
 
-    <div class="sec">SECTION 2. &nbsp; RENSEIGNEMENTS SUR LA STRUCTURE SOUS-TUTELLE/ PROJET ET PROGRAMME /
-      <em>INFORMATION ON THE STRUCTURE UNDER SUPERVISION/PROJECT AND PROGRAM</em></div>
+    <div class="sec">{{t "projectProgram.sec2_title"}}</div>
 
     <table class="dt">
       <thead>
         <tr>
-          <th style="width:6%">#</th>
-          <th style="width:24%">Prestations offertes/ <em>Services offered</em></th>
-          <th style="width:16%">Population cible/ <em>Target population</em></th>
-          <th style="width:18%">Nature de l&#8217;appui/ <em>Type of support</em></th>
-          <th style="width:12%">Rayon d&#8217;action/ <em>Scope</em></th>
-          <th style="width:12%">Date de d&#233;but/ <em>Start date</em></th>
-          <th style="width:12%">Dur&#233;e/ <em>Duration</em></th>
+          <th style="width:6%">{{t "projectProgram.activities.num"}}</th>
+          <th style="width:24%">{{t "projectProgram.activities.description"}}</th>
+          <th style="width:16%">{{t "projectProgram.activities.target"}}</th>
+          <th style="width:18%">{{t "projectProgram.activities.support"}}</th>
+          <th style="width:12%">{{t "projectProgram.activities.scope"}}</th>
+          <th style="width:12%">{{t "projectProgram.activities.start_date"}}</th>
+          <th style="width:12%">{{t "projectProgram.activities.duration"}}</th>
         </tr>
       </thead>
       <tbody>
@@ -608,7 +572,7 @@
         {{/each}}
         {{#unless activitiesRows}}
         <tr>
-          <td colspan="7" class="lb">Aucune activit&#233; d&#233;clar&#233;e/ <em>No activity reported</em></td>
+          <td colspan="7" class="lb">{{#if (eq @root.lang "en")}}No activity reported{{else}}Aucune activité déclarée{{/if}}</td>
         </tr>
         {{/unless}}
       </tbody>
@@ -619,15 +583,15 @@
   {{! ══ PAGE 3: Section 3 outcomes + Section 4 recruitment tables ═══════ }}
   <div class="page">
 
-    <div class="sec">SECTION 3. &nbsp; EMPLOI ET TRAVAIL / <em>EMPLOYMENT AND LABOUR</em></div>
+    <div class="sec">{{t "projectProgram.sec3_title"}}</div>
 
     <table class="dt">
       <thead>
         <tr>
-          <th style="width:40%">Activit&#233; de la structure/ <em>Activity</em></th>
-          <th>Du 1er Janvier {{surveyYear}} &#224; ce jour/ <em>From 1st January {{surveyYear}} to date</em></th>
-          <th>Perspectives au 31/12/ <em>Outlook at 31/12</em></th>
-          <th>Perspectives au 30/06/ <em>Outlook at 30/06</em></th>
+          <th style="width:40%">{{t "projectProgram.outcomes.kpi"}}</th>
+          <th>{{t "projectProgram.outcomes.current"}}</th>
+          <th>{{t "projectProgram.outcomes.outlook_dec"}}</th>
+          <th>{{t "projectProgram.outcomes.outlook_june"}}</th>
         </tr>
       </thead>
       <tbody>
@@ -642,19 +606,12 @@
       </tbody>
     </table>
 
-    <div class="sec">SECTION 4. &nbsp; DETAILS SUR LES RESENCEMENTS ET RECRUTEMENTS / <em>DETAILS ON APPOINTMENTS AND
-      RECRUITMENTS</em></div>
+    <div class="sec">{{t "projectProgram.sec4_title"}}</div>
 
-    <div class="qt"><strong>S4Q01 :</strong> Combien de permanents avez-vous recens&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
-      <em>How many permanent workers per socio-professional category, gender and age group did you count from
-        {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "projectProgram.s4q01" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=countedPermanentRows totals=countedPermanentTotals}}
 
-    <div class="qt"><strong>S4Q02 :</strong> Combien de temporaires avez-vous recens&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
-      <em>How many temporary workers per socio-professional category, gender and age group did you count from
-        {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "projectProgram.s4q02" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=countedTemporaryRows totals=countedTemporaryTotals}}
 
   </div>
@@ -662,28 +619,16 @@
   {{! ══ PAGE 4: Section 4 continued ══════════════════════════════════════ }}
   <div class="page">
 
-    <div class="qt"><strong>S4Q03 :</strong> Combien de permanents avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
-      <em>How many permanent workers per socio-professional category, gender and age group did you recruit from
-        {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "projectProgram.s4q03" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=recruitedPermanentRows totals=recruitedPermanentTotals}}
 
-    <div class="qt"><strong>S4Q04 :</strong> Combien de temporaires avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/
-      <em>How many temporary workers per socio-professional category, gender and age group did you recruit from
-        {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "projectProgram.s4q04" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=recruitedTemporaryRows totals=recruitedTemporaryTotals}}
 
-    <div class="qt"><strong>S4Q05 :</strong> Combien de personnes en situation de handicap avez-vous recrut&#233;
-      selon la cat&#233;gorie socio professionnelle, le sexe et le statut du
-      <strong>{{collectionPeriodFr}}</strong>?/ <em>How many workers with a disability per socio-professional
-        category, gender, and status did you recruit from {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "projectProgram.s4q05" collectionPeriod=collectionPeriod}}</div>
     {{> permTempTable rows=disabledRecruitmentsRows totals=disabledRecruitmentsTotals}}
 
-    <div class="qt"><strong>S4Q06 :</strong> Combien de personnes vuln&#233;rables avez-vous recrut&#233; selon le
-      statut et la nature de la vuln&#233;rabilit&#233; du <strong>{{collectionPeriodFr}}</strong>?/
-      <em>How many vulnerable workers per socio-professional category, gender, and status did you recruit from
-        {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "projectProgram.s4q06" collectionPeriod=collectionPeriod}}</div>
     {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals}}
 
   </div>

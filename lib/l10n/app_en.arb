@@ -1,6 +1,5 @@
 {
   "@@locale": "en",
-
   "requiredField": "Required field",
   "telExactly9Digits": "Number must be exactly 9 digits",
   "telMustStartWith2Or6": "Number must start with 2 (landline) or 6 (mobile)",
@@ -43,12 +42,10 @@
   "male": "Male",
   "female": "Female",
   "total": "Total",
-
   "languageSettingTitle": "Language",
   "languageSettingSubtitle": "Choose the app's display language",
   "languageFrench": "Français",
   "languageEnglish": "English",
-
   "portalWhatsappNotFound": "WhatsApp isn't available on this device. Call {phone} directly.",
   "portalTwoFactorCodeError": "Incorrect or expired code. Please try again.",
   "portalCredentialsError": "Incorrect credentials. Please check and try again.",
@@ -77,7 +74,11 @@
   "landingOperational": "Operational",
   "landingComponentPrefix": "Component {roman}",
   "@landingComponentPrefix": {
-    "placeholders": { "roman": { "type": "String" } }
+    "placeholders": {
+      "roman": {
+        "type": "String"
+      }
+    }
   },
   "landingArchitectureTitle": "The Labour Market Information System",
   "landingComponentsTitle": "CAMLEAP programme components",
@@ -184,9 +185,9 @@
   "registerEntitySubtitleCooperative": "Cooperative society or economic interest group.",
   "registerEntitySubtitleCtd": "Decentralized Territorial Authority (municipality, region).",
   "registerEntitySubtitleOng": "Non-Governmental Organization or association.",
-  "registerEntitySubtitleVocational": "Accredited technical and vocational training center.",
   "registerEntitySubtitleAdministration": "Public administration or government service.",
   "registerEntitySubtitleProjectProgram": "Project, programme, or structure under a ministry's supervision.",
+  "registerEntitySubtitleVocationalTraining": "Vocational training center taking part in the national ONEFOP survey.",
   "registerCreateAccountTitle": "Create an account",
   "registerSelectProfileSubtitle": "Select your profile to get started.",
   "registerRoleCompanyTitle": "Company / Organization",
@@ -265,6 +266,59 @@
   "platformName": "CAMLEAP",
   "platformTagline": "Labour Market Intelligence",
   "platformFullName": "Cameroon Labour and Employment Analytical Platform",
+  "camleapNavAbout": "About",
+  "camleapNavOnefop": "ONEFOP",
+  "camleapNavRegistre": "Training registry",
+  "camleapNavEnquetes": "Employer surveys",
+  "camleapSignIn": "Sign in",
+  "camleapEspaceDeclarant": "Declarant portal",
+  "camleapHeroHeadline": "ONEFOP's digital infrastructure for labour market information and observation",
+  "camleapHeroTagline": "Declarations · Entity registry · Surveys · Analysis (coming soon)",
+  "camleapHeroBody": "CAMLEAP is the technical platform supporting ONEFOP's mission. It structures declaration collection, organises the registry of training entities, and prepares the tools for observing Cameroon's labour market.",
+  "camleapHeroCtaPrimary": "Start my declaration",
+  "camleapHeroCtaSecondary": "Discover ONEFOP",
+  "camleapAudienceTitle": "You are...",
+  "camleapEconomicEntitiesTitle": "Economic entities",
+  "camleapEntreprise": "Company",
+  "camleapCooperative": "Cooperative",
+  "camleapPublicEntitiesTitle": "Public entities",
+  "camleapCtd": "CTD",
+  "camleapOng": "NGO",
+  "camleapVocationalTrainingTitle": "Vocational training",
+  "camleapVocationalTrainingBody": "Registration in the national registry of training centres (CFP).",
+  "camleapComingSoonBadge": "Coming soon",
+  "camleapUnderstandTitle": "Understanding ONEFOP",
+  "camleapUnderstandBody": "ONEFOP is being restructured to better fulfil its labour-market observation mission. Two structuring components are being progressively deployed.",
+  "camleapLmisCardTitle": "LMIS - Labour Market Information System",
+  "camleapLmisCardBody": "The infrastructure for collecting, integrating and managing employment and training data nationwide.",
+  "camleapLmisBadge": "Being deployed",
+  "camleapObservatoireCardTitle": "Labour Market Observatory",
+  "camleapObservatoireCardBody": "The component for analysing and disseminating intelligence on Cameroon's labour market.",
+  "camleapAVenir": "Coming soon",
+  "camleapLearnMore": "Learn more",
+  "camleapAvailableTodayTitle": "Available today",
+  "camleapAvailable1": "Entity declarations (companies, cooperatives, CTDs, NGOs)",
+  "camleapAvailable2": "Technical documentation",
+  "camleapAvailable3": "Declarant portal for entities (access on request)",
+  "camleapComing1": "National registry of training entities (CFP)",
+  "camleapComing3": "Observatory — dashboards and reports",
+  "camleapComing4": "Public data portal",
+  "camleapAccessRequestTitle": "Request access",
+  "camleapAccessRequestBody": "To request access to the declarant portal, provide your role, entity and parent administration.",
+  "camleapYaounde": "Yaoundé, Cameroon",
+  "camleapCopyright": "© {year} ONEFOP. All rights reserved.",
+  "@camleapCopyright": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "camleapComingSoonPageBody": "This page is being prepared. Check back soon or contact us at contact@onefop.cm for more information.",
+  "camleapTitleDeclarerEntreprise": "Declaration — Company",
+  "camleapTitleDeclarerCooperative": "Declaration — Cooperative",
+  "camleapTitleDeclarerCtd": "Declaration — CTD",
+  "camleapTitleDeclarerOng": "Declaration — NGO",
   "forgotPasswordTitle": "Forgot password",
   "forgotPasswordResetDoneTitle": "Password reset",
   "forgotPasswordStep1Subtitle": "Enter your account email address to get started.",
@@ -292,7 +346,6 @@
   "emailVerifiedTitle": "Email address verified",
   "verificationFailedTitle": "Verification failed",
   "invalidVerificationLink": "Invalid verification link. Please request a new one from your account.",
-
   "activeCampaignsTitle": "Active campaigns",
   "updatedToday": "Updated today",
   "updatedYesterday": "Updated yesterday",
@@ -306,7 +359,6 @@
   "awaitingApprovalTitle": "Awaiting approval",
   "underReview": "Under review",
   "allUpToDate": "All up to date",
-
   "onefopApproved": "Approved",
   "onefopUnderReview": "Under review",
   "onefopRejected": "Rejected",
@@ -319,27 +371,30 @@
   "onefopModificationsRequestedSubtitle": "↓ Changes requested",
   "onefopFinalizeSubtitle": "→ Finalize and submit",
   "onefopRequiredSubtitle": "→ Questionnaire required",
-
   "establishmentIdInline": "Establishment ID: {id}",
   "submissionSuccessTitle": "Submission successful!",
   "submissionSuccessSubtitle": "Your ONEFOP form has been submitted successfully.",
   "connectionUnavailableTitle": "Connection unavailable",
   "queuedOfflineSubtitle": "Your form was saved on this device and will be sent automatically once you're back online.",
   "doneButton": "Done",
-
+  "welcomeHeading": "Welcome",
+  "welcomeSubtitle": "Director / Promoter, please complete the questionnaire below for your establishment.",
+  "welcomeHeadingPersonalized": "Welcome, {name}",
+  "welcomeSubtitlePersonalized": "As {function}, please complete the questionnaire below for your establishment.",
   "legalNoticeTitle": "COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY",
   "questionnaireBadge": "- Questionnaire {label} -",
   "entityShortOng": "NGO",
   "entityShortEnterprise": "ENTERPRISE",
   "entityShortCooperative": "COOPERATIVE",
   "entityShortCtd": "TCC",
+  "entityShortVocationalTraining": "VTC",
   "confidentialityNoticeHeading": "Confidential Notice",
   "confidentialityNoticeBody": "The information contained in this document is confidential and may not be used for legal proceedings, fiscal control or economic repression, in accordance with Law N° 2020/010 of 20 July 2020 on censuses and statistical surveys.",
   "legalFooterLawReference": "Law N° 2020/010 of 20 July 2020",
   "acknowledgeCheckboxLabel": "I acknowledge this notice",
   "beginButton": "Begin",
   "goBackButton": "Go Back",
-
+  "estimatedTimeCaption": "Estimated time: 20-30 minutes",
   "onefopApprovedActivity": "ONEFOP {year} approved",
   "validatedByMinefop": "Validated by MINEFOP",
   "onefopSubmittedActivity": "ONEFOP {year} submitted",
@@ -348,7 +403,6 @@
   "correctionsRequired": "Corrections required",
   "onefopToCorrectActivity": "ONEFOP {year} to correct",
   "modificationsRequested": "Changes requested",
-
   "dateUnknown": "Date unknown",
   "dsmoApprovedTitle": "DSMO Q{year} approved",
   "dsmoApprovedSubtitle": "Validated by MINEFOP",
@@ -368,21 +422,17 @@
   "dsmoRejectedTitle": "DSMO Q{year} rejected",
   "dsmoRejectedSubtitle": "Corrections needed",
   "dsmoRejectedBadge": "Rejected",
-
   "noDeclarationsTitle": "No declarations",
   "noDeclarationsSubtitle": "Start by creating a DSMO declaration",
   "emptyBadge": "Empty",
   "recentActivityTitle": "Recent activity",
   "viewAllLink": "View all →",
-
   "menLabel": "Men",
   "womenLabel": "Women",
   "genderDistributionTitle": "Gender distribution",
   "employeesLabel": "employees",
   "genderDistributionUnavailable": "Gender distribution not provided",
-
   "loadingErrorTitle": "Loading error",
-
   "campaignFallbackName": "Campaign",
   "periodLabel": "Period: {period}",
   "periodUntil": "until {date}",
@@ -391,7 +441,6 @@
   "deadlineUndefined": "Deadline not set",
   "deadlinePassed": "Deadline passed",
   "remainingLabel": "remaining",
-
   "campaignManagementTitle": "Campaign Management",
   "refreshTooltip": "Refresh",
   "newCampaignButton": "New campaign",
@@ -445,7 +494,6 @@
   "campaignConflictBody": "A \"{label}\" campaign is already active: \"{name}\" (deadline {deadline}).\n\nCreating this new campaign will close the previous one and open this one in its place. Continue?",
   "continueButton": "Continue",
   "createCampaignButton": "Create campaign",
-
   "campaignPausedMsg": "Campaign paused.",
   "typeLabel": "Type",
   "collectionLabel": "Collection",
@@ -482,11 +530,9 @@
   "reminderDaysLabel": "Reminder days (D-)",
   "saveButton": "Save",
   "deadlineRequiredError": "Please select a deadline.",
-
   "exportButtonLabel": "Export",
   "exportDialogTitle": "Export dashboard",
   "exportDialogButton": "Export",
-
   "exportSectionFilters": "Filters",
   "exportSectionSummary": "Summary",
   "exportSectionBenchmarking": "Benchmarking",
@@ -496,7 +542,6 @@
   "exportSectionMobilityRetention": "Mobility & Retention",
   "exportSectionInclusion": "Inclusion",
   "exportSectionCompetencesFormation": "Skills & Training",
-
   "exportDescFilters": "Includes period, region, and sector settings.",
   "exportDescSummary": "Includes the main indicators and charts from the Summary dashboard.",
   "exportDescBenchmarking": "Export of the regional/national Benchmarking dashboard.",
@@ -506,7 +551,6 @@
   "exportDescMobilityRetention": "Export of departures, reasons, and retention rates.",
   "exportDescInclusion": "Export of inclusion and parity indicators.",
   "exportDescCompetencesFormation": "Export of sought-after skills and the training pipeline.",
-
   "chartFiltersApplied": "Applied filters",
   "chartSummaryKpis": "Key indicators",
   "chartSummaryTrend": "Employment trend",
@@ -530,7 +574,6 @@
   "chartInclusionYouth": "Youth employment",
   "chartCompetencesSkills": "Sought-after skills",
   "chartCompetencesTraining": "Requested training",
-
   "pdfExportTitle": "Employment Observatory — Export",
   "pdfExportDate": "Export date: {date}",
   "pdfFieldHeader": "Field",
@@ -542,7 +585,6 @@
   "pdfSubdivisionLabel": "Subdivision",
   "pdfEntityTypeLabel": "Entity type",
   "pdfSectorLabel": "Sector",
-
   "pdfDeclarationsLabel": "Declarations",
   "pdfTotalWorkforceLabel": "Total workforce",
   "pdfRecruitmentsLabel": "Recruitments",
@@ -552,10 +594,8 @@
   "pdfLeadingSectorLabel": "Leading sector",
   "pdfNotApplicable": "N/A",
   "pdfIndicatorHeader": "Indicator",
-
   "pdfWorkforceHeader": "Workforce",
   "pdfEmployeesCountHeader": "Employees",
-
   "pdfDismissalsLabel": "Dismissals",
   "pdfResignationsLabel": "Resignations",
   "pdfRetirementsLabel": "Retirements",
@@ -564,26 +604,21 @@
   "pdfDepartureDetailTitle": "Departure detail",
   "pdfReasonHeader": "Reason",
   "pdfTechnicalUnemploymentNote": "{count} on technical unemployment (excluded from total).",
-
   "pdfNetBalanceLabel": "Net balance",
-
   "pdfGenderDistributionTitle": "Male/Female breakdown",
   "pdfMenCountLine": "Men: {count} ({pct}%)",
   "pdfWomenCountLine": "Women: {count} ({pct}%)",
-
   "pdfBenchmarkingTitle": "Regional benchmarking",
   "pdfBenchmarkingEmptyHint": "Select a region, department, or subdivision to compare against the national level.",
   "pdfNationalComparisonNote": "The national comparison is not included in the current export.",
   "pdfLocalValueHeader": "Local value",
   "pdfRemarkHeader": "Note",
   "pdfDeclaringCompaniesLabel": "Declaring companies",
-
   "pdfVacanciesLabel": "Vacancies",
   "pdfGapLabel": "Gap",
   "pdfAbsorptionRateLabel": "Absorption rate",
   "pdfCspHeader": "Occupational category",
   "pdfShareHeader": "Share",
-
   "pdfTypeHeader": "Type",
   "pdfDeclarantsHeader": "Declarants",
   "pdfEnterprisesLabel": "Companies",
@@ -600,29 +635,23 @@
   "pdfForemenLabel": "Foremen",
   "pdfWorkersLabel": "Workers",
   "pdfLevelHeader": "Level",
-
   "pdfSeekersRegisteredLabel": "Registered applications",
   "pdfFirstRecruitsLabel": "First-time recruits",
   "pdfConversionRateLabel": "Conversion rate",
   "pdfPermanentLabel": "Permanent",
   "pdfTemporaryLabel": "Temporary",
   "pdfAgeRangeHeader": "Age range",
-
   "pdfOtherLabel": "Other",
-
   "pdfVulnerablePeopleLabel": "Vulnerable individuals",
   "pdfTotalRecruitmentsLabel": "Total recruitments",
   "pdfRecruits1534Label": "Recruitments 15-34",
   "pdfTotalRecruitmentsLabel2": "Total recruitments",
-
   "pdfSkillHeader": "Skill",
   "pdfDemandHeader": "Demand",
   "pdfSupplyHeader": "Supply",
   "pdfTrainingHeader": "Training",
-
   "pdfNoDataAvailable": "No data available",
   "pdfExportError": "Export failed: {error}",
-
   "companyDeclDraftsFilter": "Drafts",
   "companyDeclApprovedFilter": "Approved",
   "companyDeclRejectedFilter": "Rejected",
@@ -645,7 +674,6 @@
   "companyDeclStatusDivisionApproved": "Approved (division)",
   "companyDeclStatusRegionApproved": "Approved (region)",
   "companyDeclStatusCorrectionRequested": "Corrections required",
-
   "companyAnalyticsTabBilanRh": "HR Report",
   "companyAnalyticsTabBenchmarking": "Benchmarking",
   "companyAnalyticsTabOpportunities": "Opportunities",
@@ -658,43 +686,67 @@
   "opportunitiesVacancyDetail": "{vacancies, plural, =0{No open positions declared.} =1{1 open position declared,} other{{vacancies} open positions declared,}} {rate}% of your permanent workforce.",
   "@opportunitiesVacancyDetail": {
     "placeholders": {
-      "vacancies": { "type": "int" },
-      "rate": { "type": "String" }
+      "vacancies": {
+        "type": "int"
+      },
+      "rate": {
+        "type": "String"
+      }
     }
   },
   "opportunitiesBenchmarkGapTitle": "Gaps versus your sector",
   "opportunitiesBenchmarkGapWorkforce": "Your workforce ({mine}) is below your sector's median ({median}).",
   "@opportunitiesBenchmarkGapWorkforce": {
     "placeholders": {
-      "mine": { "type": "int" },
-      "median": { "type": "int" }
+      "mine": {
+        "type": "int"
+      },
+      "median": {
+        "type": "int"
+      }
     }
   },
   "opportunitiesBenchmarkGapFeminization": "Your feminization rate ({mine}%) is below your sector's median ({median}%).",
   "@opportunitiesBenchmarkGapFeminization": {
     "placeholders": {
-      "mine": { "type": "String" },
-      "median": { "type": "String" }
+      "mine": {
+        "type": "String"
+      },
+      "median": {
+        "type": "String"
+      }
     }
   },
   "opportunitiesBenchmarkGapTurnover": "Your turnover rate ({mine}%) is higher than your sector's median ({median}%).",
   "@opportunitiesBenchmarkGapTurnover": {
     "placeholders": {
-      "mine": { "type": "String" },
-      "median": { "type": "String" }
+      "mine": {
+        "type": "String"
+      },
+      "median": {
+        "type": "String"
+      }
     }
   },
   "opportunitiesDeadlinesTitle": "Upcoming deadlines",
   "opportunitiesDeadlineInDays": "{date} · in {days, plural, =0{less than a day} =1{1 day} other{{days} days}}",
   "@opportunitiesDeadlineInDays": {
     "placeholders": {
-      "date": { "type": "String" },
-      "days": { "type": "int" }
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
     }
   },
   "opportunitiesDeadlinePassed": "{date} · past due",
   "@opportunitiesDeadlinePassed": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "companyAnalyticsHeaderYear": "Analytics {year}",
   "companyAnalyticsSectionBenchmarking": "Sector Benchmarking",
@@ -758,11 +810,9 @@
   "companyAnalyticsPercentileBottom": "Bottom {value}%",
   "companyAnalyticsYourCompany": "Your company",
   "companyAnalyticsSectorMedian": "Sector median",
-
   "homeTabLabel": "Home",
   "onlineStatusLabel": "Online",
   "roleLabelCompany": "Establishment",
-
   "settingsUpdatePreferenceError": "Unable to update this setting: {error}",
   "settingsTabGeneral": "General",
   "settingsTabNotifications": "Notifications",
@@ -818,39 +868,1249 @@
   "settingsPasswordFieldsRequired": "Enter your current password and a new one.",
   "settingsContactEmailReadOnlyHint": "This is your sign-in email. Contact an administrator to change it.",
   "settingsRegistrationNumberReadOnlyHint": "Assigned during registration — can't be edited here.",
-
   "declarationsTabLabel": "Declarations",
   "analyticsTabLabel": "Analytics",
   "settingsTabLabel": "Settings",
-
   "draftFoundTitle": "Draft found",
   "draftFoundBody": "You have an ONEFOP form in progress. Would you like to resume where you left off?",
   "resumeDraftSubtitle": "Continue with your previous data",
   "startOverTitle": "Start over",
   "startOverSubtitle": "Clear the draft and start fresh",
-
   "entityTypeDialogTitle": "Entity type",
   "entityTypeDialogBody": "Select your entity type to access the ONEFOP form.",
   "entityTypeEnterprise": "Enterprise",
   "entityTypeCooperative": "Cooperative",
   "entityTypeCtd": "RLA",
   "entityTypeOng": "NGO",
-
   "newSubmissionDialogTitle": "New submission",
   "newSubmissionDialogBody": "Choose the type of document to create",
   "dsmoDeclarationOptionTitle": "DSMO Declaration",
   "dsmoDeclarationOptionSubtitle": "Workforce social declaration",
   "onefopQuestionnaireOptionTitle": "ONEFOP Questionnaire",
   "onefopQuestionnaireOptionSubtitle": "Labor market information",
-
   "companyProfileNotFoundError": "Company profile not found. Contact the administrator.",
   "missingEstablishmentIdError": "Missing establishment ID. Please contact the administrator.",
   "noOpenSubmissionPeriodError": "No submission period is currently open.",
   "unknownEntityTypeError": "Unrecognized entity type. Please contact the administrator.",
   "profileLoadError": "Error loading profile: {error}",
   "noOpenDsmoPeriodError": "No DSMO declaration period is currently open.",
-
   "attestationOpenError": "Unable to open the certificate.",
   "attestationUnavailableError": "No certificate is available for this account.",
-  "attestationMenuLabel": "My registration certificate"
+  "attestationMenuLabel": "My registration certificate",
+  "adminResetPasswordTitle": "Reset a password",
+  "adminResetPasswordInstructions": "First verify the user's identity through an official channel (phone, in person), then send them a password reset link by email.",
+  "adminResetPasswordEmailFieldLabel": "User account email",
+  "emailInvalidShort": "Invalid email",
+  "adminResetPasswordSendButton": "Send a reset link",
+  "adminResetPasswordSentMessage": "A reset link has been sent to {email}.",
+  "@adminResetPasswordSentMessage": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "adminResetPasswordLinkExpiryNote": "The link expires in 45 minutes and can only be used once.",
+  "adminResetPasswordSendAnotherButton": "Send another link",
+  "annuaireUsersTabLabel": "Users",
+  "annuaireEntitiesTabLabel": "Entities",
+  "companiesSearchHint": "Search by name, tax ID, ID, region...",
+  "companiesTotalCount": "{count, plural, =0{No companies} =1{1 company} other{{count} companies}}",
+  "@companiesTotalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companiesCreatedAtColumnHeader": "Created on",
+  "companiesContactColumnHeader": "Contact",
+  "companiesSuspendedBadge": "Suspended",
+  "companiesPaginationLabel": "Page {page} of {totalPages}",
+  "@companiesPaginationLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "totalPages": {
+        "type": "int"
+      }
+    }
+  },
+  "companiesEmptyTitle": "No companies found",
+  "companiesEmptySubtitle": "Try a different search.",
+  "companiesGenderBreakdownMenCount": "{count} men",
+  "@companiesGenderBreakdownMenCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "companiesGenderBreakdownWomenCount": "{count} women",
+  "@companiesGenderBreakdownWomenCount": {
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "companiesDetailIdentitySectionTitle": "Identity",
+  "companiesMainActivityLabel": "Main activity",
+  "companiesLegalStatusLabel": "Legal status",
+  "companiesRegistrationNumberLabel": "Registration no.",
+  "companiesCnpsNumberLabel": "CNPS no.",
+  "companiesYearOfCreationLabel": "Year founded",
+  "companiesEnterpriseSizeLabel": "Company size",
+  "companiesRegisteredOnLabel": "Registered on",
+  "companiesSubdivisionLabel": "Subdivision",
+  "companiesAddressLabel": "Address",
+  "companiesDetailContactSectionTitle": "Company contact",
+  "companiesAccountStatusLabel": "Account status",
+  "companiesDetailRespondentSectionTitle": "Respondent",
+  "companiesGenderBreakdownRowLabel": "Breakdown",
+  "companiesPreviousYearWorkforceLabel": "Previous year workforce",
+  "companiesPreviousYearBreakdownLabel": "Breakdown (previous year)",
+  "createMinefopUserLoadFunctionsError": "Unable to load functions.",
+  "createMinefopUserSelectRoleError": "Please select a role",
+  "createMinefopUserAppBarTitle": "New MINEFOP agent",
+  "createMinefopUserFirstNameLabel": "First name",
+  "createMinefopUserProfessionalEmailLabel": "Professional email",
+  "createMinefopUserRoleSectionLabel": "Role",
+  "createMinefopUserSelectRoleHint": "Select a role",
+  "createMinefopUserPositionSectionLabel": "Position",
+  "createMinefopUserMatriculeLabel": "Staff number",
+  "createMinefopUserCreateAccountButton": "Create account",
+  "createMinefopUserLoadingFunctions": "Loading functions…",
+  "createMinefopUserNoFunctionsAvailable": "No functions available for this role.",
+  "createMinefopUserSelectFunctionHint": "Select the function",
+  "createMinefopUserLoadingUnits": "Loading units…",
+  "createMinefopUserNoUnitsAvailable": "No units available.",
+  "createMinefopUserParentUnitHint": "Parent unit",
+  "createMinefopUserLoadingServices": "Loading services…",
+  "createMinefopUserNoServiceFound": "No service found under this unit.",
+  "createMinefopUserExactServiceHint": "Exact service",
+  "createMinefopUserLoadingRegions": "Loading regions…",
+  "createMinefopUserSelectRegionFirstNote": "Select a region first.",
+  "createMinefopUserLoadingDepartments": "Loading departments…",
+  "createMinefopUserCopiedToast": "{label} copied",
+  "@createMinefopUserCopiedToast": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "createMinefopUserAccountCreatedTitle": "Account created",
+  "createMinefopUserCredentialsWarning": "This temporary password will never be shown again. Pass it on to the agent (WhatsApp, phone, in person) — they will have to change it on first login.",
+  "createMinefopUserDoneButton": "Done",
+  "createMinefopUserCopyTooltip": "Copy",
+  "landingConfigRestoreDialogTitle": "Restore this version?",
+  "landingConfigRestoreDialogBody": "The public landing page will be immediately replaced with this version's content. The current state is itself saved and can be restored afterwards.",
+  "landingConfigRestoreButton": "Restore",
+  "landingConfigVersionRestoredToast": "Version restored",
+  "landingConfigRestoreFailedToast": "Restore failed: {error}",
+  "@landingConfigRestoreFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigUpdatedToast": "Landing page updated",
+  "landingConfigSaveFailedToast": "Save failed: {error}",
+  "@landingConfigSaveFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigAppBarTitle": "Public landing page",
+  "landingConfigDescriptionNote": "Narrative content of the public landing page (SIMT / CAMLEAP program): status, supporting line, components, Collect / Integrate / Analyse / Inform pillars, program purpose, access call-to-action. SUPER_ADMIN only.",
+  "landingConfigLastModifiedLabel": "Last modified: {date}",
+  "@landingConfigLastModifiedLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigStatusSectionTitle": "Program status",
+  "landingConfigStatusLineFieldLabel": "Status line (below the current component)",
+  "landingConfigHeroSectionTitle": "Hero",
+  "landingConfigMainTitleFieldLabel": "Main title",
+  "landingConfigSupportingLineFieldLabel": "Supporting line (below the title)",
+  "landingConfigComponentsSectionTitle": "Program components (I-IV)",
+  "landingConfigCaptionFieldLabel": "Caption (below the components)",
+  "landingConfigPillarsSectionTitle": "LMIS pillars (Collect / Integrate / Analyse / Inform)",
+  "landingConfigCardIndexLabel": "Card {index}",
+  "@landingConfigCardIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigKickerFieldLabel": "Kicker (above the title)",
+  "landingConfigTitleFieldLabel": "Title",
+  "landingConfigTextFieldLabel": "Text",
+  "landingConfigArchSectionTitle": "SIMT architecture pipeline",
+  "landingConfigArchSectionNote": "Currently not shown on the public page — the corresponding section was merged with the \"data → intelligence\" pipeline below. Changes are saved but remain invisible.",
+  "landingConfigStepIndexLabel": "Step {index}",
+  "@landingConfigStepIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigIntelSectionTitle": "Data → intelligence pipeline",
+  "landingConfigEcosystemSectionTitle": "Institutional ecosystem",
+  "landingConfigBlockTitleFieldLabel": "Block {index} — title",
+  "@landingConfigBlockTitleFieldLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigBlockTextFieldLabel": "Block {index} — text",
+  "@landingConfigBlockTextFieldLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigAboutSectionTitle": "Program purpose (why an LMIS)",
+  "landingConfigParagraphIndexLabel": "Paragraph {index}",
+  "@landingConfigParagraphIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigObservatorySectionTitle": "Observatory (public /observatory page)",
+  "landingConfigObservatoryNote": "Provisional content — no final text has been provided yet for the public Observatory. The public page shows a \"content in preparation\" badge as long as this text remains the default copy below.",
+  "landingConfigDescriptionFieldLabel": "Description",
+  "landingConfigIndicatorIndexLabel": "Indicator {index}",
+  "@landingConfigIndicatorIndexLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "landingConfigCtaSectionTitle": "Access call-to-action",
+  "landingConfigSubtextFieldLabel": "Subtext",
+  "landingConfigAccessSectionTitle": "Platform access",
+  "landingConfigAccessNoteFieldLabel": "Access note (below the buttons)",
+  "landingConfigPreviewSectionTitle": "Preview",
+  "landingConfigFrChipLabel": "FR",
+  "landingConfigEnChipLabel": "EN",
+  "landingConfigHistorySectionTitle": "History (restore)",
+  "landingConfigNoHistoryMessage": "No earlier version saved.",
+  "landingConfigComponentShortNameLabel": "Component {roman} — short name",
+  "@landingConfigComponentShortNameLabel": {
+    "placeholders": {
+      "roman": {
+        "type": "String"
+      }
+    }
+  },
+  "landingConfigComponentDescriptionLabel": "Component {roman} — description",
+  "@landingConfigComponentDescriptionLabel": {
+    "placeholders": {
+      "roman": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsLoadError": "Loading error: {error}",
+  "@regionsSectorsLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsAppBarTitle": "Regions & Sectors",
+  "regionsSectorsNoResultsSubtitle": "No region or sector matches your search.",
+  "regionsSectorsSectionHeaderWithCount": "{title} ({count})",
+  "@regionsSectorsSectionHeaderWithCount": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "regionsSectorsSectorsLabel": "Sectors",
+  "regionsSectorsOnefopSubmissionsStatLabel": "ONEFOP submissions",
+  "regionsSectorsSearchHint": "Search for a region or sector…",
+  "regionsSectorsAllFilterChip": "All",
+  "regionsSectorsActionsColumnHeader": "Actions",
+  "regionsSectorsDeleteConfirmBody": "Permanently delete {itemName}?",
+  "@regionsSectorsDeleteConfirmBody": {
+    "placeholders": {
+      "itemName": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsEditRegionDialogTitle": "Edit region",
+  "regionsSectorsRegionUpdatedToast": "Region updated",
+  "regionsSectorsGenericErrorToast": "Error: {error}",
+  "@regionsSectorsGenericErrorToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "regionsSectorsRegionDeletedToast": "Region deleted",
+  "regionsSectorsEditSectorDialogTitle": "Edit sector",
+  "regionsSectorsSectorUpdatedToast": "Sector updated",
+  "regionsSectorsSectorDeletedToast": "Sector deleted",
+  "settingsSavedToast": "Settings saved",
+  "systemSettingsScreenTitle": "System settings",
+  "systemSettingsScreenSubtitle": "Platform-wide configuration. Restricted to SUPER_ADMIN.",
+  "securityPolicySectionTitle": "Security policy",
+  "passwordMinLengthLabel": "Minimum password length",
+  "require2faStaffLabel": "Mandatory two-factor authentication (MINEFOP staff)",
+  "require2faStaffSubtitle": "Prevents non-company accounts from disabling their 2FA.",
+  "maintenanceModeSectionTitle": "Maintenance mode",
+  "enableMaintenanceModeLabel": "Enable maintenance mode",
+  "maintenanceModeSubtitle": "Blocks all access except SUPER_ADMIN, showing the message below.",
+  "maintenanceMessageFieldLabel": "Message shown to users",
+  "maintenanceMessageFieldHint": "The platform is currently under maintenance...",
+  "referenceDataSectionTitle": "Reference data",
+  "referenceDataSectionDescription": "Manage the regions/sectors taxonomy used by filters and forms across the platform.",
+  "manageRegionsSectorsButton": "Manage regions and sectors",
+  "userStatusActivePluralLabel": "Active",
+  "userStatusSuspendedPluralLabel": "Suspended",
+  "userStatusRejectedPluralLabel": "Rejected",
+  "approveAgentDialogTitle": "Approve agent",
+  "approveAgentConfirmBody": "Confirm approval of {name}?",
+  "@approveAgentConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "approveActionLabel": "Approve",
+  "userApprovedToast": "{name} approved successfully",
+  "@userApprovedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "genericErrorToastNoSpace": "Error: {error}",
+  "@genericErrorToastNoSpace": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "userRejectedToast": "{name} rejected",
+  "@userRejectedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userRoleUpdatedToast": "Role updated: {role}",
+  "@userRoleUpdatedToast": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "suspendAccountDialogTitle": "Suspend account",
+  "reactivateAccountDialogTitle": "Reactivate account",
+  "suspendAccountBody": "{name} will no longer be able to sign in until reactivated.",
+  "@suspendAccountBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reactivateAccountBody": "{name} will be able to sign in again.",
+  "@reactivateAccountBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "suspendActionLabel": "Suspend",
+  "reactivateActionLabel": "Reactivate",
+  "userSuspendedToast": "{name} suspended",
+  "@userSuspendedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userReactivatedToast": "{name} reactivated",
+  "@userReactivatedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "userDeletedToast": "{name} deleted",
+  "@userDeletedToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectTooltip": "Reject",
+  "editRoleActionLabel": "Edit role",
+  "usersSearchFieldHint": "Search by name, email, ID number...",
+  "userAccountsCountLabel": "{count, plural, =1{{count} account} other{{count} accounts}}",
+  "@userAccountsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "allRolesFilterLabel": "All roles",
+  "regionDepartmentColumnHeader": "Region / Department",
+  "noUsersFoundTitle": "No accounts found",
+  "noUsersFoundSubtitle": "Try a different search or filter.",
+  "rejectUserSheetTitle": "Reject {name}",
+  "@rejectUserSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectReasonLabel": "Reason for rejection (optional)",
+  "rejectReasonHint": "E.g.: Incomplete documents...",
+  "confirmRejectButton": "Confirm rejection",
+  "deleteUserSheetTitle": "Delete {name}?",
+  "@deleteUserSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteUserIrreversibleWarning": "Irreversible action. If this account has related declarations, submissions, or notifications, deletion will be refused — suspend it instead.",
+  "typeEmailToConfirmLabel": "Type \"{email}\" to confirm",
+  "@typeEmailToConfirmLabel": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "newAgentButtonLabel": "New agent",
+  "regionDeptSelectorLoadRegionsError": "Unable to load regions.",
+  "allRegionsCheckboxLabel": "All regions",
+  "noDepartmentsAvailableLabel": "No departments available",
+  "campaignDetailStartDateLabel": "Start date",
+  "campaignDetailEndDateLabel": "End date",
+  "campaignDetailTargetUsersLabel": "Target users",
+  "campaignDetailAvailableFormsLabel": "Available forms",
+  "openCampaignButton": "Open campaign",
+  "identificationTableSelectHint": "Choose...",
+  "identificationTableTextInputHint": "Enter...",
+  "companyDeclMyDeclarationsTitle": "My Declarations",
+  "companyDeclMyDeclarationsSubtitle": "Track your employment declarations, submissions, and approval status",
+  "companyDeclFilterAllCount": "All {count}",
+  "@companyDeclFilterAllCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companyDeclFilterUnderReviewCount": "Under review {count}",
+  "@companyDeclFilterUnderReviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "companyDeclSearchHint": "Search declarations...",
+  "companyDeclFilterAllCampaigns": "All campaigns",
+  "companyDeclHistoryTitle": "Declaration history",
+  "companyDeclDefaultSubtitle": "Company submission",
+  "companyDeclViewDetailsAction": "View details",
+  "companyDeclContinueDraftAction": "Continue draft",
+  "companyDeclTrackStatusAction": "Track status",
+  "companyDeclStepCreated": "Created",
+  "companyDeclStatusTimelineTitle": "Status timeline",
+  "companyRegGenderSumMismatchError": "Total ≠ M + F",
+  "companyRegSubmitSuccessMsg": "Declaration submitted successfully",
+  "companyRegSectionIdentificationTitle": "I. ESTABLISHMENT IDENTIFICATION",
+  "companyRegFieldCompanyName": "Company Name",
+  "companyRegFieldTaxNumber": "Tax ID No. (NIU)",
+  "companyRegFieldParentCompanyLong": "Company name the establishment depends on",
+  "companyRegFieldSecondaryActivity": "Secondary activity",
+  "companyRegFieldCapital": "Share capital (XAF)",
+  "companyRegSectionWorkforceTitle": "II. STAFF AS OF DECEMBER 31",
+  "companyRegFieldTotalEmployees": "Total Employees",
+  "companyRegFieldLastYearTotal": "Total employees (last year)",
+  "companyRegSectionMovementsTitle": "III. MOVEMENTS BY CATEGORY",
+  "companyRegSubmitButton": "SUBMIT DECLARATION",
+  "lawComplianceNoteShort": "In accordance with Law No. 91/023 of 16 Dec 1991.",
+  "companyRegRequiredFieldShort": "Required field",
+  "movementCategory13": "1-3",
+  "movementCategory46": "4-6",
+  "movementCategory79": "7-9",
+  "movementCategory1012": "10-12",
+  "movementRecruitmentLabel": "Recruitment",
+  "movementDismissalLabel": "Dismissal",
+  "movementRetirementLabel": "Retirement",
+  "declApprovalApprovedSuccessMsg": "Declaration approved successfully",
+  "declApprovalMissingRejectReasonWarning": "Please enter a rejection reason",
+  "declApprovalRejectedMsg": "Declaration rejected",
+  "declApprovalPdfLoadError": "Unable to load PDF: {error}",
+  "@declApprovalPdfLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalDraftTitle": "Draft — DSMO",
+  "declApprovalValidationTitle": "DSMO Validation",
+  "pdfCopyOriginalLabel": "ORIGINAL (Employer)",
+  "pdfCopyDuplicateLabel": "DUPLICATE (Authority)",
+  "pdfCopyTriplicateLabel": "TRIPLICATE (Archives)",
+  "declApprovalResumeEntryButton": "Resume entry",
+  "declApprovalNotFoundMsg": "Declaration not found",
+  "declApprovalSectionEstablishmentInfo": "Establishment information",
+  "declApprovalSectionWorkforce": "Workforce",
+  "declApprovalSectionMovements": "Staff movements",
+  "declApprovalSectionAdditionalInfo": "Additional information",
+  "declApprovalSectionComplianceSteps": "Compliance steps",
+  "declApprovalPanelApprovalTitle": "APPROVAL",
+  "declApprovalNotesLabel": "Administrative notes",
+  "declApprovalApproveButton": "APPROVE DECLARATION",
+  "declApprovalPanelRejectTitle": "REJECTION",
+  "declApprovalRejectReasonLabel": "Rejection reason (Required)",
+  "declApprovalRejectButton": "REJECT FOR CORRECTION",
+  "declApprovalYearLine": "Fiscal year: {year}",
+  "@declApprovalYearLine": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalCurrentStatusLine": "Current Status: {status}",
+  "@declApprovalCurrentStatusLine": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalSubmissionDateLine": "Submission date: {date}",
+  "@declApprovalSubmissionDateLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "declApprovalLabelMainActivityShort": "Main activity",
+  "declApprovalLabelSecondaryActivityShort": "Secondary activity",
+  "fieldFaxLabel": "Fax",
+  "declApprovalLabelTaxNumberShort": "Tax ID No.",
+  "declApprovalLabelSocialCapital": "Share capital",
+  "declApprovalLabelParentCompany": "Parent company",
+  "declApprovalWorkforceCurrentYearTitle": "Declared workforce — Current year",
+  "declApprovalWorkforcePreviousYearTitle": "Workforce — Previous year",
+  "declApprovalNominativeListLine": "Nominative list: {count} employee(s) entered",
+  "@declApprovalNominativeListLine": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "declApprovalNoMovementsMsg": "No movement recorded.",
+  "movementPromotionLabel": "Promotion",
+  "movementDeathLabel": "Death",
+  "colMovementHeader": "Movement",
+  "colCat13Header": "Cat. 1–3",
+  "colCat46Header": "Cat. 4–6",
+  "colCat79Header": "Cat. 7–9",
+  "colCat1012Header": "Cat. 10–12",
+  "colNonDeclaredShortHeader": "Not decl.",
+  "colTotalHeader": "TOTAL",
+  "declApprovalQualitativeUnavailableMsg": "Qualitative information not available.",
+  "yesLabel": "Yes",
+  "noLabel": "No",
+  "qHasTrainingCenterShort": "Training center for staff?",
+  "qRecruitmentPlansNextShort": "Plans to recruit next year?",
+  "qCamerounisationPlanShort": "Has a Cameroonization plan?",
+  "qUsesTempAgenciesShort": "Uses temporary employment agencies?",
+  "qTempAgencyDetailsLabelShort": "Temp agency details",
+  "declApprovalNoValidationStepsMsg": "No validation step recorded.",
+  "declApprovalDefaultStepType": "Automatic check",
+  "statusSubmittedShort": "Submitted",
+  "statusDivisionApprovedShort": "Div. Approved",
+  "statusRegionApprovedShort": "Region Approved",
+  "declListApprovedToastMsg": "Declaration approved",
+  "declListSearchCompanyHint": "Search for a company...",
+  "declListNoPendingDeclarationsTitle": "No pending declarations",
+  "tryDifferentSearchCriteria": "Try different search criteria",
+  "declListSubmittedWillAppearHere": "Submitted declarations will appear here",
+  "clearFiltersButton": "Clear filters",
+  "empListDraftLoadedFromSessionMsg": "Draft loaded from session",
+  "empListDraftSavedMsg": "Draft saved ({count} employee(s))",
+  "@empListDraftSavedMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "empListEnterFullNameError": "Please enter the full name",
+  "empListSelectGenderError": "Please select gender",
+  "empListInvalidAgeError": "Invalid age (16-120 years)",
+  "empListSelectNationalityError": "Please select nationality",
+  "empListEnterCountryError": "Please enter the country",
+  "empListSelectDiplomaError": "Please select the diploma",
+  "empListEnterFunctionError": "Please enter the position",
+  "empListInvalidSeniorityError": "Invalid seniority (0-60 years)",
+  "empListSelectCategoryError": "Please select the category",
+  "empListInvalidSalaryError": "Please enter a valid salary (> 0 FCFA)",
+  "empListDeleteEmployeeTitle": "Delete employee?",
+  "empListDeleteEmployeeConfirm": "Do you want to remove {name} from the list?",
+  "@empListDeleteEmployeeConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "empListEditEmployeeTitle": "EDIT EMPLOYEE",
+  "empListAddEmployeeTitle": "ADD EMPLOYEE",
+  "empListStepProgressLabel": "Step {step} of 9",
+  "@empListStepProgressLabel": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      }
+    }
+  },
+  "confirmButton": "Confirm",
+  "empListFullNameStepLabel": "Full Name",
+  "empListFullNameHintExample": "E.g.: TCHINDA Marc Arnold",
+  "empListGenderStepLabel": "Gender",
+  "genderMaleOption": "Male (M)",
+  "genderFemaleOption": "Female (F)",
+  "empListAgeStepLabel": "Age",
+  "empListAgeHintExample": "E.g.: 32",
+  "yearsUnitSuffix": "years",
+  "empListNationalityStepLabel": "Nationality",
+  "nationalityCameroonianOption": "Cameroonian",
+  "nationalityForeignOption": "Foreign",
+  "empListSpecifyCountryLabel": "Specify the country",
+  "empListCountryHintExample": "E.g.: France, Nigeria, China...",
+  "empListDiplomaStepLabel": "Highest diploma",
+  "empListSelectDiplomaHint": "Select a diploma",
+  "diplomaCepe": "CEPE",
+  "diplomaBepc": "BEPC",
+  "diplomaCap": "CAP",
+  "diplomaBac": "BAC",
+  "diplomaBts": "BTS",
+  "diplomaLicence": "Bachelor's degree",
+  "diplomaMaster": "Master's degree",
+  "diplomaDoctorat": "Doctorate",
+  "empListFunctionStepLabel": "Function / Position held",
+  "empListFunctionHintExample": "E.g.: Accountant, Engineer, Assistant...",
+  "empListSeniorityStepLabel": "Seniority in the company",
+  "empListSeniorityHintExample": "E.g.: 5",
+  "empListCategoryStepLabel": "Socio-professional category",
+  "empListSelectCategoryHint": "Select the category (1-12)",
+  "nonDeclaredLabel": "Not declared",
+  "categoryNumberLabel": "Category {number}",
+  "@categoryNumberLabel": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "empListCategoryScaleHelper": "Per the official DSMO scale (1 = operational staff, 12 = senior executive)",
+  "empListSalaryStepLabel": "Monthly salary (FCFA) *",
+  "empListSalaryHintExample": "E.g.: 250000",
+  "fcfaCurrencySuffix": "FCFA",
+  "mandatoryHelperText": "Mandatory",
+  "empListImportSuccessMsg": "{count} employee(s) imported successfully",
+  "@empListImportSuccessMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "empListImportPartialMsg": "{count} imported, {errorCount} row(s) skipped",
+  "@empListImportPartialMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "errorCount": {
+        "type": "int"
+      }
+    }
+  },
+  "excelColCountry": "Country",
+  "excelColDiploma": "Diploma",
+  "excelColSeniorityYears": "Seniority (years)",
+  "excelColSalary": "Salary (FCFA)",
+  "empListSaveFileDialogTitle": "Save the employee list",
+  "exportSuccessMsg": "Export successful!",
+  "movementsPromotionsPlural": "Promotions",
+  "empListPartAPreviewPageHeader": "PART A Preview — Page {page}/{total}",
+  "@empListPartAPreviewPageHeader": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "empListSectionEstablishmentIdentity": "Establishment identity",
+  "fieldCompanyNameFullLabel": "Name / Company name",
+  "empListTaxNumberNiuLabel": "Tax ID No. (NIU)",
+  "empListWorkforceCurrentYearSection": "Workforce — Current year",
+  "empListDeclaredTotalLabel": "Declared total",
+  "empListMovementDetailByCategory": "Movement detail by category",
+  "catRange13Label": "Cat. 1-3",
+  "catRange46Label": "Cat. 4-6",
+  "catRange79Label": "Cat. 7-9",
+  "catRange1012Label": "Cat. 10-12",
+  "nonDeclaredCategoryLabel": "Not Declared",
+  "empListQualitativeInfoSection": "Qualitative information",
+  "empListTrainingCenterLabelShort": "Training center",
+  "empListRecruitmentPlansNextLabel": "Recruitment plans (next year)",
+  "empListCamerounisationPlanLabel": "Cameroonization plan",
+  "empListUsesTempAgenciesLabel": "Use of temporary employment agencies",
+  "empListTempAgencyDetailsLabel": "Temporary agency details",
+  "empListConfirmAndSubmitButton": "Confirm and submit",
+  "empListMismatchTotalLine": "• Total employees: {actual} entered vs {declared} declared",
+  "@empListMismatchTotalLine": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "declared": {
+        "type": "int"
+      }
+    }
+  },
+  "empListMismatchMenLine": "• Men: {actual} entered vs {declared} declared",
+  "@empListMismatchMenLine": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "declared": {
+        "type": "int"
+      }
+    }
+  },
+  "empListMismatchWomenLine": "• Women: {actual} entered vs {declared} declared",
+  "@empListMismatchWomenLine": {
+    "placeholders": {
+      "actual": {
+        "type": "int"
+      },
+      "declared": {
+        "type": "int"
+      }
+    }
+  },
+  "empListWorkforceInconsistencyTitle": "⚠️ Workforce inconsistency",
+  "empListWorkforceMismatchIntro": "The number of employees entered does not match the workforce declared in PART A:\n",
+  "empListContinueSubmissionAnywayQuestion": "Do you want to continue the submission anyway?",
+  "empListOfficialFormExactMatchNote": "Note: The official form requires an exact match.",
+  "empListContinueDespiteErrorButton": "Continue despite the error",
+  "empListAddAtLeastOneEmployeeError": "Add at least one employee before submitting",
+  "empListInvalidEmployeeDataError": "Some employees have invalid data (empty name or salary ≤ 0)",
+  "empListPreviewGenerationError": "Unable to generate the preview: {error}",
+  "@empListPreviewGenerationError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "empListSubmissionHttpError": "Error during submission. HTTP code: {code}\n\n{data}",
+  "@empListSubmissionHttpError": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "data": {
+        "type": "String"
+      }
+    }
+  },
+  "empListQueuedDeclarationLabel": "DSMO Declaration {year} — {company}",
+  "@empListQueuedDeclarationLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "empListDefaultDeadlineFallback": "January 31, {year}",
+  "@empListDefaultDeadlineFallback": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "empListQueuedOfflineFullMsg": "Your declaration has been saved on this device and will be sent automatically once the connection returns. You can safely close this screen.",
+  "okButton": "OK",
+  "empListDeclarationSavedTitle": "Declaration saved!",
+  "empListTrackingNumberLine": "Tracking No.: {trackingNumber}",
+  "@empListTrackingNumberLine": {
+    "placeholders": {
+      "trackingNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "empListThreePdfCopiesAvailable": "3 PDF copies available:",
+  "printDownloadTooltip": "Print / Download",
+  "empListMandatoryProcedureTitle": "MANDATORY PROCEDURE:",
+  "empListProcStepPrintCopies": "• Print the 3 copies",
+  "empListProcStepSignCopies": "• Sign each copy",
+  "empListProcStepAddCompanyStamp": "• Add the company stamp",
+  "empListProcStepSendByRegisteredMail": "• Send by REGISTERED MAIL before {deadline}",
+  "@empListProcStepSendByRegisteredMail": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "empListProcStepEmploymentOffice": "• To the employment district office",
+  "empListLawComplianceNoteFull": "In accordance with Law No. 91/023 of 16 December 1991",
+  "successTitle": "Success",
+  "empListSimpleSuccessMsg": "Declaration submitted successfully!\n\nThe PDFs will be available in your employer portal.",
+  "empListSubmissionFailedTitle": "Submission failed",
+  "empListAppBarTitle": "DECLARATION ON THE WORKFORCE SITUATION",
+  "exportExcelTooltip": "Export Excel",
+  "importExcelTooltip": "Import Excel",
+  "previewPartATooltip": "Preview PART A",
+  "previewPdfTooltipLong": "Preview the PDF",
+  "empListRegisteredEmployeesLabel": "Registered employees",
+  "empListInconsistencyBadge": "INCONSISTENCY",
+  "empListEmptyStateMsg": "No employee registered.\n\nAdd manually via the + button\nor import an Excel file.",
+  "empListColNumero": "No.",
+  "empListColSeniority": "Seniority",
+  "notDeclaredAbbrev": "N/D",
+  "ageYearsValue": "{age} years",
+  "@ageYearsValue": {
+    "placeholders": {
+      "age": {
+        "type": "int"
+      }
+    }
+  },
+  "seniorityYearsValue": "{years, plural, one{{years} year} other{{years} years}}",
+  "@seniorityYearsValue": {
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "empListAddEmployeeFabLabel": "Add employee",
+  "sendNotifStatusDivisionApproved": "Approved (Division)",
+  "sendNotifStatusRegionApproved": "Approved (Region)",
+  "sendNotifStatusFinalApproved": "Approved (Final)",
+  "sendNotifSuccessMsg": "Notification sent to {count} companies",
+  "@sendNotifSuccessMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sendNotifErrorMsg": "Error: {msg}",
+  "@sendNotifErrorMsg": {
+    "placeholders": {
+      "msg": {
+        "type": "String"
+      }
+    }
+  },
+  "sendNotifHeaderTitle": "Send a notification",
+  "sendNotifHeaderSubtitle": "Multi-criteria company targeting",
+  "sendNotifEstimatedRecipientsLabel": "Estimated recipients",
+  "sendNotifRecipientCountLine": "{count} companies",
+  "@sendNotifRecipientCountLine": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sendNotifActiveBadge": "Active",
+  "sendNotifRecipientFiltersSection": "Recipient filters",
+  "sendNotifDivisionDepartmentLabel": "Division / Department",
+  "sendNotifAllDivisionsHint": "All divisions",
+  "sendNotifSubmissionStatusLabel": "Submission status",
+  "sendNotifAllStatusesHint": "All statuses",
+  "sendNotifMessageContentSection": "Message content",
+  "sendNotifSubjectLabel": "Subject",
+  "sendNotifSubjectHintExample": "E.g.: Reminder — DSM-O 2025 Deadline",
+  "sendNotifSubjectRequiredError": "Subject is required",
+  "sendNotifMessageFieldLabel": "Message",
+  "sendNotifMessageHintExample": "Write your message here...",
+  "sendNotifMessageRequiredError": "Message is required",
+  "sendNotifSendButton": "Send the notification",
+  "sendNotifClearFormButton": "Clear the form",
+  "homeTabAnalyticsDsmo": "DSMO Analytics",
+  "homeTabReports": "Reports",
+  "homeTabCommunication": "Communication",
+  "annuaireLabel": "Directory",
+  "dashboardFallbackTitle": "Dashboard",
+  "roleLabelDivisional": "Labor Division",
+  "roleLabelRegional": "Regional Delegation",
+  "roleLabelCentral": "National Directorate",
+  "roleLabelSuperAdmin": "Super Admin · DSMO + ONEFOP",
+  "roleLabelSuperAdminDsmo": "Admin · Labor Regulation",
+  "roleLabelSuperAdminOnefop": "Admin · ONEFOP",
+  "filterByZoneTitle": "Filter by area",
+  "clearButton": "Clear",
+  "departmentDivisionLabel": "Department / Division",
+  "allDepartmentsHint": "All departments",
+  "applyFilterButton": "Apply filter",
+  "approvedHistoricalStatusOption": "Approved (historical)",
+  "logoutDialogTitle": "Log out",
+  "logoutConfirmBody": "Are you sure you want to log out?",
+  "logoutButton": "Log out",
+  "drawerSectionConsultation": "Consultation",
+  "drawerViewQuestionnairesSubtitle": "View questionnaires",
+  "drawerSectionAdminDsmo": "DSMO Administration",
+  "drawerDeclarationsDsmoLabel": "DSMO Declarations",
+  "drawerViewDeclarationsSubtitle": "View declarations",
+  "drawerAnnuaireSubtitle": "Users and companies",
+  "drawerResetPasswordSubtitle": "After identity verification",
+  "drawerSectionAdminOnefop": "ONEFOP Administration",
+  "drawerSectionSaisieOnefop": "ONEFOP Data Entry",
+  "drawerNewQuestionnaireLabel": "New questionnaire",
+  "drawerAssistedEntrySubtitle": "Assisted entry",
+  "navCollapseTooltip": "Collapse navigation",
+  "navExpandTooltip": "Expand navigation",
+  "filterByRegionTooltip": "Filter by region",
+  "connectionErrorTitle": "Connection error",
+  "navOnefopMinefopTag": "ONEFOP · MINEFOP",
+  "onefopAutoGuidedTitle": "Self-guided questionnaire",
+  "onefopContinueQuestionnaireButton": "Continue the questionnaire",
+  "dearDirectorGreeting": "Dear Director",
+  "yourProgressHeading": "Your Progress",
+  "sectionsCompletedCount": "{completed}/{total} sections completed",
+  "@sectionsCompletedCount": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "fieldsRemainingPlaceholder": "17/32 required fields remaining",
+  "completedSlashLabel": "Completed",
+  "minefopOnefopBrandTag": "MINEFOP / ONEFOP",
+  "submissionIdEntityTypeLine": "ID {establishmentId} · {entityTypeLabel}",
+  "@submissionIdEntityTypeLine": {
+    "placeholders": {
+      "establishmentId": {
+        "type": "String"
+      },
+      "entityTypeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "mastheadCnpsLabel": "CNPS",
+  "vtWizardSectionNumberLabel": "SECTION {index}",
+  "@vtWizardSectionNumberLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "vtWizardFieldsFilledCount": "{filled}/{total} fields",
+  "@vtWizardFieldsFilledCount": {
+    "placeholders": {
+      "filled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reportApprovalApprovedSnackbar": "Report approved",
+  "reportApprovalRejectedSnackbar": "Report rejected",
+  "reportRejectionReasonDialogTitle": "Reason for rejection",
+  "reportRejectionReasonHint": "Explain why...",
+  "reportNoPendingApprovalsTitle": "No pending approvals",
+  "reportAllProcessedSubtitle": "All reports have been processed",
+  "reportAuditEmptyTitle": "No activity recorded",
+  "reportAuditEmptySubtitle": "User actions will appear here",
+  "reportAuditSystemActionFallback": "System action",
+  "reportRegionLittoral": "Littoral",
+  "reportRegionCentre": "Centre",
+  "reportRegionNord": "North",
+  "reportRegionExtremeNord": "Far North",
+  "reportRegionOuest": "West",
+  "reportRegionSud": "South",
+  "reportRegionEst": "East",
+  "reportRegionAdamaoua": "Adamawa",
+  "reportRegionNordOuest": "North West",
+  "reportRegionSudOuest": "South West",
+  "reportBatchSelectRegionError": "Select at least one region",
+  "reportBatchGenerationStartedMsg": "Batch generation started",
+  "reportBatchJobRetryingMsg": "Retry in progress",
+  "reportBatchByRegionTitle": "Batch generation by region",
+  "reportBatchLaunchButton": "Launch batch generation",
+  "reportBatchRecentJobsTitle": "Recent jobs",
+  "reportBatchEmptyTitle": "No batch jobs",
+  "reportBatchJobReportsCount": "{completed}/{total} reports",
+  "@reportBatchJobReportsCount": {
+    "placeholders": {
+      "completed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reportSelectTwoReportsError": "Select two reports to compare",
+  "reportMetricFeminizationLabel": "Feminization",
+  "reportSelectReportHint": "Select a report",
+  "reportBaselineReportLabel": "Baseline report",
+  "reportTargetReportLabel": "Report to compare",
+  "reportCompareButton": "Compare",
+  "reportComparisonResultsTitle": "Comparison results",
+  "reportBaselineColumnLabel": "Baseline",
+  "reportComparedColumnLabel": "Compared",
+  "reportSelectOneSectionError": "Select at least one section",
+  "reportEndDateAfterStartError": "The end date must be after the start date",
+  "reportPeriodMax36MonthsError": "The period cannot exceed 36 months",
+  "reportGeneratedSuccessMsg": "Report generated successfully",
+  "reportSectionLocationLabel": "LOCATION",
+  "reportNationalAllOption": "National (all)",
+  "reportPeriod3MonthsLabel": "3 months",
+  "reportPeriod6MonthsLabel": "6 months",
+  "reportPeriod12MonthsLabel": "12 months",
+  "reportPeriodYtdLabel": "Current year",
+  "reportPeriodCustomLabel": "Custom",
+  "reportSectionPeriodLabel": "PERIOD",
+  "reportDateFromLabel": "From",
+  "reportDateToLabel": "To",
+  "reportSectionContentLabel": "CONTENT",
+  "reportSelectAllButton": "Select all",
+  "reportDeselectAllButton": "Deselect all",
+  "reportSubtitleWorkforceTrends": "Time trends",
+  "reportSubtitleSkillsAnalysis": "Sector analysis",
+  "reportSubtitleDiversityInclusion": "Equity & inclusion",
+  "reportSubtitleRegionalDetail": "Regional detail",
+  "reportSectionNameLabel": "REPORT NAME (optional)",
+  "reportNameHintExample": "HR Briefing Littoral June 2026",
+  "reportGenerateButtonLabel": "GENERATE REPORT",
+  "reportDownloadStartedMsg": "Download started",
+  "reportEmptyHistoryTitle": "No report generated",
+  "reportEmptyHistorySubtitle": "Generate your first report in the \"Generate\" tab",
+  "reportDownloadTooltip": "Download",
+  "reportTabGenerate": "Generate",
+  "reportTabApprovals": "Approvals",
+  "reportTabHistory": "History",
+  "reportTabBatch": "Batch",
+  "reportTabAudit": "Audit",
+  "reportScreenTitle": "Report generator",
+  "onefopExportExcelDownloadedMsg": "Excel file downloaded: {path}",
+  "@onefopExportExcelDownloadedMsg": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportErrorMsg": "Error during export: {error}",
+  "@onefopExportErrorMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportSpssDownloadedMsg": "SPSS files downloaded (CSV + .sps syntax): {path}. Place both files in the same folder, then run the .sps file in SPSS.",
+  "@onefopExportSpssDownloadedMsg": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportSpssErrorMsg": "Error during SPSS export: {error}",
+  "@onefopExportSpssErrorMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onefopExportPanelTitle": "Export ONEFOP submissions",
+  "onefopExportPanelDescription": "Compiles all approved submissions (Enterprises, Cooperatives, Local Authorities, NGOs): identification data and sections 1 to 4 of the questionnaire.",
+  "onefopExportGeneratingLabel": "Generating…",
+  "onefopExportExcelButton": "Export to Excel",
+  "onefopExportSpssButton": "Export to SPSS",
+  "onefopExportPdfComingSoonMsg": "PDF export coming soon",
+  "reportExportFiltersActiveCount": "{count, plural, =1{Filters ({count} active)} other{Filters ({count} active)}}",
+  "@reportExportFiltersActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reportExportFiltersOptionalLabel": "Filters (optional)",
+  "onefopExportFilterDescription": "Limits the export to a specific region, department, survey year, and/or period.",
+  "onefopExportChooseRegionFirstHint": "Choose a region first",
+  "onefopExportSurveyYearLabel": "Survey year",
+  "onefopExportYearHintExample": "E.g. {year}",
+  "@onefopExportYearHintExample": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "onefopExportAllPeriodOption": "Entire period",
+  "onefopExportSubmissionPeriodLabel": "Submission period",
+  "soumissionsTypeDsmoOption": "DSMO",
+  "draftSavedSnackbar": "Draft saved",
+  "discardDraftDialogTitle": "Discard draft?",
+  "draftRelativeTimeJustNow": "just now",
+  "draftRelativeTimeMinutesAgo": "{minutes} min ago",
+  "@draftRelativeTimeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "draftRelativeTimeHoursAgo": "{hours} h ago",
+  "@draftRelativeTimeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "draftRelativeTimeDaysAgo": "{days} d ago",
+  "@draftRelativeTimeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "draftSaveNowButton": "Save now",
+  "draftLoadFailedMessage": "Failed to load drafts",
+  "draftEmptyStateMessage": "No saved draft",
+  "offlineBannerOfflineWithPendingMsg": "Offline — {count} pending",
+  "@offlineBannerOfflineWithPendingMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineBannerOfflineDegradedMsg": "Offline mode",
+  "offlineBannerOnlinePendingMsg": "{count} item(s) pending",
+  "@offlineBannerOnlinePendingMsg": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pdfDownloadFolderNotFoundError": "Download folder not found.",
+  "pdfSavedToDownloadsMsg": "PDF saved to Downloads",
+  "pdfSavedToDocumentsMsg": "PDF saved to Documents",
+  "pdfDownloadFailedError": "Download failed: {error}",
+  "@pdfDownloadFailedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "formPreviewTitle": "Official ONEFOP Form · CAM-LEAP",
+  "pdfReviewBeforeSubmitWarning": "Review the information below before submitting for good.",
+  "loadingPdfEllipsis": "Loading PDF…",
+  "pdfLoadFailedError": "Unable to load the PDF.",
+  "submittingEllipsis": "Submitting…",
+  "customPeriodLabel": "Custom period",
+  "periodAnalysisLabel": "Analysis period",
+  "yearLabel": "Year",
+  "quarterLabel": "Quarter",
+  "semesterLabel": "Semester",
+  "quarterT1Label": "Q1 (Jan-Mar)",
+  "quarterT2Label": "Q2 (Apr-Jun)",
+  "quarterT3Label": "Q3 (Jul-Sep)",
+  "quarterT4Label": "Q4 (Oct-Dec)",
+  "semesterS1Label": "S1 (Jan-Jun)",
+  "semesterS2Label": "S2 (Jul-Dec)",
+  "selectPeriodPrompt": "Select a period",
+  "newShortLabel": "New",
+  "serviceCategoryDeconcentratedLabel": "Decentralized Services",
+  "serviceCategoryCentralLabel": "Central Administration",
+  "serviceCategoryAffiliatedLabel": "Affiliated Bodies",
+  "selectServiceTypeAbovePrompt": "Select a service type above.",
+  "noServiceFoundMessage": "No service found.",
+  "serviceTypeFieldLabel": "Service type *",
+  "selectServiceTypeHint": "Select a service type",
+  "serviceSelectedLabel": "Service selected",
+  "servicesLoadFailedTitle": "Unable to load services",
+  "serviceCategoryDeconcentratedShort": "Decentralized",
+  "serviceCategoryCentralShort": "Central",
+  "serviceCategoryAffiliatedShort": "Affiliated"
 }

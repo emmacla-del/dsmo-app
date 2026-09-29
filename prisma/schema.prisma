@@ -165,6 +165,8 @@ model User {
   closedRounds               SubmissionRound[]  @relation("RoundClosedBy")
   openedRounds               SubmissionRound[]  @relation("RoundOpenedBy")
   minefopService             MinefopService?    @relation(fields: [serviceCode], references: [code])
+  resolvedAnomalies          OnefopAnomaly[]    @relation("AnomalyResolver")
+  frozenCampaigns            CampaignFreeze[]   @relation("CampaignFrozenBy")
 
   @@index([role])
   @@index([serviceCode])
@@ -477,6 +479,7 @@ model DataCampaign {
   status            CampaignStatus       @default(DRAFT)
   reminders         CampaignReminder[]
   submissions       CampaignSubmission[]
+  freezes           CampaignFreeze[]
   creator           User?                @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
   round             SubmissionRound?
 
@@ -644,6 +647,24 @@ model SubmissionDraft {
   @@map("submission_drafts")
 }
 
+// Partial unique index (raw SQL, not expressible in this DSL — Prisma
+// doesn't support a WHERE predicate on @@unique/@@index):
+//   CREATE UNIQUE INDEX "onefop_submissions_company_quarter_live_uidx"
+//     ON "onefop_submissions" ("companyId", "quarterCode")
+//     WHERE "status" IN ('PENDING_REVIEW', 'APPROVED');
+// See prisma/migrations/20260909100000_add_onefop_submission_duplicate_guard.
+// Deliberately NOT mirrored below as an @@index/@@unique: a plain
+// (companyId, quarterCode) directive here has no WHERE clause, so
+// `prisma migrate dev`/`diff` would treat it as a *different*, stricter
+// constraint than the one this migration actually created — generating a
+// migration that tries to add a full-table unique index on top, which
+// fails outright (DRAFT/REJECTED/CORRECTION_REQUESTED rows already repeat
+// (companyId, quarterCode) by design) or, if it somehow applied, would
+// silently block legitimate multiple drafts/rejections per quarter. If
+// this model is ever introspected (`prisma db pull`), check the diff
+// before accepting it — introspection may not round-trip the WHERE
+// clause correctly, and this comment is the only place that clause is
+// recorded. Do not add a matching @@unique/@@index here.
 model OnefopSubmission {
   id                    String                        @id @default(uuid())
   submissionId          String                        @unique @default(uuid())
@@ -714,6 +735,7 @@ model OnefopSubmission {
   user                  User?                         @relation(fields: [submittedBy], references: [id])
   trainingNeeds         OnefopTrainingNeed[]
   vulnerableData        OnefopVulnerableData[]
+  anomalies             OnefopAnomaly[]
 
   @@index([status])
   @@index([formType])
@@ -962,6 +984,11 @@ model OnefopVocationalTrainingDetail {
   latrineTypes              String[] @default([])
   latrinesSeparateByGender  Boolean?
   latrinesSeparateFromStaff Boolean?
+  // Added for the MINEFOP Collect wizard redesign (Figma screen 06,
+  // "Nombre total de cabines" / "Cabines réservées aux filles") — no
+  // matching count existed before, only the booleans above.
+  latrineCabinTotalCount    Int?
+  latrineCabinGirlsCount    Int?
   hasPlayground             Boolean?
   playgroundTypes           String[] @default([])
   hasIctTools               Boolean?
@@ -1028,6 +1055,12 @@ model OnefopVocationalTrainingDetail {
   hasTraineeDatabaseTool     Boolean?   // 6.2.3
   hasJobSearchSupportTool    Boolean?   // 6.2.4
   // No 7.3 field — the printed instrument's own numbering jumps 7.2 → 7.4.
+  // Added for the MINEFOP Collect wizard redesign (Figma screen 10,
+  // "Suivi de l'Insertion des Diplômés" — formal/informal/job-seeking
+  // breakdown of last year's graduates). No prior AST equivalent.
+  insertedFormalSectorCount     Int?
+  insertedInformalSectorCount   Int?
+  seekingEmploymentCount        Int?
 
   // §7 — cross-cutting themes
   hasHivAidsRules            Boolean?   // 7.1
@@ -1065,6 +1098,11 @@ model OnefopVocationalTrainingDetail {
   vacataireNonProfFemale  Int?
   permanentMale           Int?
   permanentFemale         Int?
+  // Added for the MINEFOP Collect wizard redesign (Figma screen 11,
+  // Permanent/Vacataire/Contractuel 3-way split) — no "Contractuel"
+  // category existed among the fixed rows above before.
+  contractualMale         Int?
+  contractualFemale       Int?
 
   // §9 — difficulties and perspectives
   facesDifficulties      Boolean?
@@ -1415,6 +1453,7 @@ model OnefopCspGenderAge {
 model OnefopDiplomaData {
   id           String           @id @default(uuid())
   submissionId String
+  cspCategory  CspCategory?
   diploma      DiplomaType
   gender       Gender
   ageBand      AgeBand?
@@ -1422,7 +1461,7 @@ model OnefopDiplomaData {
   createdAt    DateTime         @default(now())
   submission   OnefopSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
-  @@unique([submissionId, diploma, gender, ageBand])
+  @@unique([submissionId, cspCategory, diploma, gender, ageBand])
   @@index([submissionId])
   @@map("onefop_diploma_data")
 }
@@ -1811,11 +1850,12 @@ enum OnefopEntityType {
   ADMINISTRATION
   PROJECT_PROGRAM
   VOCATIONAL_TRAINING
-  // DSMO-only registration category (Centre de formation professionnelle),
-  // no ONEFOP questionnaire — see EntityType.vocationalCenter in
-  // minefop_models.dart. Added 2026-08-31 after registerCompany was found
-  // to 500 on it: this value was never wired into the Company.entityType
-  // enum despite being a selectable option in the Flutter register screen.
+  // DEPRECATED 2026-08-31: was a DSMO-only registration category (no ONEFOP
+  // questionnaire) briefly selectable in the Flutter register screen as
+  // EntityType.vocationalCenter, which has since been removed in favor of
+  // the single VOCATIONAL_TRAINING (ONEFOP survey) choice. Kept here only
+  // because Postgres enum values cannot be dropped without a table rewrite;
+  // no app code writes or reads this value anymore.
   VOCATIONAL_TRAINING_CENTER
 }
 
@@ -2185,3 +2225,72 @@ enum SubmissionStatus {
   EXEMPT
   NOT_STARTED
 }
+
+// ─── AXIS 2 : RELATIONAL DATA QUALITY REGISTRY ──────────────────────────────
+
+enum AnomalyStatus {
+  OPEN
+  RESOLVED
+  WAIVED
+}
+
+enum AnomalySeverity {
+  CRITICAL
+  WARNING
+}
+
+enum AnomalyResolutionType {
+  DECLARANT_CORRECTION
+  FIELD_INSPECTION
+  LEGAL_DEROGATION
+}
+
+model OnefopAnomaly {
+  id              String                 @id @default(uuid())
+  submissionId    String
+  ruleCode        String
+  ruleFamily      String
+  severity        AnomalySeverity        @default(CRITICAL)
+  isBlocking      Boolean                @default(true)
+  status          AnomalyStatus          @default(OPEN)
+  description     String
+  observedValue   String
+  expectedValue   String
+  deltaValue      String?
+  detectedAt      DateTime               @default(now())
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolutionType  AnomalyResolutionType?
+  resolutionNote  String?
+  evidenceUrl     String?
+  submission      OnefopSubmission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  resolvedBy      User?                  @relation("AnomalyResolver", fields: [resolvedById], references: [id])
+
+  @@index([submissionId])
+  @@index([status, isBlocking])
+  @@index([ruleCode])
+  @@map("onefop_anomalies")
+}
+
+// ─── STATISTICAL GATE : CAMPAIGN FREEZE SNAPSHOT ────────────────────────────
+
+model CampaignFreeze {
+  id              String       @id @default(uuid())
+  campaignId      String
+  versionTag      String
+  frozenAt        DateTime     @default(now())
+  frozenById      String
+  totalTargeted   Int          @default(0)
+  totalSubmitted  Int          @default(0)
+  totalIncluded   Int          @default(0)
+  totalExcluded   Int          @default(0)
+  sha256Digest    String
+  metadata        Json?
+  campaign        DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  frozenBy        User         @relation("CampaignFrozenBy", fields: [frozenById], references: [id])
+
+  @@unique([campaignId, versionTag])
+  @@index([campaignId])
+  @@map("campaign_freezes")
+}
+

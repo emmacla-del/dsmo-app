@@ -201,32 +201,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       case 'DIVISIONAL':
         // VETTING SUSPENDED: Removed validation UI, keeping only view
-        return const [
-          _Tab('Soumissions', Icons.list_alt_outlined,
-              SubmissionsViewerScreen()),
-          _Tab('Analytique', Icons.bar_chart_outlined, OnefopDashboardScreen()),
+        return [
+          _Tab(context.l10n.submissionsTitle, Icons.list_alt_outlined,
+              const SubmissionsViewerScreen()),
+          _Tab(context.l10n.analyticsTabLabel, Icons.bar_chart_outlined,
+              const OnefopDashboardScreen()),
         ];
 
       case 'REGIONAL':
         // VETTING SUSPENDED: Removed pending queue, using viewer
-        return const [
-          _Tab('Soumissions', Icons.list_alt_outlined,
-              SubmissionsViewerScreen()),
-          _Tab('Analytique DSMO', Icons.bar_chart_outlined,
-              OnefopDashboardScreen()),
-          _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+        return [
+          _Tab(context.l10n.submissionsTitle, Icons.list_alt_outlined,
+              const SubmissionsViewerScreen()),
+          _Tab(context.l10n.homeTabAnalyticsDsmo, Icons.bar_chart_outlined,
+              const OnefopDashboardScreen()),
+          _Tab(context.l10n.settingsTabNotifications,
+              Icons.notifications_outlined, const SendNotificationScreen()),
         ];
 
       case 'CENTRAL':
         // VETTING SUSPENDED: Both DSMO and ONEFOP views
-        return const [
-          _Tab('Analytique DSMO', Icons.bar_chart_outlined,
-              OnefopDashboardScreen()),
-          _Tab('Soumissions ONEFOP', Icons.assignment_outlined,
-              SubmissionsViewerScreen()),
-          _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+        return [
+          _Tab(context.l10n.homeTabAnalyticsDsmo, Icons.bar_chart_outlined,
+              const OnefopDashboardScreen()),
+          _Tab(context.l10n.regionsSectorsOnefopSubmissionsStatLabel,
+              Icons.assignment_outlined, const SubmissionsViewerScreen()),
+          _Tab(context.l10n.settingsTabNotifications,
+              Icons.notifications_outlined, const SendNotificationScreen()),
         ];
 
       case 'SUPER_ADMIN':
@@ -240,42 +241,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // regions_sectors_screen.dart) — both duplicated screens that
         // already existed elsewhere instead of having their own home.
         return [
-          const _Tab('Analytics DSMO', Icons.bar_chart_outlined,
-              OnefopDashboardScreen()),
-          const _Tab('Reports', Icons.description_outlined, ReportScreen()),
-          const _Tab('Communication', Icons.campaign_outlined,
-              CommunicationScreen()),
-          const _Tab(
-              'Soumissions', Icons.assignment_outlined, SoumissionsScreen()),
-          const _Tab('Annuaire', Icons.contacts_outlined, AnnuaireScreen()),
-          const _Tab('Paramètres', Icons.settings_outlined,
-              SystemSettingsScreen()),
+          _Tab(context.l10n.homeTabAnalyticsDsmo, Icons.bar_chart_outlined,
+              const OnefopDashboardScreen()),
+          _Tab(context.l10n.homeTabReports, Icons.description_outlined,
+              const ReportScreen()),
+          _Tab(context.l10n.homeTabCommunication, Icons.campaign_outlined,
+              const CommunicationScreen()),
+          _Tab(context.l10n.submissionsTitle, Icons.assignment_outlined,
+              const SoumissionsScreen()),
+          _Tab(context.l10n.annuaireLabel, Icons.contacts_outlined,
+              const AnnuaireScreen()),
+          _Tab(context.l10n.settingsTabLabel, Icons.settings_outlined,
+              const SystemSettingsScreen()),
         ];
       case 'SUPER_ADMIN_DSMO':
         // DSMO-only admin without vetting. No "new declaration" FAB here —
         // this role reviews companies' declarations, it doesn't file its own.
         return [
-          const _Tab('Déclarations', Icons.folder_open_outlined,
-              DeclarationsListScreen()),
-          const _Tab('Analytique DSMO', Icons.bar_chart_outlined,
-              OnefopDashboardScreen()),
-          const _Tab('Annuaire', Icons.contacts_outlined,
-              AnnuaireScreen(showUsersTab: false)),
-          const _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+          _Tab(context.l10n.declarationsTabLabel, Icons.folder_open_outlined,
+              const DeclarationsListScreen()),
+          _Tab(context.l10n.homeTabAnalyticsDsmo, Icons.bar_chart_outlined,
+              const OnefopDashboardScreen()),
+          _Tab(context.l10n.annuaireLabel, Icons.contacts_outlined,
+              const AnnuaireScreen(showUsersTab: false)),
+          _Tab(context.l10n.settingsTabNotifications,
+              Icons.notifications_outlined, const SendNotificationScreen()),
         ];
 
       case 'SUPER_ADMIN_ONEFOP':
         // ONEFOP-only admin without vetting
-        return const [
-          _Tab('Tableau de bord', Icons.dashboard_outlined,
-              OnefopDashboardScreen()),
-          _Tab('Soumissions', Icons.list_alt_outlined,
-              SubmissionsViewerScreen()),
-          _Tab('Annuaire', Icons.contacts_outlined,
-              AnnuaireScreen(showUsersTab: false)),
-          _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+        return [
+          _Tab(context.l10n.dashboardFallbackTitle, Icons.dashboard_outlined,
+              const OnefopDashboardScreen()),
+          _Tab(context.l10n.submissionsTitle, Icons.list_alt_outlined,
+              const SubmissionsViewerScreen()),
+          _Tab(context.l10n.annuaireLabel, Icons.contacts_outlined,
+              const AnnuaireScreen(showUsersTab: false)),
+          _Tab(context.l10n.settingsTabNotifications,
+              Icons.notifications_outlined, const SendNotificationScreen()),
         ];
 
       default:
@@ -283,9 +286,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           '⚠️ [HomeScreen] Unrecognised role: "$role" — '
           'showing fallback tabs. Check backend role strings.',
         );
-        return const [
-          _Tab('Notifications', Icons.notifications_outlined,
-              SendNotificationScreen()),
+        return [
+          _Tab(context.l10n.settingsTabNotifications,
+              Icons.notifications_outlined, const SendNotificationScreen()),
         ];
     }
   }
@@ -296,13 +299,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   String _roleLabel(String role) {
     if (role == 'COMPANY') return context.l10n.roleLabelCompany;
-    const labels = {
-      'DIVISIONAL': 'Division du Travail',
-      'REGIONAL': 'Delegation Regionale',
-      'CENTRAL': 'Direction Nationale',
-      'SUPER_ADMIN': 'Super Admin · DSMO + ONEFOP',
-      'SUPER_ADMIN_DSMO': 'Admin · Regulation MO',
-      'SUPER_ADMIN_ONEFOP': 'Admin · ONEFOP',
+    final labels = {
+      'DIVISIONAL': context.l10n.roleLabelDivisional,
+      'REGIONAL': context.l10n.roleLabelRegional,
+      'CENTRAL': context.l10n.roleLabelCentral,
+      'SUPER_ADMIN': context.l10n.roleLabelSuperAdmin,
+      'SUPER_ADMIN_DSMO': context.l10n.roleLabelSuperAdminDsmo,
+      'SUPER_ADMIN_ONEFOP': context.l10n.roleLabelSuperAdminOnefop,
     };
     return labels[role] ?? role;
   }
@@ -367,7 +370,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'Vina',
       'Wouri',
     ];
-    const statuses = ['Tous', 'Brouillon', 'Soumis', 'Approuvé (historique)'];
+    final allLabel = context.l10n.allMasculine;
+    final statuses = [
+      allLabel,
+      context.l10n.dsmoDraftBadge,
+      context.l10n.statusSubmittedShort,
+      context.l10n.approvedHistoricalStatusOption,
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -411,8 +420,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         color: UltraTheme.primary, size: 18),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Filtrer par zone',
-                      style: TextStyle(
+                  Text(context.l10n.filterByZoneTitle,
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -429,8 +438,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           tempStatus = null;
                         });
                       },
-                      child: const Text('Effacer',
-                          style: TextStyle(
+                      child: Text(context.l10n.clearButton,
+                          style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 13,
                               color: UltraTheme.textMuted)),
@@ -438,45 +447,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ]),
                 const SizedBox(height: 20),
                 // Region
-                const Text('Région',
-                    style: TextStyle(
+                Text(context.l10n.pdfRegionLabel,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: UltraTheme.textMuted)),
                 const SizedBox(height: 8),
                 _FilterDropdown(
-                  hint: 'Toutes les régions',
+                  hint: context.l10n.allRegionsCheckboxLabel,
                   value: tempRegion,
                   items: regions,
                   onChanged: (v) => setSheet(() => tempRegion = v),
                 ),
                 const SizedBox(height: 16),
                 // Department
-                const Text('Département / Division',
-                    style: TextStyle(
+                Text(context.l10n.departmentDivisionLabel,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: UltraTheme.textMuted)),
                 const SizedBox(height: 8),
                 _FilterDropdown(
-                  hint: 'Tous les départements',
+                  hint: context.l10n.allDepartmentsHint,
                   value: tempDept,
                   items: departments,
                   onChanged: (v) => setSheet(() => tempDept = v),
                 ),
                 const SizedBox(height: 16),
                 // Status filter (NEW)
-                const Text('Statut',
-                    style: TextStyle(
+                Text(context.l10n.statusColumnHeader,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: UltraTheme.textMuted)),
                 const SizedBox(height: 8),
                 _FilterDropdown(
-                  hint: 'Tous les statuts',
+                  hint: context.l10n.sendNotifAllStatusesHint,
                   value: tempStatus,
                   items: statuses,
                   onChanged: (v) => setSheet(() => tempStatus = v),
@@ -495,7 +504,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _ActiveFilterChip(
                           label: tempDept!,
                           onRemove: () => setSheet(() => tempDept = null)),
-                    if (tempStatus != null && tempStatus != 'Tous')
+                    if (tempStatus != null && tempStatus != allLabel)
                       _ActiveFilterChip(
                           label: tempStatus!,
                           onRemove: () => setSheet(() => tempStatus = null)),
@@ -512,7 +521,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _filterRegion = tempRegion;
                         _filterDepartment = tempDept;
                         _filterStatus =
-                            tempStatus == 'Tous' ? null : tempStatus;
+                            tempStatus == allLabel ? null : tempStatus;
                       });
                       Navigator.pop(ctx);
                     },
@@ -523,8 +532,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Appliquer le filtre',
-                        style: TextStyle(
+                    child: Text(context.l10n.applyFilterButton,
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w600,
                             fontSize: 15)),
@@ -541,240 +550,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ═══════════════════════════════════════════════════════════
   // SECTION 5 — ENTITY TYPE HELPERS
   // ═══════════════════════════════════════════════════════════
-
-  /// Returns null for an unrecognized value — callers must handle that
-  /// explicitly (see the entityType-resolution guard in
-  /// _openOnefopFormForCompany) rather than silently defaulting to
-  /// Enterprise, which used to hand the wrong census questionnaire to
-  /// whichever company had an unrecognized/corrupt stored entityType.
-  EntityType? _parseEntityType(String s) {
-    switch (s.toUpperCase()) {
-      case 'ENTERPRISE':
-      case 'ENTREPRISE':
-        return EntityType.enterprise;
-      case 'COOPERATIVE':
-        return EntityType.cooperative;
-      case 'CTD':
-        return EntityType.ctd;
-      case 'ONG':
-        return EntityType.ong;
-      case 'ADMINISTRATION':
-        return EntityType.administration;
-      case 'PROJECT_PROGRAM':
-        return EntityType.projectProgram;
-      default:
-        return null;
-    }
-  }
-
-  String _mapActivityToSector(String? activity) {
-    if (activity == null) return 'Tertiaire/ Tertiary';
-    final a = activity.toLowerCase();
-    if (a.contains('agriculture') ||
-        a.contains('elevage') ||
-        a.contains('peche') ||
-        a.contains('mine') ||
-        a.contains('foret') ||
-        a.contains('farming') ||
-        a.contains('agro') ||
-        a.contains('forestier')) {
-      return 'Primaire/ Primary';
-    }
-    if (a.contains('industrie') ||
-        a.contains('fabrication') ||
-        a.contains('construction') ||
-        a.contains('manufacturing') ||
-        a.contains('batiment') ||
-        a.contains('travaux')) {
-      return 'Secondaire/ Secondary';
-    }
-    return 'Tertiaire/ Tertiary';
-  }
-
-  String? _mapCoopType(String? v) =>
-      (v == null || v.trim().isEmpty) ? null : v.trim();
-
-  String? _mapEnterpriseSize(String? size) {
-    switch (size?.trim().toUpperCase()) {
-      case 'TPE':
-        return 'TPE/ Very small enterprise';
-      case 'PE':
-        return 'PE/ Small enterprise';
-      case 'ME':
-        return 'ME/ Medium-sized enterprise';
-      case 'GE':
-        return 'GE/ Large enterprise';
-      default:
-        return null;
-    }
-  }
-
-  String? _mapLegalStatus(String? s) {
-    switch (s?.trim().toUpperCase()) {
-      case 'UNIPERSONNELLE':
-      case 'SOCIETE UNIPERSONNELLE':
-        return 'Societe unipersonnelle/ Single-member company';
-      case 'SARL':
-        return 'SARL/ LLC';
-      case 'SA':
-        return 'SA/ PLC';
-      case 'AUTRES':
-      case 'OTHER':
-      case 'OTHERS':
-        return 'Autres/ Others';
-      default:
-        return null;
-    }
-  }
-
-  String? _mapAreaBack(dynamic area) {
-    if (area == null) return null;
-    if (area is String) {
-      final l = area.toLowerCase();
-      if (l.contains('urbain')) return 'Urbain/ Urban';
-      if (l.contains('rural')) return 'Rural/ Rural';
-      return area;
-    }
-    if (area is int) {
-      if (area == 1) return 'Urbain/ Urban';
-      if (area == 2) return 'Rural/ Rural';
-    }
-    return null;
-  }
-
-  void _set(Map<String, dynamic> data, String key, dynamic value) {
-    if (value == null) return;
-    final s = value.toString().trim();
-    if (s.isNotEmpty) data[key] = s;
-  }
-
-  Map<String, dynamic> _companyToInitialData(
-      Map<String, dynamic> company, EntityType type, User? user) {
-    final data = <String, dynamic>{};
-
-    var respFirst = company['respondentFirstName'] as String? ?? '';
-    var respLast = company['respondentLastName'] as String? ?? '';
-    if (respFirst.isEmpty) respFirst = user?.firstName ?? '';
-    if (respLast.isEmpty) respLast = user?.lastName ?? '';
-
-    final fullName = [respFirst, respLast].where((s) => s.isNotEmpty).join(' ');
-    if (fullName.isNotEmpty) data['S0Q01'] = fullName;
-
-    final fn = company['respondentFunction'] as String? ??
-        company['positionTitle'] as String? ??
-        user?.positionTitle ??
-        '';
-    if (fn.isNotEmpty) data['S0Q02'] = fn;
-    if ((user?.email ?? '').isNotEmpty) data['S0Q03_EMAIL'] = user!.email;
-
-    final phone1 = company['respondentPhone'] as String? ??
-        company['phone'] as String? ??
-        '';
-    if (phone1.isNotEmpty) data['S0Q03_TEL1'] = phone1;
-    final phone2 = company['respondentPhone2'] as String? ?? '';
-    if (phone2.isNotEmpty) data['S0Q03_TEL2'] = phone2;
-
-    switch (type) {
-      case EntityType.enterprise:
-        _set(data, 'S1Q01', _mapLegalStatus(company['legalStatus'] as String?));
-        _set(data, 'S1Q02', company['companyName'] ?? company['name']);
-        _set(data, 'S1Q04_REGION', company['region']);
-        _set(data, 'S1Q04_DEPT', company['department']);
-        _set(data, 'S1Q04_SUBDIV', company['subdivision']);
-        _set(data, 'S1Q04_LOCALITY', company['address']);
-        final aEnt = _mapAreaBack(company['area']);
-        if (aEnt != null) data['S1Q03'] = aEnt;
-        _set(data, 'S1Q05_TEL1', company['phone']);
-        _set(data, 'S1Q05_TEL2', company['phone2']);
-        _set(data, 'S1Q05_BP', company['poBox']);
-        _set(data, 'S1Q05_EMAIL', company['email']);
-        final act = (company['mainActivity'] as String? ?? '').trim();
-        final br = (company['branch'] as String? ?? '').trim();
-        if (act.isNotEmpty) {
-          data['S1Q06'] = _mapActivityToSector(act);
-          data['S1Q08'] = act;
-        }
-        if (br.isNotEmpty) data['S1Q07'] = br;
-        _set(data, 'S1Q09', company['address']);
-        _set(data, 'S1Q10', company['cnpsNumber']);
-        _set(data, 'S1Q12',
-            _mapEnterpriseSize(company['enterpriseSize'] as String?));
-        break;
-
-      case EntityType.cooperative:
-        _set(data, 'COOP_S1Q01', company['cooperativeName'] ?? company['name']);
-        _set(data, 'COOP_S1Q02',
-            company['cooperativeHeadOffice'] ?? company['address']);
-        _set(data, 'COOP_S1Q03', company['yearOfCreation']?.toString());
-        _set(data, 'COOP_S1Q05_REGION', company['region']);
-        _set(data, 'COOP_S1Q05_DEPT', company['department']);
-        _set(data, 'COOP_S1Q05_SUBDIV', company['subdivision']);
-        _set(data, 'COOP_S1Q05_LOCALITY',
-            company['cooperativeHeadOffice'] ?? company['address']);
-        final aCoop = _mapAreaBack(company['area']);
-        if (aCoop != null) data['COOP_S1Q04'] = aCoop;
-        _set(data, 'COOP_S1Q06_TEL1', company['phone']);
-        _set(data, 'COOP_S1Q06_TEL2', company['phone2']);
-        _set(data, 'COOP_S1Q06_BP', company['poBox']);
-        final coopAct = (company['mainActivity'] as String? ?? '').trim();
-        final coopBr = (company['branch'] as String? ?? '').trim();
-        if (coopAct.isNotEmpty) {
-          data['COOP_S1Q07'] = _mapActivityToSector(coopAct);
-          data['COOP_S1Q09'] = coopAct;
-        }
-        if (coopBr.isNotEmpty) data['COOP_S1Q08'] = coopBr;
-        _set(data, 'COOP_S1Q10',
-            _mapCoopType(company['cooperativeType'] as String?));
-        _set(data, 'COOP_S1Q10_OTHER', company['cooperativeTypeOther']);
-        break;
-
-      case EntityType.ctd:
-        _set(data, 'CTD_S1Q01', company['ctdType']);
-        _set(data, 'CTD_S1Q02', company['councilType']);
-        _set(data, 'CTD_S1Q03', company['yearOfCreation']?.toString());
-        _set(data, 'CTD_S1Q05_REGION', company['region']);
-        _set(data, 'CTD_S1Q05_DEPT', company['department']);
-        _set(data, 'CTD_S1Q05_SUBDIV', company['subdivision']);
-        _set(data, 'CTD_S1Q05_LOCALITY', company['address']);
-        final aCtd = _mapAreaBack(company['area']);
-        if (aCtd != null) data['CTD_S1Q04'] = aCtd;
-        _set(data, 'CTD_S1Q06_TEL1', company['phone']);
-        _set(data, 'CTD_S1Q06_TEL2', company['phone2']);
-        _set(data, 'CTD_S1Q06_BP', company['poBox']);
-        final ctdAct = (company['mainActivity'] as String? ?? '').trim();
-        final ctdBr = (company['branch'] as String? ?? '').trim();
-        if (ctdAct.isNotEmpty) data['CTD_S1Q07'] = _mapActivityToSector(ctdAct);
-        if (ctdBr.isNotEmpty) data['CTD_S1Q08'] = ctdBr;
-        _set(data, 'CTD_S1Q01_NAME', company['ctdName'] ?? company['name']);
-        break;
-
-      case EntityType.ong:
-        _set(data, 'ONG_S1Q01', company['ngoName'] ?? company['name']);
-        _set(data, 'ONG_S1Q02', company['address']);
-        _set(data, 'ONG_S1Q03', company['yearOfCreation']?.toString());
-        _set(data, 'ONG_S1Q05_REGION', company['region']);
-        _set(data, 'ONG_S1Q05_DEPT', company['department']);
-        _set(data, 'ONG_S1Q05_SUBDIV', company['subdivision']);
-        _set(data, 'ONG_S1Q05_LOCALITY', company['address']);
-        final aOng = _mapAreaBack(company['area']);
-        if (aOng != null) data['ONG_S1Q04'] = aOng;
-        _set(data, 'ONG_S1Q06_TEL1', company['phone']);
-        _set(data, 'ONG_S1Q06_TEL2', company['phone2']);
-        _set(data, 'ONG_S1Q06_BP', company['poBox']);
-        final ongAct = (company['mainActivity'] as String? ?? '').trim();
-        final ongBr = (company['branch'] as String? ?? '').trim();
-        if (ongAct.isNotEmpty) data['ONG_S1Q07'] = _mapActivityToSector(ongAct);
-        if (ongBr.isNotEmpty) data['ONG_S1Q08'] = ongBr;
-        _set(data, 'ONG_S1Q09', company['mainMission']);
-        _set(data, 'ONG_S1Q10', company['registrationNumber']);
-        break;
-      case EntityType.vocational:
-      case EntityType.administration:
-      case EntityType.projectProgram:
-        break; // No Section 1 prefill mapping yet
-    }
-    return data;
-  }
+  //
+  // Promoted to top-level functions (below the class) so they're directly
+  // unit-testable — Dart's leading-underscore privacy is library-scoped,
+  // so a private instance method cannot be called from a separate test
+  // file. All of these are pure functions of their parameters (no `this`,
+  // no BuildContext, no widget state), so top-level placement changes
+  // nothing about behavior — see parseCompanyEntityType/
+  // companyToInitialData/mapActivityToSector/mapCoopType/
+  // mapEnterpriseSize/mapLegalStatus/mapAreaBack/setIfPresent below.
 
   // ═══════════════════════════════════════════════════════════
   // SECTION 6 — ONEFOP FORM FLOW (LINKAGE INTEGRATED)
@@ -865,7 +649,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (!mounted) return;
       }
 
-      final parsedType = _parseEntityType(entityType);
+      final parsedType = parseCompanyEntityType(entityType);
       if (parsedType == null) {
         if (!context.mounted) return;
         _snack(context,
@@ -929,7 +713,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         resumeDraft = resume;
       }
 
-      var initialData = _companyToInitialData(company, parsedType, user);
+      var initialData = companyToInitialData(company, parsedType, user);
 
       // Inject hidden metadata — flows to backend but never renders as form fields
       initialData['__meta_establishment_id'] = establishmentId;
@@ -940,7 +724,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       initialData['__meta_quarter_code'] = activeQuarterCode;
 
       final existingDraft = resumeDraft ? localDraft : null;
-      final merged = {...?existingDraft, ...initialData};
+      final merged = {...initialData, ...?existingDraft};
 
       final prefs = await SharedPreferences.getInstance();
       final hasAcknowledged =
@@ -960,6 +744,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // user explicitly resuming an existing draft may bypass the
             // notice after acknowledging it once.
             isReturningUser: resumeDraft && hasAcknowledged,
+            // S0Q01/S0Q02 hold the respondent's name/quality — set
+            // unconditionally by companyToInitialData for every entity type
+            // (VT additionally mirrors them under VT1_15_NAME/FUNCTION),
+            // sourced from the registration "Fonction" field or, for a
+            // resumed draft, whatever the user has since entered themselves.
+            respondentName: merged['S0Q01'] as String?,
+            respondentFunction: merged['S0Q02'] as String?,
             onPreload: () async {},
             onAcknowledged: () async {
               if (!hasAcknowledged && user != null) {
@@ -1185,6 +976,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   label: context.l10n.entityTypeOng,
                   value: 'ONG',
                   onTap: () => Navigator.pop(ctx, 'ONG')),
+              const SizedBox(height: 8),
+              EntityTypeCard(
+                  icon: Icons.school,
+                  label: const LocalizedText(
+                          fr: 'Formation professionnelle',
+                          en: 'Vocational Training')
+                      .of(context.loc),
+                  value: EntityType.vocationalTraining.apiValue,
+                  onTap: () => Navigator.pop(
+                      ctx, EntityType.vocationalTraining.apiValue)),
+              const SizedBox(height: 8),
+              EntityTypeCard(
+                  icon: Icons.account_balance_outlined,
+                  label: const LocalizedText(
+                          fr: 'Administration publique (MINFOPRA)',
+                          en: 'Public Administration (MINFOPRA)')
+                      .of(context.loc),
+                  value: EntityType.administration.apiValue,
+                  onTap: () =>
+                      Navigator.pop(ctx, EntityType.administration.apiValue)),
+              const SizedBox(height: 8),
+              EntityTypeCard(
+                  icon: Icons.assignment_outlined,
+                  label: const LocalizedText(
+                          fr: 'Projet / Programme',
+                          en: 'Project / Program')
+                      .of(context.loc),
+                  value: EntityType.projectProgram.apiValue,
+                  onTap: () =>
+                      Navigator.pop(ctx, EntityType.projectProgram.apiValue)),
               const SizedBox(height: 16),
               _cancelButton(ctx),
             ]),
@@ -1304,10 +1125,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           _dialogIcon(Icons.logout_rounded, UltraTheme.error),
           const SizedBox(height: 20),
-          Text('Déconnexion',
+          Text(context.l10n.logoutDialogTitle,
               style: UltraTheme.displayMedium.copyWith(fontSize: 22)),
           const SizedBox(height: 8),
-          Text('Voulez-vous vraiment vous déconnecter ?',
+          Text(context.l10n.logoutConfirmBody,
               textAlign: TextAlign.center, style: UltraTheme.bodyMedium),
           const SizedBox(height: 28),
           Row(children: [
@@ -1325,8 +1146,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           BorderRadius.circular(UltraTheme.radiusMedium)),
                   elevation: 0,
                 ),
-                child: const Text('Déconnecter',
-                    style: TextStyle(
+                child: Text(context.l10n.logoutButton,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w600)),
@@ -1392,8 +1213,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               borderRadius: BorderRadius.circular(UltraTheme.radiusLarge)),
           elevation: 8,
           duration: const Duration(seconds: 4),
-          action:
-              SnackBarAction(label: 'OK', textColor: color, onPressed: () {}),
+          action: SnackBarAction(
+              label: context.l10n.okButton, textColor: color, onPressed: () {}),
         ));
     });
   }
@@ -1474,11 +1295,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 children: [
                   if (isFieldAgent) ...[
-                    const DrawerSectionHeader('Consultation'),
+                    DrawerSectionHeader(context.l10n.drawerSectionConsultation),
                     DrawerNavItem(
                       icon: Icons.list_alt_outlined,
-                      label: "Soumissions",
-                      subtitle: 'Consulter les questionnaires',
+                      label: context.l10n.submissionsTitle,
+                      subtitle: context.l10n.drawerViewQuestionnairesSubtitle,
                       onTap: () {
                         Navigator.pop(context);
                         _push(const SubmissionsViewerScreen());
@@ -1487,11 +1308,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const Divider(height: 32, indent: 16, endIndent: 16),
                   ],
                   if (isDsmoAdmin) ...[
-                    const DrawerSectionHeader('Administration DSMO'),
+                    DrawerSectionHeader(context.l10n.drawerSectionAdminDsmo),
                     DrawerNavItem(
                       icon: Icons.folder_open_outlined,
-                      label: 'Déclarations DSMO',
-                      subtitle: 'Consulter les déclarations',
+                      label: context.l10n.drawerDeclarationsDsmoLabel,
+                      subtitle: context.l10n.drawerViewDeclarationsSubtitle,
                       onTap: () {
                         Navigator.pop(context);
                         _push(const DeclarationsListScreen());
@@ -1499,8 +1320,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     DrawerNavItem(
                       icon: Icons.contacts_outlined,
-                      label: 'Annuaire',
-                      subtitle: 'Utilisateurs et entreprises',
+                      label: context.l10n.annuaireLabel,
+                      subtitle: context.l10n.drawerAnnuaireSubtitle,
                       onTap: () {
                         Navigator.pop(context);
                         _push(const AnnuaireScreen());
@@ -1508,8 +1329,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     DrawerNavItem(
                       icon: Icons.password_outlined,
-                      label: 'Réinitialiser un mot de passe',
-                      subtitle: 'Après vérification d\'identité',
+                      label: context.l10n.adminResetPasswordTitle,
+                      subtitle: context.l10n.drawerResetPasswordSubtitle,
                       onTap: () {
                         Navigator.pop(context);
                         _push(const AdminResetPasswordScreen());
@@ -1518,11 +1339,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const Divider(height: 32, indent: 16, endIndent: 16),
                   ],
                   if (isOnefopAdmin) ...[
-                    const DrawerSectionHeader('Administration ONEFOP'),
+                    DrawerSectionHeader(context.l10n.drawerSectionAdminOnefop),
                     DrawerNavItem(
                       icon: Icons.list_alt_outlined,
-                      label: 'Soumissions ONEFOP',
-                      subtitle: 'Consulter les questionnaires',
+                      label: context.l10n.regionsSectorsOnefopSubmissionsStatLabel,
+                      subtitle: context.l10n.drawerViewQuestionnairesSubtitle,
                       onTap: () {
                         Navigator.pop(context);
                         _push(const SubmissionsViewerScreen());
@@ -1531,8 +1352,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (!isDsmoAdmin) ...[
                       DrawerNavItem(
                         icon: Icons.contacts_outlined,
-                        label: 'Annuaire',
-                        subtitle: 'Utilisateurs et entreprises',
+                        label: context.l10n.annuaireLabel,
+                        subtitle: context.l10n.drawerAnnuaireSubtitle,
                         onTap: () {
                           Navigator.pop(context);
                           _push(const AnnuaireScreen());
@@ -1540,8 +1361,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       DrawerNavItem(
                         icon: Icons.password_outlined,
-                        label: 'Réinitialiser un mot de passe',
-                        subtitle: 'Après vérification d\'identité',
+                        label: context.l10n.adminResetPasswordTitle,
+                        subtitle: context.l10n.drawerResetPasswordSubtitle,
                         onTap: () {
                           Navigator.pop(context);
                           _push(const AdminResetPasswordScreen());
@@ -1551,11 +1372,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const Divider(height: 32, indent: 16, endIndent: 16),
                   ],
                   if (!isCompany) ...[
-                    const DrawerSectionHeader('Saisie ONEFOP'),
+                    DrawerSectionHeader(context.l10n.drawerSectionSaisieOnefop),
                     DrawerNavItem(
                       icon: Icons.add_business_outlined,
-                      label: 'Nouveau questionnaire',
-                      subtitle: 'Saisie assistée',
+                      label: context.l10n.drawerNewQuestionnaireLabel,
+                      subtitle: context.l10n.drawerAssistedEntrySubtitle,
                       onTap: () {
                         Navigator.pop(context);
                         _withNavGate(_navigateToBlankForm);
@@ -1623,7 +1444,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _railToggleButton(bool expanded) {
     return Tooltip(
-      message: expanded ? 'Collapse navigation' : 'Expand navigation',
+      message: expanded
+          ? context.l10n.navCollapseTooltip
+          : context.l10n.navExpandTooltip,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -1727,7 +1550,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             )
             : null,
           title: isMobile
-            ? Text(role == 'COMPANY' ? 'My declarations' : 'CAMLEAP',
+            ? Text(
+              role == 'COMPANY'
+                  ? context.l10n.companyDeclMyDeclarationsTitle
+                  : context.l10n.platformName,
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 18,
@@ -1737,10 +1563,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ))
           : Text(
               role == 'COMPANY'
-                  ? 'My declarations'
+                  ? context.l10n.companyDeclMyDeclarationsTitle
                   : (tabs.isNotEmpty
                       ? tabs[_selectedIndex.clamp(0, tabs.length - 1)].label
-                      : 'Tableau de bord'),
+                      : context.l10n.dashboardFallbackTitle),
               style: UltraTheme.displayMedium.copyWith(fontSize: 20),
             ),
       actions: [
@@ -1762,7 +1588,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 size: 20,
               ),
             ),
-            tooltip: 'Filtrer par région',
+            tooltip: context.l10n.filterByRegionTooltip,
             onPressed: () => _openFilterSheet(tabs),
           ),
         const NotificationBell(),
@@ -1889,8 +1715,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: UltraTheme.error, size: 18),
             ),
             const SizedBox(width: 12),
-            const Text('Déconnexion',
-                style: TextStyle(
+            Text(context.l10n.logoutDialogTitle,
+                style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -2042,7 +1868,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Chargement...', style: UltraTheme.bodyLarge),
+            Text(context.l10n.loadingEllipsis, style: UltraTheme.bodyLarge),
           ]),
         ),
       );
@@ -2070,7 +1896,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     size: 36, color: UltraTheme.error),
               ),
               const SizedBox(height: 20),
-              Text('Erreur de connexion', style: UltraTheme.titleLarge),
+              Text(context.l10n.connectionErrorTitle, style: UltraTheme.titleLarge),
               const SizedBox(height: 8),
               Text(message,
                   textAlign: TextAlign.center, style: UltraTheme.bodyMedium),
@@ -2089,8 +1915,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           BorderRadius.circular(UltraTheme.radiusMedium)),
                   elevation: 0,
                 ),
-                child: const Text('Retour à la connexion',
-                    style: TextStyle(
+                child: Text(context.l10n.backToLogin,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w600)),
@@ -2099,6 +1925,328 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENTITY TYPE / COMPANY-PREFILL HELPERS (top-level — see SECTION 5 note
+// above _HomeScreenState for why these are pure top-level functions
+// rather than private instance methods)
+// ═══════════════════════════════════════════════════════════════
+
+/// Returns null for an unrecognized value — callers must handle that
+/// explicitly (see the entityType-resolution guard in
+/// _openOnefopFormForCompany) rather than silently defaulting to
+/// Enterprise, which used to hand the wrong census questionnaire to
+/// whichever company had an unrecognized/corrupt stored entityType.
+EntityType? parseCompanyEntityType(String s) {
+  switch (s.toUpperCase()) {
+    case 'ENTERPRISE':
+    case 'ENTREPRISE':
+      return EntityType.enterprise;
+    case 'COOPERATIVE':
+      return EntityType.cooperative;
+    case 'CTD':
+      return EntityType.ctd;
+    case 'ONG':
+      return EntityType.ong;
+    case 'ADMINISTRATION':
+      return EntityType.administration;
+    case 'PROJECT_PROGRAM':
+      return EntityType.projectProgram;
+    case 'VOCATIONAL_TRAINING':
+      return EntityType.vocationalTraining;
+    default:
+      return null;
+  }
+}
+
+String mapActivityToSector(String? activity) {
+  if (activity == null) return 'Tertiaire/ Tertiary';
+  final a = activity.toLowerCase();
+  if (a.contains('agriculture') ||
+      a.contains('elevage') ||
+      a.contains('peche') ||
+      a.contains('mine') ||
+      a.contains('foret') ||
+      a.contains('farming') ||
+      a.contains('agro') ||
+      a.contains('forestier')) {
+    return 'Primaire/ Primary';
+  }
+  if (a.contains('industrie') ||
+      a.contains('fabrication') ||
+      a.contains('construction') ||
+      a.contains('manufacturing') ||
+      a.contains('batiment') ||
+      a.contains('travaux')) {
+    return 'Secondaire/ Secondary';
+  }
+  return 'Tertiaire/ Tertiary';
+}
+
+String? mapCoopType(String? v) =>
+    (v == null || v.trim().isEmpty) ? null : v.trim();
+
+String? mapEnterpriseSize(String? size) {
+  switch (size?.trim().toUpperCase()) {
+    case 'TPE':
+      return 'TPE/ Very small enterprise';
+    case 'PE':
+      return 'PE/ Small enterprise';
+    case 'ME':
+      return 'ME/ Medium-sized enterprise';
+    case 'GE':
+      return 'GE/ Large enterprise';
+    default:
+      return null;
+  }
+}
+
+String? mapLegalStatus(String? s) {
+  switch (s?.trim().toUpperCase()) {
+    case 'UNIPERSONNELLE':
+    case 'SOCIETE UNIPERSONNELLE':
+      return 'Societe unipersonnelle/ Single-member company';
+    case 'SARL':
+      return 'SARL/ LLC';
+    case 'SA':
+      return 'SA/ PLC';
+    case 'AUTRES':
+    case 'OTHER':
+    case 'OTHERS':
+      return 'Autres/ Others';
+    default:
+      return null;
+  }
+}
+
+String? mapAreaBack(dynamic area) {
+  if (area == null) return null;
+  if (area is String) {
+    final l = area.toLowerCase();
+    if (l.contains('urbain')) return 'Urbain/ Urban';
+    if (l.contains('rural')) return 'Rural/ Rural';
+    return area;
+  }
+  if (area is int) {
+    if (area == 1) return 'Urbain/ Urban';
+    if (area == 2) return 'Rural/ Rural';
+  }
+  return null;
+}
+
+void setIfPresent(Map<String, dynamic> data, String key, dynamic value) {
+  if (value == null) return;
+  final s = value.toString().trim();
+  if (s.isNotEmpty) data[key] = s;
+}
+
+Map<String, dynamic> companyToInitialData(
+    Map<String, dynamic> company, EntityType type, User? user) {
+  final data = <String, dynamic>{};
+
+  var respFirst = company['respondentFirstName'] as String? ?? '';
+  var respLast = company['respondentLastName'] as String? ?? '';
+  if (respFirst.isEmpty) respFirst = user?.firstName ?? '';
+  if (respLast.isEmpty) respLast = user?.lastName ?? '';
+
+  final fullName = [respFirst, respLast].where((s) => s.isNotEmpty).join(' ');
+  if (fullName.isNotEmpty) data['S0Q01'] = fullName;
+
+  final fn = company['respondentFunction'] as String? ??
+      company['positionTitle'] as String? ??
+      user?.positionTitle ??
+      '';
+  if (fn.isNotEmpty) data['S0Q02'] = fn;
+  if ((user?.email ?? '').isNotEmpty) data['S0Q03_EMAIL'] = user!.email;
+
+  final phone1 = company['respondentPhone'] as String? ??
+      company['phone'] as String? ??
+      '';
+  if (phone1.isNotEmpty) data['S0Q03_TEL1'] = phone1;
+  final phone2 = company['respondentPhone2'] as String? ?? '';
+  if (phone2.isNotEmpty) data['S0Q03_TEL2'] = phone2;
+
+  switch (type) {
+    case EntityType.enterprise:
+      setIfPresent(data, 'S1Q01', mapLegalStatus(company['legalStatus'] as String?));
+      setIfPresent(data, 'S1Q02', company['companyName'] ?? company['name']);
+      setIfPresent(data, 'S1Q04_REGION', company['region']);
+      setIfPresent(data, 'S1Q04_DEPT', company['department']);
+      setIfPresent(data, 'S1Q04_SUBDIV', company['subdivision']);
+      setIfPresent(data, 'S1Q04_LOCALITY', company['address']);
+      final aEnt = mapAreaBack(company['area']);
+      if (aEnt != null) data['S1Q03'] = aEnt;
+      setIfPresent(data, 'S1Q05_TEL1', company['phone']);
+      setIfPresent(data, 'S1Q05_TEL2', company['phone2']);
+      setIfPresent(data, 'S1Q05_BP', company['poBox']);
+      setIfPresent(data, 'S1Q05_EMAIL', company['email']);
+      final act = (company['mainActivity'] as String? ?? '').trim();
+      final br = (company['branch'] as String? ?? '').trim();
+      if (act.isNotEmpty) {
+        data['S1Q06'] = mapActivityToSector(act);
+        data['S1Q08'] = act;
+      }
+      if (br.isNotEmpty) data['S1Q07'] = br;
+      setIfPresent(data, 'S1Q09', company['address']);
+      setIfPresent(data, 'S1Q10', company['totalEmployees']?.toString());
+      setIfPresent(data, 'S1Q12',
+          mapEnterpriseSize(company['enterpriseSize'] as String?));
+      break;
+
+    case EntityType.cooperative:
+      setIfPresent(data, 'COOP_S1Q01', company['cooperativeName'] ?? company['name']);
+      setIfPresent(data, 'COOP_S1Q02',
+          company['cooperativeHeadOffice'] ?? company['address']);
+      setIfPresent(data, 'COOP_S1Q03', company['yearOfCreation']?.toString());
+      setIfPresent(data, 'COOP_S1Q05_REGION', company['region']);
+      setIfPresent(data, 'COOP_S1Q05_DEPT', company['department']);
+      setIfPresent(data, 'COOP_S1Q05_SUBDIV', company['subdivision']);
+      setIfPresent(data, 'COOP_S1Q05_LOCALITY',
+          company['cooperativeHeadOffice'] ?? company['address']);
+      final aCoop = mapAreaBack(company['area']);
+      if (aCoop != null) data['COOP_S1Q04'] = aCoop;
+      setIfPresent(data, 'COOP_S1Q06_TEL1', company['phone']);
+      setIfPresent(data, 'COOP_S1Q06_TEL2', company['phone2']);
+      setIfPresent(data, 'COOP_S1Q06_BP', company['poBox']);
+      final coopAct = (company['mainActivity'] as String? ?? '').trim();
+      final coopBr = (company['branch'] as String? ?? '').trim();
+      if (coopAct.isNotEmpty) {
+        data['COOP_S1Q07'] = mapActivityToSector(coopAct);
+        data['COOP_S1Q09'] = coopAct;
+      }
+      if (coopBr.isNotEmpty) data['COOP_S1Q08'] = coopBr;
+      setIfPresent(data, 'COOP_S1Q10',
+          mapCoopType(company['cooperativeType'] as String?));
+      setIfPresent(data, 'COOP_S1Q10_OTHER', company['cooperativeTypeOther']);
+      setIfPresent(data, 'COOP_S1Q11', company['totalEmployees']?.toString());
+      break;
+
+    case EntityType.ctd:
+      setIfPresent(data, 'CTD_S1Q01', company['ctdType']);
+      setIfPresent(data, 'CTD_S1Q02', company['councilType']);
+      setIfPresent(data, 'CTD_S1Q03', company['yearOfCreation']?.toString());
+      setIfPresent(data, 'CTD_S1Q05_REGION', company['region']);
+      setIfPresent(data, 'CTD_S1Q05_DEPT', company['department']);
+      setIfPresent(data, 'CTD_S1Q05_SUBDIV', company['subdivision']);
+      setIfPresent(data, 'CTD_S1Q05_LOCALITY', company['address']);
+      final aCtd = mapAreaBack(company['area']);
+      if (aCtd != null) data['CTD_S1Q04'] = aCtd;
+      setIfPresent(data, 'CTD_S1Q06_TEL1', company['phone']);
+      setIfPresent(data, 'CTD_S1Q06_TEL2', company['phone2']);
+      setIfPresent(data, 'CTD_S1Q06_BP', company['poBox']);
+      final ctdAct = (company['mainActivity'] as String? ?? '').trim();
+      final ctdBr = (company['branch'] as String? ?? '').trim();
+      if (ctdAct.isNotEmpty) data['CTD_S1Q07'] = mapActivityToSector(ctdAct);
+      if (ctdBr.isNotEmpty) data['CTD_S1Q08'] = ctdBr;
+      setIfPresent(data, 'CTD_S1Q01_NAME', company['ctdName'] ?? company['name']);
+      setIfPresent(data, 'CTD_S1Q09', company['totalEmployees']?.toString());
+      break;
+
+    case EntityType.ong:
+      setIfPresent(data, 'ONG_S1Q01', company['ngoName'] ?? company['name']);
+      setIfPresent(data, 'ONG_S1Q02', company['address']);
+      setIfPresent(data, 'ONG_S1Q03', company['yearOfCreation']?.toString());
+      setIfPresent(data, 'ONG_S1Q05_REGION', company['region']);
+      setIfPresent(data, 'ONG_S1Q05_DEPT', company['department']);
+      setIfPresent(data, 'ONG_S1Q05_SUBDIV', company['subdivision']);
+      setIfPresent(data, 'ONG_S1Q05_LOCALITY', company['address']);
+      final aOng = mapAreaBack(company['area']);
+      if (aOng != null) data['ONG_S1Q04'] = aOng;
+      setIfPresent(data, 'ONG_S1Q06_TEL1', company['phone']);
+      setIfPresent(data, 'ONG_S1Q06_TEL2', company['phone2']);
+      setIfPresent(data, 'ONG_S1Q06_BP', company['poBox']);
+      final ongAct = (company['mainActivity'] as String? ?? '').trim();
+      final ongBr = (company['branch'] as String? ?? '').trim();
+      if (ongAct.isNotEmpty) data['ONG_S1Q07'] = mapActivityToSector(ongAct);
+      if (ongBr.isNotEmpty) data['ONG_S1Q08'] = ongBr;
+      setIfPresent(data, 'ONG_S1Q09', company['mainMission']);
+      setIfPresent(data, 'ONG_S1Q10', company['totalEmployees']?.toString());
+      break;
+    case EntityType.vocationalTraining:
+      setIfPresent(data, 'VT1_1', company['establishmentId']);
+      setIfPresent(data, 'VT1_2', company['centerName'] ?? company['name']);
+      setIfPresent(data, 'VT1_3', company['sigle']);
+      setIfPresent(data, 'VT1_4', company['region']);
+      setIfPresent(data, 'VT1_5', company['department']);
+      setIfPresent(data, 'VT1_6', company['subdivision']);
+      // VT1_7 (Commune) has no Company column and no analog anywhere in
+      // the shared schema (no other entity has this geo concept either)
+      // — not prefilled; genuine business/schema decision, not invented
+      // here. VT1_8 (Quartier/Village) reuses company['address'] — the
+      // same approximation every other entity type already makes for its
+      // own LOCALITY field (S1Q04_LOCALITY, COOP_S1Q05_LOCALITY,
+      // CTD_S1Q05_LOCALITY, ONG_S1Q05_LOCALITY all map to company['address']
+      // above), not a VT-specific weakening.
+      setIfPresent(data, 'VT1_8', company['address']);
+      final aVt = mapAreaBack(company['area']);
+      if (aVt != null) data['VT1_9'] = aVt;
+      setIfPresent(data, 'VT1_10', company['educationSystem']);
+      setIfPresent(data, 'VT1_11', company['cfpType']);
+      setIfPresent(data, 'VT1_12', company['functionalStatus']);
+      setIfPresent(data, 'VT1_13', company['nonFunctionalReason']);
+      setIfPresent(data, 'VT1_13_OTHER', company['nonFunctionalReasonOther']);
+      setIfPresent(data, 'VT1_14', company['yearOfCreation']?.toString());
+      // VT has no synthetic Section 0 — its respondent fields (§1.15)
+      // are declared under its own Section 1 AST keys, not the shared
+      // S0Q01/S0Q02/S0Q03_* keys set above for the other six entities.
+      // Reuse the same already-resolved respondent values.
+      if (fullName.isNotEmpty) data['VT1_15_NAME'] = fullName;
+      if (fn.isNotEmpty) data['VT1_15_FUNCTION'] = fn;
+      if (phone1.isNotEmpty) data['VT1_15_TEL1'] = phone1;
+      if (phone2.isNotEmpty) data['VT1_15_TEL2'] = phone2;
+      setIfPresent(data, 'VT1_15_EMAIL', user?.email);
+      // VT1_15_SEX has no source anywhere (not captured at
+      // registration, not on OnefopRespondent) — correctly left
+      // unprefilled rather than invented.
+      setIfPresent(data, 'VT1_16_NAME', company['promoterName']);
+      setIfPresent(data, 'VT1_16_SEX', company['promoterSex']);
+      setIfPresent(data, 'VT1_16_TEL1', company['promoterPhone1']);
+      setIfPresent(data, 'VT1_16_TEL2', company['promoterPhone2']);
+      break;
+
+    case EntityType.administration:
+      setIfPresent(data, 'ADMIN_S1Q01', company['administrationName'] ?? company['name']);
+      setIfPresent(data, 'ADMIN_S1Q02', company['sigle'] ?? company['shortName']);
+      final aAdmin = mapAreaBack(company['area']);
+      if (aAdmin != null) data['ADMIN_S1Q03'] = aAdmin;
+      setIfPresent(data, 'ADMIN_S1Q04_REGION', company['region']);
+      setIfPresent(data, 'ADMIN_S1Q04_DEPT', company['department']);
+      setIfPresent(data, 'ADMIN_S1Q04_SUBDIV', company['subdivision']);
+      setIfPresent(data, 'ADMIN_S1Q04_LOCALITY', company['address']);
+      setIfPresent(data, 'ADMIN_S1Q05_TEL1', company['phone']);
+      setIfPresent(data, 'ADMIN_S1Q05_TEL2', company['phone2']);
+      setIfPresent(data, 'ADMIN_S1Q05_BP', company['poBox']);
+      final adminAct = (company['mainActivity'] as String? ?? '').trim();
+      final adminBr = (company['branch'] as String? ?? '').trim();
+      if (adminAct.isNotEmpty) data['ADMIN_S1Q06'] = mapActivityToSector(adminAct);
+      if (adminBr.isNotEmpty) data['ADMIN_S1Q07'] = adminBr;
+      setIfPresent(data, 'ADMIN_S1Q08', company['mainMission']);
+      break;
+
+    case EntityType.projectProgram:
+      setIfPresent(data, 'PP_S1Q02', company['projectName'] ?? company['name']);
+      setIfPresent(data, 'PP_S1Q03', company['sigle'] ?? company['shortName']);
+      setIfPresent(data, 'PP_S1Q04', company['promoterName'] ?? (fullName.isNotEmpty ? fullName : null));
+      final aPp = mapAreaBack(company['area']);
+      if (aPp != null) data['PP_S1Q05'] = aPp;
+      setIfPresent(data, 'PP_S1Q06_REGION', company['region']);
+      setIfPresent(data, 'PP_S1Q06_DEPT', company['department']);
+      setIfPresent(data, 'PP_S1Q06_SUBDIV', company['subdivision']);
+      setIfPresent(data, 'PP_S1Q06_LOCALITY', company['address']);
+      setIfPresent(data, 'PP_S1Q07_TEL1', company['phone']);
+      setIfPresent(data, 'PP_S1Q07_TEL2', company['phone2']);
+      setIfPresent(data, 'PP_S1Q07_BP', company['poBox']);
+      final ppAct = (company['mainActivity'] as String? ?? '').trim();
+      final ppBr = (company['branch'] as String? ?? '').trim();
+      if (ppAct.isNotEmpty) data['PP_S1Q08'] = mapActivityToSector(ppAct);
+      if (ppBr.isNotEmpty) data['PP_S1Q09'] = ppBr;
+      setIfPresent(data, 'PP_S1Q10', company['mainMission']);
+      setIfPresent(data, 'PP_S1Q11', company['address']);
+      setIfPresent(data, 'PP_S1Q15', company['totalEmployees']?.toString());
+      break;
+  }
+  return data;
 }
 
 // ═══════════════════════════════════════════════════════════════

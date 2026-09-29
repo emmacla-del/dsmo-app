@@ -13,12 +13,6 @@ import { EstablishmentIdGenerator } from './establishment-id.generator';
 // to throw "Unknown entity type: VOCATIONAL_TRAINING" (ENTITY_PREFIX had
 // never been updated despite VT being wired up in AST/DTO/Prisma/
 // questionnaires.service.ts).
-// VOCATIONAL_TRAINING_CENTER/'VC' was added 2026-08-31 after production
-// logs showed registerCompany throwing "Unknown entity type:
-// VOCATIONAL_TRAINING_CENTER" — this is the unrelated, DSMO-only, no-ONEFOP-
-// questionnaire entity type (EntityType.vocationalCenter in
-// minefop_models.dart), which had never been wired into ENTITY_PREFIX or the
-// Company.entityType Prisma enum at all.
 
 function makePrisma(lastEstablishmentId: string | null = null) {
   return {
@@ -41,7 +35,6 @@ describe('EstablishmentIdGenerator', () => {
     ['ADMINISTRATION', 'AD'],
     ['PROJECT_PROGRAM', 'PP'],
     ['VOCATIONAL_TRAINING', 'VT'],
-    ['VOCATIONAL_TRAINING_CENTER', 'VC'],
   ])('generates a first-serial ID for %s with prefix %s', async (entityType, prefix) => {
     const prisma = makePrisma();
     const id = await EstablishmentIdGenerator.generate(prisma, entityType, '12');
@@ -90,24 +83,12 @@ describe('EstablishmentIdGenerator', () => {
     expect(id).toBe(`VT${currentYear2}000412`);
   });
 
-  it('is case-insensitive on VOCATIONAL_TRAINING_CENTER, matching the existing behavior', async () => {
-    const prisma = makePrisma();
-    const id = await EstablishmentIdGenerator.generate(prisma, 'vocational_training_center', '05');
-    expect(id).toBe(`VC${currentYear2}000105`);
-  });
-
-  it('increments the serial for VOCATIONAL_TRAINING_CENTER the same way as the existing types', async () => {
-    const prisma = makePrisma(`VC${currentYear2}000312`);
-    const id = await EstablishmentIdGenerator.generate(prisma, 'VOCATIONAL_TRAINING_CENTER', '12');
-    expect(id).toBe(`VC${currentYear2}000412`);
-  });
-
   describe('isValid', () => {
-    it.each(['EN', 'CO', 'CT', 'ON', 'AD', 'PP', 'VT', 'VC'])('accepts a well-formed %s-prefixed ID', (prefix) => {
+    it.each(['EN', 'CO', 'CT', 'ON', 'AD', 'PP', 'VT'])('accepts a well-formed %s-prefixed ID', (prefix) => {
       expect(EstablishmentIdGenerator.isValid(`${prefix}26000112`)).toBe(true);
     });
 
-    it('rejects a prefix outside the eight known types', () => {
+    it('rejects a prefix outside the known types', () => {
       expect(EstablishmentIdGenerator.isValid('XX26000112')).toBe(false);
     });
   });
@@ -140,17 +121,6 @@ describe('EstablishmentIdGenerator', () => {
       expect(parsed).toEqual({
         prefix: 'VT',
         entityType: 'VOCATIONAL_TRAINING',
-        year: '2026',
-        serial: 1,
-        subdivisionCode: '12',
-      });
-    });
-
-    it('round-trips a VOCATIONAL_TRAINING_CENTER ID', () => {
-      const parsed = EstablishmentIdGenerator.parse('VC26000112');
-      expect(parsed).toEqual({
-        prefix: 'VC',
-        entityType: 'VOCATIONAL_TRAINING_CENTER',
         year: '2026',
         serial: 1,
         subdivisionCode: '12',

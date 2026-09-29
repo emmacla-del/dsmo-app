@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../core/theme/app_theme.dart';
 
 /// One saved draft, as shown in [DraftsDrawer].
@@ -63,7 +64,7 @@ class _DraftsDrawerState extends State<DraftsDrawer> {
       _refresh();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Brouillon enregistré / Draft saved')),
+          SnackBar(content: Text(context.l10n.draftSavedSnackbar)),
         );
       }
     } finally {
@@ -75,17 +76,17 @@ class _DraftsDrawerState extends State<DraftsDrawer> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer le brouillon ? / Discard draft?'),
+        title: Text(ctx.l10n.discardDraftDialogTitle),
         content: Text(draft.label),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler / Cancel'),
+            child: Text(ctx.l10n.cancelButton),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Supprimer / Discard'),
+            child: Text(ctx.l10n.settingsDeleteButton),
           ),
         ],
       ),
@@ -101,12 +102,16 @@ class _DraftsDrawerState extends State<DraftsDrawer> {
     }
   }
 
-  static String _relativeTime(DateTime dt) {
+  static String _relativeTime(BuildContext context, DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return "à l'instant / just now";
-    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
-    return 'il y a ${diff.inDays} j';
+    if (diff.inSeconds < 60) return context.l10n.draftRelativeTimeJustNow;
+    if (diff.inMinutes < 60) {
+      return context.l10n.draftRelativeTimeMinutesAgo(diff.inMinutes);
+    }
+    if (diff.inHours < 24) {
+      return context.l10n.draftRelativeTimeHoursAgo(diff.inHours);
+    }
+    return context.l10n.draftRelativeTimeDaysAgo(diff.inDays);
   }
 
   @override
@@ -146,7 +151,7 @@ class _DraftsDrawerState extends State<DraftsDrawer> {
                 child: ElevatedButton.icon(
                   onPressed: _busy ? null : _saveNow,
                   icon: const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('Sauvegarder maintenant / Save now'),
+                  label: Text(context.l10n.draftSaveNowButton),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -162,28 +167,28 @@ class _DraftsDrawerState extends State<DraftsDrawer> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
-                    return const Padding(
-                      padding: EdgeInsets.all(24),
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Text(
-                        'Impossible de charger les brouillons / Failed to load drafts',
-                        style: TextStyle(color: AppColors.danger),
+                        context.l10n.draftLoadFailedMessage,
+                        style: const TextStyle(color: AppColors.danger),
                         textAlign: TextAlign.center,
                       ),
                     );
                   }
                   final drafts = snapshot.data ?? const [];
                   if (drafts.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(24),
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.drafts_outlined,
+                          const Icon(Icons.drafts_outlined,
                               size: 40, color: AppColors.textMuted),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text(
-                            'Aucun brouillon enregistré / No saved draft',
-                            style: TextStyle(color: AppColors.textSecondary),
+                            context.l10n.draftEmptyStateMessage,
+                            style: const TextStyle(color: AppColors.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -208,7 +213,7 @@ class _DraftsDrawerState extends State<DraftsDrawer> {
                               const Icon(Icons.description_outlined, color: AppColors.primary),
                           title: Text(draft.label,
                               style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(_relativeTime(draft.updatedAt)),
+                          subtitle: Text(_relativeTime(context, draft.updatedAt)),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete_outline,
                                 color: AppColors.danger),

@@ -30,6 +30,11 @@ class NumberField extends StatefulWidget {
   final int rowWidth;
   final VoidCallback? onExitTable;
   final VoidCallback? onExitPrevious;
+  // See buildGridCellWidget's own `polished` doc comment — Simple Mode's
+  // Enterprise/Cooperative/CTD/ONG table cards only; swaps only this
+  // field's own text style, nothing about its keyboard handling or focus
+  // wiring below.
+  final bool polished;
 
   const NumberField({
     super.key,
@@ -44,6 +49,7 @@ class NumberField extends StatefulWidget {
     required this.rowWidth,
     this.onExitTable,
     this.onExitPrevious,
+    this.polished = false,
   });
 
   @override
@@ -210,7 +216,7 @@ class _NumberFieldState extends State<NumberField> {
               textAlign: TextAlign.center,
               textAlignVertical: TextAlignVertical.center,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: GridTheme.dataStyle,
+              style: widget.polished ? GridTheme.polishedDataStyle : GridTheme.dataStyle,
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,

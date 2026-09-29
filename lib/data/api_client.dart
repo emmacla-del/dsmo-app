@@ -292,6 +292,20 @@ class ApiClient {
     String? respondentPhone,
     String? respondentPhone2,
     String? respondentFunction,
+    // VOCATIONAL_TRAINING-specific identification fields (verbatim option
+    // lists from the source questionnaire — see kCfpTypeOptions etc. in
+    // register_constants.dart) and its second Promoteur/Directeur contact
+    // block, distinct from the shared respondent fields above.
+    String? sigle,
+    String? cfpType,
+    String? educationSystem,
+    String? functionalStatus,
+    String? nonFunctionalReason,
+    String? nonFunctionalReasonOther,
+    String? promoterName,
+    String? promoterSex,
+    String? promoterPhone1,
+    String? promoterPhone2,
   }) async {
     try {
       final response = await dio.post('/auth/register-company', data: {
@@ -334,6 +348,18 @@ class ApiClient {
         if (respondentPhone2 != null) 'respondentPhone2': respondentPhone2,
         if (respondentFunction != null)
           'respondentFunction': respondentFunction,
+        if (sigle != null) 'sigle': sigle,
+        if (cfpType != null) 'cfpType': cfpType,
+        if (educationSystem != null) 'educationSystem': educationSystem,
+        if (functionalStatus != null) 'functionalStatus': functionalStatus,
+        if (nonFunctionalReason != null)
+          'nonFunctionalReason': nonFunctionalReason,
+        if (nonFunctionalReasonOther != null)
+          'nonFunctionalReasonOther': nonFunctionalReasonOther,
+        if (promoterName != null) 'promoterName': promoterName,
+        if (promoterSex != null) 'promoterSex': promoterSex,
+        if (promoterPhone1 != null) 'promoterPhone1': promoterPhone1,
+        if (promoterPhone2 != null) 'promoterPhone2': promoterPhone2,
       });
 
       final token = response.data['access_token'];

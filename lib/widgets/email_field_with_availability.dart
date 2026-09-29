@@ -123,6 +123,29 @@ class _EmailFieldWithAvailabilityState
     });
   }
 
+  Widget _statusRow({
+    required IconData icon,
+    required Color color,
+    required String text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -157,6 +180,7 @@ class _EmailFieldWithAvailabilityState
           const Padding(
             padding: EdgeInsets.only(top: 6),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
                   width: 14,
@@ -164,9 +188,11 @@ class _EmailFieldWithAvailabilityState
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 SizedBox(width: 8),
-                Text(
-                  'Vérification...',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                Expanded(
+                  child: Text(
+                    'Vérification...',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
                 ),
               ],
             ),
@@ -174,55 +200,27 @@ class _EmailFieldWithAvailabilityState
 
         // ── Email already taken ───────────────────────────────
         if (!_isChecking && _availabilityError != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                const Icon(Icons.cancel_outlined,
-                    size: 14, color: Color(0xFFE24B4A)),
-                const SizedBox(width: 6),
-                Text(
-                  _availabilityError!,
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFFE24B4A)),
-                ),
-              ],
-            ),
+          _statusRow(
+            icon: Icons.cancel_outlined,
+            color: const Color(0xFFE24B4A),
+            text: _availabilityError!,
           ),
 
         // ── Email available ───────────────────────────────────
         if (!_isChecking && _dirty && _availabilityError == null)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle_outline,
-                    size: 14, color: PublicColors.green),
-                SizedBox(width: 6),
-                Text(
-                  'Email disponible',
-                  style: TextStyle(fontSize: 12, color: PublicColors.green),
-                ),
-              ],
-            ),
+          _statusRow(
+            icon: Icons.check_circle_outline,
+            color: PublicColors.green,
+            text: 'Email disponible',
           ),
 
         // ── Verification unreachable (e.g. slow/cold server) ──
         if (!_isChecking && _checkFailed)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Icon(Icons.wifi_off_rounded,
-                    size: 14, color: Color(0xFF94A3B8)),
-                SizedBox(width: 6),
-                Text(
-                  "Vérification impossible pour l'instant, "
-                  'continuez — elle sera revérifiée à la soumission.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                ),
-              ],
-            ),
+          _statusRow(
+            icon: Icons.wifi_off_rounded,
+            color: const Color(0xFF94A3B8),
+            text: "Vérification impossible pour l'instant, "
+                'continuez — elle sera revérifiée à la soumission.',
           ),
       ],
     );

@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MINEFOP · ONEFOP — Console Nationale de Pilotage & d'Instruction (CAM-LEAP)</title>
+  
+  <!-- Inter Font Family -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Official State Color Identity */
+      --cam-green-900: #022c22;
+      --cam-green-800: #064e3b;
+      --cam-green-700: #047857;
+      --cam-green-600: #059669;
+      --cam-green-500: #10b981;
+      --cam-green-100: #d1fae5;
+      --cam-green-50:  #ecfdf5;
+
+      --cam-gold-700:  #b45309;
+      --cam-gold-600:  #d97706;
+      --cam-gold-500:  #f59e0b;
+      --cam-gold-100:  #fef3c7;
+      --cam-gold-50:   #fffbeb;
+
+      --cam-red-700:   #b91c1c;
+      --cam-red-600:   #dc2626;
+      --cam-red-500:   #ef4444;
+      --cam-red-100:   #fee2e2;
+      --cam-red-50:    #fef2f2;
+
+      --cam-blue-700:  #1d4ed8;
+      --cam-blue-600:  #2563eb;
+      --cam-blue-50:   #eff6ff;
+
+      --cam-slate-900: #0f172a;
+      --cam-slate-800: #1e293b;
+      --cam-slate-700: #334155;
+      --cam-slate-600: #475569;
+      --cam-slate-500: #64748b;
+      --cam-slate-400: #94a3b8;
+      --cam-slate-300: #cbd5e1;
+      --cam-slate-200: #e2e8f0;
+      --cam-slate-100: #f1f5f9;
+      --cam-slate-50:  #f8fafc;
+
+      --shadow-subtle: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+      --shadow-card: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+      --shadow-elevated: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+      --shadow-flyout: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-full: 9999px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #F8FAFC;
+      color: var(--cam-slate-900);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Tabular numbers for clean data alignment */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Official Tri-color Sovereignty Bar */
+    .tricolor-ribbon {
+      height: 4px;
+      background: linear-gradient(
+        90deg, 
+        #007A5E 0%, #007A5E 33.33%, 
+        #CE1126 33.33%, #CE1126 66.66%, 
+        #FCD116 66.66%, #FCD116 100%
+      );
+      width: 100%;
+    }
+
+    /* Executive Top Bar */
+    .exec-header {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--cam-slate-200);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .exec-header-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 12px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .republic-seal {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--cam-green-900) 0%, var(--cam-green-800) 100%);
+      color: #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-subtle);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .republic-seal::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      width: 16px;
+      height: 2px;
+      background: var(--cam-gold-500);
+      border-radius: 2px;
+    }
+
+    .republic-seal-txt {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .republic-seal-star {
+      font-size: 8px;
+      color: var(--cam-gold-500);
+      margin-top: -2px;
+    }
+
+    .brand-title-group h1 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--cam-slate-900);
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title-group p {
+      font-size: 11.5px;
+      color: var(--cam-slate-500);
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .campaign-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      background: var(--cam-green-50);
+      border: 1px solid var(--cam-green-100);
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--cam-green-700);
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cam-green-600);
+      box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .officer-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 10px 4px 4px;
+      background: var(--cam-slate-50);
+      border: 1px solid var(--cam-slate-200);
+      border-radius: var(--radius-full);
+    }
+
+    .officer-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--cam-green-800);
+      color: #FFFFFF;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .officer-meta {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+
+    .officer-email {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--cam-slate-800);
+      line-height: 1.2;
+    }
+
+    .officer-jurisdiction {
+      font-size: 10px;
+      color: var(--cam-slate-500);
+    }
+
+    /* Sub-Navigation (The 4 Institutional Questions) */
+    .nav-bar {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--cam-slate-200);
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+    }
+
+    .nav-bar-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 28px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+    }
+
+    .nav-button {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      color: var(--cam-slate-600);
+      text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .nav-button:hover {
+      color: var(--cam-slate-900);
+      background: var(--cam-slate-50);
+    }
+
+    .nav-button.active {
+      color: var(--cam-green-800);
+      border-bottom-color: var(--cam-green-700);
+      font-weight: 600;
+    }
+
+    .nav-button .nav-icon {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+    }
+
+    .nav-badge {
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      font-size: 10.5px;
+      font-weight: 600;
+    }
+
+    .nav-badge-red {
+      background: var(--cam-red-100);
+      color: var(--cam-red-700);
+    }
+
+    .nav-badge-amber {
+      background: var(--cam-gold-100);
+      color: var(--cam-gold-700);
+    }
+
+    .nav-badge-green {
+      background: var(--cam-green-100);
+      color: var(--cam-green-700);
+    }
+
+    /* Main Container */
+    .app-viewport {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px;
+      width: 100%;
+      flex: 1;
+    }
+
+    .screen-pane {
+      display: none;
+    }
+
+    .screen-pane.active {
+      display: block;
+      animation: paneEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes paneEnter {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Screen Title Bar */
+    .screen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 24px;
+    }
+
+    .screen-header-left h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--cam-slate-900);
+      letter-spacing: -0.02em;
+    }
+
+    .screen-header-left p {
+      font-size: 13px;
+      color: var(--cam-slate-500);
+      margin-top: 2px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--cam-green-700);
+      color: #FFFFFF;
+      box-shadow: 0 1px 2px rgba(4, 120, 87, 0.2);
+    }
+
+    .btn-primary:hover {
+      background: var(--cam-green-800);
+    }
+
+    .btn-secondary {
+      background: #FFFFFF;
+      color: var(--cam-slate-700);
+      border-color: var(--cam-slate-300);
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: var(--cam-slate-50);
+      color: var(--cam-slate-900);
+      border-color: var(--cam-slate-400);
+    }
+
+    .btn-danger {
+      background: var(--cam-red-50);
+      color: var(--cam-red-700);
+      border-color: var(--cam-red-100);
+    }
+
+    .btn-danger:hover {
+      background: var(--cam-red-100);
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11.5px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Metric Cards Grid */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .kpi-card {
+      background: #FFFFFF;
+      border: 1px solid var(--cam-slate-200);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .kpi-card-blue::before { background: var(--cam-blue-600); }
+    .kpi-card-amber::before { background: var(--cam-gold-500); }
+    .kpi-card-red::before { background: var(--cam-red-600); }
+    .kpi-card-green::before { background: var(--cam-green-600); }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .kpi-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--cam-slate-500);
+    }
+
+    .kpi-icon-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-md);
+      display: grid;
+      place-items: center;
+    }
+
+    .kpi-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--cam-slate-900);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-footer {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--cam-slate-500);
+    }
+
+    /* Content Layout Split */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+    }
+
+    .surface-card {
+      background: #FFFFFF;
+      border: 1px solid var(--cam-slate-200);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .card-header-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--cam-slate-100);
+    }
+
+    .card-header-flex h3 {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--cam-slate-900);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Region Progression Rail */
+    .region-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 7px 0;
+    }
+
+    .region-label {
+      width: 105px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--cam-slate-800);
+      flex-shrink: 0;
+    }
+
+    .track-outer {
+      flex: 1;
+      height: 8px;
+      background: var(--cam-slate-100);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .track-target-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 80%;
+      width: 2px;
+      background: var(--cam-slate-400);
+      z-index: 2;
+    }
+
+    .track-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: var(--cam-green-600);
+      transition: width 0.4s ease;
+    }
+
+    .track-fill-amber {
+      background: var(--cam-gold-500);
+    }
+
+    .region-stats {
+      width: 85px;
+      text-align: right;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cam-slate-800);
+    }
+
+    .region-stats small {
+      font-weight: 400;
+      color: var(--cam-slate-400);
+      font-size: 10.5px;
+      margin-left: 2px;
+    }
+
+    /* Radar Action Cards */
+    .decision-card {
+      border: 1px solid var(--cam-slate-200);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all 0.15s ease;
+    }
+
+    .decision-card:hover {
+      border-color: var(--cam-slate-300);
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .decision-card-red {
+      background: var(--cam-red-50);
+      border-color: #fecaca;
+    }
+
+    .decision-card-amber {
+      background: var(--cam-gold-50);
+      border-color: #fde68a;
+    }
+
+    .decision-card-blue {
+      background: var(--cam-blue-50);
+      border-color: #bfdbfe;
+    }
+
+    /* Master Data Grid */
+    .data-table-wrap {
+      background: #FFFFFF;
+      border: 1px solid var(--cam-slate-200);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-subtle);
+      overflow: hidden;
+    }
+
+    .table-toolbar {
+      padding: 14px 20px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--cam-slate-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .search-pill-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--cam-slate-50);
+      border: 1px solid var(--cam-slate-300);
+      border-radius: var(--radius-md);
+      padding: 6px 12px;
+      width: 280px;
+    }
+
+    .search-pill-box input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12.5px;
+      color: var(--cam-slate-900);
+      width: 100%;
+    }
+
+    .filter-select {
+      background: #FFFFFF;
+      border: 1px solid var(--cam-slate-300);
+      border-radius: var(--radius-md);
+      padding: 7px 12px;
+      font-size: 12px;
+      color: var(--cam-slate-700);
+      outline: none;
+    }
+
+    table.data-grid {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 12.5px;
+    }
+
+    table.data-grid th {
+      background: var(--cam-slate-50);
+      color: var(--cam-slate-600);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10.5px;
+      letter-spacing: 0.05em;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--cam-slate-200);
+    }
+
+    table.data-grid td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--cam-slate-200);
+      vertical-align: middle;
+    }
+
+    table.data-grid tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.data-grid tr:hover td {
+      background: #F9FAFB;
+    }
+
+    /* Badges */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .pill-green {
+      background: var(--cam-green-50);
+      color: var(--cam-green-700);
+      border: 1px solid var(--cam-green-100);
+    }
+
+    .pill-red {
+      background: var(--cam-red-50);
+      color: var(--cam-red-700);
+      border: 1px solid var(--cam-red-100);
+    }
+
+    .pill-amber {
+      background: var(--cam-gold-50);
+      color: var(--cam-gold-700);
+      border: 1px solid var(--cam-gold-100);
+    }
+
+    .pill-slate {
+      background: var(--cam-slate-100);
+      color: var(--cam-slate-700);
+      border: 1px solid var(--cam-slate-200);
+    }
+
+    .pill-blue {
+      background: var(--cam-blue-50);
+      color: var(--cam-blue-700);
+      border: 1px solid #dbeafe;
+    }
+
+    /* Floating Action Bar */
+    .floating-bar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--cam-slate-900);
+      color: #FFFFFF;
+      padding: 10px 20px;
+      border-radius: var(--radius-full);
+      box-shadow: var(--shadow-flyout);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 50;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .floating-bar.active {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Slide-out Diagnostic Drawer */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(2px);
+      z-index: 90;
+      display: none;
+      justify-content: flex-end;
+    }
+
+    .drawer-overlay.open {
+      display: flex;
+    }
+
+    .drawer-panel {
+      width: 100%;
+      max-width: 580px;
+      background: #FFFFFF;
+      height: 100vh;
+      box-shadow: var(--shadow-flyout);
+      display: flex;
+      flex-direction: column;
+      animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    .drawer-head {
+      padding: 20px 24px;
+      background: var(--cam-slate-50);
+      border-bottom: 1px solid var(--cam-slate-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .drawer-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--cam-slate-200);
+      padding: 0 24px;
+      background: #FFFFFF;
+    }
+
+    .drawer-tab-btn {
+      padding: 12px 14px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--cam-slate-500);
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .drawer-tab-btn.active {
+      color: var(--cam-green-800);
+      border-bottom-color: var(--cam-green-700);
+    }
+
+    .drawer-body {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    /* Modal Backdrop */
+    .modal-scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      display: none;
+      place-items: center;
+    }
+
+    .modal-scrim.open {
+      display: grid;
+    }
+
+    .modal-box {
+      width: 92%;
+      max-width: 600px;
+      background: #FFFFFF;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-flyout);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-head {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--cam-slate-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--cam-slate-50);
+    }
+
+    .modal-content {
+      padding: 24px;
+    }
+
+    .modal-foot {
+      padding: 14px 24px;
+      background: var(--cam-slate-50);
+      border-top: 1px solid var(--cam-slate-200);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Official Tricolor Ribbon -->
+  <div class="tricolor-ribbon"></div>
+
+  <!-- Executive Header -->
+  <header class="exec-header">
+    <div class="exec-header-inner">
+      <div class="brand-cluster">
+        <div class="republic-seal">
+          <span class="republic-seal-txt">R.C.</span>
+          <span class="republic-seal-star">★</span>
+        </div>
+        <div class="brand-title-group">
+          <h1>
+            MINEFOP · ONEFOP
+            <span style="font-weight: 400; color: var(--cam-slate-400);">/</span>
+            Console Nationale de Gouvernance Statistique
+          </h1>
+          <p>
+            <span>Système CAM-LEAP</span>
+            <span>•</span>
+            <span class="campaign-pill">
+              <span class="pulse-dot"></span>
+              Campagne 2026-T1 (Active)
+            </span>
+            <span>•</span>
+            <span>Territoire National</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="officer-card">
+          <div class="officer-avatar">SA</div>
+          <div class="officer-meta">
+            <span class="officer-email">superadmin@minefop.cm</span>
+            <span class="officer-jurisdiction">Officière de Visa Central · MINEFOP</span>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="alert('Session superadmin certifiée active.')">
+          Journal d'Audit
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Institutional Navigation (The 4 Questions) -->
+  <nav class="nav-bar">
+    <div class="nav-bar-inner">
+      <button class="nav-button active" onclick="switchView('pilotage', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        </svg>
+        <span>① Pilotage National</span>
+      </button>
+
+      <button class="nav-button" onclick="switchView('files-attente', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>② Files d'Action</span>
+        <span class="nav-badge nav-badge-amber" id="nav-count-visas">6</span>
+      </button>
+
+      <button class="nav-button" onclick="switchView('dossiers', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-16.5 0c-.99.203-1.99.377-3 .52m0 0l2.25 10.5m14.25-10.5l-2.25 10.5m-12 0h12" />
+        </svg>
+        <span>③ Instruction 3-Axes</span>
+      </button>
+
+      <button class="nav-button" onclick="switchView('diffusion', this)">
+        <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+        </svg>
+        <span>④ Diffusion & SPSS</span>
+        <span class="nav-badge nav-badge-green" id="nav-count-ready">3</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Application Content Viewport -->
+  <main class="app-viewport">
+
+    <!-- ============================================================== -->
+    <!-- VIEW 1: PILOTAGE STRATÉGIQUE (QUESTION ① : OÙ EN SOMMES-NOUS ?) -->
+    <!-- ============================================================== -->
+    <div id="view-pilotage" class="screen-pane active">
+      <div class="screen-header">
+        <div class="screen-header-left">
+          <h2>Situation Nationale de Collecte & Intégrité</h2>
+          <p>Indicateurs d'exhaustivité et de qualification statistique pour la campagne 2026-T1</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" onclick="switchView('files-attente', document.querySelectorAll('.nav-button')[1])">
+            ⚡ Voir les priorités d'arbitrage
+          </button>
+          <button class="btn btn-primary" onclick="switchView('diffusion', document.querySelectorAll('.nav-button')[3])">
+            ◈ Exporter le lot analysable
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Executive Metrics -->
+      <div class="kpi-row">
+        <div class="kpi-card kpi-card-blue">
+          <div class="kpi-header">
+            <span class="kpi-title">Taux de Couverture</span>
+            <div class="kpi-icon-wrap" style="background: var(--cam-blue-50); color: var(--cam-blue-600);">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            </div>
+          </div>
+          <div class="kpi-num tabular-nums" id="kpi-pct">0.5%</div>
+          <div class="kpi-footer">
+            <span style="font-weight: 700; color: var(--cam-slate-700);" id="kpi-sub-total">14</span> dossiers reçus sur 3,040 ciblés
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-card-amber">
+          <div class="kpi-header">
+            <span class="kpi-title">Visas en Attente</span>
+            <div class="kpi-icon-wrap" style="background: var(--cam-gold-50); color: var(--cam-gold-700);">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+          </div>
+          <div class="kpi-num tabular-nums" style="color: var(--cam-gold-700);" id="kpi-sub-visas">6</div>
+          <div class="kpi-footer">
+            6 nationaux · 0 régionaux · 0 divisionnaires
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-card-red">
+          <div class="kpi-header">
+            <span class="kpi-title">Anomalies Bloquantes</span>
+            <div class="kpi-icon-wrap" style="background: var(--cam-red-50); color: var(--cam-red-700);">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+          </div>
+          <div class="kpi-num tabular-nums" style="color: var(--cam-red-700);" id="kpi-sub-anomalies">2</div>
+          <div class="kpi-footer">
+            Incohérences de branches bloquant l'Axe ③
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-card-green">
+          <div class="kpi-header">
+            <span class="kpi-title">Prêt pour Diffusion (Axe ③)</span>
+            <div class="kpi-icon-wrap" style="background: var(--cam-green-50); color: var(--cam-green-700);">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </div>
+          <div class="kpi-num tabular-nums" style="color: var(--cam-green-700);" id="kpi-sub-ready">3</div>
+          <div class="kpi-footer">
+            Double verrou satisfait (Visa ET Zéro anomalie)
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Dash Content Split -->
+      <div class="dashboard-grid">
+        
+        <!-- Regional Completion Rates -->
+        <div class="surface-card">
+          <div class="card-header-flex">
+            <h3>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+              Exhaustivité par Délégation Régionale (10 Régions)
+            </h3>
+            <span class="pill pill-slate">Cible ministérielle : 80%</span>
+          </div>
+
+          <div id="region-list-container">
+            <!-- Injected by script -->
+          </div>
+        </div>
+
+        <!-- Radar des Décisions d'Instruction -->
+        <div class="surface-card">
+          <div class="card-header-flex">
+            <h3>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              Radar d'Arbitrage Immédiat
+            </h3>
+            <span class="pill pill-amber">Priorités du jour</span>
+          </div>
+
+          <div class="decision-card decision-card-red">
+            <div>
+              <div style="font-weight: 700; color: var(--cam-red-700); font-size: 13px;">2 Anomalies critiques ouvertes</div>
+              <div style="font-size: 11.5px; color: var(--cam-slate-600); margin-top: 2px;">Ruptures d'égalité H+F et salaires aberrants</div>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="switchView('files-attente', document.querySelectorAll('.nav-button')[1])">
+              Arbitrer →
+            </button>
+          </div>
+
+          <div class="decision-card decision-card-amber">
+            <div>
+              <div style="font-weight: 700; color: var(--cam-gold-700); font-size: 13px;">6 Dossiers en attente de visa national</div>
+              <div style="font-size: 11.5px; color: var(--cam-slate-600); margin-top: 2px;">Endossés par les délégations territoriales</div>
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="switchView('files-attente', document.querySelectorAll('.nav-button')[1])">
+              Examiner →
+            </button>
+          </div>
+
+          <div class="decision-card decision-card-blue">
+            <div>
+              <div style="font-weight: 700; color: var(--cam-blue-700); font-size: 13px;">0 Correction employeur reçue</div>
+              <div style="font-size: 11.5px; color: var(--cam-slate-600); margin-top: 2px;">Aucun nouveau bordereau rectificatif</div>
+            </div>
+            <span class="pill pill-slate">À jour</span>
+          </div>
+
+          <!-- Doctrine Note -->
+          <div style="background: var(--cam-slate-50); border: 1px solid var(--cam-slate-200); border-radius: var(--radius-md); padding: 14px; margin-top: 18px;">
+            <div style="font-weight: 700; font-size: 11.5px; text-transform: uppercase; color: var(--cam-slate-600); letter-spacing: 0.03em;">
+              Principe d'Orthogonalité des 3 Axes :
+            </div>
+            <p style="font-size: 12px; color: var(--cam-slate-600); margin-top: 4px; line-height: 1.5;">
+              L'Axe ① (Visa administratif) et l'Axe ② (Intégrité des données) sont indépendants. L'Axe ③ n'est <strong>jamais éditable</strong> : il est calculé automatiquement dès que le dossier réunit simultanément le visa central et l'absence d'anomalies.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- VIEW 2: FILES D'ACTION (QUESTION ② : QUE DOIS-JE TRAITER ?)   -->
+    <!-- ============================================================== -->
+    <div id="view-files-attente" class="screen-pane">
+      <div class="screen-header">
+        <div class="screen-header-left">
+          <h2>Files d'Action & d'Arbitrage Immédiat</h2>
+          <p>Priorités d'instruction classées par gravité d'impact sur l'éligibilité statistique nationale</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" onclick="openBulkVisaModal()">
+            ⚖ Viser par lot les dossiers sains
+          </button>
+        </div>
+      </div>
+
+      <div class="surface-card">
+        <!-- Sub-queues Segmented Controller -->
+        <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--cam-slate-200); padding-bottom: 14px; margin-bottom: 20px;">
+          <button class="btn btn-sm btn-danger" id="queue-tab-anomalies" onclick="selectQueueTab('anomalies')" style="font-weight: 700;">
+            🔴 Anomalies Bloquantes (2)
+          </button>
+          <button class="btn btn-sm btn-secondary" id="queue-tab-visas" onclick="selectQueueTab('visas')">
+            🟠 Visas Nationaux en Instance (6)
+          </button>
+          <button class="btn btn-sm btn-secondary" id="queue-tab-corrections" onclick="selectQueueTab('corrections')">
+            🟡 Corrections Reçues (0)
+          </button>
+        </div>
+
+        <div id="queue-list-outlet">
+          <!-- Dynamic queue content rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- VIEW 3: INSTRUCTION 3-AXES (QUESTION ③ : POURQUOI CE BLOCAGE?) -->
+    <!-- ============================================================== -->
+    <div id="view-dossiers" class="screen-pane">
+      <div class="screen-header">
+        <div class="screen-header-left">
+          <h2>Registre National & Diagnostic 3-Axes</h2>
+          <p>Tableau maître croisant le visa administratif légal avec la validité arithmétique des données</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" onclick="exportCsvRaw()">
+            📥 Exporter la vue (.CSV)
+          </button>
+          <button class="btn btn-primary" onclick="openBulkVisaModal()">
+            ⚖ Visa Groupé Sécurisé
+          </button>
+        </div>
+      </div>
+
+      <div class="data-table-wrap">
+        <!-- Table Filter Toolbar -->
+        <div class="table-toolbar">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="search-pill-box">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="var(--cam-slate-400)">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <input type="text" id="filter-search-input" placeholder="Rechercher entité, matricule..." oninput="refreshTable()">
+            </div>
+
+            <select id="filter-region-select" class="filter-select" onchange="refreshTable()">
+              <option value="">Toutes les régions (10)</option>
+              <option value="Centre">Centre</option>
+              <option value="Littoral">Littoral</option>
+              <option value="Ouest">Ouest</option>
+              <option value="Nord-Ouest">Nord-Ouest</option>
+              <option value="Sud-Ouest">Sud-Ouest</option>
+              <option value="Extrême-Nord">Extrême-Nord</option>
+              <option value="Nord">Nord</option>
+              <option value="Adamaoua">Adamaoua</option>
+              <option value="Est">Est</option>
+              <option value="Sud">Sud</option>
+            </select>
+
+            <select id="filter-axis3-select" class="filter-select" onchange="refreshTable()">
+              <option value="">Tous les statuts Axe ③</option>
+              <option value="READY">✓ Prêt pour analyse (READY)</option>
+              <option value="EXCLUDED">✗ Exclu de diffusion (EXCLUDED)</option>
+            </select>
+
+            <select id="filter-type-select" class="filter-select" onchange="refreshTable()">
+              <option value="">Toutes typologies</option>
+              <option value="ENTREPRISE">Entreprise</option>
+              <option value="CTD">CTD (Commune)</option>
+              <option value="COOPERATIVE">Coopérative</option>
+              <option value="ONG">ONG</option>
+            </select>
+          </div>
+
+          <div style="font-size: 12px; color: var(--cam-slate-500); font-weight: 500;" id="table-record-counter">
+            14 dossiers au registre
+          </div>
+        </div>
+
+        <!-- Master Data Grid Table -->
+        <table class="data-grid">
+          <thead>
+            <tr>
+              <th style="width: 38px;">
+                <input type="checkbox" id="master-checkbox" onchange="toggleSelectAllRows(this)">
+              </th>
+              <th>Établissement & Référence</th>
+              <th>Territoire</th>
+              <th>Type</th>
+              <th>Axe ① Administratif</th>
+              <th>Axe ② Données & Qualité</th>
+              <th>Axe ③ Statut Statistique</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="master-grid-body">
+            <!-- Rows injected by script -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- VIEW 4: DIFFUSION & RECHERCHE (QUESTION ④ : QU'EST PUBLIABLE?) -->
+    <!-- ============================================================== -->
+    <div id="view-diffusion" class="screen-pane">
+      <div class="screen-header">
+        <div class="screen-header-left">
+          <h2>Portail de Diffusion Officielle & Recherche</h2>
+          <p>Exportation certifiée pour économistes ministériels, modélisation Python et chercheurs SPSS</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" onclick="openFreezeModal()">
+            🔒 Sceller un Gel de Campagne (Snapshot)
+          </button>
+        </div>
+      </div>
+
+      <!-- Statistical Gate Card -->
+      <div class="surface-card" style="border-left: 4px solid var(--cam-green-600); margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span class="pill pill-green" style="font-size: 11.5px;">Porte Statistique Active</span>
+            <h3 style="font-size: 22px; font-weight: 800; color: var(--cam-slate-900); margin-top: 6px;" id="diff-eligible-count">
+              3 Dossiers Éligibles à la Publication
+            </h3>
+            <p style="color: var(--cam-slate-500); font-size: 13px; margin-top: 2px;">
+              Garantie de non-contamination : Seules les données doublement validées (Visa Central + Zéro anomalie) sont injectées dans les exports.
+            </p>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--cam-slate-400); letter-spacing: 0.05em;">
+              Conformité Méthodologique
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--cam-green-700); margin-top: 2px;">
+              Norme ONEFOP / INS Cameroun
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Formats Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        
+        <!-- SPSS Analytics Package -->
+        <div class="surface-card">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--cam-green-50); color: var(--cam-green-700); display: grid; place-items: center;">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <div>
+              <h4 style="font-size: 15px; font-weight: 700; color: var(--cam-slate-900);">Suite IBM SPSS Statistics (.SPS + .CSV)</h4>
+              <p style="font-size: 12px; color: var(--cam-slate-500);">Syntaxe de métadonnées bilingue avec dictionnaires de labels et valeurs manquantes (-99)</p>
+            </div>
+          </div>
+
+          <div style="background: var(--cam-slate-50); border: 1px solid var(--cam-slate-200); border-radius: var(--radius-md); padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--cam-slate-700); line-height: 1.6; margin-bottom: 18px;">
+            VARIABLE LABELS region 'Région administrative de rattachement'.<br>
+            VALUE LABELS formType 1 'ENTREPRISE' 2 'CTD' 3 'COOPERATIVE' 4 'ONG'.<br>
+            MISSING VALUES permanentEmployees TO localPayroll (-99).<br>
+            EXECUTE.
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="triggerSpssSyntaxDownload()">
+              📥 Télécharger la Syntaxe (.SPS)
+            </button>
+            <button class="btn btn-secondary" onclick="triggerSpssDataDownload()">
+              📥 Télécharger les Données (.CSV)
+            </button>
+          </div>
+        </div>
+
+        <!-- Excel Multi-Tabular Workbook -->
+        <div class="surface-card">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--cam-blue-50); color: var(--cam-blue-700); display: grid; place-items: center;">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+              <h4 style="font-size: 15px; font-weight: 700; color: var(--cam-slate-900);">Classeur Analytique Excel (.XLSX) & Python</h4>
+              <p style="font-size: 12px; color: var(--cam-slate-500);">Onglets normalisés (Emplois, Masse Salariale, Diplômes, Référentiel national)</p>
+            </div>
+          </div>
+
+          <ul style="margin: 0 0 18px 20px; font-size: 12.5px; color: var(--cam-slate-600); line-height: 1.6;">
+            <li>Prêt pour importation immédiate sous Python (Pandas / Polars / Stata)</li>
+            <li>En-têtes officiels certifiés MINEFOP avec codes de diagnostic</li>
+            <li>Flux de données en streaming protégé par signature ministérielle</li>
+          </ul>
+
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="triggerExcelDownload()">
+              📥 Télécharger le Classeur (.XLSX)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Floating Multi-Selection Action Bar -->
+  <div id="floating-bulk-bar" class="floating-bar">
+    <span style="font-weight: 600; font-size: 12.5px;">
+      <span id="selected-count-label">0</span> dossier(s) sélectionné(s)
+    </span>
+    <button class="btn btn-sm btn-primary" onclick="openBulkVisaModal()">
+      ⚖ Apposer le Visa Légal Groupé
+    </button>
+    <button class="btn btn-sm btn-secondary" onclick="clearAllSelections()" style="color: #fff; background: rgba(255,255,255,0.15); border-color: transparent;">
+      Désélectionner
+    </button>
+  </div>
+
+  <!-- Slide-out Diagnostic Drawer -->
+  <div id="diagnostic-drawer" class="drawer-overlay" onclick="closeDrawerBackdrop(event)">
+    <div class="drawer-panel" onclick="event.stopPropagation()">
+      <div class="drawer-head">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--cam-slate-500); letter-spacing: 0.05em;">
+            Instruction Approfondie 3-Axes
+          </div>
+          <div style="font-size: 15px; font-weight: 800; color: var(--cam-slate-900);" id="drawer-dossier-id">
+            CAM-2026-001
+          </div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="closeDrawer()">✕</button>
+      </div>
+
+      <div class="drawer-tabs">
+        <button class="drawer-tab-btn active">Diagnostic Synthétique</button>
+        <button class="drawer-tab-btn" onclick="alert('Module de visualisation du formulaire complet.')">Données Déclarées</button>
+        <button class="drawer-tab-btn" onclick="alert('Journal d audit horodaté.')">Piste d'Audit</button>
+      </div>
+
+      <div class="drawer-body">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 18px; font-weight: 800; color: var(--cam-slate-900);" id="drawer-entity-name">
+            CHOCOCAM S.A.
+          </h3>
+          <p style="font-size: 12.5px; color: var(--cam-slate-500);" id="drawer-entity-territory">
+            Littoral · Wouri · Douala V
+          </p>
+        </div>
+
+        <!-- Axis 1 Card -->
+        <div style="border: 1px solid var(--cam-slate-200); border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 12.5px;">Axe ① — Visa Administratif</strong>
+            <span class="pill pill-green" id="drawer-ax1-pill">CENTRAL_APPROVED</span>
+          </div>
+          <p style="font-size: 12px; color: var(--cam-slate-600);" id="drawer-ax1-desc">
+            Visa national central validé. Le dossier a franchi la chaîne hiérarchique territoriale.
+          </p>
+        </div>
+
+        <!-- Axis 2 Card -->
+        <div style="border: 1px solid var(--cam-slate-200); border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 12.5px;">Axe ② — Qualité & Cohérence Données</strong>
+            <span class="pill pill-green" id="drawer-ax2-pill">0 anomalie</span>
+          </div>
+          <p style="font-size: 12px; color: var(--cam-slate-600);" id="drawer-ax2-desc">
+            Tous les contrôles d'intégrité (sommes H+F, grilles de salaires, cohérence des diplômes) sont vérifiés.
+          </p>
+        </div>
+
+        <!-- Axis 3 Card (Computed) -->
+        <div style="border: 2px solid var(--cam-green-600); background: var(--cam-green-50); border-radius: var(--radius-md); padding: 14px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 12.5px; color: var(--cam-green-800);">Axe ③ — Éligibilité Statistique (Calculée)</strong>
+            <span class="pill pill-green" id="drawer-ax3-pill">PRÊT POUR ANALYSE</span>
+          </div>
+          <p style="font-size: 12px; color: var(--cam-green-800); font-weight: 500;" id="drawer-ax3-desc">
+            Le dossier est éligible pour diffusion publique, publications ministérielles et export SPSS/Python.
+          </p>
+        </div>
+
+        <!-- Key Indicators Grid -->
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--cam-slate-500); margin-bottom: 8px;">
+          Métadonnées Déclaratives Clés :
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--cam-slate-50); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--cam-slate-200);">
+          <div>Effectif Déclaré : <strong id="drawer-stat-emp" class="tabular-nums">348</strong></div>
+          <div>Masse Salariale : <strong id="drawer-stat-sal" class="tabular-nums">84,200,000 FCFA</strong></div>
+          <div>Diplômés Supérieur : <strong id="drawer-stat-dip" class="tabular-nums">112</strong></div>
+          <div>Ratio Féminin : <strong id="drawer-stat-fem" class="tabular-nums">38.2%</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Anomaly Resolution -->
+  <div id="modal-resolve-anomaly" class="modal-scrim">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 style="font-size: 14px; font-weight: 700;" id="anomaly-modal-title">Arbitrage Qualité — Anomalie</h3>
+        <button class="btn btn-sm btn-secondary" onclick="closeModal('modal-resolve-anomaly')">✕</button>
+      </div>
+      <div class="modal-content">
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--cam-slate-500);">Dossier Cible</div>
+          <div style="font-weight: 700; font-size: 14px; margin-top: 2px;" id="anomaly-modal-dossier-name">SAFACAM S.A.</div>
+          <div style="color: var(--cam-red-700); font-size: 12.5px; font-weight: 600; margin-top: 6px;" id="anomaly-modal-rule-desc">
+            Règle #ARITH-01 : Le total déclaré ne concorde pas avec la somme des tranches.
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px;">Décision d'Arbitrage :</label>
+          <select id="anomaly-decision-select" class="filter-select" style="width: 100%;">
+            <option value="DEROGATION">Dérogation / Tolérance Administrative motivée (Débloque l'Axe ③)</option>
+            <option value="REVISION">Demande de révision officielle envoyée à l'employeur (Rejet temporaire)</option>
+            <option value="CONFIRMED">Confirmation de conformité après vérification des pièces justificatives</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px;">Motif ministériel officiel (Trace d'audit légale) :</label>
+          <textarea id="anomaly-decision-comment" style="width: 100%; height: 75px; padding: 8px 10px; border: 1px solid var(--cam-slate-300); border-radius: var(--radius-md); font-size: 12px; outline: none;" placeholder="Saisir la justification légale..."></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" onclick="closeModal('modal-resolve-anomaly')">Annuler</button>
+        <button class="btn btn-primary" onclick="submitAnomalyDecision()">Enregistrer la Décision d'Arbitrage</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Bulk Visa -->
+  <div id="modal-bulk-visa" class="modal-scrim">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 style="font-size: 14px; font-weight: 700;">Endossement & Visa Administratif Central (Axe ①)</h3>
+        <button class="btn btn-sm btn-secondary" onclick="closeModal('modal-bulk-visa')">✕</button>
+      </div>
+      <div class="modal-content">
+        <p style="font-size: 13px; color: var(--cam-slate-600); margin-bottom: 16px;">
+          Vous êtes sur le point d'apposer votre visa national d'autorité sur les dossiers sélectionnés :
+        </p>
+
+        <div style="background: var(--cam-slate-50); border: 1px solid var(--cam-slate-200); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+          <div style="font-weight: 700; color: var(--cam-green-800); font-size: 13px;" id="bulk-modal-count-msg">
+            6 dossiers éligibles pour Visa National
+          </div>
+          <p style="font-size: 12px; color: var(--cam-slate-500); margin-top: 4px;">
+            Les dossiers exempts d'anomalies de données passeront automatiquement en <strong>Axe ③ = READY (Prêt pour diffusion)</strong>.
+          </p>
+        </div>
+
+        <div>
+          <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px;">Mention officielle au registre légal :</label>
+          <input type="text" id="bulk-legal-comment" style="width: 100%; padding: 8px 12px; border: 1px solid var(--cam-slate-300); border-radius: var(--radius-md); font-size: 12px;" value="Visa central accordé après vérification d'exhaustivité et conformité sectorielle.">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" onclick="closeModal('modal-bulk-visa')">Annuler</button>
+        <button class="btn btn-primary" onclick="executeBulkVisa()">Apposer le Visa d'Autorité</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Freeze Snapshot -->
+  <div id="modal-freeze" class="modal-scrim">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 style="font-size: 14px; font-weight: 700;">Sceller un Gel de Campagne Officiel (Snapshot)</h3>
+        <button class="btn btn-sm btn-secondary" onclick="closeModal('modal-freeze')">✕</button>
+      </div>
+      <div class="modal-content">
+        <p style="font-size: 13px; color: var(--cam-slate-600); margin-bottom: 16px;">
+          Ce gel fige de manière irrévocable le jeu de données pour les publications nationales et l'annuaire statistique de l'INS.
+        </p>
+
+        <div style="background: var(--cam-gold-50); border: 1px solid var(--cam-gold-100); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+          <div style="font-weight: 700; color: var(--cam-gold-700); font-size: 13px;">Périmètre Immuable :</div>
+          <div style="font-size: 12px; color: var(--cam-slate-700); margin-top: 4px; line-height: 1.6;">
+            Campagne : <strong>2026-T1</strong><br>
+            Dossiers capturés : <strong id="freeze-ready-count">3 dossiers conformes</strong><br>
+            Horodatage : <code style="font-size: 11px;">2026-09-25T05:30:00Z</code>
+          </div>
+        </div>
+
+        <div>
+          <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px;">Intitulé officiel de l'édition :</label>
+          <input type="text" id="freeze-input-label" style="width: 100%; padding: 8px 12px; border: 1px solid var(--cam-slate-300); border-radius: var(--radius-md); font-size: 12px;" value="Annuaire Statistique Trimestriel — T1-2026 — Édition Officielle MINEFOP">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" onclick="closeModal('modal-freeze')">Annuler</button>
+        <button class="btn btn-primary" onclick="executeFreeze()">Sceller le Snapshot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Domain Logic & Interactive Engine -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. DATA REPOSITORY (Synchronized with CAM-LEAP 3-Axis Specs)
+    // -------------------------------------------------------------------------
+    const DOSSIERS = [
+      { id: "CAM-2026-001", entity: "CHOCOCAM S.A.", region: "Littoral", dept: "Wouri", type: "ENTREPRISE", axis1: "CENTRAL_APPROVED", anomalies: 0, emp: 348, sal: "84,200,000 FCFA", dip: 112, fem: "38.2%" },
+      { id: "CAM-2026-002", entity: "Commune d'Arrondissement de Douala 1er", region: "Littoral", dept: "Wouri", type: "CTD", axis1: "CENTRAL_APPROVED", anomalies: 0, emp: 120, sal: "26,500,000 FCFA", dip: 44, fem: "41.5%" },
+      { id: "CAM-2026-003", entity: "SOCAPALM S.A.", region: "Littoral", dept: "Sanaga-Maritime", type: "ENTREPRISE", axis1: "CENTRAL_APPROVED", anomalies: 0, emp: 620, sal: "142,000,000 FCFA", dip: 85, fem: "24.0%" },
+      { id: "CAM-2026-004", entity: "SAFACAM S.A.", region: "Littoral", dept: "Sanaga-Maritime", type: "ENTREPRISE", axis1: "REGIONAL_APPROVED", anomalies: 1, anomalyCode: "ARITH_SUM_DISCREPANCY", anomalyDesc: "Somme effectifs déclarés (142) ≠ somme des catégories (130).", emp: 142, sal: "31,000,000 FCFA", dip: 32, fem: "29.1%" },
+      { id: "CAM-2026-005", entity: "Coopérative SOCOOPCA", region: "Centre", dept: "Mbam-et-Inoubou", type: "COOPERATIVE", axis1: "REGIONAL_APPROVED", anomalies: 0, emp: 45, sal: "8,900,000 FCFA", dip: 8, fem: "52.0%" },
+      { id: "CAM-2026-006", entity: "ALUCAM S.A.", region: "Littoral", dept: "Sanaga-Maritime", type: "ENTREPRISE", axis1: "REGIONAL_APPROVED", anomalies: 0, emp: 410, sal: "95,000,000 FCFA", dip: 160, fem: "19.5%" },
+      { id: "CAM-2026-007", entity: "ONG Planète Verte", region: "Centre", dept: "Mfoundi", type: "ONG", axis1: "REGIONAL_APPROVED", anomalies: 1, anomalyCode: "NEGATIVE_SALARY_VALUE", anomalyDesc: "Masse salariale déclarée négative sur le volet temporaires.", emp: 28, sal: "6,200,000 FCFA", dip: 19, fem: "60.7%" },
+      { id: "CAM-2026-008", entity: "Société Industrielle de Boissons (SIBO)", region: "Ouest", dept: "Mifi", type: "ENTREPRISE", axis1: "REGIONAL_APPROVED", anomalies: 0, emp: 85, sal: "18,400,000 FCFA", dip: 22, fem: "33.0%" },
+      { id: "CAM-2026-009", entity: "Commune de Bafoussam 1er", region: "Ouest", dept: "Mifi", type: "CTD", axis1: "REGIONAL_APPROVED", anomalies: 0, emp: 94, sal: "21,000,000 FCFA", dip: 30, fem: "39.0%" },
+      { id: "CAM-2026-010", entity: "Complexe Agro-Industriel du Nord", region: "Nord", dept: "Bénoué", type: "ENTREPRISE", axis1: "DIVISIONAL_APPROVED", anomalies: 0, emp: 175, sal: "36,000,000 FCFA", dip: 35, fem: "18.0%" },
+      { id: "CAM-2026-011", entity: "GIC des Riziculteurs de Yagoua", region: "Extrême-Nord", dept: "Mayo-Danay", type: "COOPERATIVE", axis1: "SUBMITTED", anomalies: 0, emp: 64, sal: "9,100,000 FCFA", dip: 5, fem: "46.0%" },
+      { id: "CAM-2026-012", entity: "Bois et Sciages du Sud (BSS)", region: "Sud", dept: "Mvila", type: "ENTREPRISE", axis1: "SUBMITTED", anomalies: 0, emp: 110, sal: "24,000,000 FCFA", dip: 14, fem: "12.0%" },
+      { id: "CAM-2026-013", entity: "Palmiers de l'Est", region: "Est", dept: "Lom-et-Djérem", type: "ENTREPRISE", axis1: "CORRECTION_REQUESTED", anomalies: 1, emp: 88, sal: "19,500,000 FCFA", dip: 12, fem: "21.0%" },
+      { id: "CAM-2026-014", entity: "Coopérative Pastorale de l'Adamaoua", region: "Adamaoua", dept: "Vina", type: "COOPERATIVE", axis1: "SUBMITTED", anomalies: 0, emp: 52, sal: "11,000,000 FCFA", dip: 9, fem: "25.0%" }
+    ];
+
+    const REGIONS_DATA = [
+      { name: "Centre", count: 482, target: 550, pct: 87.6 },
+      { name: "Littoral", count: 541, target: 680, pct: 79.5 },
+      { name: "Ouest", count: 310, target: 420, pct: 73.8 },
+      { name: "Nord-Ouest", count: 165, target: 280, pct: 58.9 },
+      { name: "Sud-Ouest", count: 148, target: 250, pct: 59.2 },
+      { name: "Extrême-Nord", count: 198, target: 310, pct: 63.8 },
+      { name: "Nord", count: 142, target: 220, pct: 64.5 },
+      { name: "Adamaoua", count: 92, target: 150, pct: 61.3 },
+      { name: "Est", count: 78, target: 120, pct: 65.0 },
+      { name: "Sud", count: 31, target: 60, pct: 51.6 }
+    ];
+
+    let activeTargetAnomalyId = null;
+
+    // -------------------------------------------------------------------------
+    // 2. DETERMINISTIC AXIS 3 ENGINE
+    // -------------------------------------------------------------------------
+    function evaluateAxis3(dossier) {
+      if (dossier.anomalies > 0) {
+        return { status: "EXCLUDED", code: "EXCL_ANOMALY_OPEN", label: "Bloqué · Anomalie Qualité", pillClass: "pill-red" };
+      }
+      if (dossier.axis1 === "CORRECTION_REQUESTED") {
+        return { status: "EXCLUDED", code: "EXCL_CORRECTION_PENDING", label: "Bloqué · Correction en cours", pillClass: "pill-amber" };
+      }
+      if (dossier.axis1 === "SUBMITTED") {
+        return { status: "EXCLUDED", code: "EXCL_WAITING_DIV_VISA", label: "Bloqué · Attente visa dép.", pillClass: "pill-slate" };
+      }
+      if (dossier.axis1 === "DIVISIONAL_APPROVED") {
+        return { status: "EXCLUDED", code: "EXCL_WAITING_REG_VISA", label: "Bloqué · Attente visa rég.", pillClass: "pill-slate" };
+      }
+      if (dossier.axis1 === "REGIONAL_APPROVED") {
+        return { status: "EXCLUDED", code: "EXCL_WAITING_NAT_VISA", label: "Bloqué · Attente visa nat.", pillClass: "pill-amber" };
+      }
+      if (dossier.axis1 === "CENTRAL_APPROVED") {
+        return { status: "READY", code: "READY", label: "✓ PRÊT POUR ANALYSE", pillClass: "pill-green" };
+      }
+      return { status: "EXCLUDED", code: "EXCL_UNKNOWN", label: "Exclu", pillClass: "pill-slate" };
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. NAVIGATION VIEW SWITCHER
+    // -------------------------------------------------------------------------
+    function switchView(viewName, buttonEl) {
+      document.querySelectorAll('.screen-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-button').forEach(el => el.classList.remove('active'));
+      
+      const targetView = document.getElementById('view-' + viewName);
+      if (targetView) targetView.classList.add('active');
+      if (buttonEl) buttonEl.classList.add('active');
+
+      if (viewName === 'dossiers') refreshTable();
+      if (viewName === 'files-attente') renderQueueView('anomalies');
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. RENDER REGIONAL PROGRESSION BARS
+    // -------------------------------------------------------------------------
+    function renderRegionBars() {
+      const container = document.getElementById('region-list-container');
+      container.innerHTML = REGIONS_DATA.map(r => `
+        <div class="region-item">
+          <span class="region-label">${r.name}</span>
+          <div class="track-outer">
+            <div class="track-target-marker" title="Cible ministérielle 80%"></div>
+            <div class="track-fill ${r.pct < 60 ? 'track-fill-amber' : ''}" style="width: ${r.pct}%;"></div>
+          </div>
+          <div class="region-stats tabular-nums">
+            ${r.pct}% <small>(${r.count}/${r.target})</small>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. MASTER DATA TABLE & FILTERING
+    // -------------------------------------------------------------------------
+    function refreshTable() {
+      const query = (document.getElementById('filter-search-input').value || '').toLowerCase();
+      const region = document.getElementById('filter-region-select').value;
+      const axis3Filter = document.getElementById('filter-axis3-select').value;
+      const typeFilter = document.getElementById('filter-type-select').value;
+
+      const filtered = DOSSIERS.filter(d => {
+        const matchesQ = d.entity.toLowerCase().includes(query) || d.id.toLowerCase().includes(query);
+        const matchesReg = !region || d.region === region;
+        const matchesTyp = !typeFilter || d.type === typeFilter;
+        const ax3 = evaluateAxis3(d);
+        const matchesAx3 = !axis3Filter || ax3.status === axis3Filter;
+        return matchesQ && matchesReg && matchesTyp && matchesAx3;
+      });
+
+      document.getElementById('table-record-counter').innerText = `${filtered.length} dossier(s) affiché(s)`;
+
+      const tbody = document.getElementById('master-grid-body');
+      tbody.innerHTML = filtered.map(d => {
+        const ax3 = evaluateAxis3(d);
+
+        let ax1Pill = "pill-slate";
+        let ax1Txt = d.axis1;
+        if (d.axis1 === "CENTRAL_APPROVED") { ax1Pill = "pill-green"; ax1Txt = "VISÉ_NATIONAL"; }
+        else if (d.axis1 === "REGIONAL_APPROVED") { ax1Pill = "pill-amber"; ax1Txt = "ENDOSSÉ_RÉG."; }
+        else if (d.axis1 === "DIVISIONAL_APPROVED") { ax1Pill = "pill-slate"; ax1Txt = "ENDOSSÉ_DÉP."; }
+        else if (d.axis1 === "CORRECTION_REQUESTED") { ax1Pill = "pill-red"; ax1Txt = "CORRECTION_DEMANDÉE"; }
+        else if (d.axis1 === "SUBMITTED") { ax1Pill = "pill-slate"; ax1Txt = "DÉPOSÉ"; }
+
+        let ax2Pill = d.anomalies > 0 ? "pill-red" : "pill-green";
+        let ax2Txt = d.anomalies > 0 ? `🔴 ${d.anomalies} bloquante` : "✓ 0 anomalie";
+
+        return `
+          <tr>
+            <td>
+              <input type="checkbox" class="row-selector" data-id="${d.id}" onchange="updateFloatingBar()">
+            </td>
+            <td>
+              <div style="font-weight: 700; color: var(--cam-slate-900); font-size: 13px;">${d.entity}</div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--cam-slate-500);">${d.id}</div>
+            </td>
+            <td>
+              <span style="font-weight: 500;">${d.region}</span>
+              <span style="color: var(--cam-slate-400);"> · ${d.dept}</span>
+            </td>
+            <td><span class="pill pill-slate">${d.type}</span></td>
+            <td><span class="pill ${ax1Pill}">${ax1Txt}</span></td>
+            <td><span class="pill ${ax2Pill}">${ax2Txt}</span></td>
+            <td><span class="pill ${ax3.pillClass}">${ax3.label}</span></td>
+            <td style="text-align: right;">
+              <button class="btn btn-sm btn-secondary" onclick="openDrawer('${d.id}')">
+                Examiner 3-Axes →
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      updateFloatingBar();
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. ACTION QUEUES VIEW
+    // -------------------------------------------------------------------------
+    function selectQueueTab(queueKey) {
+      ['anomalies', 'visas', 'corrections'].forEach(k => {
+        const btn = document.getElementById('queue-tab-' + k);
+        if (k === queueKey) {
+          btn.className = k === 'anomalies' ? 'btn btn-sm btn-danger' : k === 'visas' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+          btn.style.fontWeight = '700';
+        } else {
+          btn.className = 'btn btn-sm btn-secondary';
+          btn.style.fontWeight = '500';
+        }
+      });
+      renderQueueView(queueKey);
+    }
+
+    function renderQueueView(queueKey) {
+      const container = document.getElementById('queue-list-outlet');
+
+      if (queueKey === 'anomalies') {
+        const list = DOSSIERS.filter(d => d.anomalies > 0);
+        if (list.length === 0) {
+          container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--cam-slate-500);">✓ Aucune anomalie bloquante ouverte. Intégrité statistique garantie.</div>`;
+          return;
+        }
+        container.innerHTML = `
+          <table class="data-grid">
+            <thead>
+              <tr>
+                <th>Dossier & Établissement</th>
+                <th>Règle de Cohérence Enfreinte</th>
+                <th>Conséquence Axe ③</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(d => `
+                <tr>
+                  <td>
+                    <strong>${d.entity}</strong>
+                    <div style="font-size: 11px; color: var(--cam-slate-500); font-family: monospace;">${d.id} · ${d.region}</div>
+                  </td>
+                  <td>
+                    <span class="pill pill-red">${d.anomalyCode}</span>
+                    <div style="font-size: 12px; margin-top: 3px; color: var(--cam-slate-700);">${d.anomalyDesc}</div>
+                  </td>
+                  <td><span class="pill pill-red">EXCL_ANOMALY_OPEN</span></td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-sm btn-danger" onclick="openAnomalyModal('${d.id}')">
+                      Arbitrer l'anomalie →
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (queueKey === 'visas') {
+        const list = DOSSIERS.filter(d => d.axis1 === 'REGIONAL_APPROVED');
+        container.innerHTML = `
+          <table class="data-grid">
+            <thead>
+              <tr>
+                <th>Dossier & Établissement</th>
+                <th>Visa Actuel</th>
+                <th>Axe ② Données</th>
+                <th>Conséquence Post-Visa</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(d => `
+                <tr>
+                  <td>
+                    <strong>${d.entity}</strong>
+                    <div style="font-size: 11px; color: var(--cam-slate-500); font-family: monospace;">${d.id} · ${d.region}</div>
+                  </td>
+                  <td><span class="pill pill-amber">REGIONAL_APPROVED</span></td>
+                  <td>${d.anomalies > 0 ? '<span class="pill pill-red">1 bloquante</span>' : '<span class="pill pill-green">0 anomalie</span>'}</td>
+                  <td>
+                    ${d.anomalies === 0 ? '<strong style="color:var(--cam-green-700);">Deviendra READY (Prêt)</strong>' : '<span style="color:var(--cam-red-700);">Restera EXCLU (Anomalie)</span>'}
+                  </td>
+                  <td style="text-align: right;">
+                    <button class="btn btn-sm btn-primary" onclick="visaSingle('${d.id}')">
+                      Viser immédiatement
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else {
+        container.innerHTML = `<div style="padding: 30px; text-align: center; color: var(--cam-slate-500);">Aucune correction employeur en instance aujourd'hui.</div>`;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. DIAGNOSTIC DRAWER
+    // -------------------------------------------------------------------------
+    function openDrawer(id) {
+      const d = DOSSIERS.find(x => x.id === id);
+      if (!d) return;
+
+      document.getElementById('drawer-dossier-id').innerText = d.id;
+      document.getElementById('drawer-entity-name').innerText = d.entity;
+      document.getElementById('drawer-entity-territory').innerText = `${d.region} · ${d.dept}`;
+
+      const ax3 = evaluateAxis3(d);
+
+      document.getElementById('drawer-ax1-pill').innerText = d.axis1;
+      document.getElementById('drawer-ax1-pill').className = 'pill ' + (d.axis1 === 'CENTRAL_APPROVED' ? 'pill-green' : 'pill-amber');
+      document.getElementById('drawer-ax1-desc').innerText = `Statut hiérarchique : ${d.axis1}.`;
+
+      document.getElementById('drawer-ax2-pill').innerText = d.anomalies > 0 ? `${d.anomalies} anomalie bloquante` : '0 anomalie';
+      document.getElementById('drawer-ax2-pill').className = 'pill ' + (d.anomalies > 0 ? 'pill-red' : 'pill-green');
+      document.getElementById('drawer-ax2-desc').innerText = d.anomalies > 0 ? d.anomalyDesc : "Contrôles de cohérence et totaux validés sans déviation.";
+
+      document.getElementById('drawer-ax3-pill').innerText = ax3.status;
+      document.getElementById('drawer-ax3-pill').className = 'pill ' + ax3.pillClass;
+      document.getElementById('drawer-ax3-desc').innerText = ax3.status === 'READY' 
+        ? "Ce dossier est inclus dans le lot statistique officiel et publiable via SPSS/Excel." 
+        : `Dossier exclu de la publication officielle. Code de diagnostic : ${ax3.code}.`;
+
+      document.getElementById('drawer-stat-emp').innerText = d.emp;
+      document.getElementById('drawer-stat-sal').innerText = d.sal;
+      document.getElementById('drawer-stat-dip').innerText = d.dip;
+      document.getElementById('drawer-stat-fem').innerText = d.fem;
+
+      document.getElementById('diagnostic-drawer').classList.add('open');
+    }
+
+    function closeDrawer() {
+      document.getElementById('diagnostic-drawer').classList.remove('open');
+    }
+
+    function closeDrawerBackdrop(e) {
+      closeDrawer();
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. MODAL HANDLERS (ANOMALY ARBITRATION, BULK VISA, FREEZE)
+    // -------------------------------------------------------------------------
+    function openAnomalyModal(id) {
+      activeTargetAnomalyId = id;
+      const d = DOSSIERS.find(x => x.id === id);
+      document.getElementById('anomaly-modal-title').innerText = `Arbitrage Qualité — Dossier ${d.id}`;
+      document.getElementById('anomaly-modal-dossier-name').innerText = `${d.id} · ${d.entity}`;
+      document.getElementById('anomaly-modal-rule-desc').innerText = d.anomalyDesc;
+      document.getElementById('modal-resolve-anomaly').classList.add('open');
+    }
+
+    function submitAnomalyDecision() {
+      const d = DOSSIERS.find(x => x.id === activeTargetAnomalyId);
+      const dec = document.getElementById('anomaly-decision-select').value;
+      const cmt = document.getElementById('anomaly-decision-comment').value;
+
+      if (!cmt.trim()) {
+        alert("Veuillez renseigner un motif pour justifier cette décision au journal d'audit.");
+        return;
+      }
+
+      if (dec === 'DEROGATION' || dec === 'CONFIRMED') {
+        d.anomalies = 0;
+        alert(`Anomalie arbitrée avec succès pour ${d.entity}. L'Axe ③ a été immédiatement recalculé.`);
+      } else {
+        d.axis1 = 'CORRECTION_REQUESTED';
+        alert(`Demande de correction notifiée à l'entité ${d.entity}.`);
+      }
+
+      closeModal('modal-resolve-anomaly');
+      syncStateAndMetrics();
+    }
+
+    function openBulkVisaModal() {
+      document.getElementById('modal-bulk-visa').classList.add('open');
+    }
+
+    function executeBulkVisa() {
+      let count = 0;
+      let newReady = 0;
+      DOSSIERS.forEach(d => {
+        if (d.axis1 === 'REGIONAL_APPROVED') {
+          d.axis1 = 'CENTRAL_APPROVED';
+          count++;
+          if (d.anomalies === 0) newReady++;
+        }
+      });
+      alert(`Visa national central apposé sur ${count} dossiers !\n${newReady} nouveaux dossiers sont immédiatement devenus éligibles pour l'analyse statistique.`);
+      closeModal('modal-bulk-visa');
+      syncStateAndMetrics();
+    }
+
+    function visaSingle(id) {
+      const d = DOSSIERS.find(x => x.id === id);
+      if (!d) return;
+      d.axis1 = 'CENTRAL_APPROVED';
+      const ax3 = evaluateAxis3(d);
+      alert(`Visa national apposé sur ${d.entity}.\nNouveau statut Axe ③ : ${ax3.label}`);
+      syncStateAndMetrics();
+    }
+
+    function openFreezeModal() {
+      const readyCount = DOSSIERS.filter(d => evaluateAxis3(d).status === 'READY').length;
+      document.getElementById('freeze-ready-count').innerText = `${readyCount} dossiers conformes`;
+      document.getElementById('modal-freeze').classList.add('open');
+    }
+
+    function executeFreeze() {
+      const label = document.getElementById('freeze-input-label').value;
+      alert(`Snapshot officiel scellé avec succès !\nIntitulé : "${label}"\nLes métadonnées ont été figées avec empreinte de non-répudiation.`);
+      closeModal('modal-freeze');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    // -------------------------------------------------------------------------
+    // 9. BULK SELECTION & FLOATING BAR
+    // -------------------------------------------------------------------------
+    function toggleSelectAllRows(master) {
+      document.querySelectorAll('.row-selector').forEach(cb => cb.checked = master.checked);
+      updateFloatingBar();
+    }
+
+    function updateFloatingBar() {
+      const selected = document.querySelectorAll('.row-selector:checked');
+      const bar = document.getElementById('floating-bulk-bar');
+      document.getElementById('selected-count-label').innerText = selected.length;
+      if (selected.length > 0) {
+        bar.classList.add('active');
+      } else {
+        bar.classList.remove('active');
+      }
+    }
+
+    function clearAllSelections() {
+      document.querySelectorAll('.row-selector').forEach(cb => cb.checked = false);
+      const master = document.getElementById('master-checkbox');
+      if (master) master.checked = false;
+      updateFloatingBar();
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. METRIC RECALCULATION & REAL-TIME SYNC
+    // -------------------------------------------------------------------------
+    function syncStateAndMetrics() {
+      const ready = DOSSIERS.filter(d => evaluateAxis3(d).status === 'READY').length;
+      const anomalies = DOSSIERS.filter(d => d.anomalies > 0).length;
+      const visas = DOSSIERS.filter(d => d.axis1 === 'REGIONAL_APPROVED').length;
+
+      document.getElementById('kpi-sub-ready').innerText = ready;
+      document.getElementById('kpi-sub-anomalies').innerText = anomalies;
+      document.getElementById('kpi-sub-visas').innerText = visas;
+
+      document.getElementById('nav-count-ready').innerText = ready;
+      document.getElementById('nav-count-visas').innerText = visas;
+
+      document.getElementById('diff-eligible-count').innerText = `${ready} Dossiers Éligibles à la Publication`;
+      document.getElementById('bulk-modal-count-msg').innerText = `${visas} dossiers prêts pour le Visa National`;
+
+      const anomaliesTabBtn = document.getElementById('queue-tab-anomalies');
+      if (anomaliesTabBtn) anomaliesTabBtn.innerText = `🔴 Anomalies Bloquantes (${anomalies})`;
+
+      const visasTabBtn = document.getElementById('queue-tab-visas');
+      if (visasTabBtn) visasTabBtn.innerText = `🟠 Visas Nationaux en Instance (${visas})`;
+
+      refreshTable();
+      renderQueueView('anomalies');
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. SPSS SUITE & CSV REAL EXPORTS
+    // -------------------------------------------------------------------------
+    function triggerSpssSyntaxDownload() {
+      const syntax = `* ===============================================================.
+* CAM-LEAP MINEFOP / ONEFOP : SYNTAXE OFFICIELLE D'IMPORTATION SPSS.
+* Campagne : 2026-T1 | Date : ${new Date().toISOString()}.
+* Norme d'Orthogonalité 3-Axes (Eligibilité Statistique).
+* ===============================================================.
+
+VARIABLE LABELS
+  id 'Identifiant Unique National du Dossier'
+  formType 'Typologie de l\\'Établissement'
+  region 'Région administrative de rattachement'
+  dept 'Département territorial'
+  axis1Status 'Visa Administratif Légal'
+  axis2Status 'Contrôle d\\'intégrité des données'
+  axis3Status 'Éligibilité Statistique'
+  totalEmployees 'Effectif total déclaré'
+  totalPayroll 'Masse salariale totale (FCFA)'
+  highEducEmployees 'Effectifs niveau supérieur'.
+
+VALUE LABELS
+  formType
+    1 'ENTREPRISE'
+    2 'CTD'
+    3 'COOPERATIVE'
+    4 'ONG'
+  /axis1Status
+    1 'SUBMITTED'
+    2 'DIVISIONAL_APPROVED'
+    3 'REGIONAL_APPROVED'
+    4 'CENTRAL_APPROVED'
+  /axis3Status
+    1 'READY'
+    2 'EXCLUDED'.
+
+MISSING VALUES
+  totalEmployees totalPayroll highEducEmployees (-99).
+
+VARIABLE LEVEL
+  id (NOMINAL)
+  formType (NOMINAL)
+  region (NOMINAL)
+  axis3Status (NOMINAL)
+  totalEmployees (SCALE)
+  totalPayroll (SCALE).
+
+EXECUTE.
+`;
+      const blob = new Blob([syntax], { type: 'text/plain;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "CAMLEAP_ONEFOP_2026T1_SYNTAX.sps";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function triggerSpssDataDownload() {
+      const readyList = DOSSIERS.filter(d => evaluateAxis3(d).status === 'READY');
+      let csv = "id,formType,region,dept,axis1Status,axis2Status,axis3Status,totalEmployees,totalPayroll,highEducEmployees\n";
+      readyList.forEach(d => {
+        const typeNum = d.type === 'ENTREPRISE' ? 1 : d.type === 'CTD' ? 2 : d.type === 'COOPERATIVE' ? 3 : 4;
+        csv += `"${d.id}",${typeNum},"${d.region}","${d.dept}",4,0,1,${d.emp},${parseInt(d.sal.replace(/[^0-9]/g, ''))},${d.dip}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "CAMLEAP_ONEFOP_2026T1_DATA.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function triggerExcelDownload() {
+      const readyList = DOSSIERS.filter(d => evaluateAxis3(d).status === 'READY');
+      
+      const xmlHeader = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Header">
+   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#1B4D3E" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center"/>
+  </Style>
+  <Style ss:ID="SubHeader">
+   <Font ss:Bold="1" ss:Color="#333333"/>
+   <Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Integer">
+   <NumberFormat ss:Format="#,##0"/>
+  </Style>
+  <Style ss:ID="Money">
+   <NumberFormat ss:Format="#,##0\ &quot;FCFA&quot;"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Dossiers_Eligibles">
+  <Table>
+   <Row ss:StyleID="Header">
+    <Cell><Data ss:Type="String">N° Dossier</Data></Cell>
+    <Cell><Data ss:Type="String">Raison Sociale / Entité</Data></Cell>
+    <Cell><Data ss:Type="String">Type d'Entité</Data></Cell>
+    <Cell><Data ss:Type="String">Région</Data></Cell>
+    <Cell><Data ss:Type="String">Département</Data></Cell>
+    <Cell><Data ss:Type="String">Effectifs Déclarés</Data></Cell>
+    <Cell><Data ss:Type="String">Masse Salariale</Data></Cell>
+    <Cell><Data ss:Type="String">Diplômés Supérieur</Data></Cell>
+    <Cell><Data ss:Type="String">Axe ① Visa Admin</Data></Cell>
+    <Cell><Data ss:Type="String">Axe ② Anomalies Bloquantes</Data></Cell>
+    <Cell><Data ss:Type="String">Axe ③ Éligibilité Statistique</Data></Cell>
+   </Row>`;
+
+      let rowsXml = '';
+      readyList.forEach(d => {
+        const salNum = parseInt(d.sal.replace(/[^0-9]/g, '')) || 0;
+        rowsXml += `
+   <Row>
+    <Cell><Data ss:Type="String">${d.id}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.entity}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.type}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.region}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.dept}</Data></Cell>
+    <Cell ss:StyleID="Integer"><Data ss:Type="Number">${d.emp}</Data></Cell>
+    <Cell ss:StyleID="Money"><Data ss:Type="Number">${salNum}</Data></Cell>
+    <Cell ss:StyleID="Integer"><Data ss:Type="Number">${d.dip}</Data></Cell>
+    <Cell><Data ss:Type="String">CENTRAL_APPROVED</Data></Cell>
+    <Cell ss:StyleID="Integer"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String">READY</Data></Cell>
+   </Row>`;
+      });
+
+      const xmlMiddle = `
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Registre_Complet_3Axes">
+  <Table>
+   <Row ss:StyleID="Header">
+    <Cell><Data ss:Type="String">Identifiant</Data></Cell>
+    <Cell><Data ss:Type="String">Structure</Data></Cell>
+    <Cell><Data ss:Type="String">Région</Data></Cell>
+    <Cell><Data ss:Type="String">Axe ① Statut</Data></Cell>
+    <Cell><Data ss:Type="String">Axe ② Anomalies</Data></Cell>
+    <Cell><Data ss:Type="String">Axe ③ Éligibilité</Data></Cell>
+    <Cell><Data ss:Type="String">Diagnostic d'Exclusion</Data></Cell>
+   </Row>`;
+
+      let allRowsXml = '';
+      DOSSIERS.forEach(d => {
+        const ax3 = evaluateAxis3(d);
+        allRowsXml += `
+   <Row>
+    <Cell><Data ss:Type="String">${d.id}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.entity}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.region}</Data></Cell>
+    <Cell><Data ss:Type="String">${d.ax1}</Data></Cell>
+    <Cell ss:StyleID="Integer"><Data ss:Type="Number">${d.ax2}</Data></Cell>
+    <Cell><Data ss:Type="String">${ax3.status}</Data></Cell>
+    <Cell><Data ss:Type="String">${ax3.code}</Data></Cell>
+   </Row>`;
+      });
+
+      const xmlFooter = `
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+      const fullXml = xmlHeader + rowsXml + xmlMiddle + allRowsXml + xmlFooter;
+      const blob = new Blob([fullXml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ONEFOP_2026_T1_CLASSEUR_NATIONAL.xls`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCsvRaw() {
+      let csv = "id,entity,region,dept,type,axis1,anomalies,axis3\n";
+      DOSSIERS.forEach(d => {
+        const ax3 = evaluateAxis3(d);
+        csv += `"${d.id}","${d.entity}","${d.region}","${d.dept}","${d.type}","${d.axis1}",${d.anomalies},"${ax3.status}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "CAMLEAP_REGISTRE_3AXES.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // -------------------------------------------------------------------------
+    // 12. INITIALIZATION
+    // -------------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      renderRegionBars();
+      refreshTable();
+      renderQueueView('anomalies');
+    });
+  </script>
+</body>
+</html>

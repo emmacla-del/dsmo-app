@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 
@@ -28,12 +29,12 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
   late AnimationController _animCtrl;
   final _searchCtrl = TextEditingController();
 
-  static const _statusMeta = {
-    'SUBMITTED': (label: 'Soumis', color: Color(0xFF3B82F6)),
-    'DIVISION_APPROVED': (label: 'Div. Approuvé', color: Color(0xFF8B5CF6)),
-    'REGION_APPROVED': (label: 'Rég. Approuvé', color: Color(0xFFF59E0B)),
-    'FINAL_APPROVED': (label: 'Approuvé', color: Color(0xFF10B981)),
-    'REJECTED': (label: 'Rejeté', color: Color(0xFFEF4444)),
+  Map<String, ({String label, Color color})> _statusMeta(BuildContext context) => {
+    'SUBMITTED': (label: context.l10n.statusSubmittedShort, color: const Color(0xFF3B82F6)),
+    'DIVISION_APPROVED': (label: context.l10n.statusDivisionApprovedShort, color: const Color(0xFF8B5CF6)),
+    'REGION_APPROVED': (label: context.l10n.statusRegionApprovedShort, color: const Color(0xFFF59E0B)),
+    'FINAL_APPROVED': (label: context.l10n.onefopApproved, color: const Color(0xFF10B981)),
+    'REJECTED': (label: context.l10n.onefopRejected, color: const Color(0xFFEF4444)),
   };
 
   // ── stat helpers ──────────────────────────────────────────
@@ -110,8 +111,8 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
       _loadDeclarations();
       _toast(
         status == 'FINAL_APPROVED'
-            ? 'Déclaration approuvée'
-            : 'Déclaration rejetée',
+            ? context.l10n.declListApprovedToastMsg
+            : context.l10n.declApprovalRejectedMsg,
         status == 'FINAL_APPROVED' ? UltraTheme.success : UltraTheme.error,
         status == 'FINAL_APPROVED'
             ? Icons.check_circle_rounded
@@ -119,7 +120,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      _toast('Erreur: $e', UltraTheme.error, Icons.error_rounded);
+      _toast(context.l10n.regionsSectorsGenericErrorToast(e.toString()), UltraTheme.error, Icons.error_rounded);
     }
   }
 
@@ -166,8 +167,8 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
               foregroundColor: Colors.white,
               elevation: 2,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Nouvelle',
-                  style: TextStyle(
+              label: Text(context.l10n.companyDeclNewButton,
+                  style: const TextStyle(
                       fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             )
           : null,
@@ -179,21 +180,21 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Row(children: [
-        _StatPill(value: _total, label: 'Total', color: UltraTheme.primary),
+        _StatPill(value: _total, label: context.l10n.total, color: UltraTheme.primary),
         const SizedBox(width: 8),
         _StatPill(
             value: _pending,
-            label: 'En attente',
+            label: context.l10n.companyAnalyticsBadgePending,
             color: const Color(0xFF3B82F6)),
         const SizedBox(width: 8),
         _StatPill(
             value: _approved,
-            label: 'Approuvées',
+            label: context.l10n.companyDeclApprovedFilter,
             color: const Color(0xFF10B981)),
         const SizedBox(width: 8),
         _StatPill(
             value: _rejected,
-            label: 'Rejetées',
+            label: context.l10n.companyDeclRejectedFilter,
             color: const Color(0xFFEF4444)),
         const Spacer(),
         _RefreshButton(onTap: _loadDeclarations),
@@ -213,7 +214,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
         },
         style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
         decoration: InputDecoration(
-          hintText: 'Rechercher une entreprise...',
+          hintText: context.l10n.declListSearchCompanyHint,
           hintStyle: const TextStyle(
               fontFamily: 'Inter', fontSize: 14, color: UltraTheme.textMuted),
           prefixIcon: const Icon(Icons.search_rounded,
@@ -254,7 +255,8 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
 
   // ── Status chips ──────────────────────────────────────────
   Widget _buildStatusChips() {
-    final all = [null, ..._statusMeta.keys];
+    final statusMeta = _statusMeta(context);
+    final all = [null, ...statusMeta.keys];
     return SizedBox(
       height: 52,
       child: ListView.separated(
@@ -265,9 +267,9 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
         itemBuilder: (_, i) {
           final s = all[i];
           final isActive = _statusFilter == s;
-          final meta = s != null ? _statusMeta[s] : null;
+          final meta = s != null ? statusMeta[s] : null;
           final color = meta?.color ?? UltraTheme.primary;
-          final label = meta?.label ?? 'Tous';
+          final label = meta?.label ?? context.l10n.allMasculine;
           return GestureDetector(
             onTap: () {
               setState(() => _statusFilter = s);
@@ -335,10 +337,10 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
     final name = (d['companyName'] ??
         d['name'] ??
         (d['company'] as Map?)?['name'] ??
-        'Entreprise') as String;
+        context.l10n.entityTypeEnterprise) as String;
     final status = (d['status'] as String?) ?? 'SUBMITTED';
     final meta =
-        _statusMeta[status] ?? (label: status, color: UltraTheme.textMuted);
+        _statusMeta(context)[status] ?? (label: status, color: UltraTheme.textMuted);
     final region = d['region'] as String?;
     // Declaration's own field is "division", not "department" — the latter
     // never matched, silently dropping it from the card.
@@ -462,7 +464,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
     final name = (d['companyName'] ??
         d['name'] ??
         (d['company'] as Map?)?['name'] ??
-        'Entreprise') as String;
+        context.l10n.entityTypeEnterprise) as String;
     final status = (d['status'] as String?) ?? 'SUBMITTED';
     final id = d['id'] as String? ?? '';
     final isPending = status == 'SUBMITTED' || status == 'REGION_APPROVED';
@@ -536,7 +538,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
                             _updateStatus(id, 'REJECTED');
                           },
                           icon: const Icon(Icons.close_rounded, size: 16),
-                          label: const Text('Rejeter'),
+                          label: Text(context.l10n.rejectTooltip),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: UltraTheme.error,
                             side: BorderSide(
@@ -555,7 +557,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
                             _updateStatus(id, 'FINAL_APPROVED');
                           },
                           icon: const Icon(Icons.check_rounded, size: 16),
-                          label: const Text('Approuver'),
+                          label: Text(context.l10n.approveActionLabel),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: UltraTheme.success,
                             foregroundColor: Colors.white,
@@ -594,8 +596,8 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
         const SizedBox(height: 20),
         Text(
             _searchQuery.isNotEmpty || _statusFilter != null
-                ? 'Aucun résultat'
-                : 'Aucune déclaration en attente',
+                ? context.l10n.companyDeclNoResultsTitle
+                : context.l10n.declListNoPendingDeclarationsTitle,
             style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
@@ -604,8 +606,8 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
         const SizedBox(height: 8),
         Text(
             _searchQuery.isNotEmpty || _statusFilter != null
-                ? "Essayez d'autres critères de recherche"
-                : 'Les déclarations soumises apparaîtront ici',
+                ? context.l10n.tryDifferentSearchCriteria
+                : context.l10n.declListSubmittedWillAppearHere,
             style: const TextStyle(
                 fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
             textAlign: TextAlign.center),
@@ -618,7 +620,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
               _statusFilter = null;
               _applyFilters();
             },
-            child: const Text('Effacer les filtres'),
+            child: Text(context.l10n.clearFiltersButton),
           ),
         ],
       ]),
@@ -639,8 +641,8 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
               size: 36, color: UltraTheme.error),
         ),
         const SizedBox(height: 16),
-        const Text('Erreur de chargement',
-            style: TextStyle(
+        Text(context.l10n.loadingErrorTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -656,7 +658,7 @@ class _DeclarationsListScreenState extends ConsumerState<DeclarationsListScreen>
         ElevatedButton.icon(
           onPressed: _loadDeclarations,
           icon: const Icon(Icons.refresh_rounded, size: 16),
-          label: const Text('Réessayer'),
+          label: Text(context.l10n.retry),
           style: ElevatedButton.styleFrom(
             backgroundColor: UltraTheme.primary,
             foregroundColor: Colors.white,

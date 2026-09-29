@@ -17,6 +17,7 @@ class FieldSchema {
   final Map<String, dynamic>? tableSpec; // For table fields
   final String? dependsOn; // Conditional visibility
   final String? dependsValue; // Value that triggers visibility
+  final String? dependsOperator; // null/"eq" (default) or "contains" — see form_ast.dart
 
   // Question and instruction text
   final String?
@@ -41,6 +42,7 @@ class FieldSchema {
     this.tableSpec,
     this.dependsOn,
     this.dependsValue,
+    this.dependsOperator,
     this.questionText,
     this.instruction,
     this.subsection, // ← ADD THIS
@@ -50,6 +52,27 @@ class FieldSchema {
   /// against by BackendMappers/dependsValue. Never rendered directly; use
   /// [optionsI18n] + `.text.of(locale)` for display.
   List<String>? get options => optionsI18n?.map((o) => o.value).toList();
+
+  /// Whether this field should be shown given the current answers in
+  /// [data] — the single evaluator OnefopFormController.isFieldVisible and
+  /// FieldValidator._isVisible both delegate to, so the two can never
+  /// drift apart (VT-UI/UX-07).
+  ///
+  /// No dependsOn → always visible. dependsOperator null/"eq" (every
+  /// dependsOn declared before VT-UI/UX-07, and the default for any new
+  /// one) → equality: data[dependsOn] == dependsValue, unchanged from
+  /// before this method existed. dependsOperator "contains" → data
+  /// [dependsOn] must be an Iterable (a checkbox's List<String>) that
+  /// contains dependsValue; a null/non-Iterable trigger (checkbox never
+  /// touched) safely evaluates to not-visible rather than throwing.
+  bool isVisibleGiven(Map<String, dynamic> data) {
+    if (dependsOn == null || dependsOn!.isEmpty) return true;
+    final trigger = data[dependsOn];
+    if (dependsOperator == 'contains') {
+      return trigger is Iterable && trigger.contains(dependsValue);
+    }
+    return trigger == dependsValue;
+  }
 
   /// Used to patch a compiled field's label with runtime content (e.g.
   /// S21Q01's campaign-period wording — see
@@ -69,6 +92,7 @@ class FieldSchema {
         tableSpec: tableSpec,
         dependsOn: dependsOn,
         dependsValue: dependsValue,
+        dependsOperator: dependsOperator,
         questionText: questionText,
         instruction: instruction,
         subsection: subsection,

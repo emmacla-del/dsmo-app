@@ -1179,7 +1179,6 @@ class OnefopFormState {
   RespondentSection section0 = RespondentSection();
 
   // Exactly one of these is non-null, determined by entityType.
-  // vocational has no ONEFOP Section 1 model — it is DSMO-only.
   EntrepriseSection1? entrepriseS1;
   CooperativeSection1? cooperativeS1;
   CtdSection1? ctdS1;
@@ -1206,10 +1205,12 @@ class OnefopFormState {
         ctdS1 = CtdSection1();
       case EntityType.ong:
         ongS1 = OngSection1();
-      case EntityType.vocational:
       case EntityType.administration:
       case EntityType.projectProgram:
-        break; // No ONEFOP Section 1 model variant yet
+      case EntityType.vocationalTraining:
+        break; // No ONEFOP Section 1 model variant yet (this legacy model
+        // predates the AST/FormSchemaCompiler pipeline that actually
+        // serves administration/projectProgram/vocationalTraining today)
     }
   }
 
@@ -1227,17 +1228,16 @@ class OnefopFormState {
   }
 
   Map<String, dynamic> toJson() {
-    // vocational/administration/projectProgram have no ONEFOP Section 1
-    // payload yet (administration/projectProgram: architecture placeholder,
-    // Phase 0 — see EntityType.family).
+    // administration/projectProgram have no ONEFOP Section 1 payload yet
+    // (architecture placeholder, Phase 0 — see EntityType.family).
     final s1 = switch (entityType) {
       EntityType.enterprise => entrepriseS1!.toJson(),
       EntityType.cooperative => cooperativeS1!.toJson(),
       EntityType.ctd => ctdS1!.toJson(),
       EntityType.ong => ongS1!.toJson(),
-      EntityType.vocational => <String, dynamic>{},
       EntityType.administration => <String, dynamic>{},
       EntityType.projectProgram => <String, dynamic>{},
+      EntityType.vocationalTraining => <String, dynamic>{},
     };
     return {
       ...section0.toJson(),
@@ -1361,7 +1361,6 @@ extension OnefopFormStatePrefill on OnefopFormState {
     cooperativeS1?.prefillFromUser(user);
     ctdS1?.prefillFromUser(user);
     ongS1?.prefillFromUser(user);
-    // vocational has no Section 1 — nothing to prefill
   }
 
   void prefillFromCompanyData(Map<String, dynamic> data) {
@@ -1369,6 +1368,5 @@ extension OnefopFormStatePrefill on OnefopFormState {
     cooperativeS1?.prefillFromCompanyData(data);
     ctdS1?.prefillFromCompanyData(data);
     ongS1?.prefillFromCompanyData(data);
-    // vocational has no Section 1 — nothing to prefill
   }
 }

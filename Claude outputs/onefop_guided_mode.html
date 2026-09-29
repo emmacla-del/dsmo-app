@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONEFOP Guided Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Zilla+Slab:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Tokens mirror react-web/src/app/tokens.css */
+:root{
+  --cam-green:#1e6b3a;--cam-green-dark:#144a28;--cam-gold:#e8a020;--cam-gold-dark:#b87c14;
+  --cam-bg:#fafaf7;--cam-surface:#fff;--cam-surface-subtle:#fbfbf9;--cam-text:#0b1f14;--cam-text-muted:#4a5a50;
+  --cam-border:#d8ddd3;--cam-border-subtle:#eef0eb;--cam-border-strong:#aab5a3;
+  --cam-error:#b3261e;--cam-error-bg:#fbeceb;--cam-error-border:#f2b8b5;
+  --cam-success-bg:#eaf3ec;--cam-success-border:#c3e0cb;
+  --cam-warning:#b87c14;--cam-warning-bg:#fdf3dc;--cam-warning-border:#f0d999;
+  --cdi:#065f46;--cdi-bg:#ecfdf5;--cdi-bd:#a7f3d0;--cdd:#92400e;--cdd-bg:#fffbeb;--cdd-bd:#fde68a;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;--serif:"Zilla Slab",Georgia,serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0eb;color:var(--cam-text);font-family:var(--sans)}
+button{font-family:inherit;cursor:pointer}
+.shell{max-width:1320px;margin:0 auto;background:var(--cam-bg);min-height:100vh}
+.topbar{height:64px;background:#fff;border-bottom:1px solid var(--cam-border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:12px;position:relative}
+.topbar:after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:3px;background:linear-gradient(90deg,#0e5c2b 0 33.3%,#b3202c 33.3% 66.6%,#f0b429 66.6%)}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.brand .mark{font-family:var(--serif);font-weight:700;font-size:20px;color:var(--cam-green)}
+.brand small{display:block;font-size:11px;color:var(--cam-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand strong{display:block;font-size:11px;letter-spacing:.4px;color:var(--cam-text)}
+.actions{display:flex;gap:10px;align-items:center}
+.lang{display:flex;border:1px solid var(--cam-border);border-radius:4px;overflow:hidden}
+.lang button{border:0;background:#fff;padding:6px 11px;font-size:12px;font-weight:700;color:var(--cam-text-muted)}
+.lang button.on{background:var(--cam-green);color:#fff}
+.linkbtn{border:0;background:none;color:var(--cam-text-muted);font-size:12px;padding:6px;text-decoration:underline}
+.layout{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 64px)}
+.sidebar{border-right:1px solid var(--cam-border);padding:26px 18px;background:#fff}
+.side-title{font-weight:700;font-size:12px;letter-spacing:.6px;color:var(--cam-text-muted)}
+.side-progress{font-size:12px;color:var(--cam-text-muted);margin:6px 0 10px}
+.bar{height:6px;background:var(--cam-border-subtle);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--cam-green);border-radius:99px;transition:width .3s}
+.steps{margin-top:20px}
+.step{display:flex;gap:10px;align-items:flex-start;padding:9px 8px;border-radius:4px;margin-bottom:3px}
+.step.active{background:var(--cam-success-bg)}
+.dot{width:24px;height:24px;border:1px solid var(--cam-border-strong);border-radius:50%;display:grid;place-items:center;font-size:11px;color:var(--cam-text-muted);background:#fff;flex:0 0 auto;font-weight:700}
+.step.active .dot{background:var(--cam-green);color:#fff;border-color:var(--cam-green)}
+.step.done .dot{background:var(--cam-green);color:#fff;border-color:var(--cam-green)}
+.step b{font-size:12.5px;display:block;font-weight:600}
+.step small{font-size:11px;color:var(--cam-text-muted)}
+.subs{margin:2px 0 8px 42px;border-left:2px solid var(--cam-border-subtle);padding-left:10px}
+.subs div{font-size:11.5px;color:var(--cam-text-muted);padding:3px 0;display:flex;gap:6px;align-items:center}
+.subs div.on{color:var(--cam-green);font-weight:700}
+.subs div.off{opacity:.45;text-decoration:line-through}
+.main{padding:28px 40px 56px;max-width:960px}
+.kicker{font-size:11.5px;color:var(--cam-text-muted);font-weight:700;margin-bottom:6px;letter-spacing:.5px}
+.page-title{font-family:var(--serif);font-size:28px;line-height:1.15;margin:0;color:var(--cam-text)}
+.sub{color:var(--cam-text-muted);font-size:13.5px;margin-top:6px}
+.scope{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:14px;font-size:12px;color:var(--cam-text-muted)}
+.scope .tag{background:#fff;border:1px solid var(--cam-border);border-radius:3px;padding:2px 7px;color:var(--cam-text);font-weight:600}
+.scope button{border:0;background:none;color:var(--cam-green);font-weight:700;font-size:12px;padding:0 2px;text-decoration:underline}
+.qprog{display:flex;align-items:center;gap:12px;margin:18px 0 20px;max-width:760px}
+.qprog .bar{flex:1;height:5px}
+.qprog span{font-size:12px;color:var(--cam-text-muted);white-space:nowrap;font-weight:600}
+.card{background:#fff;border:1px solid var(--cam-border);border-radius:6px;box-shadow:0 1px 2px rgba(20,30,20,.04);padding:26px 28px;max-width:760px}
+.ctx{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--cam-surface-subtle);border:1px solid var(--cam-border);border-radius:4px;padding:12px 14px;margin-bottom:22px;flex-wrap:wrap}
+.ctx b{font-size:15.5px;display:block}
+.ctx span{font-size:12px;color:var(--cam-text-muted)}
+.contract{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-radius:3px;padding:3px 9px;border:1px solid;white-space:nowrap}
+.contract.permanent{color:var(--cdi);background:var(--cdi-bg);border-color:var(--cdi-bd)}
+.contract.temporaire{color:var(--cdd);background:var(--cdd-bg);border-color:var(--cdd-bd)}
+.question{font-size:21px;line-height:1.4;font-weight:700;margin:0 0 6px;letter-spacing:-.2px}
+.qhint{font-size:12.5px;color:var(--cam-text-muted);margin:0 0 20px}
+.row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--cam-text-muted);margin-bottom:6px}
+.field input{width:132px;height:56px;border:2px solid var(--cam-border-strong);border-radius:4px;font-size:26px;font-weight:700;padding:0 14px;color:var(--cam-text);outline:none;background:#fff;font-variant-numeric:tabular-nums;font-family:var(--sans)}
+.field input:focus{border-color:var(--cam-green);box-shadow:0 0 0 3px rgba(30,107,58,.15)}
+.field input.err{border-color:var(--cam-error)}
+.unit{font-size:13px;color:var(--cam-text-muted);padding-bottom:18px}
+.split{margin-top:20px;padding-left:16px;border-left:2px solid var(--cam-border-subtle);display:none}
+.split.show{display:block}
+.split p{margin:0 0 10px;font-size:15px;font-weight:600}
+.deduced{display:inline-flex;align-items:center;gap:8px;background:var(--cam-success-bg);border:1px solid var(--cam-success-border);border-radius:4px;padding:10px 13px;font-size:13px;margin-bottom:6px}
+.deduced b{color:var(--cam-green);font-size:20px}
+.swap{border:0;background:none;color:var(--cam-text-muted);font-size:11.5px;text-decoration:underline;padding:0;margin-top:10px;display:block}
+.none-row{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+.btn-none{border:1px dashed var(--cam-border-strong);background:#fff;color:var(--cam-text);border-radius:4px;padding:8px 14px;font-size:12.5px;font-weight:600}
+.btn-none:hover{border-color:var(--cam-green);color:var(--cam-green)}
+.hint{font-size:12px;color:var(--cam-text-muted)}
+.msg{margin-top:14px;border-radius:4px;padding:10px 13px;font-size:12.5px;font-weight:600;display:none;line-height:1.45}
+.msg.show{display:block}
+.msg.ok{background:var(--cam-success-bg);border:1px solid var(--cam-success-border);color:var(--cam-green)}
+.msg.err{background:var(--cam-error-bg);border:1px solid var(--cam-error-border);color:var(--cam-error)}
+.msg.warn{background:var(--cam-warning-bg);border:1px solid var(--cam-warning-border);color:#7a5209}
+.footer{display:flex;justify-content:space-between;align-items:center;margin-top:26px;padding-top:18px;border-top:1px solid var(--cam-border-subtle);gap:10px;flex-wrap:wrap}
+.btn{height:42px;border-radius:4px;padding:0 18px;font-weight:700;font-size:13px;border:1px solid var(--cam-border);background:#fff;color:var(--cam-text)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--cam-green);border-color:var(--cam-green);color:#fff}
+.btn.primary:hover{background:var(--cam-green-dark)}
+.btn.warnbtn{border-color:var(--cam-warning-border);color:#7a5209;background:var(--cam-warning-bg)}
+.kbd{font-size:11px;color:var(--cam-text-muted)}
+.tablewrap{overflow-x:auto;border:1px solid var(--cam-border);border-radius:4px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+th,td{padding:8px 9px;border:1px solid var(--cam-border-subtle);text-align:center}
+thead th{background:var(--cam-surface-subtle);font-size:11px;color:var(--cam-text-muted);font-weight:700}
+td:first-child,th:first-child{text-align:left}
+td.n{font-variant-numeric:tabular-nums;font-weight:600;cursor:pointer}
+td.n:hover{background:var(--cam-success-bg)}
+td.tot,tr.tot td{background:#f4f6f2;font-weight:700;cursor:default}
+tr.tot td:hover{background:#f4f6f2}
+.revhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.revhead h3{margin:0;font-size:16px}
+.revhead p{margin:4px 0 0;font-size:12.5px;color:var(--cam-text-muted)}
+.success{width:52px;height:52px;border-radius:50%;background:var(--cam-success-bg);color:var(--cam-green);display:grid;place-items:center;font-size:24px;font-weight:800;margin-bottom:14px}
+.next{border:1px solid var(--cam-border);border-radius:4px;padding:15px;display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px}
+.next b{font-size:13.5px}.next small{display:block;color:var(--cam-text-muted);margin-top:3px;font-size:11.5px}
+.demo{max-width:760px;margin-top:26px;border:1px dashed var(--cam-border-strong);border-radius:6px;padding:14px 16px;background:#fff}
+.demo h4{margin:0 0 4px;font-size:11.5px;letter-spacing:.5px;color:var(--cam-text-muted)}
+.demo p{margin:0 0 10px;font-size:12px;color:var(--cam-text-muted)}
+.demo .grp{margin-bottom:8px;font-size:12.5px}
+.demo .grp b{display:inline-block;min-width:118px;font-size:12px}
+.demo label{display:inline-flex;align-items:center;gap:5px;margin:0 12px 4px 0}
+.demo.flash{animation:fl 1.2s}
+@keyframes fl{0%,60%{box-shadow:0 0 0 4px rgba(232,160,32,.5)}100%{box-shadow:none}}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}.sidebar{display:none}.main{padding:20px 16px 40px}
+  .question{font-size:18px}.card{padding:20px 16px}.brand small{max-width:48vw}.kbd{display:none}
+  .field input{width:120px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="topbar">
+  <div class="brand"><span class="mark">CAMLEAP</span><div><strong data-t="rep"></strong><small data-t="survey"></small></div></div>
+  <div class="actions">
+    <div class="lang"><button id="lfr" class="on">FR</button><button id="len">EN</button></div>
+    <button class="linkbtn" data-t="exit"></button>
+  </div>
+</header>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main"></main>
+</div>
+</div>
+
+<script>
+/* ---------- Reference lists (from ScopeTypes.ts) ---------- */
+const CSP=[{id:"cadres",fr:"Cadres",en:"Executives"},{id:"maitrise",fr:"Agents de maîtrise",en:"Supervisors / Foremen"},{id:"execution",fr:"Agents d'exécution",en:"Field workers"}];
+const AGE=[{id:"15_24",fr:"Moins de 25 ans",en:"Under 25",frS:"< 25 ans",enS:"< 25",frQ:"de moins de 25 ans",enQ:"under 25"},
+           {id:"25_34",fr:"25 à 34 ans",en:"25 to 34",frS:"25–34 ans",enS:"25–34",frQ:"de 25 à 34 ans",enQ:"aged 25 to 34"},
+           {id:"35_plus",fr:"35 ans et +",en:"35 and over",frS:"35+ ans",enS:"35+",frQ:"de 35 ans et plus",enQ:"aged 35 and over"}];
+const TYPES=[{id:"permanent",code:"S22Q01",fr:"Permanents (CDI)",en:"Permanent (CDI)",frT:"Recrutements permanents",enT:"Permanent recruitment",frAdj:"en CDI",enAdj:"on permanent contracts (CDI)"},
+             {id:"temporaire",code:"S22Q02",fr:"Temporaires (CDD)",en:"Temporary (CDD)",frT:"Recrutements temporaires",enT:"Temporary recruitment",frAdj:"en CDD",enAdj:"on temporary contracts (CDD)"}];
+
+/* ---------- i18n ---------- */
+const T={
+fr:{rep:"RÉPUBLIQUE DU CAMEROUN · MINEFOP · ONEFOP",survey:"Enquête Emploi & Main-d'œuvre · Déclaration trimestrielle",exit:"Enregistrer et quitter",
+ summary:"SOMMAIRE",pct:p=>`${p}% complété`,filled:"Renseigné",inProgress:"En cours",
+ steps:["Identification","Emploi et travail","Départs","Stage et formation","Récapitulatif & dépôt"],
+ subDiploma:"Recrutements par diplôme",subNone:"déclaré à néant",
+ kicker:"SECTION 2 · EMPLOI ET TRAVAIL",
+ scopeLbl:"Périmètre déclaré au quiz :",scopeEdit:"Modifier",
+ qOf:(a,b)=>`Question ${a} sur ${b}`,
+ ctxSub:"Catégorie socioprofessionnelle · Tranche d'âge",
+ q:(c,a,t)=>`Combien ${el(c.fr.toLowerCase())} ${a.frQ} avez-vous recrutés ${t.frAdj} au cours du trimestre ?`,
+ qhint:"Une catégorie retenue au quiz peut être à 0 pour ce type de contrat : c'est une réponse valide.",
+ total:"Nombre total recruté",persons:"personne(s)",
+ splitF:"Parmi eux, combien de femmes ?",splitM:"Parmi eux, combien d'hommes ?",
+ women:"femme(s)",men:"homme(s)",dedM:"homme(s) déduit(s) automatiquement",dedF:"femme(s) déduite(s) automatiquement",
+ swapM:"Renseigner les hommes d'abord",swapF:"Renseigner les femmes d'abord",
+ none:"Aucun recrutement",noneHint:"équivaut à saisir 0",
+ zeroOk:"✓ Déclaré à 0 pour cette combinaison.",
+ errEmpty:"Indiquez le nombre total recruté, ou choisissez « Aucun recrutement ».",
+ errSplit:"Indiquez combien de femmes (ou d'hommes) parmi ces recrutements.",
+ errOver:n=>`Ce nombre ne peut pas dépasser le total (${n}).`,
+ prev:"← Précédent",next:"Continuer →",toReview:"Vérifier le tableau →",enter:"Entrée ↵ pour continuer",
+ revTitle:t=>`Récapitulatif · ${t.frT} (${t.code})`,revSub:"Tableau officiel généré à partir de vos réponses. Cliquez sur un chiffre pour le modifier.",
+ M:"Masculin",F:"Féminin",Tt:"Total",csp:"CSP",totalRow:"Total",
+ wTable:t=>`Au quiz, vous avez indiqué des recrutements ${t.frAdj}, mais toutes les valeurs de ce tableau sont à 0.`,
+ wCsp:c=>`Au quiz, vous avez retenu « ${c} », mais aucun recrutement n'est déclaré pour cette catégorie (CDI et CDD confondus).`,
+ wAge:a=>`Au quiz, vous avez retenu la tranche « ${a} », mais aucun recrutement n'est déclaré pour cette tranche (CDI et CDD confondus).`,
+ wHelp:"Corrigez un chiffre ou le périmètre du quiz, ou confirmez si c'est exact.",
+ confirmAnyway:"Les chiffres sont exacts, continuer",validate:"Valider ce tableau →",
+ doneTitle:"Recrutements CDI et CDD enregistrés",doneSub:"Les tableaux S22Q01 et S22Q02 sont complets et cohérents avec votre quiz.",
+ nextLbl:"Suivant : Recrutements par diplôme (S22Q03)",nextSmall:"Section 2 · Emploi et travail",start:"Commencer →",restart:"Recommencer la démo",
+ emptyT:"Aucun recrutement à renseigner",emptyP:"Selon vos réponses au quiz, les recrutements CDI et CDD sont déclarés à néant.",
+ demoH:"MODE DÉMO · RÉPONSES AU QUIZ DE PRÉREMPLISSAGE",demoP:"Simule les choix enregistrés dans _scopeConfig (recruit_types, recruit_csp, recruit_age). Modifier redémarre le parcours.",
+ dTypes:"Type de contrat",dCsp:"Catégories",dAge:"Tranches d'âge"},
+en:{rep:"REPUBLIC OF CAMEROON · MINEFOP · ONEFOP",survey:"Employment & Workforce Survey · Quarterly declaration",exit:"Save and exit",
+ summary:"CONTENTS",pct:p=>`${p}% complete`,filled:"Completed",inProgress:"In progress",
+ steps:["Identification","Employment and work","Departures","Internships and training","Summary & submission"],
+ subDiploma:"Recruitment by diploma",subNone:"declared as none",
+ kicker:"SECTION 2 · EMPLOYMENT AND WORK",
+ scopeLbl:"Scope declared in the quiz:",scopeEdit:"Edit",
+ qOf:(a,b)=>`Question ${a} of ${b}`,
+ ctxSub:"Socio-professional category · Age group",
+ q:(c,a,t)=>`How many ${c.en.toLowerCase()} ${a.enQ} did you recruit ${t.enAdj} this quarter?`,
+ qhint:"A category selected in the quiz may be 0 for this contract type — that is a valid answer.",
+ total:"Total recruited",persons:"person(s)",
+ splitF:"Of these, how many are women?",splitM:"Of these, how many are men?",
+ women:"women",men:"men",dedM:"men deduced automatically",dedF:"women deduced automatically",
+ swapM:"Enter men first instead",swapF:"Enter women first instead",
+ none:"No recruitment",noneHint:"same as entering 0",
+ zeroOk:"✓ Declared as 0 for this combination.",
+ errEmpty:"Enter the total recruited, or choose “No recruitment”.",
+ errSplit:"Enter how many women (or men) among these recruits.",
+ errOver:n=>`This cannot exceed the total (${n}).`,
+ prev:"← Previous",next:"Continue →",toReview:"Check the table →",enter:"Press Enter ↵ to continue",
+ revTitle:t=>`Summary · ${t.enT} (${t.code})`,revSub:"Official table compiled from your answers. Click any figure to edit it.",
+ M:"Male",F:"Female",Tt:"Total",csp:"Category",totalRow:"Total",
+ wTable:t=>`In the quiz you indicated recruitment ${t.enAdj}, but every value in this table is 0.`,
+ wCsp:c=>`In the quiz you selected “${c}”, but no recruitment is declared for this category (CDI and CDD combined).`,
+ wAge:a=>`In the quiz you selected the “${a}” age group, but no recruitment is declared for it (CDI and CDD combined).`,
+ wHelp:"Correct a figure or the quiz scope, or confirm if this is accurate.",
+ confirmAnyway:"Figures are correct, continue",validate:"Validate this table →",
+ doneTitle:"CDI and CDD recruitment saved",doneSub:"Tables S22Q01 and S22Q02 are complete and consistent with your quiz.",
+ nextLbl:"Next: Recruitment by diploma (S22Q03)",nextSmall:"Section 2 · Employment and work",start:"Start →",restart:"Restart demo",
+ emptyT:"No recruitment to report",emptyP:"Based on your quiz answers, permanent and temporary recruitment are declared as none.",
+ demoH:"DEMO MODE · PREFILL QUIZ ANSWERS",demoP:"Simulates the choices stored in _scopeConfig (recruit_types, recruit_csp, recruit_age). Changing them restarts the flow.",
+ dTypes:"Contract type",dCsp:"Categories",dAge:"Age groups"}};
+const el=w=>/^[aeiouhéèêàâîôû]/i.test(w)?"d'"+w:"de "+w;
+
+/* ---------- State ---------- */
+let lang="fr";
+let quiz={types:["permanent","temporaire"],csp:["cadres","maitrise"],ages:["25_34","35_plus"]};
+let S;
+const L=()=>T[lang], nm=o=>o[lang];
+const selTypes=()=>TYPES.filter(t=>quiz.types.includes(t.id));
+const selCsp=()=>CSP.filter(c=>quiz.csp.includes(c.id));
+const selAge=()=>AGE.filter(a=>quiz.ages.includes(a.id));
+function build(){
+  const steps=[];
+  selTypes().forEach(t=>{
+    selCsp().forEach(c=>selAge().forEach(a=>steps.push({kind:"q",t,c,a})));
+    steps.push({kind:"review",t});
+  });
+  steps.push({kind:"done"});
+  S={steps,idx:0,ans:{},first:{},ack:{},back:null};
+  if(!selTypes().length||!selCsp().length||!selAge().length) S.steps=[{kind:"empty"}];
+}
+const K=(t,c,a)=>`${t.id}_${c.id}_${a.id}`;
+const get=(t,c,a)=>S.ans[K(t,c,a)];
+
+/* ---------- Render ---------- */
+const $=id=>document.getElementById(id);
+function render(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-t]").forEach(e=>e.textContent=L()[e.dataset.t]);
+  $("lfr").classList.toggle("on",lang==="fr");$("len").classList.toggle("on",lang==="en");
+  const st=S.steps[S.idx];
+  renderSidebar(st);
+  ({q:renderQ,review:renderReview,done:renderDone,empty:renderEmpty})[st.kind](st);
+}
+function renderSidebar(st){
+  const l=L();
+  const qs=S.steps.filter(s=>s.kind==="q"),answered=qs.filter(s=>get(s.t,s.c,s.a)).length;
+  const secFrac=st.kind==="done"?1:(qs.length?answered/qs.length*0.6:0);
+  const pct=Math.round((1+secFrac)/5*100);
+  let h=`<div class="side-title">${l.summary}</div><div class="side-progress">${l.pct(pct)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="steps">`;
+  l.steps.forEach((s,i)=>{
+    const cls=i===0?"done":i===1?"active":"";
+    h+=`<div class="step ${cls}"><div class="dot">${i===0?"✓":i+1}</div><div><b>${s}</b>${i===0?`<small>${l.filled}</small>`:i===1?`<small>${l.inProgress}</small>`:""}</div></div>`;
+    if(i===1){
+      h+=`<div class="subs">`;
+      TYPES.forEach(t=>{
+        const on=quiz.types.includes(t.id);
+        const cur=st.t&&st.t.id===t.id;
+        const done=on&&(st.kind==="done"||S.steps.findIndex(x=>x.kind==="review"&&x.t.id===t.id)<S.idx);
+        h+=`<div class="${!on?"off":cur?"on":""}">${done?"✓":on?"•":"–"} ${lang==="fr"?t.frT:t.enT} <span style="opacity:.7">${t.code}</span></div>`;
+      });
+      h+=`<div>• ${l.subDiploma} <span style="opacity:.7">S22Q03</span></div></div>`;
+    }
+  });
+  $("sidebar").innerHTML=h+"</div>";
+}
+function header(t){
+  const l=L();
+  const tags=[...selTypes().map(x=>nm(x)),...selCsp().map(x=>nm(x)),...selAge().map(x=>lang==="fr"?x.frS:x.enS)];
+  return `<div class="kicker">${l.kicker}${t?` · ${t.code}`:""}</div>
+  <h1 class="page-title">${t?(lang==="fr"?t.frT:t.enT):(lang==="fr"?"Recrutements":"Recruitment")}</h1>
+  <div class="scope">${l.scopeLbl} ${tags.map(x=>`<span class="tag">${x}</span>`).join("")}<button id="bscope">${l.scopeEdit}</button></div>`;
+}
+function demoBox(){
+  const l=L(),cb=(grp,o)=>`<label><input type="checkbox" data-g="${grp}" value="${o.id}" ${quiz[grp].includes(o.id)?"checked":""}> ${nm(o)}</label>`;
+  return `<div class="demo" id="demo"><h4>${l.demoH}</h4><p>${l.demoP}</p>
+   <div class="grp"><b>${l.dTypes}</b>${TYPES.map(o=>cb("types",o)).join("")}</div>
+   <div class="grp"><b>${l.dCsp}</b>${CSP.map(o=>cb("csp",o)).join("")}</div>
+   <div class="grp"><b>${l.dAge}</b>${AGE.map(o=>cb("ages",o)).join("")}</div></div>`;
+}
+function wireCommon(){
+  const b=$("bscope");if(b)b.onclick=()=>{const d=$("demo");d.scrollIntoView({behavior:"smooth",block:"center"});d.classList.remove("flash");void d.offsetWidth;d.classList.add("flash")};
+}
+
+function renderQ(st){
+  const l=L(),{t,c,a}=st;
+  const tq=S.steps.filter(s=>s.kind==="q"&&s.t.id===t.id),pos=tq.indexOf(st)+1;
+  const v=get(t,c,a)||{};const first=S.first[K(t,c,a)]||"f";
+  const toReview=S.back!==null||S.steps[S.idx+1].kind==="review";
+  $("main").innerHTML=`${header(t)}
+  <div class="qprog"><div class="bar"><i style="width:${(pos-1)/tq.length*100}%"></i></div><span>${l.qOf(pos,tq.length)}</span></div>
+  <div class="card">
+    <div class="ctx"><div><b>${nm(c)} · ${nm(a)}</b><span>${l.ctxSub}</span></div><span class="contract ${t.id}">${nm(t)}</span></div>
+    <p class="question">${l.q(c,a,t)}</p>
+    <p class="qhint">${l.qhint}</p>
+    <div class="row">
+      <div class="field"><label for="itot">${l.total}</label><input id="itot" inputmode="numeric" autocomplete="off" value="${v.tot??""}" placeholder="–"></div>
+      <span class="unit">${l.persons}</span>
+    </div>
+    <div class="split" id="split">
+      <p id="splitq">${first==="f"?l.splitF:l.splitM}</p>
+      <div class="row">
+        <div class="field"><input id="isub" inputmode="numeric" autocomplete="off" aria-labelledby="splitq" value="${v.tot?(first==="f"?v.f:v.tot-v.f):""}" placeholder="–"></div>
+        <span class="unit">${first==="f"?l.women:l.men}</span>
+      </div>
+      <div class="deduced" id="ded" style="display:none"><b id="dedn"></b><span>${first==="f"?l.dedM:l.dedF}</span></div>
+      <button class="swap" id="bswap">${first==="f"?l.swapM:l.swapF}</button>
+    </div>
+    <div class="none-row" id="nonerow"><button class="btn-none" id="bnone">${l.none}</button><span class="hint">${l.noneHint}</span></div>
+    <div class="msg" id="msg"></div>
+    <div class="footer">
+      <button class="btn" id="bprev" ${S.idx===0?"disabled":""}>${l.prev}</button>
+      <span class="kbd">${l.enter}</span>
+      <button class="btn primary" id="bnext">${toReview?l.toReview:l.next}</button>
+    </div>
+  </div>${demoBox()}`;
+  const it=$("itot"),is=$("isub");
+  const clean=i=>{i.value=i.value.replace(/\D/g,"").replace(/^0+(?=\d)/,"");i.classList.remove("err")};
+  const upd=()=>{
+    clean(it);clean(is);
+    const tot=it.value===""?null:+it.value;
+    $("split").classList.toggle("show",tot>0);
+    $("nonerow").style.display=tot>0?"none":"flex";
+    const m=$("msg");m.className="msg";
+    $("ded").style.display="none";
+    if(tot===0){m.className="msg ok show";m.textContent=l.zeroOk}
+    else if(tot>0&&is.value!==""){
+      const s=+is.value;
+      if(s>tot){is.classList.add("err");m.className="msg err show";m.textContent=l.errOver(tot)}
+      else{$("ded").style.display="inline-flex";$("dedn").textContent=tot-s}
+    }
+  };
+  it.oninput=is.oninput=upd;
+  it.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();if(+it.value>0&&is.value===""){is.focus()}else next()}};
+  is.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();next()}};
+  $("bnone").onclick=()=>{it.value="0";upd();$("bnext").focus()};
+  $("bswap").onclick=()=>{
+    const cur=readQ();S.first[K(t,c,a)]=first==="f"?"m":"f";
+    if(cur)S.ans[K(t,c,a)]=cur;render();$("isub").focus();
+  };
+  $("bprev").onclick=()=>{const r=readQ();if(r)S.ans[K(t,c,a)]=r;S.back=null;S.idx--;render()};
+  $("bnext").onclick=next;
+  wireCommon();upd();
+  setTimeout(()=>{const f=v.tot==null?it:(v.tot>0&&is.value===""?is:$("bnext"));f.focus()},0);
+}
+function readQ(){
+  const it=$("itot"),is=$("isub"),st=S.steps[S.idx];
+  if(it.value==="")return null;
+  const tot=+it.value;if(tot===0)return{tot:0,f:0};
+  if(is.value===""||+is.value>tot)return null;
+  const first=S.first[K(st.t,st.c,st.a)]||"f";
+  return{tot,f:first==="f"?+is.value:tot-+is.value};
+}
+function next(){
+  const l=L(),it=$("itot"),is=$("isub"),m=$("msg"),st=S.steps[S.idx];
+  if(it.value===""){it.classList.add("err");m.className="msg err show";m.textContent=l.errEmpty;it.focus();return}
+  if(+it.value>0&&is.value===""){is.classList.add("err");m.className="msg err show";m.textContent=l.errSplit;is.focus();return}
+  if(+it.value>0&&+is.value>+it.value){is.focus();return}
+  S.ans[K(st.t,st.c,st.a)]=readQ();
+  if(S.back!==null){S.idx=S.back;S.back=null}else S.idx++;
+  render();
+}
+
+/* ---------- Review (official table layout: groups M/F/Total × age bands) ---------- */
+function warningsFor(t,isLast){
+  const l=L(),w=[];
+  const sum=(fn)=>fn.reduce((s,v)=>s+(v?v.tot:0),0);
+  if(sum(selCsp().flatMap(c=>selAge().map(a=>get(t,c,a))))===0) w.push({id:"t_"+t.id,txt:l.wTable(t)});
+  if(isLast){
+    selCsp().forEach(c=>{if(sum(selTypes().flatMap(tt=>selAge().map(a=>get(tt,c,a))))===0)w.push({id:"c_"+c.id,txt:l.wCsp(nm(c))})});
+    selAge().forEach(a=>{if(sum(selTypes().flatMap(tt=>selCsp().map(c=>get(tt,c,a))))===0)w.push({id:"a_"+a.id,txt:l.wAge(nm(a))})});
+  }
+  return w.filter(x=>!S.ack[x.id]);
+}
+function renderReview(st){
+  const l=L(),t=st.t,ages=selAge(),csps=selCsp();
+  const isLast=S.steps[S.idx+1].kind==="done";
+  const cell=(c,a,g)=>{const v=get(t,c,a);if(!v)return 0;return g==="M"?v.tot-v.f:g==="F"?v.f:v.tot};
+  const groups=[["M",l.M],["F",l.F],["T",l.Tt]];
+  let head1=`<tr><th rowspan="2">${l.csp}</th>${groups.map(g=>`<th colspan="${ages.length+1}">${g[1]}</th>`).join("")}</tr>`;
+  let head2=`<tr>${groups.map(()=>ages.map(a=>`<th>${lang==="fr"?a.frS:a.enS}</th>`).join("")+`<th>${l.Tt}</th>`).join("")}</tr>`;
+  let body="";
+  csps.forEach(c=>{
+    body+=`<tr><td><b>${nm(c)}</b></td>`;
+    groups.forEach(g=>{
+      let rt=0;
+      ages.forEach(a=>{const v=cell(c,a,g[0]);rt+=v;
+        const si=S.steps.findIndex(s=>s.kind==="q"&&s.t.id===t.id&&s.c.id===c.id&&s.a.id===a.id);
+        body+=`<td class="n${g[0]==="T"?" tot":""}" ${g[0]!=="T"?`data-go="${si}"`:""} title="${nm(c)} · ${nm(a)}">${v}</td>`});
+      body+=`<td class="n tot">${rt}</td>`;
+    });
+    body+="</tr>";
+  });
+  body+=`<tr class="tot"><td>${l.totalRow}</td>`;
+  groups.forEach(g=>{let gt=0;ages.forEach(a=>{const v=csps.reduce((s,c)=>s+cell(c,a,g[0]),0);gt+=v;body+=`<td class="n">${v}</td>`});body+=`<td class="n">${gt}</td>`});
+  body+="</tr>";
+  const w=warningsFor(t,isLast);
+  $("main").innerHTML=`${header(t)}
+  <div class="qprog"><div class="bar"><i style="width:100%"></i></div><span>✓</span></div>
+  <div class="card">
+    <div class="revhead"><div><h3>${l.revTitle(t)}</h3><p>${l.revSub}</p></div><span class="contract ${t.id}">${nm(t)}</span></div>
+    <div class="tablewrap"><table><thead>${head1}${head2}</thead><tbody>${body}</tbody></table></div>
+    ${w.map(x=>`<div class="msg warn show">⚠ ${x.txt}</div>`).join("")}
+    ${w.length?`<div class="hint" style="margin-top:8px">${l.wHelp}</div>`:""}
+    <div class="footer">
+      <button class="btn" id="bprev">${l.prev}</button>
+      ${w.length?`<button class="btn warnbtn" id="back">${l.confirmAnyway}</button>`:`<button class="btn primary" id="bval">${l.validate}</button>`}
+    </div>
+  </div>${demoBox()}`;
+  document.querySelectorAll("[data-go]").forEach(td=>td.onclick=()=>{S.back=S.idx;S.idx=+td.dataset.go;render()});
+  $("bprev").onclick=()=>{S.idx--;render()};
+  if($("back"))$("back").onclick=()=>{w.forEach(x=>S.ack[x.id]=true);render()};
+  if($("bval"))$("bval").onclick=()=>{S.idx++;render()};
+  wireCommon();
+}
+function renderDone(){
+  const l=L();
+  $("main").innerHTML=`${header(null)}<div style="height:22px"></div>
+  <div class="card"><div class="success">✓</div><h2 style="margin:0;font-family:var(--serif);font-size:23px">${l.doneTitle}</h2>
+  <p class="hint" style="margin:8px 0 0">${l.doneSub}</p>
+  <div class="next"><div><b>${l.nextLbl}</b><small>${l.nextSmall}</small></div><button class="btn primary">${l.start}</button></div>
+  <div style="margin-top:14px"><button class="linkbtn" id="brs">↺ ${l.restart}</button></div></div>${demoBox()}`;
+  $("brs").onclick=()=>{build();render()};wireCommon();
+}
+function renderEmpty(){
+  const l=L();
+  $("main").innerHTML=`${header(null)}<div style="height:22px"></div>
+  <div class="card" style="text-align:center"><h3 style="margin:0 0 6px">${l.emptyT}</h3><p class="hint" style="margin:0">${l.emptyP}</p></div>${demoBox()}`;
+  wireCommon();
+}
+
+/* ---------- Events ---------- */
+document.addEventListener("change",e=>{
+  const g=e.target.dataset.g;if(!g)return;
+  const set=new Set(quiz[g]);e.target.checked?set.add(e.target.value):set.delete(e.target.value);
+  quiz[g]=[...set];build();render();
+  setTimeout(()=>$("demo")&&$("demo").scrollIntoView({block:"nearest"}),0);
+});
+$("lfr").onclick=()=>{lang="fr";render()};
+$("len").onclick=()=>{lang="en";render()};
+build();render();
+</script>
+</body>
+</html>

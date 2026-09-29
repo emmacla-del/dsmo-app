@@ -93,6 +93,8 @@ String _entityTypeLabel(String type, [Locale? locale]) {
     'COOPERATIVE': LocalizedText(fr: 'Coopérative', en: 'Cooperative'),
     'CTD': LocalizedText(fr: 'CTD', en: 'RLA'),
     'ONG': LocalizedText(fr: 'ONG', en: 'NGO'),
+    'VOCATIONAL_TRAINING':
+        LocalizedText(fr: 'Formation professionnelle', en: 'Vocational training'),
   };
   return labels[type.toUpperCase()]?.of(locale ?? const Locale('fr')) ?? type;
 }
@@ -109,6 +111,8 @@ String _schemaEntityKey(String entityType) {
       return 'administration';
     case 'PROJECT_PROGRAM':
       return 'projectProgram';
+    case 'VOCATIONAL_TRAINING':
+      return 'vocationalTraining';
     default:
       return 'enterprise';
   }
@@ -606,7 +610,7 @@ class _SubmissionsViewerScreenState
                 size: 20, color: UltraTheme.textSecondary),
           ),
           onPressed: _loadSubmissions,
-          tooltip: 'Actualiser',
+          tooltip: context.l10n.refreshTooltip,
         ),
         const SizedBox(width: 16),
       ],
@@ -1050,7 +1054,9 @@ class _SubmissionsViewerScreenState
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'ID ${submission.establishmentId} · ${submission.entityTypeLabel}',
+                    context.l10n.submissionIdEntityTypeLine(
+                        submission.establishmentId,
+                        submission.entityTypeLabel),
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
@@ -1099,7 +1105,7 @@ class _SubmissionsViewerScreenState
                               onPressed: () => _downloadPdf(submission),
                               icon: const Icon(Icons.picture_as_pdf_outlined,
                                   size: 16),
-                              label: const Text('PDF'),
+                              label: Text(context.l10n.companyDeclPdfColumn),
                               style: TextButton.styleFrom(
                                 foregroundColor: UltraTheme.primary,
                                 textStyle: const TextStyle(

@@ -9,10 +9,14 @@ import 'package:flutter/services.dart';
 import '../../core/i18n/l10n_ext.dart';
 import '../../core/i18n/localized_text.dart';
 import '../../core/focus/schema/field_schema.dart';
+import '../../core/focus/schema/section_schema.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/renderers/table_renderer.dart';
 import '../../core/focus/renderers/activities_table.dart';
+import '../../core/focus/renderers/vt_fixed_row_grid.dart';
+import '../../core/focus/renderers/vt_row_editor.dart';
+import '../../core/focus/renderers/vt_table_defs.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
 import '../../core/focus/utils/field_validator.dart';
@@ -24,13 +28,13 @@ import 'onefop_form_constants.dart';
 import 'onefop_form_controller.dart';
 import 'onefop_section_units.dart'
     show
-        OnefopSectionMap,
         SectionUnit,
         buildTableGroupUnits,
         currentUnitIndex,
-        jumpToLocation,
-        jumpToUnit,
-        navigateToSection;
+        isUnitDone,
+        isUnitIncomplete,
+        navigateToSection,
+        navigateToSectionUnit;
 
 // ══════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -60,6 +64,38 @@ List<FieldGroup> groupFields(List<FieldSchema> fields) {
     cF.add(f);
   }
   if (cF.isNotEmpty) groups.add(FieldGroup(sub: cSub, fields: List.from(cF)));
+  return groups;
+}
+
+/// Plain, already-short field types safe to pair two-per-row without the
+/// density/misclick concerns toggles/radios/checkboxes/textareas/dropdowns
+/// carry — mirrors vt_wizard_section_screen.dart's own
+/// _isVtWizardShortPairableField predicate exactly (same field types, same
+/// rationale), duplicated here rather than exported since that file's
+/// version is deliberately private to its own wizard-specific pairing logic.
+bool _isShortPairableField(FieldSchema f) =>
+    f.type == 'text' || f.type == 'number' || f.type == 'email' || f.type == 'tel';
+
+/// Greedily pairs consecutive short fields (text/number/email/tel) for a
+/// two-column layout; anything else, or a trailing unpaired field, stays
+/// solo (a length-1 list). Mirrors vt_wizard_section_screen.dart's own
+/// _vtWizardFieldRows pairing rule, minus that function's wizard-only
+/// concerns (dependent subtrees, the VT7.1.3 folded card, compact toggles).
+List<List<FieldSchema>> pairShortFields(List<FieldSchema> fields) {
+  final groups = <List<FieldSchema>>[];
+  var i = 0;
+  while (i < fields.length) {
+    final f = fields[i];
+    if (i + 1 < fields.length &&
+        _isShortPairableField(f) &&
+        _isShortPairableField(fields[i + 1])) {
+      groups.add([f, fields[i + 1]]);
+      i += 2;
+    } else {
+      groups.add([f]);
+      i += 1;
+    }
+  }
   return groups;
 }
 
@@ -102,45 +138,29 @@ InputDecoration inputDecoration({
 }) {
   return InputDecoration(
     isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     filled: true,
     fillColor: hasError ? kDangerSoft : kFieldFill,
     hintText: hint,
-    hintStyle: const TextStyle(fontSize: 14, color: kInkFaint),
+    hintStyle: const TextStyle(fontSize: 14, color: kFigmaSimpleMuted),
     helperText: helperText,
     helperStyle: const TextStyle(fontSize: 11, color: kInkFaint),
     helperMaxLines: 2,
     border: const OutlineInputBorder(
-        borderRadius: BorderRadius.zero,
+      borderRadius: BorderRadius.all(Radius.circular(kRadiusSm)),
         borderSide: BorderSide(color: kBorder, width: 1)),
     enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.zero,
+      borderRadius: const BorderRadius.all(Radius.circular(kRadiusSm)),
         borderSide: BorderSide(color: hasError ? kDanger : kBorder, width: 1)),
     focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.zero,
-        borderSide: BorderSide(color: kAccent, width: 1.5)),
+      borderRadius: BorderRadius.all(Radius.circular(kRadiusSm)),
+        borderSide: BorderSide(color: kFigmaSimplePrimary, width: 1.5)),
     errorBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.zero,
+      borderRadius: BorderRadius.all(Radius.circular(kRadiusSm)),
         borderSide: BorderSide(color: kDanger, width: 1)),
   );
 }
 
-InputDecoration dropdownDecoration(bool hasError) => InputDecoration(
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-      filled: true,
-      fillColor: hasError ? kDangerSoft : kFieldFill,
-      border: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: kBorder, width: 1)),
-      enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide:
-              BorderSide(color: hasError ? kDanger : kBorder, width: 1)),
-      focusedBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: kAccent, width: 1.5)),
-    );
 
 /// Upfront hint for fields capped by an input formatter, so hitting the
 /// limit doesn't look like a dead keystroke with no explanation.
@@ -211,7 +231,8 @@ class SimpleField extends StatelessWidget {
                   LengthLimitingTextInputFormatter(9),
                 ],
               ],
-              style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                style: const TextStyle(
+                  fontSize: 14, color: kFigmaSimpleInk, height: 1.2),
               decoration: inputDecoration(
                   focused: fn.hasFocus,
                   hasError: e,
@@ -241,9 +262,10 @@ class RadioField extends StatelessWidget {
     final opts = field.optionsI18n ?? [];
     final cur = ctrl.data[field.id] as String?;
     final e = ctrl.hasError(field);
-    final horizontal = opts.length == 2;
     final locale = context.loc;
     final l10n = context.l10n;
+    final isShort = opts.length <= 5 && opts.every((o) => o.text.of(locale).length <= 25);
+    final horizontal = opts.length >= 2 && opts.length <= 5 && isShort;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
@@ -276,9 +298,11 @@ class RadioField extends StatelessWidget {
                       .toList();
 
                   if (horizontal) {
-                    return Row(
-                      children:
-                          optWidgets.map((w) => Expanded(child: w)).toList(),
+                    return Wrap(
+                      spacing: 24,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: optWidgets,
                     );
                   }
                   return Column(
@@ -288,7 +312,7 @@ class RadioField extends StatelessWidget {
                       for (int i = 0; i < optWidgets.length; i++) ...[
                         optWidgets[i],
                         if (i < optWidgets.length - 1)
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
                       ],
                     ],
                   );
@@ -306,25 +330,55 @@ class RadioField extends StatelessWidget {
   }
 }
 
-class SelectField extends StatelessWidget {
+/// Single-select field — a custom flat MenuAnchor dropdown (closed field +
+/// popup), replacing the previous DropdownButtonFormField. Reuses the same
+/// MenuAnchor/MenuStyle/MenuItemButton pattern already proven for the
+/// desktop Excel shell's multi-select dropdown (see _ExcelCheckboxDropdown,
+/// onefop_excel_field_rows.dart) so the popup is flat and bordered rather
+/// than the stock rounded, elevated Material menu — same institutional
+/// look, single- instead of multi-select semantics (MenuItemButton's
+/// default closeOnActivate: true, one value written per pick, not a
+/// List<String>). Options/labels/values come from field.optionsI18n exactly
+/// as before — no second copy of questionnaire content lives here.
+class SelectField extends StatefulWidget {
   final OnefopFormController ctrl;
   final FieldSchema field;
   final double? maxWidth;
-  const SelectField(
-      {super.key, required this.ctrl, required this.field, this.maxWidth});
+  // Visual-only — no AST/schema concept of a disabled field exists today;
+  // exposed so a future caller with a real reason to disable one (or a
+  // test) can, without inventing business logic here. Defaults to enabled,
+  // matching every existing call site's behavior exactly.
+  final bool enabled;
+  const SelectField({
+    super.key,
+    required this.ctrl,
+    required this.field,
+    this.maxWidth,
+    this.enabled = true,
+  });
+
+  @override
+  State<SelectField> createState() => _SelectFieldState();
+}
+
+class _SelectFieldState extends State<SelectField> {
+  final _menuController = MenuController();
+  bool _hovering = false;
 
   @override
   Widget build(BuildContext context) {
-    final opts = field.optionsI18n ?? [];
-    final cur = ctrl.data[field.id] as String?;
+    final ctrl = widget.ctrl;
+    final field = widget.field;
+    final opts = field.optionsI18n ?? const [];
     final e = ctrl.hasError(field);
     final locale = context.loc;
     final l10n = context.l10n;
+    final node = ctrl.fm.getNode(field.id);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: OL.questionGapV),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+        constraints: BoxConstraints(maxWidth: widget.maxWidth ?? double.infinity),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -335,28 +389,186 @@ class SelectField extends StatelessWidget {
               optional: FieldValidator.kOptionalOverrides.contains(field.id),
             ),
             const SizedBox(height: OL.labelGapV),
-            Focus(
-              focusNode: ctrl.fm.getNode(field.id),
-              child: DropdownButtonFormField<String>(
-                initialValue: cur,
-                hint: Text(l10n.selectPlaceholder,
-                    style:
-                        const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-                isExpanded: true,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-                items: opts
-                    .map((o) => DropdownMenuItem(
-                          value: o.value,
-                          child: Text(o.text.of(locale),
-                              style: const TextStyle(
-                                  fontSize: 14, color: Color(0xFF1E293B))),
-                        ))
-                    .toList(),
-                onChanged: (v) => ctrl.onSelectChanged(field, v),
-                decoration: dropdownDecoration(e),
-              ),
+            // Re-listens on every focus change so the closed control's own
+            // "focused" ring stays in sync even while the popup is closed
+            // (MenuAnchor's own builder only rebuilds on open/close, not on
+            // focus — same reason RadioField wraps its own Focus in a
+            // ListenableBuilder).
+            ListenableBuilder(
+              listenable: node,
+              builder: (context, _) {
+                final cur = ctrl.data[field.id] as String?;
+                String? curLabel;
+                for (final o in opts) {
+                  if (o.value == cur) {
+                    curLabel = o.text.of(locale);
+                    break;
+                  }
+                }
+
+                return MenuAnchor(
+                  controller: _menuController,
+                  style: const MenuStyle(
+                    backgroundColor: WidgetStatePropertyAll(kSurface),
+                    surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+                    elevation: WidgetStatePropertyAll(2),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(kRadiusXs)),
+                        side: BorderSide(color: kBorder),
+                      ),
+                    ),
+                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 4)),
+                    maximumSize: WidgetStatePropertyAll(Size(420, 320)),
+                  ),
+                  menuChildren: [
+                    for (final o in opts)
+                      MenuItemButton(
+                        style: ButtonStyle(
+                          shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+                          foregroundColor: WidgetStatePropertyAll(
+                              o.value == cur ? kAccentDeep : kInk),
+                          // Selected uses the app's accent-soft fill (same
+                          // token RadioOption/CheckboxOption use for their
+                          // own selected state); otherwise a plain hover
+                          // tint — never Material's default primary-tinted
+                          // highlight.
+                          backgroundColor: WidgetStateProperty.resolveWith((states) {
+                            if (o.value == cur) return kAccentSoft;
+                            if (states.contains(WidgetState.hovered) ||
+                                states.contains(WidgetState.focused)) {
+                              return kFieldFillHover;
+                            }
+                            return null;
+                          }),
+                          textStyle: WidgetStatePropertyAll(TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: o.value == cur ? FontWeight.w600 : FontWeight.w400,
+                          )),
+                        ),
+                        trailingIcon: o.value == cur
+                            ? const Icon(Icons.check_rounded, size: 16, color: kAccent)
+                            : null,
+                        onPressed: () => ctrl.onSelectChanged(field, o.value),
+                        child: Text(o.text.of(locale)),
+                      ),
+                  ],
+                  builder: (context, controller, _) {
+                    final open = controller.isOpen;
+                    final focused = node.hasFocus;
+                    return Focus(
+                      focusNode: node,
+                      // Closed-state keyboard handling only — once open,
+                      // MenuAnchor moves focus onto its own MenuItemButtons
+                      // (a separate FocusScope) and arrow-key traversal /
+                      // Space-Enter-to-pick are Flutter's own built-in menu
+                      // behavior, same as _ExcelCheckboxDropdown's identical
+                      // comment on this.
+                      onKeyEvent: !widget.enabled
+                          ? null
+                          : (n, event) {
+                              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                              final key = event.logicalKey;
+                              if (key == LogicalKeyboardKey.enter) {
+                                if (controller.isOpen) controller.close();
+                                ctrl.focusFieldOffset(1);
+                                return KeyEventResult.handled;
+                              }
+                              if (!controller.isOpen &&
+                                  (key == LogicalKeyboardKey.space ||
+                                      key == LogicalKeyboardKey.arrowDown)) {
+                                controller.open();
+                                return KeyEventResult.handled;
+                              }
+                              if (controller.isOpen && key == LogicalKeyboardKey.escape) {
+                                controller.close();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                      child: MouseRegion(
+                        onEnter: (_) => setState(() => _hovering = true),
+                        onExit: (_) => setState(() => _hovering = false),
+                        cursor: widget.enabled
+                            ? SystemMouseCursors.click
+                            : SystemMouseCursors.basic,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(kRadiusXs),
+                          onTap: !widget.enabled
+                              ? null
+                              : () {
+                                  node.requestFocus();
+                                  if (controller.isOpen) {
+                                    controller.close();
+                                  } else {
+                                    controller.open();
+                                  }
+                                },
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: !widget.enabled
+                                  ? kCanvas
+                                  : (open || focused)
+                                      ? kSurface
+                                      : (_hovering ? kFieldFillHover : kFieldFill),
+                              borderRadius: BorderRadius.circular(kRadiusXs),
+                              border: Border.all(
+                                color: !widget.enabled
+                                    ? kBorder
+                                    : e
+                                        ? kDanger
+                                        : (open || focused)
+                                            ? kAccent
+                                            : (_hovering ? kBorderStrong : kBorder),
+                                width: (widget.enabled && (open || focused)) ? 1.5 : 1,
+                              ),
+                              boxShadow: (widget.enabled && (open || focused))
+                                  ? [
+                                      BoxShadow(
+                                        color: kAccent.withValues(alpha: 0.10),
+                                        blurRadius: 0,
+                                        spreadRadius: 3,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    curLabel ?? l10n.selectPlaceholder,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: !widget.enabled
+                                          ? kInkFaint
+                                          : (curLabel == null ? kInkFaint : kInk),
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  open
+                                      ? Icons.keyboard_arrow_up_rounded
+                                      : Icons.keyboard_arrow_down_rounded,
+                                  size: 18,
+                                  color: !widget.enabled
+                                      ? kInkFaint
+                                      : (open || focused ? kAccent : kInkFaint),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-            if (e && (cur == null || cur.isEmpty))
+            if (e && (ctrl.data[field.id] == null || (ctrl.data[field.id] as String).isEmpty))
               errorRow(l10n.selectAnOption),
           ],
         ),
@@ -422,6 +634,36 @@ class ActivitiesTableFieldWidget extends StatelessWidget {
         hybridController: ctrl.hybridController,
       ),
     );
+  }
+}
+
+/// Renders a Vocational Training grid field (diploma tables, specialty
+/// tables, the trainer roster) as a tappable row list — see
+/// vt_row_editor.dart's file-level comment for why this bypasses
+/// TableRenderer/TableSpecBuilder/TableCellEngine entirely, the same as
+/// ActivitiesTableFieldWidget above. Returns an empty box for any VT
+/// template/prefix vtTableDefFor doesn't recognize yet (later milestones).
+class VtTableFieldWidget extends StatelessWidget {
+  final OnefopFormController ctrl;
+  final FieldSchema field;
+  const VtTableFieldWidget({super.key, required this.ctrl, required this.field});
+
+  @override
+  Widget build(BuildContext context) {
+    final spec = field.tableSpec ?? const {};
+    final template = spec['template'] as String?;
+    if (template == null) return const SizedBox.shrink();
+    final def = vtTableDefFor(template, spec);
+    if (def == null) return const SizedBox.shrink();
+    // Tablet/desktop only — the 7 fixed-checklist tables (4.1, 4.2, 5.3,
+    // 8.1, 8.2, 8.3, 8.6) get an always-visible grid instead of the
+    // tap-row/bottom-sheet pattern; phone keeps VtRowEditor unchanged for
+    // these same 7 tables (and every width keeps it for the genuinely
+    // open-ended ones — 4.3-4.6, 8.8 — vtUsesFixedRowGrid is false there).
+    if (vtUsesFixedRowGrid(def) && MediaQuery.of(context).size.width >= 768) {
+      return VtFixedRowGrid(ctrl: ctrl, def: def);
+    }
+    return VtRowEditor(ctrl: ctrl, def: def);
   }
 }
 
@@ -626,11 +868,11 @@ class _HybridTableBody extends StatelessWidget {
         border: Border.all(color: OL.borderColor, width: OL.borderWidth),
       ),
       child: Row(children: [
-        const SizedBox(
+        SizedBox(
           width: tc,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text('TOTAL', style: kGrandTotalStyle),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Text(context.l10n.colTotalHeader, style: kGrandTotalStyle),
           ),
         ),
         for (final v in [tm, tf, tt])
@@ -908,7 +1150,8 @@ class _HybridMobileDataCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _HybridMobileReadOnlyCell(label: 'Total', value: tot),
+                child: _HybridMobileReadOnlyCell(
+                    label: context.l10n.total, value: tot),
               ),
             ],
           ),
@@ -1035,7 +1278,7 @@ class _HybridMobileTotalCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('TOTAL', style: kGrandTotalStyle),
+          Text(context.l10n.colTotalHeader, style: kGrandTotalStyle),
           const Spacer(),
           for (final v in [
             ('H', male),
@@ -1355,62 +1598,226 @@ class RadioOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(kRadiusSm),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? kAccentSoft : Colors.transparent,
-            border: Border.all(
-              color: isSelected ? kAccent : kBorder,
-              width: isSelected ? 1.5 : 1,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 20,
+              color: isSelected ? kFigmaSimplePrimary : kFigmaSimpleMuted,
             ),
-            borderRadius: BorderRadius.circular(kRadiusSm),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                        color: kAccent.withValues(alpha: 0.10),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2)),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: isSelected ? kAccent : kInkFaint, width: 2),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: isSelected
-                      ? const DecoratedBox(
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle, color: kAccent))
-                      : const SizedBox.shrink(),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                  color: isSelected ? kFigmaSimpleInk : kFigmaSimpleSecondary,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected ? kInk : kInkSoft,
-                    )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// CHECKBOX OPTION / GROUP  (AstFieldType.checkbox — multi-select)
+// ══════════════════════════════════════════════════════════════
+
+class CheckboxOption extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const CheckboxOption(
+      {super.key,
+      required this.label,
+      required this.isSelected,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
+              size: 20,
+              color: isSelected ? kFigmaSimplePrimary : kFigmaSimpleMuted,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                  color: isSelected ? kFigmaSimpleInk : kFigmaSimpleSecondary,
+                  height: 1.3,
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders every `field.optionsI18n` declared option as a [CheckboxOption].
+/// Backing value is a `String[]` at `ctrl.data[field.id]` (the same
+/// `List<String>` shape the backend normalizer/DTO already expect for
+/// every AstFieldType.checkbox column) — never a single scalar. Toggling
+/// one option preserves every other already-selected value: a brand-new
+/// list is built from the current one on each tap (add/remove exactly the
+/// tapped value), never mutated in place, then written back in full via
+/// `ctrl.setRawValue`. An empty resulting selection clears the field
+/// entirely (`setRawValue(id, null)`), matching this codebase's existing
+/// "empty means unanswered, key removed" convention (see
+/// OnefopFormController.onGridCellChanged for the same pattern on number
+/// cells) rather than persisting a bare `[]`.
+class CheckboxGroupField extends StatelessWidget {
+  final OnefopFormController ctrl;
+  final FieldSchema field;
+  const CheckboxGroupField({super.key, required this.ctrl, required this.field});
+
+  List<String> _current() {
+    final raw = ctrl.data[field.id];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    return const [];
+  }
+
+  void _toggle(String value) {
+    final cur = _current();
+    final next = cur.contains(value)
+        ? (List<String>.from(cur)..remove(value))
+        : (List<String>.from(cur)..add(value));
+    ctrl.setCheckboxValues(field, next.isEmpty ? null : next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final opts = field.optionsI18n ?? [];
+    final locale = context.loc;
+    final selectAllText = locale.languageCode == 'fr'
+        ? 'Sélectionnez toutes les options applicables'
+        : 'Select all that apply';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: OL.questionGapV),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kDocWidth),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OnefopFieldLabel(
+              label: buildFieldLabel(ctrl, field, locale),
+              required: field.required,
+              optional: FieldValidator.kOptionalOverrides.contains(field.id),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              selectAllText,
+              style: const TextStyle(
+                fontSize: 12,
+                color: kFigmaSimpleMuted,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListenableBuilder(
+              listenable: ctrl.version,
+              builder: (context, _) {
+                final cur = _current();
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = constraints.maxWidth >= 500;
+                    if (opts.length > 4 && isDesktop) {
+                      final mid = (opts.length / 2).ceil();
+                      final leftOpts = opts.sublist(0, mid);
+                      final rightOpts = opts.sublist(mid);
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (int i = 0; i < leftOpts.length; i++) ...[
+                                  CheckboxOption(
+                                    label: leftOpts[i].text.of(locale),
+                                    isSelected: cur.contains(leftOpts[i].value),
+                                    onTap: () => _toggle(leftOpts[i].value),
+                                  ),
+                                  if (i < leftOpts.length - 1)
+                                    const SizedBox(height: 4),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (int i = 0; i < rightOpts.length; i++) ...[
+                                  CheckboxOption(
+                                    label: rightOpts[i].text.of(locale),
+                                    isSelected: cur.contains(rightOpts[i].value),
+                                    onTap: () => _toggle(rightOpts[i].value),
+                                  ),
+                                  if (i < rightOpts.length - 1)
+                                    const SizedBox(height: 4),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int i = 0; i < opts.length; i++) ...[
+                          CheckboxOption(
+                            label: opts[i].text.of(locale),
+                            isSelected: cur.contains(opts[i].value),
+                            onTap: () => _toggle(opts[i].value),
+                          ),
+                          if (i < opts.length - 1) const SizedBox(height: 4),
+                        ],
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1496,7 +1903,7 @@ class Sidebar extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
         width: _width,
-        color: kCanvas,
+        color: kSurface,
         child: ClipRect(
           child: OverflowBox(
             alignment: Alignment.topLeft,
@@ -1524,11 +1931,22 @@ class Sidebar extends StatelessWidget {
                           horizontal: ctrl.sidebarMode == 2 ? 8 : 4,
                           vertical: 4),
                       itemCount: ctrl.pageCount,
-                      itemBuilder: (ctx, page) => _SidebarPageItem(
-                        ctrl: ctrl,
-                        page: page,
-                        entityType: entityType,
-                      ),
+                      // VT desktop gets a hierarchical Section→Subsection
+                      // tree right here in the persistent sidebar (see
+                      // _VtSidebarSectionItem) — every other entity keeps
+                      // rendering through the exact same _SidebarPageItem
+                      // this always used, completely unmodified.
+                      itemBuilder: (ctx, page) => entityType == EntityType.vocationalTraining
+                          ? _VtSidebarSectionItem(
+                              ctrl: ctrl,
+                              page: page,
+                              entityType: entityType,
+                            )
+                          : _SidebarPageItem(
+                              ctrl: ctrl,
+                              page: page,
+                              entityType: entityType,
+                            ),
                     ),
                   ),
                   if (ctrl.sidebarMode == 2) _autosaveIndicator(context),
@@ -1552,11 +1970,18 @@ class Sidebar extends StatelessWidget {
     }
   }
 
+  // White, same as OnefopShellTitleBar next to it — the two cells are
+  // still structurally separate (Sidebar owns this one, the shell owns
+  // the other), but sharing the same white now reads as one continuous
+  // bar across the full width instead of a dark-green cell butting up
+  // against a white one. See "Logo placement" decision: the logo/toggle
+  // stay here rather than moving into the title bar itself.
   Widget _sidebarHeader(BuildContext context) {
     if (ctrl.sidebarMode == 1) {
       return Container(
         height: kOnefopHeaderHeight,
         decoration: const BoxDecoration(
+          color: kSurface,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Stack(
@@ -1586,6 +2011,7 @@ class Sidebar extends StatelessWidget {
       height: kOnefopHeaderHeight,
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
       decoration: const BoxDecoration(
+        color: kSurface,
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(
@@ -1684,21 +2110,16 @@ class Sidebar extends StatelessWidget {
     );
   }
 
+  // Same done/total this widget always used (ratio itself is no longer
+  // read directly here — the segmented rail below fills discrete segments
+  // by count instead of a continuous LinearProgressIndicator value, but
+  // it's driven by the exact same two numbers _progressHeader() shows).
   Widget _progressBar() {
     final secs = ctrl.schema!.sections;
     final done = ctrl.valid.values.where((v) => v).length;
-    final ratio = done / secs.length.clamp(1, 999);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: LinearProgressIndicator(
-          value: ratio,
-          backgroundColor: kBorder,
-          valueColor: const AlwaysStoppedAnimation<Color>(kSuccess),
-          minHeight: 6,
-        ),
-      ),
+      child: _SegmentedProgressRail(done: done, total: secs.length),
     );
   }
 
@@ -1751,6 +2172,45 @@ class Sidebar extends StatelessWidget {
   }
 }
 
+/// Sidebar's progress indicator — a row of discrete, evenly-sized segments
+/// (one per section, kBorder square-cornered gaps by default, filled
+/// kAccent for [done] of them) replacing the previous continuous
+/// LinearProgressIndicator. Same underlying done/total numbers
+/// _progressHeader() already shows as text right above it — this widget
+/// only changes how that ratio is drawn, not how it's computed. Semantics
+/// carries the same value a screen reader would have gotten from
+/// LinearProgressIndicator's own built-in progress semantics.
+class _SegmentedProgressRail extends StatelessWidget {
+  final int done;
+  final int total;
+  const _SegmentedProgressRail({required this.done, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final safeTotal = total.clamp(1, 999);
+    return Semantics(
+      label: context.l10n.progressTitle,
+      value: '$done/$safeTotal',
+      child: Row(
+        children: [
+          for (var i = 0; i < safeTotal; i++) ...[
+            if (i > 0) const SizedBox(width: 3),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: i < done ? kAccent : kBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _SidebarPageItem extends StatelessWidget {
   final OnefopFormController ctrl;
   final int page;
@@ -1772,32 +2232,12 @@ class _SidebarPageItem extends StatelessWidget {
     final meta = firstSec != null ? kSidebarMeta[firstSec.id] : null;
     final label = meta?.label.of(locale) ?? context.l10n.sectionFallback(page + 1);
 
-    // Only the active item, and only once there's room for text (full
-    // sidebar, not the icon-only collapsed rail) — the same subsection →
-    // question-code breakdown OnefopSectionMap already shows above the
-    // active table, surfaced here too so the vertical tab itself reads as
-    // a real outline of where you are, not just "which of 5 sections".
-    // simpleFieldsBuilder is a throwaway: this list is only ever read for
-    // its labels/done-state (subsectionLabel, shortLabel, hasData/
-    // canAdvance), never actually built into a widget.
-    final units = (isActive && ctrl.sidebarMode == 2 && firstSec != null)
-        ? buildTableGroupUnits(
-            ctrl,
-            firstSec,
-            locale,
-            entityType: entityType,
-            simpleFieldsBuilder: (_, __) => const SizedBox.shrink(),
-            mobile: false,
-          )
-        : const <SectionUnit>[];
-
     return InkWell(
       // Section click: jump to this section's very first question, not
       // wherever Back/Next progress last left off — see navigateToSection.
       onTap: firstSec == null
           ? null
           : () => navigateToSection(ctrl, locale, entityType, firstSec.id),
-      borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
@@ -1806,10 +2246,9 @@ class _SidebarPageItem extends StatelessWidget {
             horizontal: ctrl.sidebarMode == 2 ? 12 : 8,
             vertical: ctrl.sidebarMode == 2 ? 12 : 8),
         decoration: BoxDecoration(
-          color: isActive ? kAccentSoft : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.transparent,
           border: isActive
-              ? Border.all(color: kAccent.withValues(alpha: 0.35), width: 1)
+              ? const Border(left: BorderSide(color: kAccent, width: 3))
               : null,
         ),
         child: Row(children: [
@@ -1856,7 +2295,6 @@ class _SidebarPageItem extends StatelessWidget {
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                           color: kWarningSoft,
-                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                               color: kWarning.withValues(alpha: 0.4),
                               width: 0.5)),
@@ -1869,19 +2307,6 @@ class _SidebarPageItem extends StatelessWidget {
                               color: kWarning,
                               fontWeight: FontWeight.w600)),
                     ),
-                  if (isActive && units.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: OnefopSectionMap(
-                        ctrl: ctrl,
-                        units: units,
-                        currentIndex: (ctrl.unitCursor(firstSec!.id) ??
-                                currentUnitIndex(ctrl, units))
-                            .clamp(0, units.length - 1),
-                        onJump: (i) => jumpToUnit(ctrl, firstSec, units, i),
-                        onJumpToLocation: (i) => jumpToLocation(ctrl, firstSec, units, i),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1889,6 +2314,310 @@ class _SidebarPageItem extends StatelessWidget {
               const Icon(Icons.check_circle, size: 16, color: kSuccess),
           ],
         ]),
+      ),
+    );
+  }
+}
+
+/// VT desktop's sidebar item: the same [_SidebarPageItem] row (unchanged),
+/// plus — only in the full-width sidebar (mode 2) — an expand/collapse
+/// chevron revealing that section's subsection tree ([_VtSubsectionTree])
+/// right underneath it. The active section auto-expands; any section can
+/// be manually toggled open/closed, and re-entering a section (Précédent/
+/// Suivant crossing a section boundary, or another Section click) always
+/// clears a stale manual collapse so the newly-active section is visible
+/// again — see didUpdateWidget.
+class _VtSidebarSectionItem extends StatefulWidget {
+  final OnefopFormController ctrl;
+  final int page;
+  final EntityType entityType;
+  const _VtSidebarSectionItem({
+    required this.ctrl,
+    required this.page,
+    required this.entityType,
+  });
+
+  @override
+  State<_VtSidebarSectionItem> createState() => _VtSidebarSectionItemState();
+}
+
+class _VtSidebarSectionItemState extends State<_VtSidebarSectionItem> {
+  // null = follow the default (expanded iff this is the active section);
+  // non-null = an explicit user toggle overriding that default.
+  bool? _manualExpanded;
+  // The *effective* active unit index last seen for this section while it
+  // was active (ctrl.unitCursor, falling back to currentUnitIndex — same
+  // resolution _VtSubsectionTree itself uses) — used only to detect "the
+  // active subsection just changed" (Suivant/Précédent within this
+  // section, or a subsection click elsewhere landing here) so a stale
+  // manual collapse of the *currently active* section gets overridden;
+  // see didUpdateWidget. Deliberately the resolved index, not the raw
+  // nullable cursor: a section's very first navigation is often the
+  // cursor going from unset (implicit index 0) straight to an explicit
+  // index, which the raw cursor alone can't see as "changed".
+  int? _lastUnitCursor;
+
+  int? _effectiveCurrentIndex(OnefopFormController ctrl, int page) {
+    final idxs = ctrl.sectionIndicesForPage(page);
+    if (idxs.isEmpty) return null;
+    final section = ctrl.schema!.sections[idxs.first];
+    final units = buildTableGroupUnits(
+      ctrl,
+      section,
+      context.loc,
+      entityType: widget.entityType,
+      simpleFieldsBuilder: (_, __) => const SizedBox.shrink(),
+      mobile: false,
+    );
+    if (units.isEmpty) return null;
+    return (ctrl.unitCursor(section.id) ?? currentUnitIndex(ctrl, units))
+        .clamp(0, units.length - 1);
+  }
+
+  @override
+  void didUpdateWidget(covariant _VtSidebarSectionItem old) {
+    super.didUpdateWidget(old);
+    final isActive = widget.page == widget.ctrl.currentPage;
+    final wasActive = old.page == old.ctrl.currentPage;
+    if (isActive && !wasActive) {
+      // Entering this section (or arriving here fresh) always reveals it.
+      _manualExpanded = null;
+      _lastUnitCursor = null;
+    }
+    if (isActive) {
+      final idx = _effectiveCurrentIndex(widget.ctrl, widget.page);
+      // The active subsection moved while this section stayed active
+      // (Suivant/Précédent within it, or a click elsewhere landing here)
+      // — reveal it even if the user had manually collapsed this section.
+      if (_lastUnitCursor != null && idx != null && idx != _lastUnitCursor) {
+        _manualExpanded = null;
+      }
+      _lastUnitCursor = idx;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
+    final header = _SidebarPageItem(
+      ctrl: ctrl,
+      page: widget.page,
+      entityType: widget.entityType,
+    );
+    // The collapsed-icon (mode 1) and hidden (mode 0) sidebar states show
+    // sections only, same as every other entity — no tree, no chevron.
+    if (ctrl.sidebarMode != 2) return header;
+
+    final isActive = widget.page == ctrl.currentPage;
+    final expanded = _manualExpanded ?? isActive;
+    final idxs = ctrl.sectionIndicesForPage(widget.page);
+    final section = idxs.isEmpty ? null : ctrl.schema!.sections[idxs.first];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: header),
+            if (section != null)
+              InkWell(
+                onTap: () => setState(() => _manualExpanded = !expanded),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10, right: 8),
+                  child: Icon(
+                    expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 18,
+                    color: kInkFaint,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        if (expanded && section != null)
+          _VtSubsectionTree(
+            ctrl: ctrl,
+            section: section,
+            entityType: widget.entityType,
+            isActiveSection: isActive,
+          ),
+      ],
+    );
+  }
+}
+
+/// One section's full subsection outline, indented under its
+/// [_VtSidebarSectionItem] header — every subsection listed in full (code
+/// + complete description, from the same AST-driven [SectionUnit
+/// .subsectionLabel] the old body-inline VtSectionOutline used), never
+/// just a bare code. Built via [buildTableGroupUnits] with a throwaway
+/// simpleFieldsBuilder — the same lightweight, no-widgets-mounted trick
+/// [navigateToSection] already relies on — so listing every VT section's
+/// subsections in the sidebar costs nothing beyond deriving text labels;
+/// no VT table is ever constructed just to show its name here.
+class _VtSubsectionTree extends StatefulWidget {
+  final OnefopFormController ctrl;
+  final SectionSchema section;
+  final EntityType entityType;
+  final bool isActiveSection;
+  const _VtSubsectionTree({
+    required this.ctrl,
+    required this.section,
+    required this.entityType,
+    required this.isActiveSection,
+  });
+
+  @override
+  State<_VtSubsectionTree> createState() => _VtSubsectionTreeState();
+}
+
+class _VtSubsectionTreeState extends State<_VtSubsectionTree> {
+  // Reassigned to whichever row is current on each build (at most one row
+  // carries it at a time) — lets a post-frame callback find that row's
+  // now-laid-out context and scroll it into view.
+  final _activeRowKey = GlobalKey();
+  // The index last scrolled to, so a rebuild that doesn't actually move
+  // the active subsection (e.g. some unrelated field's data changing)
+  // never re-triggers ensureVisible and fights the user's own scrolling.
+  int? _lastScrolledIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
+    final section = widget.section;
+    final locale = context.loc;
+    final units = buildTableGroupUnits(
+      ctrl,
+      section,
+      locale,
+      entityType: widget.entityType,
+      simpleFieldsBuilder: (_, __) => const SizedBox.shrink(),
+      mobile: false,
+    );
+    if (units.length <= 1) return const SizedBox.shrink();
+
+    final currentIdx = widget.isActiveSection
+        ? (ctrl.unitCursor(section.id) ?? currentUnitIndex(ctrl, units)).clamp(0, units.length - 1)
+        : -1;
+
+    if (widget.isActiveSection && currentIdx != _lastScrolledIndex) {
+      _lastScrolledIndex = currentIdx;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final rowContext = _activeRowKey.currentContext;
+        if (rowContext != null && rowContext.mounted) {
+          Scrollable.ensureVisible(
+            rowContext,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            alignment: 0.5,
+          );
+        }
+      });
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 30, right: 8, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < units.length; i++)
+            _VtSubsectionRow(
+              key: i == currentIdx ? _activeRowKey : null,
+              unit: units[i],
+              state: i == currentIdx
+                  ? _VtRowState.current
+                  : isUnitDone(ctrl, units[i])
+                      ? _VtRowState.done
+                      : _VtRowState.upcoming,
+              incomplete: i != currentIdx && isUnitDone(ctrl, units[i]) && isUnitIncomplete(ctrl, units[i]),
+              onTap: () => navigateToSectionUnit(ctrl, locale, widget.entityType, section.id, i),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _VtRowState { done, current, upcoming }
+
+class _VtSubsectionRow extends StatelessWidget {
+  final SectionUnit unit;
+  final _VtRowState state;
+  final bool incomplete;
+  final VoidCallback onTap;
+  const _VtSubsectionRow({
+    super.key,
+    required this.unit,
+    required this.state,
+    required this.incomplete,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    late final String glyph;
+    late final Color color;
+    late final FontWeight weight;
+    switch (state) {
+      case _VtRowState.done:
+        if (incomplete) {
+          glyph = '!';
+          color = kWarning;
+          weight = FontWeight.w700;
+        } else {
+          glyph = '✓';
+          color = kInkSoft;
+          weight = FontWeight.w500;
+        }
+        break;
+      case _VtRowState.current:
+        glyph = '●';
+        color = kAccent;
+        weight = FontWeight.w700;
+        break;
+      case _VtRowState.upcoming:
+        glyph = '○';
+        color = kInkFaint;
+        weight = FontWeight.w400;
+        break;
+    }
+
+    final text = unit.subsectionLabel ?? unit.shortLabel;
+    final isCurrent = state == _VtRowState.current;
+
+    return Tooltip(
+      message: text,
+      waitDuration: const Duration(milliseconds: 500),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: isCurrent
+              ? BoxDecoration(
+                  color: kAccent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: kAccent),
+                )
+              : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(glyph, style: TextStyle(fontSize: 12, color: color, fontWeight: weight)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  text,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: color, fontWeight: weight, height: 1.25),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1937,8 +2666,9 @@ class MobileContextHeader extends StatelessWidget {
       builder: (context, _) {
         final code = ctrl.activeField?.paperCode;
         return Container(
-          color: kSurface,
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+          color: kOnefopHeroGreen,
+          padding: const EdgeInsets.fromLTRB(
+              kOnefopMobilePagePadding, 12, kOnefopMobilePagePadding, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1950,10 +2680,10 @@ class MobileContextHeader extends StatelessWidget {
                       positionText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                        style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: kInk),
+                          color: Colors.white),
                     ),
                   ),
                   if (code != null && code.isNotEmpty) ...[
@@ -1962,14 +2692,14 @@ class MobileContextHeader extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: kAccentSoft,
-                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(code,
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: kAccent)),
+                              color: Colors.white)),
                     ),
                   ],
                 ],
@@ -1978,11 +2708,11 @@ class MobileContextHeader extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(2),
                 child: SizedBox(
-                  height: 3,
+                    height: kOnefopProgressHeight,
                   child: LinearProgressIndicator(
                     value: total == 0 ? 0 : (page / total).clamp(0.0, 1.0),
-                    backgroundColor: kBorder,
-                    valueColor: const AlwaysStoppedAnimation<Color>(kAccent),
+                    backgroundColor: Colors.white.withValues(alpha: 0.24),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ),
@@ -2177,11 +2907,20 @@ class OnefopShellTitleBar extends StatelessWidget {
   final IconData leadingIcon;
   final bool dirty;
   final bool saving;
+  // When the most recent save attempt threw, so the status chip can read
+  // "Échec de l'enregistrement"/"Could not save" instead of falsely
+  // claiming success — see OnefopFormController.saveFailed's own comment.
+  final bool saveFailed;
+  // Wall-clock time of the last CONFIRMED save, shown as "Enregistré à
+  // 14:32"/"Saved at 14:32" rather than a timeless, non-committal "Saved".
+  final DateTime? lastSavedAt;
   final Future<void> Function()? onSaveNow;
   final VoidCallback? onOpenDrafts;
   final VoidCallback? onCancel;
   final OnefopViewMode mode;
   final void Function(OnefopViewMode) onModeChanged;
+  final bool simpleMode;
+  final List<OnefopViewMode>? availableModes;
   const OnefopShellTitleBar({
     super.key,
     required this.title,
@@ -2190,6 +2929,10 @@ class OnefopShellTitleBar extends StatelessWidget {
     required this.saving,
     required this.mode,
     required this.onModeChanged,
+    this.saveFailed = false,
+    this.lastSavedAt,
+    this.simpleMode = false,
+    this.availableModes,
     this.onSaveNow,
     this.onOpenDrafts,
     this.onCancel,
@@ -2198,23 +2941,26 @@ class OnefopShellTitleBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final locale = context.loc;
-    return Container(
-      height: kOnefopHeaderHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    final bar = Container(
+      height: simpleMode ? kFigmaSimpleHeaderHeight : kOnefopHeaderHeight,
+      padding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: simpleMode ? 6 : 8,
+      ),
       decoration: const BoxDecoration(
         color: kSurface,
         border: Border(bottom: BorderSide(color: kBorder, width: 1)),
       ),
       child: Row(
         children: [
-          Icon(leadingIcon, color: kAccent, size: 18),
+          Icon(leadingIcon, color: simpleMode ? kOnefopHeroGreen : kAccent, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+                style: const TextStyle(
                   color: kInk, fontWeight: FontWeight.w600, fontSize: 13.5),
             ),
           ),
@@ -2224,6 +2970,15 @@ class OnefopShellTitleBar extends StatelessWidget {
               label:
                   const LocalizedText(fr: 'Enregistrement…', en: 'Saving…').of(locale),
             )
+          else if (saveFailed)
+            _ShellStatusChip(
+              icon: Icons.error_outline_rounded,
+              color: kFigmaSimpleRed,
+              label: const LocalizedText(
+                      fr: 'Échec — réessayer', en: 'Could not save — retry')
+                  .of(locale),
+              onTap: onSaveNow == null ? null : () => onSaveNow!(),
+            )
           else if (dirty)
             _ShellStatusChip(
               icon: Icons.cloud_off_rounded,
@@ -2232,10 +2987,16 @@ class OnefopShellTitleBar extends StatelessWidget {
           else
             _ShellStatusChip(
               icon: Icons.check_circle_outline_rounded,
-              label: const LocalizedText(fr: 'Enregistré', en: 'Saved').of(locale),
+              label: lastSavedAt == null
+                  ? const LocalizedText(fr: 'Enregistré', en: 'Saved').of(locale)
+                  : LocalizedText(
+                          fr: 'Enregistré à ${_shellClockLabel(lastSavedAt!)}',
+                          en: 'Saved at ${_shellClockLabel(lastSavedAt!)}')
+                      .of(locale),
             ),
           const SizedBox(width: 8),
-          OnefopModeDropdown(mode: mode, onChanged: onModeChanged),
+          OnefopModeDropdown(
+              mode: mode, onChanged: onModeChanged, availableModes: availableModes),
           if (onSaveNow != null) ...[
             const SizedBox(width: 8),
             _ShellBarButton(
@@ -2266,6 +3027,7 @@ class OnefopShellTitleBar extends StatelessWidget {
         ],
       ),
     );
+    return bar;
   }
 }
 
@@ -2295,13 +3057,11 @@ class _ShellBarButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
         child: Container(
           height: kShellBarButtonHeight,
           padding: EdgeInsets.symmetric(horizontal: label == null ? 7 : 10),
           decoration: BoxDecoration(
             border: Border.all(color: kBorder),
-            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -2325,32 +3085,59 @@ class _ShellBarButton extends StatelessWidget {
 class _ShellStatusChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _ShellStatusChip({required this.icon, required this.label});
+  final Color color;
+  // Set only for the save-failed state, so the chip doubles as a retry
+  // control — a respondent should never have to hunt for the separate
+  // Save button just to recover from a failed autosave.
+  final VoidCallback? onTap;
+  const _ShellStatusChip({
+    required this.icon,
+    required this.label,
+    this.color = kAccent,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final chip = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: kAccent),
+          Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: kInkSoft, fontSize: 11.5)),
+          Text(label,
+              style: TextStyle(
+                  color: onTap != null ? color : kInkSoft,
+                  fontSize: 11.5,
+                  fontWeight: onTap != null ? FontWeight.w700 : FontWeight.normal)),
         ],
       ),
     );
+    if (onTap == null) return chip;
+    return InkWell(onTap: onTap, child: chip);
   }
 }
+
+String _twoDigits(int n) => n.toString().padLeft(2, '0');
+
+/// "14:32" — deliberately a plain local-clock string, not a package
+/// DateFormat (intl isn't otherwise used in this shell), matching the
+/// government-service benchmark's "Saved at 14:32" header-status wording.
+String _shellClockLabel(DateTime t) => '${_twoDigits(t.hour)}:${_twoDigits(t.minute)}';
 
 // ══════════════════════════════════════════════════════════════
 // MODE TOGGLE  (desktop-only Simple / Spreadsheet — see
 // onefop_mode_provider.dart)
 // ══════════════════════════════════════════════════════════════
 
-String _modeLabel(OnefopViewMode m, Locale locale) => m == OnefopViewMode.simple
-    ? const LocalizedText.same('Simple').of(locale)
-    : const LocalizedText(fr: 'Feuille de calcul', en: 'Spreadsheet').of(locale);
+String _modeLabel(OnefopViewMode m, Locale locale) => switch (m) {
+      OnefopViewMode.simple => const LocalizedText.same('Simple').of(locale),
+      OnefopViewMode.spreadsheet =>
+        const LocalizedText(fr: 'Feuille de calcul', en: 'Spreadsheet').of(locale),
+      OnefopViewMode.wizard =>
+        const LocalizedText.same('Wizard').of(locale),
+    };
 
 class OnefopModeToggle extends StatelessWidget {
   final OnefopViewMode mode;
@@ -2408,7 +3195,16 @@ class OnefopModeToggle extends StatelessWidget {
 class OnefopModeDropdown extends StatelessWidget {
   final OnefopViewMode mode;
   final void Function(OnefopViewMode) onChanged;
-  const OnefopModeDropdown({super.key, required this.mode, required this.onChanged});
+  /// Which modes appear in the popup — defaults to every mode. Callers
+  /// scope this to the entity type (e.g. Wizard mode is VT-only) rather
+  /// than this widget knowing about EntityType itself.
+  final List<OnefopViewMode>? availableModes;
+  const OnefopModeDropdown({
+    super.key,
+    required this.mode,
+    required this.onChanged,
+    this.availableModes,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2419,9 +3215,9 @@ class OnefopModeDropdown extends StatelessWidget {
       tooltip: '',
       offset: const Offset(0, 32),
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusSm)),
+      shape: const RoundedRectangleBorder(),
       itemBuilder: (context) => [
-        for (final m in OnefopViewMode.values)
+        for (final m in availableModes ?? OnefopViewMode.values)
           PopupMenuItem(
             value: m,
             child: Row(
@@ -2441,7 +3237,6 @@ class OnefopModeDropdown extends StatelessWidget {
         height: kShellBarButtonHeight,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: kBorder),
         ),
         child: Row(

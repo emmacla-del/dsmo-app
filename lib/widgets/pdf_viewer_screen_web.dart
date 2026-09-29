@@ -12,6 +12,7 @@ import 'dart:ui_web' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../core/i18n/l10n_ext.dart';
 import '../theme/app_colors.dart';
 import 'pdf_cache.dart';
 
@@ -160,8 +161,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       // one clear, full-width button in the bottom bar, not a second,
       // smaller one competing with it for attention.
       appBar: AppBar(
-        title: const Text('Aperçu du formulaire',
-            style: TextStyle(
+        title: Text(context.l10n.formPreviewTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -175,8 +176,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           TextButton.icon(
             onPressed: _download,
             icon: const Icon(Icons.download_outlined, color: _kInkSoft, size: 18),
-            label: const Text('Télécharger',
-                style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _kInkSoft)),
+            label: Text(context.l10n.reportDownloadTooltip,
+                style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: _kInkSoft)),
           ),
           const SizedBox(width: 8),
         ],
@@ -193,13 +194,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 borderRadius: BorderRadius.circular(_kRadius - 2),
                 border: Border.all(color: _kWarning.withValues(alpha: 0.3)),
               ),
-              child: const Row(children: [
-                Icon(Icons.info_outline, size: 16, color: _kWarning),
-                SizedBox(width: 10),
+              child: Row(children: [
+                const Icon(Icons.info_outline, size: 16, color: _kWarning),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Vérifiez les informations ci-dessous avant de soumettre définitivement.',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: _kWarning),
+                    context.l10n.pdfReviewBeforeSubmitWarning,
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: _kWarning),
                   ),
                 ),
               ]),
@@ -207,14 +208,14 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           ),
           Expanded(
             child: _blobUrl == null
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: _kAccent),
-                        SizedBox(height: 16),
-                        Text('Chargement du PDF…',
-                            style: TextStyle(fontSize: 14, color: _kInkSoft)),
+                        const CircularProgressIndicator(color: _kAccent),
+                        const SizedBox(height: 16),
+                        Text(context.l10n.loadingPdfEllipsis,
+                            style: const TextStyle(fontSize: 14, color: _kInkSoft)),
                       ],
                     ),
                   )
@@ -241,8 +242,8 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           OutlinedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.arrow_back, size: 16),
-            label: const Text('Modifier',
-                style: TextStyle(
+            label: Text(context.l10n.editTooltip,
+                style: const TextStyle(
                     fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             style: OutlinedButton.styleFrom(
               foregroundColor: _kInkSoft,
@@ -267,7 +268,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     child: CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.send_rounded, size: 18),
-            label: Text(_confirming ? 'Soumission…' : 'Confirmer et soumettre',
+            label: Text(
+                _confirming
+                    ? context.l10n.submittingEllipsis
+                    : context.l10n.empListConfirmAndSubmitButton,
                 style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,

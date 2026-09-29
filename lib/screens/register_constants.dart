@@ -34,24 +34,23 @@ InputDecoration modernInput({
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     filled: true,
-    fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+    fillColor: hasError ? PublicColors.redFaint : PublicColors.gray100,
     border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        borderSide: const BorderSide(color: PublicColors.gray200)),
     enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(
-            color:
-                hasError ? const Color(0xFFE24B4A) : const Color(0xFFE2E8F0))),
+            color: hasError ? PublicColors.red : PublicColors.gray200)),
     focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: PublicColors.green, width: 2)),
     errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE24B4A))),
+        borderSide: const BorderSide(color: PublicColors.red)),
     focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE24B4A), width: 2)),
+        borderSide: const BorderSide(color: PublicColors.red, width: 2)),
   );
 }
 
@@ -92,6 +91,82 @@ const List<LocalizedOption> kCtdTypeOptions = [
 const List<LocalizedOption> kAreaOptions = [
   LocalizedOption('Urbain', LocalizedText(fr: 'Urbain', en: 'Urban')),
   LocalizedOption('Rural', LocalizedText.same('Rural')),
+];
+
+// Vocational Training (CFP) registration-time option lists. Verbatim from
+// the source questionnaire (QUESTIONNAIIRE FORMATION PROFESSIONNELLE
+// 2025_2026.pdf, §1.10-1.13) — not invented. `value` is the printed French
+// label (same convention as kCooperativeTypeOptions/kCtdTypeOptions above),
+// not the printed numeric code — this codebase's convention has never
+// stored those digit codes as the canonical value for a registration-time
+// picker (see kCtdTypeOptions using 'Région'/'Commune', not '1'/'2').
+const List<LocalizedOption> kCfpTypeOptions = [
+  LocalizedOption('SAR/SM (RA/HECs)', LocalizedText.same('SAR/SM (RA/HECs)')),
+  LocalizedOption(
+      'Centre de Formation Professionnelle Rapide (CFPR)',
+      LocalizedText(
+          fr: 'Centre de Formation Professionnelle Rapide (CFPR)',
+          en: 'Intensive Vocational Training Centre (IVTC)')),
+  LocalizedOption(
+      'Centre de Formation Professionnelle Privé (CFPP)',
+      LocalizedText(
+          fr: 'Centre de Formation Professionnelle Privé (CFPP)',
+          en: 'Private Vocational Training Centre (PVTC)')),
+  LocalizedOption(
+      'Centre de Formation aux Métiers (CFM)',
+      LocalizedText(
+          fr: 'Centre de Formation aux Métiers (CFM)',
+          en: 'Trades Training Centre (TTC)')),
+  LocalizedOption(
+      "Centre de Formation Professionnelle d'Excellence (CFPE)",
+      LocalizedText(
+          fr: "Centre de Formation Professionnelle d'Excellence (CFPE)",
+          en: 'Advanced Vocational Training Centre (AVTC)')),
+  LocalizedOption(
+      'Centre de Formation Professionnelle Sectorielles (CFPS)',
+      LocalizedText(
+          fr: 'Centre de Formation Professionnelle Sectorielles (CFPS)',
+          en: 'Sectoral Vocational Training Centre (SVTC)')),
+  LocalizedOption(
+      'Centre National de Formation des Formateurs et de Développement des Programmes (CNFFDP)',
+      LocalizedText(
+          fr:
+              'Centre National de Formation des Formateurs et de Développement des Programmes (CNFFDP)',
+          en:
+              'National Institute of Vocational Trainers and Programme Development (NIVTPD)')),
+];
+
+const List<LocalizedOption> kEducationSystemOptions = [
+  LocalizedOption('Public', LocalizedText.same('Public')),
+  LocalizedOption(
+      'Privé laïc', LocalizedText(fr: 'Privé laïc', en: 'Lay private')),
+  LocalizedOption('Privé confessionnel',
+      LocalizedText(fr: 'Privé confessionnel', en: 'Private denominational')),
+];
+
+const List<LocalizedOption> kFunctionalStatusOptions = [
+  LocalizedOption(
+      'Fonctionnelle', LocalizedText(fr: 'Fonctionnelle', en: 'Functional')),
+  LocalizedOption('Non-fonctionnelle',
+      LocalizedText(fr: 'Non-fonctionnelle', en: 'Non-functional')),
+  LocalizedOption('Fermée', LocalizedText(fr: 'Fermée', en: 'Closed')),
+];
+
+const List<LocalizedOption> kNonFunctionalReasonOptions = [
+  LocalizedOption("Manque d'apprenants",
+      LocalizedText(fr: "Manque d'apprenants", en: 'Lack of trainees')),
+  LocalizedOption('Manque de formateur',
+      LocalizedText(fr: 'Manque de formateur', en: 'Lack of trainers')),
+  LocalizedOption("Raison d'insécurité",
+      LocalizedText(fr: "Raison d'insécurité", en: 'Insecurity')),
+  LocalizedOption('Agrément non valide',
+      LocalizedText(fr: 'Agrément non valide', en: 'Invalid accreditation')),
+  LocalizedOption('Autres', LocalizedText(fr: 'Autres', en: 'Other')),
+];
+
+const List<LocalizedOption> kSexOptions = [
+  LocalizedOption('Masculin', LocalizedText(fr: 'Masculin', en: 'Male')),
+  LocalizedOption('Féminin', LocalizedText(fr: 'Féminin', en: 'Female')),
 ];
 
 final List<TextInputFormatter> kPhoneFormatters = [
@@ -159,6 +234,17 @@ class EntityField {
   /// The DSMO form field this field pre-fills (informational).
   final String? dsmoField;
 
+  /// Conditional visibility: when set, this field is only shown (and only
+  /// validated as required) while another field in the same [EntityConfig]
+  /// — keyed by [dependsOn] — currently holds the value [dependsValue].
+  /// Mirrors the AST's own dependsOn/dependsValue shape (form_ast.dart)
+  /// rather than inventing a new one. Currently used only by
+  /// vocationalTraining's functionalStatus → nonFunctionalReason (and
+  /// nonFunctionalReason → nonFunctionalReasonOther) pair — not a
+  /// general-purpose feature, just enough for that one case.
+  final String? dependsOn;
+  final String? dependsValue;
+
   const EntityField({
     required this.key,
     required this.label,
@@ -169,6 +255,8 @@ class EntityField {
     this.isPhone = false,
     this.onefopSection,
     this.dsmoField,
+    this.dependsOn,
+    this.dependsValue,
   });
 }
 
@@ -240,7 +328,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     type: EntityType.enterprise,
     title: LocalizedText(fr: 'Entreprise', en: 'Company'),
     icon: Icons.business_outlined,
-    color: Colors.teal,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'companyName',
@@ -364,7 +452,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     type: EntityType.cooperative,
     title: LocalizedText(fr: 'Coopérative', en: 'Cooperative'),
     icon: Icons.groups_outlined,
-    color: Colors.green,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'cooperativeName',
@@ -455,7 +543,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     type: EntityType.ctd,
     title: LocalizedText(fr: 'CTD', en: 'RLA'),
     icon: Icons.account_balance_outlined,
-    color: Colors.indigo,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'ctdType',
@@ -522,7 +610,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     type: EntityType.ong,
     title: LocalizedText(fr: 'ONG', en: 'NGO'),
     icon: Icons.volunteer_activism_outlined,
-    color: Colors.orange,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'ngoName',
@@ -605,7 +693,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     type: EntityType.administration,
     title: LocalizedText(fr: 'Administration', en: 'Administration'),
     icon: Icons.account_balance_outlined,
-    color: Colors.blueGrey,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'administrationName',
@@ -665,7 +753,7 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     type: EntityType.projectProgram,
     title: LocalizedText(fr: 'Projet / Programme', en: 'Project / Programme'),
     icon: Icons.rocket_launch_outlined,
-    color: Colors.deepPurple,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'projectProgramName',
@@ -719,67 +807,89 @@ const Map<EntityType, EntityConfig> entityConfigs = {
     ],
   ),
 
-  // ── VOCATIONAL ───────────────────────────────────────────────
-  EntityType.vocational: EntityConfig(
-    type: EntityType.vocational,
+  // ── VOCATIONAL TRAINING (VT) — the ONEFOP CFP census questionnaire
+  // (VT1_* AST). Field values for the pickers below
+  // (cfpType/educationSystem/functionalStatus/nonFunctionalReason) are
+  // verbatim option lists from the source questionnaire — see
+  // kCfpTypeOptions etc. above, not invented here.
+  EntityType.vocationalTraining: EntityConfig(
+    type: EntityType.vocationalTraining,
     title: LocalizedText(
-        fr: 'Centre de formation professionnelle',
-        en: 'Vocational Training Center'),
-    icon: Icons.school_outlined,
-    color: Colors.purple,
+        fr: 'Centre de formation professionnelle (enquête ONEFOP)',
+        en: 'Vocational Training Center (ONEFOP survey)'),
+    icon: Icons.school,
+    color: PublicColors.green,
     fields: [
       EntityField(
         key: 'centerName',
-        label: LocalizedText(fr: 'Nom du centre', en: 'Center name'),
-        onefopSection: 'S1.Q1',
-        dsmoField: 'raisonSociale',
+        label: LocalizedText(fr: 'Nom du CFP', en: 'Name of VTC'),
+        onefopSection: 'VT1.1',
       ),
       EntityField(
-        key: 'registrationNumber',
-        label: LocalizedText(fr: "N° d'agrément", en: 'Approval No.'),
-        hint: LocalizedText(
-            fr: "Numéro d'agrément ministériel",
-            en: 'Ministerial approval number'),
-        onefopSection: 'S1.Q2',
-        dsmoField: 'numeroAgrement',
+        key: 'sigle',
+        label: LocalizedText(fr: 'Sigle', en: 'Initials'),
+        required: false,
+        onefopSection: 'VT1.3',
       ),
       EntityField(
         key: 'taxNumber',
-        label: LocalizedText(fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
+        label: LocalizedText(
+            fr: 'N° Contribuable (NIU)', en: 'Taxpayer No. (NIU)'),
         keyboardType: TextInputType.number,
-        onefopSection: 'S1.Q3',
-        dsmoField: 'niu',
+      ),
+      EntityField(
+        key: 'cfpType',
+        label: LocalizedText(fr: 'Type de CFP', en: 'Type of VTC'),
+        options: kCfpTypeOptions,
+        onefopSection: 'VT1.11',
+      ),
+      EntityField(
+        key: 'educationSystem',
+        label: LocalizedText(
+            fr: "Ordre d'enseignement", en: 'Education system'),
+        options: kEducationSystemOptions,
+        onefopSection: 'VT1.10',
+      ),
+      EntityField(
+        key: 'functionalStatus',
+        label: LocalizedText(
+            fr: 'Situation du Centre', en: 'Status of the center'),
+        options: kFunctionalStatusOptions,
+        onefopSection: 'VT1.12',
+      ),
+      EntityField(
+        key: 'nonFunctionalReason',
+        label: LocalizedText(
+            fr: 'Raison (si non-fonctionnelle)',
+            en: 'Reason (if non-functional)'),
+        options: kNonFunctionalReasonOptions,
+        dependsOn: 'functionalStatus',
+        dependsValue: 'Non-fonctionnelle',
+        onefopSection: 'VT1.13',
+      ),
+      EntityField(
+        key: 'nonFunctionalReasonOther',
+        label: LocalizedText(fr: 'Autre raison (préciser)', en: 'Other reason (specify)'),
+        dependsOn: 'nonFunctionalReason',
+        dependsValue: 'Autres',
+        onefopSection: 'VT1.13',
       ),
       EntityField(
         key: 'yearOfCreation',
-        label: LocalizedText(fr: 'Année de création', en: 'Year established'),
-        keyboardType: TextInputType.number,
-        onefopSection: 'S1.Q4',
-        dsmoField: 'anneeCreation',
-      ),
-      EntityField(
-        key: 'trainingDomains',
         label: LocalizedText(
-            fr: 'Domaines de formation', en: 'Training fields'),
-        hint: LocalizedText(
-            fr: 'Ex: Maintenance, Hôtellerie, BTP',
-            en: 'E.g.: Maintenance, Hospitality, Construction'),
-        onefopSection: 'S1.Q5',
-        dsmoField: 'domainesFormation',
+            fr: "Année d'ouverture", en: 'Year of establishment'),
+        keyboardType: TextInputType.number,
+        onefopSection: 'VT1.14',
       ),
       EntityField(
         key: 'address',
-        label: LocalizedText(fr: 'Adresse du centre', en: "Center's address"),
-        onefopSection: 'S1.Q6',
-        dsmoField: 'adresseSiege',
+        label: LocalizedText(fr: 'Adresse du CFP', en: "VTC's address"),
       ),
       EntityField(
         key: 'phone',
         label: LocalizedText(fr: 'Téléphone', en: 'Phone'),
         keyboardType: TextInputType.phone,
         isPhone: true,
-        onefopSection: 'S0.Q5',
-        dsmoField: 'telephone',
       ),
       EntityField(
         key: 'phone2',
@@ -787,14 +897,46 @@ const Map<EntityType, EntityConfig> entityConfigs = {
         keyboardType: TextInputType.phone,
         isPhone: true,
         required: false,
-        dsmoField: 'telephone2',
       ),
       EntityField(
         key: 'poBox',
         label: LocalizedText(fr: 'Boîte postale', en: 'P.O. Box'),
         hint: LocalizedText(fr: 'BP', en: 'P.O. Box'),
         required: false,
-        dsmoField: 'boitePostale',
+      ),
+      // 1.16 — Promoteur/Directeur du CFP: a second contact block, distinct
+      // from the respondent (1.15) collected by the shared StepRespondent
+      // step. No other entity type has a second contact block — this is
+      // VT-specific, kept as plain EntityFields in this same config (least
+      // structural change) rather than a new step.
+      EntityField(
+        key: 'promoterName',
+        label: LocalizedText(
+            fr: 'Promoteur/Directeur — Noms et prénoms',
+            en: 'Promoter/Director — Full name'),
+      ),
+      EntityField(
+        key: 'promoterSex',
+        label: LocalizedText(
+            fr: 'Promoteur/Directeur — Sexe', en: 'Promoter/Director — Sex'),
+        options: kSexOptions,
+      ),
+      EntityField(
+        key: 'promoterPhone1',
+        label: LocalizedText(
+            fr: 'Promoteur/Directeur — Téléphone 1',
+            en: 'Promoter/Director — Phone 1'),
+        keyboardType: TextInputType.phone,
+        isPhone: true,
+      ),
+      EntityField(
+        key: 'promoterPhone2',
+        label: LocalizedText(
+            fr: 'Promoteur/Directeur — Téléphone 2',
+            en: 'Promoter/Director — Phone 2'),
+        keyboardType: TextInputType.phone,
+        isPhone: true,
+        required: false,
       ),
     ],
   ),

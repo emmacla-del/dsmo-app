@@ -21,3 +21,6 @@ secrets.json
 **/*.env
 **/*.key
 **/*.pem
+
+# Local Claude Code settings (may hold MCP server API keys, e.g. Figma)
+.claude/settings.local.json

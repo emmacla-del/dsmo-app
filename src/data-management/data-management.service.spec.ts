@@ -38,6 +38,7 @@ function makeService(prismaOverrides: Record<string, any> = {}) {
     onefopVtCurriculum: { findFirst: jest.fn().mockResolvedValue(null) },
     onefopVtInfrastructure: { findFirst: jest.fn().mockResolvedValue(null) },
     onefopVtFurniture: { findFirst: jest.fn().mockResolvedValue(null) },
+    projectProgramActivity: { findFirst: jest.fn().mockResolvedValue(null) },
     ...prismaOverrides,
   };
   const service = new DataManagementService(prisma as any);
@@ -113,6 +114,8 @@ describe('DataManagementService — CSV/SPSS helpers (no DB)', () => {
     const { service } = makeService();
     const columns = [
       { key: 'submissionId', header: 'N° de soumission', numeric: false },
+      { key: 'formType', header: 'Type de formulaire', numeric: false },
+      { key: 'region', header: 'Région', numeric: false },
       { key: 'surveyYear', header: "Année d'enquête", numeric: true },
     ];
     const sps: string = service.buildSpssSyntax(columns, 'onefop_submissions.csv');
@@ -120,6 +123,11 @@ describe('DataManagementService — CSV/SPSS helpers (no DB)', () => {
     expect(sps).toContain('F10.0');
     expect(sps).toContain('/FILE=\'onefop_submissions.csv\'');
     expect(sps).toContain('FIRSTCASE=2');
+    expect(sps).toContain('MISSING VALUES');
+    expect(sps).toContain('(-99)');
+    expect(sps).toContain('VALUE LABELS');
+    expect(sps).toContain("'ENTREPRISE' \"Entreprise\"");
+    expect(sps).toContain("'LITTORAL' \"Littoral\"");
   });
 
   it('buildFormTypeRemap only remaps a form-type column when its key collides with a common/formType column', () => {
@@ -259,14 +267,18 @@ describe('DataManagementService.streamApprovedOnefopSubmissionsCsv — Pass B (m
     expect(secondCallArgs.skip).toBe(1);
   });
 
-  it('never fetches all ~19 relations for a batch it does not need — factRecruitments/factSkillNeeds stay Excel-only', async () => {
+  it('fetches projectProgramActivities but not the empty ETL tables (factRecruitments/factSkillNeeds)', async () => {
     const { service, prisma } = makeService();
     prisma.onefopSubmission.findMany.mockResolvedValueOnce([]);
     const { res } = fakeRes();
     await service.streamApprovedOnefopSubmissionsCsv({}, res);
     const include = prisma.onefopSubmission.findMany.mock.calls[0][0].include;
+    // factRecruitments/factSkillNeeds are empty ETL tables never written by
+    // the submission pipeline — no data to export.
     expect(include.factRecruitments).toBeUndefined();
     expect(include.factSkillNeeds).toBeUndefined();
+    // PP activities are real form data and must be present.
+    expect(include.projectProgramActivities).toBe(true);
     expect(include.cspGenderAge).toBe(true);
   });
 
@@ -554,4 +566,63 @@ describe('DataManagementService — VOCATIONAL_TRAINING breakdown sheets (VT-8)'
     expect(dataRow).toContain('CEP');
     expect(dataRow).toContain(12);
   });
+
+  describe('Export Gating & Statistical Eligibility Invariant', () => {
+    it('buildApprovedOnefopWhere enforces status: APPROVED and 0 open blocking anomalies', () => {
+      const { service } = makeService();
+      const where = service.buildApprovedOnefopWhere({ region: 'Littoral', year: 2026 });
+
+      expect(where.status).toBe('APPROVED');
+      expect(where.anomalies).toEqual({
+        none: {
+          status: 'OPEN',
+          isBlocking: true,
+        },
+      });
+      expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+      expect(where.surveyYear).toBe(2026);
+    });
+
+    it('streamApprovedOnefopSubmissionsCsv never queries or exports records without enforcing the blocking-anomaly exclusion gate', async () => {
+      const { service, prisma } = makeService();
+      prisma.onefopSubmission.findMany.mockResolvedValue([]);
+
+      const { res } = fakeRes();
+      await service.streamApprovedOnefopSubmissionsCsv({ region: 'Centre' }, res);
+
+      expect(prisma.onefopSubmission.findMany).toHaveBeenCalled();
+      const firstCallArgs = prisma.onefopSubmission.findMany.mock.calls[0][0];
+      expect(firstCallArgs.where.status).toBe('APPROVED');
+      expect(firstCallArgs.where.anomalies).toEqual({
+        none: {
+          status: 'OPEN',
+          isBlocking: true,
+        },
+      });
+      expect(firstCallArgs.where.region).toEqual({ equals: 'Centre', mode: 'insensitive' });
+    });
+
+    it('buildSpssManifest enforces the blocking-anomaly exclusion gate for column discovery', async () => {
+      const { service, prisma } = makeService();
+      await service.buildSpssManifest({ year: 2026 });
+
+      // Pass A queries use the where clause with the anomaly gate
+      expect(prisma.onefopCspGenderAge.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            submission: expect.objectContaining({
+              status: 'APPROVED',
+              anomalies: {
+                none: {
+                  status: 'OPEN',
+                  isBlocking: true,
+                },
+              },
+            }),
+          },
+        }),
+      );
+    });
+  });
 });
+

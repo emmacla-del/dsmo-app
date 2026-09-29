@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
 
 class Region {
@@ -77,7 +78,7 @@ class _RegionDepartmentSelectorState extends State<RegionDepartmentSelector> {
     } catch (_) {
       setState(() {
         _loadingRegions = false;
-        _loadError = 'Impossible de charger les régions.';
+        _loadError = context.l10n.regionDeptSelectorLoadRegionsError;
       });
     }
   }
@@ -164,7 +165,7 @@ class _RegionDepartmentSelectorState extends State<RegionDepartmentSelector> {
               child: Text(_loadError!,
                   style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
             ),
-            TextButton(onPressed: _loadRegions, child: const Text('Réessayer')),
+            TextButton(onPressed: _loadRegions, child: Text(context.l10n.retry)),
           ],
         ),
       );
@@ -180,9 +181,9 @@ class _RegionDepartmentSelectorState extends State<RegionDepartmentSelector> {
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             dense: true,
-            title: const Text(
-              'Toutes les régions',
-              style: TextStyle(fontWeight: FontWeight.w600),
+            title: Text(
+              context.l10n.allRegionsCheckboxLabel,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             value: _selectedRegionNames.isEmpty,
             onChanged: (v) {
@@ -252,7 +253,7 @@ class _RegionDepartmentSelectorState extends State<RegionDepartmentSelector> {
                             ? Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Text(
-                                  'Aucun département disponible',
+                                  context.l10n.noDepartmentsAvailableLabel,
                                   style: TextStyle(
                                       color: Colors.grey.shade500,
                                       fontSize: 13),

@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 
 // ── Core schema imports ──────────────────────────────────────
@@ -26,6 +27,9 @@ import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
+import '../../core/focus/renderers/vt_routing.dart';
+import '../../core/focus/renderers/vt_row_editor.dart';
+import '../../core/focus/renderers/vt_table_defs.dart';
 
 // ── App-wide widgets ─────────────────────────────────────────
 import '../../data/api_client.dart';
@@ -36,7 +40,8 @@ import '../../widgets/drafts_drawer.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/sync_queue_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../dashboards/company_workspace_dashboard.dart' show companyWorkspaceProvider;
+import '../dashboards/company_workspace_dashboard.dart'
+    show companyWorkspaceProvider;
 
 // ── Screen-local modules ─────────────────────────────────────
 import '../../providers/onefop_mode_provider.dart';
@@ -47,6 +52,10 @@ import 'onefop_section_units.dart';
 import 'onefop_table_engine.dart';
 import 'excel/onefop_excel_shell.dart';
 import 'simple_mode_shell.dart';
+import 'wizard/vt_wizard_shell.dart';
+import 'wizard/vt_wizard_fields.dart' show vtWizardBuildField;
+import 'widgets/sovereign_masthead.dart';
+import 'widgets/gds_task_list.dart';
 
 class OnefopUnifiedFormScreenV4 extends StatefulWidget {
   final EntityType entityType;
@@ -63,6 +72,7 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
   final VoidCallback? onCancel;
   final String? userId;
   final VoidCallback? onSubmitSuccess;
+  final bool forceSimpleMode;
 
   /// True when the "is the submission period open" check that gated entry
   /// to this screen (home_screen.dart) had to fall back to a cached/stale
@@ -83,12 +93,27 @@ class OnefopUnifiedFormScreenV4 extends StatefulWidget {
     this.onCancel,
     this.userId,
     this.onSubmitSuccess,
+    this.forceSimpleMode = false,
     this.periodCheckedOffline = false,
   });
 
   @override
   State<OnefopUnifiedFormScreenV4> createState() => _State();
 }
+
+// Entities whose Section 0 (Respondent) / Section 1 (identity) fields get
+// VT Wizard's Figma-matched field widgets (vtWizardBuildField) instead of
+// Simple Mode's default ones — see _buildField below. VT itself is excluded
+// since it already has a full Wizard mode; administration/projectProgram
+// are unimplemented placeholders. Scoped to entity type only (not e.g.
+// section id) because vtWizardBuildField is entity-agnostic — the actual
+// section gating happens via isSimple in _buildField.
+const _kPolishedSimpleFieldEntities = {
+  EntityType.enterprise,
+  EntityType.cooperative,
+  EntityType.ctd,
+  EntityType.ong,
+};
 
 class _State extends State<OnefopUnifiedFormScreenV4> {
   late final OnefopFormController _ctrl;
@@ -97,6 +122,12 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // Reset per section build; staggers each table field's reveal so a
   // heavy page (many big tables) doesn't build them all in one frame.
   int _tableStagger = 0;
+
+  // Set the first time _buildField actually needs vtWizardBuildField (see
+  // there) — guards the one-time GoogleFonts.manrope() warm-up so it fires
+  // at most once per screen instance instead of on every polished field's
+  // build.
+  bool _manropeWarmedUp = false;
 
   @override
   void initState() {
@@ -278,9 +309,25 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         ref.listen<bool>(isOnlineProvider, (previous, next) {
           if (previous == false && next == true) _ctrl.flushPendingSave();
         });
-        final mode = ref.watch(onefopModeProvider);
-        void onModeChanged(OnefopViewMode m) =>
+        final rawMode = widget.forceSimpleMode
+            ? OnefopViewMode.simple
+            : ref.watch(onefopModeProvider);
+        // onefopModeProvider is device-global (see onefop_mode_provider.dart),
+        // not entity-aware — Wizard can still be the persisted value here
+        // after it was used on a VT entity, even though this entity doesn't
+        // offer it. Coerce the *displayed* mode to this entity's available
+        // modes (without writing back to the provider, so the persisted
+        // preference is untouched for next time a VT entity is opened)
+        // instead of threading the raw value straight into the title bar.
+        final mode = _availableModes.contains(rawMode)
+            ? rawMode
+            : OnefopViewMode.spreadsheet;
+        void onModeChanged(OnefopViewMode m) {
+          if (!widget.forceSimpleMode) {
             ref.read(onefopModeProvider.notifier).setMode(m);
+          }
+        }
+
         // Both desktop modes now carry their own single title bar
         // (OnefopShellTitleBar — title, save status, mode switch, drafts,
         // dashboard — see OnefopExcelShell and SimpleModeShell), sitting
@@ -290,6 +337,24 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         return Scaffold(
           key: _scaffoldKey,
           backgroundColor: kCanvas,
+          drawer: _ctrl.schema != null
+              ? Drawer(
+                  width: 440,
+                  child: SafeArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: GdsTaskList(
+                        ctrl: _ctrl,
+                        sections: _ctrl.schema!.sections,
+                        onSelectSection: (idx) {
+                          Navigator.of(context).pop();
+                          _ctrl.goto(idx);
+                        },
+                      ),
+                    ),
+                  ),
+                )
+              : null,
           endDrawer: DraftsDrawer(
             title: 'Brouillon / Draft',
             fetchDrafts: _fetchDraftSummaries,
@@ -304,10 +369,24 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                   saving: _ctrl.saving,
                   dirty: _ctrl.dirty,
                   onCancel: widget.onCancel,
-                  onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
+                  onOpenDrafts: () =>
+                      _scaffoldKey.currentState?.openEndDrawer(),
                 ),
           body: Column(
             children: [
+              if (desktop)
+                SovereignMasthead(
+                  metadata: widget.initialData,
+                  entityTypeName: entityTypeString(widget.entityType),
+                  establishmentName:
+                      (widget.initialData['__meta_establishment_name'] ??
+                              widget.initialData['name'] ??
+                              widget.initialData['enterpriseName'] ??
+                              widget.initialData['VT1_2'])
+                          ?.toString(),
+                  quarterCode: widget.quarterCode ??
+                      widget.initialData['__meta_quarter_code'] as String?,
+                ),
               if (widget.periodCheckedOffline) _offlinePeriodBanner(),
               Expanded(
                 child: desktop
@@ -334,8 +413,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
             Expanded(
               child: Text(
                 const LocalizedText(
-                  fr:
-                      'Période vérifiée hors ligne — sera revalidée lors de l\'envoi.',
+                  fr: 'Période vérifiée hors ligne — sera revalidée lors de l\'envoi.',
                   en: 'Period checked offline — will be re-verified on submit.',
                 ).of(context.loc),
                 style: const TextStyle(fontSize: 12.5, color: kAccent),
@@ -357,34 +435,75 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // the same OnefopFormController, so autosave/validation/submit are
   // identical across all three; only the visual chrome differs. See
   // lib/screens/onefop/excel/ for the spreadsheet shell + row widgets.
+  // Wizard mode (the Figma "MINEFOP Collect" redesign) is VT-only — every
+  // other entity keeps exactly the same Simple/Spreadsheet choice it had
+  // before this mode existed. Shared by build() (to coerce the raw,
+  // device-global onefopModeProvider value before it's displayed) and
+  // _desktopLayout (to build the dropdown's option list).
+  List<OnefopViewMode> get _availableModes =>
+      widget.entityType == EntityType.vocationalTraining
+          ? OnefopViewMode.values
+          : const [OnefopViewMode.simple, OnefopViewMode.spreadsheet];
+
   Widget _desktopLayout(
       OnefopViewMode mode, void Function(OnefopViewMode) onModeChanged) {
-    final title = 'ONEFOP — ${entityTypeTitle(widget.entityType).of(context.loc)}';
+    final title =
+        'ONEFOP — ${entityTypeTitle(widget.entityType).of(context.loc)}';
+    final availableModes = _availableModes;
+    if (mode == OnefopViewMode.wizard &&
+        widget.entityType == EntityType.vocationalTraining) {
+      return VtWizardShell(
+        ctrl: _ctrl,
+        entityType: widget.entityType,
+        buildField: _buildField,
+        onPreviewSubmit: _previewSubmit,
+        title: title,
+        dirty: _ctrl.dirty,
+        saving: _ctrl.saving,
+        saveFailed: _ctrl.saveFailed,
+        lastSavedAt: _ctrl.lastSavedAt,
+        onSaveNow: _ctrl.saveNow,
+        onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
+        onCancel: widget.onCancel,
+        mode: mode,
+        onModeChanged: onModeChanged,
+        availableModes: availableModes,
+      );
+    }
     if (mode == OnefopViewMode.simple) {
       // The vertical section nav (Sidebar) is desktop-only chrome, shared
       // with OnefopExcelShell below rather than duplicated — mobile is the
       // only layout that should ever lack it. SimpleModeShell itself stays
       // sidebar-less (see its own doc comment) since Spreadsheet Mode wraps
       // it the same way, one level up, instead of owning it internally.
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      return Column(
         children: [
-          Sidebar(ctrl: _ctrl, entityType: widget.entityType),
-          Container(width: 1, color: kBorder),
+          const SimpleModeGovernmentHeader(),
           Expanded(
-            child: SimpleModeShell(
-              ctrl: _ctrl,
-              entityType: widget.entityType,
-              buildField: _buildField,
-              onPreviewSubmit: _previewSubmit,
-              title: title,
-              dirty: _ctrl.dirty,
-              saving: _ctrl.saving,
-              onSaveNow: _ctrl.saveNow,
-              onOpenDrafts: () => _scaffoldKey.currentState?.openEndDrawer(),
-              onCancel: widget.onCancel,
-              mode: mode,
-              onModeChanged: onModeChanged,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SimpleModeSidebar(ctrl: _ctrl, entityType: widget.entityType),
+                Container(width: 1, color: kFigmaSimpleBorder),
+                Expanded(
+                  child: SimpleModeShell(
+                    ctrl: _ctrl,
+                    entityType: widget.entityType,
+                    buildField: _buildField,
+                    onPreviewSubmit: _previewSubmit,
+                    title: title,
+                    dirty: _ctrl.dirty,
+                    saving: _ctrl.saving,
+                    onSaveNow: _ctrl.saveNow,
+                    onOpenDrafts: () =>
+                        _scaffoldKey.currentState?.openEndDrawer(),
+                    onCancel: widget.onCancel,
+                    mode: mode,
+                    onModeChanged: onModeChanged,
+                    availableModes: availableModes,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -399,6 +518,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       onCancel: widget.onCancel,
       mode: mode,
       onModeChanged: onModeChanged,
+      availableModes: availableModes,
     );
   }
 
@@ -560,8 +680,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     );
     if (units.isEmpty) return const SizedBox.shrink();
 
-    final currentIdx = (_ctrl.unitCursor(sec.id) ?? currentUnitIndex(_ctrl, units))
-        .clamp(0, units.length - 1);
+    final currentIdx =
+        (_ctrl.unitCursor(sec.id) ?? currentUnitIndex(_ctrl, units))
+            .clamp(0, units.length - 1);
     final unit = units[currentIdx];
     final isFirst = currentIdx == 0;
     final isLast = currentIdx == units.length - 1;
@@ -589,13 +710,27 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          OnefopSectionMap(
-            ctrl: _ctrl,
-            units: units,
-            currentIndex: currentIdx,
-            onJump: (i) => jumpToUnit(_ctrl, sec, units, i),
-            onJumpToLocation: (i) => jumpToLocation(_ctrl, sec, units, i),
-          ),
+          // VT gets VtSectionOutline — one integrated glyph+full-text row
+          // per subsection — instead of OnefopSectionMap's separate
+          // caption-then-chip-row, live-reported as a "floating isolated
+          // code" once VT's own subsection data was complete; every other
+          // entity keeps OnefopSectionMap exactly as before (see
+          // simple_mode_shell.dart's identical branch for the same reason
+          // on desktop Simple Mode).
+          _ctrl.entityType == EntityType.vocationalTraining
+              ? VtSectionOutline(
+                  ctrl: _ctrl,
+                  units: units,
+                  currentIndex: currentIdx,
+                  onJump: (i) => jumpToUnit(_ctrl, sec, units, i),
+                )
+              : OnefopSectionMap(
+                  ctrl: _ctrl,
+                  units: units,
+                  currentIndex: currentIdx,
+                  onJump: (i) => jumpToUnit(_ctrl, sec, units, i),
+                  onJumpToLocation: (i) => jumpToLocation(_ctrl, sec, units, i),
+                ),
           KeyedSubtree(
             key: _ctrl.keyForUnit(unit.key),
             child: Column(
@@ -603,7 +738,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 UnitTransition(
-                  child: KeyedSubtree(key: ValueKey(unit.key), child: unit.content()),
+                  child: KeyedSubtree(
+                      key: ValueKey(unit.key), child: unit.content()),
                 ),
                 // showNext is unconditional now — this row is the only
                 // Précédent/Suivant/Soumettre control left on mobile (the
@@ -618,7 +754,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                       : retreatToUnit(_ctrl, sec, units, currentIdx),
                   showNext: true,
                   isSubmit: isFormEnd,
-                  nextEnabled: isFormEnd ? _ctrl.validateAllPages() : unit.canAdvance(_ctrl),
+                  nextEnabled: isFormEnd
+                      ? _ctrl.validateAllPages()
+                      : unit.canAdvance(_ctrl),
                   onNext: () => isFormEnd
                       ? _previewSubmit()
                       : isLast
@@ -640,8 +778,9 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     debugPrint(
         'Page ${_ctrl.currentPage} → ${sec.id} → fields: ${sec.fieldIds.length} → visible: ${_ctrl.computeVisibleFieldIds().length}');
     final isSection1 = sec.id.startsWith('section1_');
-    final showValidationBanner = _ctrl.advanceBlockedPage == _ctrl.currentPage &&
-        !_ctrl.validatePage(_ctrl.currentPage);
+    final showValidationBanner =
+        _ctrl.advanceBlockedPage == _ctrl.currentPage &&
+            !_ctrl.validatePage(_ctrl.currentPage);
     _tableStagger = 0;
 
     return [
@@ -663,7 +802,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.verified_outlined, size: 16, color: kAccent),
+                    const Icon(Icons.verified_outlined,
+                        size: 16, color: kAccent),
                     const SizedBox(width: 8),
                     Text(
                       context.l10n
@@ -699,14 +839,13 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
               child: Container(
                 decoration: BoxDecoration(
                   color: kSurface,
-                  borderRadius: BorderRadius.circular(OL.sectionBorderRadius),
+                  borderRadius: BorderRadius.circular(kRadiusMd),
                   border: Border.all(color: kBorder, width: 1),
-                  boxShadow: kShadowCard,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: OL.sectionBodyPaddingH,
-                    vertical: OL.sectionBodyPaddingV,
+                    horizontal: kOnefopMobilePagePadding,
+                    vertical: 16,
                   ),
                   child: _sectionUnitBody(sec),
                 ),
@@ -732,37 +871,123 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     // questionText is always sourced from f.label (see the l10n-debt note on
     // FormSchemaCompiler.compile()), so a secondary subLabel is never shown —
     // matches prior behavior, where the two were always the same value.
-    final Widget? qh = (f.type != 'table' && !isSimple)
+    //
+    // Only 'repeating_table' (ActivitiesTableFieldWidget) has no label of
+    // its own — every other non-table type built below (RadioField,
+    // SelectField, CheckboxGroupField, SimpleField's default case) already
+    // renders its own OnefopFieldLabel(buildFieldLabel(...)) internally.
+    // This used to read `f.type != 'table'`, so every one of those
+    // self-labelling fields got a *second*, redundant OnefopQuestionHeader
+    // stacked on top of its own label in any non-"simple" section (section0/
+    // section1_* only) — live-reported: administration/enterprise rarely
+    // exposed it (their non-section0/1 sections are almost entirely tables),
+    // but VT's sections 2-9 are mostly individual Oui/Non and text
+    // questions outside a table, so nearly every VT field outside section1
+    // showed its own question twice.
+    final Widget? qh = (f.type == 'repeating_table' && !isSimple)
         ? OnefopQuestionHeader(
             paperCode: f.paperCode,
             questionText: f.label?.of(context.loc),
           )
         : null;
 
+    // Vocational Training's grid fields (Sections 4/5/8) use their own
+    // tap-a-row-to-edit widget (see vt_row_editor.dart) instead of the
+    // GridRenderSpec/TableSpecBuilder/ActivitiesTable machinery below —
+    // intercepted here, before the type switch, since VT reuses both
+    // 'table' and 'repeating_table' as its field.type depending on the
+    // grid's shape (fixed vs. repeating rows), and neither of those
+    // existing branches knows about VT's tableSpec templates.
+    final vtTemplate = f.tableSpec?['template'] as String?;
+    if (isVtTableTemplate(vtTemplate)) {
+      Widget field = VtTableFieldWidget(ctrl: _ctrl, field: f);
+      return HighlightBlock(
+        key: _ctrl.blockKeys[f.id],
+        fieldId: f.id,
+        fm: _ctrl.fm,
+        isTable: f.type == 'table',
+        child: field,
+      );
+    }
+
+    // §7.1.3 — five separate `checkbox`-typed AST fields (VT7_7..VT7_11),
+    // one per stakeholder, each with no tableSpec (only 'table'/
+    // 'repeating_table' fields carry one) — so the interception above
+    // never sees them. Rendered instead as one consolidated 5-row
+    // VtRowEditor anchored on VT7_7; the other four are visually folded
+    // into that same widget and render nothing of their own here. See
+    // vt713CommsInformedTableDef's doc comment for why this is a plain
+    // Oui/Non per row rather than a channel checkbox.
+    if (f.id == 'VT7_7') {
+      return HighlightBlock(
+        key: _ctrl.blockKeys[f.id],
+        fieldId: f.id,
+        fm: _ctrl.fm,
+        isTable: false,
+        child: VtRowEditor(ctrl: _ctrl, def: vt713CommsInformedTableDef),
+      );
+    }
+    if (f.id == 'VT7_8' ||
+        f.id == 'VT7_9' ||
+        f.id == 'VT7_10' ||
+        f.id == 'VT7_11') {
+      return const SizedBox.shrink();
+    }
+
+    // Section 0/1 (isSimple) of Enterprise/Cooperative/CTD/ONG get VT
+    // Wizard's Figma-matched field widgets instead of the defaults below —
+    // those sections are flat (no tables), so this never competes with the
+    // 'table'/'repeating_table' cases. See _kPolishedSimpleFieldEntities'
+    // own doc comment for why this is scoped by entity type only.
+    final wantsPolishedSimpleFields =
+        isSimple && _kPolishedSimpleFieldEntities.contains(widget.entityType);
+
     Widget field;
-    switch (f.type) {
-      case 'radio':
-        field = RadioField(ctrl: _ctrl, field: f);
-        break;
-      case 'select':
-        field = SelectField(ctrl: _ctrl, field: f);
-        break;
-      case 'table':
-        final delay = Duration(milliseconds: 40 * _tableStagger);
-        _tableStagger++;
-        field = RepaintBoundary(
-          child: DeferredReveal(
-            delay: delay,
-            placeholder: TableSkeleton(height: _estimateTableHeight(f)),
-            builder: (_) => TableFieldWidget(ctrl: _ctrl, field: f),
-          ),
-        );
-        break;
-      case 'repeating_table':
-        field = ActivitiesTableFieldWidget(ctrl: _ctrl, field: f);
-        break;
-      default:
-        field = SimpleField(ctrl: _ctrl, field: f);
+    if (wantsPolishedSimpleFields) {
+      // Fires only when a polished field is actually about to render (i.e.
+      // only on section0/section1_* — never on these entities' Emploi/
+      // Départs/Formation table sections) — see vtWizardBuildField's
+      // fontFamily: 'Manrope' doc comment in vt_wizard_fields.dart for why
+      // this warm-up is needed at all. Scoping it this tightly (rather
+      // than once in initState, regardless of which section the user is
+      // on) matters offline: this is a real network fetch, and it was
+      // previously firing on every page of these entities' forms —
+      // including table-only sections that never call vtWizardBuildField —
+      // which surfaced as spurious font-load exceptions in an offline
+      // widget test that never visits section0/1 at all.
+      if (!_manropeWarmedUp) {
+        _manropeWarmedUp = true;
+        GoogleFonts.manrope();
+      }
+      field = vtWizardBuildField(_ctrl, f);
+    } else {
+      switch (f.type) {
+        case 'radio':
+          field = RadioField(ctrl: _ctrl, field: f);
+          break;
+        case 'select':
+          field = SelectField(ctrl: _ctrl, field: f);
+          break;
+        case 'checkbox':
+          field = CheckboxGroupField(ctrl: _ctrl, field: f);
+          break;
+        case 'table':
+          final delay = Duration(milliseconds: 40 * _tableStagger);
+          _tableStagger++;
+          field = RepaintBoundary(
+            child: DeferredReveal(
+              delay: delay,
+              placeholder: TableSkeleton(height: _estimateTableHeight(f)),
+              builder: (_) => TableFieldWidget(ctrl: _ctrl, field: f),
+            ),
+          );
+          break;
+        case 'repeating_table':
+          field = ActivitiesTableFieldWidget(ctrl: _ctrl, field: f);
+          break;
+        default:
+          field = SimpleField(ctrl: _ctrl, field: f);
+      }
     }
 
     final content = qh == null
@@ -903,8 +1128,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
           overflow: TextOverflow.ellipsis),
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusSm)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusSm)),
       duration: duration,
       // Capped and centered instead of stretching edge-to-edge on wide
       // desktop viewports (SnackBar's default floating width) — a toast
@@ -962,9 +1187,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     final title = wasQueued
         ? l10n.connectionUnavailableTitle
         : l10n.submissionSuccessTitle;
-    final subtitle = wasQueued
-        ? l10n.queuedOfflineSubtitle
-        : l10n.submissionSuccessSubtitle;
+    final subtitle =
+        wasQueued ? l10n.queuedOfflineSubtitle : l10n.submissionSuccessSubtitle;
 
     showDialog(
       context: context,
@@ -976,56 +1200,56 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 340),
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) => Transform.scale(
-                scale: value,
-                child: Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle),
-                  child: Icon(icon, color: accentColor, size: 40),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeOut,
+                builder: (context, value, child) => Transform.scale(
+                  scale: value,
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle),
+                    child: Icon(icon, color: accentColor, size: 40),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700, color: kInk)),
-            const SizedBox(height: 8),
-            Text(subtitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: kInkSoft)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).pop();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(kRadiusSm)),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              const SizedBox(height: 20),
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700, color: kInk)),
+              const SizedBox(height: 8),
+              Text(subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: kInkSoft)),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(kRadiusSm)),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(l10n.doneButton,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
-                child: Text(l10n.doneButton,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );

@@ -113,21 +113,44 @@ describe('flat-key-normalizer — Vocational Training', () => {
   });
 
   // D. Empty roster rows are skipped; a filled row keeps its rowIndex and
-  // named-person shape.
+  // named-person shape. A row is persistable only when it has a usable
+  // name (VT-7 Finding 1) — VtTrainerRosterDto/OnefopVtTrainerRoster both
+  // require lastName/firstName (Prisma NOT NULL), so a row with other
+  // cells filled but no name can never actually be created; it must be
+  // dropped here rather than reach createMany (previously this asserted
+  // the opposite — that a nameless {rowIndex, sex} row survived, which is
+  // exactly the shape that used to 400 a final submission or throw an
+  // unhandled Prisma error on a draft).
   it('skips empty 8.8 roster rows and keeps filled ones with 1-based rowIndex', () => {
     const raw = {
       s8q8_row1_lastName: 'Ateba',
       s8q8_row1_firstName: 'Paul',
       s8q8_row1_academicDiploma: 'LICENCE',
       // row 2 entirely empty — must be dropped
-      s8q8_row3_sex: 'M',
+      s8q8_row3_sex: 'M', // no name — must also be dropped
     };
     const normalized = normalizeFlatKeys(raw, 'vocationalTraining');
     const nested = buildNestedDto(normalized, 'vocationalTraining');
     const roster = nested['trainerRoster'] as Record<string, unknown>[];
-    expect(roster.length).toBe(2);
+    expect(roster.length).toBe(1);
     expect(roster[0]).toEqual({ rowIndex: 1, lastName: 'Ateba', firstName: 'Paul', academicDiploma: 'LICENCE' });
-    expect(roster[1]).toEqual({ rowIndex: 3, sex: 'M' });
+  });
+
+  it('drops a roster row that has other cells filled but no usable name, while a '
+    + 'named row in the same submission still persists (VT-7 Finding 1)', () => {
+    const raw = {
+      // row 1: sex/status/diploma filled, both names blank — must be dropped.
+      s8q8_row1_sex: 'F',
+      s8q8_row1_trainerStatus: '3',
+      s8q8_row1_isAdminPersonnel: 'Non',
+      s8q8_row1_professionalDiploma: 'CAP',
+      // row 2: only firstName set — a usable name, so this must survive.
+      s8q8_row2_firstName: 'Marie',
+    };
+    const normalized = normalizeFlatKeys(raw, 'vocationalTraining');
+    const nested = buildNestedDto(normalized, 'vocationalTraining');
+    const roster = nested['trainerRoster'] as Record<string, unknown>[];
+    expect(roster).toEqual([{ rowIndex: 2, firstName: 'Marie' }]);
   });
 
   it('drops an 8.8 roster row whose academicDiploma or professionalDiploma is TOTAL', () => {

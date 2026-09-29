@@ -16,6 +16,17 @@ class TableCellEngine {
     // *id list*, so this must check the runtime type rather than cast.
     final rawRows = spec['rows'];
     final rows = rawRows is List ? rawRows.cast<String>() : null;
+    // Explicitly empty `statuses` = no status dimension (Administration
+    // S21Q03 / S21Q04): cell ids `${prefix}_${row}_${gender}`.
+    final rawStatuses = spec['statuses'];
+    if (rawStatuses is List && rawStatuses.isEmpty) {
+      if (tpl == 'csp_status_gender_table') {
+        return _cSex(pfx, rows ?? ['cadres', 'foremen', 'workers']);
+      }
+      if (tpl == 'vulnerable_named_rows_table') {
+        return _cSex(pfx, ['deplaces_internes', 'refugies', 'orphelins']);
+      }
+    }
     switch (tpl) {
       case 'csp_gender_age_table':
       case 'csp_table':
@@ -143,6 +154,12 @@ class TableCellEngine {
     ];
   }
 
+  /// Entered cells of a rows × sex table (no status dimension).
+  static List<String> _cSex(String p, List<String> rows) => [
+        for (final r in rows)
+          for (final g in const ['male', 'female']) '${p}_${r}_$g'
+      ];
+
   static List<String> _cInt(String p) {
     const r = ['vacation', 'academic', 'professional', 'pre_employment'];
     const g = ['male', 'female'];
@@ -183,6 +200,7 @@ class TableCellEngine {
 
     switch (p) {
       case 's21q01':
+      case 's21q02': // Administration recruitment (renumbered 2026-09-28)
       case 's22q01':
       case 's22q02':
       case 's23q01':
@@ -226,6 +244,19 @@ class TableCellEngine {
       case 's22q05_ent':
       case 's22q05_oth':
         return sg(p, ['deplaces_internes', 'refugies', 'orphelins']);
+      // Administration S21Q03 / S21Q04 — rows × sex, no status dimension.
+      case 's21q03':
+        return TableCalculator.recalculateInternship(
+            current: current,
+            prefix: p,
+            rows: rows ?? ['fonctionnaire', 'decisionnaire', 'contractuelle'],
+            genders: ['male', 'female', 'total']);
+      case 's21q04':
+        return TableCalculator.recalculateInternship(
+            current: current,
+            prefix: p,
+            rows: ['deplaces_internes', 'refugies', 'orphelins'],
+            genders: ['male', 'female', 'total']);
       case 's23q02':
         return TableCalculator.recalculateFirstTimeWorkers(
             current: current,

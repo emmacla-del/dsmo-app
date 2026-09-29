@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 import 'report_widgets.dart';
@@ -27,7 +28,7 @@ class _ReportHistoryTabState extends ConsumerState<ReportHistoryTab> {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Téléchargement démarré')),
+          SnackBar(content: Text(context.l10n.reportDownloadStartedMsg)),
         );
       }
     }
@@ -40,16 +41,16 @@ class _ReportHistoryTabState extends ConsumerState<ReportHistoryTab> {
   @override
   Widget build(BuildContext context) {
     if (widget.reports.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.description_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Aucun rapport généré'),
-            SizedBox(height: 8),
-            Text('Générez votre premier rapport dans l\'onglet "Générer"',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Icon(Icons.description_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(context.l10n.reportEmptyHistoryTitle),
+            const SizedBox(height: 8),
+            Text(context.l10n.reportEmptyHistorySubtitle,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       );
@@ -107,7 +108,7 @@ class _ReportHistoryTabState extends ConsumerState<ReportHistoryTab> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${report.region ?? 'National'} · ${report.periodLabel ?? report.year}',
+                        '${report.region ?? context.l10n.pdfNationalFallback} · ${report.periodLabel ?? report.year}',
                         style: const TextStyle(
                             fontSize: 12, color: UltraTheme.textMuted),
                       ),
@@ -123,7 +124,7 @@ class _ReportHistoryTabState extends ConsumerState<ReportHistoryTab> {
                 if (report.downloadUrl != null && report.isApproved)
                   IconAction(
                     icon: Icons.download_outlined,
-                    tooltip: 'Télécharger',
+                    tooltip: context.l10n.reportDownloadTooltip,
                     onTap: () => _downloadReport(report.downloadUrl!),
                   ),
               ],

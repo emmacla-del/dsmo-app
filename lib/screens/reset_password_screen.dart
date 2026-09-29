@@ -51,7 +51,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return PublicAuthScaffold(
-      onLogoTap: () => router.go('/'),
+      onLogoTap: () => router.go('/login'),
       child: Column(
         children: [
           Text(

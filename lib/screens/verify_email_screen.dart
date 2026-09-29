@@ -55,7 +55,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   @override
   Widget build(BuildContext context) {
     return PublicAuthScaffold(
-      onLogoTap: () => router.go('/'),
+      onLogoTap: () => router.go('/login'),
       child: PublicCard(
         padding: const EdgeInsets.all(28),
         child: _buildContent(),

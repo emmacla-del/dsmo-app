@@ -6,6 +6,51 @@ import * as Handlebars from 'handlebars';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Every real call site passes the camelCase dispatch value
+// ('vocationalTraining', matching the .hbs filename and
+// MAPPER_ENTITY_TYPE's value — see onefop-submission-pdf.service.ts and
+// questionnaires.controller.ts). Accepts the SCREAMING_SNAKE_CASE Prisma
+// enum spelling too since it costs nothing — exported as a standalone
+// function so the VT-specific footer/margin condition below is directly
+// unit-testable without exercising Puppeteer itself (VT-6 Finding 2).
+export function isVocationalTrainingFormType(formType?: string): boolean {
+    return formType === 'vocationalTraining' || formType === 'VOCATIONAL_TRAINING';
+}
+
+function loadI18nDict(filename: string): Record<string, any> {
+    const candidates = [
+        path.join(__dirname, 'i18n', filename),
+        path.join(__dirname, '..', 'src', 'pdf', 'i18n', filename),
+        path.join(process.cwd(), 'src', 'pdf', 'i18n', filename),
+        path.join(process.cwd(), 'dist', 'pdf', 'i18n', filename),
+    ];
+    for (const p of candidates) {
+        if (fs.existsSync(p)) {
+            try {
+                return JSON.parse(fs.readFileSync(p, 'utf-8'));
+            } catch (err) {
+                console.error(`❌ Failed to parse ${p}:`, err);
+            }
+        }
+    }
+    console.warn(`⚠️ Could not find i18n file ${filename}`);
+    return {};
+}
+
+function getNestedValue(obj: any, keyPath: string): any {
+    if (!obj || !keyPath) return undefined;
+    const parts = keyPath.split('.');
+    let current = obj;
+    for (const part of parts) {
+        if (current === undefined || current === null) return undefined;
+        current = current[part];
+    }
+    return current;
+}
+
+const frDict = loadI18nDict('fr.json');
+const enDict = loadI18nDict('en.json');
+
 @Injectable()
 export class OnefopPuppeteerService {
     private browser: any = null;
@@ -74,7 +119,7 @@ export class OnefopPuppeteerService {
             }, null, 2));
 
             const html = template(templateData);
-            const pdf = await this.htmlToPdf(html, data.formType);
+            const pdf = await this.htmlToPdf(html, data.formType, templateData.lang);
             console.log(`✅ PDF generated successfully (${pdf.length} bytes)`);
 
             return pdf;
@@ -108,8 +153,12 @@ export class OnefopPuppeteerService {
             armoiriesBase64 = `data:image/png;base64,${fs.readFileSync(armoiriesPath).toString('base64')}`;
         } catch (_) { /* armoiries asset missing — header renders without it */ }
 
+        const lang = data.lang || data.locale || 'fr';
+
         return {
             ...data,
+            lang,
+            locale: lang,
             logoBase64,
             armoiriesBase64,
         };
@@ -118,6 +167,47 @@ export class OnefopPuppeteerService {
     private registerHelpers(): void {
         if (this.helpersRegistered) return;  // ← skip if already registered on this instance
         this.helpersRegistered = true;
+
+        // Register letterhead partial
+        try {
+            const letterheadCandidates = [
+                path.join(__dirname, 'templates', 'dynamic', 'partials', 'letterhead.hbs'),
+                path.join(process.cwd(), 'src', 'pdf', 'templates', 'dynamic', 'partials', 'letterhead.hbs'),
+                path.join(process.cwd(), 'dist', 'pdf', 'templates', 'dynamic', 'partials', 'letterhead.hbs'),
+            ];
+            for (const lp of letterheadCandidates) {
+                if (fs.existsSync(lp)) {
+                    Handlebars.registerPartial('letterhead', fs.readFileSync(lp, 'utf-8'));
+                    break;
+                }
+            }
+        } catch (err) {
+            console.error('❌ Failed to register letterhead partial:', err);
+        }
+
+        // i18n translation helper: {{t "key"}}
+        Handlebars.registerHelper('t', function (this: any, key: string, options: any) {
+            if (!key || typeof key !== 'string') return '';
+            const root = options?.data?.root || {};
+            const lang = root.lang || root.locale || 'fr';
+            let val = lang === 'en' ? getNestedValue(enDict, key) : getNestedValue(frDict, key);
+            if (val === undefined && lang === 'en') {
+                console.warn(`[i18n] Missing translation for "${key}" in en, falling back to fr`);
+                val = getNestedValue(frDict, key);
+            }
+            if (val === undefined) {
+                console.warn(`[i18n] Missing translation for key "${key}"`);
+                return new Handlebars.SafeString(key);
+            }
+            if (typeof val === 'string' && options?.hash) {
+                let strVal = val;
+                for (const [k, v] of Object.entries(options.hash)) {
+                    strVal = strVal.replace(new RegExp(`{{${k}}}`, 'g'), String(v ?? ''));
+                }
+                return new Handlebars.SafeString(strVal);
+            }
+            return new Handlebars.SafeString(val);
+        });
 
         Handlebars.registerHelper('eq', (a: any, b: any) => a === b);
         Handlebars.registerHelper('neq', (a: any, b: any) => a !== b);
@@ -133,14 +223,17 @@ export class OnefopPuppeteerService {
         // Vocational Training (vocationalTraining.hbs) — its own paper-form
         // replica widgets (digit boxes, Oui/Non circles, tickboxes), styled
         // via that template's own .yesno/.checkbox/.digit-boxes CSS classes.
-        // Not used by any of the other six templates.
-        Handlebars.registerHelper('yesno', (value: any) => {
+        Handlebars.registerHelper('yesno', function (value: any, options: any) {
             const isYes = value === true;
             const isNo = value === false;
+            const root = options?.data?.root || {};
+            const lang = root.lang || root.locale || 'fr';
+            const yesLabel = lang === 'en' ? 'Yes' : 'Oui';
+            const noLabel = lang === 'en' ? 'No' : 'Non';
             return new Handlebars.SafeString(
                 `<span class="yesno">` +
-                `<span class="opt"><span class="circle${isYes ? ' checked' : ''}"></span>Oui / Yes</span>` +
-                `<span class="opt"><span class="circle${isNo ? ' checked' : ''}"></span>Non / No</span>` +
+                `<span class="opt"><span class="circle${isYes ? ' checked' : ''}"></span>${yesLabel}</span>` +
+                `<span class="opt"><span class="circle${isNo ? ' checked' : ''}"></span>${noLabel}</span>` +
                 `</span>`
             );
         });
@@ -155,6 +248,22 @@ export class OnefopPuppeteerService {
             let html = '<span class="digit-boxes">';
             for (let i = 0; i < n; i++) {
                 html += `<span class="box">${digits.charAt(i) || ''}</span>`;
+            }
+            html += '</span>';
+            return new Handlebars.SafeString(html);
+        });
+
+        Handlebars.registerHelper('phoneBoxes', (value: any, length: any) => {
+            const n = typeof length === 'number' ? length : 9;
+            let digits = (value === null || value === undefined ? '' : String(value)).replace(/\D/g, '');
+            if (digits.length === n + 3 && digits.startsWith('237')) {
+                digits = digits.slice(3);
+            } else if (digits.length === n + 5 && digits.startsWith('00237')) {
+                digits = digits.slice(5);
+            }
+            let html = `<span class="ph-box" data-val="${digits}">`;
+            for (let i = 0; i < n; i++) {
+                html += `<span class="pd">${digits.charAt(i) || ''}</span>`;
             }
             html += '</span>';
             return new Handlebars.SafeString(html);
@@ -187,21 +296,21 @@ export class OnefopPuppeteerService {
     // retries exactly once, scoped to only the render that itself triggered
     // a fresh launch (a healthy, already-warm browser never retries), which
     // matches the confirmed failure window precisely.
-    private async htmlToPdf(html: string, formType?: string): Promise<Buffer> {
+    private async htmlToPdf(html: string, formType?: string, locale?: string): Promise<Buffer> {
         const wasFreshLaunch = !this.browser || !this.browser.isConnected();
         try {
-            return await this.renderPdf(html, formType);
+            return await this.renderPdf(html, formType, locale);
         } catch (error) {
             if (!wasFreshLaunch) throw error;
             console.warn(
                 '⚠️ PDF render failed on a freshly-launched browser, retrying once:',
                 (error as Error).message,
             );
-            return this.renderPdf(html, formType);
+            return this.renderPdf(html, formType, locale);
         }
     }
 
-    private async renderPdf(html: string, formType?: string): Promise<Buffer> {
+    private async renderPdf(html: string, formType?: string, locale?: string): Promise<Buffer> {
         let page: any;
         try {
             if (!this.browser || !this.browser.isConnected()) {
@@ -226,28 +335,35 @@ export class OnefopPuppeteerService {
             // formType rather than added to all seven templates, since the
             // other six haven't been checked against their own source PDFs
             // for this and shouldn't change behavior as a side effect of
-            // the VT work.
-            const isVocationalTraining = formType === 'VOCATIONAL_TRAINING';
+            // the VT work. See isVocationalTrainingFormType above for why
+            // this is a function call rather than an inline comparison
+            // (VT-6 Finding 2 — the old inline check never matched the
+            // real dispatch value).
+            const isVocationalTraining = isVocationalTrainingFormType(formType);
+            const isEnglish = locale === 'en';
+            const footerBanner = isEnglish
+                ? 'Official ONEFOP Form &middot; Document generated via the CAM-LEAP platform'
+                : 'Formulaire officiel ONEFOP &middot; Document g&eacute;n&eacute;r&eacute; via la plateforme CAM-LEAP';
+            const pageText = isEnglish
+                ? 'Page <span class="pageNumber"></span> of <span class="totalPages"></span>'
+                : `Page <span class="pageNumber"></span> ${isVocationalTraining ? 'sur' : '/'} <span class="totalPages"></span>`;
 
             const pdf = await page.pdf({
                 format: 'A4',
                 printBackground: true,
                 margin: {
                     top: '15mm',
-                    bottom: isVocationalTraining ? '18mm' : '15mm',
+                    bottom: isVocationalTraining ? '18mm' : '16mm',
                     left: '15mm',
                     right: '15mm',
                 },
-                ...(isVocationalTraining
-                    ? {
-                        displayHeaderFooter: true,
-                        headerTemplate: '<span></span>',
-                        footerTemplate:
-                            '<div style="width:100%;font-size:8px;text-align:center;color:#000;">' +
-                            'Page <span class="pageNumber"></span> sur <span class="totalPages"></span>' +
-                            '</div>',
-                    }
-                    : {}),
+                displayHeaderFooter: true,
+                headerTemplate: '<span></span>',
+                footerTemplate:
+                    '<div style="width:100%;font-size:7pt;color:#555;font-family:\'Arial Narrow\',Arial,sans-serif;display:flex;justify-content:space-between;padding:0 15mm;box-sizing:border-box;">' +
+                    `<span>${footerBanner}</span>` +
+                    `<span>${pageText}</span>` +
+                    '</div>',
             });
 
             await page.close();
@@ -276,7 +392,7 @@ export class OnefopPuppeteerService {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--single-process',
+                ...(process.platform !== 'win32' ? ['--single-process'] : []),
                 '--no-zygote',
             ],
         });

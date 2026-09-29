@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../i18n/l10n_ext.dart';
 import '../../schema/field_schema.dart';
 import '../../schema/grid_schema.dart';
 import '../../unified_focus_manager_v2.dart';
@@ -190,13 +191,13 @@ class _IdentificationTableState extends State<IdentificationTable> {
             _buildHeaderCell(
               left: 0,
               width: _labelColWidth,
-              label: 'Champ',
+              label: context.l10n.pdfFieldHeader,
               addLeftBorder: true,
             ),
             _buildHeaderCell(
               left: _labelColWidth,
               width: _inputColWidth,
-              label: 'Valeur',
+              label: context.l10n.pdfValueHeader,
               addLeftBorder: false,
             ),
             for (int i = 0; i < widget.childFields.length; i++) ...[
@@ -518,9 +519,9 @@ class _IdentificationTableState extends State<IdentificationTable> {
       case 'number':
         return '0';
       case 'select':
-        return 'Choisir...';
+        return context.l10n.identificationTableSelectHint;
       default:
-        return field.hint?.fr ?? 'Saisir...';
+        return field.hint?.fr ?? context.l10n.identificationTableTextInputHint;
     }
   }
 }

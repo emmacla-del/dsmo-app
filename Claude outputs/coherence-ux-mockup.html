@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coherence warnings — UX mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f4; --text:#0f172a; --muted:#4a5a50; --border:#475569; --grid:#64748b;
+    --green:#1e6b3a; --success-bg:#eaf3ec; --line:#d8ddd3;
+    --amber:#b7791f; --amber-dark:#7a4f0e; --amber-bg:#fdf6e8; --amber-cell:#fde9c4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px}
+  .bar{position:sticky;top:0;z-index:50;background:#0b1f14;color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid #3b5a47;border-radius:6px;overflow:hidden}
+  .seg button{background:transparent;color:#cfe3d6;border:0;padding:6px 12px;font:inherit;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:#fff;color:#0b1f14;font-weight:700}
+  .hint{color:#cfe3d6;font-size:12px}
+  .layout{display:flex;gap:20px;max-width:1360px;margin:0 auto;padding:20px 16px 80px}
+  aside{width:230px;flex:none}
+  main{flex:1;min-width:0}
+  .side{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}
+  .side h4{margin:4px 6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .nav{display:flex;align-items:center;gap:8px;padding:8px;border-radius:6px;font-size:13px;color:var(--text)}
+  .nav.cur{background:var(--success-bg);font-weight:600}
+  .nav .d{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--amber)}
+  .nav .ok{margin-left:auto;color:var(--green);font-weight:700;font-size:12px}
+  .nav.sub{padding-left:22px;font-size:12px;color:var(--muted)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:24px;margin-bottom:24px;max-width:1075px}
+  .row{display:flex;gap:16px;align-items:flex-start;margin-bottom:24px}
+  .row > .card{flex:1 1 auto;min-width:0;margin-bottom:0}
+  .row > .sidenote{flex:0 0 260px;position:sticky;top:70px}
+  .sidenote .warn{margin:0;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(20,30,20,.06)}
+  .sidenote .warn .head{display:flex;gap:8px;align-items:flex-start}
+  .sidenote .acts{flex-direction:column;align-items:stretch}
+  .sidenote .btn{text-align:left;width:100%}
+  .narrow .sidenote .btn{width:auto}
+  .sidenote .link{text-align:left;padding-left:0}
+  .connector{position:absolute;left:-17px;top:22px;width:16px;border-top:2px dashed #e3c27a}
+  .sidenote{position:relative}
+  .narrow .row{flex-direction:column}
+  .narrow .row > .sidenote{flex:none;width:100%;position:static;order:-1}
+  .narrow .connector{display:none}
+  .narrow .sidenote .acts{flex-direction:row;align-items:center}
+  .narrow .layout{max-width:900px}
+  .qt{font-family:Georgia,serif;font-size:18px;margin:0 0 14px}
+  /* warning card */
+  .warn{border:1px solid #ecd49a;border-left:4px solid var(--amber);background:var(--amber-bg);border-radius:6px;padding:12px 14px;margin:0 0 14px;display:flex;gap:10px}
+  .warn .ic{flex:none;width:20px;height:20px;border-radius:50%;background:var(--amber);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .warn h3{margin:0 0 4px;font-size:14px;color:var(--amber-dark)}
+  .warn p{margin:0 0 4px;line-height:1.5}
+  .warn .why{color:var(--muted);font-size:13px}
+  .warn .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .btn{font:600 13px "IBM Plex Sans",sans-serif;padding:6px 12px;border-radius:4px;border:1px solid var(--amber);background:#fff;color:var(--amber-dark);cursor:pointer}
+  .btn:hover{background:#fff4dc}
+  .link{font:600 13px "IBM Plex Sans",sans-serif;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:6px 4px}
+  .warn.done{border-left-color:var(--green);background:#f3f8f4;border-color:#cfe3d4}
+  .warn.done .ic{background:var(--green)}
+  .warn.done h3{color:var(--green)}
+  /* table */
+  .frame{border:1.5px solid var(--border);border-radius:4px;overflow:hidden;background:#fff}
+  table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+  th,td{border-right:1.5px solid var(--grid);border-bottom:1.5px solid var(--grid);height:36px}
+  th:last-child,td:last-child{border-right:0}
+  thead th{font-weight:700;font-size:13px;padding:6px 8px}
+  thead tr.sub th{font-weight:600;font-size:12px;color:#334155;text-align:right}
+  th.rowh{text-align:left;padding:6px 12px;font-weight:600}
+  td{padding:0 8px;text-align:right;font:600 13px "IBM Plex Mono",monospace}
+  td.calc{background:var(--success-bg);color:var(--green);font-weight:700}
+  tr.total th,tr.total td{background:var(--success-bg);color:var(--green);font-weight:700;border-top:2px solid var(--border)}
+  td.flag{box-shadow:inset 0 0 0 2px var(--amber);background:var(--amber-cell)!important;color:var(--amber-dark)!important;position:relative}
+  td.flag::after{content:"!";position:absolute;top:2px;left:4px;font-size:10px;color:var(--amber)}
+  .pulse{animation:p 1.2s ease 2}
+  @keyframes p{50%{box-shadow:0 0 0 4px rgba(183,121,31,.35)}}
+  /* tooltip variant */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--amber-dark);background:var(--amber-bg);border:1px solid #ecd49a;border-radius:999px;padding:3px 10px;margin:0 0 12px;cursor:pointer}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--amber)}
+  td.anom{position:relative;background:var(--amber-cell)!important;color:var(--amber-dark)!important;box-shadow:inset 0 0 0 2px var(--amber);cursor:help}
+  td.anom:focus{outline:3px solid var(--amber);outline-offset:-3px}
+  td.anom .tri{position:absolute;top:0;left:0;width:0;height:0;border-top:10px solid var(--amber);border-right:10px solid transparent}
+  .tip{position:absolute;z-index:40;width:300px;background:#fff;border:1px solid #ecd49a;border-top:4px solid var(--amber);border-radius:6px;box-shadow:0 8px 24px rgba(20,30,20,.18);padding:12px 14px;font:400 13px "IBM Plex Sans",sans-serif;color:var(--text);text-align:left;display:none}
+  .tip.open{display:block}
+  .tip h3{margin:0 0 4px;font-size:13px;color:var(--amber-dark)}
+  .tip p{margin:0 0 6px;line-height:1.45}
+  .tip .why{color:var(--muted);font-size:12px}
+  .tip .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .tip .btn{padding:4px 10px;font-size:12px}
+  .tip::before{content:"";position:absolute;top:-10px;left:24px;border:6px solid transparent;border-bottom-color:var(--amber)}
+  /* validation list */
+  .vlist{list-style:none;margin:0;padding:0}
+  .vlist li{border-bottom:1px solid var(--line);padding:10px 0;display:flex;gap:10px;align-items:flex-start}
+  .vlist li:last-child{border:0}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--amber-bg);color:var(--amber-dark);border:1px solid #ecd49a;white-space:nowrap}
+  .stage{display:none}.stage.on{display:block}
+  .note{font-size:12px;color:var(--muted);margin:-8px 0 20px}
+  .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px}
+  @media (max-width:800px){aside{display:none}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>Aperçu</b>
+  <div class="seg" role="group">
+    <button type="button" data-s="s1" aria-pressed="true">1 · Sur le tableau</button>
+    <button type="button" data-s="s3" aria-pressed="false">1b · Infobulle sur la cellule</button>
+    <button type="button" data-s="s2" aria-pressed="false">2 · Étape de validation</button>
+  </div>
+  <div class="seg" role="group">
+    <button type="button" data-w="wide" aria-pressed="true">Grand écran</button>
+    <button type="button" data-w="narrow" aria-pressed="false">Écran étroit</button>
+  </div>
+  <div class="seg" role="group">
+    <button type="button" data-l="fr" aria-pressed="true">FR</button>
+    <button type="button" data-l="en" aria-pressed="false">EN</button>
+  </div>
+  <span class="hint">Cliquez sur les boutons de l'alerte : ils ouvrent le tableau concerné et mettent la cellule en évidence.</span>
+</div>
+
+<div class="layout">
+  <aside>
+    <div class="side">
+      <h4 data-t="sections">Sections</h4>
+      <div class="nav"><span data-t="sec1">1. Identification</span><span class="ok">✓</span></div>
+      <div class="nav cur"><span data-t="sec2">2. Recrutements</span><span class="d" title="1 point à vérifier"></span></div>
+      <div class="nav sub"><span data-t="t2201">Recrutements permanents</span></div>
+      <div class="nav sub"><span data-t="t2205">Personnes vulnérables</span><span class="d"></span></div>
+      <div class="nav"><span data-t="sec3">3. Départs</span></div>
+      <div class="nav"><span data-t="val">Validation</span><span class="d"></span></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- STAGE 1: inline on the table -->
+    <div class="stage on" id="s1">
+      <p class="note" data-t="note1">L'alerte s'affiche à droite de la carte du tableau concerné (au-dessus du tableau sur écran étroit), dans la langue choisie, sans codes techniques.</p>
+
+      <div class="row">
+      <div class="card" id="card2205">
+        <p class="qt" data-t="q2205">Recrutements de personnes vulnérables selon le statut et le sexe</p>
+        <div class="frame"><table>
+          <colgroup><col style="width:170px"><col><col><col><col><col><col></colgroup>
+          <thead>
+            <tr><th class="rowh" rowspan="2" data-t="cat">Catégorie</th><th colspan="3" data-t="perm">Permanent</th><th colspan="3" data-t="tot">Total</th></tr>
+            <tr class="sub"><th data-t="h">Homme</th><th data-t="f">Femme</th><th>Total</th><th data-t="h">Homme</th><th data-t="f">Femme</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="rowh" data-t="vuln1">Personnes handicapées</th><td>0</td><td id="c2205" class="flag">1</td><td class="calc">1</td><td class="calc">0</td><td class="calc">1</td><td class="calc">1</td></tr>
+            <tr><th class="rowh" data-t="vuln2">Autres vulnérables</th><td>0</td><td>0</td><td class="calc">0</td><td class="calc">0</td><td class="calc">0</td><td class="calc">0</td></tr>
+            <tr class="total"><th class="rowh" data-t="gt">TOTAL GÉNÉRAL</th><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+        <div class="sidenote"><span class="connector"></span>
+        <div class="warn" id="w1">
+          <div class="head"><div class="ic">!</div><h3 data-t="wt">Vérifiez les recrutements de femmes</h3></div>
+          <p data-t="wb">Vous avez indiqué <b>1 femme</b> recrutée parmi les personnes vulnérables (poste permanent), mais <b>0 femme</b> dans le total des recrutements permanents.</p>
+          <p class="why" data-t="ww">Les personnes vulnérables font partie de ce total : l'un des deux chiffres est probablement à corriger.</p>
+          <div class="acts">
+            <button class="btn" data-go="c2205" data-t="b2">Voir cette cellule</button>
+            <button class="btn" data-go="c2201" data-t="b1">Voir les recrutements permanents</button>
+            <button class="link" data-ok="w1" data-t="b3">C'est correct</button>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="card" id="card2201">
+        <p class="qt" data-t="q2201">Recrutements permanents par catégorie et par sexe</p>
+        <div class="frame"><table>
+          <colgroup><col style="width:170px"><col><col><col></colgroup>
+          <thead><tr class="sub"><th class="rowh" style="text-align:left" data-t="cat">Catégorie</th><th data-t="h">Homme</th><th data-t="f">Femme</th><th>Total</th></tr></thead>
+          <tbody>
+            <tr><th class="rowh">Cadres</th><td>2</td><td id="c2201" class="flag">0</td><td class="calc">2</td></tr>
+            <tr><th class="rowh" data-t="am">Agents de maîtrise</th><td>1</td><td>0</td><td class="calc">1</td></tr>
+            <tr class="total"><th class="rowh" data-t="gt">TOTAL GÉNÉRAL</th><td>3</td><td>0</td><td>3</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- STAGE 1b: tooltip on the cell -->
+    <div class="stage" id="s3">
+      <p class="note" data-t="note3">Variante compacte : la cellule en anomalie est marquée ; survolez-la (ou cliquez / touchez, ou Tab + Entrée au clavier) pour afficher le message.</p>
+      <div class="card">
+        <p class="qt" data-t="q2205">Recrutements de personnes vulnérables selon le statut et le sexe</p>
+        <button class="chip" data-t="chip" data-tipfor="a1"><span class="dot"></span>1 anomalie à vérifier</button>
+        <div class="frame" style="overflow:visible"><table>
+          <colgroup><col style="width:170px"><col><col><col><col><col><col></colgroup>
+          <thead>
+            <tr><th class="rowh" rowspan="2" data-t="cat">Catégorie</th><th colspan="3" data-t="perm">Permanent</th><th colspan="3" data-t="tot">Total</th></tr>
+            <tr class="sub"><th data-t="h">Homme</th><th data-t="f">Femme</th><th>Total</th><th data-t="h">Homme</th><th data-t="f">Femme</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="rowh" data-t="vuln1">Personnes handicapées</th><td>0</td><td class="anom" id="a1" tabindex="0" aria-describedby="tip1"><span class="tri"></span>1</td><td class="calc">1</td><td class="calc">0</td><td class="calc">1</td><td class="calc">1</td></tr>
+            <tr><th class="rowh" data-t="vuln2">Autres vulnérables</th><td>0</td><td>0</td><td class="calc">0</td><td class="calc">0</td><td class="calc">0</td><td class="calc">0</td></tr>
+            <tr class="total"><th class="rowh" data-t="gt">TOTAL GÉNÉRAL</th><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="tip" id="tip1" role="tooltip">
+        <h3 data-t="wt">Vérifiez les recrutements de femmes</h3>
+        <p data-t="wb">Vous avez indiqué <b>1 femme</b> recrutée parmi les personnes vulnérables (poste permanent), mais <b>0 femme</b> dans le total des recrutements permanents.</p>
+        <p class="why" data-t="ww">Les personnes vulnérables font partie de ce total : l'un des deux chiffres est probablement à corriger.</p>
+        <div class="acts"><button class="btn" data-t="b1">Voir les recrutements permanents</button><button class="link" data-t="b3" data-tipok="1">C'est correct</button></div>
+      </div>
+    </div>
+
+    <!-- STAGE 2: validation step -->
+    <div class="stage" id="s2">
+      <p class="note" data-t="note2">Au moment de valider, les points à vérifier sont regroupés — sans bloquer l'envoi.</p>
+      <div class="card">
+        <p class="label" data-t="vhead">Avant d'envoyer</p>
+        <p class="qt" style="margin-bottom:6px" data-t="vtitle">2 points à vérifier</p>
+        <p class="why" style="margin:0 0 12px;color:var(--muted)" data-t="vsub">Ce ne sont pas des erreurs bloquantes. Corrigez-les si besoin, ou confirmez que les chiffres sont justes.</p>
+        <ul class="vlist">
+          <li><span class="pill" data-t="p1">Recrutements</span><div style="flex:1"><b data-t="wt">Vérifiez les recrutements de femmes</b><br><span data-t="short1">1 femme vulnérable recrutée (permanent), mais 0 femme dans le total des recrutements permanents.</span></div><button class="btn" data-back="1" data-t="fix">Corriger</button><button class="link" data-t="b3">C'est correct</button></li>
+          <li><span class="pill" data-t="p2">Départs</span><div style="flex:1"><b data-t="w2t">Vérifiez les départs d'agents d'exécution</b><br><span data-t="short2">5 départs par licenciement, mais seulement 3 départs au total pour cette catégorie.</span></div><button class="btn" data-back="1" data-t="fix">Corriger</button><button class="link" data-t="b3">C'est correct</button></li>
+        </ul>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const T={en:{
+  note3:"Compact variant: the anomalous cell is marked; hover it (or click / tap, or Tab + Enter on the keyboard) to show the message.",
+  chip:"<span class=\"dot\"></span>1 anomaly to check",
+  sections:"Sections",sec1:"1. Identification",sec2:"2. Recruitment",t2201:"Permanent recruitment",t2205:"Vulnerable people",sec3:"3. Departures",val:"Review",
+  note1:"The alert sits to the right of the table card it concerns (above the table on narrow screens), in the chosen language, with no technical codes.",
+  q2205:"Recruitment of vulnerable people by status and sex",
+  wt:"Check the recruitment of women",
+  wb:"You entered <b>1 woman</b> recruited among vulnerable people (permanent post), but <b>0 women</b> in total permanent recruitment.",
+  ww:"Vulnerable people are part of that total, so one of the two figures probably needs correcting.",
+  b1:"See permanent recruitment",b2:"See this cell",b3:"This is correct",
+  cat:"Category",perm:"Permanent",tot:"Total",h:"Male",f:"Female",vuln1:"People with disabilities",vuln2:"Other vulnerable",gt:"GRAND TOTAL",
+  q2201:"Permanent recruitment by category and sex",am:"Supervisors",
+  note2:"At the review step, points to check are grouped together — they never block submission.",
+  vhead:"Before you submit",vtitle:"2 points to check",vsub:"These are not blocking errors. Correct them if needed, or confirm the figures are right.",
+  p1:"Recruitment",p2:"Departures",short1:"1 vulnerable woman recruited (permanent), but 0 women in total permanent recruitment.",
+  w2t:"Check departures of workers",short2:"5 departures by dismissal, but only 3 departures in total for this category.",fix:"Correct",
+  okT:"Marked as correct",okB:"You confirmed these figures. The point stays listed at the review step so it can be reviewed."
+},fr:{}};
+document.querySelectorAll("[data-t]").forEach(e=>T.fr[e.dataset.t]=e.innerHTML);
+T.fr.okT="Marqué comme correct";T.fr.okB="Vous avez confirmé ces chiffres. Le point reste listé à l'étape de validation pour relecture.";
+let lang="fr";
+function setLang(l){lang=l;document.querySelectorAll("[data-t]").forEach(e=>{const v=T[l][e.dataset.t];if(v!==undefined)e.innerHTML=v});
+  document.querySelectorAll("[data-l]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===l));}
+document.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>setLang(b.dataset.l));
+function stage(s){document.querySelectorAll(".stage").forEach(x=>x.classList.toggle("on",x.id===s));
+  document.querySelectorAll("[data-s]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.s===s));}
+document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>stage(b.dataset.s));
+document.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{document.body.classList.toggle("narrow",b.dataset.w==="narrow");document.querySelectorAll("[data-w]").forEach(x=>x.setAttribute("aria-pressed",x===b));});
+document.addEventListener("click",e=>{
+  const g=e.target.closest("[data-go]");if(g){const c=document.getElementById(g.dataset.go);c.scrollIntoView({behavior:"smooth",block:"center"});c.classList.remove("pulse");void c.offsetWidth;c.classList.add("pulse");}
+  const o=e.target.closest("[data-ok]");if(o){const w=document.getElementById(o.dataset.ok);w.classList.add("done");w.querySelector(".ic").textContent="✓";
+    w.querySelector("h3").textContent=T[lang].okT;w.querySelector("p").textContent=T[lang].okB;w.querySelector(".why").remove();w.querySelector(".acts").remove();
+    document.querySelectorAll("td.flag").forEach(c=>c.classList.remove("flag"));}
+  const bk=e.target.closest("[data-back]");if(bk){stage("s1");setTimeout(()=>document.querySelector('[data-go="c2205"]')?.click(),50);}
+});
+
+// tooltip behaviour: opens on hover/focus/click, stays open while pointer is over cell or tip
+(function(){
+  const cell=document.getElementById("a1"), tip=document.getElementById("tip1"); let pinned=false, t;
+  function place(){const r=cell.getBoundingClientRect();tip.style.left=(window.scrollX+r.left-12)+"px";tip.style.top=(window.scrollY+r.bottom+10)+"px";}
+  function open(){clearTimeout(t);place();tip.classList.add("open");}
+  function close(){if(pinned)return;t=setTimeout(()=>tip.classList.remove("open"),200);}
+  cell.addEventListener("mouseenter",open);cell.addEventListener("mouseleave",close);
+  tip.addEventListener("mouseenter",()=>clearTimeout(t));tip.addEventListener("mouseleave",close);
+  cell.addEventListener("focus",open);cell.addEventListener("blur",()=>setTimeout(()=>{if(!tip.contains(document.activeElement))close()},50));
+  cell.addEventListener("click",()=>{pinned=!pinned;pinned?open():(tip.classList.remove("open"))});
+  cell.addEventListener("keydown",e=>{if(e.key==="Enter"){pinned=true;open();tip.querySelector("button").focus();}if(e.key==="Escape"){pinned=false;tip.classList.remove("open");}});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){pinned=false;tip.classList.remove("open");}});
+  document.querySelector("[data-tipfor]").addEventListener("click",()=>{cell.scrollIntoView({block:"center"});pinned=true;open();});
+  tip.querySelector("[data-tipok]").addEventListener("click",()=>{pinned=false;tip.classList.remove("open");cell.classList.remove("anom");cell.removeAttribute("tabindex");cell.querySelector(".tri")?.remove();document.querySelector("[data-tipfor]").style.display="none";});
+  document.addEventListener("click",e=>{if(pinned&&!tip.contains(e.target)&&e.target!==cell&&!e.target.closest("[data-tipfor]")){pinned=false;tip.classList.remove("open");}});
+})();
+</script>
+</body>
+</html>

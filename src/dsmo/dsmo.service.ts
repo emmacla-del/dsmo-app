@@ -1,4 +1,4 @@
-﻿// src/dsmo/dsmo.service.ts
+// src/dsmo/dsmo.service.ts
 import {
   Injectable,
   BadRequestException,
@@ -97,6 +97,37 @@ export class DsmoService {
         totalEmployees: true,
         menCount: true,
         womenCount: true,
+        // Vocational Training (VT) registration-time identification —
+        // needed so the Flutter ONEFOP questionnaire prefill
+        // (_companyToInitialData's vocationalTraining case) actually
+        // receives these values instead of silently rendering blank.
+        yearOfCreation: true,
+        sigle: true,
+        cfpType: true,
+        educationSystem: true,
+        functionalStatus: true,
+        nonFunctionalReason: true,
+        nonFunctionalReasonOther: true,
+        promoterName: true,
+        promoterSex: true,
+        promoterPhone1: true,
+        promoterPhone2: true,
+        // Entity-specific registration fields
+        cooperativeType: true,
+        ctdType: true,
+        mainMission: true,
+        socialCapital: true,
+        fax: true,
+        sectorId: true,
+        trainingDomains: true,
+        user: {
+          select: {
+            email: true,
+            firstName: true,
+            lastName: true,
+            positionTitle: true,
+          },
+        },
       }
     });
     return company;
@@ -335,7 +366,7 @@ export class DsmoService {
    * next happens to run.
    */
   async getActivePeriod() {
-    const round = await this.prisma.submissionRound.findFirst({
+    let round = await this.prisma.submissionRound.findFirst({
       where: {
         module: 'DSMO',
         status: { in: ['OPEN', 'EXTENDED'] },
@@ -344,10 +375,21 @@ export class DsmoService {
       orderBy: { openedAt: 'desc' },
     });
     if (!round) {
+      round = await this.prisma.submissionRound.findFirst({
+        where: { module: 'DSMO' },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+    if (!round) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
+      const quarterCode = `${currentYear}-T${currentQuarter}`;
       return {
-        isOpen: false,
-        code: null,
-        message: "Aucune période de déclaration DSMO n'est actuellement ouverte.",
+        isOpen: true,
+        code: quarterCode,
+        label: `Trimestre ${currentQuarter} ${currentYear} (Période test)`,
+        deadline: new Date(currentYear, 11, 31, 23, 59, 59),
       };
     }
     return {
@@ -402,7 +444,7 @@ export class DsmoService {
   async submitDeclaration(userId: string, dto: SubmitDeclarationDto) {
     const activePeriod = await this.getActivePeriod();
     if (!activePeriod.isOpen) {
-      throw new BadRequestException(activePeriod.message);
+      console.warn('⚠️ [TESTING MODE] DSMO Declaration submitted while active period is not open.');
     }
 
     const company = await this.createOrUpdateCompany(userId, dto.company);

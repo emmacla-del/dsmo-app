@@ -75,6 +75,13 @@ class MobileCardTable extends StatelessWidget {
   // _colFilled/_optionFilled/_statusFor tell "confirmed zero" apart from
   // "untouched" instead of treating both as empty via numberValues != 0.
   final Map<String, int>? enteredValues;
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only (see
+  // table_renderer.dart's own `polished` doc comment, and grid_theme.dart's
+  // `polished*` tokens) — swaps this widget's own card chrome/typography
+  // and the grid cells it builds via buildGridCellWidget for the
+  // Wizard-matched look. Real mobile users of every other entity, and
+  // Spreadsheet Mode entirely, never set this.
+  final bool polished;
 
   const MobileCardTable({
     super.key,
@@ -92,6 +99,7 @@ class MobileCardTable extends StatelessWidget {
     this.isCategorySkipped,
     this.onCategorySkipChanged,
     this.enteredValues,
+    this.polished = false,
   });
 
   // Same flattened editable-cell list GenericSpreadsheetTable exposes,
@@ -218,8 +226,8 @@ class MobileCardTable extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
             child: Text(label,
-                style: GridTheme.headerStyle.copyWith(
-                    color: AppColors.deepEmerald, fontSize: 14)),
+                style: (polished ? GridTheme.polishedHeaderStyle : GridTheme.headerStyle)
+                    .copyWith(color: AppColors.deepEmerald, fontSize: 14)),
           ),
           ...rows,
         ],
@@ -271,9 +279,11 @@ class MobileCardTable extends StatelessWidget {
               hybridController: hybridController,
               width: double.infinity,
               height: 48,
+              polished: polished,
             ),
           )
-        : Text(rowLabel, style: GridTheme.headerStyle);
+        : Text(rowLabel,
+            style: polished ? GridTheme.polishedHeaderStyle : GridTheme.headerStyle);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -281,7 +291,7 @@ class MobileCardTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
         borderRadius: squareCorners ? BorderRadius.zero : BorderRadius.circular(12),
-        border: Border.all(color: GridTheme.borderColor),
+        border: Border.all(color: polished ? GridTheme.polishedBorder : GridTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,12 +330,13 @@ class MobileCardTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: GridTheme.totalBg,
         borderRadius: squareCorners ? BorderRadius.zero : BorderRadius.circular(12),
-        border: Border.all(color: GridTheme.borderColor),
+        border: Border.all(color: polished ? GridTheme.polishedBorder : GridTheme.borderColor),
       ),
       child: Row(
         children: [
           Text(const LocalizedText(fr: 'Total général', en: 'Grand total').of(locale),
-              style: GridTheme.headerStyle.copyWith(fontSize: 13)),
+              style: (polished ? GridTheme.polishedHeaderStyle : GridTheme.headerStyle)
+                  .copyWith(fontSize: 13)),
           const Spacer(),
           for (int c = 0; c < valueCols; c++) ...[
             if (c > 0) const SizedBox(width: 20),
@@ -345,7 +356,8 @@ class MobileCardTable extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(fontSize: 11, color: AppColors.slate)),
           Text(value == 0 ? '—' : '$value',
-              style: GridTheme.totalStyle.copyWith(fontSize: 16)),
+              style: (polished ? GridTheme.polishedTotalStyle : GridTheme.totalStyle)
+                  .copyWith(fontSize: 16)),
         ],
       );
 
@@ -376,6 +388,7 @@ class MobileCardTable extends StatelessWidget {
       hybridController: hybridController,
       width: double.infinity,
       height: 48,
+      polished: polished,
     );
 
     // Keyed by cellId: _CollapsibleLabelRowsState's field-level reveal
@@ -396,7 +409,8 @@ class MobileCardTable extends StatelessWidget {
         children: [
           Expanded(
             flex: 5,
-            child: Text(label, style: GridTheme.labelStyle),
+            child: Text(label,
+                style: polished ? GridTheme.polishedLabelStyle : GridTheme.labelStyle),
           ),
           const SizedBox(width: 10),
           Expanded(flex: 4, child: _inputBox(cellWidget)),
@@ -411,7 +425,7 @@ class MobileCardTable extends StatelessWidget {
   Widget _inputBox(Widget child) => Container(
         decoration: BoxDecoration(
           color: GridTheme.inputBg,
-          border: Border.all(color: GridTheme.borderColor),
+          border: Border.all(color: polished ? GridTheme.polishedBorder : GridTheme.borderColor),
           borderRadius: squareCorners ? BorderRadius.zero : BorderRadius.circular(8),
         ),
         child: SizedBox(
@@ -749,7 +763,10 @@ class _CollapsibleLabelRowsState extends State<_CollapsibleLabelRows> {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: OL.tableRowEven,
-        border: Border.all(color: expanded ? GridTheme.borderColor : OL.borderColor),
+        border: Border.all(
+            color: expanded
+                ? (_t.polished ? GridTheme.polishedBorder : GridTheme.borderColor)
+                : OL.borderColor),
         borderRadius: _t.squareCorners ? BorderRadius.zero : BorderRadius.circular(10),
       ),
       clipBehavior: Clip.antiAlias,
@@ -778,7 +795,10 @@ class _CollapsibleLabelRowsState extends State<_CollapsibleLabelRows> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_spec.rowLabels[r], style: GridTheme.headerStyle),
+                        Text(_spec.rowLabels[r],
+                            style: _t.polished
+                                ? GridTheme.polishedHeaderStyle
+                                : GridTheme.headerStyle),
                         const SizedBox(height: 2),
                         Text(subtitle,
                             maxLines: 1,
@@ -842,6 +862,7 @@ class _CollapsibleLabelRowsState extends State<_CollapsibleLabelRows> {
                           hybridController: _t.hybridController,
                           width: double.infinity,
                           height: 48,
+                          polished: _t.polished,
                         ),
                       ),
                     if (editableLabel) const SizedBox(height: 10),

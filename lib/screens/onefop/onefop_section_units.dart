@@ -19,8 +19,10 @@ import 'package:flutter/material.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/renderers/table_renderer.dart';
+import '../../core/focus/renderers/vt_routing.dart';
 import '../../core/i18n/l10n_ext.dart';
 import '../../core/i18n/localized_text.dart';
+import '../../core/focus/renderers/table_size_scope.dart';
 import '../../core/focus/utils/table_response_status.dart';
 import 'onefop_form_constants.dart';
 import 'onefop_form_controller.dart';
@@ -104,6 +106,28 @@ int currentUnitIndex(OnefopFormController ctrl, List<SectionUnit> units) {
   return idx == -1 ? units.length - 1 : idx;
 }
 
+// A simple-fields unit's nav chip used to show whichever field happened
+// to come first (e.g. "5.1.1"), even when the same unit also contained a
+// field coded "5.1.2" — live-reported as a subsection wrongly labeled by
+// one of its own items instead of the subsection itself. When every
+// field's code already agrees, or when they differ only in their
+// trailing segment (both share the same "major.minor" prefix, e.g.
+// "5.1.1"/"5.1.2" -> "5.1"), that shared subsection-level code is the
+// correct chip label. Falls back to the first code otherwise (a run
+// spanning genuinely different subsections shouldn't happen given
+// groupFields already splits on subsection changes, but this is the same
+// "just show something reasonable" fallback the old code already had).
+String? _sharedSubsectionCode(List<String> codes) {
+  if (codes.isEmpty) return null;
+  final first = codes.first;
+  if (codes.every((c) => c == first)) return first;
+  final parts = first.split('.');
+  if (parts.length < 2) return first;
+  final prefix = '${parts[0]}.${parts[1]}';
+  final shared = codes.every((c) => c == prefix || c.startsWith('$prefix.'));
+  return shared ? prefix : first;
+}
+
 /// Splits [section]'s fields (grouped by subsection via groupFields, same
 /// grouping the old all-at-once renderers used) into a sequence of units —
 /// one per table field, plus one per non-empty run of simple fields.
@@ -115,11 +139,13 @@ List<SectionUnit> buildTableGroupUnits(
   required Widget Function(List<FieldSchema> fields, int startRow) simpleFieldsBuilder,
   required bool mobile,
   bool squareCorners = false,
-  // When true, a table unit's paperCode/question-text banner is built as
-  // its own SectionUnit.header instead of being folded into content() —
-  // see TableRenderer.renderTable's showHeader. Only SimpleModeShell and
-  // the mobile layout opt in (pinning the question above its scrolling
-  // cards); ExcelSectionBody leaves this false, unchanged.
+  // When true, a table unit's paperCode/question-text banner (and, for a
+  // simple-fields unit, its subsection caption — see addSimpleUnit) is
+  // built as its own SectionUnit.header instead of being folded into
+  // content() — see TableRenderer.renderTable's showHeader. All three
+  // callers (ExcelSectionBody, SimpleModeShell, the mobile layout) opt in
+  // today, pinning the question/subsection above the scrolling content
+  // rather than letting it scroll away with it.
   bool separateHeader = false,
 }) {
   // Hybrid row-label fields (S3Q02_REASON_*_TEXT, S4Q02_DOMAIN_*_TEXT,
@@ -151,9 +177,8 @@ List<SectionUnit> buildTableGroupUnits(
       final startRow = rowNum + 1;
       rowNum += pending.length;
       final simplePaperCodes =
-          pending.map((f) => f.paperCode).whereType<String>();
-      final shortLabel =
-          simplePaperCodes.isNotEmpty ? simplePaperCodes.first : '${units.length + 1}';
+          pending.map((f) => f.paperCode).whereType<String>().toList();
+      final shortLabel = _sharedSubsectionCode(simplePaperCodes) ?? '${units.length + 1}';
       units.add(SectionUnit(
         key: '${section.id}#${units.length}#simple',
         subsectionLabel: subsectionLabel,
@@ -208,14 +233,28 @@ List<SectionUnit> buildTableGroupUnits(
         fieldIds: [f.id, ...attached.map((a) => a.id)],
         header: separateHeader ? () => TableRenderer.buildHeader(f, locale) ?? const SizedBox.shrink() : null,
         content: () => Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (statusFields.isNotEmpty) ...[
-                simpleFieldsBuilder(statusFields, startRow),
-                const SizedBox(height: 12),
+                // A fresh, never-adjusted TableSizeScope shadows the
+                // desktop Excel shell's own ambient one (see
+                // table_size_scope.dart) for just this status row —
+                // GridLayoutEngine (which this row renders through, same
+                // as the real data table below) always reads whatever
+                // TableSizeScope is nearest in the tree, so without this
+                // the status row's height scaled right along with the
+                // user's table-cell zoom, growing/shrinking the gap
+                // between the question header and the actual table
+                // instead of it staying put. This is one compact field
+                // row, not a spreadsheet the zoom control is meant for.
+                TableSizeScope(
+                  controller: TableSizeController(),
+                  child: simpleFieldsBuilder(statusFields, startRow),
+                ),
+                const SizedBox(height: 8),
               ],
               TableRenderer.renderTable(
                 field: f,
@@ -283,7 +322,18 @@ List<SectionUnit> buildTableGroupUnits(
     var i = 0;
     while (i < groupFieldsList.length) {
       final f = groupFieldsList[i];
-      if (f.type == 'table') {
+      // VT's fixed-taxonomy grids (4.1, 4.2, 4.7, 4.8, 4.9, 4.11, 5.3, 5.4,
+      // 8.1, 8.2, 8.3, 8.6) are correctly modelled as `type: 'table'` in the
+      // AST (see vt_routing.dart's file comment for why they aren't
+      // `repeatingTable`), but TableRenderer/TableSpecBuilder has no vt_*
+      // case — routing them to addTableUnit below would claim them before
+      // _buildField's own vt_ intercept (onefop_unified_form_screen_v4.dart)
+      // ever got a chance to render VtRowEditor, producing an empty grid
+      // instead. Falling through to pendingSimple/simpleFieldsBuilder here
+      // matches how VT's other 10 tables (type: 'repeatingTable', never
+      // intercepted by this branch) already reach that same intercept.
+      final isVtTable = isVtTableTemplate(f.tableSpec?['template'] as String?);
+      if (f.type == 'table' && !isVtTable) {
         addSimpleUnit(pendingSimple);
         pendingSimple = [];
         final attached = <FieldSchema>[];
@@ -297,6 +347,22 @@ List<SectionUnit> buildTableGroupUnits(
         }
         addTableUnit(f, attached);
         i = j;
+      } else if (isVtTable) {
+        // VT-UI/UX-02 P0: every VT table (both `type: table`, caught
+        // above as isVtTable, and `type: repeatingTable`, which never
+        // entered that branch at all) would otherwise fall straight into
+        // pendingSimple and merge into one giant unit together with
+        // whatever ordinary fields surround it (e.g. 8.8's roster ending
+        // up ~3250px down the same scroll as 8.1–8.7). Force a boundary
+        // explicitly instead: flush whatever ordinary fields came before
+        // this table, then this table becomes its own unit immediately —
+        // not accumulated into pendingSimple — so two adjacent VT tables
+        // (nothing else between them to flush on) still end up as two
+        // separate units, not one.
+        addSimpleUnit(pendingSimple);
+        pendingSimple = [];
+        addSimpleUnit([f]);
+        i++;
       } else {
         pendingSimple.add(f);
         i++;
@@ -498,6 +564,41 @@ void navigateToSection(
   jumpToLocation(ctrl, section, units, 0);
 }
 
+/// VT desktop sidebar's **Subsection** row resolver — same page-switch as
+/// [navigateToSection], but jumps straight to a specific unit (not always
+/// index 0) and focuses it (via [jumpToUnit], not [jumpToLocation]): the
+/// sidebar's subsection tree is a "pick exactly this question" control,
+/// same semantics the old VtSectionOutline.onJump had before the sidebar
+/// absorbed it. Deliberately a new function rather than adding an optional
+/// index to [navigateToSection] — every existing Section-click caller keeps
+/// calling that one completely unmodified.
+void navigateToSectionUnit(
+  OnefopFormController ctrl,
+  Locale locale,
+  EntityType entityType,
+  String sectionId,
+  int unitIndex,
+) {
+  final schema = ctrl.schema;
+  if (schema == null) return;
+  final pageIdx = schema.sections.indexWhere((s) => s.id == sectionId);
+  if (pageIdx < 0) return;
+  if (ctrl.currentPage != pageIdx) {
+    ctrl.goto(pageIdx, focus: false, scroll: false);
+  }
+  final section = schema.sections[pageIdx];
+  final units = buildTableGroupUnits(
+    ctrl,
+    section,
+    locale,
+    entityType: entityType,
+    simpleFieldsBuilder: (_, __) => const SizedBox.shrink(),
+    mobile: false,
+  );
+  if (units.isEmpty) return;
+  jumpToUnit(ctrl, section, units, unitIndex.clamp(0, units.length - 1));
+}
+
 /// Fade + small upward slide between units — same timing/curve this
 /// codebase's other reveal/scroll transitions already use (see
 /// OnefopFormController.scrollToField/scrollToUnit).
@@ -511,6 +612,24 @@ class UnitTransition extends StatelessWidget {
       duration: const Duration(milliseconds: 280),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
+      // Both callers (ExcelSectionBody, SimpleModeShell's _UnitBody) put
+      // this inside an Expanded feeding a SingleChildScrollView — real
+      // leftover height whenever a unit's own content is shorter than the
+      // viewport. AnimatedSwitcher's default layoutBuilder stacks the
+      // outgoing/incoming children with Alignment.center, which vertically
+      // centers a short unit (e.g. a small table right under its own
+      // question header) inside that entire leftover height — live-
+      // reported as a large, unexplained empty gap above a table that
+      // should instead start right after its header. topCenter keeps the
+      // fade/slide's own horizontal centering but anchors content to the
+      // top like every other unit body in this app already does.
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          ...previousChildren,
+          if (currentChild != null) currentChild,
+        ],
+      ),
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: SlideTransition(
@@ -588,9 +707,9 @@ class UnitNavRow extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kInkSoft,
                     side: const BorderSide(color: kBorder),
-                    minimumSize: const Size(0, 38),
+                    minimumSize: const Size(0, kOnefopFormControlHeight),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusXs)),
                   ),
                   icon: const Icon(Icons.arrow_back_rounded, size: 15),
                   label: Text(backLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -616,9 +735,9 @@ class UnitNavRow extends StatelessWidget {
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: kBorder,
                     elevation: 0,
-                    minimumSize: const Size(0, 38),
+                    minimumSize: const Size(0, kOnefopFormControlHeight),
                     padding: const EdgeInsets.symmetric(horizontal: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusXs)),
                   ),
                   icon: Icon(isSubmit ? Icons.send_rounded : Icons.arrow_forward_rounded, size: 15),
                   label: Text(nextLabel,
@@ -667,13 +786,22 @@ class UnitNavRow extends StatelessWidget {
 
 /// Compact Section → Subsection → Unit map — shown above the active
 /// table/question-group, and (full-width, active item only) inside the
-/// vertical Sidebar too — a dense document outline, not a stepper: a small
-/// muted caption per subsection followed by one scrollable line of
-/// glyph+code chips (✓ done / ● current / ○ upcoming). The section itself
-/// is already shown by the surrounding chrome (app bar / MobileContextHeader
-/// / the sidebar's own item), so this only renders the two tiers below it.
-/// Hidden entirely when there's nothing to navigate (a single-unit section
-/// like section0).
+/// vertical Sidebar too — a dense document outline, not a stepper: a
+/// muted caption per subsection, followed by one scrollable line of
+/// glyph+code chips (✓ done / ● current / ○ upcoming). This is the widget
+/// every non-VT entity uses everywhere (mobile, Simple Mode, and desktop
+/// Spreadsheet Mode) — VT itself no longer uses this widget at all:
+/// Spreadsheet Mode shows its subsections in the persistent left Sidebar
+/// instead (see _VtSidebarSectionItem/_VtSubsectionTree in
+/// onefop_form_widgets.dart), and mobile/Simple Mode use VtSectionOutline
+/// (this file) — one integrated glyph+full-text row per subsection,
+/// replacing this widget's separate caption-then-chip-row (live-reported
+/// as a "floating isolated code" once VT's own field/subsection data was
+/// complete enough to make the redundancy obvious). The section itself is
+/// already shown by the surrounding chrome (app bar /
+/// MobileContextHeader / the sidebar's own item), so this only renders
+/// the two tiers below it. Hidden entirely when there's nothing to
+/// navigate (a single-unit section like section0).
 class OnefopSectionMap extends StatelessWidget {
   final OnefopFormController ctrl;
   final List<SectionUnit> units;
@@ -684,7 +812,9 @@ class OnefopSectionMap extends StatelessWidget {
   // Subsection label tap — jumps to that run's first unit WITHOUT
   // focusing a field (jumpToLocation): the user is browsing to a
   // location, not starting to answer it yet, same distinction
-  // navigateToSection draws for a Section click.
+  // navigateToSection draws for a Section click. Only reachable for a
+  // multi-unit run — a single-unit run has no caption to tap (its own
+  // chip already jumps there).
   final void Function(int index) onJumpToLocation;
   const OnefopSectionMap({
     super.key,
@@ -726,12 +856,6 @@ class OnefopSectionMap extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // The vertical navigation's Subsection entry point: jumps
-                  // straight to this run's first unit — same jumpToLocation
-                  // primitive navigateToSection uses, just with an index
-                  // already in hand instead of resolving one by scanning
-                  // units for a label match (onJump already closes over
-                  // `units`/`section`, see its callers).
                   if (run.$1 != null)
                     InkWell(
                       onTap: () => onJumpToLocation(run.$2.first),
@@ -740,7 +864,7 @@ class OnefopSectionMap extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
                           run.$1!,
-                          style: kTableHeaderStyle.copyWith(fontSize: 10.5, color: kInk),
+                          style: kTableHeaderStyle.copyWith(fontSize: 12.5, color: kInk),
                         ),
                       ),
                     ),
@@ -755,6 +879,128 @@ class OnefopSectionMap extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// VT's replacement for OnefopSectionMap on mobile and desktop Simple
+/// Mode — the only two remaining places VT still went through the
+/// shared caption-then-chip-row widget (Spreadsheet Mode already has its
+/// own persistent Sidebar tree — see _VtSidebarSectionItem/
+/// _VtSubsectionTree in onefop_form_widgets.dart). OnefopSectionMap's own
+/// "2.1 General Information" caption followed by a separate "● 2.1" chip
+/// line right underneath it — live-reported as a "floating isolated
+/// code": the caption already carries the same code, so the chip below
+/// added nothing but the ✓/●/○ state, sitting oddly alone. This widget
+/// folds both into one row per unit instead — glyph + the unit's
+/// complete subsectionLabel text together (already "2.1 General
+/// Information" — code and description as authored in the AST), or its
+/// bare shortLabel for a unit with no real subsection tier, so a row is
+/// never blank. Same visual language (glyph/color/weight) as
+/// OnefopSectionMap's own chips, just one integrated line instead of
+/// two. OnefopSectionMap itself is completely unchanged and still used
+/// exactly as before by every non-VT entity, on both platforms.
+class VtSectionOutline extends StatelessWidget {
+  static const double _maxHeight = 280;
+
+  final OnefopFormController ctrl;
+  final List<SectionUnit> units;
+  final int currentIndex;
+  final void Function(int index) onJump;
+  const VtSectionOutline({
+    super.key,
+    required this.ctrl,
+    required this.units,
+    required this.currentIndex,
+    required this.onJump,
+  });
+
+  _UnitChipState _stateFor(int i) {
+    if (i == currentIndex) return _UnitChipState.current;
+    if (isUnitDone(ctrl, units[i])) return _UnitChipState.done;
+    return _UnitChipState.upcoming;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (units.length <= 1) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      constraints: const BoxConstraints(maxHeight: _maxHeight),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        border: const Border.fromBorderSide(BorderSide(color: kBorder)),
+        borderRadius: BorderRadius.circular(kRadiusXs),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [for (var i = 0; i < units.length; i++) _row(i)],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(int i) {
+    final unit = units[i];
+    final state = _stateFor(i);
+    final incomplete = state == _UnitChipState.done && isUnitIncomplete(ctrl, unit);
+
+    late final String glyph;
+    late final Color color;
+    late final FontWeight weight;
+    switch (state) {
+      case _UnitChipState.done:
+        if (incomplete) {
+          glyph = '!';
+          color = kWarning;
+          weight = FontWeight.w700;
+        } else {
+          glyph = '✓';
+          color = kInk;
+          weight = FontWeight.w500;
+        }
+        break;
+      case _UnitChipState.current:
+        glyph = '●';
+        color = kAccent;
+        weight = FontWeight.w700;
+        break;
+      case _UnitChipState.upcoming:
+        glyph = '○';
+        color = kInk;
+        weight = FontWeight.w400;
+        break;
+    }
+
+    final text = unit.subsectionLabel ?? unit.shortLabel;
+    final isCurrent = state == _UnitChipState.current;
+
+    return InkWell(
+      onTap: () => onJump(i),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: isCurrent
+            ? BoxDecoration(
+                color: kAccent.withValues(alpha: 0.08),
+                border: const Border.fromBorderSide(BorderSide(color: kAccent)),
+                borderRadius: BorderRadius.circular(kRadiusXs),
+              )
+            : null,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(glyph, style: TextStyle(fontSize: 13, color: color, fontWeight: weight)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(text, style: TextStyle(fontSize: 13, color: color, fontWeight: weight)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -854,7 +1100,7 @@ class _ToggleLink extends StatelessWidget {
         child: Text(
           label,
           style: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700, color: kAccent, decoration: TextDecoration.underline),
+              fontSize: 12.5, fontWeight: FontWeight.w700, color: kAccent, decoration: TextDecoration.underline),
         ),
       ),
     );
@@ -908,7 +1154,7 @@ class _SectionMapChip extends StatelessWidget {
 
     final label = Text(
       '$glyph ${unit.shortLabel}',
-      style: TextStyle(fontSize: 11.5, color: color, fontWeight: weight),
+      style: TextStyle(fontSize: 12.5, color: color, fontWeight: weight),
     );
 
     if (onTap == null) {

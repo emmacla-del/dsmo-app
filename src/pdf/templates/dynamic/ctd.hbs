@@ -2,7 +2,7 @@
 {{! CHANGES: Fixed councilType, phone digit boxes, S23Q02 mapper structure, skills/training vars, official header }}
 {{#with this}}
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{lang}}">
 
 <head>
   <meta charset="utf-8" />
@@ -296,6 +296,38 @@
       font-weight: bold
     }
 
+    table.dt tr {
+      page-break-inside: avoid;
+    }
+
+    table.dt tr.csp-hdr th,
+    table.dt tr.csp-hdr td {
+      background: #1F3864;
+      color: #fff;
+      font-weight: bold;
+      text-align: left;
+      padding: 2.5px 5px;
+      font-size: 7.5pt;
+      page-break-after: avoid;
+    }
+
+    table.dt tr.subtotal td {
+      background: #EBF1F5;
+      font-weight: bold;
+      border-top: 1.5px solid #1F3864;
+    }
+
+    table.dt tr.grand-tot td {
+      background: #BFBFBF;
+      font-weight: bold;
+      border-top: 2px solid #000;
+    }
+
+    table.dt tr.grand-tot td.tot-col {
+      background: #B4C6E7;
+      font-weight: bold;
+    }
+
     .bl {
       display: inline-block;
       border-bottom: 1px solid #000;
@@ -320,32 +352,24 @@
   <table class="dt">
     <thead>
       <tr>
-        <th style="width:16%;background:#BFBFBF;color:#000">Sexe/ <em>Sex</em></th>
-        <th colspan="4">Masculin/ <em>Male</em></th>
-        <th colspan="4">F&#233;minin/ <em>Female</em></th>
-        <th colspan="4">TOTAL</th>
+        <th style="width:16%;background:#BFBFBF;color:#000">{{t "common.table.sex"}}</th>
+        <th colspan="4">{{t "common.table.male"}}</th>
+        <th colspan="4">{{t "common.table.female"}}</th>
+        <th colspan="4">{{t "common.table.total"}}</th>
       </tr>
       <tr>
-        <th class="g">Tranche d&#8217;&#226;ge (ans)/
-          <<br /><em>Age group (years)</em>
-        </th>
-        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-        <th class="g">35 et +
-          <<br /><em>35 and<br />above</em>
-        </th>
+        <th class="g">{{t "common.table.age_group"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
         <th class="g">Total</th>
-        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-        <th class="g">35 et +
-          <<br /><em>35 and<br />above</em>
-        </th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
         <th class="g">Total</th>
-        <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-        <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-        <th class="g">35 et +
-          <<br /><em>35 and<br />above</em>
-        </th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
         <th class="g">Total</th>
       </tr>
     </thead>
@@ -388,24 +412,107 @@
   </table>
   {{/inline}}
 
+  {{! CSP-Grouped Diploma Table partial (Option A for S22Q03) }}
+  {{#*inline "cspGroupedDiplomaTable"}}
+  <table class="dt">
+    <thead>
+      <tr>
+        <th style="width:22%;background:#BFBFBF;color:#000">{{t "common.table.diploma"}}</th>
+        <th colspan="4">{{t "common.table.male"}}</th>
+        <th colspan="4">{{t "common.table.female"}}</th>
+        <th colspan="4">{{t "common.table.total"}}</th>
+      </tr>
+      <tr>
+        <th class="g">{{t "common.table.age_group"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
+        <th class="g">{{t "common.table.total"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
+        <th class="g">{{t "common.table.total"}}</th>
+        <th class="g">{{t "common.table.age_15_24"}}</th>
+        <th class="g">{{t "common.table.age_25_34"}}</th>
+        <th class="g">{{t "common.table.age_35_plus"}}</th>
+        <th class="g">{{t "common.table.total"}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each groups}}
+      <tr class="csp-hdr">
+        <td colspan="13">&#9654; {{label}}</td>
+      </tr>
+      {{#each rows}}
+      <tr>
+        <td class="lb" style="padding-left:6px;">{{label}}</td>
+        <td>{{{formatCell male.age15_24}}}</td>
+        <td>{{{formatCell male.age25_34}}}</td>
+        <td>{{{formatCell male.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell male.total}}}</td>
+        <td>{{{formatCell female.age15_24}}}</td>
+        <td>{{{formatCell female.age25_34}}}</td>
+        <td>{{{formatCell female.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell female.total}}}</td>
+        <td>{{{formatCell this.total.age15_24}}}</td>
+        <td>{{{formatCell this.total.age25_34}}}</td>
+        <td>{{{formatCell this.total.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell this.total.total}}}</td>
+      </tr>
+      {{/each}}
+      <tr class="tot subtotal">
+        <td class="lb">{{totals.label}}</td>
+        <td>{{{formatCell totals.male.age15_24}}}</td>
+        <td>{{{formatCell totals.male.age25_34}}}</td>
+        <td>{{{formatCell totals.male.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell totals.male.total}}}</td>
+        <td>{{{formatCell totals.female.age15_24}}}</td>
+        <td>{{{formatCell totals.female.age25_34}}}</td>
+        <td>{{{formatCell totals.female.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell totals.female.total}}}</td>
+        <td>{{{formatCell totals.total.age15_24}}}</td>
+        <td>{{{formatCell totals.total.age25_34}}}</td>
+        <td>{{{formatCell totals.total.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell totals.total.total}}}</td>
+      </tr>
+      {{/each}}
+      {{#if grandTotals}}
+      <tr class="tot grand-tot">
+        <td class="lb">{{grandTotals.label}}</td>
+        <td>{{{formatCell grandTotals.male.age15_24}}}</td>
+        <td>{{{formatCell grandTotals.male.age25_34}}}</td>
+        <td>{{{formatCell grandTotals.male.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell grandTotals.male.total}}}</td>
+        <td>{{{formatCell grandTotals.female.age15_24}}}</td>
+        <td>{{{formatCell grandTotals.female.age25_34}}}</td>
+        <td>{{{formatCell grandTotals.female.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell grandTotals.female.total}}}</td>
+        <td>{{{formatCell grandTotals.total.age15_24}}}</td>
+        <td>{{{formatCell grandTotals.total.age25_34}}}</td>
+        <td>{{{formatCell grandTotals.total.age35plus}}}</td>
+        <td class="tot-col">{{{formatCell grandTotals.total.total}}}</td>
+      </tr>
+      {{/if}}
+    </tbody>
+  </table>
+  {{/inline}}
+
   {{#*inline "permTempTable"}}
   <table class="dt">
     <thead>
       <tr>
-        <th rowspan="2" style="width:28%;background:#D0CECE;color:#000">{{#if headerLabel}}{{{headerLabel}}}{{else}}CSP/
-          <em>SPC</em>{{/if}}
-        </th>
-        <th class="r" colspan="3">Permanent/ <em>Permanent</em></th>
-        <th class="r" colspan="3">Temporaire/ <em>Temporary</em></th>
-        <th class="r">Total</th>
+        <th rowspan="2" style="width:28%;background:#D0CECE;color:#000">{{#if headerLabel}}{{{headerLabel}}}{{else}}{{t "common.table.csp"}}{{/if}}</th>
+        <th class="r" colspan="3">{{t "common.table.permanent"}}</th>
+        <th class="r" colspan="3">{{t "common.table.temporary"}}</th>
+        <th class="r">{{t "common.table.total"}}</th>
       </tr>
       <tr>
-        <th class="r">M</th>
-        <th class="r">F</th>
-        <th class="r">T</th>
-        <th class="r">M</th>
-        <th class="r">F</th>
-        <th class="r">T</th>
+        <th class="r">{{t "common.table.m"}}</th>
+        <th class="r">{{t "common.table.f"}}</th>
+        <th class="r">{{t "common.table.t"}}</th>
+        <th class="r">{{t "common.table.m"}}</th>
+        <th class="r">{{t "common.table.f"}}</th>
+        <th class="r">{{t "common.table.t"}}</th>
         <th class="r">&nbsp;</th>
       </tr>
     </thead>
@@ -442,167 +549,110 @@
   <div class="page">
 
     <div class="hdr">
-      <div class="hdr-top">
-        <div class="hdr-fr">
-          <div class="co">REPUBLIQUE DU CAMEROUN</div>
-          <div>Paix &#8211; Travail &#8211; Patrie</div>
-          <div class="sep">-----------</div>
-          <div><strong>MINISTERE DE L&#8217;EMPLOI ET DE LA FORMATION PROFESSIONNELLE</strong></div>
-          <div class="sep">-----------</div>
-          <div>SECRETARIAT GENERAL</div>
-          <div class="sep">-----------</div>
-          <div>OBSERVATOIRE NATIONAL DE L&#8217;EMPLOI ET DE LA FORMATION PROFESSIONNELLE</div>
-          <div class="sep">-----------</div>
-        </div>
-        <div class="hdr-logo-c">
-          {{#if logoBase64}}<img src="{{logoBase64}}" alt="ONEFOP" />{{/if}}
-          <div class="ltag">OBSERVATOIRE NATIONAL DE L&#8217;EMPLOI<br />ET DE LA FORMATION PROFESSIONNELLE</div>
-        </div>
-        <div class="hdr-en">
-          <div class="co">REPUBLIC OF CAMEROON</div>
-          <div>Peace &#8211; Work &#8211; Fatherland</div>
-          <div class="sep">-----------</div>
-          <div><strong>MINISTRY OF EMPLOYMENT AND VOCATIONAL TRAINING</strong></div>
-          <div class="sep">-----------</div>
-          <div>SECRETARIAT GENERAL</div>
-          <div class="sep">-----------</div>
-          <div>NATIONAL OBSERVATORY OF EMPLOYMENT AND VOCATIONAL TRAINING</div>
-          <div class="sep">-----------</div>
-        </div>
-      </div>
+      {{> letterhead}}
       <div class="hdr-bar">
-        <div class="t1">COLLECTE DES DONNEES SUR LES EMPLOIS CREES PAR LE SECTEUR MODERNE DE L&#8217;ECONOMIE /
-          COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY</div>
-        <div class="t2">- Questionnaire Collectivit&#233;s Territoriales D&#233;centralis&#233;es (CTD) / Questionnaire
-          on
-          Regional and Local Authorities (RLAs) -</div>
+        <div class="t1">{{t "common.survey_title"}}</div>
+        <div class="t2">{{t "ctd.subtitle"}}</div>
+        <div style="font-size:6.5pt;color:#D9E1F2;margin-top:1.2mm;letter-spacing:0.3px;">{{#if officialBannerText}}{{officialBannerText}}{{else}}Formulaire officiel ONEFOP &middot; Document g&eacute;n&eacute;r&eacute; via la plateforme CAM-LEAP{{/if}}</div>
       </div>
     </div>
 
     <div class="conf">
-      <strong>Les informations contenues dans ce document sont confidentielles et ne pourront &#234;tre utilis&#233;es
-        &#224; des fins de poursuites judiciaires, de contr&#244;le fiscal ou de r&#233;pression &#233;conomique,
-        conform&#233;ment &#224; la Loi N&#176; 2020/010 du 20 juillet 2020 relative aux recensements et enqu&#234;tes
-        Statistiques.</strong> / <em>The information contained in this document is confidential and may not be used for
-        legal proceedings, fiscal control or economic repression, in accordance with Law N<sup>o</sup> 2020/010 of 20
-        July 2020 on censuses and statistical surveys.</em>
+      <strong>{{t "common.confidentiality"}}</strong>
     </div>
 
-    <div class="sec">SECTION 0. &nbsp; IDENTIFICATION DU REPONDANT DE LA CTD / IDENTIFICATION OF RLA RESPONDENT</div>
+    <div class="sec">{{t "ctd.sec0_title"}}</div>
 
     <table class="ftable">
       <tr>
         <td class="fc">S0Q01</td>
-        <td>Noms, pr&#233;noms du r&#233;pondant/ <em>Respondent&#8217;s full name</em> : {{respondentName}}</td>
+        <td>{{t "common.s0.name"}} {{respondentName}}</td>
       </tr>
       <tr>
         <td class="fc">S0Q02</td>
-        <td>Fonction du r&#233;pondant/ <em>Respondent&#8217;s function</em> : {{respondentFunction}}</td>
+        <td>{{t "common.s0.function"}} {{respondentFunction}}</td>
       </tr>
       <tr>
         <td class="fc" style="vertical-align:top">S0Q03</td>
         <td>
-          Contacts r&#233;pondant/ <em>Respondent&#8217;s contacts</em> :
-          T&#233;l 1 : <span class="ph-box" id="rp1" data-val="{{respondentPhone1}}"><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span></span>
-          &nbsp; T&#233;l 2 : <span class="ph-box" id="rp2" data-val="{{respondentPhone2}}"><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span><span
-              class="pd"></span></span><br />
-          E-mail : {{respondentEmail}}
+          {{t "common.s0.contacts"}} {{t "common.s0.tel1"}} {{phoneBoxes respondentPhone1 9}} &nbsp; {{t "common.s0.tel2"}} {{phoneBoxes respondentPhone2 9}}<br />{{t "common.s0.email"}} {{respondentEmail}}
         </td>
       </tr>
     </table>
 
-    <div class="sec-s1"><em>SECTION 1. &nbsp; IDENTIFICATION DE LA CTD / RLA DETAILS</em></div>
+    <div class="sec">{{t "ctd.sec1_title"}}</div>
 
     <table class="ftable">
       <tr>
         <td class="fc">S1Q01</td>
-        <td>Type de CTD/ <em>Type of RLA</em> &nbsp;
-          <span class="radio-opt">{{#if (eq ctdType 1)}}&#9745;{{else}}&#9744;{{/if}} 1. R&#233;gion/
-            <em>Region</em></span>
+        <td>{{t "ctd.s1q01"}} &nbsp;
+          <span class="radio-opt">{{#if (eq ctdType 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q01_1"}}</span>
           &nbsp;
-          <span class="radio-opt">{{#if (eq ctdType 2)}}&#9745;{{else}}&#9744;{{/if}} 2. Commune/
-            <em>Council</em></span>
+          <span class="radio-opt">{{#if (eq ctdType 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q01_2"}}</span>
         </td>
+      </tr>
+      <tr>
+        <td class="fc">S1Q01b</td>
+        <td>{{t "ctd.s1q01_name"}} {{ctdName}}</td>
       </tr>
       {{#if (eq ctdType 2)}}
       <tr>
         <td class="fc">S1Q02</td>
-        <td>Si 2, Quel est le type de Commune/ <em>If 2, what type of council</em> &nbsp;
-          <span class="radio-opt">{{#if (eq councilType 1)}}&#9745;{{else}}&#9744;{{/if}} 1. Commune
-            d&#8217;Arrondissement/ <em>Local Council</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq councilType 2)}}&#9745;{{else}}&#9744;{{/if}} 2. Communaut&#233;
-            Urbaine/ <em>Urban Council</em></span>
+        <td>{{t "ctd.s1q02"}} &nbsp;
+          <span class="radio-opt">{{#if (eq councilType 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q02_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq councilType 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q02_2"}}</span>
         </td>
       </tr>
       {{/if}}
       <tr>
         <td class="fc">S1Q03</td>
-        <td>Ann&#233;e de cr&#233;ation de la CTD/ <em>Year of creation of RLA</em> : {{yearOfCreation}}</td>
+        <td>{{t "ctd.s1q03"}} {{yearOfCreation}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q04</td>
-        <td>Milieu de r&#233;sidence/ <em>Area</em> &nbsp;
-          <span class="radio-opt">{{#if (eq area 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Urbain/ <em>Urban</em></span>
+        <td>{{t "ctd.s1q04"}} &nbsp;
+          <span class="radio-opt">{{#if (eq area 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q04_1"}}</span>
           &nbsp;
-          <span class="radio-opt">{{#if (eq area 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Rural/ <em>Rural</em></span>
+          <span class="radio-opt">{{#if (eq area 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q04_2"}}</span>
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q05</td>
-        <td>R&#233;gion/ <em>Region</em> : {{region}} &nbsp;
-          D&#233;partement/ <em>Division</em> : {{department}}
-          <<br />
-          Arrondissement/ <em>Subdivision</em> : {{subdivision}} &nbsp;
-          Quartier/Village/Localit&#233;/ <em>Neighborhood/Village/Locality</em> : {{locality}}
+        <td>{{t "ctd.s1q05_region"}} {{region}} &nbsp; {{t "ctd.s1q05_dept"}} {{department}}<br />
+          {{t "ctd.s1q05_subdiv"}} {{subdivision}} &nbsp; {{t "ctd.s1q05_locality"}} {{locality}}
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q06</td>
-        <td>T&#233;l 1/ <em>Tel 1</em> : <span class="ph-box" data-val="{{phone1}}"><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span></span> &nbsp;
-          T&#233;l 2/ <em>Tel 2</em> : <span class="ph-box" data-val="{{phone2}}"><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span><span
-              class="pd"></span><span class="pd"></span><span class="pd"></span><span class="pd"></span></span> &nbsp;
-          BP/ <em>PO Box</em> : {{poBox}}
+        <td>{{t "ctd.s1q06_tel1"}} {{phoneBoxes phone1 9}} &nbsp; {{t "ctd.s1q06_tel2"}} {{phoneBoxes phone2 9}} &nbsp; {{t "ctd.s1q06_bp"}} {{poBox}}
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q07</td>
-        <td>Secteur d&#8217;activit&#233; / <em>Business sector</em> &nbsp;
-          <span class="radio-opt">{{#if (eq businessSector 1)}}&#9745;{{else}}&#9744;{{/if}} 1.Primaire/
-            <em>Primary</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq businessSector 2)}}&#9745;{{else}}&#9744;{{/if}} 2.Secondaire/
-            <em>Secondary</em></span> &nbsp;
-          <span class="radio-opt">{{#if (eq businessSector 3)}}&#9745;{{else}}&#9744;{{/if}} 3.Tertiaire/
-            <em>Tertiary</em></span>
+        <td>{{t "ctd.s1q07"}} &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 1)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q07_1"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 2)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q07_2"}}</span> &nbsp;
+          <span class="radio-opt">{{#if (eq businessSector 3)}}&#9745;{{else}}&#9744;{{/if}} {{t "ctd.s1q07_3"}}</span>
         </td>
       </tr>
       <tr>
         <td class="fc">S1Q08</td>
-        <td>Branche d&#8217;activit&#233;/ <em>Branch of activity</em> : {{branchActivity}}</td>
+        <td>{{t "ctd.s1q08"}} {{branchActivity}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q09</td>
-        <td>Nombre d&#8217;employ&#233; permanent/ <em>Number of permanent workers</em> : {{permanentWorkers}}</td>
+        <td>{{t "ctd.s1q09"}} {{permanentWorkers}}</td>
       </tr>
       <tr>
         <td class="fc">S1Q10</td>
-        <td>Nombre de poste vacant/ <em>Number of vacancies</em> : {{vacancies}}</td>
+        <td>{{t "ctd.s1q10"}} {{vacancies}}</td>
       </tr>
     </table>
 
-    <div class="sec">SECTION 2. &nbsp; EMPLOI ET TRAVAIL/ <em>EMPLOYMENT AND LABOUR</em></div>
-    <div class="subsec">2.1 &nbsp; DEMANDE D&#8217;EMPLOIS / <em>JOB APPLICATION</em></div>
+    <div class="sec">{{t "common.s2.sec2_title"}}</div>
+    <div class="subsec">{{t "common.s2.s21_sec"}}</div>
 
-    <div class="qt"><strong>S21Q01 :</strong> Combien de demandes d&#8217;emplois avez-vous enregistr&#233; selon la
-      cat&#233;gorie socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong> ?/ <em>How many job applications per socio-professional category,
-        gender and age group did you register from {{collectionPeriodEn}}?</em>
-    </div>
+    <div class="qt">{{t "common.s2.s21q01" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=jobApplicationsRows totals=jobApplicationsTotals}}
 
   </div>
@@ -610,84 +660,59 @@
   {{! ══ PAGE 2: S22Q01 + S22Q02 + S22Q03 ════════════════════════════════ }}
   <div class="page">
 
-    <div class="subsec">2.2 RECRUTEMENTS/ <em>RECRUITMENTS</em></div>
+    <div class="subsec">{{t "common.s2.s22_sec"}}</div>
 
-    <div class="qt"><strong>S22Q01 :</strong> Combien de permanents avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many permanent workers per socio-professional category, gender and age group did you
-        recruit from {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "common.s2.s22q01" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=recruitmentsPermanentRows totals=recruitmentsPermanentTotals}}
 
-    <div class="qt"><strong>S22Q02 :</strong> Combien de temporaires avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong> ?/ <em>How many temporary workers per socio-professional category, gender and age group did you
-        recruit from {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "common.s2.s22q02" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=recruitmentsTemporaryRows totals=recruitmentsTemporaryTotals}}
 
-    <div class="qt"><strong>S22Q03 :</strong> Combien de personnes avez-vous recrut&#233; selon la cat&#233;gorie
-      socioprofessionnelle, le sexe, le dipl&#244;me et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many workers per socio-professional category, gender, and
-        diploma did you recruit from {{collectionPeriodEn}}?</em>
-    </div>
-    {{> cspAgeTable rows=recruitmentsByDiplomaRows totals=recruitmentsByDiplomaTotals}}
+    <div class="qt">{{t "common.s2.s22q03" collectionPeriod=collectionPeriod}}</div>
+    {{#if recruitmentsByDiplomaGroups}}
+      {{> cspGroupedDiplomaTable groups=recruitmentsByDiplomaGroups grandTotals=recruitmentsByDiplomaGrandTotals}}
+    {{else}}
+      {{> cspAgeTable rows=recruitmentsByDiplomaRows totals=recruitmentsByDiplomaTotals}}
+    {{/if}}
 
-  </div>
+    <div style="margin-top:2.5mm;"></div>
 
-  {{! ══ PAGE 3: S22Q04 + S22Q05 + S23Q01 + S23Q02 ══════════════════════ }}
-  <div class="page">
-
-    <div class="qt"><strong>S22Q04 :</strong> Combien de personnes en situation de handicap avez-vous recrut&#233; selon
-      la cat&#233;gorie socio professionnelle, le sexe et le statut du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many workers with a disability per socio-professional category, sex, and status did you
-        recruit from {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "common.s2.s22q04" collectionPeriod=collectionPeriod}}</div>
     {{> permTempTable rows=disabledRecruitmentsRows totals=disabledRecruitmentsTotals}}
 
-    <div class="qt"><strong>S22Q05 :</strong> Combien de personnes vuln&#233;rables avez-vous recrut&#233; selon le
-      statut et la nature de la vuln&#233;rabilit&#233; du <strong>{{collectionPeriodFr}}</strong>?/
-      <em>How many vulnerable workers per socio-professional category, gender, and status did you recruit from {{collectionPeriodEn}}?</em>
-    </div>
-    {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals headerLabel="Nature de
-    vuln&#233;rabilit&#233;/
-    <<br /><em>Nature of vulnerability</em>"}}
+    <div class="qt">{{t "common.s2.s22q05" collectionPeriod=collectionPeriod}}</div>
+    {{> permTempTable rows=vulnerableRecruitmentsRows totals=vulnerableRecruitmentsTotals headerLabel=(t "common.table.nature_of_vulnerability")}}
 
-    <div class="subsec">2.3 &nbsp; PRIMO DEMANDEUR (personne &#224; la recherche de son premier emploi) / <em>FIRST-TIME
-        JOB SEEKER</em></div>
+    <div class="subsec">{{t "common.s2.s23_sec"}}</div>
 
-    <div class="qt"><strong>S23Q01 :</strong> Combien de personnes recherchant leur premier emploi avez-vous
-      enregistr&#233; selon la cat&#233;gorie socioprofessionnelle, le sexe et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong> ?/ <em>How many people looking for their first job per
-        socio-professional category, gender and age group did you register from {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "common.s2.s23q01" collectionPeriod=collectionPeriod}}</div>
     {{> cspAgeTable rows=firstTimeJobSeekerRows totals=firstTimeJobSeekerTotals}}
 
-    <div class="qt"><strong>S23Q02 :</strong> Combien de personnes travaillant pour la premi&#232;re fois avez-vous
-      recrut&#233;es selon la cat&#233;gorie socioprofessionnelle et la tranche d&#8217;&#226;ge du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many people Working for their first time per
-        socio-professional category, gender and age group did you recruit from {{collectionPeriodEn}}?</em> Statut
-    </div>
+    <div class="qt">{{t "common.s2.s23q02" collectionPeriod=collectionPeriod}}</div>
 
     {{! ═══ S23Q02 — bound to mapper s23q02 object (permanent / temporary / grandTotals) ═══ }}
     <table class="dt">
       <thead>
         <tr>
-          <th style="width:8%;background:#BFBFBF;color:#000">Statut</th>
-          <th style="width:14%;background:#BFBFBF;color:#000">Tranche d&#8217;&#226;ge/<br /><em>Age group</em></th>
-          <th colspan="4">Masculin/ <em>Male</em></th>
-          <th colspan="4">F&#233;minin/ <em>Female</em></th>
-          <th colspan="4">TOTAL</th>
+          <th style="width:8%;background:#BFBFBF;color:#000">{{t "common.table.status"}}</th>
+          <th style="width:14%;background:#BFBFBF;color:#000">{{t "common.table.age_group"}}</th>
+          <th colspan="4">{{t "common.table.male"}}</th>
+          <th colspan="4">{{t "common.table.female"}}</th>
+          <th colspan="4">{{t "common.table.total"}}</th>
         </tr>
         <tr>
-          <th class="g">Sexe/ <em>Sex</em></th>
-          <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-          <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-          <th class="g">35 et +
-            <<br /><em>35 and<br />above</em>
-          </th>
+          <th class="g">{{t "common.table.sex"}}</th>
+          <th class="g">{{t "common.table.age_15_24"}}</th>
+          <th class="g">{{t "common.table.age_25_34"}}</th>
+          <th class="g">{{t "common.table.age_35_plus"}}</th>
           <th class="g">Total</th>
-          <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-          <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-          <th class="g">35 et +
-            <<br /><em>35 and<br />above</em>
-          </th>
+          <th class="g">{{t "common.table.age_15_24"}}</th>
+          <th class="g">{{t "common.table.age_25_34"}}</th>
+          <th class="g">{{t "common.table.age_35_plus"}}</th>
           <th class="g">Total</th>
-          <th class="g">15 &#224; 24<br /><em>15 to 24</em></th>
-          <th class="g">25 &#224; 34<br /><em>25 to 34</em></th>
-          <th class="g">35 et +
-            <<br /><em>35 and<br />above</em>
-          </th>
+          <th class="g">{{t "common.table.age_15_24"}}</th>
+          <th class="g">{{t "common.table.age_25_34"}}</th>
+          <th class="g">{{t "common.table.age_35_plus"}}</th>
           <th class="g">Total</th>
         </tr>
       </thead>
@@ -695,7 +720,7 @@
         {{! Permanent block: 3 data rows + 1 total row = rowspan 4 }}
         {{#each s23q02.permanent}}
         <tr>
-          {{#unless @index}}<<td class="lb" rowspan="4" style="text-align:center">Permanent/ <em>Permanent</em></td>
+          {{#unless @index}}<td class="lb" rowspan="4" style="text-align:center">{{t "common.table.permanent"}}</td>
             {{/unless}}
             <td class="lb">{{label}}</td>
             <td>{{{formatCell male.age15_24}}}</td>
@@ -731,7 +756,7 @@
         {{! Temporary block: 3 data rows + 1 total row = rowspan 4 }}
         {{#each s23q02.temporary}}
         <tr>
-          {{#unless @index}}<<td class="lb" rowspan="4" style="text-align:center">Temporaire/ <em>Temporary</em></td>
+          {{#unless @index}}<td class="lb" rowspan="4" style="text-align:center">{{t "common.table.temporary"}}</td>
             {{/unless}}
             <td class="lb">{{label}}</td>
             <td>{{{formatCell male.age15_24}}}</td>
@@ -766,7 +791,7 @@
 
         {{! Grand total }}
         <tr class="tot">
-          <td class="lb" colspan="2">TOTAL G&#201;N&#201;RAL/ <em>GRAND TOTAL</em></td>
+          <td class="lb" colspan="2">{{t "common.table.grand_total"}}</td>
           <td>{{{formatCell s23q02.grandTotals.male.age15_24}}}</td>
           <td>{{{formatCell s23q02.grandTotals.male.age25_34}}}</td>
           <td>{{{formatCell s23q02.grandTotals.male.age35plus}}}</td>
@@ -788,19 +813,18 @@
   {{! ══ PAGE 4: S3 + S4 ══════════════════════════════════════════════════ }}
   <div class="page">
 
-    <div class="sec">SECTION 3. &nbsp; DEPARTS/ <em>DEPARTURES</em></div>
+    <div class="sec">{{t "common.s3.sec3_title"}}</div>
 
-    <div class="qt"><strong>S3Q01 :</strong> Combien de d&#233;parts avez-vous enregistr&#233;s du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many departures did you register from {{collectionPeriodEn}}?</em>
-    </div>
+    <div class="qt">{{t "common.s3.s3q01" collectionPeriod=collectionPeriod}}</div>
     <table class="dt">
       <thead>
         <tr>
-          <th rowspan="2" style="width:15%;background:#BFBFBF;color:#000">CSP/ <em>SPC</em></th>
-          <th colspan="3">Licenciements/ <em>Dismissal</em></th>
-          <th colspan="3">D&#233;missions/ <em>Resignation</em></th>
-          <th colspan="3">D&#233;part &#224; la retraite/ <em>Retirement</em></th>
-          <th colspan="3">Autres d&#233;parts/ <em>Other departure</em></th>
-          <th colspan="3">Ensemble/ <em>Whole</em></th>
+          <th rowspan="2" style="width:15%;background:#BFBFBF;color:#000">{{t "common.table.csp"}}</th>
+          <th colspan="3">{{t "common.table.dismissals"}}</th>
+          <th colspan="3">{{t "common.table.resignations"}}</th>
+          <th colspan="3">{{t "common.table.retirements"}}</th>
+          <th colspan="3">{{t "common.table.other_departures"}}</th>
+          <th colspan="3">{{t "common.table.ensemble"}}</th>
         </tr>
         <tr>
           <th class="g">M</th>
@@ -862,12 +886,11 @@
       </tbody>
     </table>
 
-    <div class="qt"><strong>S3Q02 :</strong> Quels sont les principaux motifs de licenciement?/ <em>What are the main
-        grounds for dismissal?</em></div>
+    <div class="qt">{{t "common.s3.s3q02"}}</div>
     <table class="dt">
       <thead>
         <tr>
-          <th style="text-align:center;background:#BFBFBF;color:#000;width:62%">Motif// <em>Reason</em></th>
+          <th style="text-align:center;background:#BFBFBF;color:#000;width:62%">{{t "common.table.reasons"}}</th>
           <th class="g">M</th>
           <th class="g">F</th>
           <th class="g">Total</th>
@@ -875,22 +898,22 @@
       </thead>
       <tbody>
         <tr>
-          <td class="lb">Motif 1/ <em>Reason 1</em> : {{#if
-            dismissalReasons.[0].text}}{{dismissalReasons.[0].text}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.reason_1"}} {{#if
+            dismissalReasons.[0].text}}{{dismissalReasons.[0].text}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell dismissalReasons.[0].male}}}</td>
           <td>{{{formatCell dismissalReasons.[0].female}}}</td>
           <td class="tot-col">{{{formatCell dismissalReasons.[0].total}}}</td>
         </tr>
         <tr>
-          <td class="lb">Motif 2/ <em>Reason 2</em> : {{#if
-            dismissalReasons.[1].text}}{{dismissalReasons.[1].text}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.reason_2"}} {{#if
+            dismissalReasons.[1].text}}{{dismissalReasons.[1].text}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell dismissalReasons.[1].male}}}</td>
           <td>{{{formatCell dismissalReasons.[1].female}}}</td>
           <td class="tot-col">{{{formatCell dismissalReasons.[1].total}}}</td>
         </tr>
         <tr>
-          <td class="lb">Motif 3/ <em>Reason 3</em> : {{#if
-            dismissalReasons.[2].text}}{{dismissalReasons.[2].text}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.reason_3"}} {{#if
+            dismissalReasons.[2].text}}{{dismissalReasons.[2].text}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell dismissalReasons.[2].male}}}</td>
           <td>{{{formatCell dismissalReasons.[2].female}}}</td>
           <td class="tot-col">{{{formatCell dismissalReasons.[2].total}}}</td>
@@ -904,16 +927,14 @@
       </tbody>
     </table>
 
-    <div class="qt"><strong>S3Q03 :</strong> Combien de personnes avez-vous licenci&#233;es ou mises en ch&#244;mage
-      technique du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many people did you
-        dismiss or place on technical unemployment from {{collectionPeriodEn}}?</em></div>
+    <div class="qt">{{t "common.s3.s3q03" collectionPeriod=collectionPeriod}}</div>
     <table class="dt">
       <thead>
         <tr>
-          <th rowspan="2" style="width:20%;background:#BFBFBF;color:#000">CSP/ <em>SPC</em></th>
-          <th colspan="3">Licenciement/ <em>Dismissal</em></th>
-          <th colspan="3">Ch&#244;mage technique/ <em>Technical unemployment</em></th>
-          <th>Total</th>
+          <th rowspan="2" style="width:20%;background:#BFBFBF;color:#000">{{t "common.table.csp"}}</th>
+          <th colspan="3">{{t "common.table.dismissals"}}</th>
+          <th colspan="3">{{t "common.table.technical_unemployment"}}</th>
+          <th>{{t "common.table.total"}}</th>
         </tr>
         <tr>
           <th class="g">M</th>
@@ -951,17 +972,15 @@
       </tbody>
     </table>
 
-    <div class="sec">SECTION 4. &nbsp; STAGE ET FORMATION/ <em>INTERNSHIP AND TRAINING</em></div>
+    <div class="sec">{{t "common.s4.sec4_title"}}</div>
 
-    <div class="qt"><strong>S4Q01 :</strong> Combien de stagiaires avez-vous recrut&#233;s du <strong>{{collectionPeriodFr}}</strong>?/ <em>How many interns did you recruit from {{collectionPeriodEn}}?</em>
-    </div>
+    <div class="qt">{{t "common.s4.s4q01" collectionPeriod=collectionPeriod}}</div>
     <table class="dt">
       <thead>
         <tr>
-          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Nature du stage/ <em>Nature of
-              internship</em></th>
-          <th colspan="2">Sexe/ <em>Sex</em></th>
-          <th>Total</th>
+          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">{{t "common.table.nature_of_internship"}}</th>
+        <th colspan="2">{{t "common.table.sex"}}</th>
+        <th>{{t "common.table.total"}}</th>
         </tr>
         <tr>
           <th style="background:#BFBFBF;color:#000"></th>
@@ -988,15 +1007,13 @@
       </tbody>
     </table>
 
-    <div class="qt"><strong>S4Q02 :</strong> Quels sont les besoins en comp&#233;tence de votre entreprise?
-      (&#233;num&#233;rer les 3 comp&#233;tences prioritaires)/ <em>What are the skills needs of your company? (list the
-        3 priority skills)</em></div>
+    <div class="qt">{{t "common.s4.s4q02"}}</div>
     <table class="dt">
       <thead>
         <tr>
-          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Comp&#233;tence/ <em>Skill</em></th>
-          <th colspan="2">Sexe/ <em>Sex</em></th>
-          <th>Total</th>
+          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">{{t "common.table.skill"}}</th>
+        <th colspan="2">{{t "common.table.sex"}}</th>
+        <th>{{t "common.table.total"}}</th>
         </tr>
         <tr>
           <th style="background:#BFBFBF;color:#000"></th>
@@ -1007,22 +1024,22 @@
       </thead>
       <tbody>
         <tr>
-          <td class="lb">Comp&#233;tence 1/ <em>Skill 1</em> : {{#if
-            skills.[0].description}}{{skills.[0].description}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.skill_1"}} {{#if
+            skills.[0].description}}{{skills.[0].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell skills.[0].male}}}</td>
           <td>{{{formatCell skills.[0].female}}}</td>
           <td class="tot-col">{{{formatCell skills.[0].total}}}</td>
         </tr>
         <tr>
-          <td class="lb">Comp&#233;tence 2/ <em>Skill 2</em> : {{#if
-            skills.[1].description}}{{skills.[1].description}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.skill_2"}} {{#if
+            skills.[1].description}}{{skills.[1].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell skills.[1].male}}}</td>
           <td>{{{formatCell skills.[1].female}}}</td>
           <td class="tot-col">{{{formatCell skills.[1].total}}}</td>
         </tr>
         <tr>
-          <td class="lb">Comp&#233;tence 3/ <em>Skill 3</em> : {{#if
-            skills.[2].description}}{{skills.[2].description}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.skill_3"}} {{#if
+            skills.[2].description}}{{skills.[2].description}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell skills.[2].male}}}</td>
           <td>{{{formatCell skills.[2].female}}}</td>
           <td class="tot-col">{{{formatCell skills.[2].total}}}</td>
@@ -1036,16 +1053,13 @@
       </tbody>
     </table>
 
-    <div class="qt"><strong>S4Q03 :</strong> Quels sont les besoins en formation des personnels de votre entreprise?
-      (&#233;num&#233;rer les 3 domaines de formation prioritaires)/ <em>What are the training needs of your
-        company&#8217;s staff? (list the 3 priority field of training)</em></div>
+    <div class="qt">{{t "common.s4.s4q03"}}</div>
     <table class="dt">
       <thead>
         <tr>
-          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">Domaine de formation/ <em>Domain of
-              training</em></th>
-          <th colspan="2">Sexe/ <em>Sex</em></th>
-          <th>Total</th>
+          <th style="text-align:center;width:60%;background:#BFBFBF;color:#000">{{t "common.table.training_domain"}}</th>
+        <th colspan="2">{{t "common.table.sex"}}</th>
+        <th>{{t "common.table.total"}}</th>
         </tr>
         <tr>
           <th style="background:#BFBFBF;color:#000"></th>
@@ -1056,22 +1070,22 @@
       </thead>
       <tbody>
         <tr>
-          <td class="lb">Domaine 1/ <em>Domain 1</em> : {{#if
-            trainingNeeds.[0].domain}}{{trainingNeeds.[0].domain}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.domain_1"}} {{#if
+            trainingNeeds.[0].domain}}{{trainingNeeds.[0].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell trainingNeeds.[0].male}}}</td>
           <td>{{{formatCell trainingNeeds.[0].female}}}</td>
           <td class="tot-col">{{{formatCell trainingNeeds.[0].total}}}</td>
         </tr>
         <tr>
-          <td class="lb">Domaine 2/ <em>Domain 2</em> : {{#if
-            trainingNeeds.[1].domain}}{{trainingNeeds.[1].domain}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.domain_2"}} {{#if
+            trainingNeeds.[1].domain}}{{trainingNeeds.[1].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell trainingNeeds.[1].male}}}</td>
           <td>{{{formatCell trainingNeeds.[1].female}}}</td>
           <td class="tot-col">{{{formatCell trainingNeeds.[1].total}}}</td>
         </tr>
         <tr>
-          <td class="lb">Domaine 3/ <em>Domain 3</em> : {{#if
-            trainingNeeds.[2].domain}}{{trainingNeeds.[2].domain}}{{else}}<<span class="bl">&nbsp;</span>{{/if}}</td>
+          <td class="lb">{{t "common.table.domain_3"}} {{#if
+            trainingNeeds.[2].domain}}{{trainingNeeds.[2].domain}}{{else}}<span class="bl">&nbsp;</span>{{/if}}</td>
           <td>{{{formatCell trainingNeeds.[2].male}}}</td>
           <td>{{{formatCell trainingNeeds.[2].female}}}</td>
           <td class="tot-col">{{{formatCell trainingNeeds.[2].total}}}</td>
