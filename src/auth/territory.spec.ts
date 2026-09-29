@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { assertTerritorialAuthority, territoryFromUser, territoryWhere } from './territory';
 
 const NO_ROWS = { id: { in: [] } };
+const ieq = (value: string) => ({ equals: value, mode: 'insensitive' });
 
 const LITTORAL = { region: 'Littoral', regionId: 'reg-lt', department: 'Wouri', departmentId: 'dep-wouri' };
 const CENTRE = { region: 'Centre', regionId: 'reg-ce', department: 'Mfoundi', departmentId: 'dep-mfoundi' };
@@ -20,24 +21,34 @@ describe('territoryWhere', () => {
     expect(territoryWhere(null)).toEqual({});
   });
 
-  it('scopes REGIONAL by regionId, falling back to the region name', () => {
+  it('scopes REGIONAL by regionId, falling back to a case-insensitive region name', () => {
     expect(territoryWhere({ role: 'REGIONAL', regionId: 'reg-lt', region: 'Littoral' })).toEqual({ regionId: 'reg-lt' });
-    expect(territoryWhere({ role: 'REGIONAL', region: 'Littoral' })).toEqual({ region: 'Littoral' });
+    expect(territoryWhere({ role: 'REGIONAL', region: 'Littoral' })).toEqual({ region: ieq('Littoral') });
+    // The account's own casing is passed through; the DB comparison ignores case.
+    expect(territoryWhere({ role: 'REGIONAL', region: 'CENTRE' })).toEqual({ region: ieq('CENTRE') });
+    expect(territoryWhere({ role: 'REGIONAL', region: '  Centre ' })).toEqual({ region: ieq('Centre') });
   });
 
   it('fails closed for REGIONAL without a region', () => {
     expect(territoryWhere({ role: 'REGIONAL' })).toEqual(NO_ROWS);
+    expect(territoryWhere({ role: 'REGIONAL', region: '   ' })).toEqual(NO_ROWS);
     expect(territoryWhere({ role: 'REGIONAL', department: 'Wouri' })).toEqual(NO_ROWS);
   });
 
-  it('scopes DIVISIONAL by departmentId, falling back to the department name', () => {
+  it('scopes DIVISIONAL by departmentId, else by region AND department names', () => {
     expect(territoryWhere({ role: 'DIVISIONAL', departmentId: 'dep-wouri', department: 'Wouri' })).toEqual({ departmentId: 'dep-wouri' });
-    expect(territoryWhere({ role: 'DIVISIONAL', department: 'Wouri' })).toEqual({ department: 'Wouri' });
+    expect(territoryWhere({ role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' })).toEqual({
+      region: ieq('Littoral'),
+      department: ieq('Wouri'),
+    });
   });
 
-  it('fails closed for DIVISIONAL without a department', () => {
+  it('fails closed for DIVISIONAL missing its region or its department', () => {
     expect(territoryWhere({ role: 'DIVISIONAL' })).toEqual(NO_ROWS);
     expect(territoryWhere({ role: 'DIVISIONAL', region: 'Littoral' })).toEqual(NO_ROWS);
+    // Department alone no longer suffices: names repeat across regions.
+    expect(territoryWhere({ role: 'DIVISIONAL', department: 'Wouri' })).toEqual(NO_ROWS);
+    expect(territoryWhere({ role: 'DIVISIONAL', region: ' ', department: 'Wouri' })).toEqual(NO_ROWS);
   });
 
   it('fails closed for unknown or missing roles', () => {
@@ -57,9 +68,11 @@ describe('assertTerritorialAuthority', () => {
     }
   });
 
-  it('lets REGIONAL act in its region, by id or by name', () => {
+  it('lets REGIONAL act in its region, by id or by case-insensitive name', () => {
     expect(() => assertTerritorialAuthority({ role: 'REGIONAL', regionId: 'reg-lt' }, LITTORAL)).not.toThrow();
     expect(() => assertTerritorialAuthority({ role: 'REGIONAL', region: 'Littoral' }, LITTORAL)).not.toThrow();
+    expect(() => assertTerritorialAuthority({ role: 'REGIONAL', region: 'LITTORAL' }, LITTORAL)).not.toThrow();
+    expect(() => assertTerritorialAuthority({ role: 'REGIONAL', region: 'CENTRE' }, { region: 'Centre' })).not.toThrow();
   });
 
   it('forbids REGIONAL outside its region with the audit message', () => {
@@ -76,9 +89,26 @@ describe('assertTerritorialAuthority', () => {
     expect(() => assertTerritorialAuthority({ role: 'REGIONAL' }, {})).toThrow(ForbiddenException);
   });
 
-  it('lets DIVISIONAL act in its department, by id or by name', () => {
+  it('lets DIVISIONAL act in its department, by id or by case-insensitive region AND department', () => {
     expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', departmentId: 'dep-wouri' }, LITTORAL)).not.toThrow();
-    expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', department: 'Wouri' }, LITTORAL)).not.toThrow();
+    expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' }, LITTORAL)).not.toThrow();
+    expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', region: 'LITTORAL', department: 'WOURI' }, LITTORAL)).not.toThrow();
+  });
+
+  it('keeps same-named departments in different regions apart (regression)', () => {
+    const mayoA = { role: 'DIVISIONAL', region: 'Extrême-Nord', department: 'Mayo' };
+    const mayoB = { role: 'DIVISIONAL', region: 'Nord', department: 'Mayo' };
+    const dossierA = { region: 'Extrême-Nord', department: 'Mayo' };
+    const dossierB = { region: 'Nord', department: 'Mayo' };
+    expect(() => assertTerritorialAuthority(mayoA, dossierA)).not.toThrow();
+    expect(() => assertTerritorialAuthority(mayoB, dossierB)).not.toThrow();
+    expect(() => assertTerritorialAuthority(mayoA, dossierB)).toThrow(
+      "Action non autorisée hors de votre département d'affectation (Mayo).",
+    );
+    expect(() => assertTerritorialAuthority(mayoB, dossierA)).toThrow(ForbiddenException);
+    // The list filter carries both names, so the DB applies the same rule.
+    expect(territoryWhere(mayoA)).toEqual({ region: ieq('Extrême-Nord'), department: ieq('Mayo') });
+    expect(territoryWhere(mayoB)).toEqual({ region: ieq('Nord'), department: ieq('Mayo') });
   });
 
   it('forbids DIVISIONAL outside its department with the audit message', () => {
@@ -88,8 +118,13 @@ describe('assertTerritorialAuthority', () => {
     );
   });
 
-  it('forbids DIVISIONAL without a department', () => {
+  it('forbids DIVISIONAL without a department or without a region', () => {
     expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL' }, LITTORAL)).toThrow(ForbiddenException);
+    expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', department: 'Wouri' }, LITTORAL)).toThrow(ForbiddenException);
+    expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', region: 'Littoral' }, LITTORAL)).toThrow(ForbiddenException);
+    // Target rows missing a region are never matched by name.
+    expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' }, { department: 'Wouri' }))
+      .toThrow(ForbiddenException);
   });
 
   it('fails closed for unknown roles', () => {
