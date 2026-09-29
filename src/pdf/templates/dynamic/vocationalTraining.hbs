@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{lang}}">
 
 <head>
     <meta charset="UTF-8">
@@ -262,6 +262,16 @@
             padding-top: 40px;
             border-top: 1px solid #000;
         }
+    
+        /* i18n language filtering */
+        html[lang="fr"] .en,
+        html[lang="fr"] .en-inline {
+            display: none !important;
+        }
+        html[lang="en"] .fr,
+        html[lang="en"] .fr-inline {
+            display: none !important;
+        }
     </style>
 </head>
 
@@ -298,33 +308,25 @@
         </table>
 
         <div class="title-box">
-            <h1>RECENSEMENT ANNUEL DE LA FORMATION PROFESSIONNELLE {{surveyYear}}</h1>
-            <h2>ANNUAL VOCATIONAL TRAINING SURVEY {{surveyYear}}</h2>
-            <h1>QUESTIONNAIRE DE COLLECTE DE DONNEES AUPRES DES CFP PUBLICS ET PRIVES</h1>
-            <h2>QUESTIONNAIRE FOR DATA COLLECTION FROM PUBLIC AND PRIVATE</h2>
+            <h1><span class="fr">RECENSEMENT ANNUEL DE LA FORMATION PROFESSIONNELLE {{surveyYear}}</span><span class="en">ANNUAL VOCATIONAL TRAINING SURVEY {{surveyYear}}</span></h1>
+            <h2><span class="fr">QUESTIONNAIRE DE COLLECTE DE DONNEES AUPRES DES CFP PUBLICS ET PRIVES</span><span class="en">QUESTIONNAIRE FOR DATA COLLECTION FROM PUBLIC AND PRIVATE VTCs</span></h2>
+            <div style="font-size:7.5pt;color:#1F3864;margin-top:4px;font-weight:bold;letter-spacing:0.3px;">{{#if officialBannerText}}{{officialBannerText}}{{else}}Formulaire officiel ONEFOP &middot; Document g&eacute;n&eacute;r&eacute; via la plateforme CAM-LEAP{{/if}}</div>
         </div>
 
         <div class="warning-box">
-            <u>AVERTISSEMENT / WARNING</u><br>
-            Les informations contenues dans ce document sont confidentielles et ne pourront être utilisées à des fins de
-            poursuites judiciaires, de contrôle fiscal ou de répression économique, conformément à la Loi N&deg;
-            2020/010 du
-            20 juillet 2020 relative aux recensements et enquêtes Statistiques. / <i>The information contained in this
-                document
-                are strictly confidential and cannot be used for purposes of legal proceedings, tax audit or economic
-                repression</i>
+            <span class="fr"><u>AVERTISSEMENT</u><br>Les informations contenues dans ce document sont confidentielles et ne pourront être utilisées à des fins de poursuites judiciaires, de contrôle fiscal ou de répression économique, conformément à la Loi N&deg; 2020/010 du 20 juillet 2020 relative aux recensements et enquêtes Statistiques.</span>
+            <span class="en"><u>WARNING</u><br>The information contained in this document is strictly confidential and cannot be used for purposes of legal proceedings, tax audit or economic repression, in accordance with Law No. 2020/010 of 20 July 2020 on censuses and statistical surveys.</span>
         </div>
 
         <div class="section-title">
-            SECTION 1 : IDENTIFICATION ET LOCALISATION DE LA STRUCTURE
-            <span class="en">IDENTIFICATION AND LOCALISATION OF TRAINING CENTER</span>
+            <span class="fr">SECTION 1 : IDENTIFICATION ET LOCALISATION DE LA STRUCTURE</span>
+            <span class="en">SECTION 1: IDENTIFICATION AND LOCALISATION OF TRAINING CENTER</span>
         </div>
 
         <table class="field-grid">
             <tr>
                 <td class="field-num">1.1</td>
-                <td class="field-label"><span class="fr">Code de la Structure</span><span class="en">Structure Code (à
-                        ne pas remplir / not to be filled in)</span></td>
+                <td class="field-label"><span class="fr">Code de la structure (à ne pas remplir)</span><span class="en">Structure code (not to be filled in)</span></td>
                 <td colspan="2">{{digitBoxes identification.structureCode 13}}</td>
             </tr>
             <tr>
@@ -373,11 +375,9 @@
                 <td colspan="2">
                     <span class="yesno">
                         <span class="opt"><span
-                                class="circle {{#if (eq identification.milieu 'urbain')}}checked{{/if}}"></span>1 =
-                            Urbain / Urban</span>
+                                class="circle {{#if (eq identification.milieu 'urbain')}}checked{{/if}}"></span><span class="fr">1 = Urbain</span><span class="en">1 = Urban</span></span>
                         <span class="opt"><span
-                                class="circle {{#if (eq identification.milieu 'rural')}}checked{{/if}}"></span>2 = Rural
-                            / Rural</span>
+                                class="circle {{#if (eq identification.milieu 'rural')}}checked{{/if}}"></span><span class="fr">2 = Rural</span><span class="en">2 = Rural</span></span>
                     </span>
                 </td>
             </tr>
@@ -405,10 +405,9 @@
                 <td class="field-label"><span class="fr">Situation du Centre de formation</span><span
                         class="en">Description of training center</span></td>
                 <td colspan="2">
-                    <div>{{checkbox (eq identification.situation 'fonctionnelle')}} 1 = Fonctionnelle / Functional</div>
-                    <div>{{checkbox (eq identification.situation 'non-fonctionnelle')}} 2 = Non-fonctionnelle /
-                        Non-functional</div>
-                    <div>{{checkbox (eq identification.situation 'fermee')}} 3 = Fermée / Closed</div>
+                    <div>{{checkbox (eq identification.situation 'fonctionnelle')}} <span class="fr">1 = Fonctionnelle</span><span class="en">1 = Functional</span></div>
+                    <div>{{checkbox (eq identification.situation 'non-fonctionnelle')}} <span class="fr">2 = Non-fonctionnelle</span><span class="en">2 = Non-functional</span></div>
+                    <div>{{checkbox (eq identification.situation 'fermee')}} <span class="fr">3 = Fermée</span><span class="en">3 = Closed</span></div>
                 </td>
             </tr>
             {{#if (eq identification.situation 'non-fonctionnelle')}}
@@ -436,35 +435,34 @@
 
         <table class="field-grid">
             <tr>
-                <th colspan="2">1.15. Informations sur le répondant / <i>Respondent information</i></th>
-                <th colspan="2">1.16. Noms et contacts du Promoteur/Directeur du CFP / <i>Name and contact of
-                        Head/Promoter of VTC</i></th>
+                <th colspan="2"><span class="fr">1.15. Informations sur le répondant</span><span class="en">1.15. Respondent information</span></th>
+                <th colspan="2"><span class="fr">1.16. Noms et contacts du Promoteur/Directeur du CFP</span><span class="en">1.16. Name and contact of Head/Promoter of VTC</span></th>
             </tr>
             <tr>
-                <td colspan="2">Qualité du répondant : {{identification.respondent.qualite}}</td>
-                <td colspan="2">Noms et prénoms : {{identification.promoteur.nomPrenoms}}</td>
+                <td colspan="2"><span class="fr">Qualité du répondant</span><span class="en">Respondent's title</span> : {{identification.respondent.qualite}}</td>
+                <td colspan="2"><span class="fr">Noms et prénoms</span><span class="en">Full name</span> : {{identification.promoteur.nomPrenoms}}</td>
             </tr>
             <tr>
-                <td colspan="2">Noms et prénoms : {{identification.respondent.nomPrenoms}}</td>
+                <td colspan="2"><span class="fr">Noms et prénoms</span><span class="en">Full name</span> : {{identification.respondent.nomPrenoms}}</td>
                 <td colspan="2">
-                    Sexe :
-                    {{checkbox (eq identification.promoteur.sexe 'M')}} Masculin
-                    {{checkbox (eq identification.promoteur.sexe 'F')}} Féminin
+                    <span class="fr">Sexe :</span><span class="en">Sex:</span>
+                    {{checkbox (eq identification.promoteur.sexe 'M')}} <span class="fr">Masculin</span><span class="en">Male</span>
+                    {{checkbox (eq identification.promoteur.sexe 'F')}} <span class="fr">Féminin</span><span class="en">Female</span>
                 </td>
             </tr>
             <tr>
                 <td colspan="2">
-                    Sexe :
-                    {{checkbox (eq identification.respondent.sexe 'M')}} Masculin
-                    {{checkbox (eq identification.respondent.sexe 'F')}} Féminin
+                    <span class="fr">Sexe :</span><span class="en">Sex:</span>
+                    {{checkbox (eq identification.respondent.sexe 'M')}} <span class="fr">Masculin</span><span class="en">Male</span>
+                    {{checkbox (eq identification.respondent.sexe 'F')}} <span class="fr">Féminin</span><span class="en">Female</span>
                 </td>
-                <td colspan="2">Téléphone 1 (WhatsApp) : {{identification.promoteur.telephone1}} &nbsp; Téléphone 2 :
+                <td colspan="2"><span class="fr">Téléphone 1 (WhatsApp)</span><span class="en">Phone 1 (WhatsApp)</span> : {{identification.promoteur.telephone1}} &nbsp; <span class="fr">Téléphone 2</span><span class="en">Phone 2</span> :
                     {{identification.promoteur.telephone2}}</td>
             </tr>
             <tr>
-                <td colspan="2">Téléphone (WhatsApp) : {{identification.respondent.telephone1}} &nbsp; Téléphone 2 :
+                <td colspan="2"><span class="fr">Téléphone (WhatsApp)</span><span class="en">Phone (WhatsApp)</span> : {{identification.respondent.telephone1}} &nbsp; <span class="fr">Téléphone 2</span><span class="en">Phone 2</span> :
                     {{identification.respondent.telephone2}}</td>
-                <td colspan="2">Email : {{identification.promoteur.email}}</td>
+                <td colspan="2"><span class="fr">Email</span><span class="en">Email</span> : {{identification.promoteur.email}}</td>
             </tr>
         </table>
     </div>
@@ -474,11 +472,11 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 2 : INFORMATIONS GENERALES SUR L'ETABLISSEMENT
-            <span class="en">GENERAL INFORMATION</span>
+            <span class="fr">SECTION 2 : INFORMATIONS GENERALES SUR L'ETABLISSEMENT</span>
+            <span class="en">SECTION 2: GENERAL INFORMATION</span>
         </div>
 
-        <h3>2.1 Renseignements généraux / General Information</h3>
+        <h3><span class="fr">2.1 Renseignements généraux</span><span class="en">2.1 General Information</span></h3>
         <table class="field-grid">
             <tr>
                 <td class="field-num">2.1.1</td>
@@ -739,8 +737,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 3 : INFORMATIONS SUR L'EDUCATION EN SITUATION D'URGENCE
-            <span class="en">INFORMATIONS IN EDUCATION IN EMERGENCIES</span>
+            <span class="fr">SECTION 3 : INFORMATIONS SUR L'EDUCATION EN SITUATION D'URGENCE</span>
+            <span class="en">SECTION 3: INFORMATIONS IN EDUCATION IN EMERGENCIES</span>
         </div>
 
         <table class="field-grid">
@@ -831,8 +829,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 4 : INFORMATIONS SUR LES APPRENANTS
-            <span class="en">DETAILS ON TRAINEES</span>
+            <span class="fr">SECTION 4 : INFORMATIONS SUR LES APPRENANTS</span>
+            <span class="en">SECTION 4: DETAILS ON TRAINEES</span>
         </div>
 
         <h3>4.1 Effectifs des apprenants par diplôme académique le plus élevé</h3>
@@ -1151,7 +1149,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 5 : INFORMATIONS SUR LES MANUELS D'APPRENTISSAGE, EQUIPEMENTS ET INFRASTRUCTURES
+            <span class="fr">SECTION 5 : INFORMATIONS SUR LES MANUELS D'APPRENTISSAGE, EQUIPEMENTS ET INFRASTRUCTURES</span>
+            <span class="en">SECTION 5: INFORMATION ON LEARNING MANUALS, EQUIPMENT AND INFRASTRUCTURE</span>
         </div>
 
         <h3>5.1 Manuels d'apprentissage pour l'année en cours</h3>
@@ -1268,7 +1267,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 6 : ORIENTATION PROFESSIONNELLE ET INFORMATIONS SUR LE SUIVI POST-FORMATION
+            <span class="fr">SECTION 6 : ORIENTATION PROFESSIONNELLE ET INFORMATIONS SUR LE SUIVI POST-FORMATION</span>
+            <span class="en">SECTION 6: VOCATIONAL GUIDANCE AND POST-TRAINING MONITORING</span>
         </div>
 
         <h3>6.1 Orientation professionnelle</h3>
@@ -1364,7 +1364,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 7 : PRISE EN COMPTE DES THÈMES TRANSVERSAUX DANS LE PROGRAMME D'ÉDUCATION
+            <span class="fr">SECTION 7 : PRISE EN COMPTE DES THÈMES TRANSVERSAUX DANS LE PROGRAMME D'ÉDUCATION</span>
+            <span class="en">SECTION 7: MAINSTREAMING CROSS-CUTTING ISSUES IN THE EDUCATION PROGRAMME</span>
         </div>
 
         <table class="field-grid">
@@ -1471,8 +1472,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 8 : INFORMATIONS SUR LES FORMATEURS
-            <span class="en">DETAILS ON TRAINERS</span>
+            <span class="fr">SECTION 8 : INFORMATIONS SUR LES FORMATEURS</span>
+            <span class="en">SECTION 8: DETAILS ON TRAINERS</span>
         </div>
 
         <h3>8.1 Formateurs par diplôme académique le plus élevé</h3>
@@ -1683,8 +1684,8 @@
     <!-- ============================================================ -->
     <div class="page">
         <div class="section-title">
-            SECTION 9 : DIFFICULTÉS ET PERSPECTIVES
-            <span class="en">DIFFICULTIES AND PROSPECTS</span>
+            <span class="fr">SECTION 9 : DIFFICULTÉS ET PERSPECTIVES</span>
+            <span class="en">SECTION 9: DIFFICULTIES AND PROSPECTS</span>
         </div>
 
         <table class="field-grid">
@@ -1714,7 +1715,7 @@
             {{/each}}
         </ol>
 
-        <p style="margin-top:20px;">Merci pour votre collaboration / <i>Thank you for your collaboration</i></p>
+        <p style="margin-top:20px;"><span class="fr">Merci pour votre collaboration</span><span class="en">Thank you for your collaboration</span></p>
 
         <div class="signature-row">
             <table>

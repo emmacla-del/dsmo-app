@@ -99,15 +99,21 @@ export class OnefopSubmissionPdfService {
         const normalizerKey = NORMALIZER_ENTITY_TYPE[formType] ?? 'entreprise';
         const mapperKey = MAPPER_ENTITY_TYPE[formType] ?? 'enterprise';
 
+        const raw = (submission.rawData as Record<string, unknown>) ?? {};
+        const rawLocale = (raw.lang as string) || (raw.locale as string) || 'fr';
+        const locale: 'fr' | 'en' = (typeof rawLocale === 'string' && rawLocale.toLowerCase().startsWith('en')) ? 'en' : 'fr';
+
         const normalized = normalizeFlatKeys(
-            (submission.rawData as Record<string, unknown>) ?? {},
+            raw,
             normalizerKey,
         );
-        const mappedData = MAPPERS[mapperKey](normalized, submission.quarterCode);
+        const mappedData = (MAPPERS[mapperKey] as any)(normalized, submission.quarterCode, locale);
 
         const buffer = await this.puppeteerService.generate({
             ...mappedData,
             formType: mapperKey,
+            locale,
+            lang: locale,
         });
 
         const { error: uploadError } = await this.supabase.storage
