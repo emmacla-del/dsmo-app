@@ -44,7 +44,14 @@
 .cam-admin .cam-button-secondary:disabled,
 .cam-admin-dialog .cam-button-secondary:disabled {
   color: var(--cam-text-muted);
-  opacity: 0.7;
+}
+
+/* Disabled must read as disabled at a glance, including the Round 2
+   placeholders on the dossiers list. */
+.cam-admin .cam-button:disabled,
+.cam-admin-dialog .cam-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .cam-button-danger {
@@ -55,6 +62,13 @@
 
 .cam-button-danger:hover:not(:disabled) {
   background: var(--cam-error-bg);
+}
+
+/* Drop the red when disabled, so it no longer reads as a live destructive action. */
+.cam-button-danger:disabled {
+  background: var(--cam-surface);
+  border-color: var(--cam-border-strong);
+  color: var(--cam-text-muted);
 }
 
 /* Doubled class: globals.css declares .cam-button after this file. */
@@ -728,9 +742,13 @@
   border-color: var(--cam-border-strong);
 }
 
-.cam-admin .cam-select:disabled {
+.cam-admin .cam-select:disabled,
+.cam-admin .cam-input:disabled,
+.cam-admin-dialog .cam-select:disabled,
+.cam-admin-dialog .cam-input:disabled {
   background: var(--cam-bg);
   color: var(--cam-text-muted);
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
