@@ -18,6 +18,7 @@ import {
   StatisticalExclusionReason,
 } from '../types/eligibility.types';
 import { BulkVisaDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 
 @Injectable()
 export class EligibilityEngineService {
@@ -27,9 +28,10 @@ export class EligibilityEngineService {
    * Pure deterministic projection of Axis 1 (Administrative) and Axis 2 (Quality)
    * into Axis 3 (Statistical Eligibility). Axis 3 is NEVER directly written to DB.
    */
-  async evaluateDossier(submissionId: string): Promise<DossierDiagnostic> {
-    const submission = await this.prisma.onefopSubmission.findUnique({
-      where: { id: submissionId },
+  async evaluateDossier(submissionId: string, territory?: Territory): Promise<DossierDiagnostic> {
+    // Out-of-territory dossiers are reported as not found (no existence leak).
+    const submission = await this.prisma.onefopSubmission.findFirst({
+      where: { id: submissionId, ...territoryWhere(territory) },
       include: {
         anomalies: {
           orderBy: { detectedAt: 'desc' },
@@ -205,12 +207,8 @@ export class EligibilityEngineService {
    * Action-oriented work queues powering "Que dois-je traiter aujourd'hui ?"
    * Scoped by territory if the user is regional or divisional.
    */
-  async getPilotageQueues(territory?: { region?: string; department?: string; regionId?: string; departmentId?: string }): Promise<PilotageQueues> {
-    const baseWhere: any = {};
-    if (territory?.regionId) baseWhere.regionId = territory.regionId;
-    if (territory?.departmentId) baseWhere.departmentId = territory.departmentId;
-    if (territory?.region && !territory.regionId) baseWhere.region = territory.region;
-    if (territory?.department && !territory.departmentId) baseWhere.department = territory.department;
+  async getPilotageQueues(territory?: Territory): Promise<PilotageQueues> {
+    const baseWhere: any = territoryWhere(territory);
 
     const [
       totalSubmissionsCount,
@@ -290,7 +288,7 @@ export class EligibilityEngineService {
     }
 
     // Territorial scope check for field inspectors
-    this.assertTerritorialAuthority(actor, anomaly.submission);
+    assertTerritorialAuthority(actor, anomaly.submission);
 
     const nextStatus = dto.resolutionType === AnomalyResolutionType.LEGAL_DEROGATION
       ? AnomalyStatus.WAIVED
@@ -379,7 +377,7 @@ export class EligibilityEngineService {
 
         // Condition C: Territorial jurisdiction check
         try {
-          this.assertTerritorialAuthority(actor, candidate);
+          assertTerritorialAuthority(actor, candidate);
         } catch (err: any) {
           rejectedItems.push({
             id: candidate.id,
@@ -444,11 +442,12 @@ export class EligibilityEngineService {
     isBlocking?: boolean;
     limit?: number;
     offset?: number;
-  }) {
+  }, territory?: Territory) {
     const where: any = {};
     if (filters.submissionId) where.submissionId = filters.submissionId;
     if (filters.status) where.status = filters.status;
     if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
+    where.submission = territoryWhere(territory);
 
     const [total, items] = await Promise.all([
       this.prisma.onefopAnomaly.count({ where }),
@@ -476,31 +475,5 @@ export class EligibilityEngineService {
     ]);
 
     return { total, items };
-  }
-
-  private assertTerritorialAuthority(actor: any, target: { region?: string | null; department?: string | null; regionId?: string | null; departmentId?: string | null }) {
-    if ([UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL].includes(actor.role)) {
-      return; // National jurisdiction
-    }
-
-    if (actor.role === UserRole.REGIONAL) {
-      const matchRegion = (actor.regionId && actor.regionId === target.regionId) ||
-                          (actor.region && actor.region === target.region);
-      if (!matchRegion) {
-        throw new ForbiddenException(`Action non autorisée hors de votre région d'affectation (${actor.region}).`);
-      }
-      return;
-    }
-
-    if (actor.role === UserRole.DIVISIONAL) {
-      const matchDept = (actor.departmentId && actor.departmentId === target.departmentId) ||
-                        (actor.department && actor.department === target.department);
-      if (!matchDept) {
-        throw new ForbiddenException(`Action non autorisée hors de votre département d'affectation (${actor.department}).`);
-      }
-      return;
-    }
-
-    throw new ForbiddenException('Privilèges territoriaux insuffisants.');
   }
 }

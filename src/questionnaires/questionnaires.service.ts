@@ -24,6 +24,7 @@ import {
 import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop-shadow-validator.service';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
+import { Territory, territoryWhere } from '../auth/territory';
 
 type FlatFormData = Record<string, string | number>;
 type TxClient = any;
@@ -2935,8 +2936,9 @@ export class QuestionnairesService {
     return `${year}-T${quarter}`;
   }
 
-  async getAllQuestionnaires() {
+  async getAllQuestionnaires(territory?: Territory) {
     return (this.prisma as any).onefopSubmission.findMany({
+      where: territoryWhere(territory),
       orderBy: { createdAt: 'desc' },
       include: {
         respondent: true,
@@ -2952,16 +2954,16 @@ export class QuestionnairesService {
     });
   }
 
-  async getQuestionnaireById(id: string) {
-    return (this.prisma as any).onefopSubmission.findUnique({
-      where: { id },
+  async getQuestionnaireById(id: string, territory?: Territory) {
+    return (this.prisma as any).onefopSubmission.findFirst({
+      where: { id, ...territoryWhere(territory) },
       include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true, vocationalTrainingDetail: true, vtDiplomaData: true, vtTraineeAgeFlow: true, vtTrainerAge: true, vtEducationLevelFlow: true, vtTraineeVulnerable: true, vtTrainerDisability: true, vtScholarship: true, vtSpecialtyRows: true, vtCurricula: true, vtInfrastructure: true, vtFurniture: true, vtTrainerRoster: true },
     });
   }
 
-  async listByStatus(status: string, limit: number, offset: number) {
+  async listByStatus(status: string, limit: number, offset: number, territory?: Territory) {
     return (this.prisma as any).onefopSubmission.findMany({
-      where: { status }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,
+      where: { status, ...territoryWhere(territory) }, orderBy: { createdAt: 'desc' }, take: limit, skip: offset,
       include: {
         respondent: true,
         enterpriseDetail: true,
@@ -2976,28 +2978,29 @@ export class QuestionnairesService {
     });
   }
 
-  async getById(id: string) {
-    const submission = await (this.prisma as any).onefopSubmission.findUnique({
-      where: { id },
+  async getById(id: string, territory?: Territory) {
+    // Out-of-territory rows are reported as not found (no existence leak).
+    const submission = await (this.prisma as any).onefopSubmission.findFirst({
+      where: { id, ...territoryWhere(territory) },
       include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, projectProgramActivities: true, cspGenderAge: true, diplomaData: true, disabilityData: true, vulnerableData: true, firstTimeWorkers: true, departureData: true, dismissalReasons: true, dismissalUnemployment: true, internshipData: true, skillNeeds: true, trainingNeeds: true, vocationalTrainingDetail: true, vtDiplomaData: true, vtTraineeAgeFlow: true, vtTrainerAge: true, vtEducationLevelFlow: true, vtTraineeVulnerable: true, vtTrainerDisability: true, vtScholarship: true, vtSpecialtyRows: true, vtCurricula: true, vtInfrastructure: true, vtFurniture: true, vtTrainerRoster: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     return submission;
   }
 
-  async approve(id: string, reviewedBy?: string) {
-    await this.getById(id);
+  async approve(id: string, reviewedBy?: string, territory?: Territory) {
+    await this.getById(id, territory);
     await this.eligibilityEngine!.assertCanApprove(id);
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 
-  async reject(id: string, reason: string, reviewedBy?: string) {
-    await this.getById(id);
+  async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory) {
+    await this.getById(id, territory);
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 
-  async requestCorrection(id: string, comments: string, reviewedBy?: string) {
-    await this.getById(id);
+  async requestCorrection(id: string, comments: string, reviewedBy?: string, territory?: Territory) {
+    await this.getById(id, territory);
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 }

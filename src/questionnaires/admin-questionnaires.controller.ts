@@ -16,6 +16,7 @@ import { Roles } from '../auth/roles.decorator';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { BulkVisaDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { territoryFromUser } from '../auth/territory';
 
 @Controller('admin/questionnaires')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,12 +32,7 @@ export class AdminQuestionnairesController {
    */
   @Get('pilotage/queues')
   async getQueues(@Request() req: any) {
-    const territory = {
-      region: req.user?.region,
-      department: req.user?.department,
-      regionId: req.user?.regionId,
-      departmentId: req.user?.departmentId,
-    };
+    const territory = territoryFromUser(req.user);
     return this.eligibilityEngine.getPilotageQueues(territory);
   }
 
@@ -58,6 +54,7 @@ export class AdminQuestionnairesController {
     @Query('isBlocking') isBlocking?: string,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Request() req?: any,
   ) {
     return this.eligibilityEngine.listAnomalies({
       submissionId,
@@ -65,7 +62,7 @@ export class AdminQuestionnairesController {
       isBlocking: isBlocking !== undefined ? isBlocking === 'true' : undefined,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
-    });
+    }, territoryFromUser(req?.user));
   }
 
   /**
@@ -85,45 +82,49 @@ export class AdminQuestionnairesController {
     @Query('status') status?: string,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Request() req?: any,
   ) {
+    const territory = territoryFromUser(req?.user);
     if (status) {
-      return this.service.listByStatus(status, limit ?? 100, offset ?? 0);
+      return this.service.listByStatus(status, limit ?? 100, offset ?? 0, territory);
     }
-    return this.service.getAllQuestionnaires();
+    return this.service.getAllQuestionnaires(territory);
   }
 
   @Get('pending')
   async getPending(
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Request() req?: any,
   ) {
-    return this.service.listByStatus('PENDING_REVIEW', limit ?? 100, offset ?? 0);
+    return this.service.listByStatus('PENDING_REVIEW', limit ?? 100, offset ?? 0, territoryFromUser(req?.user));
   }
 
   @Get('correction-requested')
   async getCorrectionRequested(
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Request() req?: any,
   ) {
-    return this.service.listByStatus('CORRECTION_REQUESTED', limit ?? 100, offset ?? 0);
+    return this.service.listByStatus('CORRECTION_REQUESTED', limit ?? 100, offset ?? 0, territoryFromUser(req?.user));
   }
 
   /**
    * 3-Axis Real-Time Dossier Diagnostic ("Pourquoi ce dossier n'est-il pas prêt ?")
    */
   @Get(':id/diagnostic')
-  async getDiagnostic(@Param('id') id: string) {
-    return this.eligibilityEngine.evaluateDossier(id);
+  async getDiagnostic(@Param('id') id: string, @Request() req: any) {
+    return this.eligibilityEngine.evaluateDossier(id, territoryFromUser(req.user));
   }
 
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.service.getById(id);
+  async getOne(@Param('id') id: string, @Request() req: any) {
+    return this.service.getById(id, territoryFromUser(req.user));
   }
 
   @Patch(':id/approve')
   async approve(@Param('id') id: string, @Request() req: any) {
-    return this.service.approve(id, req.user?.id);
+    return this.service.approve(id, req.user?.id, territoryFromUser(req.user));
   }
 
   @Patch(':id/reject')
@@ -132,7 +133,7 @@ export class AdminQuestionnairesController {
     @Body('reason') reason: string,
     @Request() req: any,
   ) {
-    return this.service.reject(id, reason, req.user?.id);
+    return this.service.reject(id, reason, req.user?.id, territoryFromUser(req.user));
   }
 
   @Patch(':id/request-correction')
@@ -141,6 +142,6 @@ export class AdminQuestionnairesController {
     @Body('comments') comments: string,
     @Request() req: any,
   ) {
-    return this.service.requestCorrection(id, comments, req.user?.id);
+    return this.service.requestCorrection(id, comments, req.user?.id, territoryFromUser(req.user));
   }
 }
