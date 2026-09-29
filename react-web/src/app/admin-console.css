@@ -119,7 +119,7 @@
 
 /* ── Shell ── */
 .cam-admin {
-  --cam-admin-rail-width: 196px;
+  --cam-admin-rail-width: 260px;
   display: grid;
   grid-template-columns: var(--cam-admin-rail-width) minmax(0, 1fr);
   min-height: 100vh;

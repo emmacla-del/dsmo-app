@@ -91,9 +91,6 @@ export interface AdminSidebarProps {
   /** Current locale for the FR | EN switcher */
   locale?: "fr" | "en";
   onLocaleChange?: (locale: "fr" | "en") => void;
-  /** Forwarded to the root <aside> for CSS targeting (e.g. mobile drawer) */
-  id?: string;
-  className?: string;
 }
 
 // ── Badge pill ────────────────────────────────────────────────────────────────
@@ -204,10 +201,9 @@ function NavLink({
 // ── AdminSidebar ──────────────────────────────────────────────────────────────
 
 /**
- * Admin navigation rail. Requires the `cam-admin-rail` class (admin-console.css)
- * for its width, height and positioning: sticky rail on desktop, off-canvas
- * drawer below 1024px. Do not set those inline — inline styles would override
- * the drawer media query. `layout.tsx` (the only consumer) passes the class.
+ * Admin navigation rail. Renders as `#cam-admin-rail.cam-admin-rail` so
+ * admin-console.css controls width, sticky positioning and the off-canvas
+ * mobile drawer — never override those with inline styles.
  */
 export function AdminSidebar({
   user,
@@ -216,8 +212,6 @@ export function AdminSidebar({
   anomaliesCount = 0,
   locale = "fr",
   onLocaleChange,
-  id,
-  className,
 }: AdminSidebarProps) {
   const pathname = usePathname();
 
@@ -237,8 +231,8 @@ export function AdminSidebar({
 
   return (
     <aside
-      id={id}
-      className={className}
+      id="cam-admin-rail"
+      className="cam-admin-rail"
       aria-label="Navigation principale"
       style={{
         flexShrink: 0,

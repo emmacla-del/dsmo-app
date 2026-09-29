@@ -116,8 +116,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`cam-admin${menuOpen ? " is-menu-open" : ""}`}>
       <AdminSidebar
-        id="cam-admin-rail"
-        className="cam-admin-rail"
         user={{
           displayName,
           initials,
