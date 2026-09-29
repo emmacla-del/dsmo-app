@@ -28,6 +28,17 @@ interface DossierItem {
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
 const PAGE_SIZE = 10;
+
+// Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
+const FORM_TYPES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
+// Mirrors ADMIN_LIST_PERIODS; "" = Toutes les périodes (the default, so pending
+// dossiers older than 30 days stay visible).
+const PERIODS: Array<{ value: string; label: string }> = [
+  { value: "7d", label: "7 derniers jours" },
+  { value: "30d", label: "30 derniers jours" },
+  { value: "3m", label: "3 derniers mois" },
+  { value: "12m", label: "12 derniers mois" },
+];
 const SEARCH_DEBOUNCE_MS = 300;
 
 function fmtCount(n: number) {
@@ -52,6 +63,8 @@ function DossiersContent() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
   // The queue page deep-links here with ?status=PENDING_REVIEW|CORRECTION_REQUESTED.
   const requestedStatus = useSearchParams().get("status") ?? "";
@@ -65,13 +78,16 @@ function DossiersContent() {
   const [bulkResult, setBulkResult] = useState<any | null>(null);
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
-  // Status, region and search are all applied server-side, so `total` is the
+  // TODO(design, S): what is "ASFOP" in the Figma's questionnaire types? Labels use entityTypeLabel until the domain answers (VOCATIONAL_TRAINING?)
+  // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", { statusFilter, regionFilter, search, offset }],
+    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, offset }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: statusFilter || undefined,
+        formType: typeFilter || undefined,
+        period: periodFilter || undefined,
         region: regionFilter || undefined,
         search: search || undefined,
         limit: PAGE_SIZE,
@@ -201,8 +217,6 @@ function DossiersContent() {
       : "National (MINEFOP / ONEFOP)";
 
   // ROUND 2 (disabled until the backend supports them; see docs/figma/supervision/dossiers.png):
-  // TODO(backend, S): ROUND 2 — questionnaire-type filter param for the "Type de questionnaire" field
-  // TODO(backend, S): ROUND 2 — submission-date range params for the "Période" field
   // TODO(backend, M): ROUND 2 — bulk reject endpoint for "Rejeter Sélection"
   // TODO(backend, M): ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)"
   const round2Hint = "Disponible prochainement";
@@ -214,8 +228,11 @@ function DossiersContent() {
           <div className="cam-admin-filters" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
             <div className="cam-field">
               <label className="cam-label" htmlFor="dossier-type">Type de questionnaire</label>
-              <select id="dossier-type" className="cam-select" disabled title={round2Hint} value="">
+              <select id="dossier-type" className="cam-select" value={typeFilter} onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}>
                 <option value="">Tous les questionnaires</option>
+                {FORM_TYPES.map((t) => (
+                  <option key={t} value={t}>{entityTypeLabel(t)}</option>
+                ))}
               </select>
             </div>
             <div className="cam-field">
@@ -239,10 +256,11 @@ function DossiersContent() {
             </div>
             <div className="cam-field">
               <label className="cam-label" htmlFor="dossier-period">Période</label>
-              {/* Shows no period rather than the Figma's "Derniers 30 jours": a disabled
-                  control must not suggest a filter is applied. */}
-              <select id="dossier-period" className="cam-select" disabled title={round2Hint} value="">
+              <select id="dossier-period" className="cam-select" value={periodFilter} onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}>
                 <option value="">Toutes les périodes</option>
+                {PERIODS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
               </select>
             </div>
             <div className="cam-field">
@@ -267,7 +285,7 @@ function DossiersContent() {
             <button
               type="button"
               className="cam-text-button"
-              onClick={() => changeFilter(() => { setSearchInput(""); setSearch(""); setRegionFilter(""); setStatusFilter(""); })}
+              onClick={() => changeFilter(() => { setSearchInput(""); setSearch(""); setRegionFilter(""); setStatusFilter(""); setTypeFilter(""); setPeriodFilter(""); })}
             >
               Réinitialiser les filtres
             </button>

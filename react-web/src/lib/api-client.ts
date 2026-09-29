@@ -512,16 +512,21 @@ export function getPilotageQueues() {
 
 export interface AdminQuestionnairesPage {
   items: any[];
-  /** Count of the whole filtered query (territory + status + region + search), not of this page. */
+  /** Count of the whole filtered query (territory + status + type + period + region + search, drafts excluded), not of this page. */
   total: number;
 }
 
 // TODO(backend, S): delete QuestionnairesService.getAllQuestionnaires in a follow-up — dead code since 40529d79 (GET /admin/questionnaires now uses listForAdmin)
 export function listAdminQuestionnaires(
-  params: { status?: string; region?: string; search?: string; limit?: number; offset?: number } = {},
+  params: {
+    status?: string; formType?: string; period?: string; region?: string; search?: string;
+    limit?: number; offset?: number;
+  } = {},
 ) {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
+  if (params.formType) query.set("formType", params.formType);
+  if (params.period) query.set("period", params.period);
   if (params.region) query.set("region", params.region);
   if (params.search) query.set("search", params.search);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
