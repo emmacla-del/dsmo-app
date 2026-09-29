@@ -18,7 +18,7 @@ import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { BulkVisaDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { territoryFromUser } from '../auth/territory';
-import { OnefopStatus } from '@prisma/client';
+import { ADMIN_LIST_FORM_TYPES, ADMIN_LIST_PERIODS, ADMIN_LIST_STATUSES, AdminListPeriod } from './admin-list-filter';
 
 const LIST_MAX_LIMIT = 100;
 const SEARCH_MAX_LENGTH = 100;
@@ -102,7 +102,8 @@ export class AdminQuestionnairesController {
 
   /**
    * Paginated dossier list: { items, total }. `total` counts the filtered
-   * query (territory + status + region + search), not the whole table.
+   * query (territory + status + type + region + period + search, drafts
+   * excluded), not the whole table.
    */
   @Get()
   async getAll(
@@ -111,15 +112,28 @@ export class AdminQuestionnairesController {
     @Query('offset') offset?: string,
     @Query('region') region?: string,
     @Query('search') search?: string,
+    @Query('formType') formType?: string,
+    @Query('period') period?: string,
     @Request() req?: any,
   ) {
+    // DRAFT is not in ADMIN_LIST_STATUSES: drafts are never listed.
     const statusFilter = optionalText(status);
-    if (statusFilter && !(Object.values(OnefopStatus) as string[]).includes(statusFilter)) {
+    if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
       throw new BadRequestException('Statut de dossier inconnu.');
+    }
+    const typeFilter = optionalText(formType);
+    if (typeFilter && !ADMIN_LIST_FORM_TYPES.includes(typeFilter)) {
+      throw new BadRequestException('Type de questionnaire inconnu.');
+    }
+    const periodFilter = optionalText(period);
+    if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
+      throw new BadRequestException('Période inconnue.');
     }
     return this.service.listForAdmin(
       {
         status: statusFilter,
+        formType: typeFilter,
+        period: periodFilter as AdminListPeriod | undefined,
         region: optionalText(region),
         search: optionalText(search),
         limit: parseIntParam(limit, LIST_MAX_LIMIT, 1, LIST_MAX_LIMIT,

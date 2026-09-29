@@ -342,8 +342,10 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     expect(queues.statusCounts).toEqual({ PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 100 });
     expect(queues.approvedCount).toBe(700);
     expect(queues.regionCounts).toEqual([{ region: 'Littoral', count: 800 }, { region: null, count: 400 }]);
-    // Aggregates use the same territory filter as the other queue counts.
-    const scoped = { region: { equals: 'Littoral', mode: 'insensitive' } };
+    // Aggregates use the same territory filter as the other queue counts,
+    // and never count drafts (unsubmitted work).
+    const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { not: 'DRAFT' } }] };
+    expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({ where: scoped });
     for (const call of prisma.onefopSubmission.groupBy.mock.calls) {
       expect(call[0]).toMatchObject({ where: scoped, _count: { _all: true } });
     }

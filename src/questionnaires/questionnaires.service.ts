@@ -25,6 +25,7 @@ import { surveyYearFromQuarterCode } from '../services/pdf-data-mapper.service';
 import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop-shadow-validator.service';
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, territoryWhere } from '../auth/territory';
+import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
 
 type FlatFormData = Record<string, string | number>;
 type TxClient = any;
@@ -2963,34 +2964,15 @@ export class QuestionnairesService {
 
   /**
    * One page of the admin dossier list plus `total`, the count of the SAME
-   * filtered query (territory + status + region + search), so "sur N" always
-   * matches what the filters produce. Filters are combined with AND rather than
-   * spread into one object: a region filter must narrow the caller's territory,
-   * never replace its region key and escape it.
+   * filtered query (built by buildAdminListWhere: territory + draft exclusion
+   * + status + type + region + period + search), so "sur N" always matches
+   * what the filters produce.
    */
   async listForAdmin(
-    filters: { status?: string; region?: string; search?: string; limit: number; offset: number },
+    filters: AdminListFilters & { limit: number; offset: number },
     territory?: Territory,
   ): Promise<{ items: any[]; total: number }> {
-    const and: Record<string, unknown>[] = [territoryWhere(territory)];
-    if (filters.status) and.push({ status: filters.status });
-    if (filters.region) and.push({ region: { equals: filters.region, mode: 'insensitive' } });
-    if (filters.search) {
-      const contains = { contains: filters.search, mode: 'insensitive' };
-      and.push({
-        OR: [
-          { submissionId: contains },
-          { respondent: { respondentName: contains } },
-          { enterpriseDetail: { companyName: contains } },
-          { cooperativeDetail: { cooperativeName: contains } },
-          { ongDetail: { ongName: contains } },
-          { administrationDetail: { name: contains } },
-          { projectProgramDetail: { name: contains } },
-          { vocationalTrainingDetail: { name: contains } },
-        ],
-      });
-    }
-    const where = { AND: and };
+    const where = buildAdminListWhere(filters, territory);
 
     const [items, total] = await Promise.all([
       (this.prisma as any).onefopSubmission.findMany({

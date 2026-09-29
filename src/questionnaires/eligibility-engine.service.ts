@@ -208,7 +208,8 @@ export class EligibilityEngineService {
    * Scoped by territory if the user is regional or divisional.
    */
   async getPilotageQueues(territory?: Territory): Promise<PilotageQueues> {
-    const baseWhere: any = territoryWhere(territory);
+    // Drafts are respondents' unsubmitted work: never counted as submissions.
+    const baseWhere: any = { AND: [territoryWhere(territory), { status: { not: OnefopStatus.DRAFT } }] };
 
     const [
       totalSubmissionsCount,
