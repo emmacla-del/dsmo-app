@@ -42,8 +42,8 @@ describe('staff administration scope', () => {
 });
 
 describe('AuthService user management enforces the scope server-side', () => {
-  const accounts: Record<string, { id: string; role: string; status: string; region?: string | null; department?: string | null }> = {
-    regional: { id: 'regional', role: 'REGIONAL', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri' },
+  const accounts: Record<string, { id: string; role: string; status: string; region?: string | null; department?: string | null; passwordHash?: string; passwordResetTokenHash?: string }> = {
+    regional: { id: 'regional', role: 'REGIONAL', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri', passwordHash: '$2b$10$secret', passwordResetTokenHash: 'reset-secret' },
     regionOnly: { id: 'regionOnly', role: 'REGIONAL', status: 'ACTIVE', region: 'Littoral', department: null },
     departmentOnly: { id: 'departmentOnly', role: 'CENTRAL', status: 'ACTIVE', region: null, department: 'Wouri' },
     noTerritory: { id: 'noTerritory', role: 'CENTRAL', status: 'ACTIVE', region: null, department: null },
@@ -92,6 +92,20 @@ describe('AuthService user management enforces the scope server-side', () => {
 
   it('allows promotion to REGIONAL when the account has a region', async () => {
     await expect(service.updateUserRole('regionOnly', 'REGIONAL', 'me', 'SUPER_ADMIN')).resolves.toMatchObject({ role: 'REGIONAL' });
+  });
+
+  it('never returns password or token hashes from admin user mutations', async () => {
+    const results = [
+      await service.approveUser('regional', 'SUPER_ADMIN'),
+      await service.rejectUser('regional', 'SUPER_ADMIN'),
+      await service.updateUserRole('regional', 'DIVISIONAL', 'me', 'SUPER_ADMIN'),
+      await service.setUserActive('regional', false, 'me', 'SUPER_ADMIN'),
+    ];
+    for (const result of results) {
+      expect(result).not.toHaveProperty('passwordHash');
+      expect(result).not.toHaveProperty('passwordResetTokenHash');
+      expect(result).toMatchObject({ id: 'regional' });
+    }
   });
 
   it('refuses every action on an out-of-scope account, before any write', async () => {

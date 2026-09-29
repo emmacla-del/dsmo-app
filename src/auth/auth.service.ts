@@ -17,6 +17,7 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { computeOnefopFeatures } from '../common/onefop-features.util';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
 import { assertCanManageRole, manageableRolesFor } from './staff-scope';
+import { toPublicUser } from './public-user';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -118,8 +119,7 @@ export class AuthService {
         'Votre compte a été désactivé. Contactez un administrateur.',
       );
     }
-    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
-    return safeUser;
+    return toPublicUser(user);
   }
 
   private async buildFeatures(userId: string, role: string) {
@@ -193,14 +193,13 @@ export class AuthService {
         'Votre compte a été désactivé. Contactez un administrateur.',
       );
     }
-    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
     // Never computed here before -- harmless while nothing re-fetched /me
     // after login, but AuthNotifier.refreshUser() (Flutter) now calls this
     // on screen opens to pick up server-side changes mid-session, and
     // without `features` here it silently overwrote the correct login-time
     // value with UserFeatures' all-false default.
     const features = await this.buildFeatures(user.id, user.role);
-    return { ...safeUser, features };
+    return { ...toPublicUser(user), features };
   }
 
   /**
@@ -306,8 +305,7 @@ export class AuthService {
     if (prefs.smsNotificationsEnabled !== undefined) data.smsNotificationsEnabled = prefs.smsNotificationsEnabled;
 
     const user = await this.prisma.user.update({ where: { id: userId }, data });
-    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
-    return safeUser;
+    return toPublicUser(user);
   }
 
   async setTwoFactorEnabled(userId: string, enabled: boolean) {
@@ -328,8 +326,7 @@ export class AuthService {
       where: { id: userId },
       data: { twoFactorEnabled: enabled },
     });
-    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = user;
-    return safeUser;
+    return toPublicUser(user);
   }
 
   async register(
@@ -377,8 +374,7 @@ export class AuthService {
           isActive: !isMinefop,
         },
       });
-      const { passwordHash, ...safeUser } = user;
-      return safeUser;
+      return toPublicUser(user);
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Un utilisateur avec cet email existe déjà');
@@ -465,8 +461,7 @@ export class AuthService {
           mustChangePassword: true,
         },
       });
-      const { passwordHash, ...safeUser } = user;
-      return { user: safeUser, temporaryPassword };
+      return { user: toPublicUser(user), temporaryPassword };
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Un utilisateur avec cet email existe déjà');
@@ -806,10 +801,10 @@ export class AuthService {
     if (user.status !== 'PENDING_APPROVAL') {
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
     }
-    return this.prisma.user.update({
+    return toPublicUser(await this.prisma.user.update({
       where: { id },
       data: { status: 'ACTIVE', isActive: true },
-    });
+    }));
   }
 
   async rejectUser(id: string, actorRole: string) {
@@ -819,10 +814,10 @@ export class AuthService {
     if (user.role === 'COMPANY') {
       throw new BadRequestException('Les entreprises ne peuvent pas être rejetées');
     }
-    return this.prisma.user.update({
+    return toPublicUser(await this.prisma.user.update({
       where: { id },
       data: { status: 'REJECTED', isActive: false },
-    });
+    }));
   }
 
   private static readonly ASSIGNABLE_ROLES = [
@@ -917,10 +912,10 @@ export class AuthService {
         'Les utilisateurs régionaux doivent avoir une région assignée',
       );
     }
-    return this.prisma.user.update({
+    return toPublicUser(await this.prisma.user.update({
       where: { id },
       data: { role: role as any },
-    });
+    }));
   }
 
   async setUserActive(id: string, isActive: boolean, actingUserId: string, actorRole: string) {
@@ -934,10 +929,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     assertCanManageRole(actorRole, user.role);
-    return this.prisma.user.update({
+    return toPublicUser(await this.prisma.user.update({
       where: { id },
       data: { isActive },
-    });
+    }));
   }
 
   /**
@@ -974,8 +969,7 @@ export class AuthService {
       where: { id },
       data: { twoFactorEnabled: enabled, twoFactorCodeHash: null, twoFactorCodeExpires: null },
     });
-    const { passwordHash, twoFactorCodeHash, twoFactorCodeExpires, ...safeUser } = updated;
-    return safeUser;
+    return toPublicUser(updated);
   }
 
   /**
