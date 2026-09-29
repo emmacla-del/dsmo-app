@@ -3,12 +3,17 @@
 > Generated from `// TODO(backend, S|M|L)` and `// TODO(design)` comments in `src/`.
 > **Do not edit by hand.** Run `npm run todo:report` to regenerate.
 
-Total: **8** — 6 backend, 2 design
+Total: **13** — 11 backend, 2 design
 
 ## Backend
 
 | Size | Task | Location |
 |---|---|---|
+| S | ROUND 2 — GET /admin/questionnaires must honour limit/offset without a status and return a total; today status-filtered views are silently capped at 100 rows | `src\app\admin\dossiers\page.tsx:168` |
+| S | ROUND 2 — questionnaire-type filter param for the "Type de questionnaire" field | `src\app\admin\dossiers\page.tsx:169` |
+| S | ROUND 2 — submission-date range params for the "Période" field | `src\app\admin\dossiers\page.tsx:170` |
+| M | ROUND 2 — bulk reject endpoint for "Rejeter Sélection" | `src\app\admin\dossiers\page.tsx:171` |
+| M | ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)" | `src\app\admin\dossiers\page.tsx:172` |
 | M | missing campaign target, national completion %, and active agent count for the Figma progress bar and stats row | `src\app\admin\pilotage\page.tsx:65` |
 | M | missing per-region completion, QC and anomaly rates for the Couverture Régionale columns | `src\app\admin\pilotage\page.tsx:98` |
 | M | no audit-log endpoint; timeline is derived from the latest submissions, and "Voir tout le journal" needs /admin/journal-audit | `src\app\admin\pilotage\page.tsx:127` |

@@ -68,6 +68,19 @@ as "replaced by"; anything dropped outright says why.
 - **Kept although not in Figma:** "Statut des fiches" donut
   (`TODO(design, S)` in `pilotage/page.tsx`).
 
+### Dossiers list — Round 1 (`admin/dossiers`)
+- **"Examiner" button** — removed; the ID Fiche cell is now the link to
+  the dossier (same URL and query params).
+- **"N dossiers affichés" toolbar count** — moved to the table footer.
+- **"Réinitialiser" button** — kept, as a text button under the filters
+  (not in the Figma, but existing functionality).
+- **Kept although not in Figma:** row checkboxes (bulk visa needs a
+  selection) and the "Reçu le" column (the list is where stale items are
+  scanned).
+- **Disabled until Round 2 (backend missing):** Type de questionnaire,
+  Période, Rejeter la sélection, Exporter (CSV/Excel), pagination and total.
+  See the `ROUND 2` TODOs in `dossiers/page.tsx` / `docs/pending-work.md`.
+
 ## Follow-ups (small, non-blocking)
 - `scripts/todo-report.mjs` writes Windows backslash paths (`src\app\...`) into
   `docs/pending-work.md` when run on Windows. Normalise with `.replaceAll("\\", "/")`.

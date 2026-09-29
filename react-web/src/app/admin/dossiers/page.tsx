@@ -16,6 +16,7 @@ interface DossierItem {
   id: string;
   submissionId: string;
   companyName: string;
+  respondentName: string;
   region: string;
   department: string;
   formType: string;
@@ -80,11 +81,12 @@ function DossiersContent() {
   const dossiers: DossierItem[] = (questionnairesQuery.data ?? []).map((sub: any) => {
     const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
+    // Column names differ per detail table (schema.prisma); OnefopCtdDetail
+    // has no name column, so CTDs fall through to rawData.
     const name =
-      sub.enterpriseDetail?.name ||
-      sub.cooperativeDetail?.name ||
-      sub.ctdDetail?.name ||
-      sub.ongDetail?.name ||
+      sub.enterpriseDetail?.companyName ||
+      sub.cooperativeDetail?.cooperativeName ||
+      sub.ongDetail?.ongName ||
       sub.administrationDetail?.name ||
       sub.projectProgramDetail?.name ||
       sub.vocationalTrainingDetail?.name ||
@@ -99,6 +101,7 @@ function DossiersContent() {
       id: sub.id,
       submissionId: sub.submissionId || sub.id,
       companyName: name,
+      respondentName: sub.respondent?.respondentName || "—",
       region: sub.region || sub.rawData?.enterprise?.region || "—",
       department: sub.department || sub.rawData?.enterprise?.department || "—",
       formType: sub.formType || "ENTREPRISE",
@@ -110,7 +113,8 @@ function DossiersContent() {
   });
 
   const filteredDossiers = dossiers.filter((d) => {
-    if (search && !d.companyName.toLowerCase().includes(search.toLowerCase()) && !d.submissionId.toLowerCase().includes(search.toLowerCase())) return false;
+    const q = search.toLowerCase();
+    if (q && ![d.companyName, d.submissionId, d.respondentName].some((v) => v.toLowerCase().includes(q))) return false;
     if (regionFilter && d.region !== regionFilter) return false;
     if (statusFilter && d.adminStatus !== statusFilter) return false;
     return true;
@@ -160,43 +164,24 @@ function DossiersContent() {
       ? `Région ${user.region}`
       : "National (MINEFOP / ONEFOP)";
 
+  // ROUND 2 (disabled until the backend supports them; see docs/figma/supervision/dossiers.png):
+  // TODO(backend, S): ROUND 2 — GET /admin/questionnaires must honour limit/offset without a status and return a total; today status-filtered views are silently capped at 100 rows
+  // TODO(backend, S): ROUND 2 — questionnaire-type filter param for the "Type de questionnaire" field
+  // TODO(backend, S): ROUND 2 — submission-date range params for the "Période" field
+  // TODO(backend, M): ROUND 2 — bulk reject endpoint for "Rejeter Sélection"
+  // TODO(backend, M): ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)"
+  const round2Hint = "Disponible prochainement";
+
   return (
     <div className="cam-admin-page">
-      <div className="cam-admin-page-toolbar">
-        <span className="cam-admin-meta">
-          {filteredDossiers.length} dossier{filteredDossiers.length !== 1 ? "s" : ""} affiché{filteredDossiers.length !== 1 ? "s" : ""}
-        </span>
-        <button
-          type="button"
-          className="cam-button cam-button-primary cam-button-sm"
-          onClick={handleOpenBulkModal}
-          disabled={cleanPendingSelected.length === 0}
-          title={cleanPendingSelected.length === 0 ? "Sélectionnez des dossiers en instance sans anomalie bloquante" : undefined}
-        >
-          Viser les dossiers propres
-          <span className="cam-button-count">{cleanPendingSelected.length}</span>
-        </button>
-      </div>
-
       <section className="cam-admin-section" aria-label="Filtres">
         <div className="cam-admin-section-body" style={{ padding: "var(--cam-space-4) var(--cam-space-5)" }}>
-          <div className="cam-admin-filters" style={{ gridTemplateColumns: "minmax(240px, 2fr) repeat(2, minmax(170px, 1fr)) auto" }}>
+          <div className="cam-admin-filters" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
             <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-search">Rechercher</label>
-              <div className="cam-admin-search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  id="dossier-search"
-                  type="search"
-                  className="cam-input"
-                  placeholder="Raison sociale ou identifiant"
-                  value={search}
-                  onChange={(e) => changeFilter(() => setSearch(e.target.value))}
-                />
-              </div>
+              <label className="cam-label" htmlFor="dossier-type">Type de questionnaire</label>
+              <select id="dossier-type" className="cam-select" disabled title={round2Hint} value="">
+                <option value="">Tous les questionnaires</option>
+              </select>
             </div>
             <div className="cam-field">
               <label className="cam-label" htmlFor="dossier-region">Région</label>
@@ -208,7 +193,7 @@ function DossiersContent() {
               </select>
             </div>
             <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-status">Statut du visa</label>
+              <label className="cam-label" htmlFor="dossier-status">Statut</label>
               <select id="dossier-status" className="cam-select" value={statusFilter} onChange={(e) => changeFilter(() => setStatusFilter(e.target.value))}>
                 <option value="">Tous les statuts</option>
                 <option value="PENDING_REVIEW">En instance</option>
@@ -217,17 +202,64 @@ function DossiersContent() {
                 <option value="REJECTED">Rejeté</option>
               </select>
             </div>
+            <div className="cam-field">
+              <label className="cam-label" htmlFor="dossier-period">Période</label>
+              {/* Shows no period rather than the Figma's "Derniers 30 jours": a disabled
+                  control must not suggest a filter is applied. */}
+              <select id="dossier-period" className="cam-select" disabled title={round2Hint} value="">
+                <option value="">Toutes les périodes</option>
+              </select>
+            </div>
+            <div className="cam-field">
+              <label className="cam-label" htmlFor="dossier-search">Recherche libre</label>
+              <div className="cam-admin-search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  id="dossier-search"
+                  type="search"
+                  className="cam-input"
+                  placeholder="ID, répondant, structure…"
+                  value={search}
+                  onChange={(e) => changeFilter(() => setSearch(e.target.value))}
+                />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-2)" }}>
             <button
               type="button"
-              className="cam-button cam-button-secondary"
-              style={{ height: "var(--cam-form-field-height)" }}
+              className="cam-text-button"
               onClick={() => changeFilter(() => { setSearch(""); setRegionFilter(""); setStatusFilter(""); })}
             >
-              Réinitialiser
+              Réinitialiser les filtres
             </button>
           </div>
         </div>
       </section>
+
+      <div className="cam-admin-page-toolbar">
+        <div className="cam-admin-actions">
+          <button
+            type="button"
+            className="cam-button cam-button-primary cam-button-sm"
+            onClick={handleOpenBulkModal}
+            disabled={cleanPendingSelected.length === 0}
+            title={cleanPendingSelected.length === 0 ? "Sélectionnez des dossiers en instance sans anomalie bloquante" : undefined}
+          >
+            Viser la sélection
+            <span className="cam-button-count">{cleanPendingSelected.length}</span>
+          </button>
+          <button type="button" className="cam-button cam-button-danger cam-button-sm" disabled title={round2Hint}>
+            Rejeter la sélection
+          </button>
+        </div>
+        <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled title={round2Hint}>
+          Exporter (CSV/Excel)
+        </button>
+      </div>
 
       {selectedIds.size > 0 && (
         <div className="cam-admin-selection" role="status">
@@ -261,30 +293,32 @@ function DossiersContent() {
                     aria-label="Sélectionner tous les dossiers affichés"
                   />
                 </th>
-                <th scope="col">Structure déclarante</th>
-                <th scope="col">Référence</th>
-                <th scope="col">Visa</th>
-                <th scope="col">Contrôles</th>
+                <th scope="col">ID Fiche</th>
+                <th scope="col">Répondant</th>
+                <th scope="col">Structure</th>
+                <th scope="col">Type</th>
+                <th scope="col">Région</th>
+                <th scope="col">Visa administratif</th>
+                <th scope="col">Qualité données</th>
                 <th scope="col">Éligibilité</th>
                 <th scope="col">Reçu le</th>
-                <th scope="col" className="text-right"><span className="cam-sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
               {questionnairesQuery.isLoading ? (
                 <tr>
-                  <td colSpan={8} className="cam-admin-empty">Chargement des dossiers…</td>
+                  <td colSpan={10} className="cam-admin-empty">Chargement des dossiers…</td>
                 </tr>
               ) : questionnairesQuery.isError ? (
                 <tr>
-                  <td colSpan={8} className="cam-admin-empty" role="alert">
+                  <td colSpan={10} className="cam-admin-empty" role="alert">
                     <strong>Les dossiers n&apos;ont pas pu être chargés</strong>
                     {(questionnairesQuery.error as Error)?.message}
                   </td>
                 </tr>
               ) : filteredDossiers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="cam-admin-empty">
+                  <td colSpan={10} className="cam-admin-empty">
                     <strong>Aucun dossier</strong>
                     Aucun dossier ne correspond aux critères sélectionnés.
                   </td>
@@ -304,12 +338,21 @@ function DossiersContent() {
                         />
                       </td>
                       <td>
-                        <div className="cam-admin-strong">{d.companyName}</div>
-                        <div className="cam-admin-meta">{d.region} · {d.department}</div>
+                        <Link
+                          href={`/admin/dossiers/${encodeURIComponent(d.id)}?ref=${encodeURIComponent(d.submissionId)}&name=${encodeURIComponent(d.companyName)}&region=${encodeURIComponent(d.region)}&date=${encodeURIComponent(d.submittedAt)}`}
+                          className="cam-admin-code"
+                          style={{ color: "var(--cam-green)", fontWeight: 700 }}
+                          aria-label={`Examiner le dossier ${d.submissionId} — ${d.companyName}`}
+                        >
+                          {d.submissionId}
+                        </Link>
                       </td>
+                      <td className="cam-admin-strong">{d.respondentName}</td>
+                      <td>{d.companyName}</td>
+                      <td>{entityTypeLabel(d.formType)}</td>
                       <td>
-                        <div className="cam-admin-code">{d.submissionId}</div>
-                        <div className="cam-admin-meta">{entityTypeLabel(d.formType)}</div>
+                        <div>{d.region}</div>
+                        <div className="cam-admin-meta">{d.department}</div>
                       </td>
                       <td>
                         {d.adminStatus === "APPROVED" ? (
@@ -325,11 +368,11 @@ function DossiersContent() {
                       <td>
                         {d.blockingCount > 0 ? (
                           <span className="cam-badge cam-badge-error">
-                            {d.blockingCount} bloquante{d.blockingCount > 1 ? "s" : ""}
+                            Anomalies {d.blockingCount}
                           </span>
                         ) : d.warningCount > 0 ? (
                           <span className="cam-badge cam-badge-warning">
-                            {d.warningCount} alerte{d.warningCount > 1 ? "s" : ""}
+                            Avertissements {d.warningCount}
                           </span>
                         ) : (
                           <span className="cam-badge cam-badge-success">Conforme</span>
@@ -345,20 +388,23 @@ function DossiersContent() {
                       <td className="cam-admin-muted" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                         {d.submittedAt}
                       </td>
-                      <td className="text-right">
-                        <Link
-                          href={`/admin/dossiers/${encodeURIComponent(d.id)}?ref=${encodeURIComponent(d.submissionId)}&name=${encodeURIComponent(d.companyName)}&region=${encodeURIComponent(d.region)}&date=${encodeURIComponent(d.submittedAt)}`}
-                          className="cam-button cam-button-secondary cam-button-sm"
-                        >
-                          Examiner
-                        </Link>
-                      </td>
                     </tr>
                   );
                 })
               )}
             </tbody>
           </table>
+        </div>
+        {/* Rows shown are counted honestly; the total and paging wait for the
+            backend (see the ROUND 2 TODOs above). */}
+        <div className="cam-pagination" style={{ justifyContent: "space-between", padding: "0 var(--cam-space-4) var(--cam-space-4)" }}>
+          <span className="cam-pagination-info">
+            {filteredDossiers.length} dossier{filteredDossiers.length !== 1 ? "s" : ""} affiché{filteredDossiers.length !== 1 ? "s" : ""} · total : <span title={round2Hint}>—</span>
+          </span>
+          <div style={{ display: "flex", gap: "var(--cam-space-2)" }}>
+            <button className="cam-pagination-btn" type="button" disabled title={round2Hint}>Précédent</button>
+            <button className="cam-pagination-btn" type="button" disabled title={round2Hint}>Suivant</button>
+          </div>
         </div>
       </section>
 
