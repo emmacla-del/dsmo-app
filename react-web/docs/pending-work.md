@@ -3,22 +3,24 @@
 > Generated from `// TODO(backend, S|M|L)` and `// TODO(design)` comments in `src/`.
 > **Do not edit by hand.** Run `npm run todo:report` to regenerate.
 
-Total: **12** — 10 backend, 2 design
+Total: **14** — 12 backend, 2 design
 
 ## Backend
 
 | Size | Task | Location |
 |---|---|---|
-| S | ROUND 2 — questionnaire-type filter param for the "Type de questionnaire" field | `src\app\admin\dossiers\page.tsx:203` |
-| S | ROUND 2 — submission-date range params for the "Période" field | `src\app\admin\dossiers\page.tsx:204` |
-| M | ROUND 2 — bulk reject endpoint for "Rejeter Sélection" | `src\app\admin\dossiers\page.tsx:205` |
-| M | ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)" | `src\app\admin\dossiers\page.tsx:206` |
+| S | known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData) | `src\app\admin\dossiers\page.tsx:67` |
+| S | ROUND 2 — questionnaire-type filter param for the "Type de questionnaire" field | `src\app\admin\dossiers\page.tsx:204` |
+| S | ROUND 2 — submission-date range params for the "Période" field | `src\app\admin\dossiers\page.tsx:205` |
+| M | ROUND 2 — bulk reject endpoint for "Rejeter Sélection" | `src\app\admin\dossiers\page.tsx:206` |
+| M | ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)" | `src\app\admin\dossiers\page.tsx:207` |
 | M | missing campaign target, national completion %, and active agent count for the Figma progress bar and stats row | `src\app\admin\pilotage\page.tsx:65` |
 | M | missing per-region completion, QC and anomaly rates for the Couverture Régionale columns | `src\app\admin\pilotage\page.tsx:98` |
 | M | no audit-log endpoint; timeline is derived from the latest submissions, and "Voir tout le journal" needs /admin/journal-audit | `src\app\admin\pilotage\page.tsx:127` |
 | L | remaining quality metrics (Complétude, Cohérence, Anomalies, Avertissements rates) and the /admin/qualite centre link | `src\app\admin\pilotage\page.tsx:162` |
 | S | missing inscriptions count (Figma pipeline starts with an "Inscriptions" stage) | `src\app\admin\pilotage\page.tsx:276` |
 | S | missing /admin/inscriptions/count for the "Inscriptions en attente" tile | `src\app\admin\pilotage\page.tsx:286` |
+| S | delete QuestionnairesService.getAllQuestionnaires in a follow-up — dead code since 40529d79 (GET /admin/questionnaires now uses listForAdmin) | `src\lib\api-client.ts:519` |
 
 ## Design
 
