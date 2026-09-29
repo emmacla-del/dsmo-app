@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ApiError, getDossierDiagnostic } from "@/lib/api-client";
+import { getDossierDiagnostic } from "@/lib/api-client";
 
 function axis1Label(status: string) {
   if (status === "APPROVED") return "Visé";
@@ -22,8 +22,14 @@ function axis1Colors(status: string): { bg: string; color: string } {
 
 // apiFetch throws ApiError carrying the HTTP status. The backend answers 404
 // both for unknown ids and for dossiers outside the agent's territory.
+// Checked by shape, not instanceof ApiError, which failed on the live build.
 function isNotFound(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 404;
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "status" in err &&
+    (err as { status: unknown }).status === 404
+  );
 }
 
 function SubmissionDetailContent() {
