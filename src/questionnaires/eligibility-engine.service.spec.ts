@@ -11,7 +11,7 @@ describe('EligibilityEngineService', () => {
   beforeEach(() => {
     prisma = {
       onefopSubmission: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
         updateMany: jest.fn(),
@@ -33,13 +33,13 @@ describe('EligibilityEngineService', () => {
 
   describe('evaluateDossier & Statistical Eligibility (Cases A-E)', () => {
     it('throws NotFoundException if submission does not exist', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue(null);
+      prisma.onefopSubmission.findFirst.mockResolvedValue(null);
       await expect(service.evaluateDossier('sub-999')).rejects.toThrow(NotFoundException);
     });
 
     // Case A: APPROVED + no blocking anomalies -> statistically eligible
     it('Case A: returns READY when APPROVED with no anomalies', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-case-a',
         status: OnefopStatus.APPROVED,
         anomalies: [],
@@ -68,7 +68,7 @@ describe('EligibilityEngineService', () => {
         expectedValue: '12',
         detectedAt: new Date(),
       };
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-case-b',
         status: OnefopStatus.APPROVED,
         anomalies: [blockingAnomaly],
@@ -84,7 +84,7 @@ describe('EligibilityEngineService', () => {
 
     // Case C: PENDING + no blocking anomaly -> NOT statistically eligible
     it('Case C: returns EXCLUDED with EXCL_WAITING_NAT_VISA when PENDING_REVIEW with 0 anomalies', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-case-c',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [],
@@ -111,7 +111,7 @@ describe('EligibilityEngineService', () => {
         expectedValue: '12',
         detectedAt: new Date(),
       };
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-case-d',
         status: OnefopStatus.APPROVED,
         anomalies: [resolvedAnomaly],
@@ -138,7 +138,7 @@ describe('EligibilityEngineService', () => {
         expectedValue: '5',
         detectedAt: new Date(),
       };
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-case-e',
         status: OnefopStatus.APPROVED,
         anomalies: [warningAnomaly],
@@ -156,7 +156,7 @@ describe('EligibilityEngineService', () => {
 
   describe('assertCanApprove (Approval Gate)', () => {
     it('throws BadRequestException if the dossier has any OPEN blocking anomalies', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-blocked',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [
@@ -179,7 +179,7 @@ describe('EligibilityEngineService', () => {
     });
 
     it('succeeds without error if the dossier has 0 open blocking anomalies', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-clean',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [

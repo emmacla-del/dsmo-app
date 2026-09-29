@@ -786,7 +786,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     beforeEach(() => {
       prisma = {
         onefopSubmission: {
-          findUnique: jest.fn(),
+          findFirst: jest.fn(),
           update: jest.fn(),
         },
       };
@@ -795,13 +795,13 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
 
     it('throws NotFoundException when submission does not exist', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue(null);
+      prisma.onefopSubmission.findFirst.mockResolvedValue(null);
       await expect(service.approve('non-existent', 'admin-1')).rejects.toThrow(NotFoundException);
       expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
     });
 
     it('attempting to approve a submission with an OPEN BLOCKING anomaly must fail with BadRequestException and not update DB', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-blocking',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [
@@ -820,7 +820,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
 
     it('approval of a clean submission must succeed and set status to APPROVED with review metadata', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-clean',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [],
@@ -846,7 +846,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
 
     it('approval of a submission with only non-blocking warning anomalies succeeds', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-warning',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [
@@ -870,7 +870,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
 
     it('approval of a submission with a previously blocking anomaly now RESOLVED succeeds', async () => {
-      prisma.onefopSubmission.findUnique.mockResolvedValue({
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-resolved',
         status: OnefopStatus.PENDING_REVIEW,
         anomalies: [
