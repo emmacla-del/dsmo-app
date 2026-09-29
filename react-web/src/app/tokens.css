@@ -1,0 +1,195 @@
+/* CAM-LEAP design tokens — the visual language for the React web frontend.
+   Locked by the migration plan: no library-default colors, no arbitrary
+   per-screen values where a token below already applies. */
+
+:root {
+  /* ── Brand ── */
+  --cam-green: #1e6b3a;
+  --cam-green-dark: #144a28;
+  --cam-gold: #e8a020;
+  --cam-gold-dark: #b87c14;
+  --cam-accent: var(--cam-green);
+
+  /* ── Institutional national tricolor ── */
+  --cam-flag-green: #0e5c2b;
+  --cam-flag-red: #b3202c;
+  --cam-flag-yellow: #f0b429;
+
+  /* ── Surface / text ── */
+  --cam-bg: #fafaf7;
+  --cam-surface: #ffffff;
+  --cam-surface-subtle: #fbfbf9;
+  --cam-text: #0b1f14;
+  --cam-text-muted: #4a5a50;
+  --cam-border: #d8ddd3;
+  --cam-border-strong: #aab5a3;
+
+  /* ── Shadows ── */
+  --cam-shadow-sm: 0 1px 2px rgba(20, 30, 20, 0.04);
+
+  /* ── State ── */
+  --cam-focus: #e8a020;
+  /* Green focus ring for custom interactive controls (Radio/Checkbox) that
+     need to visually tie their focus state to the brand accent rather than
+     the page-wide gold outline above. */
+  --cam-focus-ring: var(--cam-green);
+  --cam-focus-shadow: 0 0 0 3px rgba(30, 107, 58, 0.15);
+  --cam-error: #b3261e;
+  --cam-error-bg: #fbeceb;
+  --cam-error-border: #f2b8b5;
+  --cam-success: #1e6b3a;
+  --cam-success-bg: #eaf3ec;
+  --cam-success-border: #c3e0cb;
+  /* Amber warning state (e.g. "remaining to distribute" in guided table
+     entry) — the app had success/error tints but no warning tint, so
+     guided mode's amber colors were previously invented ad hoc instead of
+     drawn from a token. Reuses --cam-gold-dark for text so it stays on the
+     institutional gold hue rather than introducing a generic Tailwind
+     amber. */
+  --cam-warning: var(--cam-gold-dark);
+  --cam-warning-bg: #fdf3dc;
+  --cam-warning-border: #f0d999;
+  --cam-info: #1a6896;
+  --cam-info-bg: #ebf4f9;
+  --cam-info-border: #b6d7ea;
+
+  /* ── Aliases for admin consolidation ── */
+  --cam-ink: var(--cam-text);
+  --cam-line: var(--cam-border);
+  --cam-muted: var(--cam-text-muted);
+  --cam-red: var(--cam-error);
+  --cam-blue: var(--cam-info);
+  --cam-accent-soft: var(--cam-success-bg);
+
+  /* ── Spacing (4px base) ── */
+  --cam-space-1: 4px;
+  --cam-space-2: 8px;
+  --cam-space-3: 12px;
+  --cam-space-4: 16px;
+  --cam-space-5: 24px;
+  --cam-space-6: 32px;
+  --cam-space-7: 48px;
+
+  /* ── Typography ── */
+  --cam-font-sans: var(--font-inter), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --cam-font-serif: var(--font-zilla-slab), "Zilla Slab", Georgia, "Times New Roman", serif;
+  /* Codes/IDs only (NIU, CNPS, row codes). Never use bare `monospace`:
+     on Windows it resolves to Courier New, which is thin and blurry at
+     small sizes. Numbers in tables use the UI font + tabular-nums. */
+  --cam-font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, "Roboto Mono", "Liberation Mono", monospace;
+  --cam-font-size-2xs: 0.6875rem;
+  --cam-font-size-xs: 0.8125rem;
+  --cam-font-size-sm: 0.875rem;
+  --cam-font-size-base: 0.9375rem;
+  --cam-font-size-lg: 1.125rem;
+  --cam-font-size-xl: 1.5rem;
+  --cam-font-size-2xl: 1.5625rem;
+  --cam-line-height-base: 1.5;
+
+  /* ── Micro-copy (hints, "select all", helper text) ──
+     One shared scale instead of each field re-declaring its own size/
+     color/margin — see form/Microcopy.tsx. */
+  --cam-microcopy-size: var(--cam-font-size-xs);
+  --cam-microcopy-color: var(--cam-text-muted);
+  --cam-microcopy-margin-top: 4px;
+
+  /* ── Radius (restrained, administrative) ── */
+  --cam-radius-sm: 2px;
+  --cam-radius-md: 4px;
+  --cam-radius-control: 6px;
+  --cam-radius-lg: 10px;
+  --cam-radius-full: 9999px;
+
+  /* ── Density ── */
+  --cam-row-height: 40px;
+  --cam-form-field-height: 40px;
+  --cam-button-height: 44px;
+  --cam-form-gap: var(--cam-space-4);
+
+  /* ── Containers ── */
+  --cam-container-compact: 380px;
+  --cam-container-form: 640px;
+
+  /* ── Borders ── */
+  --cam-border-width: 1px;
+  --cam-table-grid: #171a18;
+
+  /* ── Questionnaire statistical tables ──
+     One palette for every data-entry table (StatisticalGridRenderer,
+     TableRenderer's grids, VT tables, activities table, guided-mode live
+     preview). Values are the slate palette the Modern Jobs grids already
+     used (S22Q04 look), consolidated here instead of hardcoded per file. */
+  --cam-table-frame: #475569;      /* outer frame, header rules, label column rule */
+  --cam-table-line: #64748b;       /* cell grid lines */
+  --cam-table-strong: #334155;     /* total-row rule, sub-header text */
+  --cam-table-group-line: #1e293b; /* separator between column blocks */
+  --cam-table-head-bg: #ffffff;
+  --cam-table-text: #0f172a;
+  --cam-table-muted: #94a3b8;      /* empty-cell dash / placeholder */
+
+  /* ── Table typography (used only by .cam-dt-* in globals.css) ──
+     One size for every cell; hierarchy by weight. Change a table's look
+     here — never in a table component. */
+  --cam-table-fs: 0.875rem;          /* 14px (13px on phones, see below) */
+  --cam-table-lh: 1.35;
+  --cam-table-w-group: 600;          /* Masculin, Permanent, corner header */
+  --cam-table-w-leaf: 400;           /* Homme, Femme, 25 à 34, Total */
+  --cam-table-w-label: 400;          /* row labels */
+  --cam-table-w-value: 400;          /* typed numbers */
+  --cam-table-w-computed: 600;       /* calculated totals */
+  --cam-table-w-total: 700;          /* TOTAL GÉNÉRAL row */
+  --cam-table-hover: #f8fafc;
+  --cam-table-focus: #1a5c3a;
+  --cam-table-readonly-bg: var(--cam-success-bg);   /* calculated cells & total rows */
+  --cam-table-readonly-text: var(--cam-success);
+
+  /* ── Z-index scale ── */
+  --cam-z-nav: 100;
+  --cam-z-dropdown: 200;
+  --cam-z-dialog: 300;
+  --cam-z-toast: 400;
+
+  /* ── VT wizard skin tokens ──
+     Font, background, and accent green were originally Manrope/#F4F6F5/
+     #0A6640 to pixel-match the Flutter app's own distinct VT styling. By
+     request, all three now alias the same tokens the rest of the app (and
+     the login page) use, so the VT wizard matches everywhere — only the
+     card border and status colors (red/yellow) stay VT-specific. */
+  --vt-yellow: #fcd116;
+  --vt-red: #ce1126;
+  --vt-bg: var(--cam-bg);
+  --vt-card-border: var(--cam-border);
+  --vt-ink: var(--cam-text);
+  --vt-ink-soft: var(--cam-text-muted);
+  --vt-ink-faint: #7a827f;
+  --vt-accent: var(--cam-green);
+  --vt-accent-soft: var(--cam-success-bg);
+  --vt-card-radius: var(--cam-radius-md);
+  --vt-sidebar-width: 280px;
+  --vt-content-max: 940px;
+  --vt-font: var(--cam-font-sans);
+}
+
+.vt-wizard {
+  --vt-yellow: #fcd116;
+  --vt-red: #ce1126;
+  --vt-bg: var(--cam-bg);
+  --vt-card-border: var(--cam-border);
+  --vt-ink: var(--cam-text);
+  --vt-ink-soft: var(--cam-text-muted);
+  --vt-ink-faint: #7a827f;
+  --vt-accent: var(--cam-green);
+  --vt-accent-soft: var(--cam-success-bg);
+  --vt-card-radius: var(--cam-radius-md);
+  --vt-sidebar-width: 280px;
+  --vt-content-max: 940px;
+  --vt-font: var(--cam-font-sans);
+  font-family: var(--vt-font);
+  color: var(--vt-ink);
+  background: var(--vt-bg);
+}
+
+/* Phones: every table cell steps down together, never individually. */
+@media (max-width: 639px) {
+  :root { --cam-table-fs: 0.8125rem; }
+}
