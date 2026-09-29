@@ -19,9 +19,11 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 // header, remove its entry here so it never shows two <h1>s. Refactored so
 // far: /admin/pilotage.
 // `group` / `nav` mirror the page's section and label in AdminSidebar.
-const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string }> = {
+// `detail` labels a sub-route (e.g. /admin/dossiers/[id]): its breadcrumb
+// becomes group › nav (linking back to the list) › detail.
+const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
   "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
-  "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions" },
+  "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions", detail: "Détail du dossier" },
   "/admin/diffusion":     { title: "Données et exports", sub: "Homologation et diffusion des données statistiques certifiées", group: "Données", nav: "Exports" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
   "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
@@ -99,11 +101,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Compte agent";
 
   // Derive current page title from pathname (longest matching prefix wins).
-  // No match = the page renders its own AdminPageHeader.
-  const pageTitle = Object.entries(PAGE_TITLES)
-    .filter(([prefix]) => pathname.startsWith(prefix))
-    .sort((a, b) => b[0].length - a[0].length)[0]?.[1];
-  const breadcrumb = pageTitle?.group && pageTitle.nav ? [{ label: pageTitle.group }, { label: pageTitle.nav }] : undefined;
+  // Prefixes only match on a path boundary, so /admin/dossiers-archive would
+  // not match /admin/dossiers. No match = the page renders its own AdminPageHeader.
+  const [matchedPrefix, pageTitle] = Object.entries(PAGE_TITLES)
+    .filter(([prefix]) => pathname === prefix || pathname.startsWith(prefix + "/"))
+    .sort((a, b) => b[0].length - a[0].length)[0] ?? [];
+  const isSubRoute = !!matchedPrefix && pathname !== matchedPrefix;
+  const breadcrumb = pageTitle?.group && pageTitle.nav
+    ? isSubRoute && pageTitle.detail
+      ? [{ label: pageTitle.group }, { label: pageTitle.nav, href: matchedPrefix }, { label: pageTitle.detail }]
+      : [{ label: pageTitle.group }, { label: pageTitle.nav }]
+    : undefined;
 
   return (
     <div className={`cam-admin${menuOpen ? " is-menu-open" : ""}`}>
