@@ -138,11 +138,11 @@ export class CreateCompanyDto {
 
   @IsOptional()
   @IsString()
-  trainingDomains?: string;    // For vocationalCenter
+  trainingDomains?: string;
 
   // ── Vocational Training (VT) identification — verbatim option lists
   // from the source questionnaire (see kCfpTypeOptions etc. in
-  // register_constants.dart). Distinct from vocationalCenter above.
+  // register_constants.dart).
   @IsOptional()
   @IsString()
   sigle?: string;

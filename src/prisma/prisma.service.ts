@@ -1,4 +1,4 @@
-﻿import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 // Prisma's own default connection_limit, when DATABASE_URL doesn't specify
@@ -15,23 +15,35 @@ import { PrismaClient } from '@prisma/client';
 // with its own limit) is never silently overridden.
 function withPoolDefaults(url: string | undefined): string | undefined {
   if (!url) return url;
-  if (/[?&]connection_limit=/.test(url)) return url;
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}connection_limit=20&pool_timeout=20`;
+  let tuned = url;
+  if (!/[?&]connection_limit=/.test(tuned)) {
+    const separator = tuned.includes('?') ? '&' : '?';
+    tuned = `${tuned}${separator}connection_limit=10&pool_timeout=60`;
+  }
+  if (!/[?&]connect_timeout=/.test(tuned)) {
+    const separator = tuned.includes('?') ? '&' : '?';
+    tuned = `${tuned}${separator}connect_timeout=30`;
+  }
+  return tuned;
 }
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
+    const connectionUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
     super({
       datasources: {
-        db: { url: withPoolDefaults(process.env.DATABASE_URL) },
+        db: { url: withPoolDefaults(connectionUrl) },
       },
     });
   }
 
   async onModuleInit() {
-    await this.$connect();
+    try {
+      await this.$connect();
+    } catch (err: any) {
+      console.warn('⚠️ Prisma could not connect to database on startup:', err.message);
+    }
   }
   async onModuleDestroy() {
     await this.$disconnect();

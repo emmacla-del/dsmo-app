@@ -22,8 +22,8 @@ export class OnefopSubmissionDto {
     @IsString()
     establishmentId?: string;
 
-    @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG'])
-    entityType: 'ENTREPRISE' | 'COOPERATIVE' | 'CTD' | 'ONG';
+    @IsIn(['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING'])
+    entityType: 'ENTREPRISE' | 'COOPERATIVE' | 'CTD' | 'ONG' | 'ADMINISTRATION' | 'PROJECT_PROGRAM' | 'VOCATIONAL_TRAINING';
 
     @IsOptional()
     @IsString()

@@ -1,10 +1,12 @@
-﻿import { Controller, Post, Body, UseGuards, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
+﻿import { Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
+import { USER_ADMIN_ROLES } from './staff-scope';
+import { RegisterCompanyDto } from './dto/register-company.dto';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -89,55 +91,12 @@ export class AuthController {
 
   @Throttle(RECOVERY_THROTTLE)
   @Post('register-company')
-  async registerCompany(@Body() body: {
-    email: string;
-    password: string;
-    companyName: string;
-    parentCompany?: string;
-    mainActivity: string;
-    secondaryActivity?: string;
-    region: string;
-    department: string;
-    subdivision: string;
-    address: string;
-    taxNumber: string;
-    cnpsNumber?: string;
-    socialCapital?: number;
-    contactName?: string;
-    entityType?: string;
-    area?: string;
-    sectorId?: string;
-    phone?: string;
-    phone2?: string;
-    poBox?: string;
-    legalStatus?: string;
-    cooperativeType?: string;
-    ctdType?: string;
-    yearOfCreation?: string;
-    mainMission?: string;
-    registrationNumber?: string;
-    trainingDomains?: string;
-    respondentPhone?: string;
-    respondentPhone2?: string;
-    respondentFunction?: string;
-    respondentFirstName?: string;
-    respondentLastName?: string;
-    firstName?: string;
-    lastName?: string;
-    branch?: string;
-    // VOCATIONAL_TRAINING-specific identification fields, see
-    // AuthService.registerCompany's companyData type for context.
-    sigle?: string;
-    cfpType?: string;
-    educationSystem?: string;
-    functionalStatus?: string;
-    nonFunctionalReason?: string;
-    nonFunctionalReasonOther?: string;
-    promoterName?: string;
-    promoterSex?: string;
-    promoterPhone1?: string;
-    promoterPhone2?: string;
-  }) {
+  // Route-local override: the global pipe (main.ts) sets
+  // skipMissingProperties: true, which would silently skip validation of
+  // any field the client omits entirely from the body — defeating
+  // @IsString()/@ValidateIf() requiredness checks below.
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true, skipMissingProperties: false }))
+  async registerCompany(@Body() body: RegisterCompanyDto) {
     return this.authService.registerCompany(
       body.email,
       body.password,
@@ -220,71 +179,76 @@ export class AuthController {
 
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
-  async approveUser(@Param('id') id: string) {
-    return this.authService.approveUser(id);
+  @Roles(...USER_ADMIN_ROLES)
+  async approveUser(@Param('id') id: string, @Request() req: any) {
+    return this.authService.approveUser(id, req.user.role);
   }
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
-  async rejectUser(@Param('id') id: string, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id);
+  @Roles(...USER_ADMIN_ROLES)
+  async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
+    return this.authService.rejectUser(id, req.user.role);
   }
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
 
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles(...USER_ADMIN_ROLES)
   async listUsers(
+    @Request() req: any,
     @Query('search') search?: string,
     @Query('role') role?: string,
     @Query('status') status?: string,
     @Query('isActive') isActive?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('roles') roles?: string,
+    @Query('region') region?: string,
   ) {
     return this.authService.listUsers({
       search,
       role,
+      roles,
+      region,
       status,
       isActive,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
-    });
+    }, req.user.role);
   }
 
   @Patch('users/:id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles(...USER_ADMIN_ROLES)
   async updateUserRole(
     @Param('id') id: string,
     @Body('role') role: string,
     @Request() req: any,
   ) {
-    return this.authService.updateUserRole(id, role, req.user.id);
+    return this.authService.updateUserRole(id, role, req.user.id, req.user.role);
   }
 
   @Patch('users/:id/suspend')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles(...USER_ADMIN_ROLES)
   async suspendUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.setUserActive(id, false, req.user.id);
+    return this.authService.setUserActive(id, false, req.user.id, req.user.role);
   }
 
   @Patch('users/:id/activate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles(...USER_ADMIN_ROLES)
   async activateUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.setUserActive(id, true, req.user.id);
+    return this.authService.setUserActive(id, true, req.user.id, req.user.role);
   }
 
   @Delete('users/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles(...USER_ADMIN_ROLES)
   async deleteUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.deleteUser(id, req.user.id);
+    return this.authService.deleteUser(id, req.user.id, req.user.role);
   }
 
   // Break-glass: recovers a user locked out of their account because their

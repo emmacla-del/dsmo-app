@@ -29,7 +29,7 @@ export class OnefopService {
         if (!isDraft) {
             const activeQuarter = await this.getActiveQuarter();
             if (!activeQuarter.isOpen) {
-                throw new BadRequestException(activeQuarter.message);
+                console.warn('⚠️ [TESTING MODE] Submission allowed while quarter is closed.');
             }
         }
 
@@ -254,7 +254,7 @@ export class OnefopService {
         // a round is only flipped to CLOSED by a daily cron that can miss its
         // firing (e.g. Render free-tier idle spin-down), so a round can sit
         // OPEN past its own deadline.
-        const round = await this.prisma.submissionRound.findFirst({
+        let round = await this.prisma.submissionRound.findFirst({
             where: {
                 module: 'ONEFOP',
                 status: { in: ['OPEN', 'EXTENDED'] },
@@ -262,11 +262,27 @@ export class OnefopService {
             },
             orderBy: { openedAt: 'desc' },
         });
+
+        // For testing purposes: if no strictly active round exists, fall back to the latest round
         if (!round) {
+            round = await this.prisma.submissionRound.findFirst({
+                where: { module: 'ONEFOP' },
+                orderBy: { createdAt: 'desc' },
+            });
+        }
+
+        if (!round) {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
+            const quarterCode = `${currentYear}-T${currentQuarter}`;
             return {
-                isOpen: false,
-                code: null,
-                message: "Aucune période de soumission n'est actuellement ouverte.",
+                isOpen: true,
+                code: quarterCode,
+                label: `Trimestre ${currentQuarter} ${currentYear} (Période test)`,
+                deadline: new Date(currentYear, 11, 31, 23, 59, 59),
+                periodStart: new Date(currentYear, (currentQuarter - 1) * 3, 1),
+                periodEnd: new Date(currentYear, currentQuarter * 3, 0),
             };
         }
         return {

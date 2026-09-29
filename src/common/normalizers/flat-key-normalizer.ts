@@ -86,12 +86,19 @@ export function normalizeFlatKeys(
     // ── S1: Entity identification ─────────────────────────────────────────────
     switch (entityType) {
         case 'cooperative': normalizeCooperativeS1(raw, out); break;
+        case 'enterprise':
         case 'entreprise': normalizeEnterpriseS1(raw, out); break;
         case 'ctd': normalizeCtdS1(raw, out); break;
-        case 'ong': normalizeOngS1(raw, out); break;
+        case 'ong':
+        case 'ngo': normalizeOngS1(raw, out); break;
         case 'administration': normalizeAdministrationS1(raw, out); break;
-        case 'projectProgram': normalizeProjectProgramS1(raw, out); break;
-        case 'vocationalTraining': normalizeVocationalTrainingS1(raw, out); break;
+        case 'projectProgram':
+        case 'project_program':
+        case 'project': normalizeProjectProgramS1(raw, out); break;
+        case 'vocationalTraining':
+        case 'vocational_training':
+        case 'vt':
+        case 'vtc': normalizeVocationalTrainingS1(raw, out); break;
     }
 
     // ── S2–S4: Table keys pass through unchanged ──────────────────────────────
@@ -103,6 +110,10 @@ export function normalizeFlatKeys(
             // Pass through as-is — covers all s21q01_*, s22q01_*, s3q01_*, etc.
             if (v !== undefined && v !== null && v !== '') {
                 out[k] = v;
+                const lower = k.toLowerCase();
+                if (lower !== k && !(lower in out)) {
+                    out[lower] = v;
+                }
             }
         }
     }
@@ -133,10 +144,6 @@ function normalizeCooperativeS1(raw: Record<string, unknown>, out: Record<string
     set(out, 'COOP_S1Q12', pick(raw, 'vacancies', 'COOP_S1Q12'));
 }
 function normalizeEnterpriseS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
-    console.log('🔍 normalizeEnterpriseS1 called');
-    console.log('  S1Q01:', raw['S1Q01']);
-    console.log('  S1Q02:', raw['S1Q02']);
-    console.log('  S1Q04_REGION:', raw['S1Q04_REGION']);
     set(out, 'S1Q01', pick(raw, 'legalStatus', 'S1Q01'));
 
     set(out, 'S1Q02', pick(raw, 'companyName', 'enterpriseName', 'enterprise_name', 'S1Q02'));  // ← Add 'companyName'
@@ -159,6 +166,7 @@ function normalizeEnterpriseS1(raw: Record<string, unknown>, out: Record<string,
 
 function normalizeCtdS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
     set(out, 'CTD_S1Q01', pick(raw, 'ctdType', 'ctd_type', 'CTD_S1Q01'));
+    set(out, 'CTD_S1Q01_NAME', pick(raw, 'ctdName', 'name', 'CTD_S1Q01_NAME'));
     set(out, 'CTD_S1Q02', pick(raw, 'councilType', 'council_type', 'CTD_S1Q02'));
     set(out, 'CTD_S1Q03', pick(raw, 'yearCreated', 'ctdYearCreated', 'CTD_S1Q03'));
     set(out, 'CTD_S1Q04', pick(raw, 'area', 'CTD_S1Q04'));
@@ -254,11 +262,11 @@ function normalizeProjectProgramS1(raw: Record<string, unknown>, out: Record<str
 // (VT1_15_SEX) is deliberately NOT included here — it stays on
 // vocationalTrainingDetail only, never on respondent.* (Decision 5).
 function normalizeVocationalTrainingS1(raw: Record<string, unknown>, out: Record<string, unknown>): void {
-    set(out, 'S0Q01', pick(raw, 'VT1_15_NAME'));
-    set(out, 'S0Q02', pick(raw, 'VT1_15_FUNCTION'));
-    set(out, 'S0Q03_TEL1', pick(raw, 'VT1_15_TEL1'));
-    set(out, 'S0Q03_TEL2', pick(raw, 'VT1_15_TEL2'));
-    set(out, 'S0Q03_EMAIL', pick(raw, 'VT1_15_EMAIL'));
+    set(out, 'S0Q01', pick(raw, 'VT1_15_NAME', 'VT1_15_NOM', 'S0Q01', 'respondentName'));
+    set(out, 'S0Q02', pick(raw, 'VT1_15_FUNCTION', 'VT1_15_FONCTION', 'S0Q02', 'respondentFunction'));
+    set(out, 'S0Q03_TEL1', pick(raw, 'VT1_15_TEL1', 'S0Q03_TEL1', 'respondentPhone1'));
+    set(out, 'S0Q03_TEL2', pick(raw, 'VT1_15_TEL2', 'S0Q03_TEL2', 'respondentPhone2'));
+    set(out, 'S0Q03_EMAIL', pick(raw, 'VT1_15_EMAIL', 'S0Q03_EMAIL', 'respondentEmail'));
 }
 
 // ─── buildNestedDto ───────────────────────────────────────────────────────────
@@ -296,18 +304,25 @@ export function buildNestedDto(
     // S1 — entity identification (nested DTO shape)
     switch (entityType) {
         case 'cooperative': out['cooperative'] = buildCooperativeDto(normalized); break;
+        case 'enterprise':
         case 'entreprise': out['enterprise'] = buildEnterpriseDto(normalized); break;
         case 'ctd': out['ctd'] = buildCtdDto(normalized); break;
-        case 'ong': out['ong'] = buildOngDto(normalized); break;
+        case 'ong':
+        case 'ngo': out['ong'] = buildOngDto(normalized); break;
         case 'administration': out['administration'] = buildAdministrationDto(normalized); break;
-        case 'projectProgram': out['projectProgram'] = buildProjectProgramDto(normalized); break;
-        case 'vocationalTraining': out['vocationalTraining'] = buildVocationalTrainingDto(normalized); break;
+        case 'projectProgram':
+        case 'project_program':
+        case 'project': out['projectProgram'] = buildProjectProgramDto(normalized); break;
+        case 'vocationalTraining':
+        case 'vocational_training':
+        case 'vt':
+        case 'vtc': out['vocationalTraining'] = buildVocationalTrainingDto(normalized); break;
     }
 
     // Projects & Programs — dedicated Section 2/3/4 fields (not part of
     // SharedSectionsDto's S21Q01/S22Q01/S3Q01/S4Q02 shape, which belongs
     // to the enterprise-family questionnaire and doesn't apply here).
-    if (entityType === 'projectProgram') {
+    if (entityType === 'projectProgram' || entityType === 'project_program' || entityType === 'project') {
         out['activities'] = buildProjectProgramActivities(normalized);
         out['outcomes'] = buildProjectProgramOutcomes(normalized);
         out['countedPermanent'] = buildCspTable(normalized, 'pp_s4q01');
@@ -324,7 +339,7 @@ export function buildNestedDto(
     // sector/CSP concept (design note §2), so — like Project & Programs
     // above — it early-returns before the enterprise-family
     // SharedSectionsDto block below, which does not apply to it.
-    if (entityType === 'vocationalTraining') {
+    if (entityType === 'vocationalTraining' || entityType === 'vocational_training' || entityType === 'vt' || entityType === 'vtc') {
         out['diplomaData'] = buildVtDiplomaDataRows(normalized);
         out['traineeAgeFlow'] = buildVtTraineeAgeFlowRows(normalized);
         out['trainerAge'] = buildVtTrainerAgeRows(normalized);
@@ -356,14 +371,34 @@ export function buildNestedDto(
     // S2–S4 — kept as nested structures for DTO validation compatibility
     // (these mirror what FlatToNestedTransformer used to build)
     out['jobApplications'] = buildCspTable(normalized, 's21q01', cspRowKeys);
-    out['recruitmentsPermanent'] = buildCspTable(normalized, 's22q01', cspRowKeys);
+    // Administration's recruitment table is S21Q02 since the 2026-09-28
+    // chronological renumbering (formerly its S22Q01).
+    out['recruitmentsPermanent'] = buildCspTable(normalized, isAdministration ? 's21q02' : 's22q01', cspRowKeys);
     // S22Q02 (temporary recruitment) does not exist for Administration —
     // still built for shape-completeness (SharedSectionsDto is optional
     // for every field), but from flat keys that will never be present.
     out['recruitmentsTemporary'] = buildCspTable(normalized, 's22q02');
-    out['recruitmentsByDiploma'] = buildDiplomaTable(normalized);
-    out['disabledRecruitments'] = buildPermTempTable(normalized, 's22q04');
-    out['vulnerableRecruitments'] = buildVulnerableTable(normalized, entityType);
+    const disabledRowKeyPairs = isAdministration
+        ? [
+            { dtoKey: 'civilServants', flatKey: 'fonctionnaire' },
+            { dtoKey: 'decisionStaff', flatKey: 'decisionnaire' },
+            { dtoKey: 'contractStaff', flatKey: 'contractuelle' },
+            { dtoKey: 'total', flatKey: 'total' },
+        ]
+        : [
+            { dtoKey: 'executives', flatKey: 'cadres' },
+            { dtoKey: 'foremen', flatKey: 'foremen' },
+            { dtoKey: 'fieldWorkers', flatKey: 'workers' },
+            { dtoKey: 'total', flatKey: 'total' },
+        ];
+    // Administration: S21Q03 (catégorie × sexe) and S21Q04 (nature × sexe)
+    // have no permanent/temporary status — values land in the `total` slot.
+    out['disabledRecruitments'] = isAdministration
+        ? buildStatuslessPermTempTable(normalized, 's21q03', disabledRowKeyPairs)
+        : buildPermTempTable(normalized, 's22q04', disabledRowKeyPairs);
+    out['vulnerableRecruitments'] = isAdministration
+        ? buildStatuslessPermTempTable(normalized, 's21q04', VULNERABLE_ROW_KEY_PAIRS)
+        : buildVulnerableTable(normalized, entityType);
     out['firstTimeJobSeekers'] = buildCspTable(normalized, 's23q01');
     out['firstTimeRecruitments'] = buildFirstTimeTable(normalized);
     out['departures'] = buildDeparturesTable(normalized, departureRowKeys);
@@ -699,6 +734,8 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setStrArray(r, 'latrineTypes', n['VT2_38']);
     setBool(r, 'latrinesSeparateByGender', n['VT2_39']);
     setBool(r, 'latrinesSeparateFromStaff', n['VT2_40']);
+    setNum(r, 'latrineCabinTotalCount', n['VT2_54']);
+    setNum(r, 'latrineCabinGirlsCount', n['VT2_55']);
     setBool(r, 'hasPlayground', n['VT2_41']);
     setStrArray(r, 'playgroundTypes', n['VT2_42']);
     setBool(r, 'hasIctTools', n['VT2_43']);
@@ -767,6 +804,9 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setBool(r, 'hasJobSearchSupportTool', n['VT6_12']);
     // No 6.1.2 code exists for §7.3 or §4.12 — see below; VT6_13 (§6.3)
     // is a specialty-row table, handled by buildVtSpecialtyRows, not here.
+    setNum(r, 'insertedFormalSectorCount', n['VT6_14']);
+    setNum(r, 'insertedInformalSectorCount', n['VT6_15']);
+    setNum(r, 'seekingEmploymentCount', n['VT6_16']);
 
     // §7 — cross-cutting themes. No §7.3 key exists anywhere in this
     // function (design note Decision 4, frozen) — the printed instrument's
@@ -804,6 +844,8 @@ function buildVocationalTrainingDto(n: Record<string, unknown>): Record<string, 
     setNum(r, 'vacataireNonProfFemale', n['VT8_5_VNP_F']);
     setNum(r, 'permanentMale', n['VT8_5_PERM_M']);
     setNum(r, 'permanentFemale', n['VT8_5_PERM_F']);
+    setNum(r, 'contractualMale', n['VT8_5_CONTRACT_M']);
+    setNum(r, 'contractualFemale', n['VT8_5_CONTRACT_F']);
 
     // §9 — difficulties and perspectives. No §4.12 key exists anywhere in
     // this function (design note Decision 1, frozen) — leftover number
@@ -1058,10 +1100,16 @@ function buildVtFurnitureRows(n: Record<string, unknown>): Record<string, unknow
 // 8.8 → OnefopVtTrainerRoster. Flat key: `s8q8_row${i}_${field}`, 14 rows.
 // trainerStatus stays the literal string sent ('1'/'2'/'3' expected, not
 // VtTrainerStatus — DTO validation, not this normalizer, enforces the
-// exact accepted values). A row is non-empty when it has a name (last OR
-// first) or any other filled cell. A row whose academicDiploma or
-// professionalDiploma is 'TOTAL' is dropped outright — TOTAL is not a
-// valid value for a person's diploma (design note §13.2/§13.3).
+// exact accepted values). A row is persistable only when it has a usable
+// name (lastName or firstName, non-empty trimmed) — VtTrainerRosterDto and
+// OnefopVtTrainerRoster both require lastName/firstName (Prisma NOT NULL),
+// so a row with e.g. only `sex` filled but no name can never actually be
+// created; dropping it here (same treatment as an empty specialty row)
+// means createMany never receives a row missing a required name, and a
+// final submission is never rejected over one incomplete roster row
+// (VT-6 Finding 1). A row whose academicDiploma or professionalDiploma is
+// 'TOTAL' is dropped outright — TOTAL is not a valid value for a person's
+// diploma (design note §13.2/§13.3).
 function buildVtTrainerRosterRows(n: Record<string, unknown>): Record<string, unknown>[] {
     const out: Record<string, unknown>[] = [];
     for (let i = 1; i <= 14; i++) {
@@ -1075,9 +1123,7 @@ function buildVtTrainerRosterRows(n: Record<string, unknown>): Record<string, un
 
         const hasLastName = typeof lastNameRaw === 'string' && lastNameRaw.trim() !== '';
         const hasFirstName = typeof firstNameRaw === 'string' && firstNameRaw.trim() !== '';
-        const hasOtherCell = [sexRaw, trainerStatusRaw, isAdminPersonnelRaw, academicDiplomaRaw, professionalDiplomaRaw]
-            .some((v) => v !== undefined && v !== null && v !== '');
-        if (!hasLastName && !hasFirstName && !hasOtherCell) continue;
+        if (!hasLastName && !hasFirstName) continue;
 
         const academicDiploma = typeof academicDiplomaRaw === 'string' ? academicDiplomaRaw.trim().toUpperCase() : undefined;
         const professionalDiploma = typeof professionalDiplomaRaw === 'string' ? professionalDiplomaRaw.trim().toUpperCase() : undefined;
@@ -1171,7 +1217,14 @@ function buildDiplomaTable(n: Record<string, unknown>): Record<string, unknown> 
         { flatKey: '25_34', dtoKey: 'age25_34' },
         { flatKey: '35_plus', dtoKey: 'age35plus' },
     ];
+    const csps = ['cadres', 'foremen', 'workers'];
     const prefix = 's22q03';
+    const has4D = Object.keys(n).some((k) =>
+        k.startsWith(`${prefix}_cadres_`) ||
+        k.startsWith(`${prefix}_foremen_`) ||
+        k.startsWith(`${prefix}_workers_`)
+    );
+
     const result: Record<string, unknown> = {};
 
     for (const diploma of diplomas) {
@@ -1179,33 +1232,109 @@ function buildDiplomaTable(n: Record<string, unknown>): Record<string, unknown> 
         for (const gender of genders) {
             const genderObj: Record<string, unknown> = {};
             for (const { flatKey, dtoKey } of ageBands) {
-                genderObj[dtoKey] = toInt(n[`${prefix}_${diploma.flatKey}_${gender}_${flatKey}`]);
+                if (has4D) {
+                    let sum = 0;
+                    for (const csp of csps) {
+                        sum += toInt(n[`${prefix}_${csp}_${diploma.flatKey}_${gender}_${flatKey}`]);
+                    }
+                    genderObj[dtoKey] = sum;
+                } else {
+                    genderObj[dtoKey] = toInt(n[`${prefix}_${diploma.flatKey}_${gender}_${flatKey}`]);
+                }
             }
-            genderObj['total'] = toInt(n[`${prefix}_${diploma.flatKey}_${gender}_total`]);
+            if (has4D) {
+                let sumTotal = 0;
+                for (const csp of csps) {
+                    sumTotal += toInt(n[`${prefix}_${csp}_${diploma.flatKey}_${gender}_total`]);
+                }
+                genderObj['total'] = sumTotal;
+            } else {
+                genderObj['total'] = toInt(n[`${prefix}_${diploma.flatKey}_${gender}_total`]);
+            }
             diplomaObj[gender] = genderObj;
         }
         result[diploma.key] = diplomaObj;
     }
+
+    const totalObj: Record<string, unknown> = {};
+    for (const gender of genders) {
+        const genderObj: Record<string, unknown> = {};
+        for (const { flatKey, dtoKey } of ageBands) {
+            if (has4D) {
+                let sum = 0;
+                for (const csp of csps) {
+                    sum += toInt(n[`${prefix}_${csp}_total_${gender}_${flatKey}`]);
+                }
+                genderObj[dtoKey] = sum;
+            } else {
+                genderObj[dtoKey] = toInt(n[`${prefix}_total_${gender}_${flatKey}`]);
+            }
+        }
+        if (has4D) {
+            let sumTotal = 0;
+            for (const csp of csps) {
+                sumTotal += toInt(n[`${prefix}_${csp}_total_${gender}_total`]);
+            }
+            genderObj['total'] = sumTotal;
+        } else {
+            genderObj['total'] = toInt(n[`${prefix}_total_${gender}_total`]);
+        }
+        totalObj[gender] = genderObj;
+    }
+    result['total'] = totalObj;
+
     return result;
 }
 
-function buildPermTempTable(n: Record<string, unknown>, prefix: string): Record<string, unknown> {
-    const rows = ['executives', 'foremen', 'fieldWorkers', 'total'] as const;
-    const rowKeys = ['cadres', 'foremen', 'workers', 'total'] as const;
+function buildPermTempTable(
+    n: Record<string, unknown>,
+    prefix: string,
+    rowKeyPairs: { dtoKey: string; flatKey: string }[] = [
+        { dtoKey: 'executives', flatKey: 'cadres' },
+        { dtoKey: 'foremen', flatKey: 'foremen' },
+        { dtoKey: 'fieldWorkers', flatKey: 'workers' },
+        { dtoKey: 'total', flatKey: 'total' },
+    ],
+): Record<string, unknown> {
     const statuses = ['permanent', 'temporary', 'total'] as const;
     const genders = ['male', 'female', 'total'] as const;
     const result: Record<string, unknown> = {};
 
-    for (let i = 0; i < rows.length; i++) {
+    for (const { dtoKey, flatKey } of rowKeyPairs) {
         const rowObj: Record<string, unknown> = {};
         for (const status of statuses) {
             const statusObj: Record<string, unknown> = {};
             for (const gender of genders) {
-                statusObj[gender] = toInt(n[`${prefix}_${rowKeys[i]}_${status}_${gender}`]);
+                statusObj[gender] = toInt(n[`${prefix}_${flatKey}_${status}_${gender}`]);
             }
             rowObj[status] = statusObj;
         }
-        result[rows[i]] = rowObj;
+        result[dtoKey] = rowObj;
+    }
+    return result;
+}
+
+const VULNERABLE_ROW_KEY_PAIRS = [
+    { dtoKey: 'internalDisplaced', flatKey: 'deplaces_internes' },
+    { dtoKey: 'refugees', flatKey: 'refugies' },
+    { dtoKey: 'orphans', flatKey: 'orphelins' },
+    { dtoKey: 'total', flatKey: 'total' },
+];
+
+// Same DTO shape as buildPermTempTable, for a table without a status
+// dimension (flat keys `${prefix}_${row}_${gender}`): the values fill the
+// `total` status; `permanent` / `temporary` are omitted.
+function buildStatuslessPermTempTable(
+    n: Record<string, unknown>,
+    prefix: string,
+    rowKeyPairs: { dtoKey: string; flatKey: string }[],
+): Record<string, unknown> {
+    const genders = ['male', 'female', 'total'] as const;
+    const result: Record<string, unknown> = {};
+    for (const { dtoKey, flatKey } of rowKeyPairs) {
+        const totalObj: Record<string, unknown> = {};
+        for (const gender of genders) totalObj[gender] = toInt(n[`${prefix}_${flatKey}_${gender}`]);
+        result[dtoKey] = { total: totalObj };
     }
     return result;
 }

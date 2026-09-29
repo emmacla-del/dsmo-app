@@ -1,4 +1,4 @@
-﻿// questionnaires.controller.ts
+// questionnaires.controller.ts
 import {
   Controller,
   Post,
@@ -28,7 +28,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
-// Normalize any casing Flutter sends → lowercase key used internally
+// Normalize any casing Flutter or web sends → internal key used for mapping and preview
 function normalizeEntityTypeForPreview(raw: string): string {
   const map: Record<string, string> = {
     entreprise: 'enterprise',
@@ -37,13 +37,20 @@ function normalizeEntityTypeForPreview(raw: string): string {
     coopérative: 'cooperative',
     ctd: 'ctd',
     ong: 'ong',
+    ngo: 'ong',
     administration: 'administration',
     project_program: 'projectProgram',
     projectprogram: 'projectProgram',
+    project: 'projectProgram',
+    projectProgram: 'projectProgram',
     vocational_training: 'vocationalTraining',
     vocationaltraining: 'vocationalTraining',
+    vocationalTraining: 'vocationalTraining',
+    vt: 'vocationalTraining',
+    vtc: 'vocationalTraining',
   };
-  return map[raw?.toLowerCase()?.trim()] ?? raw?.toLowerCase()?.trim() ?? '';
+  const key = raw?.trim();
+  return map[key] ?? map[key?.toLowerCase()] ?? raw?.toLowerCase()?.trim() ?? '';
 }
 
 @Controller('onefop')
@@ -65,7 +72,7 @@ export class QuestionnairesController {
       forbidNonWhitelisted: false,
     }),
   )
-  async preview(@Body() body: any, @Res() res: Response) {
+  async preview(@Body() body: any, @Res() res: Response, @Req() req?: any) {
     try {
       const rawData: Record<string, unknown> = body?.data ?? {};
       const entityType: string = normalizeEntityTypeForPreview(body?.entityType);
@@ -73,10 +80,13 @@ export class QuestionnairesController {
       // pdf-data-mapper.service.ts's surveyYearFromQuarterCode) so the PDF
       // prints the reporting period's own year, not today's.
       const quarterCode: string | undefined = body?.quarterCode;
+      const rawLocale = body?.lang || body?.data?.lang || body?.locale || body?.data?.locale || (req?.query?.lang as string) || (req?.query?.locale as string) || req?.headers?.['accept-language'];
+      const locale: 'fr' | 'en' = (typeof rawLocale === 'string' && rawLocale.toLowerCase().startsWith('en')) ? 'en' : 'fr';
 
       console.log('📥 Preview request received');
       console.log('   entityType (raw):', body?.entityType);
       console.log('   entityType (normalized):', entityType);
+      console.log('   locale:', locale);
       console.log('   data keys:', Object.keys(rawData).length);
 
       // ── STEP 1: Normalize ──────────────────────────────────────
@@ -107,25 +117,25 @@ export class QuestionnairesController {
       try {
         switch (entityType) {
           case 'enterprise':
-            mappedData = mapEnterpriseData(normalized, quarterCode);
+            mappedData = mapEnterpriseData(normalized, quarterCode, locale);
             break;
           case 'cooperative':
-            mappedData = mapCooperativeData(normalized, quarterCode);
+            mappedData = mapCooperativeData(normalized, quarterCode, locale);
             break;
           case 'ctd':
-            mappedData = mapCtdData(normalized, quarterCode);
+            mappedData = mapCtdData(normalized, quarterCode, locale);
             break;
           case 'ong':
-            mappedData = mapOngData(normalized, quarterCode);
+            mappedData = mapOngData(normalized, quarterCode, locale);
             break;
           case 'administration':
-            mappedData = mapAdministrationData(normalized, quarterCode);
+            mappedData = mapAdministrationData(normalized, quarterCode, locale);
             break;
           case 'projectProgram':
-            mappedData = mapProjectProgramData(normalized, quarterCode);
+            mappedData = mapProjectProgramData(normalized, quarterCode, locale);
             break;
           case 'vocationalTraining':
-            mappedData = mapVocationalTrainingData(normalized, quarterCode);
+            mappedData = mapVocationalTrainingData(normalized, quarterCode, locale);
             break;
           default:
             console.error(`❌ Unknown entityType after normalization: "${entityType}"`);
@@ -149,6 +159,8 @@ export class QuestionnairesController {
         pdfBuffer = await this.pdfService.generate({
           ...mappedData,
           formType: entityType,
+          locale,
+          lang: locale,
         });
         console.log(`✅ Step 3 done — PDF size: ${pdfBuffer.length} bytes`);
       } catch (e: any) {

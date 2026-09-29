@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Res, UseGuards, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res, UseGuards, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { DataManagementService } from './data-management.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -12,13 +12,13 @@ export class DataManagementController {
   constructor(private dataManagementService: DataManagementService) { }
 
   @Get('regions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.REGIONAL)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
   async getRegions() {
     return this.dataManagementService.getRegions();
   }
 
   @Get('sectors')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.REGIONAL)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
   async getSectors() {
     return this.dataManagementService.getSectors();
   }
@@ -51,15 +51,25 @@ export class DataManagementController {
   }
 
   @Get('stats')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.REGIONAL)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
   async getDataStats() {
     return this.dataManagementService.getDataStats();
   }
 
+  @Get('export/submissions')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async getExportSubmissions(@Query() queryFilters: any, @Res({ passthrough: true }) res: Response) {
+    return this.handleExportSubmissions(queryFilters, res);
+  }
+
   @Post('export/submissions')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
-  async exportSubmissions(@Body() filters: any, @Res({ passthrough: true }) res: Response) {
-    const result = await this.dataManagementService.exportSubmissions(filters);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async postExportSubmissions(@Body() bodyFilters: any, @Res({ passthrough: true }) res: Response) {
+    return this.handleExportSubmissions(bodyFilters, res);
+  }
+
+  private async handleExportSubmissions(filters: any, res: Response) {
+    const result = await this.dataManagementService.exportSubmissions(filters || {});
 
     if (Buffer.isBuffer(result)) {
       const date = new Date().toISOString().slice(0, 10);
@@ -73,37 +83,51 @@ export class DataManagementController {
     return result;
   }
 
-  // Streams the ONEFOP Excel workbook directly to the response, sheet by
-  // sheet (see streamOnefopSubmissionsExcel), instead of building the whole
-  // multi-sheet workbook in memory and returning it as one Buffer — this
-  // replaces the ONEFOP branch the old 'export/submissions' endpoint used
-  // to handle, which no longer scales past a few thousand submissions.
+  @Get('export/submissions/excel')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async getExportOnefopSubmissionsExcel(@Query() queryFilters: any, @Res() res: Response) {
+    await this.dataManagementService.streamOnefopSubmissionsExcel(queryFilters || {}, res);
+  }
+
   @Post('export/submissions/excel')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
-  async exportOnefopSubmissionsExcel(@Body() filters: any, @Res() res: Response) {
-    await this.dataManagementService.streamOnefopSubmissionsExcel(filters, res);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async postExportOnefopSubmissionsExcel(@Body() bodyFilters: any, @Res() res: Response) {
+    await this.dataManagementService.streamOnefopSubmissionsExcel(bodyFilters || {}, res);
   }
 
-  // The .sps syntax half — fast and bounded (see buildSpssManifest's own
-  // doc comment) regardless of how many submissions match the filters, so
-  // this stays a plain JSON response. Call this first, then
-  // 'export/submissions/spss/csv' with the same filters for the data
-  // itself — the two are split so the (potentially large, slow) data
-  // fetch is a real streamed file download rather than sharing a request/
-  // response cycle with this quick manifest call.
+  @Get('export/submissions/spss/manifest')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async getExportSubmissionsSpssManifest(@Query() queryFilters: any) {
+    return this.dataManagementService.buildSpssManifest(queryFilters || {});
+  }
+
   @Post('export/submissions/spss/manifest')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
-  async exportSubmissionsSpssManifest(@Body() filters: any) {
-    return this.dataManagementService.buildSpssManifest(filters);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async postExportSubmissionsSpssManifest(@Body() bodyFilters: any) {
+    return this.dataManagementService.buildSpssManifest(bodyFilters || {});
   }
 
-  // Streams the CSV directly to the response as it's computed (see
-  // streamApprovedOnefopSubmissionsCsv) instead of buffering the whole
-  // export in memory and returning it as one JSON string — the part of
-  // this feature that actually has to scale with submission count.
+  @Get('export/submissions/spss/csv')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async getExportSubmissionsSpssCsv(@Query() queryFilters: any, @Res() res: Response) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(queryFilters || {}, res);
+  }
+
   @Post('export/submissions/spss/csv')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP)
-  async exportSubmissionsSpssCsv(@Body() filters: any, @Res() res: Response) {
-    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(filters, res);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async postExportSubmissionsSpssCsv(@Body() bodyFilters: any, @Res() res: Response) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(bodyFilters || {}, res);
+  }
+
+  @Get('export/submissions/spss/sav')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async getExportSubmissionsSpssSav(@Query() queryFilters: any, @Res() res: Response) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsSav(queryFilters || {}, res);
+  }
+
+  @Post('export/submissions/spss/sav')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
+  async postExportSubmissionsSpssSav(@Body() bodyFilters: any, @Res() res: Response) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsSav(bodyFilters || {}, res);
   }
 }
