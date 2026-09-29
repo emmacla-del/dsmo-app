@@ -69,7 +69,7 @@ as "replaced by"; anything dropped outright says why.
   (`TODO(design, S)` in `pilotage/page.tsx`).
 
 ## Follow-ups (small, non-blocking)
-- `scripts/todo-report.mjs` writes Windows backslash paths (`srcpp\...`) into
+- `scripts/todo-report.mjs` writes Windows backslash paths (`src\app\...`) into
   `docs/pending-work.md` when run on Windows. Normalise with `.replaceAll("\\", "/")`.
 - `admin/sectors` and `admin/utilisateurs` render their own `<h1>` in the
   access-denied state while the layout fallback header also renders one
