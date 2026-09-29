@@ -65,6 +65,17 @@ class TableRenderer {
       return const SizedBox.shrink();
     }
 
+    // Simple Mode's (mobile: true) card-based table views only, for these
+    // four entities only — see grid_theme.dart's own `polished*` doc
+    // comment. Spreadsheet Mode (mobile: false) and every other entity
+    // never sets this, so GenericSpreadsheetTable/AgeBandSwitchTable/
+    // StatusSwitchTable/LeadingGroupSwitchTable/LeadingGroupTabs (S23Q02's
+    // own mobile rendering, which reuses GenericSpreadsheetTable directly
+    // rather than the card widgets below — see leading_group_tabs.dart)
+    // keep their exact current look either way.
+    final polished =
+        mobile && const {'enterprise', 'cooperative', 'ctd', 'ong'}.contains(entityType);
+
     final prefix = _prefixFor(field);
     final renderSpec = _buildRenderSpec(field, locale,
         gridValues: gridValues, onCellChanged: onCellChanged, entityType: entityType);
@@ -112,6 +123,7 @@ class TableRenderer {
               isCategorySkipped: isCategorySkipped,
               onCategorySkipChanged: onCategorySkipChanged,
               enteredValues: enteredValues,
+              polished: polished,
             )
           : GenericSpreadsheetTable(
               spec: spec,
@@ -125,6 +137,7 @@ class TableRenderer {
               onExitPrevious: onExitPrevious,
               hybridController: hybridController, // ← PASS THROUGH
               rowAccessoryBuilder: rowAccessory,
+              polished: polished,
             );
     }
 
@@ -243,6 +256,7 @@ class TableRenderer {
         isCategorySkipped: isCategorySkipped,
         onCategorySkipChanged: onCategorySkipChanged,
         enteredValues: enteredValues,
+        polished: polished,
       );
     } else if (!mobile && renderSpec.categoryGridGroups != null) {
       // S21Q01/S22Q01/S22Q02/S23Q01: no top-level split, so just the flat
@@ -264,6 +278,7 @@ class TableRenderer {
           onExitTable: onExitTable,
           onExitPrevious: onExitPrevious,
           hybridController: hybridController,
+          polished: polished,
         );
       } else {
         table = Column(
@@ -382,6 +397,9 @@ class TableRenderer {
     // check the runtime type rather than blindly casting.
     final rawRows = spec['rows'];
     final rows = rawRows is List ? rawRows.cast<String>() : null;
+    // An explicitly empty `statuses` list = no permanent/temporary dimension
+    // (Administration S21Q03 / S21Q04, see FormSchemaCompiler).
+    final rawStatuses = spec['statuses'];
     return TableSpecBuilder.build(
       template: template,
       prefix: _prefixFor(field),
@@ -390,6 +408,7 @@ class TableRenderer {
       entityType: entityType,
       locale: locale,
       rows: rows,
+      statusless: rawStatuses is List && rawStatuses.isEmpty,
     );
   }
 

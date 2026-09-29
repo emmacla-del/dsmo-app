@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../core/i18n/localized_text.dart';
 import '../../data/api_client.dart';
 import '../../models/landing_config.dart';
@@ -279,19 +280,16 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Restaurer cette version ?'),
-        content: const Text(
-            "La page d'accueil publique sera immédiatement remplacée par "
-            "le contenu de cette version. L'état actuel est lui-même "
-            'sauvegardé et pourra être restauré ensuite.'),
+        title: Text(context.l10n.landingConfigRestoreDialogTitle),
+        content: Text(context.l10n.landingConfigRestoreDialogBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: Text(context.l10n.cancelButton),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Restaurer'),
+            child: Text(context.l10n.landingConfigRestoreButton),
           ),
         ],
       ),
@@ -309,11 +307,11 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
       await _load();
       await _loadHistory();
       if (!mounted) return;
-      showAdminToast(context, 'Version restaurée', UltraTheme.success,
+      showAdminToast(context, context.l10n.landingConfigVersionRestoredToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Échec de la restauration : $e',
+      showAdminToast(context, context.l10n.landingConfigRestoreFailedToast(e.toString()),
           UltraTheme.error, Icons.error_outline_rounded);
     } finally {
       if (mounted) setState(() => _restoringId = null);
@@ -428,12 +426,12 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
         final updatedAt = response['updatedAt'] as String?;
         _updatedAt = updatedAt != null ? DateTime.tryParse(updatedAt) : null;
       });
-      showAdminToast(context, 'Page d\'accueil mise à jour', UltraTheme.success,
+      showAdminToast(context, context.l10n.landingConfigUpdatedToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
-      showAdminToast(context, "Échec de l'enregistrement : $e",
+      showAdminToast(context, context.l10n.landingConfigSaveFailedToast(e.toString()),
           UltraTheme.error, Icons.error_outline_rounded);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -445,8 +443,8 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
     return Scaffold(
       backgroundColor: UltraTheme.background,
       appBar: AppBar(
-        title: const Text("Page d'accueil publique",
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(context.l10n.landingConfigAppBarTitle,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: UltraTheme.surface,
         elevation: 0,
         actions: [
@@ -465,13 +463,9 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Contenu narratif de la page d'accueil publique "
-                        '(programme SIMT / CAMLEAP) : statut, phrase de '
-                        'soutien, composantes, piliers Collecter / '
-                        'Intégrer / Analyser / Informer, objet du '
-                        'programme, appel à l’accès. Réservé au SUPER_ADMIN.',
-                        style: TextStyle(
+                      Text(
+                        context.l10n.landingConfigDescriptionNote,
+                        style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 13,
                             color: UltraTheme.textMuted),
@@ -479,7 +473,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       if (_updatedAt != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          'Dernière modification : ${_formatDate(_updatedAt!)}',
+                          context.l10n.landingConfigLastModifiedLabel(_formatDate(_updatedAt!)),
                           style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 12,
@@ -501,11 +495,11 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                                   color: UltraTheme.error, fontSize: 13)),
                         ),
                       _FormSection(
-                        title: 'Statut du programme',
+                        title: context.l10n.landingConfigStatusSectionTitle,
                         icon: Icons.account_balance_outlined,
                         children: [
                           _BilingualField(
-                            label: 'Ligne de statut (sous la composante actuelle)',
+                            label: context.l10n.landingConfigStatusLineFieldLabel,
                             frController: _statusLineFrCtrl,
                             enController: _statusLineEnCtrl,
                             maxLines: 2,
@@ -515,11 +509,11 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Hero',
+                        title: context.l10n.landingConfigHeroSectionTitle,
                         icon: Icons.title_outlined,
                         children: [
                           _BilingualField(
-                            label: 'Titre principal',
+                            label: context.l10n.landingConfigMainTitleFieldLabel,
                             frController: _heroTitleFrCtrl,
                             enController: _heroTitleEnCtrl,
                             maxLines: 2,
@@ -527,7 +521,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                           ),
                           const SizedBox(height: 10),
                           _BilingualField(
-                            label: 'Phrase de soutien (sous le titre)',
+                            label: context.l10n.landingConfigSupportingLineFieldLabel,
                             frController: _heroDescriptionFrCtrl,
                             enController: _heroDescriptionEnCtrl,
                             maxLines: 2,
@@ -537,7 +531,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Composantes du programme (I–IV)',
+                        title: context.l10n.landingConfigComponentsSectionTitle,
                         icon: Icons.timeline_outlined,
                         children: [
                           for (var i = 0; i < 4; i++) ...[
@@ -556,7 +550,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                           ],
                           const Divider(height: 28),
                           _BilingualField(
-                            label: 'Légende (sous les composantes)',
+                            label: context.l10n.landingConfigCaptionFieldLabel,
                             frController: _captionFrCtrl,
                             enController: _captionEnCtrl,
                             onChanged: () => setState(() {}),
@@ -565,7 +559,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Piliers LMIS (Collecter / Intégrer / Analyser / Informer)',
+                        title: context.l10n.landingConfigPillarsSectionTitle,
                         icon: Icons.grid_view_outlined,
                         children: [
                           for (var i = 0; i < 4; i++) ...[
@@ -574,7 +568,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                               Icon(_valueCardIcons[i],
                                   size: 16, color: UltraTheme.primary),
                               const SizedBox(width: 6),
-                              Text('Carte ${i + 1}',
+                              Text(context.l10n.landingConfigCardIndexLabel(i + 1),
                                   style: const TextStyle(
                                       fontFamily: 'Inter',
                                       fontSize: 12.5,
@@ -583,21 +577,21 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                             ]),
                             const SizedBox(height: 8),
                             _BilingualField(
-                              label: 'Mot-clé (au-dessus du titre)',
+                              label: context.l10n.landingConfigKickerFieldLabel,
                               frController: _pillarKickerFrCtrls[i],
                               enController: _pillarKickerEnCtrls[i],
                               onChanged: () => setState(() {}),
                             ),
                             const SizedBox(height: 10),
                             _BilingualField(
-                              label: 'Titre',
+                              label: context.l10n.landingConfigTitleFieldLabel,
                               frController: _valueTitleFrCtrls[i],
                               enController: _valueTitleEnCtrls[i],
                               onChanged: () => setState(() {}),
                             ),
                             const SizedBox(height: 10),
                             _BilingualField(
-                              label: 'Texte',
+                              label: context.l10n.landingConfigTextFieldLabel,
                               frController: _valueBodyFrCtrls[i],
                               enController: _valueBodyEnCtrls[i],
                               maxLines: 2,
@@ -608,15 +602,14 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Pipeline architecture SIMT',
+                        title: context.l10n.landingConfigArchSectionTitle,
                         icon: Icons.account_tree_outlined,
-                        note:
-                            "Actuellement non affiché sur la page publique — la section correspondante a été fusionnée avec le pipeline « données → intelligence » ci-dessous. Les modifications sont enregistrées mais restent invisibles.",
+                        note: context.l10n.landingConfigArchSectionNote,
                         children: [
                           for (var i = 0; i < 6; i++) ...[
                             if (i > 0) const SizedBox(height: 10),
                             _BilingualField(
-                              label: 'Étape ${i + 1}',
+                              label: context.l10n.landingConfigStepIndexLabel(i + 1),
                               frController: _archStepFrCtrls[i],
                               enController: _archStepEnCtrls[i],
                               onChanged: () => setState(() {}),
@@ -626,13 +619,13 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Pipeline données → intelligence',
+                        title: context.l10n.landingConfigIntelSectionTitle,
                         icon: Icons.insights_outlined,
                         children: [
                           for (var i = 0; i < 7; i++) ...[
                             if (i > 0) const SizedBox(height: 10),
                             _BilingualField(
-                              label: 'Étape ${i + 1}',
+                              label: context.l10n.landingConfigStepIndexLabel(i + 1),
                               frController: _intelStepFrCtrls[i],
                               enController: _intelStepEnCtrls[i],
                               onChanged: () => setState(() {}),
@@ -642,20 +635,20 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Écosystème institutionnel',
+                        title: context.l10n.landingConfigEcosystemSectionTitle,
                         icon: Icons.hub_outlined,
                         children: [
                           for (var i = 0; i < 5; i++) ...[
                             if (i > 0) const Divider(height: 28),
                             _BilingualField(
-                              label: 'Bloc ${i + 1} — titre',
+                              label: context.l10n.landingConfigBlockTitleFieldLabel(i + 1),
                               frController: _stakeTitleFrCtrls[i],
                               enController: _stakeTitleEnCtrls[i],
                               onChanged: () => setState(() {}),
                             ),
                             const SizedBox(height: 10),
                             _BilingualField(
-                              label: 'Bloc ${i + 1} — texte',
+                              label: context.l10n.landingConfigBlockTextFieldLabel(i + 1),
                               frController: _stakeBodyFrCtrls[i],
                               enController: _stakeBodyEnCtrls[i],
                               maxLines: 2,
@@ -666,13 +659,13 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Objet du programme (pourquoi un SIMT)',
+                        title: context.l10n.landingConfigAboutSectionTitle,
                         icon: Icons.info_outline,
                         children: [
                           for (var i = 0; i < 3; i++) ...[
                             if (i > 0) const SizedBox(height: 14),
                             _BilingualField(
-                              label: 'Paragraphe ${i + 1}',
+                              label: context.l10n.landingConfigParagraphIndexLabel(i + 1),
                               frController: _aboutParaFrCtrls[i],
                               enController: _aboutParaEnCtrls[i],
                               maxLines: 4,
@@ -681,7 +674,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                           ],
                           const Divider(height: 28),
                           _BilingualField(
-                            label: 'Positionnement institutionnel',
+                            label: context.l10n.landingAboutPositioningTitle,
                             frController: _aboutPositioningFrCtrl,
                             enController: _aboutPositioningEnCtrl,
                             maxLines: 3,
@@ -691,20 +684,19 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Observatoire (page publique /observatory)',
+                        title: context.l10n.landingConfigObservatorySectionTitle,
                         icon: Icons.query_stats_outlined,
-                        note:
-                            "Contenu provisoire — aucun texte définitif n'a encore été fourni pour l'Observatoire public. La page publique affiche un badge « contenu en préparation » tant que ce texte reste la copie par défaut ci-dessous.",
+                        note: context.l10n.landingConfigObservatoryNote,
                         children: [
                           _BilingualField(
-                            label: 'Titre',
+                            label: context.l10n.landingConfigTitleFieldLabel,
                             frController: _observatoryTitleFrCtrl,
                             enController: _observatoryTitleEnCtrl,
                             onChanged: () => setState(() {}),
                           ),
                           const SizedBox(height: 10),
                           _BilingualField(
-                            label: 'Description',
+                            label: context.l10n.landingConfigDescriptionFieldLabel,
                             frController: _observatoryDescriptionFrCtrl,
                             enController: _observatoryDescriptionEnCtrl,
                             maxLines: 3,
@@ -714,7 +706,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                           for (var i = 0; i < 3; i++) ...[
                             if (i > 0) const SizedBox(height: 10),
                             _BilingualField(
-                              label: 'Indicateur ${i + 1}',
+                              label: context.l10n.landingConfigIndicatorIndexLabel(i + 1),
                               frController: _observatoryIndicatorFrCtrls[i],
                               enController: _observatoryIndicatorEnCtrls[i],
                               onChanged: () => setState(() {}),
@@ -724,18 +716,18 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Appel à l\'accès',
+                        title: context.l10n.landingConfigCtaSectionTitle,
                         icon: Icons.campaign_outlined,
                         children: [
                           _BilingualField(
-                            label: 'Titre',
+                            label: context.l10n.landingConfigTitleFieldLabel,
                             frController: _ctaTitleFrCtrl,
                             enController: _ctaTitleEnCtrl,
                             onChanged: () => setState(() {}),
                           ),
                           const SizedBox(height: 10),
                           _BilingualField(
-                            label: 'Sous-texte',
+                            label: context.l10n.landingConfigSubtextFieldLabel,
                             frController: _ctaNoteFrCtrl,
                             enController: _ctaNoteEnCtrl,
                             maxLines: 2,
@@ -745,11 +737,11 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: "Accès à la plateforme",
+                        title: context.l10n.landingConfigAccessSectionTitle,
                         icon: Icons.lock_outline_rounded,
                         children: [
                           _BilingualField(
-                            label: 'Note d’accès (sous les boutons)',
+                            label: context.l10n.landingConfigAccessNoteFieldLabel,
                             frController: _accessNoteFrCtrl,
                             enController: _accessNoteEnCtrl,
                             maxLines: 3,
@@ -759,20 +751,20 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Aperçu',
+                        title: context.l10n.landingConfigPreviewSectionTitle,
                         icon: Icons.visibility_outlined,
                         children: [
                           Row(
                             children: [
                               _LocaleChip(
-                                label: 'FR',
+                                label: context.l10n.landingConfigFrChipLabel,
                                 selected: _previewLocale == 'fr',
                                 onTap: () =>
                                     setState(() => _previewLocale = 'fr'),
                               ),
                               const SizedBox(width: 8),
                               _LocaleChip(
-                                label: 'EN',
+                                label: context.l10n.landingConfigEnChipLabel,
                                 selected: _previewLocale == 'en',
                                 onTap: () =>
                                     setState(() => _previewLocale = 'en'),
@@ -786,7 +778,7 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                       ),
                       const SizedBox(height: 16),
                       _FormSection(
-                        title: 'Historique (restauration)',
+                        title: context.l10n.landingConfigHistorySectionTitle,
                         icon: Icons.history_outlined,
                         children: [
                           if (_historyLoading)
@@ -797,9 +789,9 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                                       strokeWidth: 2)),
                             )
                           else if (_history.isEmpty)
-                            const Text(
-                              'Aucune version antérieure enregistrée.',
-                              style: TextStyle(
+                            Text(
+                              context.l10n.landingConfigNoHistoryMessage,
+                              style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
                                   color: UltraTheme.textMuted),
@@ -837,8 +829,8 @@ class _LandingConfigScreenState extends ConsumerState<LandingConfigScreen> {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Text('Enregistrer',
-                                  style: TextStyle(
+                              : Text(context.l10n.settingsSaveButton,
+                                  style: const TextStyle(
                                       fontFamily: 'Inter',
                                       fontWeight: FontWeight.w600)),
                         ),
@@ -958,7 +950,7 @@ class _BilingualField extends StatelessWidget {
       maxLines: maxLines,
       onChanged: (_) => onChanged(),
       decoration: InputDecoration(
-        labelText: 'Français',
+        labelText: context.l10n.languageFrench,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         filled: true,
         fillColor: UltraTheme.background,
@@ -970,7 +962,7 @@ class _BilingualField extends StatelessWidget {
       maxLines: maxLines,
       onChanged: (_) => onChanged(),
       decoration: InputDecoration(
-        labelText: 'English',
+        labelText: context.l10n.languageEnglish,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         filled: true,
         fillColor: UltraTheme.background,
@@ -1055,14 +1047,14 @@ class _RoadmapItemEditor extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _BilingualField(
-                label: 'Composante $roman — nom court',
+                label: context.l10n.landingConfigComponentShortNameLabel(roman),
                 frController: labelFrController,
                 enController: labelEnController,
                 onChanged: onChanged,
               ),
               const SizedBox(height: 10),
               _BilingualField(
-                label: 'Composante $roman — description',
+                label: context.l10n.landingConfigComponentDescriptionLabel(roman),
                 frController: descFrController,
                 enController: descEnController,
                 maxLines: 3,
@@ -1076,7 +1068,7 @@ class _RoadmapItemEditor extends StatelessWidget {
                   activeThumbColor: UltraTheme.success,
                 ),
                 const SizedBox(width: 4),
-                Text(done ? 'Mise en œuvre actuelle' : 'Planifiée',
+                Text(done ? context.l10n.landingCurrentSectionTitle : context.l10n.landingPlanned,
                     style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12.5,
@@ -1163,8 +1155,8 @@ class _HistoryEntry extends StatelessWidget {
                     height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Restaurer',
-                    style: TextStyle(
+                : Text(context.l10n.landingConfigRestoreButton,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600)),

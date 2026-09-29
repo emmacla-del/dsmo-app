@@ -1,6 +1,7 @@
 // lib/widgets/offline_banner.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/connectivity_provider.dart';
 import '../providers/sync_queue_provider.dart';
@@ -27,12 +28,11 @@ class OfflineBanner extends ConsumerWidget {
     final Color color;
     if (!isOnline) {
       message = pendingCount > 0
-          ? 'Hors ligne — $pendingCount élément(s) en attente / Offline — $pendingCount pending'
-          : 'Hors ligne — Mode dégradé / Offline mode';
+          ? context.l10n.offlineBannerOfflineWithPendingMsg(pendingCount)
+          : context.l10n.offlineBannerOfflineDegradedMsg;
       color = AppColors.danger;
     } else {
-      message =
-          '$pendingCount élément(s) en attente d\'envoi / $pendingCount item(s) pending';
+      message = context.l10n.offlineBannerOnlinePendingMsg(pendingCount);
       color = AppColors.warning;
     }
 
@@ -57,7 +57,7 @@ class OfflineBanner extends ConsumerWidget {
                 TextButton(
                   onPressed: () => _retry(ref),
                   style: TextButton.styleFrom(foregroundColor: Colors.white),
-                  child: const Text('Réessayer'),
+                  child: Text(context.l10n.retry),
                 ),
             ],
           ),

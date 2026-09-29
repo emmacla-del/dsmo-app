@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/app_colors.dart';
 import 'declaration_wizard_screen.dart'; // for languageProvider
@@ -49,7 +50,7 @@ class _DeclarationApprovalScreenState
       });
     } catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar('Erreur de chargement: $e');
+      _showErrorSnackBar(context.l10n.regionsSectorsLoadError(e.toString()));
       setState(() => isLoading = false);
     }
   }
@@ -61,8 +62,8 @@ class _DeclarationApprovalScreenState
       await api.patch('/dsmo/declarations/${widget.declarationId}/approve',
           data: {'notes': _notesController.text});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Déclaration approuvée avec succès'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.declApprovalApprovedSuccessMsg),
           backgroundColor: Colors.green));
       Navigator.pop(context, true);
     } catch (e) {
@@ -75,7 +76,7 @@ class _DeclarationApprovalScreenState
 
   Future<void> _rejectDeclaration() async {
     if (_rejectionReasonController.text.trim().isEmpty) {
-      _showWarningSnackBar('Veuillez entrer une raison de rejet');
+      _showWarningSnackBar(context.l10n.declApprovalMissingRejectReasonWarning);
       return;
     }
     setState(() => isSubmitting = true);
@@ -84,8 +85,8 @@ class _DeclarationApprovalScreenState
       await api.patch('/dsmo/declarations/${widget.declarationId}/reject',
           data: {'reason': _rejectionReasonController.text.trim()});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Déclaration rejetée'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.declApprovalRejectedMsg),
           backgroundColor: Colors.orange));
       Navigator.pop(context, true);
     } catch (e) {
@@ -108,7 +109,7 @@ class _DeclarationApprovalScreenState
         await Printing.layoutPdf(onLayout: (_) => bytes);
       }
     } catch (e) {
-      if (mounted) _showErrorSnackBar('Impossible de charger le PDF: $e');
+      if (mounted) _showErrorSnackBar(context.l10n.declApprovalPdfLoadError(e.toString()));
     }
   }
 
@@ -197,7 +198,7 @@ class _DeclarationApprovalScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isDraft ? 'Brouillon — DSMO' : 'Validation DSMO'),
+        title: Text(isDraft ? context.l10n.declApprovalDraftTitle : context.l10n.declApprovalValidationTitle),
         backgroundColor: AppColors.deepEmerald,
         actions: [
           if (!isLoading && !isDraft)
@@ -205,12 +206,12 @@ class _DeclarationApprovalScreenState
               icon: const Icon(Icons.print, color: Colors.white),
               onSelected: _printPdf,
               itemBuilder: (_) => [
-                const PopupMenuItem(
-                    value: 1, child: Text('ORIGINAL (Employeur)')),
-                const PopupMenuItem(
-                    value: 2, child: Text('DUPLICATA (Autorité)')),
-                const PopupMenuItem(
-                    value: 3, child: Text('TRIPLICATA (Archives)')),
+                PopupMenuItem(
+                    value: 1, child: Text(context.l10n.pdfCopyOriginalLabel)),
+                PopupMenuItem(
+                    value: 2, child: Text(context.l10n.pdfCopyDuplicateLabel)),
+                PopupMenuItem(
+                    value: 3, child: Text(context.l10n.pdfCopyTriplicateLabel)),
               ],
             ),
         ],
@@ -220,14 +221,14 @@ class _DeclarationApprovalScreenState
               onPressed: _resumeDraft,
               backgroundColor: Colors.teal,
               icon: const Icon(Icons.edit, color: Colors.white),
-              label: const Text('Reprendre la saisie',
-                  style: TextStyle(color: Colors.white)),
+              label: Text(context.l10n.declApprovalResumeEntryButton,
+                  style: const TextStyle(color: Colors.white)),
             )
           : null,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : declaration == null
-              ? const Center(child: Text('Déclaration introuvable'))
+              ? Center(child: Text(context.l10n.declApprovalNotFoundMsg))
               : _buildMainContent(),
     );
   }
@@ -238,37 +239,37 @@ class _DeclarationApprovalScreenState
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _buildHeaderCard(),
         const SizedBox(height: 16),
-        _buildSectionTitle("Informations de l'établissement"),
+        _buildSectionTitle(context.l10n.declApprovalSectionEstablishmentInfo),
         _buildCompanyInfoCard(),
         const SizedBox(height: 16),
-        _buildSectionTitle("Effectifs Main-d'œuvre"),
+        _buildSectionTitle(context.l10n.declApprovalSectionWorkforce),
         _buildWorkforceTable(),
         const SizedBox(height: 16),
-        _buildSectionTitle("Mouvements du personnel"),
+        _buildSectionTitle(context.l10n.declApprovalSectionMovements),
         _buildMovementsCard(),
         const SizedBox(height: 16),
-        _buildSectionTitle("Informations supplémentaires"),
+        _buildSectionTitle(context.l10n.declApprovalSectionAdditionalInfo),
         _buildQualitativeCard(),
         const SizedBox(height: 16),
-        _buildSectionTitle("Étapes de conformité"),
+        _buildSectionTitle(context.l10n.declApprovalSectionComplianceSteps),
         _buildValidationSteps(),
         const SizedBox(height: 32),
         if (!widget.isReadOnly && !isLoading) ...[
           _buildActionPanel(
-            title: 'APPROBATION',
+            title: context.l10n.declApprovalPanelApprovalTitle,
             color: Colors.green,
             controller: _notesController,
-            label: 'Notes administratives',
-            btnLabel: 'APPROUVER LA DÉCLARATION',
+            label: context.l10n.declApprovalNotesLabel,
+            btnLabel: context.l10n.declApprovalApproveButton,
             onPressed: _approveDeclaration,
           ),
           const SizedBox(height: 16),
           _buildActionPanel(
-            title: 'REJET',
+            title: context.l10n.declApprovalPanelRejectTitle,
             color: Colors.red,
             controller: _rejectionReasonController,
-            label: 'Motif du rejet (Obligatoire)',
-            btnLabel: 'REJETER POUR CORRECTION',
+            label: context.l10n.declApprovalRejectReasonLabel,
+            btnLabel: context.l10n.declApprovalRejectButton,
             onPressed: _rejectDeclaration,
           ),
         ],
@@ -285,16 +286,16 @@ class _DeclarationApprovalScreenState
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(declaration!['company']?['name'] ?? 'Entreprise',
+        Text(declaration!['company']?['name'] ?? context.l10n.entityTypeEnterprise,
             style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppColors.deepEmerald)),
         const Divider(),
-        Text('Exercice: ${declaration!['year']}'),
-        Text('Statut Actuel: ${declaration!['status']}'),
+        Text(context.l10n.declApprovalYearLine('${declaration!['year']}')),
+        Text(context.l10n.declApprovalCurrentStatusLine('${declaration!['status']}')),
         if (declaration!['submittedAt'] != null)
-          Text('Date de soumission: ${declaration!['submittedAt']}'),
+          Text(context.l10n.declApprovalSubmissionDateLine('${declaration!['submittedAt']}')),
       ]),
     );
   }
@@ -336,24 +337,24 @@ class _DeclarationApprovalScreenState
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(children: [
-          _buildInfoRow('Activité princ.', c['mainActivity'] ?? 'N/A'),
+          _buildInfoRow(context.l10n.declApprovalLabelMainActivityShort, c['mainActivity'] ?? context.l10n.pdfNotApplicable),
           if ((c['secondaryActivity'] as String?)?.isNotEmpty == true)
-            _buildInfoRow('Activité second.', c['secondaryActivity']),
+            _buildInfoRow(context.l10n.declApprovalLabelSecondaryActivityShort, c['secondaryActivity']),
           _buildInfoRow(
-              'Localisation',
+              context.l10n.registerStepTitleLocation,
               [c['region'], c['department'], c['subdivision']]
                   .where((v) => v != null && v.toString().isNotEmpty)
                   .join(' / ')),
-          _buildInfoRow('Adresse', c['address'] ?? 'N/A'),
+          _buildInfoRow(context.l10n.companiesAddressLabel, c['address'] ?? context.l10n.pdfNotApplicable),
           if ((c['fax'] as String?)?.isNotEmpty == true)
-            _buildInfoRow('Fax', c['fax']),
-          _buildInfoRow('N° Contribuable', c['taxNumber'] ?? 'N/A'),
+            _buildInfoRow(context.l10n.fieldFaxLabel, c['fax']),
+          _buildInfoRow(context.l10n.declApprovalLabelTaxNumberShort, c['taxNumber'] ?? context.l10n.pdfNotApplicable),
           if ((c['cnpsNumber'] as String?)?.isNotEmpty == true)
-            _buildInfoRow('N° CNPS', c['cnpsNumber']),
+            _buildInfoRow(context.l10n.companiesCnpsNumberLabel, c['cnpsNumber']),
           if (c['socialCapital'] != null)
-            _buildInfoRow('Capital social', '${c['socialCapital']} XAF'),
+            _buildInfoRow(context.l10n.declApprovalLabelSocialCapital, '${c['socialCapital']} XAF'),
           if ((c['parentCompany'] as String?)?.isNotEmpty == true)
-            _buildInfoRow('Entreprise mère', c['parentCompany']),
+            _buildInfoRow(context.l10n.declApprovalLabelParentCompany, c['parentCompany']),
         ]),
       ),
     );
@@ -381,17 +382,17 @@ class _DeclarationApprovalScreenState
               borderRadius: BorderRadius.circular(6),
             ),
             child: Column(children: [
-              Text('Effectifs déclarés — Année en cours',
+              Text(context.l10n.declApprovalWorkforceCurrentYearTitle,
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.teal.shade700)),
               const SizedBox(height: 6),
               _buildStatRow(
-                  'Total', '${c['totalEmployees'] ?? employees.length}',
+                  context.l10n.total, '${c['totalEmployees'] ?? employees.length}',
                   isBold: true),
-              _buildStatRow('Hommes', '${c['menCount'] ?? listedMale}'),
-              _buildStatRow('Femmes', '${c['womenCount'] ?? listedFemale}'),
+              _buildStatRow(context.l10n.menLabel, '${c['menCount'] ?? listedMale}'),
+              _buildStatRow(context.l10n.womenLabel, '${c['womenCount'] ?? listedFemale}'),
             ]),
           ),
           if (c['lastYearTotal'] != null ||
@@ -404,7 +405,7 @@ class _DeclarationApprovalScreenState
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Column(children: [
-                Text('Effectifs — Année précédente',
+                Text(context.l10n.declApprovalWorkforcePreviousYearTitle,
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -419,7 +420,7 @@ class _DeclarationApprovalScreenState
             const SizedBox(height: 8),
           ],
           const Divider(),
-          Text('Liste nominative: ${employees.length} employé(s) saisi(s)',
+          Text(context.l10n.declApprovalNominativeListLine(employees.length),
               style: const TextStyle(fontSize: 12, color: Colors.grey)),
         ]),
       ),
@@ -429,21 +430,21 @@ class _DeclarationApprovalScreenState
   Widget _buildMovementsCard() {
     final movements = declaration!['movements'] as List? ?? [];
     if (movements.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Aucun mouvement enregistré.',
-              style: TextStyle(color: Colors.grey)),
+          padding: const EdgeInsets.all(16),
+          child: Text(context.l10n.declApprovalNoMovementsMsg,
+              style: const TextStyle(color: Colors.grey)),
         ),
       );
     }
 
-    const typeLabels = {
-      'RECRUITMENT': 'Recrutement',
-      'PROMOTION': 'Avancement',
-      'DISMISSAL': 'Licenciement',
-      'RETIREMENT': 'Retraite',
-      'DEATH': 'Décès',
+    final typeLabels = {
+      'RECRUITMENT': context.l10n.movementRecruitmentLabel,
+      'PROMOTION': context.l10n.movementPromotionLabel,
+      'DISMISSAL': context.l10n.movementDismissalLabel,
+      'RETIREMENT': context.l10n.movementRetirementLabel,
+      'DEATH': context.l10n.movementDeathLabel,
     };
 
     return Card(
@@ -463,14 +464,14 @@ class _DeclarationApprovalScreenState
             headingTextStyle: const TextStyle(
                 fontWeight: FontWeight.bold, fontSize: 11, color: Colors.teal),
             dataTextStyle: const TextStyle(fontSize: 11),
-            columns: const [
-              DataColumn(label: Text('Mouvement')),
-              DataColumn(label: Text('Cat. 1–3'), numeric: true),
-              DataColumn(label: Text('Cat. 4–6'), numeric: true),
-              DataColumn(label: Text('Cat. 7–9'), numeric: true),
-              DataColumn(label: Text('Cat. 10–12'), numeric: true),
-              DataColumn(label: Text('Non Décl.'), numeric: true),
-              DataColumn(label: Text('TOTAL'), numeric: true),
+            columns: [
+              DataColumn(label: Text(context.l10n.colMovementHeader)),
+              DataColumn(label: Text(context.l10n.colCat13Header), numeric: true),
+              DataColumn(label: Text(context.l10n.colCat46Header), numeric: true),
+              DataColumn(label: Text(context.l10n.colCat79Header), numeric: true),
+              DataColumn(label: Text(context.l10n.colCat1012Header), numeric: true),
+              DataColumn(label: Text(context.l10n.colNonDeclaredShortHeader), numeric: true),
+              DataColumn(label: Text(context.l10n.colTotalHeader), numeric: true),
             ],
             rows: movements.map((m) {
               final mv = m as Map<String, dynamic>;
@@ -503,11 +504,11 @@ class _DeclarationApprovalScreenState
   Widget _buildQualitativeCard() {
     final questions = declaration!['qualitativeQuestions'] as List? ?? [];
     if (questions.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Informations qualitatives non disponibles.',
-              style: TextStyle(color: Colors.grey)),
+          padding: const EdgeInsets.all(16),
+          child: Text(context.l10n.declApprovalQualitativeUnavailableMsg,
+              style: const TextStyle(color: Colors.grey)),
         ),
       );
     }
@@ -522,7 +523,7 @@ class _DeclarationApprovalScreenState
                 color: v == true ? Colors.green.shade300 : Colors.red.shade300),
           ),
           child: Text(
-            v == true ? 'Oui' : 'Non',
+            v == true ? context.l10n.yesLabel : context.l10n.noLabel,
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -538,19 +539,19 @@ class _DeclarationApprovalScreenState
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(children: [
-          _buildQRow("Centre de formation pour le personnel ?",
+          _buildQRow(context.l10n.qHasTrainingCenterShort,
               yesNo(q['hasTrainingCenter'] as bool?)),
-          _buildQRow("Prévoit des recrutements l'année prochaine ?",
+          _buildQRow(context.l10n.qRecruitmentPlansNextShort,
               yesNo(q['recruitmentPlansNext'] as bool?)),
-          _buildQRow("Dispose d'un plan de camerounisation ?",
+          _buildQRow(context.l10n.qCamerounisationPlanShort,
               yesNo(q['camerounisationPlan'] as bool?)),
-          _buildQRow("Recours aux entreprises de travail temporaire ?",
+          _buildQRow(context.l10n.qUsesTempAgenciesShort,
               yesNo(q['usesTempAgencies'] as bool?)),
           if (q['usesTempAgencies'] == true &&
               (q['tempAgencyDetails'] as String?)?.isNotEmpty == true)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: _buildInfoRow('Détails ETT', q['tempAgencyDetails']),
+              child: _buildInfoRow(context.l10n.qTempAgencyDetailsLabelShort, q['tempAgencyDetails']),
             ),
         ]),
       ),
@@ -586,7 +587,7 @@ class _DeclarationApprovalScreenState
   Widget _buildValidationSteps() {
     final steps = declaration!['validationSteps'] as List?;
     if (steps == null || steps.isEmpty) {
-      return const Text('Aucune étape de validation enregistrée.');
+      return Text(context.l10n.declApprovalNoValidationStepsMsg);
     }
 
     return Column(
@@ -596,7 +597,7 @@ class _DeclarationApprovalScreenState
           contentPadding: EdgeInsets.zero,
           leading: Icon(isValid ? Icons.check_circle : Icons.error_outline,
               color: isValid ? Colors.green : Colors.red),
-          title: Text(step['stepType'] ?? 'Contrôle automatique',
+          title: Text(step['stepType'] ?? context.l10n.declApprovalDefaultStepType,
               style: const TextStyle(fontSize: 14)),
         );
       }).toList(),

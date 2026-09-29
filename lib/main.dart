@@ -11,13 +11,11 @@ import 'models/employee_adapter.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/sync_queue_provider.dart';
+import 'providers/auth_provider.dart';
+import 'services/draft_service.dart';
 import 'widgets/offline_banner.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/forgot_password_screen.dart';
-import 'screens/landing_screen.dart';
-import 'screens/lmis_screen.dart';
-import 'screens/programme_screen.dart';
-import 'screens/observatory_screen.dart';
 import 'screens/login_portal_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
@@ -25,76 +23,23 @@ import 'screens/verify_email_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/dsmo/declaration_wizard_screen.dart';
 import 'features/analytics/screens/onefop_dashboard_screen.dart';
+import 'screens/onefop/onefop_progress_dashboard_screen.dart';
+import 'screens/onefop/onefop_unified_form_screen_v4.dart';
+import 'screens/onefop/onefop_form_constants.dart' show EntityType;
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-/// A bare continuity cue for the public site's tab-like routes (/, /lmis,
-/// /programme, /observatory) — deliberately NOT an app-style "screen
-/// transition". Institutional sites (World Bank, WHO) don't animate
-/// navigation at all; this only softens GoRouter's default instant cut
-/// just enough that the next section reads as "appeared smoothly" rather
-/// than "the app moved to another screen": a quick opacity fade with a
-/// fixed, near-imperceptible 3px settle (not a fraction of page height —
-/// SlideTransition's fractional offset was the earlier version's mistake,
-/// producing a visible slide on tall pages). Fast (150ms) and understated
-/// on purpose — no bounce, no overshoot. Skipped entirely when the OS
-/// reports a reduced-motion preference.
-CustomTransitionPage<void> _publicPage(GoRouterState state, Widget child) {
-  return CustomTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: const Duration(milliseconds: 150),
-    reverseTransitionDuration: const Duration(milliseconds: 150),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      if (MediaQuery.of(context).disableAnimations) return child;
-
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-      return FadeTransition(
-        opacity: curved,
-        child: AnimatedBuilder(
-          animation: curved,
-          child: child,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(0, (1 - curved.value) * 3),
-            child: child,
-          ),
-        ),
-      );
-    },
-  );
-}
-
+// The public marketing site (landing page + /lmis, /programme, /observatory,
+// /roadmap redirect, and the ComingSoonScreen placeholder routes it linked
+// to) is unwired here, not deleted — the screens/widgets it depended on
+// (landing_screen.dart, lmis_screen.dart, programme_screen.dart,
+// observatory_screen.dart, coming_soon_screen.dart, the _publicPage
+// transition, and the LandingConfig CMS) are left in place on disk in case
+// they're wanted again. The app now goes straight to /login.
 final GoRouter router = GoRouter(
   navigatorKey: rootNavigatorKey,
-  initialLocation: '/',
+  initialLocation: '/login',
   routes: [
-    GoRoute(
-      path: '/',
-      name: 'landing',
-      pageBuilder: (context, state) => _publicPage(state, const LandingScreen()),
-    ),
-    GoRoute(
-      path: '/lmis',
-      name: 'lmis',
-      pageBuilder: (context, state) => _publicPage(state, const LmisScreen()),
-    ),
-    GoRoute(
-      path: '/programme',
-      name: 'programme',
-      pageBuilder: (context, state) => _publicPage(state, const ProgrammeScreen()),
-    ),
-    GoRoute(
-      path: '/observatory',
-      name: 'observatory',
-      pageBuilder: (context, state) => _publicPage(state, const ObservatoryScreen()),
-    ),
-    // Old standalone roadmap page, folded into /programme — redirected
-    // rather than removed outright since this is a public government site
-    // and old links/bookmarks to it may already be shared.
-    GoRoute(
-      path: '/roadmap',
-      redirect: (context, state) => '/programme',
-    ),
     GoRoute(
       path: '/login',
       name: 'login',
@@ -138,6 +83,38 @@ final GoRouter router = GoRouter(
       path: '/declaration',
       name: 'declaration',
       builder: (context, state) => const DeclarationWizardScreen(),
+    ),
+    GoRoute(
+      path: '/onefop/dashboard',
+      name: 'onefop-dashboard',
+      builder: (context, state) => OnefopProgressDashboardScreen(
+        onContinue: () => router.go('/onefop/form'),
+      ),
+    ),
+    GoRoute(
+      path: '/onefop/form',
+      name: 'onefop-vt-form',
+      builder: (context, state) => Consumer(
+        builder: (context, ref, _) {
+          final userId = ref.read(authProvider).value?.id ?? 'guest';
+          return OnefopUnifiedFormScreenV4(
+            entityType: EntityType.vocationalTraining,
+            initialData: const {},
+            forceSimpleMode: true,
+            userId: userId,
+            onSave: (data) => DraftService.saveDraft(
+              userId: userId,
+              entityType: 'vocationalTraining',
+              data: data,
+            ),
+            onCancel: () => router.go('/onefop/dashboard'),
+            onSubmitSuccess: () => DraftService.clearDraft(
+              userId: userId,
+              entityType: 'vocationalTraining',
+            ),
+          );
+        },
+      ),
     ),
     GoRoute(
       path: '/analytics',
@@ -208,7 +185,9 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (count0 == 0) return;
     await ref.read(syncQueueServiceProvider).flush();
     final count = await ref.read(syncQueueServiceProvider).pendingCount();
-    if (mounted) ref.read(pendingSubmissionCountProvider.notifier).state = count;
+    if (mounted) {
+      ref.read(pendingSubmissionCountProvider.notifier).state = count;
+    }
   }
 
   @override
@@ -230,10 +209,40 @@ class _MyAppState extends ConsumerState<MyApp> {
       supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        return Column(
-          children: [
-            const OfflineBanner(),
-            Expanded(child: child ?? const SizedBox.shrink()),
+        // Every screen in the app displays its text via plain Text widgets
+        // (only 2 files use SelectableText out of hundreds), so none of it
+        // is selectable/copyable by default — Flutter's Text paints glyphs
+        // without any selection handling of its own. Wrapping the whole
+        // app once here, instead of converting every Text to SelectableText
+        // one screen at a time, makes all of it selectable in one place;
+        // TextFields/TextFormFields keep their own normal editing selection
+        // unaffected, and buttons/gestures keep working as before.
+        //
+        // The explicit Overlay below is required, not decorative: `child`
+        // here is MaterialApp.router's own Router/Navigator, which is what
+        // creates the app's Overlay — so that Overlay ends up BELOW
+        // SelectionArea in the tree, not above it. SelectionArea's own
+        // SelectableRegion needs an Overlay ANCESTOR (it hosts selection
+        // handles/the copy toolbar as an OverlayEntry), and walking up from
+        // inside SelectionArea never reaches one that's actually a
+        // descendant — hence "No Overlay widget found" at runtime.
+        // Providing a small dedicated Overlay right here, directly above
+        // SelectionArea, satisfies that lookup; the app's own Navigator
+        // further down still creates its own nested Overlay for routing/
+        // dialogs exactly as before — nested Overlays are normal in
+        // Flutter and don't conflict.
+        return Overlay(
+          initialEntries: [
+            OverlayEntry(
+              builder: (context) => SelectionArea(
+                child: Column(
+                  children: [
+                    const OfflineBanner(),
+                    Expanded(child: child ?? const SizedBox.shrink()),
+                  ],
+                ),
+              ),
+            ),
           ],
         );
       },

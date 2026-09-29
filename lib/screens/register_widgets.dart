@@ -102,7 +102,7 @@ class RegisterHeader extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 5,
-                  backgroundColor: Colors.grey.shade200,
+                  backgroundColor: PublicColors.gray200,
                   color: PublicColors.green,
                 ),
               ),
@@ -144,7 +144,7 @@ class RoleCard extends StatelessWidget {
         color: isSelected ? color.withAlpha(18) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: isSelected ? color : Colors.grey.shade300,
+            color: isSelected ? color : PublicColors.gray300,
             width: isSelected ? 2 : 1),
         boxShadow: [
           BoxShadow(
@@ -189,7 +189,7 @@ class RoleCard extends StatelessWidget {
             const SizedBox(width: 6),
             Icon(
               isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected ? color : Colors.grey.shade300,
+              color: isSelected ? color : PublicColors.gray300,
             ),
           ]),
         ),
@@ -224,12 +224,12 @@ class EntityTypeCard extends StatelessWidget {
         return context.l10n.registerEntitySubtitleCtd;
       case EntityType.ong:
         return context.l10n.registerEntitySubtitleOng;
-      case EntityType.vocational:
-        return context.l10n.registerEntitySubtitleVocational;
       case EntityType.administration:
         return context.l10n.registerEntitySubtitleAdministration;
       case EntityType.projectProgram:
         return context.l10n.registerEntitySubtitleProjectProgram;
+      case EntityType.vocationalTraining:
+        return context.l10n.registerEntitySubtitleVocationalTraining;
     }
   }
 
@@ -244,7 +244,7 @@ class EntityTypeCard extends StatelessWidget {
         color: isSelected ? config.color.withAlpha(18) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: isSelected ? config.color : Colors.grey.shade300,
+            color: isSelected ? config.color : PublicColors.gray300,
             width: isSelected ? 2 : 1),
         boxShadow: [
           BoxShadow(
@@ -291,7 +291,7 @@ class EntityTypeCard extends StatelessWidget {
             const SizedBox(width: 6),
             Icon(
               isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected ? config.color : Colors.grey.shade300,
+              color: isSelected ? config.color : PublicColors.gray300,
             ),
           ]),
         ),
@@ -393,7 +393,7 @@ class _PhoneFieldState extends State<PhoneField> {
       decoration: modernInput(
         hasError: _hasError,
         labelText: widget.label,
-        hintText: widget.isRequired ? '6XXXXXXXX' : context.l10n.optional,
+        hintText: widget.isRequired ? context.l10n.phoneHintShort : context.l10n.optional,
         prefixIcon: Icon(
           Icons.phone_outlined,
           size: 20,
@@ -617,7 +617,7 @@ class ReviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: PublicColors.gray200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withAlpha(8),

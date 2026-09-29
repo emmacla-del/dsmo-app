@@ -56,7 +56,25 @@ class AppTheme {
         onSurface: AppColors.textPrimary,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      textTheme: base.textTheme.copyWith(
+      // .apply(fontFamily: 'Inter') first — not ThemeData.copyWith's own
+      // fontFamily (it has none; that shortcut only exists on the raw
+      // ThemeData(...) constructor, not copyWith) — so every TextTheme
+      // role defaults to Inter, not just the handful customized below.
+      // Verified: the 7 roles below (displayLarge/Medium, titleLarge/
+      // Medium, bodyLarge/Medium, labelLarge) already redeclared
+      // `fontFamily: 'Inter'` themselves and stay exactly as written —
+      // .copyWith() replaces each of those TextStyles wholesale, so their
+      // own explicit family wins either way. What actually changes is
+      // every OTHER role (bodySmall, labelMedium, labelSmall, titleSmall,
+      // headlineLarge/Medium/Small, displaySmall) — previously left with
+      // no family override at all, silently falling back to the platform
+      // default (Roboto-ish/system UI) wherever a widget used one of them
+      // (directly, or via a raw TextStyle with no fontFamily of its own —
+      // see onefop_form_widgets.dart's SimpleField/RadioField/
+      // OnefopFieldLabel/RadioOption/CheckboxOption, none of which set
+      // fontFamily explicitly and instead inherit through
+      // DefaultTextStyle/Material's own default text style).
+      textTheme: base.textTheme.apply(fontFamily: 'Inter').copyWith(
         displayLarge: const TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,

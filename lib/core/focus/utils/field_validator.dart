@@ -253,10 +253,8 @@ class FieldValidator {
   }
 
   // ── Helpers ───────────────────────────────────────────────
-  static bool _isVisible(FieldSchema f, Map<String, dynamic> data) {
-    if (f.dependsOn == null || f.dependsOn!.isEmpty) return true;
-    return data[f.dependsOn] == f.dependsValue;
-  }
+  static bool _isVisible(FieldSchema f, Map<String, dynamic> data) =>
+      f.isVisibleGiven(data);
 
   static String _label(FieldSchema f, Locale locale) {
     if (f.label != null) return f.label!.of(locale);

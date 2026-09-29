@@ -26,11 +26,6 @@ void main() {
       expect(EntityType.administration.family, QuestionnaireFamily.onefop);
       expect(EntityType.projectProgram.family, QuestionnaireFamily.onefop);
     });
-
-    test('vocational resolves to QuestionnaireFamily.onefopVocational', () {
-      expect(
-          EntityType.vocational.family, QuestionnaireFamily.onefopVocational);
-    });
   });
 
   group('Administration schema shape', () {
@@ -63,12 +58,16 @@ void main() {
       expect(q12.dependsValue, 'Oui/ Yes');
     });
 
-    test('S21Q01/S22Q01/S3Q01/S4Q02 are present, using SFP rows', () {
+    // Section 2 renumbered chronologically on 2026-09-28 (see
+    // docs/onefop-cross-form-hybrid-table-audit.md §K): S21Q01 census,
+    // S21Q02 recruitment, S21Q03 disability, S21Q04 vulnerable.
+    test('S21Q01/S21Q02/S3Q01/S4Q02 are present, using SFP rows', () {
       final s21q01 = schema.fields.firstWhere((f) => f.id == 'S21Q01');
       expect(s21q01.tableSpec!['rows'],
           ['fonctionnaire', 'decisionnaire', 'contractuelle']);
-      final s22q01 = schema.fields.firstWhere((f) => f.id == 'S22Q01');
-      expect(s22q01.tableSpec!['rows'],
+      final s21q02 = schema.fields.firstWhere((f) => f.id == 'S21Q02');
+      expect(s21q02.tableSpec!['prefix'], 's21q02');
+      expect(s21q02.tableSpec!['rows'],
           ['fonctionnaire', 'decisionnaire', 'contractuelle']);
       final s3q01 = schema.fields.firstWhere((f) => f.id == 'S3Q01');
       expect(s3q01.tableSpec!['rows'],
@@ -78,15 +77,34 @@ void main() {
       expect(s4q02.first.label!.fr, contains('de votre administration'));
     });
 
-    test('S22Q04 (disability) is present and still uses CSP rows', () {
-      final s22q04 = schema.fields.firstWhere((f) => f.id == 'S22Q04');
-      expect(s22q04.tableSpec!['rows'], ['cadres', 'foremen', 'workers']);
+    test('S21Q03 (disability) is category × sex, with no status dimension', () {
+      final s21q03 = schema.fields.firstWhere((f) => f.id == 'S21Q03');
+      expect(s21q03.tableSpec!['rows'],
+          ['fonctionnaire', 'decisionnaire', 'contractuelle']);
+      expect(s21q03.tableSpec!['statuses'], isEmpty);
+      expect(s21q03.label!.fr, isNot(contains('statut')));
     });
 
-    test('S22Q05 (vulnerable) is present via the shared cooperative/ctd/ong variant', () {
-      final ids = schema.fields.map((f) => f.id);
-      expect(ids, contains('S22Q05_OTHER'));
-      expect(ids, isNot(contains('S22Q05_ENTERPRISE')));
+    test('S21Q04 (vulnerable) is nature × sex, with no status dimension', () {
+      final s21q04 = schema.fields.firstWhere((f) => f.id == 'S21Q04');
+      expect(s21q04.tableSpec!['template'], 'vulnerable_named_rows_table');
+      expect(s21q04.tableSpec!['statuses'], isEmpty);
+      expect(s21q04.label!.fr, contains('nature de la vulnérabilité'));
+    });
+
+    test('Administration has no S22Q01/S22Q04/S22Q05 any more', () {
+      final ids = schema.fields.map((f) => f.id).toSet();
+      for (final gone in [
+        'S22Q01', 'S22Q04', 'S22Q05_OTHER', 'S22Q05_ENTERPRISE',
+        'S22Q01_RESPONSE_STATUS', 'S22Q04_RESPONSE_STATUS', 'S22Q05_RESPONSE_STATUS',
+      ]) {
+        expect(ids, isNot(contains(gone)), reason: '$gone should not appear for administration');
+      }
+      for (final present in [
+        'S21Q02_RESPONSE_STATUS', 'S21Q03_RESPONSE_STATUS', 'S21Q04_RESPONSE_STATUS',
+      ]) {
+        expect(ids, contains(present));
+      }
     });
 
     test(
@@ -122,6 +140,8 @@ void main() {
       }
       final s21q01 = schema.fields.firstWhere((f) => f.id == 'S21Q01');
       expect(s21q01.tableSpec!['rows'], ['cadres', 'foremen', 'workers']);
+      final s22q04 = schema.fields.firstWhere((f) => f.id == 'S22Q04');
+      expect(s22q04.tableSpec!['rows'], ['cadres', 'foremen', 'workers']);
       final s3q01 = schema.fields.firstWhere((f) => f.id == 'S3Q01');
       expect(s3q01.tableSpec!['rows'], ['cadres', 'foremen', 'workers']);
       final s22q05 = schema.fields.map((f) => f.id);

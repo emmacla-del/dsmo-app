@@ -12,16 +12,12 @@
 
 // ════════════════════════════════════════════════════════════════
 // QuestionnaireFamily — which ONEFOP questionnaire instrument an
-// EntityType belongs to. Vocational is still part of the ONEFOP survey
-// ecosystem; it's simply a different family because its instrument,
-// workflow, data model, validation and analytics differ substantially
-// from the labour-family questionnaire. Nobody selects a family
-// directly — it's always derived from EntityType via EntityType.family.
+// EntityType belongs to. Nobody selects a family directly — it's
+// always derived from EntityType via EntityType.family.
 // ════════════════════════════════════════════════════════════════
 
 enum QuestionnaireFamily {
   onefop,
-  onefopVocational,
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -33,9 +29,12 @@ enum EntityType {
   cooperative, // Coopérative / GIE
   ctd, // Collectivité Territoriale Décentralisée
   ong, // ONG / Association
-  vocational, // Centre de formation professionnelle (DSMO only, no ONEFOP S1)
   administration, // Architecture placeholder — questionnaire not yet implemented
-  projectProgram; // Architecture placeholder — questionnaire not yet implemented
+  projectProgram, // Architecture placeholder — questionnaire not yet implemented
+  // ONEFOP Vocational Training questionnaire (VT-2). This one has a full
+  // ONEFOP Section 1-9 AST/submission pipeline, mapping to Prisma's
+  // OnefopEntityType.VOCATIONAL_TRAINING (VT-1).
+  vocationalTraining;
 
   // ── Display ──────────────────────────────────────────────────
 
@@ -49,12 +48,12 @@ enum EntityType {
         return 'CTD';
       case EntityType.ong:
         return 'ONG';
-      case EntityType.vocational:
-        return 'Centre de formation professionnelle';
       case EntityType.administration:
         return 'Administration';
       case EntityType.projectProgram:
         return 'Projet / Programme';
+      case EntityType.vocationalTraining:
+        return 'Formation professionnelle';
     }
   }
 
@@ -70,9 +69,8 @@ enum EntityType {
       case EntityType.ong:
       case EntityType.administration:
       case EntityType.projectProgram:
+      case EntityType.vocationalTraining:
         return QuestionnaireFamily.onefop;
-      case EntityType.vocational:
-        return QuestionnaireFamily.onefopVocational;
     }
   }
 
@@ -89,12 +87,12 @@ enum EntityType {
         return 'CTD';
       case EntityType.ong:
         return 'ONG';
-      case EntityType.vocational:
-        return 'VOCATIONAL_TRAINING_CENTER';
       case EntityType.administration:
         return 'ADMINISTRATION';
       case EntityType.projectProgram:
         return 'PROJECT_PROGRAM';
+      case EntityType.vocationalTraining:
+        return 'VOCATIONAL_TRAINING';
     }
   }
 
@@ -111,12 +109,12 @@ enum EntityType {
         return 'Section 1 — Identification de la CTD';
       case EntityType.ong:
         return "Section 1 — Identification de l'ONG";
-      case EntityType.vocational:
-        return 'Section 1 — Identification du centre de formation';
       case EntityType.administration:
         return "Section 1 — Identification de l'administration";
       case EntityType.projectProgram:
         return 'Section 1 — Identification du projet/programme';
+      case EntityType.vocationalTraining:
+        return 'Section 1 — Identification du centre de formation professionnelle';
     }
   }
 
@@ -133,18 +131,14 @@ enum EntityType {
         return 'Section 1 — RLA identification';
       case EntityType.ong:
         return 'Section 1 — NGO identification';
-      case EntityType.vocational:
-        return 'Section 1 — Training center identification';
       case EntityType.administration:
         return 'Section 1 — Administration identification';
       case EntityType.projectProgram:
         return 'Section 1 — Project/Program identification';
+      case EntityType.vocationalTraining:
+        return 'Section 1 — Vocational training center identification';
     }
   }
-
-  /// Vocational training centres file DSMO declarations but have no
-  /// dedicated ONEFOP Section 1 model variant.
-  bool get hasOnefopForm => this != EntityType.vocational;
 
   // ── Parsing helpers ───────────────────────────────────────────
 

@@ -29,6 +29,7 @@ class OnefopExcelShell extends StatefulWidget {
   final VoidCallback? onCancel;
   final OnefopViewMode mode;
   final void Function(OnefopViewMode) onModeChanged;
+  final List<OnefopViewMode>? availableModes;
 
   const OnefopExcelShell({
     super.key,
@@ -38,6 +39,7 @@ class OnefopExcelShell extends StatefulWidget {
     required this.onPreviewSubmit,
     required this.mode,
     required this.onModeChanged,
+    this.availableModes,
     this.onOpenDrafts,
     this.onCancel,
   });
@@ -86,11 +88,14 @@ class _OnefopExcelShellState extends State<OnefopExcelShell> {
                   leadingIcon: Icons.grid_on_rounded,
                   dirty: ctrl.dirty,
                   saving: ctrl.saving,
+                  saveFailed: ctrl.saveFailed,
+                  lastSavedAt: ctrl.lastSavedAt,
                   onSaveNow: ctrl.saveNow,
                   onOpenDrafts: widget.onOpenDrafts,
                   onCancel: widget.onCancel,
                   mode: widget.mode,
                   onModeChanged: widget.onModeChanged,
+                  availableModes: widget.availableModes,
                 ),
                 Expanded(
                   child: section == null

@@ -17,7 +17,25 @@ class TableSpecBuilder {
     required String entityType,
     required Locale locale,
     List<String>? rows,
+    bool statusless = false,
   }) {
+    if (statusless) {
+      // Administration S21Q03 (catégorie × sexe) / S21Q04 (nature × sexe).
+      if (template == 'csp_status_gender_table') {
+        final dataRows = rows ?? _cspDataRows;
+        return _buildRowsBySex(prefix, locale, dataRows,
+            [..._rowLabelsFor(dataRows), const LocalizedText.same('Total')],
+            const LocalizedText(
+                fr: 'Catégorie socioprofessionnelle',
+                en: 'Socio-professional category'));
+      }
+      if (template == 'vulnerable_named_rows_table') {
+        return _buildRowsBySex(prefix, locale, _vulnerableDataRows,
+            _vulnerableRowLabelsI18n,
+            const LocalizedText(
+                fr: 'Nature de vulnérabilité', en: 'Nature of vulnerability'));
+      }
+    }
     switch (template) {
       case 'csp_gender_age_table':
       case 'csp_table':
@@ -439,17 +457,42 @@ class TableSpecBuilder {
     );
   }
 
+  static const _vulnerableDataRows = ['deplaces_internes', 'refugies', 'orphelins'];
+  static const _vulnerableRowLabelsI18n = [
+    LocalizedText(fr: 'Déplacés internes', en: 'Internal displaced'),
+    LocalizedText(fr: 'Réfugiés', en: 'Refugees'),
+    LocalizedText(fr: 'Orphelins', en: 'Orphans'),
+    LocalizedText.same('Total'),
+  ];
+
+  // ─────────────────────────────────────────────────────────────
+  // Rows × sex, no status dimension — Administration S21Q03 / S21Q04
+  // (cell ids `${prefix}_${row}_${gender}`, same shape as S4Q01).
+  // ─────────────────────────────────────────────────────────────
+  static GridRenderSpec _buildRowsBySex(String prefix, Locale locale,
+      List<String> dataRows, List<LocalizedText> labelsI18n,
+      LocalizedText corner) {
+    return GridRenderSpec(
+      id: prefix,
+      rowLabels: labelsI18n.map((t) => t.of(locale)).toList(),
+      matrix: [
+        for (final r in dataRows) _genderRow(prefix, r),
+        _genderRow(prefix, 'total'),
+      ],
+      headers: _genderOnlyHeadersShort(),
+      cornerLabel: corner.of(locale),
+      rowKeys: [for (final r in dataRows) '${prefix}_$r', ''],
+      cellSpec: _cell,
+      isTotalCell: _isTotal,
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────
   // S22Q05
   // ─────────────────────────────────────────────────────────────
   static GridRenderSpec _buildVulnerableNamedRows(String prefix, Locale locale) {
-    const dataRows = ['deplaces_internes', 'refugies', 'orphelins'];
-    const rowLabelsI18n = [
-      LocalizedText(fr: 'Déplacés internes', en: 'Internal displaced'),
-      LocalizedText(fr: 'Réfugiés', en: 'Refugees'),
-      LocalizedText(fr: 'Orphelins', en: 'Orphans'),
-      LocalizedText.same('Total'),
-    ];
+    const dataRows = _vulnerableDataRows;
+    const rowLabelsI18n = _vulnerableRowLabelsI18n;
     final matrix = [
       for (final r in dataRows) _statusGenderRow(prefix, r),
       _statusGenderRow(prefix, 'total'),

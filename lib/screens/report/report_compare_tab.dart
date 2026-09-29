@@ -1,6 +1,7 @@
 // lib/screens/report/report_compare_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 import 'report_service.dart';
@@ -23,7 +24,7 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
   Future<void> _compare() async {
     if (_baselineId == null || _targetId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez deux rapports à comparer')),
+        SnackBar(content: Text(context.l10n.reportSelectTwoReportsError)),
       );
       return;
     }
@@ -46,7 +47,8 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Erreur: $e'), backgroundColor: UltraTheme.error),
+              content: Text(context.l10n.genericErrorToastNoSpace('$e')),
+              backgroundColor: UltraTheme.error),
         );
       }
     } finally {
@@ -58,10 +60,10 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
       Map<String, dynamic> baseline, Map<String, dynamic> target) {
     final comparison = <String, dynamic>{};
     final metricLabels = {
-      'totalEmployees': 'Effectif total',
-      'totalHires': 'Recrutements',
-      'femalePercentage': 'Féminisation',
-      'youthPercentage': 'Emploi jeunes',
+      'totalEmployees': context.l10n.companyAnalyticsTotalWorkforce,
+      'totalHires': context.l10n.companyAnalyticsRecruitmentsLabel,
+      'femalePercentage': context.l10n.reportMetricFeminizationLabel,
+      'youthPercentage': context.l10n.chartInclusionYouth,
     };
 
     for (final entry in metricLabels.entries) {
@@ -95,27 +97,27 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _baselineId,
-                hint: const Text('Sélectionner un rapport'),
+                hint: Text(context.l10n.reportSelectReportHint),
                 items: approvedReports
                     .map((r) =>
                         DropdownMenuItem(value: r.id, child: Text(r.name)))
                     .toList(),
                 onChanged: (v) => setState(() => _baselineId = v),
-                decoration:
-                    const InputDecoration(labelText: 'Rapport de référence'),
+                decoration: InputDecoration(
+                    labelText: context.l10n.reportBaselineReportLabel),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _targetId,
-                hint: const Text('Sélectionner un rapport'),
+                hint: Text(context.l10n.reportSelectReportHint),
                 items: approvedReports
                     .where((r) => r.id != _baselineId)
                     .map((r) =>
                         DropdownMenuItem(value: r.id, child: Text(r.name)))
                     .toList(),
                 onChanged: (v) => setState(() => _targetId = v),
-                decoration:
-                    const InputDecoration(labelText: 'Rapport à comparer'),
+                decoration: InputDecoration(
+                    labelText: context.l10n.reportTargetReportLabel),
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -129,7 +131,7 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Comparer'),
+                      : Text(context.l10n.reportCompareButton),
                 ),
               ),
             ],
@@ -146,9 +148,9 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Résultats de la comparaison',
+                Text(context.l10n.reportComparisonResultsTitle,
                     style:
-                        TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                        const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                 const SizedBox(height: 16),
                 ..._comparisonResult!.entries.map((entry) {
                   final data = entry.value;
@@ -172,8 +174,8 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
                                 ),
                                 child: Column(
                                   children: [
-                                    const Text('Référence',
-                                        style: TextStyle(
+                                    Text(context.l10n.reportBaselineColumnLabel,
+                                        style: const TextStyle(
                                             fontSize: 10,
                                             color: UltraTheme.textMuted)),
                                     const SizedBox(height: 4),
@@ -198,8 +200,8 @@ class _ReportCompareTabState extends ConsumerState<ReportCompareTab> {
                                 ),
                                 child: Column(
                                   children: [
-                                    const Text('Comparé',
-                                        style: TextStyle(
+                                    Text(context.l10n.reportComparedColumnLabel,
+                                        style: const TextStyle(
                                             fontSize: 10,
                                             color: UltraTheme.textMuted)),
                                     const SizedBox(height: 4),

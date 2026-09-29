@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../i18n/l10n_ext.dart';
 import '../../i18n/localized_text.dart';
+import '../../../screens/onefop/onefop_form_constants.dart';
 import 'onefop_layout_constants.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -184,8 +185,8 @@ class OnefopFieldLabel extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF1A1A1A),
+              fontWeight: FontWeight.w600,
+              color: kFigmaSimpleInk,
               height: 1.3,
             ),
           ),
@@ -197,7 +198,7 @@ class OnefopFieldLabel extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: Color(0xFFCF4433),
+              color: kFigmaSimpleRed,
             ),
           ),
         ],

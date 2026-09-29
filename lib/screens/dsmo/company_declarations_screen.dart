@@ -328,9 +328,9 @@ class _CompanyDeclarationsScreenState
           final copy = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('My Declarations', style: UltraTheme.displayMedium.copyWith(fontSize: 24)),
+              Text(context.l10n.companyDeclMyDeclarationsTitle, style: UltraTheme.displayMedium.copyWith(fontSize: 24)),
               const SizedBox(height: 4),
-              Text('Track your employment declarations, submissions, and approval status',
+              Text(context.l10n.companyDeclMyDeclarationsSubtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: UltraTheme.bodyMedium.copyWith(color: UltraTheme.textMuted)),
@@ -350,10 +350,10 @@ class _CompanyDeclarationsScreenState
 
   Widget _buildSummary(AppLocalizations l10n) {
     final items = <(String, int, Color)>[
-      ('Submitted', _submittedCount, UltraTheme.info),
-      ('Under review', _underReviewCount, UltraTheme.info),
-      ('Approved', _count(_Group.approved), UltraTheme.success),
-      ('Drafts', _draftCount, UltraTheme.textSecondary),
+      (l10n.submittedLabel, _submittedCount, UltraTheme.info),
+      (l10n.underReview, _underReviewCount, UltraTheme.info),
+      (l10n.companyDeclApprovedFilter, _count(_Group.approved), UltraTheme.success),
+      (l10n.companyDeclDraftsFilter, _draftCount, UltraTheme.textSecondary),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
@@ -370,9 +370,9 @@ class _CompanyDeclarationsScreenState
 
   Widget _buildToolbar(AppLocalizations l10n) {
     final chips = <(_Group?, String, Color)>[
-      (null, 'All ${_entries.length}', UltraTheme.primary),
+      (null, l10n.companyDeclFilterAllCount(_entries.length), UltraTheme.primary),
       (_Group.draft, l10n.companyDeclDraftsFilter, UltraTheme.textSecondary),
-      (_Group.pending, 'Under review ${_count(_Group.pending)}', UltraTheme.info),
+      (_Group.pending, l10n.companyDeclFilterUnderReviewCount(_count(_Group.pending)), UltraTheme.info),
       (_Group.approved, l10n.companyDeclApprovedFilter, UltraTheme.success),
       (_Group.rejected, l10n.companyDeclRejectedFilter, UltraTheme.error),
     ];
@@ -405,7 +405,7 @@ class _CompanyDeclarationsScreenState
                   controller: _searchController,
                   onChanged: (_) => _applyFilter(),
                   decoration: InputDecoration(
-                    hintText: 'Search declarations...',
+                    hintText: l10n.companyDeclSearchHint,
                     prefixIcon: const Icon(Icons.search_rounded, size: 18),
                     isDense: true,
                     filled: true,
@@ -419,10 +419,10 @@ class _CompanyDeclarationsScreenState
                 child: DropdownButton<String>(
                   value: _campaignFilter,
                   borderRadius: BorderRadius.circular(10),
-                  items: const [
-                    DropdownMenuItem(value: 'ALL', child: Text('All campaigns')),
-                    DropdownMenuItem(value: 'DSMO', child: Text('DSMO')),
-                    DropdownMenuItem(value: 'ONEFOP', child: Text('ONEFOP')),
+                  items: [
+                    DropdownMenuItem(value: 'ALL', child: Text(l10n.companyDeclFilterAllCampaigns)),
+                    const DropdownMenuItem(value: 'DSMO', child: Text('DSMO')),
+                    const DropdownMenuItem(value: 'ONEFOP', child: Text('ONEFOP')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -464,7 +464,7 @@ class _CompanyDeclarationsScreenState
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-          child: Text('Declaration history',
+          child: Text(l10n.companyDeclHistoryTitle,
               style: UltraTheme.titleMedium.copyWith(fontSize: 15)),
         ),
         for (final entry in _filtered) ...[
@@ -828,7 +828,7 @@ class _DeclarationHistoryTile extends StatelessWidget {
               Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(height: 3),
-              Text(entry.subtitle ?? 'Company submission',
+              Text(entry.subtitle ?? context.l10n.companyDeclDefaultSubtitle,
                   style: const TextStyle(fontSize: 11, color: UltraTheme.textMuted)),
             ],
           ),
@@ -848,19 +848,19 @@ class _DeclarationHistoryTile extends StatelessWidget {
           ),
         ],
         PopupMenuButton<String>(
-          tooltip: 'Actions',
+          tooltip: context.l10n.regionsSectorsActionsColumnHeader,
           onSelected: (action) {
             if (action == 'view') onTap();
             if (action == 'pdf' && hasPdf) onPdf();
             if (action == 'continue' && onContinue != null) onContinue!();
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'view', child: Text('View details')),
+            PopupMenuItem(value: 'view', child: Text(context.l10n.companyDeclViewDetailsAction)),
             if (onContinue != null)
-              const PopupMenuItem(value: 'continue', child: Text('Continue draft')),
+              PopupMenuItem(value: 'continue', child: Text(context.l10n.companyDeclContinueDraftAction)),
             if (hasPdf)
-              const PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
-            const PopupMenuItem(value: 'track', child: Text('Track status')),
+              PopupMenuItem(value: 'pdf', child: Text(context.l10n.companyDeclDownloadPdfTooltip)),
+            PopupMenuItem(value: 'track', child: Text(context.l10n.companyDeclTrackStatusAction)),
           ],
         ),
       ],
@@ -918,15 +918,15 @@ class _StatusTimeline extends StatelessWidget {
     final reviewed = entry.group == _Group.approved || entry.group == _Group.rejected;
     final approved = entry.group == _Group.approved;
     final steps = [
-      ('Created', true),
-      ('Submitted', submitted),
-      ('Under review', reviewed),
-      ('Approved', approved),
+      (context.l10n.companyDeclStepCreated, true),
+      (context.l10n.dsmoSubmittedBadge, submitted),
+      (context.l10n.underReview, reviewed),
+      (context.l10n.dsmoApprovedBadge, approved),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Status timeline', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        Text(context.l10n.companyDeclStatusTimelineTitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         for (var i = 0; i < steps.length; i++)
           Row(children: [

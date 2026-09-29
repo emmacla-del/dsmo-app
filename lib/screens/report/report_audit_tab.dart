@@ -1,5 +1,6 @@
 // lib/screens/report/report_audit_tab.dart
 import 'package:flutter/material.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 
@@ -18,16 +19,16 @@ class ReportAuditTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (auditEntries.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.security_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Aucune activité enregistrée'),
-            SizedBox(height: 8),
-            Text('Les actions des utilisateurs apparaîtront ici',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Icon(Icons.security_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(context.l10n.reportAuditEmptyTitle),
+            const SizedBox(height: 8),
+            Text(context.l10n.reportAuditEmptySubtitle,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       );
@@ -64,7 +65,7 @@ class ReportAuditTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      entry.reportName ?? 'Action système',
+                      entry.reportName ?? context.l10n.reportAuditSystemActionFallback,
                       style: const TextStyle(
                           fontSize: 12, color: UltraTheme.textMuted),
                     ),

@@ -1,6 +1,7 @@
 // lib/screens/report/report_batch_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 import 'report_service.dart';
@@ -40,7 +41,7 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
   Future<void> _generateBatch() async {
     if (_selectedRegions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez au moins une région')),
+        SnackBar(content: Text(context.l10n.reportBatchSelectRegionError)),
       );
       return;
     }
@@ -61,7 +62,7 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
       if (success && mounted) {
         widget.onBatchGenerated();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Génération batch lancée')),
+          SnackBar(content: Text(context.l10n.reportBatchGenerationStartedMsg)),
         );
         setState(() => _selectedRegions.clear());
       }
@@ -69,7 +70,8 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Erreur: $e'), backgroundColor: UltraTheme.error),
+              content: Text(context.l10n.genericErrorToastNoSpace('$e')),
+              backgroundColor: UltraTheme.error),
         );
       }
     } finally {
@@ -85,14 +87,15 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
       if (success && mounted) {
         widget.onBatchGenerated();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reprise en cours')),
+          SnackBar(content: Text(context.l10n.reportBatchJobRetryingMsg)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Erreur: $e'), backgroundColor: UltraTheme.error),
+              content: Text(context.l10n.genericErrorToastNoSpace('$e')),
+              backgroundColor: UltraTheme.error),
         );
       }
     }
@@ -100,6 +103,33 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _regionLabel(String region) {
+    switch (region) {
+      case 'Littoral':
+        return context.l10n.reportRegionLittoral;
+      case 'Centre':
+        return context.l10n.reportRegionCentre;
+      case 'Nord':
+        return context.l10n.reportRegionNord;
+      case 'Extrême-Nord':
+        return context.l10n.reportRegionExtremeNord;
+      case 'Ouest':
+        return context.l10n.reportRegionOuest;
+      case 'Sud':
+        return context.l10n.reportRegionSud;
+      case 'Est':
+        return context.l10n.reportRegionEst;
+      case 'Adamaoua':
+        return context.l10n.reportRegionAdamaoua;
+      case 'Nord-Ouest':
+        return context.l10n.reportRegionNordOuest;
+      case 'Sud-Ouest':
+        return context.l10n.reportRegionSudOuest;
+      default:
+        return region;
+    }
   }
 
   @override
@@ -117,8 +147,8 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Génération batch par région',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(context.l10n.reportBatchByRegionTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               ..._availableRegions.map((region) => CheckboxListTile(
                     value: _selectedRegions.contains(region),
@@ -131,7 +161,7 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
                         }
                       });
                     },
-                    title: Text(region),
+                    title: Text(_regionLabel(region)),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                   )),
@@ -147,7 +177,7 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Lancer la génération batch'),
+                      : Text(context.l10n.reportBatchLaunchButton),
                 ),
               ),
             ],
@@ -155,13 +185,13 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
         ),
         const SizedBox(height: 24),
         // Batch jobs history
-        const Text('Tâches récentes',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        Text(context.l10n.reportBatchRecentJobsTitle,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         if (widget.batchJobs.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(child: Text('Aucune tâche batch')),
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Center(child: Text(context.l10n.reportBatchEmptyTitle)),
           )
         else
           ...widget.batchJobs.map((job) => Container(
@@ -183,8 +213,8 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 2),
-                              Text(
-                                  '${job.completedReports}/${job.totalReports} rapports'),
+                              Text(context.l10n.reportBatchJobReportsCount(
+                                  job.completedReports, job.totalReports)),
                               const SizedBox(height: 2),
                               Text(
                                 _formatDate(job.dateRange.start),
@@ -197,7 +227,7 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
                         if (job.status == BatchJobStatus.failed)
                           IconAction(
                             icon: Icons.refresh,
-                            tooltip: 'Réessayer',
+                            tooltip: context.l10n.retry,
                             onTap: () => _retryJob(job.id),
                           ),
                       ],

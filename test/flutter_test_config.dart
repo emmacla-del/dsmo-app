@@ -4,6 +4,8 @@
 // for non-visual tests, but harmless — flutter_test_config.dart applies to
 // every test in this directory tree.
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart' show AssetImage, ImageConfiguration, ImageStreamListener;
 import 'package:flutter/services.dart' show EventChannel, FontLoader, MethodChannel, rootBundle;
@@ -60,6 +62,33 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
         ..addFont(rootBundle.load('assets/fonts/Inter.ttf'))
         ..addFont(rootBundle.load('assets/fonts/Inter-Italic.ttf'));
       await loader.load();
+    }
+    // Icon widgets (chevron_right, expand_more, ...) render a single glyph
+    // from the "MaterialIcons" font — bundled inside the Flutter SDK itself,
+    // not declared as a pubspec asset, so it's absent from the test asset
+    // manifest and `rootBundle.load('packages/flutter/...')` fails to
+    // resolve it under `flutter test` (only a real app build injects that
+    // key). Read the .otf straight off disk instead, locating the SDK root
+    // from the running `dart` executable's own path
+    // (.../flutter/bin/cache/dart-sdk/bin/dart[.exe]). Without this, every
+    // Icon in a golden renders as a tofu/box placeholder instead of its real
+    // glyph (see VT-UI/UX-01's audit note on vt_row_editor.dart's row-tile
+    // chevron and picker-cell dropdown arrow). Best-effort: a missing/
+    // unreadable SDK font falls back to the tofu-box glyph already
+    // tolerated before this fix, not a hard failure for the rest of the
+    // suite.
+    try {
+      final flutterRoot = File(Platform.resolvedExecutable).parent.parent.parent.parent.parent;
+      final fontFile = File(
+          '${flutterRoot.path}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+      if (fontFile.existsSync()) {
+        final bytes = fontFile.readAsBytesSync();
+        final materialIconsLoader = FontLoader('MaterialIcons')
+          ..addFont(Future.value(ByteData.sublistView(bytes)));
+        await materialIconsLoader.load();
+      }
+    } catch (_) {
+      // See comment above — degrade gracefully.
     }
     // RailLogo (the CAMLEAP mark shown in every sidebar/rail header)
     // decodes this asynchronously via Image.asset — a golden captured

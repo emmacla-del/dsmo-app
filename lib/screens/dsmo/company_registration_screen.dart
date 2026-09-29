@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../providers/auth_provider.dart';
 import 'employee_list_screen.dart';
@@ -91,7 +92,7 @@ class _CompanyRegistrationScreenState
     final total = int.tryParse(_totalEmp.text) ?? 0;
     final men = int.tryParse(_menCount.text) ?? 0;
     final women = int.tryParse(_womenCount.text) ?? 0;
-    if (total != (men + women)) return 'Total ≠ M + F';
+    if (total != (men + women)) return context.l10n.companyRegGenderSumMismatchError;
     return null;
   }
 
@@ -140,8 +141,8 @@ class _CompanyRegistrationScreenState
       final response = await api.post('/dsmo/declaration', data: data);
       if (response.statusCode == 201 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Déclaration soumise avec succès'),
+          SnackBar(
+            content: Text(context.l10n.companyRegSubmitSuccessMsg),
             backgroundColor: Colors.green,
           ),
         );
@@ -163,7 +164,7 @@ class _CompanyRegistrationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(context.l10n.regionsSectorsGenericErrorToast(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -189,47 +190,47 @@ class _CompanyRegistrationScreenState
           padding: const EdgeInsets.all(16),
           children: [
             DsmoSectionCard(
-              title: "I. IDENTIFICATION DE L'ÉTABLISSEMENT",
+              title: context.l10n.companyRegSectionIdentificationTitle,
               icon: Icons.business_outlined,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildField(_nameController, 'Raison Sociale',
+                  _buildField(_nameController, context.l10n.companyRegFieldCompanyName,
                       isRequired: true),
-                  _buildField(_taxNumberController, 'N° Contribuable (NIU)',
+                  _buildField(_taxNumberController, context.l10n.companyRegFieldTaxNumber,
                       isRequired: true),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                          child: _buildField(_regionController, 'Région',
+                          child: _buildField(_regionController, context.l10n.pdfRegionLabel,
                               isRequired: true)),
                       const SizedBox(width: 12),
                       Expanded(
                           child:
-                              _buildField(_cnpsController, 'N° CNPS')),
+                              _buildField(_cnpsController, context.l10n.companiesCnpsNumberLabel)),
                     ],
                   ),
                   _buildField(_parentCompanyController,
-                      "Raison sociale de l'entreprise dont dépend l'établissement"),
+                      context.l10n.companyRegFieldParentCompanyLong),
                   _buildField(
-                      _mainActivityController, 'Activité principale',
+                      _mainActivityController, context.l10n.companiesMainActivityLabel,
                       isRequired: true),
                   _buildField(
-                      _secondaryActivityController, 'Activité secondaire'),
-                  _buildField(_deptController, 'Département',
+                      _secondaryActivityController, context.l10n.companyRegFieldSecondaryActivity),
+                  _buildField(_deptController, context.l10n.pdfDepartmentLabel,
                       isRequired: true),
-                  _buildField(_subdivisionController, 'Arrondissement',
+                  _buildField(_subdivisionController, context.l10n.registerArrondissementLabel,
                       isRequired: true),
-                  _buildField(_addressController, 'Adresse',
+                  _buildField(_addressController, context.l10n.companiesAddressLabel,
                       isRequired: true),
-                  _buildField(_capitalController, 'Capital social (XAF)',
+                  _buildField(_capitalController, context.l10n.companyRegFieldCapital,
                       isNumber: true, isLast: true),
                 ],
               ),
             ),
             DsmoSectionCard(
-              title: 'II. EFFECTIFS AU 31 DÉCEMBRE',
+              title: context.l10n.companyRegSectionWorkforceTitle,
               icon: Icons.groups_outlined,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,44 +239,44 @@ class _CompanyRegistrationScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                          child: _buildField(_totalEmp, 'Total Employés',
+                          child: _buildField(_totalEmp, context.l10n.companyRegFieldTotalEmployees,
                               isNumber: true, isRequired: true)),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: _buildField(_menCount, 'Hommes',
+                          child: _buildField(_menCount, context.l10n.menLabel,
                               isNumber: true,
                               isRequired: true,
                               validator: _validateGenderSum)),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: _buildField(_womenCount, 'Femmes',
+                          child: _buildField(_womenCount, context.l10n.womenLabel,
                               isNumber: true,
                               isRequired: true,
                               validator: _validateGenderSum)),
                     ],
                   ),
                   _buildField(
-                      _lastYearTotal, 'Total employés (année dernière)',
+                      _lastYearTotal, context.l10n.companyRegFieldLastYearTotal,
                       isNumber: true, isLast: true),
                 ],
               ),
             ),
             DsmoSectionCard(
-              title: 'III. MOUVEMENTS PAR CATÉGORIES',
+              title: context.l10n.companyRegSectionMovementsTitle,
               icon: Icons.swap_horiz_outlined,
               child: _buildMovementTable(),
             ),
             const SizedBox(height: 8),
             DsmoPrimaryButton(
-              label: 'SOUMETTRE LA DÉCLARATION',
+              label: context.l10n.companyRegSubmitButton,
               onPressed: _submit,
               loading: _isLoading,
               icon: Icons.send_outlined,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Conformément à la loi No 91/023 du 16 déc 1991.',
-              style: TextStyle(
+            Text(
+              context.l10n.lawComplianceNoteShort,
+              style: const TextStyle(
                   fontSize: 11, fontStyle: FontStyle.italic, color: kInkFaint),
             ),
           ],
@@ -305,7 +306,7 @@ class _CompanyRegistrationScreenState
         validator: validator ??
             (value) {
               if (isRequired && (value == null || value.isEmpty)) {
-                return 'Champ requis';
+                return context.l10n.companyRegRequiredFieldShort;
               }
               return null;
             },
@@ -320,19 +321,19 @@ class _CompanyRegistrationScreenState
         border: TableBorder.all(color: kBorder),
         columnWidths: const {0: FlexColumnWidth(2)},
         children: [
-          const TableRow(
-            decoration: BoxDecoration(color: kFieldFill),
+          TableRow(
+            decoration: const BoxDecoration(color: kFieldFill),
             children: [
-              _Cell('Action', isHeader: true),
-              _Cell('1-3', isHeader: true),
-              _Cell('4-6', isHeader: true),
-              _Cell('7-9', isHeader: true),
-              _Cell('10-12', isHeader: true),
+              _Cell(context.l10n.actionColumnHeader, isHeader: true),
+              _Cell(context.l10n.movementCategory13, isHeader: true),
+              _Cell(context.l10n.movementCategory46, isHeader: true),
+              _Cell(context.l10n.movementCategory79, isHeader: true),
+              _Cell(context.l10n.movementCategory1012, isHeader: true),
             ],
           ),
-          _buildMovementRow('Recrutement', 'rec', isEven: true),
-          _buildMovementRow('Licenciement', 'lic', isEven: false),
-          _buildMovementRow('Retraite', 'ret', isEven: true),
+          _buildMovementRow(context.l10n.movementRecruitmentLabel, 'rec', isEven: true),
+          _buildMovementRow(context.l10n.movementDismissalLabel, 'lic', isEven: false),
+          _buildMovementRow(context.l10n.movementRetirementLabel, 'ret', isEven: true),
         ],
       ),
     );

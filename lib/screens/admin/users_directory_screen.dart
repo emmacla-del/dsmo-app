@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 import '../../../widgets/common_widgets.dart';
@@ -25,12 +26,12 @@ const _tableCellStyle = TextStyle(fontFamily: 'Inter', fontSize: 13, color: Ultr
 enum _StatusFilter { all, pending, active, suspended, rejected }
 
 extension on _StatusFilter {
-  String get label => switch (this) {
-        _StatusFilter.all => 'Tous',
-        _StatusFilter.pending => 'En attente',
-        _StatusFilter.active => 'Actifs',
-        _StatusFilter.suspended => 'Suspendus',
-        _StatusFilter.rejected => 'Rejetés',
+  String label(BuildContext context) => switch (this) {
+        _StatusFilter.all => context.l10n.allMasculine,
+        _StatusFilter.pending => context.l10n.companyAnalyticsBadgePending,
+        _StatusFilter.active => context.l10n.userStatusActivePluralLabel,
+        _StatusFilter.suspended => context.l10n.userStatusSuspendedPluralLabel,
+        _StatusFilter.rejected => context.l10n.userStatusRejectedPluralLabel,
       };
 
   String? get status => switch (this) {
@@ -56,18 +57,22 @@ extension on _StatusFilter {
       };
 }
 
-({String label, Color color, IconData icon}) _rowStatusMeta(Map u) {
+({String label, Color color, IconData icon}) _rowStatusMeta(BuildContext context, Map u) {
   final status = u['status'] as String? ?? 'ACTIVE';
   if (status == 'PENDING_APPROVAL') {
-    return (label: 'En attente', color: UltraTheme.warning, icon: Icons.hourglass_empty_rounded);
+    return (
+      label: context.l10n.companyAnalyticsBadgePending,
+      color: UltraTheme.warning,
+      icon: Icons.hourglass_empty_rounded
+    );
   }
   if (status == 'REJECTED') {
-    return (label: 'Rejeté', color: UltraTheme.textMuted, icon: Icons.block_rounded);
+    return (label: context.l10n.onefopRejected, color: UltraTheme.textMuted, icon: Icons.block_rounded);
   }
   final isActive = u['isActive'] == true;
   return isActive
-      ? (label: 'Actif', color: UltraTheme.success, icon: Icons.check_circle_outline_rounded)
-      : (label: 'Suspendu', color: UltraTheme.error, icon: Icons.pause_circle_outline_rounded);
+      ? (label: context.l10n.companyAnalyticsBadgeActive, color: UltraTheme.success, icon: Icons.check_circle_outline_rounded)
+      : (label: context.l10n.companiesSuspendedBadge, color: UltraTheme.error, icon: Icons.pause_circle_outline_rounded);
 }
 
 class UsersDirectoryScreen extends ConsumerStatefulWidget {
@@ -173,9 +178,9 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       context,
       icon: Icons.check_circle_rounded,
       iconColor: UltraTheme.success,
-      title: "Approuver l'agent",
-      body: 'Confirmer l\'approbation de $name ?',
-      confirmLabel: 'Approuver',
+      title: context.l10n.approveAgentDialogTitle,
+      body: context.l10n.approveAgentConfirmBody(name),
+      confirmLabel: context.l10n.approveActionLabel,
       confirmColor: UltraTheme.success,
     );
     if (confirmed != true) return;
@@ -184,11 +189,11 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       await api.patch('/auth/approve-user/${u['id']}');
       if (!mounted) return;
       _load();
-      showAdminToast(context, '$name approuvé avec succès', UltraTheme.success,
+      showAdminToast(context, context.l10n.userApprovedToast(name), UltraTheme.success,
           Icons.check_circle_rounded);
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Erreur: $e', UltraTheme.error, Icons.error_rounded);
+      showAdminToast(context, context.l10n.genericErrorToastNoSpace('$e'), UltraTheme.error, Icons.error_rounded);
     }
   }
 
@@ -214,7 +219,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       await api.patch('/auth/reject-user/${u['id']}', data: {'reason': reason});
       if (!mounted) return;
       _load();
-      showAdminToast(context, '$name rejeté', UltraTheme.warning, Icons.block_rounded);
+      showAdminToast(context, context.l10n.userRejectedToast(name), UltraTheme.warning, Icons.block_rounded);
     } catch (e) {
       if (!mounted) return;
       showAdminToast(context, 'Erreur: $e', UltraTheme.error, Icons.error_rounded);
@@ -234,11 +239,11 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       await api.updateUserRole(u['id'], newRole);
       if (!mounted) return;
       _load();
-      showAdminToast(context, 'Rôle mis à jour : ${roleLabel(newRole)}',
+      showAdminToast(context, context.l10n.userRoleUpdatedToast(roleLabel(newRole)),
           UltraTheme.success, Icons.check_circle_rounded);
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Erreur : $e', UltraTheme.error, Icons.error_rounded);
+      showAdminToast(context, context.l10n.regionsSectorsGenericErrorToast('$e'), UltraTheme.error, Icons.error_rounded);
     }
   }
 
@@ -249,11 +254,11 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       context,
       icon: isActive ? Icons.pause_circle_outline_rounded : Icons.play_circle_outline_rounded,
       iconColor: isActive ? UltraTheme.warning : UltraTheme.success,
-      title: isActive ? 'Suspendre le compte' : 'Réactiver le compte',
+      title: isActive ? context.l10n.suspendAccountDialogTitle : context.l10n.reactivateAccountDialogTitle,
       body: isActive
-          ? '$name ne pourra plus se connecter jusqu\'à réactivation.'
-          : '$name pourra de nouveau se connecter.',
-      confirmLabel: isActive ? 'Suspendre' : 'Réactiver',
+          ? context.l10n.suspendAccountBody(name)
+          : context.l10n.reactivateAccountBody(name),
+      confirmLabel: isActive ? context.l10n.suspendActionLabel : context.l10n.reactivateActionLabel,
       confirmColor: isActive ? UltraTheme.warning : UltraTheme.success,
     );
     if (confirmed != true) return;
@@ -266,11 +271,16 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       }
       if (!mounted) return;
       _load();
-      showAdminToast(context, isActive ? '$name suspendu' : '$name réactivé',
-          UltraTheme.success, Icons.check_circle_rounded);
+      showAdminToast(
+          context,
+          isActive
+              ? context.l10n.userSuspendedToast(name)
+              : context.l10n.userReactivatedToast(name),
+          UltraTheme.success,
+          Icons.check_circle_rounded);
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Erreur : $e', UltraTheme.error, Icons.error_rounded);
+      showAdminToast(context, context.l10n.regionsSectorsGenericErrorToast('$e'), UltraTheme.error, Icons.error_rounded);
     }
   }
 
@@ -291,7 +301,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
       await api.deleteUser(u['id']);
       if (!mounted) return;
       _load();
-      showAdminToast(context, '$name supprimé', UltraTheme.success, Icons.check_circle_rounded);
+      showAdminToast(context, context.l10n.userDeletedToast(name), UltraTheme.success, Icons.check_circle_rounded);
     } catch (e) {
       if (!mounted) return;
       final msg = e is ApiException ? e.message : e.toString();
@@ -306,12 +316,12 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
     if (status == 'PENDING_APPROVAL') {
       return Row(mainAxisSize: MainAxisSize.min, children: [
         IconButton(
-          tooltip: 'Rejeter',
+          tooltip: context.l10n.rejectTooltip,
           icon: const Icon(Icons.close_rounded, color: UltraTheme.error, size: 18),
           onPressed: () => _rejectUser(u),
         ),
         IconButton(
-          tooltip: 'Approuver',
+          tooltip: context.l10n.approveActionLabel,
           icon: const Icon(Icons.check_rounded, color: UltraTheme.success, size: 18),
           onPressed: () => _approveUser(u),
         ),
@@ -320,7 +330,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
 
     if (status == 'REJECTED') {
       return IconButton(
-        tooltip: 'Supprimer',
+        tooltip: context.l10n.settingsDeleteButton,
         icon: const Icon(Icons.delete_outline_rounded, color: UltraTheme.error, size: 18),
         onPressed: () => _deleteUser(u),
       );
@@ -344,12 +354,12 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
         }
       },
       itemBuilder: (ctx) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'role',
           child: Row(children: [
-            Icon(Icons.badge_outlined, size: 18, color: UltraTheme.textSecondary),
-            SizedBox(width: 10),
-            Text('Modifier le rôle'),
+            const Icon(Icons.badge_outlined, size: 18, color: UltraTheme.textSecondary),
+            const SizedBox(width: 10),
+            Text(context.l10n.editRoleActionLabel),
           ]),
         ),
         PopupMenuItem(
@@ -362,16 +372,16 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
                 size: 18,
                 color: UltraTheme.textSecondary),
             const SizedBox(width: 10),
-            Text(isActive ? 'Suspendre' : 'Réactiver'),
+            Text(isActive ? context.l10n.suspendActionLabel : context.l10n.reactivateActionLabel),
           ]),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'delete',
           child: Row(children: [
-            Icon(Icons.delete_outline_rounded, size: 18, color: UltraTheme.error),
-            SizedBox(width: 10),
-            Text('Supprimer', style: TextStyle(color: UltraTheme.error)),
+            const Icon(Icons.delete_outline_rounded, size: 18, color: UltraTheme.error),
+            const SizedBox(width: 10),
+            Text(context.l10n.settingsDeleteButton, style: const TextStyle(color: UltraTheme.error)),
           ]),
         ),
       ],
@@ -427,7 +437,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
         AdminSearchField(
           controller: _searchCtrl,
           onChanged: _onSearchChanged,
-          hintText: 'Rechercher par nom, email, matricule...',
+          hintText: context.l10n.usersSearchFieldHint,
         ),
         const SizedBox(height: 10),
         SizedBox(height: 36, child: _buildStatusPills()),
@@ -440,7 +450,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
           _NewAgentButton(onCreated: _load),
         ]),
         const SizedBox(height: 8),
-        Text('$_total compte${_total == 1 ? '' : 's'}',
+        Text(context.l10n.userAccountsCountLabel(_total),
             style: const TextStyle(
                 fontFamily: 'Inter', fontSize: 12, color: UltraTheme.textMuted)),
       ]),
@@ -467,7 +477,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
                   color: isSelected ? f.color : UltraTheme.textMuted.withValues(alpha: 0.2)),
             ),
             child: Center(
-              child: Text(f.label,
+              child: Text(f.label(context),
                   style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
@@ -494,10 +504,10 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
           isExpanded: true,
           icon: const Icon(Icons.expand_more_rounded, size: 18, color: UltraTheme.textMuted),
           style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
-          hint: const Text('Tous les rôles',
-              style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
+          hint: Text(context.l10n.allRolesFilterLabel,
+              style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
           items: [
-            const DropdownMenuItem(value: null, child: Text('Tous les rôles')),
+            DropdownMenuItem(value: null, child: Text(context.l10n.allRolesFilterLabel)),
             ...kAssignableRoles
                 .map((r) => DropdownMenuItem(value: r, child: Text(roleLabel(r)))),
           ],
@@ -522,19 +532,19 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
           scrollDirection: Axis.horizontal,
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(UltraTheme.background),
-            columns: const [
-              DataColumn(label: Text('Nom', style: _tableHeaderStyle)),
-              DataColumn(label: Text('Email', style: _tableHeaderStyle)),
-              DataColumn(label: Text('Rôle', style: _tableHeaderStyle)),
-              DataColumn(label: Text('Région / Département', style: _tableHeaderStyle)),
-              DataColumn(label: Text('Statut', style: _tableHeaderStyle)),
-              DataColumn(label: Text('Actions', style: _tableHeaderStyle)),
+            columns: [
+              DataColumn(label: Text(context.l10n.nameColumnHeader, style: _tableHeaderStyle)),
+              DataColumn(label: Text(context.l10n.registerEmailRowLabel, style: _tableHeaderStyle)),
+              DataColumn(label: Text(context.l10n.createMinefopUserRoleSectionLabel, style: _tableHeaderStyle)),
+              DataColumn(label: Text(context.l10n.regionDepartmentColumnHeader, style: _tableHeaderStyle)),
+              DataColumn(label: Text(context.l10n.statusColumnHeader, style: _tableHeaderStyle)),
+              DataColumn(label: Text(context.l10n.regionsSectorsActionsColumnHeader, style: _tableHeaderStyle)),
             ],
             rows: _users.map((raw) {
               final u = raw as Map;
               final name = _name(u);
               final role = u['role'] as String? ?? '';
-              final statusMeta = _rowStatusMeta(u);
+              final statusMeta = _rowStatusMeta(context, u);
               final location = [u['region'], u['department']]
                   .where((e) => e != null && (e as String).isNotEmpty)
                   .join(' · ');
@@ -558,7 +568,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
   Widget _buildUserCard(Map u) {
     final name = _name(u);
     final role = u['role'] as String? ?? '';
-    final statusMeta = _rowStatusMeta(u);
+    final statusMeta = _rowStatusMeta(context, u);
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Container(
@@ -658,15 +668,15 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
           child: const Icon(Icons.people_outline_rounded, size: 40, color: UltraTheme.primary),
         ),
         const SizedBox(height: 20),
-        const Text('Aucun compte trouvé',
-            style: TextStyle(
+        Text(context.l10n.noUsersFoundTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: UltraTheme.textPrimary)),
         const SizedBox(height: 8),
-        const Text('Essayez une autre recherche ou un autre filtre.',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
+        Text(context.l10n.noUsersFoundSubtitle,
+            style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
       ]),
     );
   }
@@ -684,8 +694,8 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
           child: const Icon(Icons.wifi_off_rounded, size: 36, color: UltraTheme.error),
         ),
         const SizedBox(height: 16),
-        const Text('Erreur de chargement',
-            style: TextStyle(
+        Text(context.l10n.loadingErrorTitle,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -698,7 +708,7 @@ class _UsersDirectoryScreenState extends ConsumerState<UsersDirectoryScreen> {
         ElevatedButton.icon(
           onPressed: _load,
           icon: const Icon(Icons.refresh_rounded, size: 16),
-          label: const Text('Réessayer'),
+          label: Text(context.l10n.retry),
           style: ElevatedButton.styleFrom(
             backgroundColor: UltraTheme.primary,
             foregroundColor: Colors.white,
@@ -767,11 +777,11 @@ class _RejectReasonSheetState extends State<_RejectReasonSheet> {
                 color: UltraTheme.error, size: 30),
           ),
           const SizedBox(height: 16),
-          Text('Rejeter ${widget.name}',
+          Text(context.l10n.rejectUserSheetTitle(widget.name),
               style: UltraTheme.displayMedium.copyWith(fontSize: 18)),
           const SizedBox(height: 8),
-          const Text('Motif du rejet (optionnel)',
-              style: TextStyle(
+          Text(context.l10n.rejectReasonLabel,
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13,
                   color: UltraTheme.textMuted)),
@@ -781,7 +791,7 @@ class _RejectReasonSheetState extends State<_RejectReasonSheet> {
             maxLines: 3,
             style: const TextStyle(fontFamily: 'Inter', fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Ex: Documents incomplets...',
+              hintText: context.l10n.rejectReasonHint,
               hintStyle: const TextStyle(
                   fontFamily: 'Inter', color: UltraTheme.textMuted),
               filled: true,
@@ -815,8 +825,8 @@ class _RejectReasonSheetState extends State<_RejectReasonSheet> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Annuler',
-                    style: TextStyle(
+                child: Text(context.l10n.cancelButton,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.textMuted)),
@@ -834,8 +844,8 @@ class _RejectReasonSheetState extends State<_RejectReasonSheet> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Confirmer le rejet',
-                    style: TextStyle(
+                child: Text(context.l10n.confirmRejectButton,
+                    style: const TextStyle(
                         fontFamily: 'Inter', fontWeight: FontWeight.w600)),
               ),
             ),
@@ -872,8 +882,8 @@ class _RoleSelectSheet extends StatelessWidget {
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const Text('Modifier le rôle',
-            style: TextStyle(
+        Text(context.l10n.editRoleActionLabel,
+            style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -959,18 +969,17 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
           ),
           const SizedBox(height: 16),
           Center(
-            child: Text('Supprimer ${widget.name} ?',
+            child: Text(context.l10n.deleteUserSheetTitle(widget.name),
                 style: UltraTheme.displayMedium.copyWith(fontSize: 18)),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Action irréversible. Si ce compte a des déclarations, soumissions ou '
-            'notifications liées, la suppression sera refusée — suspendez-le à la place.',
+          Text(
+            context.l10n.deleteUserIrreversibleWarning,
             textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
+            style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
           ),
           const SizedBox(height: 16),
-          Text('Tapez "${widget.email}" pour confirmer',
+          Text(context.l10n.typeEmailToConfirmLabel(widget.email),
               style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
@@ -1010,8 +1019,8 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
                   side: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.3)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Annuler',
-                    style: TextStyle(
+                child: Text(context.l10n.cancelButton,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                         color: UltraTheme.textMuted)),
@@ -1029,8 +1038,8 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Supprimer',
-                    style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                child: Text(context.l10n.settingsDeleteButton,
+                    style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
               ),
             ),
           ]),
@@ -1060,11 +1069,11 @@ class _NewAgentButton extends StatelessWidget {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.person_add_alt_1_rounded, size: 16, color: Colors.white),
-            SizedBox(width: 6),
-            Text('Nouvel agent',
-                style: TextStyle(
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.person_add_alt_1_rounded, size: 16, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(context.l10n.newAgentButtonLabel,
+                style: const TextStyle(
                     fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
           ]),
         ),

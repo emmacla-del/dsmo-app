@@ -593,16 +593,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Non-Governmental Organization or association.';
 
   @override
-  String get registerEntitySubtitleVocational =>
-      'Accredited technical and vocational training center.';
-
-  @override
   String get registerEntitySubtitleAdministration =>
       'Public administration or government service.';
 
   @override
   String get registerEntitySubtitleProjectProgram =>
       'Project, programme, or structure under a ministry\'s supervision.';
+
+  @override
+  String get registerEntitySubtitleVocationalTraining =>
+      'Vocational training center taking part in the national ONEFOP survey.';
 
   @override
   String get registerCreateAccountTitle => 'Create an account';
@@ -853,6 +853,157 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cameroon Labour and Employment Analytical Platform';
 
   @override
+  String get camleapNavAbout => 'About';
+
+  @override
+  String get camleapNavOnefop => 'ONEFOP';
+
+  @override
+  String get camleapNavRegistre => 'Training registry';
+
+  @override
+  String get camleapNavEnquetes => 'Employer surveys';
+
+  @override
+  String get camleapSignIn => 'Sign in';
+
+  @override
+  String get camleapEspaceDeclarant => 'Declarant portal';
+
+  @override
+  String get camleapHeroHeadline =>
+      'ONEFOP\'s digital infrastructure for labour market information and observation';
+
+  @override
+  String get camleapHeroTagline =>
+      'Declarations · Entity registry · Surveys · Analysis (coming soon)';
+
+  @override
+  String get camleapHeroBody =>
+      'CAMLEAP is the technical platform supporting ONEFOP\'s mission. It structures declaration collection, organises the registry of training entities, and prepares the tools for observing Cameroon\'s labour market.';
+
+  @override
+  String get camleapHeroCtaPrimary => 'Start my declaration';
+
+  @override
+  String get camleapHeroCtaSecondary => 'Discover ONEFOP';
+
+  @override
+  String get camleapAudienceTitle => 'You are...';
+
+  @override
+  String get camleapEconomicEntitiesTitle => 'Economic entities';
+
+  @override
+  String get camleapEntreprise => 'Company';
+
+  @override
+  String get camleapCooperative => 'Cooperative';
+
+  @override
+  String get camleapPublicEntitiesTitle => 'Public entities';
+
+  @override
+  String get camleapCtd => 'CTD';
+
+  @override
+  String get camleapOng => 'NGO';
+
+  @override
+  String get camleapVocationalTrainingTitle => 'Vocational training';
+
+  @override
+  String get camleapVocationalTrainingBody =>
+      'Registration in the national registry of training centres (CFP).';
+
+  @override
+  String get camleapComingSoonBadge => 'Coming soon';
+
+  @override
+  String get camleapUnderstandTitle => 'Understanding ONEFOP';
+
+  @override
+  String get camleapUnderstandBody =>
+      'ONEFOP is being restructured to better fulfil its labour-market observation mission. Two structuring components are being progressively deployed.';
+
+  @override
+  String get camleapLmisCardTitle => 'LMIS - Labour Market Information System';
+
+  @override
+  String get camleapLmisCardBody =>
+      'The infrastructure for collecting, integrating and managing employment and training data nationwide.';
+
+  @override
+  String get camleapLmisBadge => 'Being deployed';
+
+  @override
+  String get camleapObservatoireCardTitle => 'Labour Market Observatory';
+
+  @override
+  String get camleapObservatoireCardBody =>
+      'The component for analysing and disseminating intelligence on Cameroon\'s labour market.';
+
+  @override
+  String get camleapAVenir => 'Coming soon';
+
+  @override
+  String get camleapLearnMore => 'Learn more';
+
+  @override
+  String get camleapAvailableTodayTitle => 'Available today';
+
+  @override
+  String get camleapAvailable1 =>
+      'Entity declarations (companies, cooperatives, CTDs, NGOs)';
+
+  @override
+  String get camleapAvailable2 => 'Technical documentation';
+
+  @override
+  String get camleapAvailable3 =>
+      'Declarant portal for entities (access on request)';
+
+  @override
+  String get camleapComing1 => 'National registry of training entities (CFP)';
+
+  @override
+  String get camleapComing3 => 'Observatory — dashboards and reports';
+
+  @override
+  String get camleapComing4 => 'Public data portal';
+
+  @override
+  String get camleapAccessRequestTitle => 'Request access';
+
+  @override
+  String get camleapAccessRequestBody =>
+      'To request access to the declarant portal, provide your role, entity and parent administration.';
+
+  @override
+  String get camleapYaounde => 'Yaoundé, Cameroon';
+
+  @override
+  String camleapCopyright(int year) {
+    return '© $year ONEFOP. All rights reserved.';
+  }
+
+  @override
+  String get camleapComingSoonPageBody =>
+      'This page is being prepared. Check back soon or contact us at contact@onefop.cm for more information.';
+
+  @override
+  String get camleapTitleDeclarerEntreprise => 'Declaration — Company';
+
+  @override
+  String get camleapTitleDeclarerCooperative => 'Declaration — Cooperative';
+
+  @override
+  String get camleapTitleDeclarerCtd => 'Declaration — CTD';
+
+  @override
+  String get camleapTitleDeclarerOng => 'Declaration — NGO';
+
+  @override
   String get forgotPasswordTitle => 'Forgot password';
 
   @override
@@ -1044,6 +1195,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get doneButton => 'Done';
 
   @override
+  String get welcomeHeading => 'Welcome';
+
+  @override
+  String get welcomeSubtitle =>
+      'Director / Promoter, please complete the questionnaire below for your establishment.';
+
+  @override
+  String welcomeHeadingPersonalized(String name) {
+    return 'Welcome, $name';
+  }
+
+  @override
+  String welcomeSubtitlePersonalized(String function) {
+    return 'As $function, please complete the questionnaire below for your establishment.';
+  }
+
+  @override
   String get legalNoticeTitle =>
       'COLLECTION OF DATA ON JOBS CREATED BY THE MODERN ECONOMY';
 
@@ -1065,6 +1233,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entityShortCtd => 'TCC';
 
   @override
+  String get entityShortVocationalTraining => 'VTC';
+
+  @override
   String get confidentialityNoticeHeading => 'Confidential Notice';
 
   @override
@@ -1082,6 +1253,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get goBackButton => 'Go Back';
+
+  @override
+  String get estimatedTimeCaption => 'Estimated time: 20-30 minutes';
 
   @override
   String onefopApprovedActivity(int year) {
@@ -2589,4 +2763,2096 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get attestationMenuLabel => 'My registration certificate';
+
+  @override
+  String get adminResetPasswordTitle => 'Reset a password';
+
+  @override
+  String get adminResetPasswordInstructions =>
+      'First verify the user\'s identity through an official channel (phone, in person), then send them a password reset link by email.';
+
+  @override
+  String get adminResetPasswordEmailFieldLabel => 'User account email';
+
+  @override
+  String get emailInvalidShort => 'Invalid email';
+
+  @override
+  String get adminResetPasswordSendButton => 'Send a reset link';
+
+  @override
+  String adminResetPasswordSentMessage(String email) {
+    return 'A reset link has been sent to $email.';
+  }
+
+  @override
+  String get adminResetPasswordLinkExpiryNote =>
+      'The link expires in 45 minutes and can only be used once.';
+
+  @override
+  String get adminResetPasswordSendAnotherButton => 'Send another link';
+
+  @override
+  String get annuaireUsersTabLabel => 'Users';
+
+  @override
+  String get annuaireEntitiesTabLabel => 'Entities';
+
+  @override
+  String get companiesSearchHint => 'Search by name, tax ID, ID, region...';
+
+  @override
+  String companiesTotalCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count companies',
+      one: '1 company',
+      zero: 'No companies',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get companiesCreatedAtColumnHeader => 'Created on';
+
+  @override
+  String get companiesContactColumnHeader => 'Contact';
+
+  @override
+  String get companiesSuspendedBadge => 'Suspended';
+
+  @override
+  String companiesPaginationLabel(int page, int totalPages) {
+    return 'Page $page of $totalPages';
+  }
+
+  @override
+  String get companiesEmptyTitle => 'No companies found';
+
+  @override
+  String get companiesEmptySubtitle => 'Try a different search.';
+
+  @override
+  String companiesGenderBreakdownMenCount(num count) {
+    return '$count men';
+  }
+
+  @override
+  String companiesGenderBreakdownWomenCount(num count) {
+    return '$count women';
+  }
+
+  @override
+  String get companiesDetailIdentitySectionTitle => 'Identity';
+
+  @override
+  String get companiesMainActivityLabel => 'Main activity';
+
+  @override
+  String get companiesLegalStatusLabel => 'Legal status';
+
+  @override
+  String get companiesRegistrationNumberLabel => 'Registration no.';
+
+  @override
+  String get companiesCnpsNumberLabel => 'CNPS no.';
+
+  @override
+  String get companiesYearOfCreationLabel => 'Year founded';
+
+  @override
+  String get companiesEnterpriseSizeLabel => 'Company size';
+
+  @override
+  String get companiesRegisteredOnLabel => 'Registered on';
+
+  @override
+  String get companiesSubdivisionLabel => 'Subdivision';
+
+  @override
+  String get companiesAddressLabel => 'Address';
+
+  @override
+  String get companiesDetailContactSectionTitle => 'Company contact';
+
+  @override
+  String get companiesAccountStatusLabel => 'Account status';
+
+  @override
+  String get companiesDetailRespondentSectionTitle => 'Respondent';
+
+  @override
+  String get companiesGenderBreakdownRowLabel => 'Breakdown';
+
+  @override
+  String get companiesPreviousYearWorkforceLabel => 'Previous year workforce';
+
+  @override
+  String get companiesPreviousYearBreakdownLabel => 'Breakdown (previous year)';
+
+  @override
+  String get createMinefopUserLoadFunctionsError => 'Unable to load functions.';
+
+  @override
+  String get createMinefopUserSelectRoleError => 'Please select a role';
+
+  @override
+  String get createMinefopUserAppBarTitle => 'New MINEFOP agent';
+
+  @override
+  String get createMinefopUserFirstNameLabel => 'First name';
+
+  @override
+  String get createMinefopUserProfessionalEmailLabel => 'Professional email';
+
+  @override
+  String get createMinefopUserRoleSectionLabel => 'Role';
+
+  @override
+  String get createMinefopUserSelectRoleHint => 'Select a role';
+
+  @override
+  String get createMinefopUserPositionSectionLabel => 'Position';
+
+  @override
+  String get createMinefopUserMatriculeLabel => 'Staff number';
+
+  @override
+  String get createMinefopUserCreateAccountButton => 'Create account';
+
+  @override
+  String get createMinefopUserLoadingFunctions => 'Loading functions…';
+
+  @override
+  String get createMinefopUserNoFunctionsAvailable =>
+      'No functions available for this role.';
+
+  @override
+  String get createMinefopUserSelectFunctionHint => 'Select the function';
+
+  @override
+  String get createMinefopUserLoadingUnits => 'Loading units…';
+
+  @override
+  String get createMinefopUserNoUnitsAvailable => 'No units available.';
+
+  @override
+  String get createMinefopUserParentUnitHint => 'Parent unit';
+
+  @override
+  String get createMinefopUserLoadingServices => 'Loading services…';
+
+  @override
+  String get createMinefopUserNoServiceFound =>
+      'No service found under this unit.';
+
+  @override
+  String get createMinefopUserExactServiceHint => 'Exact service';
+
+  @override
+  String get createMinefopUserLoadingRegions => 'Loading regions…';
+
+  @override
+  String get createMinefopUserSelectRegionFirstNote => 'Select a region first.';
+
+  @override
+  String get createMinefopUserLoadingDepartments => 'Loading departments…';
+
+  @override
+  String createMinefopUserCopiedToast(String label) {
+    return '$label copied';
+  }
+
+  @override
+  String get createMinefopUserAccountCreatedTitle => 'Account created';
+
+  @override
+  String get createMinefopUserCredentialsWarning =>
+      'This temporary password will never be shown again. Pass it on to the agent (WhatsApp, phone, in person) — they will have to change it on first login.';
+
+  @override
+  String get createMinefopUserDoneButton => 'Done';
+
+  @override
+  String get createMinefopUserCopyTooltip => 'Copy';
+
+  @override
+  String get landingConfigRestoreDialogTitle => 'Restore this version?';
+
+  @override
+  String get landingConfigRestoreDialogBody =>
+      'The public landing page will be immediately replaced with this version\'s content. The current state is itself saved and can be restored afterwards.';
+
+  @override
+  String get landingConfigRestoreButton => 'Restore';
+
+  @override
+  String get landingConfigVersionRestoredToast => 'Version restored';
+
+  @override
+  String landingConfigRestoreFailedToast(String error) {
+    return 'Restore failed: $error';
+  }
+
+  @override
+  String get landingConfigUpdatedToast => 'Landing page updated';
+
+  @override
+  String landingConfigSaveFailedToast(String error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String get landingConfigAppBarTitle => 'Public landing page';
+
+  @override
+  String get landingConfigDescriptionNote =>
+      'Narrative content of the public landing page (SIMT / CAMLEAP program): status, supporting line, components, Collect / Integrate / Analyse / Inform pillars, program purpose, access call-to-action. SUPER_ADMIN only.';
+
+  @override
+  String landingConfigLastModifiedLabel(String date) {
+    return 'Last modified: $date';
+  }
+
+  @override
+  String get landingConfigStatusSectionTitle => 'Program status';
+
+  @override
+  String get landingConfigStatusLineFieldLabel =>
+      'Status line (below the current component)';
+
+  @override
+  String get landingConfigHeroSectionTitle => 'Hero';
+
+  @override
+  String get landingConfigMainTitleFieldLabel => 'Main title';
+
+  @override
+  String get landingConfigSupportingLineFieldLabel =>
+      'Supporting line (below the title)';
+
+  @override
+  String get landingConfigComponentsSectionTitle => 'Program components (I-IV)';
+
+  @override
+  String get landingConfigCaptionFieldLabel => 'Caption (below the components)';
+
+  @override
+  String get landingConfigPillarsSectionTitle =>
+      'LMIS pillars (Collect / Integrate / Analyse / Inform)';
+
+  @override
+  String landingConfigCardIndexLabel(int index) {
+    return 'Card $index';
+  }
+
+  @override
+  String get landingConfigKickerFieldLabel => 'Kicker (above the title)';
+
+  @override
+  String get landingConfigTitleFieldLabel => 'Title';
+
+  @override
+  String get landingConfigTextFieldLabel => 'Text';
+
+  @override
+  String get landingConfigArchSectionTitle => 'SIMT architecture pipeline';
+
+  @override
+  String get landingConfigArchSectionNote =>
+      'Currently not shown on the public page — the corresponding section was merged with the \"data → intelligence\" pipeline below. Changes are saved but remain invisible.';
+
+  @override
+  String landingConfigStepIndexLabel(int index) {
+    return 'Step $index';
+  }
+
+  @override
+  String get landingConfigIntelSectionTitle => 'Data → intelligence pipeline';
+
+  @override
+  String get landingConfigEcosystemSectionTitle => 'Institutional ecosystem';
+
+  @override
+  String landingConfigBlockTitleFieldLabel(int index) {
+    return 'Block $index — title';
+  }
+
+  @override
+  String landingConfigBlockTextFieldLabel(int index) {
+    return 'Block $index — text';
+  }
+
+  @override
+  String get landingConfigAboutSectionTitle => 'Program purpose (why an LMIS)';
+
+  @override
+  String landingConfigParagraphIndexLabel(int index) {
+    return 'Paragraph $index';
+  }
+
+  @override
+  String get landingConfigObservatorySectionTitle =>
+      'Observatory (public /observatory page)';
+
+  @override
+  String get landingConfigObservatoryNote =>
+      'Provisional content — no final text has been provided yet for the public Observatory. The public page shows a \"content in preparation\" badge as long as this text remains the default copy below.';
+
+  @override
+  String get landingConfigDescriptionFieldLabel => 'Description';
+
+  @override
+  String landingConfigIndicatorIndexLabel(int index) {
+    return 'Indicator $index';
+  }
+
+  @override
+  String get landingConfigCtaSectionTitle => 'Access call-to-action';
+
+  @override
+  String get landingConfigSubtextFieldLabel => 'Subtext';
+
+  @override
+  String get landingConfigAccessSectionTitle => 'Platform access';
+
+  @override
+  String get landingConfigAccessNoteFieldLabel =>
+      'Access note (below the buttons)';
+
+  @override
+  String get landingConfigPreviewSectionTitle => 'Preview';
+
+  @override
+  String get landingConfigFrChipLabel => 'FR';
+
+  @override
+  String get landingConfigEnChipLabel => 'EN';
+
+  @override
+  String get landingConfigHistorySectionTitle => 'History (restore)';
+
+  @override
+  String get landingConfigNoHistoryMessage => 'No earlier version saved.';
+
+  @override
+  String landingConfigComponentShortNameLabel(String roman) {
+    return 'Component $roman — short name';
+  }
+
+  @override
+  String landingConfigComponentDescriptionLabel(String roman) {
+    return 'Component $roman — description';
+  }
+
+  @override
+  String regionsSectorsLoadError(String error) {
+    return 'Loading error: $error';
+  }
+
+  @override
+  String get regionsSectorsAppBarTitle => 'Regions & Sectors';
+
+  @override
+  String get regionsSectorsNoResultsSubtitle =>
+      'No region or sector matches your search.';
+
+  @override
+  String regionsSectorsSectionHeaderWithCount(String title, int count) {
+    return '$title ($count)';
+  }
+
+  @override
+  String get regionsSectorsSectorsLabel => 'Sectors';
+
+  @override
+  String get regionsSectorsOnefopSubmissionsStatLabel => 'ONEFOP submissions';
+
+  @override
+  String get regionsSectorsSearchHint => 'Search for a region or sector…';
+
+  @override
+  String get regionsSectorsAllFilterChip => 'All';
+
+  @override
+  String get regionsSectorsActionsColumnHeader => 'Actions';
+
+  @override
+  String regionsSectorsDeleteConfirmBody(String itemName) {
+    return 'Permanently delete $itemName?';
+  }
+
+  @override
+  String get regionsSectorsEditRegionDialogTitle => 'Edit region';
+
+  @override
+  String get regionsSectorsRegionUpdatedToast => 'Region updated';
+
+  @override
+  String regionsSectorsGenericErrorToast(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get regionsSectorsRegionDeletedToast => 'Region deleted';
+
+  @override
+  String get regionsSectorsEditSectorDialogTitle => 'Edit sector';
+
+  @override
+  String get regionsSectorsSectorUpdatedToast => 'Sector updated';
+
+  @override
+  String get regionsSectorsSectorDeletedToast => 'Sector deleted';
+
+  @override
+  String get settingsSavedToast => 'Settings saved';
+
+  @override
+  String get systemSettingsScreenTitle => 'System settings';
+
+  @override
+  String get systemSettingsScreenSubtitle =>
+      'Platform-wide configuration. Restricted to SUPER_ADMIN.';
+
+  @override
+  String get securityPolicySectionTitle => 'Security policy';
+
+  @override
+  String get passwordMinLengthLabel => 'Minimum password length';
+
+  @override
+  String get require2faStaffLabel =>
+      'Mandatory two-factor authentication (MINEFOP staff)';
+
+  @override
+  String get require2faStaffSubtitle =>
+      'Prevents non-company accounts from disabling their 2FA.';
+
+  @override
+  String get maintenanceModeSectionTitle => 'Maintenance mode';
+
+  @override
+  String get enableMaintenanceModeLabel => 'Enable maintenance mode';
+
+  @override
+  String get maintenanceModeSubtitle =>
+      'Blocks all access except SUPER_ADMIN, showing the message below.';
+
+  @override
+  String get maintenanceMessageFieldLabel => 'Message shown to users';
+
+  @override
+  String get maintenanceMessageFieldHint =>
+      'The platform is currently under maintenance...';
+
+  @override
+  String get referenceDataSectionTitle => 'Reference data';
+
+  @override
+  String get referenceDataSectionDescription =>
+      'Manage the regions/sectors taxonomy used by filters and forms across the platform.';
+
+  @override
+  String get manageRegionsSectorsButton => 'Manage regions and sectors';
+
+  @override
+  String get userStatusActivePluralLabel => 'Active';
+
+  @override
+  String get userStatusSuspendedPluralLabel => 'Suspended';
+
+  @override
+  String get userStatusRejectedPluralLabel => 'Rejected';
+
+  @override
+  String get approveAgentDialogTitle => 'Approve agent';
+
+  @override
+  String approveAgentConfirmBody(String name) {
+    return 'Confirm approval of $name?';
+  }
+
+  @override
+  String get approveActionLabel => 'Approve';
+
+  @override
+  String userApprovedToast(String name) {
+    return '$name approved successfully';
+  }
+
+  @override
+  String genericErrorToastNoSpace(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String userRejectedToast(String name) {
+    return '$name rejected';
+  }
+
+  @override
+  String userRoleUpdatedToast(String role) {
+    return 'Role updated: $role';
+  }
+
+  @override
+  String get suspendAccountDialogTitle => 'Suspend account';
+
+  @override
+  String get reactivateAccountDialogTitle => 'Reactivate account';
+
+  @override
+  String suspendAccountBody(String name) {
+    return '$name will no longer be able to sign in until reactivated.';
+  }
+
+  @override
+  String reactivateAccountBody(String name) {
+    return '$name will be able to sign in again.';
+  }
+
+  @override
+  String get suspendActionLabel => 'Suspend';
+
+  @override
+  String get reactivateActionLabel => 'Reactivate';
+
+  @override
+  String userSuspendedToast(String name) {
+    return '$name suspended';
+  }
+
+  @override
+  String userReactivatedToast(String name) {
+    return '$name reactivated';
+  }
+
+  @override
+  String userDeletedToast(String name) {
+    return '$name deleted';
+  }
+
+  @override
+  String get rejectTooltip => 'Reject';
+
+  @override
+  String get editRoleActionLabel => 'Edit role';
+
+  @override
+  String get usersSearchFieldHint => 'Search by name, email, ID number...';
+
+  @override
+  String userAccountsCountLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count accounts',
+      one: '$count account',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get allRolesFilterLabel => 'All roles';
+
+  @override
+  String get regionDepartmentColumnHeader => 'Region / Department';
+
+  @override
+  String get noUsersFoundTitle => 'No accounts found';
+
+  @override
+  String get noUsersFoundSubtitle => 'Try a different search or filter.';
+
+  @override
+  String rejectUserSheetTitle(String name) {
+    return 'Reject $name';
+  }
+
+  @override
+  String get rejectReasonLabel => 'Reason for rejection (optional)';
+
+  @override
+  String get rejectReasonHint => 'E.g.: Incomplete documents...';
+
+  @override
+  String get confirmRejectButton => 'Confirm rejection';
+
+  @override
+  String deleteUserSheetTitle(String name) {
+    return 'Delete $name?';
+  }
+
+  @override
+  String get deleteUserIrreversibleWarning =>
+      'Irreversible action. If this account has related declarations, submissions, or notifications, deletion will be refused — suspend it instead.';
+
+  @override
+  String typeEmailToConfirmLabel(String email) {
+    return 'Type \"$email\" to confirm';
+  }
+
+  @override
+  String get newAgentButtonLabel => 'New agent';
+
+  @override
+  String get regionDeptSelectorLoadRegionsError => 'Unable to load regions.';
+
+  @override
+  String get allRegionsCheckboxLabel => 'All regions';
+
+  @override
+  String get noDepartmentsAvailableLabel => 'No departments available';
+
+  @override
+  String get campaignDetailStartDateLabel => 'Start date';
+
+  @override
+  String get campaignDetailEndDateLabel => 'End date';
+
+  @override
+  String get campaignDetailTargetUsersLabel => 'Target users';
+
+  @override
+  String get campaignDetailAvailableFormsLabel => 'Available forms';
+
+  @override
+  String get openCampaignButton => 'Open campaign';
+
+  @override
+  String get identificationTableSelectHint => 'Choose...';
+
+  @override
+  String get identificationTableTextInputHint => 'Enter...';
+
+  @override
+  String get companyDeclMyDeclarationsTitle => 'My Declarations';
+
+  @override
+  String get companyDeclMyDeclarationsSubtitle =>
+      'Track your employment declarations, submissions, and approval status';
+
+  @override
+  String companyDeclFilterAllCount(int count) {
+    return 'All $count';
+  }
+
+  @override
+  String companyDeclFilterUnderReviewCount(int count) {
+    return 'Under review $count';
+  }
+
+  @override
+  String get companyDeclSearchHint => 'Search declarations...';
+
+  @override
+  String get companyDeclFilterAllCampaigns => 'All campaigns';
+
+  @override
+  String get companyDeclHistoryTitle => 'Declaration history';
+
+  @override
+  String get companyDeclDefaultSubtitle => 'Company submission';
+
+  @override
+  String get companyDeclViewDetailsAction => 'View details';
+
+  @override
+  String get companyDeclContinueDraftAction => 'Continue draft';
+
+  @override
+  String get companyDeclTrackStatusAction => 'Track status';
+
+  @override
+  String get companyDeclStepCreated => 'Created';
+
+  @override
+  String get companyDeclStatusTimelineTitle => 'Status timeline';
+
+  @override
+  String get companyRegGenderSumMismatchError => 'Total ≠ M + F';
+
+  @override
+  String get companyRegSubmitSuccessMsg => 'Declaration submitted successfully';
+
+  @override
+  String get companyRegSectionIdentificationTitle =>
+      'I. ESTABLISHMENT IDENTIFICATION';
+
+  @override
+  String get companyRegFieldCompanyName => 'Company Name';
+
+  @override
+  String get companyRegFieldTaxNumber => 'Tax ID No. (NIU)';
+
+  @override
+  String get companyRegFieldParentCompanyLong =>
+      'Company name the establishment depends on';
+
+  @override
+  String get companyRegFieldSecondaryActivity => 'Secondary activity';
+
+  @override
+  String get companyRegFieldCapital => 'Share capital (XAF)';
+
+  @override
+  String get companyRegSectionWorkforceTitle => 'II. STAFF AS OF DECEMBER 31';
+
+  @override
+  String get companyRegFieldTotalEmployees => 'Total Employees';
+
+  @override
+  String get companyRegFieldLastYearTotal => 'Total employees (last year)';
+
+  @override
+  String get companyRegSectionMovementsTitle => 'III. MOVEMENTS BY CATEGORY';
+
+  @override
+  String get companyRegSubmitButton => 'SUBMIT DECLARATION';
+
+  @override
+  String get lawComplianceNoteShort =>
+      'In accordance with Law No. 91/023 of 16 Dec 1991.';
+
+  @override
+  String get companyRegRequiredFieldShort => 'Required field';
+
+  @override
+  String get movementCategory13 => '1-3';
+
+  @override
+  String get movementCategory46 => '4-6';
+
+  @override
+  String get movementCategory79 => '7-9';
+
+  @override
+  String get movementCategory1012 => '10-12';
+
+  @override
+  String get movementRecruitmentLabel => 'Recruitment';
+
+  @override
+  String get movementDismissalLabel => 'Dismissal';
+
+  @override
+  String get movementRetirementLabel => 'Retirement';
+
+  @override
+  String get declApprovalApprovedSuccessMsg =>
+      'Declaration approved successfully';
+
+  @override
+  String get declApprovalMissingRejectReasonWarning =>
+      'Please enter a rejection reason';
+
+  @override
+  String get declApprovalRejectedMsg => 'Declaration rejected';
+
+  @override
+  String declApprovalPdfLoadError(String error) {
+    return 'Unable to load PDF: $error';
+  }
+
+  @override
+  String get declApprovalDraftTitle => 'Draft — DSMO';
+
+  @override
+  String get declApprovalValidationTitle => 'DSMO Validation';
+
+  @override
+  String get pdfCopyOriginalLabel => 'ORIGINAL (Employer)';
+
+  @override
+  String get pdfCopyDuplicateLabel => 'DUPLICATE (Authority)';
+
+  @override
+  String get pdfCopyTriplicateLabel => 'TRIPLICATE (Archives)';
+
+  @override
+  String get declApprovalResumeEntryButton => 'Resume entry';
+
+  @override
+  String get declApprovalNotFoundMsg => 'Declaration not found';
+
+  @override
+  String get declApprovalSectionEstablishmentInfo =>
+      'Establishment information';
+
+  @override
+  String get declApprovalSectionWorkforce => 'Workforce';
+
+  @override
+  String get declApprovalSectionMovements => 'Staff movements';
+
+  @override
+  String get declApprovalSectionAdditionalInfo => 'Additional information';
+
+  @override
+  String get declApprovalSectionComplianceSteps => 'Compliance steps';
+
+  @override
+  String get declApprovalPanelApprovalTitle => 'APPROVAL';
+
+  @override
+  String get declApprovalNotesLabel => 'Administrative notes';
+
+  @override
+  String get declApprovalApproveButton => 'APPROVE DECLARATION';
+
+  @override
+  String get declApprovalPanelRejectTitle => 'REJECTION';
+
+  @override
+  String get declApprovalRejectReasonLabel => 'Rejection reason (Required)';
+
+  @override
+  String get declApprovalRejectButton => 'REJECT FOR CORRECTION';
+
+  @override
+  String declApprovalYearLine(String year) {
+    return 'Fiscal year: $year';
+  }
+
+  @override
+  String declApprovalCurrentStatusLine(String status) {
+    return 'Current Status: $status';
+  }
+
+  @override
+  String declApprovalSubmissionDateLine(String date) {
+    return 'Submission date: $date';
+  }
+
+  @override
+  String get declApprovalLabelMainActivityShort => 'Main activity';
+
+  @override
+  String get declApprovalLabelSecondaryActivityShort => 'Secondary activity';
+
+  @override
+  String get fieldFaxLabel => 'Fax';
+
+  @override
+  String get declApprovalLabelTaxNumberShort => 'Tax ID No.';
+
+  @override
+  String get declApprovalLabelSocialCapital => 'Share capital';
+
+  @override
+  String get declApprovalLabelParentCompany => 'Parent company';
+
+  @override
+  String get declApprovalWorkforceCurrentYearTitle =>
+      'Declared workforce — Current year';
+
+  @override
+  String get declApprovalWorkforcePreviousYearTitle =>
+      'Workforce — Previous year';
+
+  @override
+  String declApprovalNominativeListLine(int count) {
+    return 'Nominative list: $count employee(s) entered';
+  }
+
+  @override
+  String get declApprovalNoMovementsMsg => 'No movement recorded.';
+
+  @override
+  String get movementPromotionLabel => 'Promotion';
+
+  @override
+  String get movementDeathLabel => 'Death';
+
+  @override
+  String get colMovementHeader => 'Movement';
+
+  @override
+  String get colCat13Header => 'Cat. 1–3';
+
+  @override
+  String get colCat46Header => 'Cat. 4–6';
+
+  @override
+  String get colCat79Header => 'Cat. 7–9';
+
+  @override
+  String get colCat1012Header => 'Cat. 10–12';
+
+  @override
+  String get colNonDeclaredShortHeader => 'Not decl.';
+
+  @override
+  String get colTotalHeader => 'TOTAL';
+
+  @override
+  String get declApprovalQualitativeUnavailableMsg =>
+      'Qualitative information not available.';
+
+  @override
+  String get yesLabel => 'Yes';
+
+  @override
+  String get noLabel => 'No';
+
+  @override
+  String get qHasTrainingCenterShort => 'Training center for staff?';
+
+  @override
+  String get qRecruitmentPlansNextShort => 'Plans to recruit next year?';
+
+  @override
+  String get qCamerounisationPlanShort => 'Has a Cameroonization plan?';
+
+  @override
+  String get qUsesTempAgenciesShort => 'Uses temporary employment agencies?';
+
+  @override
+  String get qTempAgencyDetailsLabelShort => 'Temp agency details';
+
+  @override
+  String get declApprovalNoValidationStepsMsg => 'No validation step recorded.';
+
+  @override
+  String get declApprovalDefaultStepType => 'Automatic check';
+
+  @override
+  String get statusSubmittedShort => 'Submitted';
+
+  @override
+  String get statusDivisionApprovedShort => 'Div. Approved';
+
+  @override
+  String get statusRegionApprovedShort => 'Region Approved';
+
+  @override
+  String get declListApprovedToastMsg => 'Declaration approved';
+
+  @override
+  String get declListSearchCompanyHint => 'Search for a company...';
+
+  @override
+  String get declListNoPendingDeclarationsTitle => 'No pending declarations';
+
+  @override
+  String get tryDifferentSearchCriteria => 'Try different search criteria';
+
+  @override
+  String get declListSubmittedWillAppearHere =>
+      'Submitted declarations will appear here';
+
+  @override
+  String get clearFiltersButton => 'Clear filters';
+
+  @override
+  String get empListDraftLoadedFromSessionMsg => 'Draft loaded from session';
+
+  @override
+  String empListDraftSavedMsg(int count) {
+    return 'Draft saved ($count employee(s))';
+  }
+
+  @override
+  String get empListEnterFullNameError => 'Please enter the full name';
+
+  @override
+  String get empListSelectGenderError => 'Please select gender';
+
+  @override
+  String get empListInvalidAgeError => 'Invalid age (16-120 years)';
+
+  @override
+  String get empListSelectNationalityError => 'Please select nationality';
+
+  @override
+  String get empListEnterCountryError => 'Please enter the country';
+
+  @override
+  String get empListSelectDiplomaError => 'Please select the diploma';
+
+  @override
+  String get empListEnterFunctionError => 'Please enter the position';
+
+  @override
+  String get empListInvalidSeniorityError => 'Invalid seniority (0-60 years)';
+
+  @override
+  String get empListSelectCategoryError => 'Please select the category';
+
+  @override
+  String get empListInvalidSalaryError =>
+      'Please enter a valid salary (> 0 FCFA)';
+
+  @override
+  String get empListDeleteEmployeeTitle => 'Delete employee?';
+
+  @override
+  String empListDeleteEmployeeConfirm(String name) {
+    return 'Do you want to remove $name from the list?';
+  }
+
+  @override
+  String get empListEditEmployeeTitle => 'EDIT EMPLOYEE';
+
+  @override
+  String get empListAddEmployeeTitle => 'ADD EMPLOYEE';
+
+  @override
+  String empListStepProgressLabel(int step) {
+    return 'Step $step of 9';
+  }
+
+  @override
+  String get confirmButton => 'Confirm';
+
+  @override
+  String get empListFullNameStepLabel => 'Full Name';
+
+  @override
+  String get empListFullNameHintExample => 'E.g.: TCHINDA Marc Arnold';
+
+  @override
+  String get empListGenderStepLabel => 'Gender';
+
+  @override
+  String get genderMaleOption => 'Male (M)';
+
+  @override
+  String get genderFemaleOption => 'Female (F)';
+
+  @override
+  String get empListAgeStepLabel => 'Age';
+
+  @override
+  String get empListAgeHintExample => 'E.g.: 32';
+
+  @override
+  String get yearsUnitSuffix => 'years';
+
+  @override
+  String get empListNationalityStepLabel => 'Nationality';
+
+  @override
+  String get nationalityCameroonianOption => 'Cameroonian';
+
+  @override
+  String get nationalityForeignOption => 'Foreign';
+
+  @override
+  String get empListSpecifyCountryLabel => 'Specify the country';
+
+  @override
+  String get empListCountryHintExample => 'E.g.: France, Nigeria, China...';
+
+  @override
+  String get empListDiplomaStepLabel => 'Highest diploma';
+
+  @override
+  String get empListSelectDiplomaHint => 'Select a diploma';
+
+  @override
+  String get diplomaCepe => 'CEPE';
+
+  @override
+  String get diplomaBepc => 'BEPC';
+
+  @override
+  String get diplomaCap => 'CAP';
+
+  @override
+  String get diplomaBac => 'BAC';
+
+  @override
+  String get diplomaBts => 'BTS';
+
+  @override
+  String get diplomaLicence => 'Bachelor\'s degree';
+
+  @override
+  String get diplomaMaster => 'Master\'s degree';
+
+  @override
+  String get diplomaDoctorat => 'Doctorate';
+
+  @override
+  String get empListFunctionStepLabel => 'Function / Position held';
+
+  @override
+  String get empListFunctionHintExample =>
+      'E.g.: Accountant, Engineer, Assistant...';
+
+  @override
+  String get empListSeniorityStepLabel => 'Seniority in the company';
+
+  @override
+  String get empListSeniorityHintExample => 'E.g.: 5';
+
+  @override
+  String get empListCategoryStepLabel => 'Socio-professional category';
+
+  @override
+  String get empListSelectCategoryHint => 'Select the category (1-12)';
+
+  @override
+  String get nonDeclaredLabel => 'Not declared';
+
+  @override
+  String categoryNumberLabel(String number) {
+    return 'Category $number';
+  }
+
+  @override
+  String get empListCategoryScaleHelper =>
+      'Per the official DSMO scale (1 = operational staff, 12 = senior executive)';
+
+  @override
+  String get empListSalaryStepLabel => 'Monthly salary (FCFA) *';
+
+  @override
+  String get empListSalaryHintExample => 'E.g.: 250000';
+
+  @override
+  String get fcfaCurrencySuffix => 'FCFA';
+
+  @override
+  String get mandatoryHelperText => 'Mandatory';
+
+  @override
+  String empListImportSuccessMsg(int count) {
+    return '$count employee(s) imported successfully';
+  }
+
+  @override
+  String empListImportPartialMsg(int count, int errorCount) {
+    return '$count imported, $errorCount row(s) skipped';
+  }
+
+  @override
+  String get excelColCountry => 'Country';
+
+  @override
+  String get excelColDiploma => 'Diploma';
+
+  @override
+  String get excelColSeniorityYears => 'Seniority (years)';
+
+  @override
+  String get excelColSalary => 'Salary (FCFA)';
+
+  @override
+  String get empListSaveFileDialogTitle => 'Save the employee list';
+
+  @override
+  String get exportSuccessMsg => 'Export successful!';
+
+  @override
+  String get movementsPromotionsPlural => 'Promotions';
+
+  @override
+  String empListPartAPreviewPageHeader(int page, int total) {
+    return 'PART A Preview — Page $page/$total';
+  }
+
+  @override
+  String get empListSectionEstablishmentIdentity => 'Establishment identity';
+
+  @override
+  String get fieldCompanyNameFullLabel => 'Name / Company name';
+
+  @override
+  String get empListTaxNumberNiuLabel => 'Tax ID No. (NIU)';
+
+  @override
+  String get empListWorkforceCurrentYearSection => 'Workforce — Current year';
+
+  @override
+  String get empListDeclaredTotalLabel => 'Declared total';
+
+  @override
+  String get empListMovementDetailByCategory => 'Movement detail by category';
+
+  @override
+  String get catRange13Label => 'Cat. 1-3';
+
+  @override
+  String get catRange46Label => 'Cat. 4-6';
+
+  @override
+  String get catRange79Label => 'Cat. 7-9';
+
+  @override
+  String get catRange1012Label => 'Cat. 10-12';
+
+  @override
+  String get nonDeclaredCategoryLabel => 'Not Declared';
+
+  @override
+  String get empListQualitativeInfoSection => 'Qualitative information';
+
+  @override
+  String get empListTrainingCenterLabelShort => 'Training center';
+
+  @override
+  String get empListRecruitmentPlansNextLabel =>
+      'Recruitment plans (next year)';
+
+  @override
+  String get empListCamerounisationPlanLabel => 'Cameroonization plan';
+
+  @override
+  String get empListUsesTempAgenciesLabel =>
+      'Use of temporary employment agencies';
+
+  @override
+  String get empListTempAgencyDetailsLabel => 'Temporary agency details';
+
+  @override
+  String get empListConfirmAndSubmitButton => 'Confirm and submit';
+
+  @override
+  String empListMismatchTotalLine(int actual, int declared) {
+    return '• Total employees: $actual entered vs $declared declared';
+  }
+
+  @override
+  String empListMismatchMenLine(int actual, int declared) {
+    return '• Men: $actual entered vs $declared declared';
+  }
+
+  @override
+  String empListMismatchWomenLine(int actual, int declared) {
+    return '• Women: $actual entered vs $declared declared';
+  }
+
+  @override
+  String get empListWorkforceInconsistencyTitle => '⚠️ Workforce inconsistency';
+
+  @override
+  String get empListWorkforceMismatchIntro =>
+      'The number of employees entered does not match the workforce declared in PART A:\n';
+
+  @override
+  String get empListContinueSubmissionAnywayQuestion =>
+      'Do you want to continue the submission anyway?';
+
+  @override
+  String get empListOfficialFormExactMatchNote =>
+      'Note: The official form requires an exact match.';
+
+  @override
+  String get empListContinueDespiteErrorButton => 'Continue despite the error';
+
+  @override
+  String get empListAddAtLeastOneEmployeeError =>
+      'Add at least one employee before submitting';
+
+  @override
+  String get empListInvalidEmployeeDataError =>
+      'Some employees have invalid data (empty name or salary ≤ 0)';
+
+  @override
+  String empListPreviewGenerationError(String error) {
+    return 'Unable to generate the preview: $error';
+  }
+
+  @override
+  String empListSubmissionHttpError(String code, String data) {
+    return 'Error during submission. HTTP code: $code\n\n$data';
+  }
+
+  @override
+  String empListQueuedDeclarationLabel(int year, String company) {
+    return 'DSMO Declaration $year — $company';
+  }
+
+  @override
+  String empListDefaultDeadlineFallback(int year) {
+    return 'January 31, $year';
+  }
+
+  @override
+  String get empListQueuedOfflineFullMsg =>
+      'Your declaration has been saved on this device and will be sent automatically once the connection returns. You can safely close this screen.';
+
+  @override
+  String get okButton => 'OK';
+
+  @override
+  String get empListDeclarationSavedTitle => 'Declaration saved!';
+
+  @override
+  String empListTrackingNumberLine(String trackingNumber) {
+    return 'Tracking No.: $trackingNumber';
+  }
+
+  @override
+  String get empListThreePdfCopiesAvailable => '3 PDF copies available:';
+
+  @override
+  String get printDownloadTooltip => 'Print / Download';
+
+  @override
+  String get empListMandatoryProcedureTitle => 'MANDATORY PROCEDURE:';
+
+  @override
+  String get empListProcStepPrintCopies => '• Print the 3 copies';
+
+  @override
+  String get empListProcStepSignCopies => '• Sign each copy';
+
+  @override
+  String get empListProcStepAddCompanyStamp => '• Add the company stamp';
+
+  @override
+  String empListProcStepSendByRegisteredMail(String deadline) {
+    return '• Send by REGISTERED MAIL before $deadline';
+  }
+
+  @override
+  String get empListProcStepEmploymentOffice =>
+      '• To the employment district office';
+
+  @override
+  String get empListLawComplianceNoteFull =>
+      'In accordance with Law No. 91/023 of 16 December 1991';
+
+  @override
+  String get successTitle => 'Success';
+
+  @override
+  String get empListSimpleSuccessMsg =>
+      'Declaration submitted successfully!\n\nThe PDFs will be available in your employer portal.';
+
+  @override
+  String get empListSubmissionFailedTitle => 'Submission failed';
+
+  @override
+  String get empListAppBarTitle => 'DECLARATION ON THE WORKFORCE SITUATION';
+
+  @override
+  String get exportExcelTooltip => 'Export Excel';
+
+  @override
+  String get importExcelTooltip => 'Import Excel';
+
+  @override
+  String get previewPartATooltip => 'Preview PART A';
+
+  @override
+  String get previewPdfTooltipLong => 'Preview the PDF';
+
+  @override
+  String get empListRegisteredEmployeesLabel => 'Registered employees';
+
+  @override
+  String get empListInconsistencyBadge => 'INCONSISTENCY';
+
+  @override
+  String get empListEmptyStateMsg =>
+      'No employee registered.\n\nAdd manually via the + button\nor import an Excel file.';
+
+  @override
+  String get empListColNumero => 'No.';
+
+  @override
+  String get empListColSeniority => 'Seniority';
+
+  @override
+  String get notDeclaredAbbrev => 'N/D';
+
+  @override
+  String ageYearsValue(int age) {
+    return '$age years';
+  }
+
+  @override
+  String seniorityYearsValue(int years) {
+    String _temp0 = intl.Intl.pluralLogic(
+      years,
+      locale: localeName,
+      other: '$years years',
+      one: '$years year',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get empListAddEmployeeFabLabel => 'Add employee';
+
+  @override
+  String get sendNotifStatusDivisionApproved => 'Approved (Division)';
+
+  @override
+  String get sendNotifStatusRegionApproved => 'Approved (Region)';
+
+  @override
+  String get sendNotifStatusFinalApproved => 'Approved (Final)';
+
+  @override
+  String sendNotifSuccessMsg(int count) {
+    return 'Notification sent to $count companies';
+  }
+
+  @override
+  String sendNotifErrorMsg(String msg) {
+    return 'Error: $msg';
+  }
+
+  @override
+  String get sendNotifHeaderTitle => 'Send a notification';
+
+  @override
+  String get sendNotifHeaderSubtitle => 'Multi-criteria company targeting';
+
+  @override
+  String get sendNotifEstimatedRecipientsLabel => 'Estimated recipients';
+
+  @override
+  String sendNotifRecipientCountLine(int count) {
+    return '$count companies';
+  }
+
+  @override
+  String get sendNotifActiveBadge => 'Active';
+
+  @override
+  String get sendNotifRecipientFiltersSection => 'Recipient filters';
+
+  @override
+  String get sendNotifDivisionDepartmentLabel => 'Division / Department';
+
+  @override
+  String get sendNotifAllDivisionsHint => 'All divisions';
+
+  @override
+  String get sendNotifSubmissionStatusLabel => 'Submission status';
+
+  @override
+  String get sendNotifAllStatusesHint => 'All statuses';
+
+  @override
+  String get sendNotifMessageContentSection => 'Message content';
+
+  @override
+  String get sendNotifSubjectLabel => 'Subject';
+
+  @override
+  String get sendNotifSubjectHintExample =>
+      'E.g.: Reminder — DSM-O 2025 Deadline';
+
+  @override
+  String get sendNotifSubjectRequiredError => 'Subject is required';
+
+  @override
+  String get sendNotifMessageFieldLabel => 'Message';
+
+  @override
+  String get sendNotifMessageHintExample => 'Write your message here...';
+
+  @override
+  String get sendNotifMessageRequiredError => 'Message is required';
+
+  @override
+  String get sendNotifSendButton => 'Send the notification';
+
+  @override
+  String get sendNotifClearFormButton => 'Clear the form';
+
+  @override
+  String get homeTabAnalyticsDsmo => 'DSMO Analytics';
+
+  @override
+  String get homeTabReports => 'Reports';
+
+  @override
+  String get homeTabCommunication => 'Communication';
+
+  @override
+  String get annuaireLabel => 'Directory';
+
+  @override
+  String get dashboardFallbackTitle => 'Dashboard';
+
+  @override
+  String get roleLabelDivisional => 'Labor Division';
+
+  @override
+  String get roleLabelRegional => 'Regional Delegation';
+
+  @override
+  String get roleLabelCentral => 'National Directorate';
+
+  @override
+  String get roleLabelSuperAdmin => 'Super Admin · DSMO + ONEFOP';
+
+  @override
+  String get roleLabelSuperAdminDsmo => 'Admin · Labor Regulation';
+
+  @override
+  String get roleLabelSuperAdminOnefop => 'Admin · ONEFOP';
+
+  @override
+  String get filterByZoneTitle => 'Filter by area';
+
+  @override
+  String get clearButton => 'Clear';
+
+  @override
+  String get departmentDivisionLabel => 'Department / Division';
+
+  @override
+  String get allDepartmentsHint => 'All departments';
+
+  @override
+  String get applyFilterButton => 'Apply filter';
+
+  @override
+  String get approvedHistoricalStatusOption => 'Approved (historical)';
+
+  @override
+  String get logoutDialogTitle => 'Log out';
+
+  @override
+  String get logoutConfirmBody => 'Are you sure you want to log out?';
+
+  @override
+  String get logoutButton => 'Log out';
+
+  @override
+  String get drawerSectionConsultation => 'Consultation';
+
+  @override
+  String get drawerViewQuestionnairesSubtitle => 'View questionnaires';
+
+  @override
+  String get drawerSectionAdminDsmo => 'DSMO Administration';
+
+  @override
+  String get drawerDeclarationsDsmoLabel => 'DSMO Declarations';
+
+  @override
+  String get drawerViewDeclarationsSubtitle => 'View declarations';
+
+  @override
+  String get drawerAnnuaireSubtitle => 'Users and companies';
+
+  @override
+  String get drawerResetPasswordSubtitle => 'After identity verification';
+
+  @override
+  String get drawerSectionAdminOnefop => 'ONEFOP Administration';
+
+  @override
+  String get drawerSectionSaisieOnefop => 'ONEFOP Data Entry';
+
+  @override
+  String get drawerNewQuestionnaireLabel => 'New questionnaire';
+
+  @override
+  String get drawerAssistedEntrySubtitle => 'Assisted entry';
+
+  @override
+  String get navCollapseTooltip => 'Collapse navigation';
+
+  @override
+  String get navExpandTooltip => 'Expand navigation';
+
+  @override
+  String get filterByRegionTooltip => 'Filter by region';
+
+  @override
+  String get connectionErrorTitle => 'Connection error';
+
+  @override
+  String get navOnefopMinefopTag => 'ONEFOP · MINEFOP';
+
+  @override
+  String get onefopAutoGuidedTitle => 'Self-guided questionnaire';
+
+  @override
+  String get onefopContinueQuestionnaireButton => 'Continue the questionnaire';
+
+  @override
+  String get dearDirectorGreeting => 'Dear Director';
+
+  @override
+  String get yourProgressHeading => 'Your Progress';
+
+  @override
+  String sectionsCompletedCount(int completed, int total) {
+    return '$completed/$total sections completed';
+  }
+
+  @override
+  String get fieldsRemainingPlaceholder => '17/32 required fields remaining';
+
+  @override
+  String get completedSlashLabel => 'Completed';
+
+  @override
+  String get minefopOnefopBrandTag => 'MINEFOP / ONEFOP';
+
+  @override
+  String submissionIdEntityTypeLine(
+      String establishmentId, String entityTypeLabel) {
+    return 'ID $establishmentId · $entityTypeLabel';
+  }
+
+  @override
+  String get mastheadCnpsLabel => 'CNPS';
+
+  @override
+  String vtWizardSectionNumberLabel(int index) {
+    return 'SECTION $index';
+  }
+
+  @override
+  String vtWizardFieldsFilledCount(int filled, int total) {
+    return '$filled/$total fields';
+  }
+
+  @override
+  String get reportApprovalApprovedSnackbar => 'Report approved';
+
+  @override
+  String get reportApprovalRejectedSnackbar => 'Report rejected';
+
+  @override
+  String get reportRejectionReasonDialogTitle => 'Reason for rejection';
+
+  @override
+  String get reportRejectionReasonHint => 'Explain why...';
+
+  @override
+  String get reportNoPendingApprovalsTitle => 'No pending approvals';
+
+  @override
+  String get reportAllProcessedSubtitle => 'All reports have been processed';
+
+  @override
+  String get reportAuditEmptyTitle => 'No activity recorded';
+
+  @override
+  String get reportAuditEmptySubtitle => 'User actions will appear here';
+
+  @override
+  String get reportAuditSystemActionFallback => 'System action';
+
+  @override
+  String get reportRegionLittoral => 'Littoral';
+
+  @override
+  String get reportRegionCentre => 'Centre';
+
+  @override
+  String get reportRegionNord => 'North';
+
+  @override
+  String get reportRegionExtremeNord => 'Far North';
+
+  @override
+  String get reportRegionOuest => 'West';
+
+  @override
+  String get reportRegionSud => 'South';
+
+  @override
+  String get reportRegionEst => 'East';
+
+  @override
+  String get reportRegionAdamaoua => 'Adamawa';
+
+  @override
+  String get reportRegionNordOuest => 'North West';
+
+  @override
+  String get reportRegionSudOuest => 'South West';
+
+  @override
+  String get reportBatchSelectRegionError => 'Select at least one region';
+
+  @override
+  String get reportBatchGenerationStartedMsg => 'Batch generation started';
+
+  @override
+  String get reportBatchJobRetryingMsg => 'Retry in progress';
+
+  @override
+  String get reportBatchByRegionTitle => 'Batch generation by region';
+
+  @override
+  String get reportBatchLaunchButton => 'Launch batch generation';
+
+  @override
+  String get reportBatchRecentJobsTitle => 'Recent jobs';
+
+  @override
+  String get reportBatchEmptyTitle => 'No batch jobs';
+
+  @override
+  String reportBatchJobReportsCount(int completed, int total) {
+    return '$completed/$total reports';
+  }
+
+  @override
+  String get reportSelectTwoReportsError => 'Select two reports to compare';
+
+  @override
+  String get reportMetricFeminizationLabel => 'Feminization';
+
+  @override
+  String get reportSelectReportHint => 'Select a report';
+
+  @override
+  String get reportBaselineReportLabel => 'Baseline report';
+
+  @override
+  String get reportTargetReportLabel => 'Report to compare';
+
+  @override
+  String get reportCompareButton => 'Compare';
+
+  @override
+  String get reportComparisonResultsTitle => 'Comparison results';
+
+  @override
+  String get reportBaselineColumnLabel => 'Baseline';
+
+  @override
+  String get reportComparedColumnLabel => 'Compared';
+
+  @override
+  String get reportSelectOneSectionError => 'Select at least one section';
+
+  @override
+  String get reportEndDateAfterStartError =>
+      'The end date must be after the start date';
+
+  @override
+  String get reportPeriodMax36MonthsError =>
+      'The period cannot exceed 36 months';
+
+  @override
+  String get reportGeneratedSuccessMsg => 'Report generated successfully';
+
+  @override
+  String get reportSectionLocationLabel => 'LOCATION';
+
+  @override
+  String get reportNationalAllOption => 'National (all)';
+
+  @override
+  String get reportPeriod3MonthsLabel => '3 months';
+
+  @override
+  String get reportPeriod6MonthsLabel => '6 months';
+
+  @override
+  String get reportPeriod12MonthsLabel => '12 months';
+
+  @override
+  String get reportPeriodYtdLabel => 'Current year';
+
+  @override
+  String get reportPeriodCustomLabel => 'Custom';
+
+  @override
+  String get reportSectionPeriodLabel => 'PERIOD';
+
+  @override
+  String get reportDateFromLabel => 'From';
+
+  @override
+  String get reportDateToLabel => 'To';
+
+  @override
+  String get reportSectionContentLabel => 'CONTENT';
+
+  @override
+  String get reportSelectAllButton => 'Select all';
+
+  @override
+  String get reportDeselectAllButton => 'Deselect all';
+
+  @override
+  String get reportSubtitleWorkforceTrends => 'Time trends';
+
+  @override
+  String get reportSubtitleSkillsAnalysis => 'Sector analysis';
+
+  @override
+  String get reportSubtitleDiversityInclusion => 'Equity & inclusion';
+
+  @override
+  String get reportSubtitleRegionalDetail => 'Regional detail';
+
+  @override
+  String get reportSectionNameLabel => 'REPORT NAME (optional)';
+
+  @override
+  String get reportNameHintExample => 'HR Briefing Littoral June 2026';
+
+  @override
+  String get reportGenerateButtonLabel => 'GENERATE REPORT';
+
+  @override
+  String get reportDownloadStartedMsg => 'Download started';
+
+  @override
+  String get reportEmptyHistoryTitle => 'No report generated';
+
+  @override
+  String get reportEmptyHistorySubtitle =>
+      'Generate your first report in the \"Generate\" tab';
+
+  @override
+  String get reportDownloadTooltip => 'Download';
+
+  @override
+  String get reportTabGenerate => 'Generate';
+
+  @override
+  String get reportTabApprovals => 'Approvals';
+
+  @override
+  String get reportTabHistory => 'History';
+
+  @override
+  String get reportTabBatch => 'Batch';
+
+  @override
+  String get reportTabAudit => 'Audit';
+
+  @override
+  String get reportScreenTitle => 'Report generator';
+
+  @override
+  String onefopExportExcelDownloadedMsg(String path) {
+    return 'Excel file downloaded: $path';
+  }
+
+  @override
+  String onefopExportErrorMsg(String error) {
+    return 'Error during export: $error';
+  }
+
+  @override
+  String onefopExportSpssDownloadedMsg(String path) {
+    return 'SPSS files downloaded (CSV + .sps syntax): $path. Place both files in the same folder, then run the .sps file in SPSS.';
+  }
+
+  @override
+  String onefopExportSpssErrorMsg(String error) {
+    return 'Error during SPSS export: $error';
+  }
+
+  @override
+  String get onefopExportPanelTitle => 'Export ONEFOP submissions';
+
+  @override
+  String get onefopExportPanelDescription =>
+      'Compiles all approved submissions (Enterprises, Cooperatives, Local Authorities, NGOs): identification data and sections 1 to 4 of the questionnaire.';
+
+  @override
+  String get onefopExportGeneratingLabel => 'Generating…';
+
+  @override
+  String get onefopExportExcelButton => 'Export to Excel';
+
+  @override
+  String get onefopExportSpssButton => 'Export to SPSS';
+
+  @override
+  String get onefopExportPdfComingSoonMsg => 'PDF export coming soon';
+
+  @override
+  String reportExportFiltersActiveCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Filters ($count active)',
+      one: 'Filters ($count active)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reportExportFiltersOptionalLabel => 'Filters (optional)';
+
+  @override
+  String get onefopExportFilterDescription =>
+      'Limits the export to a specific region, department, survey year, and/or period.';
+
+  @override
+  String get onefopExportChooseRegionFirstHint => 'Choose a region first';
+
+  @override
+  String get onefopExportSurveyYearLabel => 'Survey year';
+
+  @override
+  String onefopExportYearHintExample(int year) {
+    return 'E.g. $year';
+  }
+
+  @override
+  String get onefopExportAllPeriodOption => 'Entire period';
+
+  @override
+  String get onefopExportSubmissionPeriodLabel => 'Submission period';
+
+  @override
+  String get soumissionsTypeDsmoOption => 'DSMO';
+
+  @override
+  String get draftSavedSnackbar => 'Draft saved';
+
+  @override
+  String get discardDraftDialogTitle => 'Discard draft?';
+
+  @override
+  String get draftRelativeTimeJustNow => 'just now';
+
+  @override
+  String draftRelativeTimeMinutesAgo(int minutes) {
+    return '$minutes min ago';
+  }
+
+  @override
+  String draftRelativeTimeHoursAgo(int hours) {
+    return '$hours h ago';
+  }
+
+  @override
+  String draftRelativeTimeDaysAgo(int days) {
+    return '$days d ago';
+  }
+
+  @override
+  String get draftSaveNowButton => 'Save now';
+
+  @override
+  String get draftLoadFailedMessage => 'Failed to load drafts';
+
+  @override
+  String get draftEmptyStateMessage => 'No saved draft';
+
+  @override
+  String offlineBannerOfflineWithPendingMsg(int count) {
+    return 'Offline — $count pending';
+  }
+
+  @override
+  String get offlineBannerOfflineDegradedMsg => 'Offline mode';
+
+  @override
+  String offlineBannerOnlinePendingMsg(int count) {
+    return '$count item(s) pending';
+  }
+
+  @override
+  String get pdfDownloadFolderNotFoundError => 'Download folder not found.';
+
+  @override
+  String get pdfSavedToDownloadsMsg => 'PDF saved to Downloads';
+
+  @override
+  String get pdfSavedToDocumentsMsg => 'PDF saved to Documents';
+
+  @override
+  String pdfDownloadFailedError(String error) {
+    return 'Download failed: $error';
+  }
+
+  @override
+  String get formPreviewTitle => 'Official ONEFOP Form · CAM-LEAP';
+
+  @override
+  String get pdfReviewBeforeSubmitWarning =>
+      'Review the information below before submitting for good.';
+
+  @override
+  String get loadingPdfEllipsis => 'Loading PDF…';
+
+  @override
+  String get pdfLoadFailedError => 'Unable to load the PDF.';
+
+  @override
+  String get submittingEllipsis => 'Submitting…';
+
+  @override
+  String get customPeriodLabel => 'Custom period';
+
+  @override
+  String get periodAnalysisLabel => 'Analysis period';
+
+  @override
+  String get yearLabel => 'Year';
+
+  @override
+  String get quarterLabel => 'Quarter';
+
+  @override
+  String get semesterLabel => 'Semester';
+
+  @override
+  String get quarterT1Label => 'Q1 (Jan-Mar)';
+
+  @override
+  String get quarterT2Label => 'Q2 (Apr-Jun)';
+
+  @override
+  String get quarterT3Label => 'Q3 (Jul-Sep)';
+
+  @override
+  String get quarterT4Label => 'Q4 (Oct-Dec)';
+
+  @override
+  String get semesterS1Label => 'S1 (Jan-Jun)';
+
+  @override
+  String get semesterS2Label => 'S2 (Jul-Dec)';
+
+  @override
+  String get selectPeriodPrompt => 'Select a period';
+
+  @override
+  String get newShortLabel => 'New';
+
+  @override
+  String get serviceCategoryDeconcentratedLabel => 'Decentralized Services';
+
+  @override
+  String get serviceCategoryCentralLabel => 'Central Administration';
+
+  @override
+  String get serviceCategoryAffiliatedLabel => 'Affiliated Bodies';
+
+  @override
+  String get selectServiceTypeAbovePrompt => 'Select a service type above.';
+
+  @override
+  String get noServiceFoundMessage => 'No service found.';
+
+  @override
+  String get serviceTypeFieldLabel => 'Service type *';
+
+  @override
+  String get selectServiceTypeHint => 'Select a service type';
+
+  @override
+  String get serviceSelectedLabel => 'Service selected';
+
+  @override
+  String get servicesLoadFailedTitle => 'Unable to load services';
+
+  @override
+  String get serviceCategoryDeconcentratedShort => 'Decentralized';
+
+  @override
+  String get serviceCategoryCentralShort => 'Central';
+
+  @override
+  String get serviceCategoryAffiliatedShort => 'Affiliated';
 }

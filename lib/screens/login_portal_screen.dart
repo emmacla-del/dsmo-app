@@ -127,14 +127,27 @@ class _LoginPortalScreenState extends ConsumerState<LoginPortalScreen>
     final authState = ref.watch(authProvider);
     final twoFactorToken = ref.watch(twoFactorChallengeProvider);
     final bool isBusy = _submitting || authState.isLoading;
+    // auth_provider's login/verifyTwoFactorCode already put the server's
+    // real message on AsyncValue.error (ApiException.message — lockout
+    // text, "code invalide", etc., already bilingual fr/en from the
+    // backend, same as everywhere else ApiException.message is shown
+    // directly). Prefer that over the generic fallback strings so the
+    // user sees the actual reason instead of a blanket "wrong
+    // credentials" whenever the server sent one.
+    final Object? authErrorObj = authState.error;
+    final String? serverMessage = authErrorObj is ApiException
+        ? authErrorObj.message
+        : authErrorObj?.toString();
     final String? authError = authState.hasError && !isBusy
-        ? (twoFactorToken != null
-            ? context.l10n.portalTwoFactorCodeError
-            : context.l10n.portalCredentialsError)
+        ? ((serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage
+            : (twoFactorToken != null
+                ? context.l10n.portalTwoFactorCodeError
+                : context.l10n.portalCredentialsError))
         : null;
 
     return PublicAuthScaffold(
-      onLogoTap: () => router.go('/'),
+      onLogoTap: () => router.go('/login'),
       child: twoFactorToken != null
           ? PublicCard(
               padding: EdgeInsets.fromLTRB(
@@ -491,20 +504,28 @@ class _LoginPaneState extends State<_LoginPane> {
   }
 
   Widget _buildSubmitRow(BuildContext context) {
-    final rememberMe = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Checkbox(
-          value: widget.rememberMe,
-          onChanged: (v) => widget.onToggleRememberMe(v ?? true),
-          activeColor: PublicColors.green,
-          side: const BorderSide(color: PublicColors.gray400),
+    final rememberMe = InkWell(
+      onTap: () => widget.onToggleRememberMe(!widget.rememberMe),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: widget.rememberMe,
+              onChanged: (v) => widget.onToggleRememberMe(v ?? true),
+              activeColor: PublicColors.green,
+              side: const BorderSide(color: PublicColors.gray400),
+            ),
+            const SizedBox(width: 6),
+            Text(context.l10n.rememberMe,
+                style:
+                    const TextStyle(fontSize: 13, color: PublicColors.gray700)),
+          ],
         ),
-        const SizedBox(width: 6),
-        Text(context.l10n.rememberMe,
-            style:
-                const TextStyle(fontSize: 13, color: PublicColors.gray700)),
-      ],
+      ),
     );
 
     final forgotLink = TextButton(

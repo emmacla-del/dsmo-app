@@ -21,6 +21,12 @@ class OnefopLegalAcknowledgmentScreen extends StatefulWidget {
   final VoidCallback onAcknowledged;
   // Future that resolves when the form schema is ready
   final Future<void> Function() onPreload;
+  // Respondent's name/quality (job title, e.g. "Directeur Général",
+  // "Promoteur") as already captured at registration — used to personalize
+  // the welcome greeting instead of the generic "Director / Promoter".
+  // Null/empty when unknown (falls back to the generic wording).
+  final String? respondentName;
+  final String? respondentFunction;
 
   const OnefopLegalAcknowledgmentScreen({
     super.key,
@@ -28,6 +34,8 @@ class OnefopLegalAcknowledgmentScreen extends StatefulWidget {
     required this.isReturningUser,
     required this.onAcknowledged,
     required this.onPreload,
+    this.respondentName,
+    this.respondentFunction,
   });
 
   @override
@@ -140,6 +148,10 @@ class _OnefopLegalAcknowledgmentScreenState
     });
   }
 
+  void _toggleAcknowledged() {
+    setState(() => _isAcknowledged = !_isAcknowledged);
+  }
+
   @override
   void dispose() {
     _pulseCtrl.dispose();
@@ -154,6 +166,7 @@ class _OnefopLegalAcknowledgmentScreenState
       EntityType.enterprise => l10n.entityShortEnterprise,
       EntityType.cooperative => l10n.entityShortCooperative,
       EntityType.ctd => l10n.entityShortCtd,
+      EntityType.vocationalTraining => l10n.entityShortVocationalTraining,
       // vocational/administration/projectProgram never reach this screen
       // today (no ONEFOP form flow routes to it for them yet — Phase 0
       // architecture placeholders) — generic platform name as a safe,
@@ -164,54 +177,50 @@ class _OnefopLegalAcknowledgmentScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo + loading text — only during schema load
-                if (_flowState == _FlowState.logoLoading) ...[
-                  _buildPulsingLogo(),
-                  const SizedBox(height: 24),
-                  FadeTransition(
-                    opacity: _pulseGlow,
-                    child: Text(
-                      context.l10n.loadingEllipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13,
-                        color: Color(0xFF94A3B8),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+    if (_flowState == _FlowState.logoLoading) {
+      // Loading state: nothing but the pulsing logo, centered on the screen.
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F8F6),
+        body: Center(child: _buildPulsingLogo()),
+      );
+    }
 
-                // Acknowledgment card — no logo
-                if (_flowState == _FlowState.acknowledgment ||
-                    _flowState == _FlowState.exiting)
-                  SlideTransition(
-                    position: _cardSlide,
-                    child: FadeTransition(
-                      opacity: _cardOpacity,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 580),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F8F6),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 600;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                  compact ? 20 : 32, 0, compact ? 20 : 32, 28),
+              child: ConstrainedBox(
+                // Fills the viewport height so Center below can vertically
+                // center the card instead of pinning it to the top — falls
+                // back to normal scrolling if the card is taller than this.
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: SlideTransition(
+                      position: _cardSlide,
+                      child: FadeTransition(
+                        opacity: _cardOpacity,
                         child: _buildAcknowledgmentCard(),
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
+}
 
+extension _AcknowledgmentCardMethods on _OnefopLegalAcknowledgmentScreenState {
   Widget _buildPulsingLogo() {
     return AnimatedBuilder(
       animation: _pulseCtrl,
@@ -299,6 +308,44 @@ class _OnefopLegalAcknowledgmentScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Welcome greeting — personalized with the respondent's
+                  // name/quality when already known from registration data,
+                  // generic otherwise.
+                  Center(
+                    child: Column(
+                      children: [
+                        Text(
+                          (widget.respondentName?.trim().isNotEmpty ?? false)
+                              ? context.l10n
+                                  .welcomeHeadingPersonalized(widget.respondentName!.trim())
+                              : context.l10n.welcomeHeading,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF142033),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          (widget.respondentFunction?.trim().isNotEmpty ??
+                                  false)
+                              ? context.l10n.welcomeSubtitlePersonalized(
+                                  widget.respondentFunction!.trim())
+                              : context.l10n.welcomeSubtitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   // Title row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,7 +400,7 @@ class _OnefopLegalAcknowledgmentScreenState
                   InkWell(
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      setState(() => _isAcknowledged = !_isAcknowledged);
+                      _toggleAcknowledged();
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Padding(
@@ -431,6 +478,19 @@ class _OnefopLegalAcknowledgmentScreenState
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3)),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Text(
+                      context.l10n.estimatedTimeCaption,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF94A3B8),
                       ),
                     ),
                   ),

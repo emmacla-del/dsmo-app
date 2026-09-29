@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:dio/dio.dart';
 import '../data/minefop_models.dart';
 import '../data/api_client.dart';
 import '../providers/auth_provider.dart';
@@ -211,7 +210,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(context.l10n.registerDraftRestored),
-              backgroundColor: Colors.teal,
+              backgroundColor: PublicColors.green,
               duration: const Duration(seconds: 3),
             ),
           );
@@ -282,7 +281,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       if (context.canPop()) {
         context.pop();
       } else {
-        context.go('/');
+        context.go('/login');
       }
     }
   }
@@ -448,7 +447,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle, size: 64, color: Colors.green),
+              const Icon(Icons.check_circle, size: 64, color: PublicColors.green),
               const SizedBox(height: 16),
               Text(context.l10n.registerSuccessTitle),
               const SizedBox(height: 24),
@@ -473,22 +472,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       await _submitCompany();
     } catch (e) {
       if (!mounted) return;
-      if (e is DioException) {
-        if (e.response?.statusCode == 409) {
-          String msg = context.l10n.registerDuplicateEmailOrNiu;
-          try {
-            final data = e.response?.data;
-            if (data is Map && data['message'] != null) {
-              msg = data['message'].toString();
-            }
-          } catch (_) {}
-          _showSnack(msg, error: true);
-        } else {
-          _showSnack(
-              context.l10n.registerSubmitErrorWithMessage('${e.message}'),
-              error: true);
-        }
-      } else if (e is ApiException) {
+      if (e is ApiException) {
         _showSnack(e.message, error: true);
       } else {
         _showSnack(context.l10n.registerSubmitErrorWithMessage('$e'),
@@ -542,6 +526,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           poBox: _entityData['poBox'] as String?,
           phone: _entityData['phone'] as String?,
           phone2: _entityData['phone2'] as String?,
+          sigle: _entityData['sigle'] as String?,
+          cfpType: _entityData['cfpType'] as String?,
+          educationSystem: _entityData['educationSystem'] as String?,
+          functionalStatus: _entityData['functionalStatus'] as String?,
+          nonFunctionalReason: _entityData['nonFunctionalReason'] as String?,
+          nonFunctionalReasonOther:
+              _entityData['nonFunctionalReasonOther'] as String?,
+          promoterName: _entityData['promoterName'] as String?,
+          promoterSex: _entityData['promoterSex'] as String?,
+          promoterPhone1: _entityData['promoterPhone1'] as String?,
+          promoterPhone2: _entityData['promoterPhone2'] as String?,
           sectorId: _selectedSector?['id'] as String?,
           respondentFunction: _respondentFunction,
           respondentPhone: _respondentPhone1,
@@ -570,7 +565,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(msg),
-        backgroundColor: error ? Colors.red : Colors.green));
+        backgroundColor: error ? PublicColors.red : PublicColors.green));
   }
 
   @override
@@ -763,7 +758,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         _back();
       },
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
+        backgroundColor: PublicColors.bg,
         body: SafeArea(
           child: Column(
             children: [
@@ -779,18 +774,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   margin: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red.shade200),
+                    color: PublicColors.redFaint,
+                    border: Border.all(color: PublicColors.redBorder),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(children: [
                     const Icon(Icons.error_outline,
-                        color: Colors.red, size: 18),
+                        color: PublicColors.red, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(authState.error.toString(),
                             style: const TextStyle(
-                                color: Colors.red, fontSize: 13))),
+                                color: PublicColors.red, fontSize: 13))),
                   ]),
                 ),
               Expanded(

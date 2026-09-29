@@ -135,7 +135,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return PublicAuthScaffold(
-      onLogoTap: () => router.go('/'),
+      onLogoTap: () => router.go('/login'),
       child: Column(
         children: [
           Text(

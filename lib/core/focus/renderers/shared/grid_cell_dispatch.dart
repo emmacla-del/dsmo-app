@@ -54,6 +54,13 @@ Widget buildGridCellWidget({
   TextEditingController Function(String)? hybridController,
   double? width,
   double? height,
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only (see
+  // table_renderer.dart's own `polished` doc comment for where this is
+  // computed/threaded from) — swaps typography for the Wizard-matched
+  // GridTheme.polished* styles below. Every other caller (Spreadsheet
+  // Mode, every other entity) omits this and keeps the plain GridTheme
+  // styles, unchanged.
+  bool polished = false,
 }) {
   final type = cs?.type ?? CellType.number;
   final editable = cs?.editable ?? false;
@@ -61,6 +68,11 @@ Widget buildGridCellWidget({
   final options = cs?.options ?? [];
   final w = width ?? GridTheme.colWidth;
   final h = height ?? (GridTheme.rowHeight - 2);
+  final dataStyle = polished ? GridTheme.polishedDataStyle : GridTheme.dataStyle;
+  final labelStyle = polished ? GridTheme.polishedLabelStyle : GridTheme.labelStyle;
+  final totalStyle = polished ? GridTheme.polishedTotalStyle : GridTheme.totalStyle;
+  final grandTotalStyle =
+      polished ? GridTheme.polishedGrandTotalStyle : GridTheme.grandTotalStyle;
 
   switch (type) {
     case CellType.number:
@@ -70,7 +82,7 @@ Widget buildGridCellWidget({
           padding: GridTheme.cellPadding,
           child: Text(
             v == 0 ? '—' : '$v',
-            style: isGrandTotal ? GridTheme.grandTotalStyle : GridTheme.totalStyle,
+            style: isGrandTotal ? grandTotalStyle : totalStyle,
             textAlign: TextAlign.center,
           ),
         );
@@ -91,6 +103,7 @@ Widget buildGridCellWidget({
         rowWidth: rowWidth,
         onExitTable: onExitTable,
         onExitPrevious: onExitPrevious,
+        polished: polished,
       );
 
     case CellType.text:
@@ -98,7 +111,7 @@ Widget buildGridCellWidget({
       if (!editable) {
         return Padding(
           padding: GridTheme.cellPadding,
-          child: Text(value, style: GridTheme.dataStyle),
+          child: Text(value, style: dataStyle),
         );
       }
       final hc = hybridController;
@@ -120,6 +133,7 @@ Widget buildGridCellWidget({
         onExitTable: onExitTable,
         onExitPrevious: onExitPrevious,
         externalController: externalCtrl,
+        polished: polished,
       );
 
     case CellType.radio:
@@ -132,6 +146,7 @@ Widget buildGridCellWidget({
         cellId: cellId,
         currentValue: currentValue,
         options: options,
+        style: dataStyle,
         onChanged: (v) {
           spec.onRadioChanged?.call(cellId, v);
           spec.onTextChanged?.call(cellId, v);
@@ -149,6 +164,7 @@ Widget buildGridCellWidget({
         cellId: cellId,
         currentValue: currentValue,
         options: options,
+        style: dataStyle,
         onChanged: (v) {
           spec.onSelectChanged?.call(cellId, v);
           spec.onTextChanged?.call(cellId, v);
@@ -162,7 +178,7 @@ Widget buildGridCellWidget({
         padding: GridTheme.cellPadding,
         child: Text(
           v == 0 ? '—' : '$v',
-          style: isGrandTotal ? GridTheme.grandTotalStyle : GridTheme.totalStyle,
+          style: isGrandTotal ? grandTotalStyle : totalStyle,
           textAlign: TextAlign.center,
         ),
       );
@@ -170,7 +186,7 @@ Widget buildGridCellWidget({
     case CellType.label:
       return Padding(
         padding: GridTheme.labelCellPadding,
-        child: Text(cs?.label ?? '', style: GridTheme.labelStyle),
+        child: Text(cs?.label ?? '', style: labelStyle),
       );
   }
 }
@@ -180,6 +196,7 @@ Widget _dropdownCell({
   required String currentValue,
   required List<String> options,
   required ValueChanged<String> onChanged,
+  required TextStyle style,
 }) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -188,12 +205,12 @@ Widget _dropdownCell({
       hint: const Text('—', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
       isExpanded: true,
       underline: const SizedBox(),
-      style: GridTheme.dataStyle,
+      style: style,
       iconSize: 14,
       items: options
           .map((o) => DropdownMenuItem(
                 value: o,
-                child: Text(o, style: GridTheme.dataStyle, overflow: TextOverflow.ellipsis),
+                child: Text(o, style: style, overflow: TextOverflow.ellipsis),
               ))
           .toList(),
       onChanged: (v) {

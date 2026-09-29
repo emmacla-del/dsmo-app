@@ -8,6 +8,7 @@ import '../widgets/email_field_with_availability.dart';
 import '../core/i18n/l10n_ext.dart';
 import '../core/i18n/localized_text.dart';
 import '../data/minefop_models.dart';
+import '../widgets/public_chrome.dart';
 
 // ════════════════════════════════════════════════════════════════
 // STEP 0 — Role selection
@@ -36,7 +37,7 @@ class StepRole extends StatelessWidget {
           value: 'COMPANY',
           selected: _isCompanySelected ? 'COMPANY' : '',
           icon: Icons.business_outlined,
-          color: Colors.teal,
+          color: PublicColors.green,
           title: context.l10n.registerRoleCompanyTitle,
           subtitle: context.l10n.registerRoleCompanySubtitle,
           onTap: (_) => onSelect('COMPANY'),
@@ -334,7 +335,18 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
     );
   }
 
+  /// Whether [field] should render at all right now, per its
+  /// dependsOn/dependsValue (see EntityField doc comment). Fields that
+  /// return false here are simply omitted from the tree — Flutter's
+  /// Form.validate() only validates FormFields that are actually mounted,
+  /// so an omitted required field is never validated either.
+  bool _isFieldVisible(EntityField field) {
+    if (field.dependsOn == null) return true;
+    return widget.entityData[field.dependsOn] == field.dependsValue;
+  }
+
   Widget _buildField(EntityField field) {
+    if (!_isFieldVisible(field)) return const SizedBox.shrink();
     final label = field.label.of(context.loc);
     if (field.options != null) {
       final cur = widget.entityData[field.key] as String?;
@@ -451,6 +463,12 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
       case 'branch':
       case 'secondaryActivity':
         return Icons.work_history_outlined;
+      case 'sigle':
+        return Icons.short_text_outlined;
+      case 'nonFunctionalReasonOther':
+        return Icons.report_problem_outlined;
+      case 'promoterName':
+        return Icons.person_outline;
       default:
         return Icons.edit_outlined;
     }
@@ -799,7 +817,7 @@ class _StepSecurityState extends State<StepSecurity> {
                     ? Icons.check_circle_outline
                     : Icons.lock_clock_outlined,
                 color: _confirmDirty && _confirmError(_confirmCtrl.text) == null
-                    ? Colors.green
+                    ? PublicColors.green
                     : null,
               ),
               suffixIcon: IconButton(
@@ -841,13 +859,13 @@ class _PasswordTips extends StatelessWidget {
           Icon(
             ok ? Icons.check_circle : Icons.radio_button_unchecked,
             size: 14,
-            color: ok ? Colors.green : Colors.grey.shade400,
+            color: ok ? PublicColors.green : PublicColors.gray400,
           ),
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
                   fontSize: 11,
-                  color: ok ? Colors.green.shade700 : Colors.grey.shade500)),
+                  color: ok ? PublicColors.greenDark : PublicColors.gray500)),
         ]);
       }).toList(),
     );
@@ -966,7 +984,7 @@ class StepReview extends StatelessWidget {
         const SizedBox(height: 16),
         InfoBox(
           icon: Icons.check_circle_outline,
-          color: Colors.green,
+          color: PublicColors.green,
           text: context.l10n.registerCompanyPendingInfoBox,
         ),
       ]),
@@ -986,11 +1004,13 @@ class StepReview extends StatelessWidget {
         child: Row(children: [
           Icon(_entityConfig!.icon, color: _entityConfig!.color),
           const SizedBox(width: 10),
-          Text(_entityConfig!.title.of(context.loc),
-              style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: _entityConfig!.color)),
+          Expanded(
+            child: Text(_entityConfig!.title.of(context.loc),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: _entityConfig!.color)),
+          ),
         ]),
       );
     }

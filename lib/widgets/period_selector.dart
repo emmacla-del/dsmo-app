@@ -1,5 +1,6 @@
 // lib/widgets/period_selector.dart
 import 'package:flutter/material.dart';
+import '../core/i18n/l10n_ext.dart';
 
 enum PeriodType { year, quarter, semester, custom }
 
@@ -163,21 +164,21 @@ class _PeriodSelectorState extends State<PeriodSelector> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Période d\'analyse',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            Text(
+              context.l10n.periodAnalysisLabel,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             // Period type selector as segmented buttons
             Row(
               children: [
-                _buildPeriodButton('Année', PeriodType.year),
+                _buildPeriodButton(context.l10n.yearLabel, PeriodType.year),
                 const SizedBox(width: 8),
-                _buildPeriodButton('Trimestre', PeriodType.quarter),
+                _buildPeriodButton(context.l10n.quarterLabel, PeriodType.quarter),
                 const SizedBox(width: 8),
-                _buildPeriodButton('Semestre', PeriodType.semester),
+                _buildPeriodButton(context.l10n.semesterLabel, PeriodType.semester),
                 const SizedBox(width: 8),
-                _buildPeriodButton('Personnalisé', PeriodType.custom),
+                _buildPeriodButton(context.l10n.reportPeriodCustomLabel, PeriodType.custom),
               ],
             ),
             const SizedBox(height: 12),
@@ -218,10 +219,10 @@ class _PeriodSelectorState extends State<PeriodSelector> {
     return DropdownButtonFormField<int>(
       isExpanded: true,
       initialValue: _year,
-      decoration: const InputDecoration(
-        labelText: 'Année',
-        border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: InputDecoration(
+        labelText: context.l10n.yearLabel,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       items: List.generate(6, (i) => _currentYear - i)
           .map((y) => DropdownMenuItem(
@@ -243,9 +244,9 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           child: DropdownButtonFormField<int>(
             isExpanded: true,
             initialValue: _year,
-            decoration: const InputDecoration(
-              labelText: 'Année',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.yearLabel,
+              border: const OutlineInputBorder(),
             ),
             items: List.generate(6, (i) => _currentYear - i)
                 .map((y) => DropdownMenuItem(
@@ -264,23 +265,23 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           child: DropdownButtonFormField<String>(
             isExpanded: true,
             initialValue: _quarter,
-            decoration: const InputDecoration(
-              labelText: 'Trimestre',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.quarterLabel,
+              border: const OutlineInputBorder(),
             ),
-            items: const [
+            items: [
               DropdownMenuItem(
                   value: 'T1',
-                  child: Text('T1 (Jan-Mar)', overflow: TextOverflow.ellipsis)),
+                  child: Text(context.l10n.quarterT1Label, overflow: TextOverflow.ellipsis)),
               DropdownMenuItem(
                   value: 'T2',
-                  child: Text('T2 (Avr-Jun)', overflow: TextOverflow.ellipsis)),
+                  child: Text(context.l10n.quarterT2Label, overflow: TextOverflow.ellipsis)),
               DropdownMenuItem(
                   value: 'T3',
-                  child: Text('T3 (Jul-Sep)', overflow: TextOverflow.ellipsis)),
+                  child: Text(context.l10n.quarterT3Label, overflow: TextOverflow.ellipsis)),
               DropdownMenuItem(
                   value: 'T4',
-                  child: Text('T4 (Oct-Dec)', overflow: TextOverflow.ellipsis)),
+                  child: Text(context.l10n.quarterT4Label, overflow: TextOverflow.ellipsis)),
             ],
             onChanged: (v) {
               setState(() => _quarter = v);
@@ -299,9 +300,9 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           child: DropdownButtonFormField<int>(
             isExpanded: true,
             initialValue: _year,
-            decoration: const InputDecoration(
-              labelText: 'Année',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.yearLabel,
+              border: const OutlineInputBorder(),
             ),
             items: List.generate(6, (i) => _currentYear - i)
                 .map((y) => DropdownMenuItem(
@@ -320,17 +321,17 @@ class _PeriodSelectorState extends State<PeriodSelector> {
           child: DropdownButtonFormField<String>(
             isExpanded: true,
             initialValue: _semester,
-            decoration: const InputDecoration(
-              labelText: 'Semestre',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.l10n.semesterLabel,
+              border: const OutlineInputBorder(),
             ),
-            items: const [
+            items: [
               DropdownMenuItem(
                   value: 'S1',
-                  child: Text('S1 (Jan-Jun)', overflow: TextOverflow.ellipsis)),
+                  child: Text(context.l10n.semesterS1Label, overflow: TextOverflow.ellipsis)),
               DropdownMenuItem(
                   value: 'S2',
-                  child: Text('S2 (Jul-Dec)', overflow: TextOverflow.ellipsis)),
+                  child: Text(context.l10n.semesterS2Label, overflow: TextOverflow.ellipsis)),
             ],
             onChanged: (v) {
               setState(() => _semester = v);
@@ -369,7 +370,7 @@ class _PeriodSelectorState extends State<PeriodSelector> {
             Text(
               _customRange != null
                   ? '${_formatDate(_customRange!.start)} → ${_formatDate(_customRange!.end)}'
-                  : 'Sélectionner une période',
+                  : context.l10n.selectPeriodPrompt,
             ),
           ],
         ),

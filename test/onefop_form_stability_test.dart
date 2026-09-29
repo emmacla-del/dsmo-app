@@ -13,6 +13,28 @@ import 'package:dsmo_app/screens/onefop/excel/onefop_excel_shell.dart';
 import 'package:dsmo_app/core/focus/renderers/generic_spreadsheet_table.dart';
 
 void main() {
+  test('clearing a VTC numeric answer does not turn it into zero', () {
+    final ctrl = OnefopFormController(
+      entityType: EntityType.vocationalTraining,
+      initialData: const {},
+      onSave: (_) {},
+    );
+    addTearDown(ctrl.dispose);
+    ctrl.initialize();
+
+    final numberField = ctrl.schema!.fields.firstWhere(
+      (field) => field.type == 'number',
+    );
+
+    ctrl.onFieldChanged(numberField.id, '0', numberField);
+    expect(ctrl.data[numberField.id], 0,
+        reason: 'an explicitly typed zero is a real reported value');
+
+    ctrl.onFieldChanged(numberField.id, '', numberField);
+    expect(ctrl.data.containsKey(numberField.id), isFalse,
+        reason: 'a cleared input is unanswered, rather than a manufactured zero');
+  });
+
   // Checks the fix at its source, rather than through the full widget tree:
   // OnefopUnifiedFormScreenV4's build() only ever shows SkeletonScreen while
   // ctrl.loading is true, so if initialize() completes loading synchronously

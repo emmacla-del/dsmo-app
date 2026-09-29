@@ -51,6 +51,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
   // (S4Q01, reasons/skills/training, identification grids, ...) leaves
   // spec.rowKeys null and never triggers this at all.
   final Widget Function(int rowIndex, String rowKey)? rowAccessoryBuilder;
+  final bool polished;
 
   const GenericSpreadsheetTable({
     super.key,
@@ -66,6 +67,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
     this.horizontalPagePadding = 0,
     this.hybridController, // ← ADD THIS
     this.rowAccessoryBuilder,
+    this.polished = false,
   });
 
   // ── Editable cell list (recomputed every build) ───────────────
@@ -355,7 +357,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: (labelCs?.editable ?? false)
             ? _buildCellWidget(
-                context: context,
+              context: context,
                 cellId: labelCellId,
                 cs: labelCs,
                 isTotalRow: isTotalRow,
@@ -418,10 +420,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: _buildCellWidget(
               context: context,
-              cellId: cellId,
-              cs: cs,
-              isTotalRow: false,
-              isGrandTotal: false),
+              cellId: cellId, cs: cs, isTotalRow: false, isGrandTotal: false),
         ));
       }
     }
@@ -546,6 +545,7 @@ class GenericSpreadsheetTable extends StatelessWidget {
       hybridController: hybridController,
       width: width ?? GridTheme.colWidth,
       height: GridTheme.rowHeight - 2,
+      polished: polished,
     );
   }
 
@@ -571,8 +571,8 @@ class GenericSpreadsheetTable extends StatelessWidget {
         final needsScroll = naturalW > (availableWidth - borderOverhead);
 
         final allDataCells = spec.isMatrixLayout
-            ? _buildMatrixDataCells(context)
-            : _buildLabelDataCells(colWidths, context);
+          ? _buildMatrixDataCells(context)
+          : _buildLabelDataCells(colWidths, context);
 
         final dataRowHeights =
             _computeDataRowHeights(colWidths, MediaQuery.textScalerOf(context));

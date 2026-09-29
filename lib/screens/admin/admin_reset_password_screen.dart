@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../theme/ultra_theme.dart';
 
@@ -72,18 +73,16 @@ class _AdminResetPasswordScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Réinitialiser un mot de passe',
-                    style: TextStyle(
+                Text(context.l10n.adminResetPasswordTitle,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: UltraTheme.textPrimary)),
                 const SizedBox(height: 6),
-                const Text(
-                  "Vérifiez d'abord l'identité de l'utilisateur par un canal "
-                  'officiel (téléphone, en personne), puis envoyez-lui un '
-                  'lien de réinitialisation par e-mail.',
-                  style: TextStyle(
+                Text(
+                  context.l10n.adminResetPasswordInstructions,
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       color: UltraTheme.textMuted),
@@ -122,7 +121,7 @@ class _AdminResetPasswordScreenState
                 if (!_submitting) _sendResetLink();
               },
               decoration: InputDecoration(
-                labelText: 'Email du compte utilisateur',
+                labelText: context.l10n.adminResetPasswordEmailFieldLabel,
                 prefixIcon: const Icon(Icons.email_outlined, size: 20),
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -130,8 +129,8 @@ class _AdminResetPasswordScreenState
                 fillColor: UltraTheme.background,
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Email requis';
-                if (!v.contains('@')) return 'Email invalide';
+                if (v == null || v.trim().isEmpty) return context.l10n.emailRequiredShort;
+                if (!v.contains('@')) return context.l10n.emailInvalidShort;
                 return null;
               },
             ),
@@ -168,8 +167,8 @@ class _AdminResetPasswordScreenState
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Envoyer un lien de réinitialisation',
-                        style: TextStyle(
+                    : Text(context.l10n.adminResetPasswordSendButton,
+                        style: const TextStyle(
                             fontFamily: 'Inter', fontWeight: FontWeight.w600)),
               ),
             ),
@@ -203,7 +202,7 @@ class _SentConfirmationCard extends StatelessWidget {
                 color: UltraTheme.success, size: 20),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('Un lien de réinitialisation a été envoyé à $email.',
+              child: Text(context.l10n.adminResetPasswordSentMessage(email),
                   style: const TextStyle(
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w600,
@@ -211,10 +210,9 @@ class _SentConfirmationCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 8),
-          const Text(
-            "Le lien expire dans 45 minutes et ne peut être utilisé qu'une "
-            'seule fois.',
-            style: TextStyle(
+          Text(
+            context.l10n.adminResetPasswordLinkExpiryNote,
+            style: const TextStyle(
                 fontFamily: 'Inter', fontSize: 12.5, color: UltraTheme.textMuted),
           ),
           const SizedBox(height: 16),
@@ -227,8 +225,8 @@ class _SentConfirmationCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('Envoyer un autre lien',
-                  style: TextStyle(
+              child: Text(context.l10n.adminResetPasswordSendAnotherButton,
+                  style: const TextStyle(
                       fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             ),
           ),

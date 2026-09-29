@@ -1,6 +1,7 @@
 // lib/screens/report/report_approvals_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 import 'report_service.dart';
@@ -34,14 +35,17 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
         widget.onApprove();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(approved ? 'Rapport approuvé' : 'Rapport rejeté')),
+              content: Text(approved
+                  ? context.l10n.reportApprovalApprovedSnackbar
+                  : context.l10n.reportApprovalRejectedSnackbar)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Erreur: $e'), backgroundColor: UltraTheme.error),
+              content: Text(context.l10n.genericErrorToastNoSpace('$e')),
+              backgroundColor: UltraTheme.error),
         );
       }
     } finally {
@@ -54,23 +58,24 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Motif du rejet'),
+        title: Text(context.l10n.reportRejectionReasonDialogTitle),
         content: TextField(
           controller: reasonController,
-          decoration: const InputDecoration(hintText: 'Expliquez pourquoi...'),
+          decoration:
+              InputDecoration(hintText: context.l10n.reportRejectionReasonHint),
           maxLines: 3,
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler')),
+              child: Text(context.l10n.cancelButton)),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               _approveReport(reportId, false, reason: reasonController.text);
             },
             style: ElevatedButton.styleFrom(backgroundColor: UltraTheme.error),
-            child: const Text('Rejeter'),
+            child: Text(context.l10n.rejectTooltip),
           ),
         ],
       ),
@@ -80,16 +85,16 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
   @override
   Widget build(BuildContext context) {
     if (widget.pendingApprovals.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Aucune approbation en attente'),
-            SizedBox(height: 8),
-            Text('Tous les rapports ont été traités',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Icon(Icons.check_circle_outline, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(context.l10n.reportNoPendingApprovalsTitle),
+            const SizedBox(height: 8),
+            Text(context.l10n.reportAllProcessedSubtitle,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       );
@@ -120,9 +125,9 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
                       color: const Color(0xFFFFF3E0),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text('En attente',
-                        style:
-                            TextStyle(fontSize: 11, color: Color(0xFFE67E22))),
+                    child: Text(context.l10n.companyAnalyticsBadgePending,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFFE67E22))),
                   ),
                   const Spacer(),
                   Text(
@@ -135,7 +140,7 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
                       fontWeight: FontWeight.w600, fontSize: 16)),
               const SizedBox(height: 4),
               Text(
-                  '${report.region ?? 'National'} · ${report.periodLabel ?? report.year}'),
+                  '${report.region ?? context.l10n.pdfNationalFallback} · ${report.periodLabel ?? report.year}'),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -146,7 +151,7 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
                           : () => _showRejectionDialog(report.id),
                       style: OutlinedButton.styleFrom(
                           foregroundColor: UltraTheme.error),
-                      child: const Text('Rejeter'),
+                      child: Text(context.l10n.rejectTooltip),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -157,7 +162,7 @@ class _ReportApprovalsTabState extends ConsumerState<ReportApprovalsTab> {
                           : () => _approveReport(report.id, true),
                       style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1D9E75)),
-                      child: const Text('Approuver'),
+                      child: Text(context.l10n.approveActionLabel),
                     ),
                   ),
                 ],

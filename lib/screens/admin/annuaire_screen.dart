@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../shared/tab_container.dart';
 import 'users_directory_screen.dart';
 import 'companies_screen.dart';
@@ -23,9 +24,9 @@ class AnnuaireScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!showUsersTab) return const CompaniesScreen();
-    return const TabContainer(tabs: [
-      (label: 'Utilisateurs', child: UsersDirectoryScreen()),
-      (label: 'Entités', child: CompaniesScreen()),
+    return TabContainer(tabs: [
+      (label: context.l10n.annuaireUsersTabLabel, child: const UsersDirectoryScreen()),
+      (label: context.l10n.annuaireEntitiesTabLabel, child: const CompaniesScreen()),
     ]);
   }
 }

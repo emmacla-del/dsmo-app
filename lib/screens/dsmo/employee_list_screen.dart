@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
 import '../../../providers/sync_queue_provider.dart';
 import '../../widgets/pdf_viewer_screen.dart';
@@ -101,16 +102,16 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
   String? _salaryCategory;
   int? _salary;
 
-  final List<String> _diplomaOptions = const [
-    'Aucun',
-    'CEPE',
-    'BEPC',
-    'CAP',
-    'BAC',
-    'BTS',
-    'Licence',
-    'Master',
-    'Doctorat',
+  List<String> _diplomaOptions(BuildContext context) => [
+    context.l10n.noneLabel,
+    context.l10n.diplomaCepe,
+    context.l10n.diplomaBepc,
+    context.l10n.diplomaCap,
+    context.l10n.diplomaBac,
+    context.l10n.diplomaBts,
+    context.l10n.diplomaLicence,
+    context.l10n.diplomaMaster,
+    context.l10n.diplomaDoctorat,
   ];
 
   final List<String> _salaryCategories = const [
@@ -148,7 +149,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     if (saved.isNotEmpty && _employees.isEmpty) {
       setState(() => _employees.addAll(saved));
       await _saveEmployeesLocally();
-      _showSuccess('Brouillon chargé depuis la session');
+      _showSuccess(context.l10n.empListDraftLoadedFromSessionMsg);
     }
   }
 
@@ -158,7 +159,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
       await _employeeBox.add(emp);
     }
     ref.read(employeeListProvider.notifier).state = List.from(_employees);
-    _showSuccess('Brouillon sauvegardé (${_employees.length} employé(s))');
+    _showSuccess(context.l10n.empListDraftSavedMsg(_employees.length));
   }
 
   Future<void> _loadEmployeesLocally() async {
@@ -224,60 +225,60 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     switch (step) {
       case 0:
         if (_fullNameController.text.trim().isEmpty) {
-          _showError('Veuillez entrer le nom complet');
+          _showError(context.l10n.empListEnterFullNameError);
           return false;
         }
         return true;
       case 1:
         if (_gender == null) {
-          _showError('Veuillez sélectionner le sexe');
+          _showError(context.l10n.empListSelectGenderError);
           return false;
         }
         return true;
       case 2:
         if (_age == null || _age! < 16 || _age! > 120) {
-          _showError('Âge invalide (16-120 ans)');
+          _showError(context.l10n.empListInvalidAgeError);
           return false;
         }
         return true;
       case 3:
         if (_nationality == null) {
-          _showError('Veuillez sélectionner la nationalité');
+          _showError(context.l10n.empListSelectNationalityError);
           return false;
         }
         if (_nationality == 'Étranger' &&
             _otherCountryController.text.trim().isEmpty) {
-          _showError('Veuillez entrer le pays');
+          _showError(context.l10n.empListEnterCountryError);
           return false;
         }
         return true;
       case 4:
         if (_diploma == null) {
-          _showError('Veuillez sélectionner le diplôme');
+          _showError(context.l10n.empListSelectDiplomaError);
           return false;
         }
         return true;
       case 5:
         if (_functionController.text.trim().isEmpty) {
-          _showError('Veuillez entrer la fonction');
+          _showError(context.l10n.empListEnterFunctionError);
           return false;
         }
         return true;
       case 6:
         if (_seniority == null || _seniority! < 0 || _seniority! > 60) {
-          _showError('Ancienneté invalide (0-60 ans)');
+          _showError(context.l10n.empListInvalidSeniorityError);
           return false;
         }
         return true;
       case 7:
         if (_salaryCategory == null) {
-          _showError('Veuillez sélectionner la catégorie');
+          _showError(context.l10n.empListSelectCategoryError);
           return false;
         }
         return true;
       case 8:
         if (_salary == null || _salary! <= 0) {
-          _showError('Veuillez entrer un salaire valide (> 0 FCFA)');
+          _showError(context.l10n.empListInvalidSalaryError);
           return false;
         }
         return true;
@@ -317,18 +318,18 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Supprimer l'employé ?"),
+        title: Text(context.l10n.empListDeleteEmployeeTitle),
         content: Text(
-            "Voulez-vous retirer ${_employees[index].fullName} de la liste ?"),
+            context.l10n.empListDeleteEmployeeConfirm(_employees[index].fullName)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
+              child: Text(context.l10n.cancelButton)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
             child:
-                const Text('Supprimer', style: TextStyle(color: Colors.white)),
+                Text(context.l10n.settingsDeleteButton, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -391,8 +392,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
                     editIndex != null
-                        ? 'MODIFIER L\'EMPLOYÉ'
-                        : 'AJOUTER UN EMPLOYÉ',
+                        ? context.l10n.empListEditEmployeeTitle
+                        : context.l10n.empListAddEmployeeTitle,
                     style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -402,7 +403,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: Column(children: [
-                    Text('Étape ${currentStep + 1} sur 9',
+                    Text(context.l10n.empListStepProgressLabel(currentStep + 1),
                         style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -452,8 +453,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             side: const BorderSide(color: Colors.teal),
                           ),
-                          child: const Text('Retour',
-                              style: TextStyle(color: Colors.teal)),
+                          child: Text(context.l10n.goBackButton,
+                              style: const TextStyle(color: Colors.teal)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -473,7 +474,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                           backgroundColor: Colors.teal,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: Text(currentStep < 8 ? 'Suivant' : 'Confirmer',
+                        child: Text(currentStep < 8 ? context.l10n.next : context.l10n.confirmButton,
                             style: const TextStyle(color: Colors.white)),
                       ),
                     ),
@@ -489,14 +490,14 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep1FullName() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Noms et Prénoms',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListFullNameStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       TextFormField(
         controller: _fullNameController,
         autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Ex: TCHINDA Marc Arnold',
+        decoration: InputDecoration(
+          hintText: context.l10n.empListFullNameHintExample,
           border: OutlineInputBorder(),
           prefixIcon: Icon(Icons.person),
         ),
@@ -506,16 +507,16 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep2Gender(StateSetter setState) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Sexe',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListGenderStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 16),
       Row(children: [
         Expanded(
-            child: _buildGenderButton('Masculin (M)', _gender == 'M',
+            child: _buildGenderButton(context.l10n.genderMaleOption, _gender == 'M',
                 () => setState(() => _gender = 'M'))),
         const SizedBox(width: 16),
         Expanded(
-            child: _buildGenderButton('Féminin (F)', _gender == 'F',
+            child: _buildGenderButton(context.l10n.genderFemaleOption, _gender == 'F',
                 () => setState(() => _gender = 'F'))),
       ]),
     ]);
@@ -547,19 +548,19 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep3Age() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Âge',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListAgeStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       TextFormField(
         controller: _ageController,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Ex: 32',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.cake),
-          suffixText: 'ans',
+        decoration: InputDecoration(
+          hintText: context.l10n.empListAgeHintExample,
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.cake),
+          suffixText: context.l10n.yearsUnitSuffix,
         ),
         onChanged: (value) => _age = int.tryParse(value),
       ),
@@ -568,13 +569,13 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep4Nationality(StateSetter setState) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Nationalité',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListNationalityStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 16),
       Row(children: [
         Expanded(
             child: _buildNationalityButton(
-                'Camerounais',
+                context.l10n.nationalityCameroonianOption,
                 _nationality == 'Camerounais',
                 () => setState(() {
                       _nationality = 'Camerounais';
@@ -583,7 +584,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         const SizedBox(width: 16),
         Expanded(
             child: _buildNationalityButton(
-                'Étranger',
+                context.l10n.nationalityForeignOption,
                 _nationality == 'Étranger',
                 () => setState(() => _nationality = 'Étranger'))),
       ]),
@@ -592,11 +593,11 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         TextFormField(
           controller: _otherCountryController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Préciser le pays',
-            hintText: 'Ex: France, Nigeria, Chine...',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.flag),
+          decoration: InputDecoration(
+            labelText: context.l10n.empListSpecifyCountryLabel,
+            hintText: context.l10n.empListCountryHintExample,
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.flag),
           ),
         ),
       ],
@@ -630,15 +631,15 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep5Diploma(StateSetter setState) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Diplôme le plus élevé',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListDiplomaStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
         initialValue: _diploma,
-        hint: const Text('Sélectionnez un diplôme'),
+        hint: Text(context.l10n.empListSelectDiplomaHint),
         decoration: const InputDecoration(
             border: OutlineInputBorder(), prefixIcon: Icon(Icons.school)),
-        items: _diplomaOptions
+        items: _diplomaOptions(context)
             .map((d) => DropdownMenuItem(value: d, child: Text(d)))
             .toList(),
         onChanged: (value) => setState(() => _diploma = value),
@@ -648,14 +649,14 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep6Function() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Fonction / Poste occupé',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListFunctionStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       TextFormField(
         controller: _functionController,
         autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Ex: Comptable, Ingénieur, Assistant...',
+        decoration: InputDecoration(
+          hintText: context.l10n.empListFunctionHintExample,
           border: OutlineInputBorder(),
           prefixIcon: Icon(Icons.work),
         ),
@@ -665,16 +666,16 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep7Seniority() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text("Ancienneté dans l'entreprise",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListSeniorityStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       TextFormField(
         controller: _seniorityController,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Ex: 5',
+        decoration: InputDecoration(
+          hintText: context.l10n.empListSeniorityHintExample,
           border: OutlineInputBorder(),
           prefixIcon: Icon(Icons.timeline),
           suffixText: 'ans',
@@ -686,45 +687,45 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
   Widget _buildStep8SalaryCategory(StateSetter setState) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Catégorie socioprofessionnelle',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListCategoryStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       DropdownButtonFormField<String>(
         initialValue: _salaryCategory,
-        hint: const Text('Sélectionnez la catégorie (1-12)'),
+        hint: Text(context.l10n.empListSelectCategoryHint),
         decoration: const InputDecoration(
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.business_center)),
         items: _salaryCategories.map((c) {
-          final display = c == 'non-declared' ? 'Non déclaré' : 'Catégorie $c';
+          final display = c == 'non-declared' ? context.l10n.nonDeclaredLabel : context.l10n.categoryNumberLabel(c);
           return DropdownMenuItem(value: c, child: Text(display));
         }).toList(),
         onChanged: (value) => setState(() => _salaryCategory = value),
       ),
       const SizedBox(height: 8),
-      const Text(
-        'Selon la grille officielle DSMO (1 = agent d\'exécution, 12 = cadre supérieur)',
-        style: TextStyle(fontSize: 12, color: Colors.grey),
+      Text(
+        context.l10n.empListCategoryScaleHelper,
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
       ),
     ]);
   }
 
   Widget _buildStep9Salary() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Salaire mensuel (FCFA) *',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(context.l10n.empListSalaryStepLabel,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       TextFormField(
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Ex: 250000',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.attach_money),
-          suffixText: 'FCFA',
-          helperText: 'Obligatoire',
-          helperStyle: TextStyle(color: Colors.red),
+        decoration: InputDecoration(
+          hintText: context.l10n.empListSalaryHintExample,
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.attach_money),
+          suffixText: context.l10n.fcfaCurrencySuffix,
+          helperText: context.l10n.mandatoryHelperText,
+          helperStyle: const TextStyle(color: Colors.red),
         ),
         onChanged: (value) => _salary = int.tryParse(value),
       ),
@@ -784,8 +785,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
     if (mounted) {
       final msg = errorCount == 0
-          ? '${newEmployees.length} employé(s) importé(s) avec succès'
-          : '${newEmployees.length} importé(s), $errorCount ligne(s) ignorée(s)';
+          ? context.l10n.empListImportSuccessMsg(newEmployees.length)
+          : context.l10n.empListImportPartialMsg(newEmployees.length, errorCount);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(msg),
@@ -799,16 +800,16 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     final sheet = excel['Employés'];
 
     sheet.appendRow([
-      TextCellValue('Noms et Prénoms'),
-      TextCellValue('Sexe'),
-      TextCellValue('Âge'),
-      TextCellValue('Nationalité'),
-      TextCellValue('Pays'),
-      TextCellValue('Diplôme'),
-      TextCellValue('Fonction'),
-      TextCellValue('Ancienneté (ans)'),
-      TextCellValue('Catégorie'),
-      TextCellValue('Salaire (FCFA)')
+      TextCellValue(context.l10n.empListFullNameStepLabel),
+      TextCellValue(context.l10n.empListGenderStepLabel),
+      TextCellValue(context.l10n.empListAgeStepLabel),
+      TextCellValue(context.l10n.empListNationalityStepLabel),
+      TextCellValue(context.l10n.excelColCountry),
+      TextCellValue(context.l10n.excelColDiploma),
+      TextCellValue(context.l10n.registerFunctionRowLabel),
+      TextCellValue(context.l10n.excelColSeniorityYears),
+      TextCellValue(context.l10n.companyAnalyticsCategoryHeader),
+      TextCellValue(context.l10n.excelColSalary)
     ]);
 
     for (var emp in _employees) {
@@ -817,8 +818,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         TextCellValue(emp.gender),
         IntCellValue(emp.age),
         TextCellValue(
-            emp.nationality == 'Cameroonian' ? 'Camerounais' : 'Étranger'),
-        TextCellValue(emp.otherCountry ?? 'N/A'),
+            emp.nationality == 'Cameroonian' ? context.l10n.nationalityCameroonianOption : context.l10n.nationalityForeignOption),
+        TextCellValue(emp.otherCountry ?? context.l10n.pdfNotApplicable),
         TextCellValue(emp.diploma),
         TextCellValue(emp.function),
         IntCellValue(emp.seniority),
@@ -830,12 +831,12 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     final fileBytes = excel.encode();
     if (fileBytes != null) {
       final String? savePath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Enregistrer la liste des employés',
+        dialogTitle: context.l10n.empListSaveFileDialogTitle,
         fileName: 'employes_${widget.year}.xlsx',
       );
       if (savePath != null) {
         await File(savePath).writeAsBytes(fileBytes);
-        if (mounted) _showSuccess('Export réussi !');
+        if (mounted) _showSuccess(context.l10n.exportSuccessMsg);
       }
     }
   }
@@ -849,7 +850,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     final movements = widget.movements ?? [];
     final qualitative = widget.qualitative ?? {};
 
-    String yesNo(dynamic v) => v == true ? 'Oui' : (v == false ? 'Non' : 'N/A');
+    String yesNo(dynamic v) => v == true ? context.l10n.yesLabel : (v == false ? context.l10n.noLabel : context.l10n.pdfNotApplicable);
 
     Widget infoRow(String label, dynamic value) => Padding(
           padding: const EdgeInsets.only(bottom: 6),
@@ -877,15 +878,15 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     String movLabel(String type) {
       switch (type) {
         case 'RECRUITMENT':
-          return 'Recrutements';
+          return context.l10n.companyAnalyticsRecruitmentsLabel;
         case 'PROMOTION':
-          return 'Promotions';
+          return context.l10n.movementsPromotionsPlural;
         case 'DISMISSAL':
-          return 'Licenciements';
+          return context.l10n.companyAnalyticsDismissals;
         case 'RETIREMENT':
-          return 'Retraites';
+          return context.l10n.companyAnalyticsRetirements;
         case 'DEATH':
-          return 'Décès';
+          return context.l10n.movementDeathLabel;
         default:
           return type;
       }
@@ -914,7 +915,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(
-                            'Aperçu PARTIE A — Page ${currentPage + 1}/$totalPages',
+                            context.l10n.empListPartAPreviewPageHeader(currentPage + 1, totalPages),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -953,28 +954,28 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              sectionTitle("Identité de l'établissement"),
-                              infoRow('Nom / Raison sociale', company['name']),
-                              infoRow('Activité principale',
+                              sectionTitle(context.l10n.empListSectionEstablishmentIdentity),
+                              infoRow(context.l10n.fieldCompanyNameFullLabel, company['name']),
+                              infoRow(context.l10n.companiesMainActivityLabel,
                                   company['mainActivity']),
-                              infoRow('Région', company['region']),
-                              infoRow('Département', company['department']),
-                              infoRow('Arrondissement', company['subdivision']),
-                              infoRow('Adresse', company['address']),
-                              infoRow('Fax', company['fax']),
-                              infoRow('N° contribuable (NIU)',
+                              infoRow(context.l10n.pdfRegionLabel, company['region']),
+                              infoRow(context.l10n.pdfDepartmentLabel, company['department']),
+                              infoRow(context.l10n.registerArrondissementLabel, company['subdivision']),
+                              infoRow(context.l10n.companiesAddressLabel, company['address']),
+                              infoRow(context.l10n.fieldFaxLabel, company['fax']),
+                              infoRow(context.l10n.empListTaxNumberNiuLabel,
                                   company['taxNumber']),
-                              infoRow('N° CNPS', company['cnpsNumber']),
+                              infoRow(context.l10n.companiesCnpsNumberLabel, company['cnpsNumber']),
                               infoRow(
-                                  'Capital social', company['socialCapital']),
+                                  context.l10n.declApprovalLabelSocialCapital, company['socialCapital']),
                               const Divider(height: 24),
-                              sectionTitle('Effectifs — Année en cours'),
+                              sectionTitle(context.l10n.empListWorkforceCurrentYearSection),
                               infoRow(
-                                  'Total déclaré', company['totalEmployees']),
-                              infoRow('Hommes', company['menCount']),
-                              infoRow('Femmes', company['womenCount']),
-                              sectionTitle('Effectifs — Année précédente'),
-                              infoRow('Total', company['lastYearTotal']),
+                                  context.l10n.empListDeclaredTotalLabel, company['totalEmployees']),
+                              infoRow(context.l10n.menLabel, company['menCount']),
+                              infoRow(context.l10n.womenLabel, company['womenCount']),
+                              sectionTitle(context.l10n.declApprovalWorkforcePreviousYearTitle),
+                              infoRow(context.l10n.total, company['lastYearTotal']),
                               infoRow('Hommes', company['lastYearMenCount']),
                               infoRow('Femmes', company['lastYearWomenCount']),
                             ]),
@@ -985,7 +986,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               sectionTitle(
-                                  'Détail des mouvements par catégorie'),
+                                  context.l10n.empListMovementDetailByCategory),
                               ...movements.map((m) {
                                 final type = m['movementType'] as String? ?? '';
                                 return Padding(
@@ -1002,36 +1003,36 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                                         Row(children: [
                                           Expanded(
                                               child: infoRow(
-                                                  'Cat. 1-3', m['cat1_3'])),
+                                                  context.l10n.catRange13Label, m['cat1_3'])),
                                           Expanded(
                                               child: infoRow(
-                                                  'Cat. 4-6', m['cat4_6'])),
+                                                  context.l10n.catRange46Label, m['cat4_6'])),
                                         ]),
                                         Row(children: [
                                           Expanded(
                                               child: infoRow(
-                                                  'Cat. 7-9', m['cat7_9'])),
+                                                  context.l10n.catRange79Label, m['cat7_9'])),
                                           Expanded(
                                               child: infoRow(
-                                                  'Cat. 10-12', m['cat10_12'])),
+                                                  context.l10n.catRange1012Label, m['cat10_12'])),
                                         ]),
                                         infoRow(
-                                            'Non Déclaré', m['catNonDeclared']),
+                                            context.l10n.nonDeclaredCategoryLabel, m['catNonDeclared']),
                                       ]),
                                 );
                               }),
                               const Divider(height: 24),
-                              sectionTitle('Informations qualitatives'),
-                              infoRow('Centre de formation',
+                              sectionTitle(context.l10n.empListQualitativeInfoSection),
+                              infoRow(context.l10n.empListTrainingCenterLabelShort,
                                   yesNo(qualitative['hasTrainingCenter'])),
-                              infoRow('Plans de recrutement (année suivante)',
+                              infoRow(context.l10n.empListRecruitmentPlansNextLabel,
                                   yesNo(qualitative['recruitmentPlansNext'])),
-                              infoRow('Plan de camerounisation',
+                              infoRow(context.l10n.empListCamerounisationPlanLabel,
                                   yesNo(qualitative['camerounisationPlan'])),
-                              infoRow('Recours aux agences intérimaires',
+                              infoRow(context.l10n.empListUsesTempAgenciesLabel,
                                   yesNo(qualitative['usesTempAgencies'])),
                               if (qualitative['tempAgencyDetails'] != null)
-                                infoRow('Détails agence intérimaire',
+                                infoRow(context.l10n.empListTempAgencyDetailsLabel,
                                     qualitative['tempAgencyDetails']),
                             ]),
                       ),
@@ -1047,7 +1048,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut),
                         icon: const Icon(Icons.arrow_back),
-                        label: const Text('Précédent'),
+                        label: Text(context.l10n.previousButton),
                       ),
                     const Spacer(),
                     if (currentPage < totalPages - 1)
@@ -1059,8 +1060,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                             backgroundColor: Colors.teal),
                         icon: const Icon(Icons.arrow_forward,
                             color: Colors.white),
-                        label: const Text('Suivant',
-                            style: TextStyle(color: Colors.white)),
+                        label: Text(context.l10n.next,
+                            style: const TextStyle(color: Colors.white)),
                       )
                     else
                       ElevatedButton.icon(
@@ -1068,8 +1069,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.teal),
                         icon: const Icon(Icons.check, color: Colors.white),
-                        label: const Text('Confirmer et soumettre',
-                            style: TextStyle(color: Colors.white)),
+                        label: Text(context.l10n.empListConfirmAndSubmitButton,
+                            style: const TextStyle(color: Colors.white)),
                       ),
                   ]),
                 ),
@@ -1093,30 +1094,30 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
     if (actualTotal != totalFromPartA) {
       mismatches.add(
-          '• Total employés: $actualTotal saisi(s) vs $totalFromPartA déclaré(s)');
+          context.l10n.empListMismatchTotalLine(actualTotal, totalFromPartA));
     }
     if (actualMen != menFromPartA) {
       mismatches
-          .add('• Hommes: $actualMen saisi(s) vs $menFromPartA déclaré(s)');
+          .add(context.l10n.empListMismatchMenLine(actualMen, menFromPartA));
     }
     if (actualWomen != womenFromPartA) {
       mismatches.add(
-          '• Femmes: $actualWomen saisie(s) vs $womenFromPartA déclarée(s)');
+          context.l10n.empListMismatchWomenLine(actualWomen, womenFromPartA));
     }
 
     if (mismatches.isNotEmpty) {
       final shouldContinue = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('⚠️ Incohérence des effectifs',
-              style: TextStyle(color: Colors.orange)),
+          title: Text(context.l10n.empListWorkforceInconsistencyTitle,
+              style: const TextStyle(color: Colors.orange)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Le nombre d\'employés saisi ne correspond pas aux effectifs déclarés dans la PARTIE A :\n',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                context.l10n.empListWorkforceMismatchIntro,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               ...mismatches.map((m) => Padding(
                     padding: const EdgeInsets.only(left: 8, bottom: 4),
@@ -1124,25 +1125,25 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                   )),
               const SizedBox(height: 16),
               const Divider(),
-              const Text('Voulez-vous continuer la soumission quand même ?',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
+              Text(context.l10n.empListContinueSubmissionAnywayQuestion,
+                  style: const TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              const Text(
-                'Note: Le formulaire officiel exige une correspondance parfaite.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                context.l10n.empListOfficialFormExactMatchNote,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Retour', style: TextStyle(color: Colors.grey)),
+              child: Text(context.l10n.goBackButton, style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: const Text("Continuer malgré l'erreur",
-                  style: TextStyle(color: Colors.white)),
+              child: Text(context.l10n.empListContinueDespiteErrorButton,
+                  style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1157,7 +1158,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
   /// to skip these by taking the other path.
   Future<bool> _validateEmployeesForSubmission() async {
     if (_employees.isEmpty) {
-      _showError('Ajoutez au moins un employé avant de soumettre');
+      _showError(context.l10n.empListAddAtLeastOneEmployeeError);
       return false;
     }
 
@@ -1167,7 +1168,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
     if (invalidEmployees.isNotEmpty) {
       _showError(
-          'Certains employés ont des données invalides (nom vide ou salaire ≤ 0)');
+          context.l10n.empListInvalidEmployeeDataError);
       return false;
     }
 
@@ -1216,7 +1217,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
       );
       bytes = Uint8List.fromList(response.data!);
     } catch (e) {
-      if (mounted) _showError("Impossible de générer l'aperçu: $e");
+      if (mounted) _showError(context.l10n.empListPreviewGenerationError(e.toString()));
       return;
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -1274,7 +1275,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
             declarationId: declarationId,
             trackingNumber: responseData['trackingNumber'] ?? 'N/A',
             deadline: responseData['submissionDeadline'] ??
-                '31 Janvier ${widget.year + 1}',
+                context.l10n.empListDefaultDeadlineFallback(widget.year + 1),
           );
         } else {
           await _showSimpleSuccessDialog();
@@ -1282,7 +1283,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
       } else if (response.statusCode != 201 && mounted) {
         await _showSubmissionError(
-            'Erreur lors de la soumission. Code HTTP: ${response.statusCode}\n\n${response.data ?? ''}');
+            context.l10n.empListSubmissionHttpError('${response.statusCode}', '${response.data ?? ''}'));
       }
     } on ApiException catch (e) {
       // A null statusCode means the request never reached the server
@@ -1294,7 +1295,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
               path: '/dsmo/declaration',
               payload: payload,
               label:
-                  'Déclaration DSMO ${widget.year} — ${widget.companyData['companyName'] ?? widget.companyData['name'] ?? ''}',
+                  context.l10n.empListQueuedDeclarationLabel(widget.year, '${widget.companyData['companyName'] ?? widget.companyData['name'] ?? ''}'),
             );
         final count = await ref.read(syncQueueServiceProvider).pendingCount();
         if (mounted) {
@@ -1318,21 +1319,19 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.cloud_off, color: Colors.orange),
-          SizedBox(width: 8),
-          Text('Connexion indisponible', style: TextStyle(color: Colors.orange)),
+        title: Row(children: [
+          const Icon(Icons.cloud_off, color: Colors.orange),
+          const SizedBox(width: 8),
+          Text(context.l10n.connectionUnavailableTitle, style: const TextStyle(color: Colors.orange)),
         ]),
-        content: const Text(
-          'Votre déclaration a été enregistrée sur cet appareil et sera '
-          'envoyée automatiquement dès le retour de la connexion. '
-          'Vous pouvez fermer cet écran sans risque.',
+        content: Text(
+          context.l10n.empListQueuedOfflineFullMsg,
         ),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-            child: const Text('OK'),
+            child: Text(context.l10n.okButton),
           ),
         ],
       ),
@@ -1345,19 +1344,19 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     required String deadline,
   }) async {
     final copyNames = [
-      'ORIGINAL (Employeur)',
-      'DUPLICATA (Autorité)',
-      'TRIPLICATA (Archives)'
+      context.l10n.pdfCopyOriginalLabel,
+      context.l10n.pdfCopyDuplicateLabel,
+      context.l10n.pdfCopyTriplicateLabel
     ];
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.check_circle, color: Colors.green),
-          SizedBox(width: 8),
-          Text('Déclaration enregistrée !',
-              style: TextStyle(color: Colors.green)),
+        title: Row(children: [
+          const Icon(Icons.check_circle, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(context.l10n.empListDeclarationSavedTitle,
+              style: const TextStyle(color: Colors.green)),
         ]),
         content: SingleChildScrollView(
           child: Column(
@@ -1374,13 +1373,13 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                   const Icon(Icons.numbers, size: 16, color: Colors.teal),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('N° Suivi: $trackingNumber',
+                    child: Text(context.l10n.empListTrackingNumberLine(trackingNumber),
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ]),
               ),
               const SizedBox(height: 16),
-              const Text('3 exemplaires PDF disponibles :'),
+              Text(context.l10n.empListThreePdfCopiesAvailable),
               const SizedBox(height: 12),
               ...List.generate(
                 3,
@@ -1392,7 +1391,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                     title: Text(copyNames[i]),
                     trailing: IconButton(
                       icon: const Icon(Icons.print, size: 20),
-                      tooltip: 'Imprimer / Télécharger',
+                      tooltip: context.l10n.printDownloadTooltip,
                       onPressed: () =>
                           _downloadAndPrintPdf(declarationId, i + 1),
                     ),
@@ -1401,14 +1400,14 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                 ),
               ),
               const Divider(height: 24),
-              const Text('PROCÉDURE OBLIGATOIRE :',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(context.l10n.empListMandatoryProcedureTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('• Imprimez les 3 exemplaires'),
-              const Text('• Signez chaque exemplaire'),
-              const Text("• Ajoutez le cachet de l'entreprise"),
-              Text('• Envoyez par PLI RECOMMANDÉ avant le $deadline'),
-              const Text("• À la circonscription de l'emploi"),
+              Text(context.l10n.empListProcStepPrintCopies),
+              Text(context.l10n.empListProcStepSignCopies),
+              Text(context.l10n.empListProcStepAddCompanyStamp),
+              Text(context.l10n.empListProcStepSendByRegisteredMail(deadline)),
+              Text(context.l10n.empListProcStepEmploymentOffice),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -1420,10 +1419,10 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                 child: Row(children: [
                   Icon(Icons.info, size: 16, color: Colors.amber.shade700),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Conformément à la loi No 91/023 du 16 décembre 1991',
-                      style: TextStyle(fontSize: 11),
+                      context.l10n.empListLawComplianceNoteFull,
+                      style: const TextStyle(fontSize: 11),
                     ),
                   ),
                 ]),
@@ -1461,9 +1460,9 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Succès', style: TextStyle(color: Colors.green)),
-        content: const Text(
-          'Déclaration soumise avec succès !\n\nLes PDF seront disponibles dans votre espace employeur.',
+        title: Text(context.l10n.successTitle, style: const TextStyle(color: Colors.green)),
+        content: Text(
+          context.l10n.empListSimpleSuccessMsg,
         ),
         actions: [
           ElevatedButton(
@@ -1480,10 +1479,10 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(children: [
-          Icon(Icons.error_outline, color: Colors.red),
-          SizedBox(width: 8),
-          Text('Échec de la soumission', style: TextStyle(color: Colors.red)),
+        title: Row(children: [
+          const Icon(Icons.error_outline, color: Colors.red),
+          const SizedBox(width: 8),
+          Text(context.l10n.empListSubmissionFailedTitle, style: const TextStyle(color: Colors.red)),
         ]),
         content: SingleChildScrollView(child: Text(message)),
         actions: [
@@ -1505,31 +1504,31 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("DÉCLARATION SUR LA SITUATION DE LA MAIN D'ŒUVRE"),
+        title: Text(context.l10n.empListAppBarTitle),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: _employees.isEmpty ? null : _exportToExcel,
-            tooltip: 'Exporter Excel',
+            tooltip: context.l10n.exportExcelTooltip,
           ),
           IconButton(
             icon: const Icon(Icons.upload_file),
             onPressed: _importEmployees,
-            tooltip: 'Importer Excel',
+            tooltip: context.l10n.importExcelTooltip,
           ),
           IconButton(
             icon: const Icon(Icons.fact_check_outlined),
             onPressed: _previewPdf,
-            tooltip: 'Aperçu PARTIE A',
+            tooltip: context.l10n.previewPartATooltip,
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             onPressed: _employees.isEmpty || _isLoading
                 ? null
                 : _previewGeneratedPdf,
-            tooltip: 'Aperçu du PDF',
+            tooltip: context.l10n.previewPdfTooltipLong,
           ),
         ],
       ),
@@ -1552,7 +1551,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Employés enregistrés',
+                    Text(context.l10n.empListRegisteredEmployeesLabel,
                         style: TextStyle(
                             fontSize: 12,
                             color: isMatching
@@ -1571,8 +1570,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                 decoration: BoxDecoration(
                     color: Colors.orange,
                     borderRadius: BorderRadius.circular(20)),
-                child: const Text('INCOHÉRENCE',
-                    style: TextStyle(
+                child: Text(context.l10n.empListInconsistencyBadge,
+                    style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: Colors.white)),
@@ -1581,17 +1580,17 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         ),
         Expanded(
           child: _employees.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.people_outline,
+                        const Icon(Icons.people_outline,
                             size: 80, color: Colors.grey),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Text(
-                            'Aucun employé enregistré.\n\nAjoutez manuellement via le bouton +\nou importez un fichier Excel.',
+                            context.l10n.empListEmptyStateMsg,
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey)),
+                            style: const TextStyle(color: Colors.grey)),
                       ]),
                 )
               : SingleChildScrollView(
@@ -1602,46 +1601,46 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                       columnSpacing: 16,
                       headingRowColor: WidgetStateProperty.resolveWith(
                           (states) => Colors.teal.shade50),
-                      columns: const [
+                      columns: [
                         DataColumn(
-                            label: Text('N°',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.empListColNumero,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Noms et Prénoms',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.empListFullNameStepLabel,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Sexe',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.empListGenderStepLabel,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Âge',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.empListAgeStepLabel,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Nationalité',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.empListNationalityStepLabel,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Diplôme',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.excelColDiploma,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Fonction',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.registerFunctionRowLabel,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Ancienneté',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.empListColSeniority,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Catégorie',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.companyAnalyticsCategoryHeader,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Salaire (FCFA)',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.excelColSalary,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Actions',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
+                            label: Text(context.l10n.regionsSectorsActionsColumnHeader,
+                                style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: List.generate(_employees.length, (index) {
                         final emp = _employees[index];
                         final catDisplay = emp.salaryCategory == 'non-declared'
-                            ? 'N/D'
-                            : 'Catégorie ${emp.salaryCategory}';
+                            ? context.l10n.notDeclaredAbbrev
+                            : context.l10n.categoryNumberLabel(emp.salaryCategory);
                         return DataRow(
                           color: WidgetStateProperty.resolveWith((states) {
                             if (index.isOdd) return Colors.grey.shade50;
@@ -1676,10 +1675,10 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                                         : Colors.pink.shade700,
                                   )),
                             )),
-                            DataCell(Text('${emp.age} ans')),
+                            DataCell(Text(context.l10n.ageYearsValue(emp.age))),
                             DataCell(Text(emp.nationality == 'Cameroonian'
-                                ? 'Camerounais'
-                                : emp.otherCountry ?? 'Étranger')),
+                                ? context.l10n.nationalityCameroonianOption
+                                : emp.otherCountry ?? context.l10n.nationalityForeignOption)),
                             DataCell(ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 72),
                               child: Text(emp.diploma,
@@ -1691,7 +1690,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                                   overflow: TextOverflow.ellipsis),
                             )),
                             DataCell(Text(
-                                '${emp.seniority} an${emp.seniority > 1 ? 's' : ''}')),
+                                context.l10n.seniorityYearsValue(emp.seniority))),
                             DataCell(Text(catDisplay,
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold))),
@@ -1731,7 +1730,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEmployeeWizard(),
         icon: const Icon(Icons.person_add),
-        label: const Text('Ajouter employé'),
+        label: Text(context.l10n.empListAddEmployeeFabLabel),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
@@ -1758,8 +1757,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
               ),
               child: _isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('SOUMETTRE LA DÉCLARATION',
-                      style: TextStyle(
+                  : Text(context.l10n.companyRegSubmitButton,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold)),

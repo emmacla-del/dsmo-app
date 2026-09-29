@@ -1,6 +1,7 @@
 ﻿// lib/screens/report/report_generator_tab.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
 import '../../widgets/period_selector.dart';
 import '../../theme/ultra_theme.dart';
@@ -229,7 +230,7 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
   Future<void> _generate() async {
     if (!_hasSelectedContent()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez au moins une section')),
+        SnackBar(content: Text(context.l10n.reportSelectOneSectionError)),
       );
       return;
     }
@@ -237,9 +238,8 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
     final dateRange = _getDateRange();
     if (dateRange.end.isBefore(dateRange.start)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'La date de fin doit être postérieure à la date de début')),
+        SnackBar(
+            content: Text(context.l10n.reportEndDateAfterStartError)),
       );
       return;
     }
@@ -247,8 +247,8 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
     final monthsDiff = dateRange.end.difference(dateRange.start).inDays / 30;
     if (monthsDiff > 36) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('La période ne peut pas dépasser 36 mois')),
+        SnackBar(
+            content: Text(context.l10n.reportPeriodMax36MonthsError)),
       );
       return;
     }
@@ -280,13 +280,15 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
       widget.onReportGenerated();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rapport généré avec succès')),
+          SnackBar(content: Text(context.l10n.reportGeneratedSuccessMsg)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(context.l10n.genericErrorToastNoSpace('$e')),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -332,16 +334,16 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel(icon: Icons.place_outlined, label: 'LOCALISATION'),
+        SectionLabel(icon: Icons.place_outlined, label: context.l10n.reportSectionLocationLabel),
         const SizedBox(height: 12),
         if (_geoLoading)
           const LinearProgressIndicator(color: UltraTheme.primary)
         else ...[
           DropdownField<String?>(
-            label: 'Région',
+            label: context.l10n.pdfRegionLabel,
             value: _selectedRegion,
             items: [null, ..._regionNames],
-            itemLabel: (v) => v ?? 'Nationale (toutes)',
+            itemLabel: (v) => v ?? context.l10n.reportNationalAllOption,
             onChanged: (v) => setState(() {
               _selectedRegion = v;
               _selectedDepartment = null;
@@ -351,10 +353,10 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
           if (_selectedRegion != null) ...[
             const SizedBox(height: 10),
             DropdownField<String?>(
-              label: 'Département',
+              label: context.l10n.pdfDepartmentLabel,
               value: _selectedDepartment,
               items: [null, ..._departmentNames(_selectedRegion)],
-              itemLabel: (v) => v ?? 'Tous',
+              itemLabel: (v) => v ?? context.l10n.allMasculine,
               onChanged: (v) => setState(() {
                 _selectedDepartment = v;
                 _selectedSubdivision = null;
@@ -366,13 +368,13 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
                   .isNotEmpty) ...[
             const SizedBox(height: 10),
             DropdownField<String?>(
-              label: 'Arrondissement',
+              label: context.l10n.registerArrondissementLabel,
               value: _selectedSubdivision,
               items: [
                 null,
                 ..._subdivisionNames(_selectedRegion, _selectedDepartment),
               ],
-              itemLabel: (v) => v ?? 'Tous',
+              itemLabel: (v) => v ?? context.l10n.allMasculine,
               onChanged: (v) => setState(() => _selectedSubdivision = v),
             ),
           ],
@@ -383,19 +385,19 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
 
   Widget _buildPeriodSection() {
     final periodOptions = [
-      ('3 mois', '3months'),
-      ('6 mois', '6months'),
-      ('12 mois', '12months'),
-      ('Année en cours', 'ytd'),
-      ('Personnalisé', 'custom'),
+      (context.l10n.reportPeriod3MonthsLabel, '3months'),
+      (context.l10n.reportPeriod6MonthsLabel, '6months'),
+      (context.l10n.reportPeriod12MonthsLabel, '12months'),
+      (context.l10n.reportPeriodYtdLabel, 'ytd'),
+      (context.l10n.reportPeriodCustomLabel, 'custom'),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel(
+        SectionLabel(
           icon: Icons.calendar_today_outlined,
-          label: 'PÉRIODE',
+          label: context.l10n.reportSectionPeriodLabel,
         ),
         const SizedBox(height: 12),
         RadioGroup<String>(
@@ -419,7 +421,7 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
             children: [
               Expanded(
                 child: DateField(
-                  label: 'Du',
+                  label: context.l10n.reportDateFromLabel,
                   date: _customDateRange?.start,
                   onTap: _pickCustomDateRange,
                 ),
@@ -427,7 +429,7 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
               const SizedBox(width: 12),
               Expanded(
                 child: DateField(
-                  label: 'Au',
+                  label: context.l10n.reportDateToLabel,
                   date: _customDateRange?.end,
                   onTap: _pickCustomDateRange,
                 ),
@@ -475,20 +477,20 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SectionLabel(icon: Icons.folder_outlined, label: 'CONTENU'),
+            SectionLabel(icon: Icons.folder_outlined, label: context.l10n.reportSectionContentLabel),
             Row(
               children: [
                 TextButton(
                   onPressed: () => setState(
                     () => _selectedGroups.updateAll((key, value) => true),
                   ),
-                  child: const Text('Tout sélectionner'),
+                  child: Text(context.l10n.reportSelectAllButton),
                 ),
                 TextButton(
                   onPressed: () => setState(
                     () => _selectedGroups.updateAll((key, value) => false),
                   ),
-                  child: const Text('Tout désélectionner'),
+                  child: Text(context.l10n.reportDeselectAllButton),
                 ),
               ],
             ),
@@ -525,13 +527,13 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
       case 'Executive Summary':
         return 'KPIs + insights';
       case 'Employment & Workforce':
-        return 'Tendances temporelles';
+        return context.l10n.reportSubtitleWorkforceTrends;
       case 'Skills & Training':
-        return 'Analyse sectorielle';
+        return context.l10n.reportSubtitleSkillsAnalysis;
       case 'Diversity & Inclusion':
-        return 'Parité & inclusion';
+        return context.l10n.reportSubtitleDiversityInclusion;
       case 'Regional Analysis':
-        return 'Détail par région';
+        return context.l10n.reportSubtitleRegionalDetail;
       default:
         return '';
     }
@@ -541,16 +543,16 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel(
+        SectionLabel(
           icon: Icons.edit_note_outlined,
-          label: 'NOM DU RAPPORT (optionnel)',
+          label: context.l10n.reportSectionNameLabel,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _reportNameController,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
-            hintText: 'Briefing RH Littoral Juin 2026',
+            hintText: context.l10n.reportNameHintExample,
             hintStyle: const TextStyle(fontSize: 13),
             filled: true,
             fillColor: UltraTheme.surface,
@@ -594,9 +596,9 @@ class _ReportGeneratorTabState extends ConsumerState<ReportGeneratorTab> {
                   color: Colors.white,
                 ),
               )
-            : const Text(
-                'GÉNÉRER LE RAPPORT',
-                style: TextStyle(
+            : Text(
+                context.l10n.reportGenerateButtonLabel,
+                style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),

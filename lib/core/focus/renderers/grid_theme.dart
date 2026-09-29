@@ -128,4 +128,55 @@ class GridTheme {
 
   static const EdgeInsets cellPadding =
       EdgeInsets.symmetric(horizontal: 10, vertical: 3);
+
+  // ── "Polished" variant — opt-in, additive only ────────────
+  // Same hex values as vt_wizard_constants.dart's card/typography tokens
+  // (kVtWizardFontFamily/Ink/InkSoft/CardBorder/Background), duplicated
+  // here rather than imported: lib/core/focus/renderers/ only depends on
+  // lib/theme/ today, never on lib/screens/, and importing a screens-layer
+  // file into this renderers-layer one would invert that direction for a
+  // handful of color constants. Used by buildGridCellWidget/NumberField/
+  // FormTextField's own `polished` param (see grid_cell_dispatch.dart) —
+  // Simple Mode's Enterprise/Cooperative/CTD/ONG table cards only; every
+  // other caller (Spreadsheet Mode included) keeps using the plain styles
+  // above, unchanged.
+  static const String polishedFontFamily = 'Manrope';
+  static const Color polishedInk = Color(0xFF1C1F1D);
+  static const Color polishedInkSoft = Color(0xFF4E5451);
+  static const Color polishedBorder = Color(0xFFE5EAE7);
+  static const Color polishedBackground = Color(0xFFF4F6F5);
+
+  static const TextStyle polishedHeaderStyle = TextStyle(
+    fontFamily: polishedFontFamily,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+    color: polishedInk,
+    height: 1.25,
+  );
+
+  static const TextStyle polishedLabelStyle = TextStyle(
+    fontFamily: polishedFontFamily,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: polishedInk,
+    height: 1.25,
+  );
+
+  static const TextStyle polishedDataStyle = TextStyle(
+    fontFamily: polishedFontFamily,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: polishedInk,
+    height: 1.25,
+  );
+
+  static const TextStyle polishedTotalStyle = TextStyle(
+    fontFamily: polishedFontFamily,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+    color: AppColors.deepEmerald,
+    height: 1.25,
+  );
+
+  static const TextStyle polishedGrandTotalStyle = polishedTotalStyle;
 }

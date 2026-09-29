@@ -60,7 +60,6 @@ class DraftService {
         final v = e.value;
         if (v == null) return false;
         if (v is String && v.trim().isEmpty) return false;
-        if (v is int && v == 0) return false;
         return true;
       }),
     );

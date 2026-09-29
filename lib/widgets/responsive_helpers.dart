@@ -404,8 +404,8 @@ class DrawerLogoutButton extends StatelessWidget {
           child: Row(children: [
             const Icon(Icons.logout_rounded, size: 20, color: UltraTheme.error),
             const SizedBox(width: 12),
-            const Text('Déconnexion',
-                style: TextStyle(
+            Text(context.l10n.logoutDialogTitle,
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -503,7 +503,7 @@ class RailUserFooter extends StatelessWidget {
             icon:
                 const Icon(Icons.logout_outlined, color: UltraTheme.textMuted),
             onPressed: onLogout,
-            tooltip: 'Déconnexion',
+            tooltip: context.l10n.logoutDialogTitle,
           ),
         ),
       );
@@ -543,7 +543,7 @@ class RailUserFooter extends StatelessWidget {
           icon: const Icon(Icons.logout_outlined,
               size: 18, color: UltraTheme.textMuted),
           onPressed: onLogout,
-          tooltip: 'Déconnexion',
+          tooltip: context.l10n.logoutDialogTitle,
         ),
       ]),
     );
@@ -684,7 +684,9 @@ class SubmissionFab extends StatelessWidget {
         ),
         icon: const Icon(Icons.add, color: Colors.white, size: 22),
         label: Text(
-          compact ? 'Nouveau' : 'Nouvelle soumission',
+          compact
+              ? context.l10n.newShortLabel
+              : context.l10n.newSubmissionDialogTitle,
           style: const TextStyle(
             fontFamily: 'Inter',
             fontSize: 14,

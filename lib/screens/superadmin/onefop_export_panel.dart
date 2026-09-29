@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../theme/ultra_theme.dart';
 import '../../data/api_client.dart';
 import '../../widgets/file_saver.dart';
@@ -103,11 +104,14 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
       );
 
       if (!mounted) return;
-      showAdminToast(context, 'Fichier Excel téléchargé : $savedPath',
-          UltraTheme.success, Icons.check_circle_outline_rounded);
+      showAdminToast(
+          context,
+          context.l10n.onefopExportExcelDownloadedMsg(savedPath),
+          UltraTheme.success,
+          Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Erreur lors de l\'export : $e',
+      showAdminToast(context, context.l10n.onefopExportErrorMsg('$e'),
           UltraTheme.error, Icons.error_outline_rounded);
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -145,6 +149,8 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
         'onefop_submissions.csv',
         mimeType: 'text/csv',
       );
+      // Small pause between downloads to prevent browser multi-download blockers from intercepting the syntax file
+      await Future.delayed(const Duration(milliseconds: 500));
       final spsPath = await saveBytesAsFile(
         utf8.encode(sps),
         'onefop_submissions.sps',
@@ -154,14 +160,12 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
       if (!mounted) return;
       showAdminToast(
           context,
-          'Fichiers SPSS téléchargés (CSV + syntaxe .sps) : $spsPath. '
-          'Placez les deux fichiers dans le même dossier puis exécutez le '
-          '.sps dans SPSS.',
+          context.l10n.onefopExportSpssDownloadedMsg(spsPath),
           UltraTheme.success,
           Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
-      showAdminToast(context, 'Erreur lors de l\'export SPSS : $e',
+      showAdminToast(context, context.l10n.onefopExportSpssErrorMsg('$e'),
           UltraTheme.error, Icons.error_outline_rounded);
     } finally {
       if (mounted) setState(() => _exportingSpss = false);
@@ -184,9 +188,9 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text('Exporter les soumissions ONEFOP',
-                    style: TextStyle(
+              Expanded(
+                child: Text(context.l10n.onefopExportPanelTitle,
+                    style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -196,15 +200,13 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
                 icon: const Icon(Icons.close_rounded, size: 18),
                 color: UltraTheme.textMuted,
                 onPressed: widget.onClose,
-                tooltip: 'Fermer',
+                tooltip: context.l10n.registerReceiptCloseButton,
               ),
             ],
           ),
-          const Text(
-              'Compile toutes les soumissions approuvées (Entreprises, '
-              'Coopératives, CTD, ONG) : données d\'identification et '
-              'sections 1 à 4 du questionnaire.',
-              style: TextStyle(
+          Text(
+              context.l10n.onefopExportPanelDescription,
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
                   color: UltraTheme.textSecondary,
@@ -225,7 +227,9 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.grid_on_rounded, size: 18),
-                label: Text(_exporting ? 'Génération…' : 'Exporter en Excel'),
+                label: Text(_exporting
+                    ? context.l10n.onefopExportGeneratingLabel
+                    : context.l10n.onefopExportExcelButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: UltraTheme.primary,
                   foregroundColor: Colors.white,
@@ -243,26 +247,12 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.dataset_outlined, size: 18),
-                label: Text(_exportingSpss ? 'Génération…' : 'Exporter en SPSS'),
+                label: Text(_exportingSpss
+                    ? context.l10n.onefopExportGeneratingLabel
+                    : context.l10n.onefopExportSpssButton),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: UltraTheme.primary,
                   side: const BorderSide(color: UltraTheme.primary),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => showAdminToast(
-                    context,
-                    'Export PDF bientôt disponible',
-                    UltraTheme.info,
-                    Icons.info_outline_rounded),
-                icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                label: const Text('Exporter en PDF'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: UltraTheme.textSecondary,
-                  side: BorderSide(color: UltraTheme.textMuted.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -292,8 +282,8 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
               Expanded(
                 child: Text(
                   _activeFilterCount > 0
-                      ? 'Filtres ($_activeFilterCount actif${_activeFilterCount > 1 ? 's' : ''})'
-                      : 'Filtres (optionnel)',
+                      ? context.l10n.reportExportFiltersActiveCount(_activeFilterCount)
+                      : context.l10n.reportExportFiltersOptionalLabel,
                   style: UltraTheme.titleMedium,
                 ),
               ),
@@ -305,8 +295,8 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('Réinitialiser',
-                      style: TextStyle(
+                  child: Text(context.l10n.resetButton,
+                      style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -315,10 +305,9 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-              'Restreint l\'export à une région, un département, une année '
-              'd\'enquête et/ou une période précises.',
-              style: TextStyle(
+          Text(
+              context.l10n.onefopExportFilterDescription,
+              style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
                   color: UltraTheme.textMuted,
@@ -388,7 +377,7 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _filterLabel('Région'),
+        _filterLabel(context.l10n.pdfRegionLabel),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: _filterFieldDecoration(),
@@ -401,10 +390,10 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
               icon: const Icon(Icons.keyboard_arrow_down_rounded,
                   color: UltraTheme.textMuted),
               items: [
-                const DropdownMenuItem<String>(
+                DropdownMenuItem<String>(
                   value: null,
-                  child: Text('Toutes les régions',
-                      style: TextStyle(color: UltraTheme.textMuted),
+                  child: Text(context.l10n.allRegionsCheckboxLabel,
+                      style: const TextStyle(color: UltraTheme.textMuted),
                       overflow: TextOverflow.ellipsis),
                 ),
                 ..._regions.map((r) => DropdownMenuItem(
@@ -430,7 +419,7 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _filterLabel('Département'),
+        _filterLabel(context.l10n.pdfDepartmentLabel),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: _filterFieldDecoration(enabled: enabled),
@@ -440,8 +429,8 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
               isExpanded: true,
               hint: Text(
                   _filterRegion == null
-                      ? 'Choisir une région d\'abord'
-                      : 'Tous les départements',
+                      ? context.l10n.onefopExportChooseRegionFirstHint
+                      : context.l10n.allDepartmentsHint,
                   style: const TextStyle(
                       fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted)),
               style: const TextStyle(
@@ -449,10 +438,10 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
               icon: const Icon(Icons.keyboard_arrow_down_rounded,
                   color: UltraTheme.textMuted),
               items: [
-                const DropdownMenuItem<String>(
+                DropdownMenuItem<String>(
                   value: null,
-                  child: Text('Tous les départements',
-                      style: TextStyle(color: UltraTheme.textMuted),
+                  child: Text(context.l10n.allDepartmentsHint,
+                      style: const TextStyle(color: UltraTheme.textMuted),
                       overflow: TextOverflow.ellipsis),
                 ),
                 ...departments.map((d) => DropdownMenuItem(
@@ -475,7 +464,7 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _filterLabel('Année d\'enquête'),
+        _filterLabel(context.l10n.onefopExportSurveyYearLabel),
         Container(
           decoration: _filterFieldDecoration(),
           child: TextField(
@@ -488,7 +477,7 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
             style: const TextStyle(
                 fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textPrimary),
             decoration: InputDecoration(
-              hintText: 'Ex. ${DateTime.now().year}',
+              hintText: context.l10n.onefopExportYearHintExample(DateTime.now().year),
               hintStyle: const TextStyle(
                   fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
               border: InputBorder.none,
@@ -507,11 +496,11 @@ class _OnefopExportPanelState extends ConsumerState<OnefopExportPanel> {
     final fmt = DateFormat('dd/MM/yyyy');
     final label = hasRange
         ? '${fmt.format(_filterDateRange!.start)} → ${fmt.format(_filterDateRange!.end)}'
-        : 'Toute la période';
+        : context.l10n.onefopExportAllPeriodOption;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _filterLabel('Période de soumission'),
+        _filterLabel(context.l10n.onefopExportSubmissionPeriodLabel),
         InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: () async {

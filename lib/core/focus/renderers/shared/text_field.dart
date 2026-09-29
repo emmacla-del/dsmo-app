@@ -20,6 +20,10 @@ class FormTextField extends StatefulWidget {
   final VoidCallback? onExitPrevious;
   // NEW: optional external controller (for hybridController integration)
   final TextEditingController? externalController;
+  // See buildGridCellWidget's own `polished` doc comment — Simple Mode's
+  // Enterprise/Cooperative/CTD/ONG table cards only; swaps only this
+  // field's own text style, nothing about its keyboard handling below.
+  final bool polished;
 
   const FormTextField({
     super.key,
@@ -36,6 +40,7 @@ class FormTextField extends StatefulWidget {
     this.onExitTable,
     this.onExitPrevious,
     this.externalController,
+    this.polished = false,
   });
 
   @override
@@ -224,7 +229,7 @@ class _FormTextFieldState extends State<FormTextField> {
                   onTapOutside: (_) {},
                   textAlign: TextAlign.left,
                   textAlignVertical: TextAlignVertical.center,
-                  style: GridTheme.dataStyle,
+                  style: widget.polished ? GridTheme.polishedDataStyle : GridTheme.dataStyle,
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,

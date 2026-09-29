@@ -94,6 +94,12 @@ class FormQuestionAst {
   /// Conditional logic
   final String? dependsOn;
   final String? dependsValue;
+  /// null or "eq" (default) → equality: data[dependsOn] == dependsValue.
+  /// "contains" → data[dependsOn] is a List/Iterable containing
+  /// dependsValue (for a checkbox trigger, e.g. "Autres" selected among
+  /// several). Every dependsOn declared before VT-UI/UX-07 leaves this
+  /// null, so its behaviour is byte-for-byte unchanged.
+  final String? dependsOperator;
 
   /// Is this field required?
   final bool requiredField;
@@ -122,6 +128,7 @@ class FormQuestionAst {
     this.entityTypes,
     this.dependsOn,
     this.dependsValue,
+    this.dependsOperator,
     this.requiredField = false,
     this.path,
     this.hint,

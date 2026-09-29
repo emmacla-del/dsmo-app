@@ -16,6 +16,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/l10n_ext.dart';
 import '../data/api_client.dart';
 import '../theme/ultra_theme.dart';
 import '../data/minefop_models.dart';
@@ -30,14 +31,26 @@ class _Category {
   const _Category(this.value, this.label, this.icon, this.color);
 }
 
-const _categories = [
-  _Category('DECONCENTRE', 'Services Déconcentrés', Icons.account_tree_outlined,
-      Color(0xFF3F51B5)),
-  _Category('CENTRALE', 'Administration Centrale',
-      Icons.account_balance_outlined, Color(0xFF7B1FA2)),
-  _Category('RATTACHE', 'Organismes Rattachés', Icons.hub_outlined,
-      Color(0xFF00796B)),
-];
+// Built at call time (rather than a top-level const list) so the labels
+// can be localized via context.l10n — every call site below has a
+// BuildContext available.
+List<_Category> _categories(BuildContext context) => [
+      _Category(
+          'DECONCENTRE',
+          context.l10n.serviceCategoryDeconcentratedLabel,
+          Icons.account_tree_outlined,
+          const Color(0xFF3F51B5)),
+      _Category(
+          'CENTRALE',
+          context.l10n.serviceCategoryCentralLabel,
+          Icons.account_balance_outlined,
+          const Color(0xFF7B1FA2)),
+      _Category(
+          'RATTACHE',
+          context.l10n.serviceCategoryAffiliatedLabel,
+          Icons.hub_outlined,
+          const Color(0xFF00796B)),
+    ];
 
 // ═══════════════════════════════════════════════════════════════
 // ServicePicker widget
@@ -154,7 +167,7 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Erreur de chargement : $e';
+          _error = context.l10n.regionsSectorsLoadError('$e');
         });
       }
     }
@@ -273,10 +286,10 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
   Widget _buildTreeArea() {
     // No category picked yet.
     if (_selectedCategory == null) {
-      return const _EmptyState(
-        key: ValueKey('no-cat'),
+      return _EmptyState(
+        key: const ValueKey('no-cat'),
         icon: Icons.account_tree_outlined,
-        message: 'Sélectionnez un type de service ci-dessus.',
+        message: context.l10n.selectServiceTypeAbovePrompt,
       );
     }
 
@@ -296,10 +309,10 @@ class _ServicePickerState extends ConsumerState<ServicePicker> {
 
     // Empty result.
     if (_currentLevel.isEmpty) {
-      return const _EmptyState(
-        key: ValueKey('empty'),
+      return _EmptyState(
+        key: const ValueKey('empty'),
         icon: Icons.inbox_outlined,
-        message: 'Aucun service trouvé.',
+        message: context.l10n.noServiceFoundMessage,
       );
     }
 
@@ -365,8 +378,8 @@ class _CategoryPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Type de service *',
-            style: TextStyle(
+        Text(context.l10n.serviceTypeFieldLabel,
+            style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -385,12 +398,12 @@ class _CategoryPicker extends StatelessWidget {
             child: DropdownButton<String>(
               value: selected,
               isExpanded: true,
-              hint: const Text('Sélectionner un type de service',
-                  style: TextStyle(
+              hint: Text(context.l10n.selectServiceTypeHint,
+                  style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14,
                       color: UltraTheme.textMuted)),
-              items: _categories
+              items: _categories(context)
                   .map((c) => DropdownMenuItem(
                         value: c.value,
                         child: Row(children: [
@@ -430,9 +443,10 @@ class _Breadcrumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cat = _categories.firstWhere(
+    final cats = _categories(context);
+    final cat = cats.firstWhere(
       (c) => c.value == category,
-      orElse: () => _categories.first,
+      orElse: () => cats.first,
     );
 
     return SingleChildScrollView(
@@ -440,7 +454,7 @@ class _Breadcrumb extends StatelessWidget {
       child: Row(children: [
         // Root chip
         _BreadcrumbChip(
-          label: cat.shortName,
+          label: cat.shortName(context),
           icon: cat.icon,
           color: cat.color,
           isLast: path.isEmpty,
@@ -621,8 +635,8 @@ class _SelectedChip extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Service sélectionné',
-                  style: TextStyle(
+              Text(context.l10n.serviceSelectedLabel,
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -690,8 +704,8 @@ class _ErrorState extends StatelessWidget {
           const Icon(Icons.wifi_off_rounded,
               size: 40, color: UltraTheme.textMuted),
           const SizedBox(height: 12),
-          const Text('Impossible de charger les services',
-              style: TextStyle(
+          Text(context.l10n.servicesLoadFailedTitle,
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -708,7 +722,7 @@ class _ErrorState extends StatelessWidget {
           TextButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Réessayer'),
+            label: Text(context.l10n.retry),
             style: TextButton.styleFrom(foregroundColor: UltraTheme.primary),
           ),
         ]),
@@ -742,11 +756,11 @@ class _EmptyState extends StatelessWidget {
 // ── Convenience extension ────────────────────────────────────
 
 extension on _Category {
-  String get shortName {
-    const abbrevs = {
-      'DECONCENTRE': 'Déconcentré',
-      'CENTRALE': 'Centrale',
-      'RATTACHE': 'Rattaché',
+  String shortName(BuildContext context) {
+    final abbrevs = {
+      'DECONCENTRE': context.l10n.serviceCategoryDeconcentratedShort,
+      'CENTRALE': context.l10n.serviceCategoryCentralShort,
+      'RATTACHE': context.l10n.serviceCategoryAffiliatedShort,
     };
     return abbrevs[value] ?? label;
   }

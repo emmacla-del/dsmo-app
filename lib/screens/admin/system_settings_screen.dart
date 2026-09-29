@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/i18n/l10n_ext.dart';
 import '../../data/api_client.dart';
 import '../../theme/ultra_theme.dart';
 import '../../widgets/admin_kit.dart';
-import 'landing_config_screen.dart';
 import 'regions_sectors_screen.dart';
 
 // ══════════════════════════════════════════════════════════════
@@ -91,12 +91,12 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
         _updatedAt = updatedAt != null ? DateTime.tryParse(updatedAt) : null;
       });
       if (!mounted) return;
-      showAdminToast(context, 'Paramètres enregistrés', UltraTheme.success,
+      showAdminToast(context, context.l10n.settingsSavedToast, UltraTheme.success,
           Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
-      showAdminToast(context, "Échec de l'enregistrement : $e", UltraTheme.error,
+      showAdminToast(context, context.l10n.landingConfigSaveFailedToast('$e'), UltraTheme.error,
           Icons.error_outline_rounded);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -120,23 +120,22 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Paramètres système',
-                            style: TextStyle(
+                        Text(context.l10n.systemSettingsScreenTitle,
+                            style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
                                 color: UltraTheme.textPrimary)),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Configuration valable pour toute la plateforme. Réservé au '
-                          'SUPER_ADMIN.',
-                          style: TextStyle(
+                        Text(
+                          context.l10n.systemSettingsScreenSubtitle,
+                          style: const TextStyle(
                               fontFamily: 'Inter', fontSize: 13, color: UltraTheme.textMuted),
                         ),
                         if (_updatedAt != null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'Dernière modification : ${_formatDate(_updatedAt!)}',
+                            context.l10n.landingConfigLastModifiedLabel(_formatDate(_updatedAt!)),
                             style: const TextStyle(
                                 fontFamily: 'Inter', fontSize: 12, color: UltraTheme.textMuted),
                           ),
@@ -155,11 +154,11 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                                 style: const TextStyle(color: UltraTheme.error, fontSize: 13)),
                           ),
                         _SettingsSection(
-                          title: 'Politique de sécurité',
+                          title: context.l10n.securityPolicySectionTitle,
                           icon: Icons.shield_outlined,
                           children: [
                             _StepperField(
-                              label: 'Longueur minimale du mot de passe',
+                              label: context.l10n.passwordMinLengthLabel,
                               value: _passwordMinLength,
                               min: 6,
                               max: 32,
@@ -167,8 +166,8 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                             ),
                             const SizedBox(height: 4),
                             _SwitchTile(
-                              label: 'Double authentification obligatoire (personnel MINEFOP)',
-                              subtitle: 'Empêche les comptes non-entreprise de désactiver leur 2FA.',
+                              label: context.l10n.require2faStaffLabel,
+                              subtitle: context.l10n.require2faStaffSubtitle,
                               value: _require2FAForStaff,
                               onChanged: (v) => setState(() => _require2FAForStaff = v),
                             ),
@@ -176,13 +175,12 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                         ),
                         const SizedBox(height: 16),
                         _SettingsSection(
-                          title: 'Mode maintenance',
+                          title: context.l10n.maintenanceModeSectionTitle,
                           icon: Icons.build_circle_outlined,
                           children: [
                             _SwitchTile(
-                              label: 'Activer le mode maintenance',
-                              subtitle:
-                                  'Bloque tous les accès sauf le SUPER_ADMIN, avec le message ci-dessous.',
+                              label: context.l10n.enableMaintenanceModeLabel,
+                              subtitle: context.l10n.maintenanceModeSubtitle,
                               value: _maintenanceMode,
                               onChanged: (v) => setState(() => _maintenanceMode = v),
                               activeColor: UltraTheme.warning,
@@ -192,8 +190,8 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                               controller: _maintenanceMessageCtrl,
                               maxLines: 3,
                               decoration: InputDecoration(
-                                labelText: 'Message affiché aux utilisateurs',
-                                hintText: 'La plateforme est actuellement en maintenance...',
+                                labelText: context.l10n.maintenanceMessageFieldLabel,
+                                hintText: context.l10n.maintenanceMessageFieldHint,
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 filled: true,
                                 fillColor: UltraTheme.background,
@@ -203,47 +201,12 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                         ),
                         const SizedBox(height: 16),
                         _SettingsSection(
-                          title: "Page d'accueil publique",
-                          icon: Icons.web_outlined,
-                          children: [
-                            const Text(
-                              'Modifier le bandeau de statut et la feuille de '
-                              "route affichés sur la page d'accueil, avant "
-                              'connexion.',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 12.5,
-                                  color: UltraTheme.textMuted,
-                                  height: 1.4),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                    builder: (_) => const LandingConfigScreen()),
-                              ),
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              label: const Text("Gérer la page d'accueil"),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: UltraTheme.primary,
-                                side: const BorderSide(color: UltraTheme.primary),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _SettingsSection(
-                          title: 'Données de référence',
+                          title: context.l10n.referenceDataSectionTitle,
                           icon: Icons.map_outlined,
                           children: [
-                            const Text(
-                              'Gérer la taxonomie régions/secteurs utilisée par les '
-                              'filtres et formulaires de toute la plateforme.',
-                              style: TextStyle(
+                            Text(
+                              context.l10n.referenceDataSectionDescription,
+                              style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 12.5,
                                   color: UltraTheme.textMuted,
@@ -256,7 +219,7 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                                     builder: (_) => const RegionsSectorsScreen()),
                               ),
                               icon: const Icon(Icons.tune_rounded, size: 18),
-                              label: const Text('Gérer les régions et secteurs'),
+                              label: Text(context.l10n.manageRegionsSectorsButton),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: UltraTheme.primary,
                                 side: const BorderSide(color: UltraTheme.primary),
@@ -288,8 +251,8 @@ class _SystemSettingsScreenState extends ConsumerState<SystemSettingsScreen> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Colors.white),
                                   )
-                                : const Text('Enregistrer',
-                                    style: TextStyle(
+                                : Text(context.l10n.settingsSaveButton,
+                                    style: const TextStyle(
                                         fontFamily: 'Inter', fontWeight: FontWeight.w600)),
                           ),
                         ),

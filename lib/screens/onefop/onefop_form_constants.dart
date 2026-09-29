@@ -29,7 +29,27 @@ const double kScrollChildWidth = kDocWidth + 40.0; // OL.sectionBodyPaddingH*2
 // column width. Also used by UnitNavRow's pinned-footer variant so
 // Back/Next line up under the same column instead of spreading to the
 // full window width.
-const double kSimpleModeContentWidth = 640.0;
+const double kSimpleModeContentWidth = 760.0;
+// Section 0 / Section 1 two-column field pairing (Simple Mode desktop) —
+// see simple_mode_shell.dart's simpleFieldsBuilder and
+// onefop_form_widgets.dart's pairShortFields. Each column is Expanded (not
+// a fixed width) so the row stays responsive if the content column is ever
+// narrower than kSimpleModeContentWidth — only the gap between them is fixed.
+const double kTwoColGap = 24.0;
+const double kFigmaSimpleSidebarWidth = 228.0;
+const double kFigmaSimpleHeaderHeight = 50.0;
+const Color kFigmaSimplePrimary = Color(0xFF007A5E);
+const Color kFigmaSimpleYellow = Color(0xFFFFCD00);
+const Color kFigmaSimpleRed = Color(0xFFE4002B);
+const Color kFigmaSimpleBackground = Color(0xFFF4F7F5);
+const Color kFigmaSimpleInk = Color(0xFF0F172A);
+const Color kFigmaSimpleSecondary = Color(0xFF475569);
+const Color kFigmaSimpleMuted = Color(0xFF94A3B8);
+const Color kFigmaSimpleBorder = Color(0xFFE2E8F0);
+const double kFigmaSimpleRadius = 16.0;
+const double kOnefopFormControlHeight = 48.0;
+const double kOnefopMobilePagePadding = 16.0;
+const double kOnefopProgressHeight = 4.0;
 
 // ── Sidebar widths ────────────────────────────────────────────
 const double kSidebarFullWidth = 240.0;
@@ -82,6 +102,8 @@ const Color kBorderStrong = Color(0xFFD3DBD7);
 const Color kAccent = AppColors.deepEmerald; // #0A6640
 const Color kAccentDeep = Color(0xFF063F27);
 const Color kAccentSoft = Color(0xFFE1F0E8);
+const Color kOnefopHeroGreen = Color(0xFF00866B);
+const Color kOnefopHeroYellow = Color(0xFFFFE341);
 
 // Status — success reuses the brand color itself (it already reads as
 // "good"); danger/warning stay distinct since they carry real meaning.
@@ -97,6 +119,15 @@ const Color kWarningSoft = Color(0xFFF8F0E1);
 const double kRadiusSm = 6.0;
 const double kRadiusMd = 8.0;
 const double kRadiusLg = 10.0;
+
+// Unified shape token for the approved VT Simple Mode/form-control design
+// pass — SelectField (closed control + popup), RadioOption, CheckboxOption,
+// UnitNavRow's large buttons, and VtSectionOutline's container all use this
+// one radius now instead of the previous 6/8/10 mixture. Deliberately its
+// own constant rather than repurposing kRadiusSm: this is a scoped
+// unification of the affected controls, not a change to kRadiusSm's other,
+// unrelated call sites elsewhere in the app.
+const double kRadiusXs = 4.0;
 
 // Cards carry their shape via kBorder now, not elevation — matches
 // UltraTheme.softShadow's near-invisible treatment app-wide.
@@ -225,6 +256,37 @@ const Map<String, SidebarMeta> kSidebarMeta = {
       LocalizedText(fr: 'Départs', en: 'Departures'), Icons.exit_to_app_outlined),
   'section4': SidebarMeta(
       LocalizedText(fr: 'Formation', en: 'Training'), Icons.school_outlined),
+  // Vocational Training (VT) — one entry per AST section
+  // (section1_vocationalTraining..section9_vocationalTraining). Short
+  // labels only, matching the terse style above; full wording lives in the
+  // AST's own section titles (see SectionTitleLookup).
+  'section1_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Identification', en: 'Identification'),
+      Icons.badge_outlined),
+  'section2_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Informations générales', en: 'General information'),
+      Icons.info_outline),
+  'section3_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Urgences', en: 'Emergencies'),
+      Icons.warning_amber_outlined),
+  'section4_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Apprenants', en: 'Trainees'),
+      Icons.groups_outlined),
+  'section5_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Guides et infrastructures', en: 'Guides and infrastructure'),
+      Icons.apartment_outlined),
+  'section6_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Orientation', en: 'Orientation'),
+      Icons.explore_outlined),
+  'section7_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Thèmes transversaux', en: 'Cross-cutting themes'),
+      Icons.diversity_3_outlined),
+  'section8_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Formateurs', en: 'Trainers'),
+      Icons.person_outline),
+  'section9_vocationalTraining': SidebarMeta(
+      LocalizedText(fr: 'Difficultés', en: 'Difficulties'),
+      Icons.report_problem_outlined),
 };
 
 const Map<String, LocalizedText> kDividers = {
@@ -306,14 +368,14 @@ String entityTypeString(EntityType t) {
       return 'CTD';
     case EntityType.ong:
       return 'ONG';
-    case EntityType.vocational:
-      return 'VOCATIONAL';
     // Architecture placeholders (Phase 0) — no backend/AST support yet;
     // these values are not reachable via any current UI path.
     case EntityType.administration:
       return 'ADMINISTRATION';
     case EntityType.projectProgram:
       return 'PROJECT_PROGRAM';
+    case EntityType.vocationalTraining:
+      return 'VOCATIONAL_TRAINING';
   }
 }
 
@@ -328,8 +390,6 @@ String entityTypeForSchema(EntityType t) {
       return 'ctd';
     case EntityType.ong:
       return 'ong';
-    case EntityType.vocational:
-      return 'vocational';
     // Architecture placeholders (Phase 0) — no AST declares these yet, so
     // loading a schema for them yields an empty/incomplete form. Not
     // reachable via any current UI path.
@@ -337,6 +397,8 @@ String entityTypeForSchema(EntityType t) {
       return 'administration';
     case EntityType.projectProgram:
       return 'projectProgram';
+    case EntityType.vocationalTraining:
+      return 'vocationalTraining';
   }
 }
 
@@ -351,10 +413,6 @@ LocalizedText entityTypeTitle(EntityType t) {
       return const LocalizedText(fr: 'CTD', en: 'RLA');
     case EntityType.ong:
       return const LocalizedText(fr: 'ONG', en: 'NGO');
-    case EntityType.vocational:
-      return const LocalizedText(
-          fr: 'CENTRE DE FORMATION PROFESSIONNELLE',
-          en: 'VOCATIONAL TRAINING CENTRE');
     // Architecture placeholders (Phase 0) — not reachable via any current
     // UI path.
     case EntityType.administration:
@@ -362,6 +420,9 @@ LocalizedText entityTypeTitle(EntityType t) {
     case EntityType.projectProgram:
       return const LocalizedText(
           fr: 'PROJET / PROGRAMME', en: 'PROJECT / PROGRAMME');
+    case EntityType.vocationalTraining:
+      return const LocalizedText(
+          fr: 'FORMATION PROFESSIONNELLE', en: 'VOCATIONAL TRAINING');
   }
 }
 
