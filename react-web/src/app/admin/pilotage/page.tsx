@@ -221,9 +221,11 @@ export default function PilotagePage() {
     refetchInterval: 30000,
   });
 
-  const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires"],
-    queryFn: () => listAdminQuestionnaires(),
+  // Timeline only: the 8 most recent submissions. Every dashboard figure comes
+  // from getPilotageQueues, computed server-side over the whole territory.
+  const recentQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "recent", 8],
+    queryFn: () => listAdminQuestionnaires({ limit: 8, offset: 0 }),
     refetchInterval: 30000,
   });
 
@@ -237,26 +239,28 @@ export default function PilotagePage() {
     pendingDivisionalVisasCount: 0,
     correctionsUnderReviewCount: 0,
     statisticallyReadyCount: 0,
+    statusCounts: { PENDING_REVIEW: 0, APPROVED: 0, CORRECTION_REQUESTED: 0, REJECTED: 0 },
+    approvedCount: 0,
+    regionCounts: [],
   };
 
-  const submissions: any[] = questionnairesQuery.data ?? [];
-  const totalSubmissions = queues.totalSubmissionsCount || submissions.length;
+  const totalSubmissions = queues.totalSubmissionsCount;
   const eligibilityPct = totalSubmissions > 0
     ? Math.round((queues.statisticallyReadyCount / totalSubmissions) * 100)
     : 0;
 
   const regionalData = CAMEROON_REGIONS.map((name) => {
-    const count = submissions.filter(
-      (s) => (s.region || s.rawData?.enterprise?.region || "").toLowerCase() === name.toLowerCase()
-    ).length;
+    const count = queues.regionCounts
+      .filter((r) => (r.region ?? "").trim().toLowerCase() === name.toLowerCase())
+      .reduce((sum, r) => sum + r.count, 0);
     return { name, count };
   }).sort((a, b) => b.count - a.count);
 
   const statusCounts = {
-    approved: submissions.filter((s) => s.adminStatus === "APPROVED" || s.status === "APPROVED").length,
-    pending: submissions.filter((s) => s.adminStatus === "PENDING_REVIEW" || s.status === "PENDING_REVIEW").length,
-    correction: submissions.filter((s) => s.adminStatus === "CORRECTION_REQUESTED" || s.status === "CORRECTION_REQUESTED").length,
-    rejected: submissions.filter((s) => s.adminStatus === "REJECTED" || s.status === "REJECTED").length,
+    approved: queues.approvedCount,
+    pending: queues.statusCounts.PENDING_REVIEW,
+    correction: queues.statusCounts.CORRECTION_REQUESTED,
+    rejected: queues.statusCounts.REJECTED,
   };
   const totalStatusCount = Object.values(statusCounts).reduce((a, b) => a + b, 0) || 1;
 
@@ -267,9 +271,7 @@ export default function PilotagePage() {
     { label: "Rejeté", count: statusCounts.rejected, pct: (statusCounts.rejected / totalStatusCount) * 100, color: "var(--cam-error)" },
   ];
 
-  const recentActivity = [...submissions]
-    .sort((a, b) => new Date(b.submittedAt || b.createdAt || 0).getTime() - new Date(a.submittedAt || a.createdAt || 0).getTime())
-    .slice(0, 8);
+  const recentActivity = recentQuery.data?.items ?? [];
 
   // TODO(backend, S): missing inscriptions count (Figma pipeline starts with an "Inscriptions" stage)
   // TODO(design, S): Figma highlights "Déclarations" and "Contrôle régional" stages — confirm what the highlight means before styling it
@@ -348,7 +350,7 @@ export default function PilotagePage() {
         </div>
 
         <div className="cam-dash-column">
-          <RecentActivity items={recentActivity} isLoading={questionnairesQuery.isLoading} />
+          <RecentActivity items={recentActivity} isLoading={recentQuery.isLoading} />
           <DataQuality eligibilityPct={eligibilityPct} hasData={totalSubmissions > 0} />
           <StatusDonut segments={donutSegments} total={totalStatusCount} />
         </div>

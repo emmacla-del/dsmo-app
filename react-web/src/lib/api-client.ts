@@ -499,19 +499,34 @@ export interface PilotageQueues {
   correctionsUnderReviewCount: number;
   statisticallyReadyCount: number;
   totalSubmissionsCount: number;
+  /** Per-status counts over the caller's whole territory (server-side). */
+  statusCounts: Record<"PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED", number>;
+  approvedCount: number;
+  /** Per stored region value; null = no region recorded. */
+  regionCounts: Array<{ region: string | null; count: number }>;
 }
 
 export function getPilotageQueues() {
   return apiFetch<PilotageQueues>("/admin/questionnaires/pilotage/queues");
 }
 
-export function listAdminQuestionnaires(params: { status?: string; limit?: number; offset?: number } = {}) {
+export interface AdminQuestionnairesPage {
+  items: any[];
+  /** Count of the whole filtered query (territory + status + region + search), not of this page. */
+  total: number;
+}
+
+export function listAdminQuestionnaires(
+  params: { status?: string; region?: string; search?: string; limit?: number; offset?: number } = {},
+) {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.offset) query.set("offset", String(params.offset));
+  if (params.region) query.set("region", params.region);
+  if (params.search) query.set("search", params.search);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
   const qs = query.toString();
-  return apiFetch<any[]>(`/admin/questionnaires${qs ? `?${qs}` : ""}`);
+  return apiFetch<AdminQuestionnairesPage>(`/admin/questionnaires${qs ? `?${qs}` : ""}`);
 }
 
 export function getDossierDiagnostic(id: string) {

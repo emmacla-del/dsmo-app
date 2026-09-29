@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   bulkVisaDeclarations,
   listAdminQuestionnaires,
@@ -27,6 +27,12 @@ interface DossierItem {
 }
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
+const PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
+
+function fmtCount(n: number) {
+  return n.toLocaleString("fr-FR");
+}
 
 // Suspense because useSearchParams() requires it in the app router.
 export default function DossiersPage() {
@@ -41,8 +47,12 @@ function DossiersContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
 
+  // searchInput is what the user types; search is what is sent, 300 ms after
+  // the last keystroke (each request runs a multi-column contains query).
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
+  const [offset, setOffset] = useState(0);
   // The queue page deep-links here with ?status=PENDING_REVIEW|CORRECTION_REQUESTED.
   const requestedStatus = useSearchParams().get("status") ?? "";
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
@@ -54,10 +64,19 @@ function DossiersContent() {
   const [bulkNotes, setBulkNotes] = useState("");
   const [bulkResult, setBulkResult] = useState<any | null>(null);
 
-  // Live questionnaires query
+  // Status, region and search are all applied server-side, so `total` is the
+  // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", statusFilter],
-    queryFn: () => listAdminQuestionnaires({ status: statusFilter || undefined }),
+    queryKey: ["admin", "questionnaires", "list", { statusFilter, regionFilter, search, offset }],
+    queryFn: () =>
+      listAdminQuestionnaires({
+        status: statusFilter || undefined,
+        region: regionFilter || undefined,
+        search: search || undefined,
+        limit: PAGE_SIZE,
+        offset,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   // Bulk visa mutation
@@ -68,17 +87,41 @@ function DossiersContent() {
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
       setSelectedIds(new Set());
+      // Visas move dossiers out of status-filtered views, which can empty the
+      // current page; restart from the first page.
+      setOffset(0);
     },
   });
 
   // A selection only means something for the rows currently shown — drop it
-  // whenever the filters change so the count never includes hidden rows.
+  // whenever the filters or the page change so the count never includes
+  // hidden rows. Any filter change also returns to the first page.
   const changeFilter = (apply: () => void) => {
     apply();
+    setOffset(0);
     setSelectedIds(new Set());
   };
 
-  const dossiers: DossierItem[] = (questionnairesQuery.data ?? []).map((sub: any) => {
+  const goToOffset = (next: number) => {
+    setOffset(next);
+    setSelectedIds(new Set());
+  };
+
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (trimmed === search) return;
+    const timer = setTimeout(() => {
+      setSearch(trimmed);
+      setOffset(0);
+      setSelectedIds(new Set());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
+
+  const page = questionnairesQuery.data;
+  const total = page?.total ?? 0;
+
+  const dossiers: DossierItem[] = (page?.items ?? []).map((sub: any) => {
     const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
     // Column names differ per detail table (schema.prisma); OnefopCtdDetail
@@ -112,21 +155,13 @@ function DossiersContent() {
     };
   });
 
-  const filteredDossiers = dossiers.filter((d) => {
-    const q = search.toLowerCase();
-    if (q && ![d.companyName, d.submissionId, d.respondentName].some((v) => v.toLowerCase().includes(q))) return false;
-    if (regionFilter && d.region !== regionFilter) return false;
-    if (statusFilter && d.adminStatus !== statusFilter) return false;
-    return true;
-  });
-
-  const cleanPendingSelected = filteredDossiers.filter(
+  const cleanPendingSelected = dossiers.filter(
     (d) => selectedIds.has(d.id) && d.adminStatus === "PENDING_REVIEW" && d.blockingCount === 0
   );
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(filteredDossiers.map((d) => d.id)));
+      setSelectedIds(new Set(dossiers.map((d) => d.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -157,7 +192,7 @@ function DossiersContent() {
     });
   };
 
-  const allShownSelected = filteredDossiers.length > 0 && filteredDossiers.every((d) => selectedIds.has(d.id));
+  const allShownSelected = dossiers.length > 0 && dossiers.every((d) => selectedIds.has(d.id));
   const scopeLabel = user?.department
     ? `Département ${user.department}`
     : user?.region
@@ -165,7 +200,6 @@ function DossiersContent() {
       : "National (MINEFOP / ONEFOP)";
 
   // ROUND 2 (disabled until the backend supports them; see docs/figma/supervision/dossiers.png):
-  // TODO(backend, S): ROUND 2 — GET /admin/questionnaires must honour limit/offset without a status and return a total; today status-filtered views are silently capped at 100 rows
   // TODO(backend, S): ROUND 2 — questionnaire-type filter param for the "Type de questionnaire" field
   // TODO(backend, S): ROUND 2 — submission-date range params for the "Période" field
   // TODO(backend, M): ROUND 2 — bulk reject endpoint for "Rejeter Sélection"
@@ -222,8 +256,8 @@ function DossiersContent() {
                   type="search"
                   className="cam-input"
                   placeholder="ID, répondant, structure…"
-                  value={search}
-                  onChange={(e) => changeFilter(() => setSearch(e.target.value))}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                 />
               </div>
             </div>
@@ -232,7 +266,7 @@ function DossiersContent() {
             <button
               type="button"
               className="cam-text-button"
-              onClick={() => changeFilter(() => { setSearch(""); setRegionFilter(""); setStatusFilter(""); })}
+              onClick={() => changeFilter(() => { setSearchInput(""); setSearch(""); setRegionFilter(""); setStatusFilter(""); })}
             >
               Réinitialiser les filtres
             </button>
@@ -316,7 +350,7 @@ function DossiersContent() {
                     {(questionnairesQuery.error as Error)?.message}
                   </td>
                 </tr>
-              ) : filteredDossiers.length === 0 ? (
+              ) : dossiers.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="cam-admin-empty">
                     <strong>Aucun dossier</strong>
@@ -324,7 +358,7 @@ function DossiersContent() {
                   </td>
                 </tr>
               ) : (
-                filteredDossiers.map((d) => {
+                dossiers.map((d) => {
                   const isStatReady = d.adminStatus === "APPROVED" && d.blockingCount === 0;
                   return (
                     <tr key={d.id}>
@@ -395,15 +429,30 @@ function DossiersContent() {
             </tbody>
           </table>
         </div>
-        {/* Rows shown are counted honestly; the total and paging wait for the
-            backend (see the ROUND 2 TODOs above). */}
+        {/* total is the server's count of the filtered query, not this page. */}
         <div className="cam-pagination" style={{ justifyContent: "space-between", padding: "0 var(--cam-space-4) var(--cam-space-4)" }}>
-          <span className="cam-pagination-info">
-            {filteredDossiers.length} dossier{filteredDossiers.length !== 1 ? "s" : ""} affiché{filteredDossiers.length !== 1 ? "s" : ""} · total : <span title={round2Hint}>—</span>
+          <span className="cam-pagination-info" aria-live="polite">
+            {total === 0
+              ? "Aucune soumission"
+              : `Affichage de ${fmtCount(offset + 1)}–${fmtCount(offset + dossiers.length)} sur ${fmtCount(total)} soumission${total > 1 ? "s" : ""}`}
           </span>
           <div style={{ display: "flex", gap: "var(--cam-space-2)" }}>
-            <button className="cam-pagination-btn" type="button" disabled title={round2Hint}>Précédent</button>
-            <button className="cam-pagination-btn" type="button" disabled title={round2Hint}>Suivant</button>
+            <button
+              className="cam-pagination-btn"
+              type="button"
+              disabled={offset === 0 || questionnairesQuery.isFetching}
+              onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
+            >
+              Précédent
+            </button>
+            <button
+              className="cam-pagination-btn"
+              type="button"
+              disabled={offset + PAGE_SIZE >= total || questionnairesQuery.isFetching}
+              onClick={() => goToOffset(offset + PAGE_SIZE)}
+            >
+              Suivant
+            </button>
           </div>
         </div>
       </section>
