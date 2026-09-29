@@ -17,6 +17,7 @@ import {
   saveDsmoDraft,
   getDsmoDraft,
   deleteDsmoDraft,
+  getCachedUser,
   type DsmoDeclarationPayload,
   type DsmoMovementPayload,
 } from "@/lib/api-client";
@@ -42,6 +43,14 @@ interface LocationItem { id: string; name: string; [k: string]: unknown }
 export default function DsmoDeclarationWizardPage() {
   const router = useRouter();
   const t = useTranslations();
+
+  // Role guard: only COMPANY accounts may file DSMO declarations.
+  useEffect(() => {
+    const user = getCachedUser();
+    if (user && user.role !== "COMPANY") {
+      router.replace("/home");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Label helpers (bilingual, matches _kDsmoWizardStrings) ────────────────
   const L = {

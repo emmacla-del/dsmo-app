@@ -1,0 +1,1355 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./admin-console.css";
+
+@theme {
+  --font-sans: var(--cam-font-sans);
+}
+
+html {
+  -webkit-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--cam-bg);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+  line-height: var(--cam-line-height-base);
+  -webkit-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+/* ── Accessible form-control focus rings (Radio / Checkbox / NumberStepper) ──
+   Brand green rather than the page-wide gold outline above, since these
+   controls sit inside the VT wizard's own green-accented chrome. */
+.vt-radio-option:focus-visible,
+.vt-stepper-button:focus-visible {
+  outline: 2px solid var(--cam-focus-ring);
+  outline-offset: 2px;
+}
+
+.vt-checkbox-option input:focus-visible + span {
+  outline: 2px solid var(--cam-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Shared auth/admin form primitives ──────────────────────────────────
+   Generic building blocks (not ONEFOP-specific) for Phase 1's auth screens
+   and low-consequence admin screens. Semantic HTML first — these are
+   plain classes on <form>/<label>/<input>/<button>, not a component
+   library. */
+
+.cam-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cam-space-5) var(--cam-space-4);
+}
+
+.cam-panel {
+  width: 100%;
+  max-width: 420px;
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  padding: var(--cam-space-6);
+}
+
+.cam-title {
+  font-size: var(--cam-font-size-lg);
+  font-weight: 700;
+  color: var(--cam-text);
+  margin: 0 0 var(--cam-space-2);
+  text-align: center;
+}
+
+.cam-subtitle {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-5);
+  text-align: center;
+}
+
+.cam-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-label {
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-text);
+}
+
+.cam-input,
+.cam-select {
+  height: var(--cam-form-field-height);
+  padding: 0 var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-sm);
+  font-size: var(--cam-font-size-base);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  width: 100%;
+}
+
+.cam-input:focus-visible,
+.cam-select:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
+  border-color: var(--cam-focus);
+}
+
+.cam-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin-bottom: var(--cam-space-4);
+}
+
+/* Only consumer of .cam-checkbox-row is the login page, so this is safe to
+   scope broadly — replaces the browser-default blue with the brand accent. */
+.cam-checkbox-row input[type="checkbox"] {
+  accent-color: var(--cam-green);
+}
+
+.cam-button {
+  height: var(--cam-form-field-height);
+  padding: 0 var(--cam-space-5);
+  border-radius: var(--cam-radius-sm);
+  border: var(--cam-border-width) solid transparent;
+  font-size: var(--cam-font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cam-button-primary {
+  background: var(--cam-green);
+  color: #fff;
+}
+
+.cam-button-primary:hover:not(:disabled) {
+  background: var(--cam-green-dark);
+}
+
+.cam-button-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cam-button-secondary {
+  background: transparent;
+  border-color: var(--cam-border);
+  color: var(--cam-text);
+}
+
+.cam-button-block {
+  width: 100%;
+}
+
+.cam-error-box {
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
+  border: var(--cam-border-width) solid var(--cam-error);
+  border-radius: var(--cam-radius-sm);
+  padding: var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-success-box {
+  background: var(--cam-success-bg);
+  color: var(--cam-success);
+  border: var(--cam-border-width) solid var(--cam-success);
+  border-radius: var(--cam-radius-sm);
+  padding: var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  margin-bottom: var(--cam-space-4);
+}
+
+.cam-link-row {
+  text-align: center;
+  margin-top: var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-link-row a,
+.cam-link-row button {
+  color: var(--cam-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+}
+
+.cam-question-label {
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-text);
+  margin-bottom: var(--cam-space-2);
+}
+
+/* ── CAM-LEAP authentication styling (Login/Register/Verify Email/Forgot
+   Password) ──────────────────────────────────────────────────────────
+   Auth-scoped styles faithfully reproducing the visual source of truth
+   (HTML mockup). All styles are scoped under .cam-auth-page so that ONEFOP,
+   VT, admin, and other non-auth pages are strictly unaffected. */
+
+.cam-auth-page {
+  /* ── Aliases to global CAM-LEAP tokens for backward compatibility ── */
+  --green-dark: var(--cam-green-dark);
+  --green: var(--cam-green);
+  --green-line: var(--cam-flag-green);
+  --red-line: var(--cam-flag-red);
+  --yellow-line: var(--cam-flag-yellow);
+  --ink: var(--cam-text);
+  --muted: var(--cam-text-muted);
+  --border: var(--cam-border);
+  --bg: var(--cam-bg);
+  --card: var(--cam-surface);
+  --focus: var(--cam-green);
+
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cam-space-7) var(--cam-space-4);
+  background: var(--cam-bg);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+  box-sizing: border-box;
+}
+
+.cam-auth-page * {
+  box-sizing: border-box;
+}
+
+.cam-auth-page .wrap {
+  width: 100%;
+  max-width: var(--cam-container-compact);
+}
+
+.cam-auth-page .wrap-wide {
+  width: 100%;
+  max-width: var(--cam-container-form);
+}
+
+/* --- Masthead: lives OUTSIDE the card --- */
+.cam-auth-page .masthead {
+  text-align: center;
+  margin-bottom: var(--cam-space-6);
+}
+
+.cam-auth-page .seal {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--cam-space-3);
+  border-radius: var(--cam-radius-full);
+  border: 1px dashed var(--cam-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cam-text-muted);
+  font-size: 10px;
+  line-height: 1.3;
+  background: var(--cam-surface-subtle);
+  text-transform: lowercase;
+}
+
+.cam-auth-page .seal-note {
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+  margin-bottom: var(--cam-space-4);
+  letter-spacing: 0.01em;
+}
+
+.cam-auth-page .brand-name {
+  font-size: var(--cam-font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--cam-space-2);
+  color: var(--cam-text);
+  line-height: 1.2;
+}
+
+.cam-auth-page .brand-sub {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* --- Card: the transaction surface --- */
+.cam-auth-page .card {
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-auth-page .stripe {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--cam-flag-green) 0 33.3%,
+    var(--cam-flag-red) 33.3% 66.6%,
+    var(--cam-flag-yellow) 66.6% 100%
+  );
+}
+
+.cam-auth-page .card-body {
+  padding: 26px 26px 22px;
+}
+
+/* Tabs */
+.cam-auth-page .tabs {
+  display: flex;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.cam-auth-page .tab {
+  background: none;
+  border: none;
+  padding: 0 0 10px;
+  font-size: var(--cam-font-size-base);
+  font-weight: 600;
+  color: var(--cam-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.cam-auth-page .tab.active {
+  color: var(--cam-green-dark);
+  border-bottom-color: var(--cam-green);
+}
+
+/* Form fields & inputs */
+.cam-auth-page .field {
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-auth-page .field:last-of-type {
+  margin-bottom: var(--cam-space-2);
+}
+
+.cam-auth-page label,
+.cam-auth-page .field-label {
+  display: block;
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--cam-text);
+}
+
+.cam-auth-page .input-row {
+  position: relative;
+}
+
+.cam-auth-page input[type="email"],
+.cam-auth-page input[type="password"],
+.cam-auth-page input[type="text"],
+.cam-auth-page input[type="tel"],
+.cam-auth-page input[type="number"],
+.cam-auth-page input[type="date"],
+.cam-auth-page textarea {
+  width: 100%;
+  padding: 10px var(--cam-space-3);
+  font-size: var(--cam-font-size-base);
+  border: 1px solid #1B4332;
+  border-radius: var(--cam-radius-control);
+  outline: none;
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cam-auth-page select {
+  width: 100%;
+  padding: 10px var(--cam-space-3);
+  font-size: var(--cam-font-size-base);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-control);
+  outline: none;
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cam-auth-page input[type="password"] {
+  padding-right: 40px;
+}
+
+.cam-auth-page input:focus,
+.cam-auth-page textarea:focus {
+  border: 2px solid #1B4332;
+  box-shadow: 0 0 0 3px rgba(27, 67, 50, 0.15);
+  outline: none;
+}
+
+.cam-auth-page select:focus {
+  border-color: #1B4332;
+  box-shadow: 0 0 0 3px rgba(27, 67, 50, 0.15);
+  outline: none;
+}
+
+.cam-auth-page input:disabled,
+.cam-auth-page select:disabled {
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text-muted);
+  cursor: not-allowed;
+}
+
+/* Eye toggle for password visibility */
+.cam-auth-page .eye-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: var(--cam-space-1);
+  cursor: pointer;
+  color: var(--cam-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.cam-auth-page .eye-toggle:hover {
+  color: var(--cam-text);
+}
+
+.cam-auth-page .eye-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sub-row: checkbox + link */
+.cam-auth-page .sub-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 20px;
+  font-size: var(--cam-font-size-xs);
+}
+
+.cam-auth-page .stay-signed-in {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cam-text);
+  cursor: pointer;
+  margin-bottom: 0;
+  font-size: var(--cam-font-size-xs);
+  font-weight: 500;
+}
+
+.cam-auth-page .stay-signed-in input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--cam-green);
+  margin: 0;
+  cursor: pointer;
+}
+
+.cam-auth-page .forgot {
+  color: var(--cam-green-dark);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.cam-auth-page .forgot:hover {
+  text-decoration: underline;
+}
+
+/* Buttons */
+.cam-auth-page .btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: var(--cam-green);
+  color: #fff;
+  border: none;
+  border-radius: var(--cam-radius-control);
+  font-size: var(--cam-font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+
+.cam-auth-page .btn-primary:hover:not(:disabled) {
+  background: var(--cam-green-dark);
+}
+
+.cam-auth-page .btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.cam-auth-page .btn-secondary {
+  padding: 10px var(--cam-space-4);
+  background: transparent;
+  color: var(--cam-text);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-control);
+  font-size: var(--cam-font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.cam-auth-page .btn-secondary:hover:not(:disabled) {
+  background: var(--cam-surface-subtle);
+}
+
+.cam-auth-page .btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Card footer */
+.cam-auth-page .card-footer {
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  padding: 14px 26px;
+  text-align: center;
+  background: var(--cam-surface-subtle);
+}
+
+.cam-auth-page .create-account {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-auth-page .create-account a {
+  color: var(--cam-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cam-auth-page .create-account a:hover {
+  text-decoration: underline;
+}
+
+/* External help line */
+.cam-auth-page .help {
+  text-align: center;
+  margin-top: 20px;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-auth-page .help a {
+  color: var(--cam-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cam-auth-page .help a:hover {
+  text-decoration: underline;
+}
+
+/* Feedback banners (auth-scoped) */
+.cam-auth-page .auth-error-box {
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
+  border: var(--cam-border-width) solid var(--cam-error-border);
+  border-radius: var(--cam-radius-control);
+  padding: 10px var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-auth-page .auth-success-box {
+  background: var(--cam-success-bg);
+  color: var(--cam-green-dark);
+  border: var(--cam-border-width) solid var(--cam-success-border);
+  border-radius: var(--cam-radius-control);
+  padding: 10px var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+  margin-bottom: var(--cam-space-3);
+}
+
+/* Status pill (verify-email) */
+.cam-auth-page .status-pill {
+  display: inline-block;
+  padding: var(--cam-space-1) 10px;
+  border-radius: var(--cam-radius-control);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  margin-bottom: var(--cam-space-3);
+}
+
+.cam-auth-page .status-pill--success {
+  background: var(--cam-success-bg);
+  color: var(--cam-green-dark);
+}
+
+.cam-auth-page .status-pill--error {
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
+}
+
+/* --- Registration Administrative Form Frame --- */
+.cam-auth-page .card--admin,
+.cam-auth-page .wrap-wide .card {
+  border: 1px solid var(--cam-green);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+/* Two-column responsive field grid */
+.cam-auth-page .form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cam-space-3);
+}
+
+@media (max-width: 640px) {
+  .cam-auth-page .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* Administrative Subsection Header */
+.cam-auth-page .admin-section-header {
+  font-size: var(--cam-font-size-xs);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cam-border);
+  padding-bottom: var(--cam-space-2);
+  margin: var(--cam-space-5) 0 var(--cam-space-3);
+}
+
+.cam-auth-page .admin-section-header:first-of-type {
+  margin-top: var(--cam-space-2);
+}
+
+/* Official Data Table Grid (Table Matrix) */
+.cam-auth-page .table-official {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--cam-table-grid);
+  font-size: var(--cam-font-size-xs);
+  margin-bottom: var(--cam-space-4);
+  background: var(--cam-surface);
+}
+
+.cam-auth-page .table-official th,
+.cam-auth-page .table-official td {
+  border: 1px solid var(--cam-table-grid);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cam-auth-page .table-official th {
+  background: var(--cam-surface-subtle);
+  font-weight: 700;
+  color: var(--cam-text);
+  letter-spacing: 0.02em;
+}
+
+.cam-auth-page .table-official td.label-cell {
+  width: 38%;
+  font-weight: 600;
+  color: var(--cam-text-muted);
+  background: #fafaf8;
+}
+
+.cam-auth-page .table-official td.value-cell {
+  color: var(--cam-text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* Progress Rail (Desktop Segmented & Mobile Compact) */
+.cam-auth-page .progress-rail-desktop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--cam-space-5);
+  padding: 0 var(--cam-space-2);
+  position: relative;
+}
+
+.cam-auth-page .progress-rail-mobile {
+  display: none;
+  margin-bottom: var(--cam-space-4);
+}
+
+@media (max-width: 640px) {
+  .cam-auth-page .progress-rail-desktop {
+    display: none;
+  }
+  .cam-auth-page .progress-rail-mobile {
+    display: block;
+  }
+}
+
+.cam-auth-page .progress-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+
+.cam-auth-page .progress-step-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: calc(50% + 14px);
+  right: calc(-50% + 14px);
+  height: 2px;
+  background: var(--cam-border);
+  z-index: 1;
+}
+
+.cam-auth-page .progress-step-item.is-completed:not(:last-child)::after {
+  background: var(--cam-green);
+}
+
+.cam-auth-page .progress-step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--cam-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--cam-font-size-xs);
+  font-weight: 700;
+  background: var(--cam-surface);
+  border: 2px solid var(--cam-border);
+  color: var(--cam-text-muted);
+  position: relative;
+  z-index: 2;
+  transition: all 0.15s ease;
+}
+
+.cam-auth-page .progress-step-item.is-completed .progress-step-circle {
+  background: var(--cam-green);
+  border-color: var(--cam-green);
+  color: #ffffff;
+}
+
+.cam-auth-page .progress-step-item.is-current .progress-step-circle {
+  background: var(--cam-surface);
+  border: 2px solid var(--cam-green);
+  color: var(--cam-green);
+  box-shadow: var(--cam-focus-shadow);
+}
+
+.cam-auth-page .progress-step-label {
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  margin-top: var(--cam-space-1);
+  color: var(--cam-text-muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cam-auth-page .progress-step-item.is-current .progress-step-label {
+  color: var(--cam-green-dark);
+  font-weight: 700;
+}
+
+.cam-auth-page .progress-step-item.is-completed .progress-step-label {
+  color: var(--cam-text);
+}
+
+/* Review section header & edit button */
+.cam-auth-page .review-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--cam-space-4);
+  margin-bottom: var(--cam-space-2);
+}
+
+.cam-auth-page .review-header-row:first-of-type {
+  margin-top: 0;
+}
+
+.cam-auth-page .review-section-title {
+  font-size: var(--cam-font-size-xs);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.cam-auth-page .btn-edit-section {
+  background: none;
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-sm);
+  color: var(--cam-green);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.cam-auth-page .btn-edit-section:hover {
+  border-color: var(--cam-green);
+  background: rgba(30, 107, 58, 0.05);
+  color: var(--cam-green-dark);
+}
+
+/* Password strength segments */
+.cam-auth-page .password-strength-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.cam-auth-page .password-strength-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-border);
+  transition: background-color 0.2s ease;
+}
+
+.cam-auth-page .password-strength-seg.active-1 { background: var(--cam-error); }
+.cam-auth-page .password-strength-seg.active-2 { background: var(--cam-gold); }
+.cam-auth-page .password-strength-seg.active-3 { background: #5a9e31; }
+.cam-auth-page .password-strength-seg.active-4 { background: var(--cam-green); }
+
+@keyframes onefopPulse {
+  0% { transform: scale(0.92); box-shadow: 0 0 20px rgba(30, 107, 58, 0.2); }
+  50% { transform: scale(1.06); box-shadow: 0 0 50px rgba(30, 107, 58, 0.45); }
+  100% { transform: scale(0.92); box-shadow: 0 0 20px rgba(30, 107, 58, 0.2); }
+}
+
+.cam-pulsing-logo {
+  animation: onefopPulse 1.4s ease-in-out infinite;
+}
+
+/* Sovereign Forms Input & Control System */
+.sovereign-text-input {
+  width: 100%;
+  border: 1px solid #1B4332 !important;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sovereign-text-input:focus {
+  border: 2px solid #1B4332 !important;
+  box-shadow: 0 0 0 3px rgba(27, 67, 50, 0.15) !important;
+  outline: none !important;
+}
+
+.sovereign-text-input.has-error {
+  border: 1px solid #dc2626 !important;
+}
+
+.sovereign-text-input.has-error:focus {
+  border: 2px solid #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.sovereign-select {
+  width: 100%;
+  border: 1px solid #1B4332 !important;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sovereign-select:focus {
+  border-color: #1B4332 !important;
+  box-shadow: 0 0 0 3px rgba(27, 67, 50, 0.15) !important;
+  outline: none !important;
+}
+
+.sovereign-select.has-error {
+  border-color: #dc2626 !important;
+}
+
+.sovereign-select:disabled {
+  background: #f8fafc !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed;
+  border-color: #e2e8f0 !important;
+}
+
+/* Professional Transition for Deck & Statistical Table Views
+   CRISP-TEXT RULE (do not undo): entrance animations here use
+   fill-mode `backwards`, never `both`/`forwards`, and never set
+   `will-change`. A permanent `will-change: transform/opacity` (or a
+   transform left behind by fill-mode) makes Chrome paint the element on
+   its own transparent GPU layer, which disables ClearType/LCD text and
+   rasterises at fractional device-pixel ratios (Windows 125%/150%/175%
+   scaling) -> soft, blurry text across the whole content area. With
+   `backwards`, the element returns to normal painting the moment the
+   animation ends, on every screen size and DPI. */
+@keyframes deckFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.deck-view-transition {
+  /* Short, decelerating fade + 4px rise: the standard "content swap" feel. */
+  animation: deckFadeIn 200ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+
+/* ── Modern Jobs UI: transition/animation fixes ──────────────────────────
+   Grouped here because they all address the same audit: several places in
+   the Modern Jobs forms declared a `transition` or referenced an
+   `animate-in`/`fade-in`/`zoom-in-*` utility class without either actually
+   taking effect (see notes per rule below). */
+
+/* 1. Hover feedback for inline-`style`-styled buttons/tabs (header, bottom
+   nav, sidebar, view-mode toggles, deck-mode switcher, step pills). Those
+   controls compute background/color from JS state (isCurrent, isActive, …)
+   directly in the `style` prop, so a `:hover { background: ... }` rule
+   here could never win against that inline value anyway. `filter` is never
+   set inline on any of them, so a brightness dip is guaranteed to apply
+   cleanly, and it darkens whatever is actually painted — solid fill,
+   tinted background, or just text/border on a ghost button — the same way
+   `hover:bg-[--cam-green-dark]` already darkens the Tailwind-styled
+   buttons elsewhere in the app. */
+.cam-hoverable {
+  transition: filter 0.15s ease;
+}
+.cam-hoverable:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+.cam-hoverable:active:not(:disabled) {
+  filter: brightness(0.88);
+}
+.cam-hoverable:disabled {
+  cursor: not-allowed;
+}
+
+/* 2. Guided-mode question card: was `animate-in fade-in duration-150`,
+   which is a no-op — this project has no `tailwindcss-animate` (or
+   tw-animate-css) plugin registered anywhere (checked package.json,
+   postcss.config.mjs, and every @import/@plugin in this file and
+   tokens.css), so those class names are unrecognized and Tailwind's JIT
+   never emits CSS for them. Reuses the same deckFadeIn keyframes as the
+   table-deck transition above for a consistent feel. Requires the card's
+   wrapper to carry `key={currentQuestion.id}` so React remounts it (and
+   therefore replays the animation) on every question change — a re-render
+   of the same DOM node does not restart a CSS animation. */
+.cam-card-fade-in {
+  animation: deckFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* 3. Info tooltip popover: was `animate-in fade-in zoom-in-95 duration-150`
+   (same dead-plugin issue as #2 above). This one already mounts fresh each
+   time `isOpen` becomes true, so no `key` trick is needed — just a real
+   animation. Keeps the horizontal centering transform (translateX(-50%))
+   in both keyframe endpoints since an active CSS animation on `transform`
+   overrides any static Tailwind transform utility for the same property
+   while it runs (and after, since fill-mode is `both`). */
+@keyframes camTooltipPopIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+.cam-tooltip-pop-in {
+  animation: camTooltipPopIn 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 4. Keyboard-shortcuts help panel: was a bare `{condition && <div>}` with
+   no animation at all. */
+@keyframes camPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.cam-panel-fade-in {
+  animation: camPanelFadeIn 160ms ease backwards;
+}
+
+/* 5. Mobile "Sections" drawer (bottom sheet): was a bare conditional
+   mount/unmount with no transform/opacity transition on either the
+   backdrop or the sheet — despite the sheet's rounded top corners clearly
+   implying a slide-up affordance. The component keeps rendering for a
+   short window after close (via a `drawerClosing` state) so the "-out"
+   keyframes get a chance to play before the node actually unmounts. */
+@keyframes camBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes camBackdropFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes camSheetSlideIn {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes camSheetSlideOut {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+.cam-drawer-backdrop-in {
+  animation: camBackdropFadeIn 0.2s ease backwards;
+}
+.cam-drawer-backdrop-out {
+  animation: camBackdropFadeOut 0.2s ease both;
+}
+.cam-drawer-sheet-in {
+  animation: camSheetSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.cam-drawer-sheet-out {
+  animation: camSheetSlideOut 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* Respect OS "reduce motion": skip entrance/exit animations entirely so
+   no element is ever promoted to an animation layer for these users. */
+@media (prefers-reduced-motion: reduce) {
+  .deck-view-transition,
+  .cam-card-fade-in,
+  .cam-panel-fade-in,
+  .cam-drawer-backdrop-in,
+  .cam-drawer-sheet-in {
+    animation: none !important;
+  }
+  /* Tooltip keeps its animation (its translateX(-50%) centering lives in
+     the keyframes); exit animations must still fire animationend. */
+  .cam-tooltip-pop-in,
+  .cam-drawer-backdrop-out,
+  .cam-drawer-sheet-out {
+    animation-duration: 1ms !important;
+  }
+}
+
+/* ── DataTable typography ──────────────────────────────────────────────
+   Paired with components/onefop/table/DataTable.tsx: every table cell is
+   one of those pieces, and each piece has exactly one class below. Values
+   come from the --cam-table-* tokens (tokens.css). There is no !important
+   here because nothing competes: table components are not allowed to set
+   font properties themselves (DataTable's `style` type forbids it and
+   eslint.config.mjs rejects it).
+     • one size for every cell, header and input  (--cam-table-fs)
+     • hierarchy by weight/colour only:
+         group/corner 600 · leaf (Homme, Femme…) 400 · row label 400
+         typed value 400 · computed 600 · total row 700 · empty "—" grey */
+.cam-dt {
+  font-family: var(--cam-font-sans);
+  font-size: var(--cam-table-fs);
+  line-height: var(--cam-table-lh);
+  font-weight: var(--cam-table-w-value);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  color: var(--cam-table-text);
+}
+/* Browsers give <th> bold and form controls their own font; reset both so
+   the role classes below are the only thing that decides. */
+.cam-dt :is(th, td, input, select, textarea, button) {
+  font: inherit;
+  letter-spacing: inherit;
+}
+.cam-dt .cam-dt-corner,
+.cam-dt .cam-dt-group            { font-weight: var(--cam-table-w-group); }
+.cam-dt .cam-dt-leaf             { font-weight: var(--cam-table-w-leaf); }
+.cam-dt .cam-dt-rowhead          { font-weight: var(--cam-table-w-label); text-align: left; }
+.cam-dt .cam-dt-rowhead--block   { font-weight: var(--cam-table-w-group); }
+.cam-dt .cam-dt-rowhead--total   { font-weight: var(--cam-table-w-total); color: var(--cam-table-readonly-text); }
+.cam-dt .cam-dt-input            { font-weight: var(--cam-table-w-value); color: var(--cam-table-text); }
+.cam-dt .cam-dt-input--computed  { font-weight: var(--cam-table-w-computed); color: var(--cam-table-readonly-text); }
+.cam-dt .cam-dt-input::placeholder { color: var(--cam-table-muted); font-weight: var(--cam-table-w-value); opacity: 1; }
+.cam-dt .cam-dt-value            { font-weight: var(--cam-table-w-value); }
+.cam-dt .cam-dt-value--computed  { font-weight: var(--cam-table-w-computed); color: var(--cam-table-readonly-text); }
+.cam-dt .cam-dt-value--total     { font-weight: var(--cam-table-w-total); color: var(--cam-table-readonly-text); }
+.cam-dt .cam-dt-empty            { font-weight: var(--cam-table-w-value); color: var(--cam-table-muted); }
+.cam-dt .cam-dt-rowcode {
+  font-family: var(--cam-font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cam-table-frame);
+}
+
+/* Alignment (also owned by DataTable): values, entries and column headers
+   centred; row labels + corner header left; free text left. */
+.cam-dt :is(td, .cam-dt-group, .cam-dt-leaf, .cam-dt-cell) { text-align: center; }
+.cam-dt :is(.cam-dt-corner, .cam-dt-rowhead)               { text-align: left; }
+.cam-dt .cam-dt-input                                        { text-align: center; }
+.cam-dt .cam-dt-input--select                                { text-align: center; text-align-last: center; }
+.cam-dt .cam-dt-input--text                                  { text-align: left; }
+
+/* No browser spinner arrows inside table cells (they squeeze the value and
+   look different in every browser); arrow keys still work. */
+.cam-dt input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.cam-dt input[type="number"]::-webkit-inner-spin-button,
+.cam-dt input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ── Question code badge (S1Q01, S22Q05, …) ──────────────────────────
+   Shown in front of every question and table title (CodedLabel). Fixed
+   size in rem so it looks identical whether it sits in a 13px field label
+   or an 18px serif table title. */
+.cam-qcode {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--cam-border, #d8ddd3);
+  border-radius: 4px;
+  background: var(--cam-surface-subtle, #f3f5f1);
+  color: var(--cam-text-muted, #4a5a50);
+  font-family: var(--cam-font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  vertical-align: 0.12em;
+  white-space: nowrap;
+}
+
+/* Preliminary quiz card. Taller on desktop, where the column has room;
+   on a phone the actions have to stay on screen. */
+.cam-quiz-card {
+  min-height: clamp(26rem, calc(100dvh - 26rem), 36rem);
+}
+
+@media (min-width: 1024px) {
+  .cam-quiz-card {
+    min-height: clamp(34rem, calc(100dvh - 18rem), 46rem);
+  }
+}
+
+.cam-quiz-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cam-space-3, 12px);
+  flex: 1 1 18rem;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.cam-quiz-tabs > button {
+  width: 100%;
+  white-space: normal;
+}
+
+@media (min-width: 900px) {
+  .cam-quiz-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--cam-space-3, 12px) var(--cam-space-6, 32px);
+  }
+
+  .cam-quiz-tabs > button {
+    width: auto;
+    white-space: nowrap;
+  }
+}
+
+/* ── Unified CAM-LEAP Administrative Data Table ────────────────────────── */
+.cam-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text);
+}
+
+.cam-table thead {
+  background: var(--cam-bg);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-table th {
+  padding: var(--cam-space-2) var(--cam-space-3);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cam-text-muted);
+  text-align: left;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cam-table tbody tr {
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  transition: background 0.1s ease;
+}
+
+.cam-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.cam-table tbody tr:hover {
+  background: var(--cam-table-hover);
+}
+
+.cam-table td {
+  padding: var(--cam-space-2) var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text);
+  vertical-align: middle;
+  height: var(--cam-row-height);
+}
+
+.cam-table th.text-center,
+.cam-table td.text-center {
+  text-align: center;
+}
+
+.cam-table th.text-right,
+.cam-table td.text-right {
+  text-align: right;
+}
+
+.cam-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-4);
+}
+
+.cam-pagination-btn {
+  height: 32px;
+  padding: 0 var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cam-pagination-btn:hover:not(:disabled) {
+  background: var(--cam-bg);
+}
+
+.cam-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cam-pagination-info {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+
+/* ── Administrative Badge Styles ── */
+.cam-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1);
+  padding: 2px var(--cam-space-2);
+  border-radius: var(--cam-radius-full);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.cam-badge-success {
+  background: var(--cam-success-bg);
+  color: var(--cam-success);
+  border: 1px solid var(--cam-success-border);
+}
+
+.cam-badge-warning {
+  background: var(--cam-warning-bg);
+  color: var(--cam-warning);
+  border: 1px solid var(--cam-warning-border);
+}
+
+.cam-badge-error {
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
+  border: 1px solid var(--cam-error-border);
+}
+
+.cam-badge-info {
+  background: var(--cam-info-bg);
+  color: var(--cam-info);
+  border: 1px solid var(--cam-info-border);
+}
+
+.cam-badge-neutral {
+  background: var(--cam-bg);
+  color: var(--cam-text-muted);
+  border: 1px solid var(--cam-border);
+}
