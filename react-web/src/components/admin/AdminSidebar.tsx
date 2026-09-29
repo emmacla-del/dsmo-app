@@ -93,6 +93,9 @@ export interface AdminSidebarProps {
   /** Current locale for the FR | EN switcher */
   locale?: "fr" | "en";
   onLocaleChange?: (locale: "fr" | "en") => void;
+  /** Forwarded to the root <aside> for CSS targeting (e.g. mobile drawer) */
+  id?: string;
+  className?: string;
 }
 
 // ── Badge pill ────────────────────────────────────────────────────────────────
@@ -210,6 +213,8 @@ export function AdminSidebar({
   activeCampaignLabel,
   locale = "fr",
   onLocaleChange,
+  id,
+  className,
 }: AdminSidebarProps) {
   const pathname = usePathname();
 
@@ -229,6 +234,8 @@ export function AdminSidebar({
 
   return (
     <aside
+      id={id}
+      className={className}
       aria-label="Navigation principale"
       style={{
         width: 196,
