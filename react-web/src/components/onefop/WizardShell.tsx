@@ -51,6 +51,8 @@ interface WizardShellProps {
 
   establishmentName?: string;
   quarterCode?: string;
+  /** Stable per-session idempotency key from useOnefopDraft (P4 fix). */
+  formId?: string;
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -120,6 +122,7 @@ export function WizardShell({
   lastSavedAt = null,
   establishmentName,
   quarterCode,
+  formId,
 }: WizardShellProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -144,7 +147,9 @@ export function WizardShell({
     queryFn: getActiveQuarter,
   });
 
-  const effectiveQuarter = quarterCode || quarterQuery.data?.code || "2026-T1";
+  // Null until the backend confirms the active period — never substitute a
+  // hardcoded string, which would attribute submissions to the wrong campaign.
+  const effectiveQuarter: string | undefined = (quarterCode ?? quarterQuery.data?.code) ?? undefined;
   const effectiveEstablishment =
     establishmentName ||
     (data["VT1_2"] as string) ||
@@ -206,17 +211,22 @@ export function WizardShell({
   };
 
   const submitMutation = useMutation({
-    mutationFn: () =>
-      submitDeclaration(entityType, effectiveQuarter, data, false, entity),
+    mutationFn: () => {
+      if (!effectiveQuarter) return Promise.reject(new Error("Période active non disponible — rechargez la page."));
+      return submitDeclaration(entityType, effectiveQuarter, data, false, entity, formId);
+    },
     onSuccess: (result) => {
       // Clear the local IndexedDB draft so the respondent does not see stale
       // prior-quarter data the next time they open this entity type.
-      clearDraft(entityType).catch(() => {});
+      if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
       setSubmissionResult(`${result.message} (ID: ${result.submissionId})`);
     },
   });
 
-  const canSubmit = supportsBackendSubmission(entityType);
+  // Period-closed check: canSubmit is false only when the backend explicitly
+  // returns isOpen===false; it stays true while the query is loading so the
+  // submit button is not disabled during the initial fetch.
+  const canSubmit = supportsBackendSubmission(entityType) && (quarterQuery.data?.isOpen !== false);
 
   const submissionError =
     pdfMutation.isError || submitMutation.isError
@@ -991,7 +1001,7 @@ export function WizardShell({
                   isLast={clampedSectionIndex === sections.length - 1}
                   onBack={handlePrev}
                   onNext={handleNext}
-                  onSaveAndExit={onSaveNow && onCancel ? () => { onSaveNow(); onCancel(); } : undefined}
+                  onSaveAndExit={onSaveNow && onCancel ? async () => { await onSaveNow(); onCancel(); } : undefined}
                   showBottomBar={false}
                   saving={saving}
                   onOutlineChange={setVtSectionOutline}
@@ -1172,6 +1182,7 @@ export function WizardShell({
               validationIssues={validationIssues}
               attemptedSubmit={attemptedSubmit}
               onAttemptSubmit={onAttemptSubmit}
+              formId={formId}
             />
           </div>
         )}

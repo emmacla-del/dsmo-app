@@ -30,6 +30,8 @@ interface SubmissionPanelProps {
   validationIssues: ValidationIssue[];
   attemptedSubmit: boolean;
   onAttemptSubmit: () => void;
+  /** Stable per-session idempotency key from useOnefopDraft (P4 fix). */
+  formId?: string;
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -63,29 +65,35 @@ export function SubmissionPanel({
   validationIssues,
   attemptedSubmit,
   onAttemptSubmit,
+  formId,
 }: SubmissionPanelProps) {
   const t = useTranslations();
   const [lastResult, setLastResult] = useState<string | null>(null);
   const quarterQuery = useQuery({ queryKey: ["onefop", "active-quarter"], queryFn: getActiveQuarter });
 
-  // Quarter fallback aligned with WizardShell.tsx so that an offline/error
-  // scenario does not attribute the submission to a different period depending
-  // on which render path is active.  Production: the query always resolves
-  // because onefop.service.ts returns a synthetic open period when no round
-  // exists, so the fallback is only a last-resort guard, not a normal path.
-  const effectiveQuarter = quarterQuery.data?.code || "2026-T1";
+  // Null until the backend confirms the active period — never fall back to a
+  // hardcoded quarter string, because a wrong value would attribute drafts
+  // and submissions to the wrong campaign period in the database.
+  const effectiveQuarter: string | undefined = quarterQuery.data?.code ?? undefined;
+  const periodIsClosed = quarterQuery.data?.isOpen === false;
 
   const draftMutation = useMutation({
-    mutationFn: () => saveDraftToBackend(entityType, effectiveQuarter, data),
+    mutationFn: () => {
+      if (!effectiveQuarter) return Promise.reject(new Error("Active quarter not loaded"));
+      return saveDraftToBackend(entityType, effectiveQuarter, data, entity);
+    },
     onSuccess: () => setLastResult(t("submissionPanel.draftSavedMessage")),
   });
 
   const submitMutation = useMutation({
-    mutationFn: () => submitDeclaration(entityType, effectiveQuarter, data, false, entity),
+    mutationFn: () => {
+      if (!effectiveQuarter) return Promise.reject(new Error("Active quarter not loaded"));
+      return submitDeclaration(entityType, effectiveQuarter, data, false, entity, formId);
+    },
     onSuccess: (result) => {
       // Clear the local IndexedDB draft so stale prior-quarter data is not
       // reloaded when the respondent opens this entity type next quarter.
-      clearDraft(entityType).catch(() => {});
+      if (effectiveQuarter) clearDraft(entityType, effectiveQuarter).catch(() => {});
       setLastResult(
         t("submissionPanel.submissionSuccessWithId", { message: result.message, submissionId: result.submissionId }),
       );
@@ -108,7 +116,10 @@ export function SubmissionPanel({
     },
   });
 
-  const canSubmit = supportsBackendSubmission(entityType);
+  // canSubmit is false when the period is explicitly closed; it stays true
+  // while the quarter is loading (isOpen is undefined) so the button is
+  // available once the period is confirmed open.
+  const canSubmit = supportsBackendSubmission(entityType) && !periodIsClosed;
 
   return (
     <div
@@ -129,6 +140,21 @@ export function SubmissionPanel({
       {quarterQuery.isLoading && (
         <p style={{ fontSize: "var(--cam-font-size-sm)" }}>{t("submissionPanel.checkingPeriod")}</p>
       )}
+      {quarterQuery.isError && (
+        <p
+          role="alert"
+          style={{
+            fontSize: "var(--cam-font-size-sm)",
+            color: "var(--cam-error)",
+            background: "var(--cam-error-bg)",
+            padding: "var(--cam-space-2) var(--cam-space-3)",
+            borderRadius: "var(--cam-radius-sm)",
+            margin: "0 0 var(--cam-space-3)",
+          }}
+        >
+          {t("submissionPanel.quarterLoadError")}
+        </p>
+      )}
       {quarterQuery.data && (
         <p style={{ fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text-muted)", margin: "0 0 var(--cam-space-3)" }}>
           {quarterQuery.data.isOpen
@@ -144,7 +170,7 @@ export function SubmissionPanel({
         <button
           type="button"
           style={buttonStyle}
-          disabled={draftMutation.isPending}
+          disabled={!effectiveQuarter || draftMutation.isPending}
           onClick={() => draftMutation.mutate()}
         >
           {draftMutation.isPending ? t("submissionPanel.savingButton") : t("submissionPanel.saveDraftButton")}
@@ -169,7 +195,7 @@ export function SubmissionPanel({
               borderColor: canSubmit ? "var(--cam-green)" : "var(--cam-border-strong)",
               cursor: canSubmit ? "pointer" : "not-allowed",
             }}
-            disabled={!canSubmit || submitMutation.isPending}
+            disabled={!canSubmit || !effectiveQuarter || submitMutation.isPending}
             onClick={() => {
               onAttemptSubmit();
               if (validationIssues.length > 0) return;

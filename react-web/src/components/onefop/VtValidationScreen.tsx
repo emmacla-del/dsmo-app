@@ -1,0 +1,473 @@
+"use client";
+
+import { useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import type { FormData, OnefopEntity, OnefopSection } from "@/lib/onefop-schema";
+import { localized } from "@/lib/onefop-schema";
+import { validateSectionData } from "@/lib/onefop-validation";
+import { getVtSectionShortLabel } from "./vt-wizard-utils";
+
+interface VtValidationScreenProps {
+  entity: OnefopEntity;
+  data: FormData;
+  onOpenSection: (index: number) => void;
+  onBack: () => void;
+  onPreviewPdf?: () => void;
+  isGeneratingPdf?: boolean;
+  onSaveDraft?: () => void;
+  onSubmitFinal?: () => void;
+  isSubmitting?: boolean;
+}
+
+type SectionState = "notStarted" | "inProgress" | "done";
+
+function getSectionStats(section: OnefopSection, data: FormData) {
+  let filled = 0;
+  let total = 0;
+
+  for (const field of section.fields) {
+    if (field.type === "section_header") continue;
+    total++;
+    const v = data[field.id];
+    if (v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0)) {
+      filled++;
+    }
+  }
+
+  const issues = validateSectionData(section, data);
+  const isValid = issues.length === 0;
+
+  let state: SectionState = "notStarted";
+  if (filled > 0) {
+    state = isValid && filled === total ? "done" : "inProgress";
+  }
+
+  return {
+    filled,
+    total,
+    fraction: total > 0 ? filled / total : 0,
+    state,
+    issuesCount: issues.length,
+  };
+}
+
+/**
+ * Port of lib/screens/onefop/wizard/vt_wizard_validation_screen.dart:
+ * - Confidentiality notice (Law N° 91/023)
+ * - Incomplete warning banner when sections have missing required fields
+ * - 9-section status card grid (SECTION N, label, badge, filled/total progress)
+ * - Navigation: Return to Section 9 or proceed to PDF review & final submission
+ */
+export function VtValidationScreen({
+  entity,
+  data,
+  onOpenSection,
+  onBack,
+  onPreviewPdf,
+  isGeneratingPdf = false,
+  onSaveDraft,
+  onSubmitFinal,
+  isSubmitting = false,
+}: VtValidationScreenProps) {
+  const t = useTranslations();
+  const locale = useLocale();
+  const sections = entity.sections;
+
+  const sectionSummaries = useMemo(() => {
+    return sections.map((sec, idx) => ({
+      index: idx + 1,
+      section: sec,
+      stats: getSectionStats(sec, data),
+    }));
+  }, [sections, data]);
+
+  const hasIncomplete = sectionSummaries.some((s) => s.stats.state !== "done");
+  // W1 fix: task-rail navigation can bypass sections entirely (goToSection has
+  // no validation gate). Block final submission when any section still has
+  // outstanding validation errors — this includes never-visited sections
+  // whose required fields are all absent.
+  const hasErrors = sectionSummaries.some((s) => s.stats.issuesCount > 0);
+
+  return (
+    <div style={{ fontFamily: "var(--cam-font-sans)", paddingBottom: "var(--cam-space-8)" }}>
+      {/* Title */}
+      <div
+        style={{
+          borderLeft: "4px solid var(--cam-green-dark, #144a28)",
+          paddingLeft: "var(--cam-space-3, 12px)",
+          borderBottom: "1px solid var(--cam-border, #d8ddd3)",
+          paddingBottom: "var(--cam-space-2, 8px)",
+          marginBottom: "var(--cam-space-5, 20px)",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "20px",
+            fontWeight: 800,
+            color: "var(--cam-text, #0b1f14)",
+            margin: 0,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {t("vtValidationScreen.thankYouTitle")}
+        </h2>
+      </div>
+
+      {/* Confidentiality Notice */}
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+          alignItems: "flex-start",
+          background: "var(--cam-success-bg)",
+          border: "1px solid var(--cam-border)",
+          borderRadius: "var(--cam-radius-md)",
+          padding: "16px 20px",
+          marginBottom: "var(--cam-space-4)",
+        }}
+      >
+        <span style={{ fontSize: "20px", color: "var(--cam-green)", lineHeight: 1 }}>🛡️</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--cam-green)", marginBottom: "4px" }}>
+            {t("vtValidationScreen.confidentialityTitle")}
+          </div>
+          <div style={{ fontSize: "13px", color: "var(--cam-text)", lineHeight: 1.5 }}>
+            {t("vtValidationScreen.confidentialityText")}
+          </div>
+        </div>
+      </div>
+
+      {/* Validation error banner — blocks submission (W1 fix) */}
+      {hasErrors && (
+        <div
+          style={{
+            background: "rgba(192, 57, 43, 0.06)",
+            border: "1px solid rgba(192, 57, 43, 0.35)",
+            borderRadius: "var(--cam-radius-md)",
+            padding: "14px 18px",
+            fontSize: "13.5px",
+            color: "var(--cam-text)",
+            marginBottom: "var(--cam-space-4)",
+            lineHeight: 1.4,
+          }}
+        >
+          {t("vtValidationScreen.errorsBlockingSubmit")}
+        </div>
+      )}
+
+      {/* Incomplete Warning if any (advisory only — does not block) */}
+      {!hasErrors && hasIncomplete && (
+        <div
+          style={{
+            background: "rgba(232, 160, 32, 0.08)",
+            border: "1px solid var(--cam-gold, #e8a020)",
+            borderRadius: "var(--cam-radius-md)",
+            padding: "14px 18px",
+            fontSize: "13.5px",
+            color: "var(--cam-text)",
+            marginBottom: "var(--cam-space-6)",
+            lineHeight: 1.4,
+          }}
+        >
+          {t("vtValidationScreen.incompleteWarning")}
+        </div>
+      )}
+
+      {/* Summary Header */}
+      <div
+        style={{
+          fontSize: "12px",
+          fontWeight: 700,
+          color: "var(--cam-text-muted)",
+          letterSpacing: "0.5px",
+          textTransform: "uppercase",
+          marginBottom: "var(--cam-space-3)",
+        }}
+      >
+        {t("vtValidationScreen.summaryHeader")}
+      </div>
+
+      {/* 9-Section Grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
+          gap: "14px",
+          marginBottom: "var(--cam-space-6)",
+        }}
+      >
+        {sectionSummaries.map(({ index, section, stats }) => {
+          const isHighlighted = stats.state !== "notStarted";
+          const borderColor =
+            stats.state === "done"
+              ? "var(--cam-green)"
+              : isHighlighted
+                ? "var(--cam-border-strong, #aab5a3)"
+                : "var(--cam-border)";
+
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => onOpenSection(index - 1)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                textAlign: "left",
+                background: "#ffffff",
+                border: `1px solid ${borderColor}`,
+                borderRadius: "var(--cam-radius-md)",
+                padding: "14px 16px",
+                cursor: "pointer",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--cam-green)";
+                e.currentTarget.style.boxShadow = "0 2px 6px rgba(0,0,0,0.06)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = borderColor;
+                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: "10px" }}>
+                <div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: isHighlighted ? "var(--cam-green)" : "var(--cam-text-muted)",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {t("vtValidationScreen.sectionLabel", { number: index })}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "13.5px",
+                      fontWeight: 700,
+                      color: "var(--cam-text)",
+                      marginTop: "2px",
+                      maxWidth: "260px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {getVtSectionShortLabel(section.id, locale) ?? localized(section.title, locale.startsWith("en") ? "en" : "fr")}
+                  </div>
+                </div>
+
+                {/* Badge */}
+                <span
+                  style={{
+                    padding: "3px 8px",
+                    borderRadius: "var(--cam-radius-sm)",
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                    background:
+                      stats.state === "done"
+                        ? "var(--cam-success-bg)"
+                        : stats.state === "inProgress"
+                        ? "#FFFCEB"
+                        : "var(--cam-bg)",
+                    color:
+                      stats.state === "done"
+                        ? "var(--cam-green)"
+                        : stats.state === "inProgress"
+                        ? "#7a6200"
+                        : "var(--cam-text-muted)",
+                  }}
+                >
+                  {stats.state === "done"
+                    ? t("vtValidationScreen.badgeCompleted")
+                    : stats.state === "inProgress"
+                    ? t("vtValidationScreen.badgeInProgress")
+                    : t("vtValidationScreen.badgeNotStarted")}
+                </span>
+              </div>
+
+              {/* Progress bar and champ count */}
+              <div style={{ width: "100%" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "11px",
+                    color: "var(--cam-text-muted)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span>
+                    {t("vtValidationScreen.fieldsProgress", { filled: stats.filled, total: stats.total })}
+                  </span>
+                  {stats.issuesCount > 0 && (
+                    <span style={{ color: "var(--cam-error)", fontWeight: 600 }}>
+                      {t("vtValidationScreen.issuesCount", { count: stats.issuesCount })}
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    width: "100%",
+                    height: 4,
+                    background: "var(--cam-border)",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.round(stats.fraction * 100)}%`,
+                      height: "100%",
+                      background: stats.state === "done" ? "var(--cam-green)" : "var(--cam-gold)",
+                      transition: "width 0.3s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Navigation and Action Bar — Back alone on the left, Preview + Save
+          Draft as a secondary pair, Submit as the large primary action
+          below, matching vt_wizard_validation_screen.dart's layout. */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "var(--cam-space-5)",
+          paddingTop: "var(--cam-space-5)",
+          borderTop: "1px solid var(--cam-border)",
+        }}
+      >
+        <div style={{ width: "100%", display: "flex" }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              height: "var(--cam-form-field-height)",
+              padding: "0 20px",
+              borderRadius: "var(--cam-radius-sm)",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              border: "1px solid var(--cam-border)",
+              background: "#ffffff",
+              color: "var(--cam-text)",
+              fontFamily: "var(--cam-font-sans)",
+            }}
+          >
+            ← {t("vtValidationScreen.backButton")}
+          </button>
+        </div>
+
+        {(onPreviewPdf || onSaveDraft) && (
+          <div style={{ display: "flex", gap: "var(--cam-space-3)" }}>
+            {onPreviewPdf && (
+              <button
+                type="button"
+                onClick={onPreviewPdf}
+                disabled={isGeneratingPdf}
+                style={{
+                  height: "var(--cam-form-field-height)",
+                  padding: "0 20px",
+                  borderRadius: "var(--cam-radius-sm)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: isGeneratingPdf ? "wait" : "pointer",
+                  border: "1px solid var(--cam-border)",
+                  background: "#ffffff",
+                  color: "var(--cam-text)",
+                  fontFamily: "var(--cam-font-sans)",
+                  opacity: isGeneratingPdf ? 0.7 : 1,
+                }}
+              >
+                {isGeneratingPdf ? "⏳ " : "📄 "}
+                {isGeneratingPdf
+                  ? (locale.startsWith("en") ? "Generating..." : "Génération en cours...")
+                  : t("vtValidationScreen.previewPdfButton")}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onOpenSection(0)}
+              style={{
+                height: "var(--cam-form-field-height)",
+                padding: "0 20px",
+                borderRadius: "var(--cam-radius-sm)",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                border: "1px solid var(--cam-border)",
+                background: "#ffffff",
+                color: "var(--cam-text)",
+                fontFamily: "var(--cam-font-sans)",
+              }}
+            >
+              ✏️ {locale.startsWith("en") ? "Edit" : "Corriger"}
+            </button>
+
+            {onSaveDraft && (
+              <button
+                type="button"
+                onClick={onSaveDraft}
+                style={{
+                  height: "var(--cam-form-field-height)",
+                  padding: "0 20px",
+                  borderRadius: "var(--cam-radius-sm)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "1px solid var(--cam-border)",
+                  background: "#ffffff",
+                  color: "var(--cam-text)",
+                  fontFamily: "var(--cam-font-sans)",
+                }}
+              >
+                💾 {t("vtValidationScreen.saveDraftButton")}
+              </button>
+            )}
+          </div>
+        )}
+
+        {onSubmitFinal && (
+          <button
+            type="button"
+            onClick={onSubmitFinal}
+            disabled={isSubmitting || hasErrors}
+            style={{
+              height: "var(--cam-form-field-height)",
+              padding: "0 48px",
+              borderRadius: "var(--cam-radius-sm)",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: isSubmitting || hasErrors ? "not-allowed" : "pointer",
+              border: "none",
+              background: "var(--cam-green)",
+              color: "#fff",
+              fontFamily: "var(--cam-font-sans)",
+              opacity: isSubmitting || hasErrors ? 0.55 : 1,
+            }}
+          >
+            {isSubmitting ? (
+              t("vtValidationScreen.submitting")
+            ) : (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span>👁️</span>
+                <span>{locale.startsWith("en") ? "Review & Submit" : "Vérifier & Soumettre"}</span>
+                <span>→</span>
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
