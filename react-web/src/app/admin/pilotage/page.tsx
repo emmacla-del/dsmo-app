@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
+import type { Campaign } from "@/lib/campaigns";
+import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
+import { KpiTile } from "@/components/admin/KpiTile";
 
 const CAMEROON_REGIONS = [
   "Centre",
@@ -28,13 +33,186 @@ function fmt(n: number) {
   return n.toLocaleString("fr-FR");
 }
 
-function fmtDate(dateStr: string) {
+function fmtDate(dateStr: string | null | undefined) {
+  if (!dateStr) return "—";
   try {
-    return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(dateStr));
+    return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(dateStr));
   } catch {
     return dateStr;
   }
 }
+
+// Timeline stamp: time of day for today's events, short date otherwise.
+function fmtStamp(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "—";
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  return new Intl.DateTimeFormat("fr-FR", sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" }).format(d);
+}
+
+// ── Sections ────────────────────────────────────────────────────────────────
+
+function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "green"; children: string }) {
+  return (
+    <h2 id={id} className={`cam-dash-section-label cam-dash-section-label--${tone}`}>
+      {children}
+    </h2>
+  );
+}
+
+function CampaignCard({ campaign }: { campaign: Campaign }) {
+  // TODO(backend, M): missing campaign target, national completion %, and active agent count for the Figma progress bar and stats row
+  // Captured once per mount: render must stay pure (react-hooks/purity).
+  const [now] = useState(() => Date.now());
+  const end = campaign.extendedDeadline || campaign.deadline;
+  const daysLeft = end ? Math.max(0, Math.ceil((new Date(end).getTime() - now) / 86_400_000)) : null;
+
+  return (
+    <section className="cam-dash-card" aria-labelledby="dash-campaign-title">
+      <div className="cam-dash-card-head">
+        <div>
+          <div className="cam-dash-card-title-row">
+            <h3 id="dash-campaign-title" className="cam-dash-card-title">{campaign.name}</h3>
+            <AdminStatusBadge label="Actif" variant="active" />
+          </div>
+          <p className="cam-dash-card-sub">
+            {fmtDate(campaign.startDate)} — {fmtDate(end)}
+          </p>
+        </div>
+        <Link href="/admin/campagnes" className="cam-dash-link">Voir les détails de la campagne →</Link>
+      </div>
+      {daysLeft !== null && (
+        <dl className="cam-dash-stats">
+          <div>
+            <dt>Temps restant</dt>
+            <dd>{daysLeft} {daysLeft === 1 ? "jour restant" : "jours restants"}</dd>
+          </div>
+        </dl>
+      )}
+    </section>
+  );
+}
+
+function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] }) {
+  // TODO(backend, M): missing per-region completion, QC and anomaly rates for the Couverture Régionale columns
+  return (
+    <section className="cam-dash-card" aria-labelledby="dash-regions-title">
+      <div className="cam-dash-card-head">
+        <h3 id="dash-regions-title" className="cam-dash-card-title">Couverture Régionale</h3>
+      </div>
+      <div className="cam-dash-table-wrap">
+        <table className="cam-dash-table">
+          <thead>
+            <tr>
+              <th scope="col">Région</th>
+              <th scope="col" className="is-num">Soumissions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name}>
+                <th scope="row">{r.name}</th>
+                <td className="is-num">{fmt(r.count)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function RecentActivity({ items, isLoading }: { items: any[]; isLoading: boolean }) {
+  // TODO(backend, M): no audit-log endpoint; timeline is derived from the latest submissions, and "Voir tout le journal" needs /admin/journal-audit
+  return (
+    <section className="cam-dash-card" aria-labelledby="dash-activity-title">
+      <div className="cam-dash-card-head">
+        <h3 id="dash-activity-title" className="cam-dash-card-title">Activité Récente</h3>
+        <Link href="/admin/dossiers" className="cam-dash-link">Voir tous les dossiers →</Link>
+      </div>
+      {items.length === 0 ? (
+        <p className="cam-dash-empty">{isLoading ? "Chargement…" : "Aucune déclaration enregistrée"}</p>
+      ) : (
+        <ol className="cam-dash-timeline">
+          {items.map((s) => {
+            const meta = STATUS_META[s.adminStatus || s.status || "PENDING_REVIEW"] ?? STATUS_META.PENDING_REVIEW;
+            const region = s.region || s.rawData?.enterprise?.region;
+            return (
+              <li key={s.id}>
+                <span className="cam-dash-timeline-time">{fmtStamp(s.submittedAt || s.createdAt || "")}</span>
+                <span className="cam-dash-timeline-dot" style={{ background: meta.color }} aria-hidden="true" />
+                <span className="cam-dash-timeline-body">
+                  <Link href={`/admin/dossiers/${s.id}`}>
+                    {s.companyName || s.rawData?.enterprise?.companyName || "—"}
+                  </Link>
+                  {" — "}{meta.label}
+                  {region && <span className="cam-dash-tag">{region}</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function DataQuality({ eligibilityPct, hasData }: { eligibilityPct: number; hasData: boolean }) {
+  // TODO(backend, L): remaining quality metrics (Complétude, Cohérence, Anomalies, Avertissements rates) and the /admin/qualite centre link
+  return (
+    <section className="cam-dash-card" aria-labelledby="dash-quality-title">
+      <div className="cam-dash-card-head">
+        <h3 id="dash-quality-title" className="cam-dash-card-title">Qualité des Données</h3>
+      </div>
+      <div className="cam-dash-metric">
+        <div className="cam-dash-metric-row">
+          <span>Éligibilité statistique</span>
+          <strong>{hasData ? `${eligibilityPct} %` : "—"}</strong>
+        </div>
+        <div className="cam-dash-bar" aria-hidden="true">
+          <span style={{ width: `${hasData ? eligibilityPct : 0}%` }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatusDonut({ segments, total }: { segments: { label: string; count: number; pct: number; color: string }[]; total: number }) {
+  // TODO(design, S): status donut is not in the Figma dashboard — kept because it is the only status breakdown; verify placement with designer
+  const conicParts = segments.map((seg, i) => {
+    const start = segments.slice(0, i).reduce((sum, s) => sum + s.pct, 0);
+    return `${seg.color} ${start.toFixed(1)}% ${(start + seg.pct).toFixed(1)}%`;
+  });
+
+  return (
+    <section className="cam-dash-card" aria-labelledby="dash-status-title">
+      <div className="cam-dash-card-head">
+        <h3 id="dash-status-title" className="cam-dash-card-title">Statut des fiches</h3>
+        <span className="cam-dash-card-sub">{fmt(total)} fiches</span>
+      </div>
+      <div className="cam-pilot-donut-wrap">
+        <div
+          className="cam-pilot-donut"
+          style={{ background: `conic-gradient(${conicParts.join(", ")})` }}
+          role="img"
+          aria-label={`Répartition des statuts : ${segments.map((s) => `${s.label} ${s.count}`).join(", ")}`}
+        />
+        <ul className="cam-pilot-donut-legend">
+          {segments.map((seg) => (
+            <li key={seg.label} className="cam-pilot-donut-item">
+              <span className="cam-pilot-donut-dot" style={{ background: seg.color }} />
+              <span className="cam-pilot-donut-item-label">{seg.label}</span>
+              <span className="cam-pilot-donut-item-val">{seg.count}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export default function PilotagePage() {
   const queuesQuery = useQuery({
@@ -48,6 +226,8 @@ export default function PilotagePage() {
     queryFn: () => listAdminQuestionnaires(),
     refetchInterval: 30000,
   });
+
+  const { canReadCampaigns, activeCampaign, isLoading: campaignLoading } = useActiveCampaign();
 
   const queues = queuesQuery.data ?? {
     totalSubmissionsCount: 0,
@@ -65,7 +245,6 @@ export default function PilotagePage() {
     ? Math.round((queues.statisticallyReadyCount / totalSubmissions) * 100)
     : 0;
 
-  // Regional data for bar chart
   const regionalData = CAMEROON_REGIONS.map((name) => {
     const count = submissions.filter(
       (s) => (s.region || s.rawData?.enterprise?.region || "").toLowerCase() === name.toLowerCase()
@@ -73,9 +252,6 @@ export default function PilotagePage() {
     return { name, count };
   }).sort((a, b) => b.count - a.count);
 
-  const maxRegionalCount = Math.max(...regionalData.map((r) => r.count), 1);
-
-  // Status breakdown for donut
   const statusCounts = {
     approved: submissions.filter((s) => s.adminStatus === "APPROVED" || s.status === "APPROVED").length,
     pending: submissions.filter((s) => s.adminStatus === "PENDING_REVIEW" || s.status === "PENDING_REVIEW").length,
@@ -85,265 +261,96 @@ export default function PilotagePage() {
   const totalStatusCount = Object.values(statusCounts).reduce((a, b) => a + b, 0) || 1;
 
   const donutSegments = [
-    { label: "Validé", count: statusCounts.approved, pct: (statusCounts.approved / totalStatusCount) * 100, color: "#1e6b3a" },
-    { label: "En attente", count: statusCounts.pending, pct: (statusCounts.pending / totalStatusCount) * 100, color: "#f0b429" },
-    { label: "Correction", count: statusCounts.correction, pct: (statusCounts.correction / totalStatusCount) * 100, color: "#c25800" },
-    { label: "Rejeté", count: statusCounts.rejected, pct: (statusCounts.rejected / totalStatusCount) * 100, color: "#b3202c" },
+    { label: "Validé", count: statusCounts.approved, pct: (statusCounts.approved / totalStatusCount) * 100, color: "var(--cam-success)" },
+    { label: "En attente", count: statusCounts.pending, pct: (statusCounts.pending / totalStatusCount) * 100, color: "var(--cam-flag-yellow)" },
+    { label: "Correction", count: statusCounts.correction, pct: (statusCounts.correction / totalStatusCount) * 100, color: "var(--cam-warning)" },
+    { label: "Rejeté", count: statusCounts.rejected, pct: (statusCounts.rejected / totalStatusCount) * 100, color: "var(--cam-error)" },
   ];
 
-  // Conic gradient string for donut
-  let cursor = 0;
-  const conicParts = donutSegments.map((seg) => {
-    const start = cursor;
-    cursor += seg.pct;
-    return `${seg.color} ${start.toFixed(1)}% ${cursor.toFixed(1)}%`;
-  });
-  const conicGradient = `conic-gradient(${conicParts.join(", ")})`;
-
-  // Recent activity (last 10 submissions)
   const recentActivity = [...submissions]
     .sort((a, b) => new Date(b.submittedAt || b.createdAt || 0).getTime() - new Date(a.submittedAt || a.createdAt || 0).getTime())
     .slice(0, 8);
 
-  const kpiCards = [
-    {
-      label: "Total Soumissions",
-      value: fmt(totalSubmissions),
-      trend: queues.totalSubmissionsCount > 0 ? "Toutes périodes" : "Aucune donnée",
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-        </svg>
-      ),
-      iconBg: "#e8f5ef",
-      iconColor: "#1e6b3a",
-    },
-    {
-      label: "Taux d'éligibilité",
-      value: `${eligibilityPct} %`,
-      trend: `${fmt(queues.statisticallyReadyCount)} éligibles`,
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-        </svg>
-      ),
-      iconBg: "#e8f2ff",
-      iconColor: "#1a5fb4",
-    },
-    {
-      label: "Visas en instance",
-      value: fmt(queues.pendingNationalVisasCount + queues.pendingRegionalVisasCount),
-      trend: `${queues.pendingNationalVisasCount} nat. · ${queues.pendingRegionalVisasCount} rég.`,
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-        </svg>
-      ),
-      iconBg: "#fef9e7",
-      iconColor: "#b8860b",
-    },
-    {
-      label: "Anomalies bloquantes",
-      value: fmt(queues.blockingAnomaliesCount),
-      trend: queues.blockingAnomaliesCount === 0 ? "Aucune anomalie" : "À instruire",
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-      ),
-      iconBg: queues.blockingAnomaliesCount > 0 ? "#fdecea" : "#e8f7f3",
-      iconColor: queues.blockingAnomaliesCount > 0 ? "#b3202c" : "#007a5e",
-    },
+  // TODO(backend, S): missing inscriptions count (Figma pipeline starts with an "Inscriptions" stage)
+  // TODO(design, S): Figma highlights "Déclarations" and "Contrôle régional" stages — confirm what the highlight means before styling it
+  const pipeline = [
+    { label: "Déclarations", value: totalSubmissions },
+    { label: "Contrôle régional", value: queues.pendingRegionalVisasCount },
+    { label: "Contrôle national", value: queues.pendingNationalVisasCount },
+    { label: "Approuvées", value: statusCounts.approved },
+    { label: "Exportables", value: queues.statisticallyReadyCount },
   ];
+
+  // TODO(backend, S): missing /admin/inscriptions/count for the "Inscriptions en attente" tile
+  const inscriptionsPending: number | null = null;
 
   return (
     <div className="cam-admin-page">
-      {/* Quick-action bar */}
-      <div className="cam-admin-actions" style={{ justifyContent: "flex-end" }}>
-        <Link href="/admin/diffusion" className="cam-button cam-button-secondary cam-button-sm">
-          Données et exports
-        </Link>
-        <Link href="/admin/files-attente" className="cam-button cam-button-primary cam-button-sm">
-          Traiter les dossiers en instance
-          {(queues.pendingNationalVisasCount + queues.blockingAnomaliesCount) > 0 && (
-            <span className="cam-button-count">{queues.pendingNationalVisasCount + queues.blockingAnomaliesCount}</span>
+      <AdminPageHeader
+        breadcrumb={[{ label: "Supervision" }, { label: "Tableau de bord" }]}
+        title="Tableau de bord"
+        subtitle="Supervision des collectes et indicateurs de performance"
+        actions={<AdminHeaderActions />}
+      />
+
+      <section aria-labelledby="dash-todo-title">
+        <SectionLabel id="dash-todo-title" tone="gold">À traiter</SectionLabel>
+        <div className="cam-dash-kpis">
+          <KpiTile tone="warning" value={inscriptionsPending} label="Inscriptions en attente" />
+          <KpiTile
+            tone="info"
+            value={queues.pendingNationalVisasCount + queues.pendingRegionalVisasCount}
+            label="Déclarations à examiner"
+            href="/admin/files-attente?tab=visas"
+          />
+          <KpiTile
+            tone="error"
+            value={queues.correctionsUnderReviewCount}
+            label="Retours à corriger"
+            href="/admin/files-attente?tab=corrections"
+          />
+          <KpiTile
+            tone="warning"
+            value={queues.blockingAnomaliesCount}
+            label="Alertes qualité"
+            href="/admin/files-attente?tab=anomalies"
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="dash-pipeline-title">
+        <SectionLabel id="dash-pipeline-title" tone="green">Pipeline des déclarations</SectionLabel>
+        <ol className="cam-dash-pipeline">
+          {pipeline.map((stage) => (
+            <li key={stage.label}>
+              <span className="cam-dash-pipeline-value">{fmt(stage.value)}</span>
+              <span className="cam-dash-pipeline-label">{stage.label}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <div className="cam-dash-columns">
+        <div className="cam-dash-column">
+          {canReadCampaigns && (
+            activeCampaign
+              ? <CampaignCard campaign={activeCampaign} />
+              : (
+                <section className="cam-dash-card" aria-label="Campagne de collecte">
+                  <p className="cam-dash-empty">
+                    {campaignLoading ? "Chargement…" : "Aucune campagne de collecte active."}{" "}
+                    {!campaignLoading && <Link href="/admin/campagnes" className="cam-dash-link">Gérer les campagnes →</Link>}
+                  </p>
+                </section>
+              )
           )}
-        </Link>
-      </div>
-
-      {/* KPI cards row */}
-      <div className="cam-pilot-kpis">
-        {kpiCards.map((card) => (
-          <div key={card.label} className="cam-pilot-kpi">
-            <div className="cam-pilot-kpi-top">
-              <span className="cam-pilot-kpi-label">{card.label}</span>
-              <div className="cam-pilot-kpi-icon" style={{ background: card.iconBg, color: card.iconColor }}>
-                {card.icon}
-              </div>
-            </div>
-            <div className="cam-pilot-kpi-value">{card.value}</div>
-            <div className="cam-pilot-kpi-trend">{card.trend}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts row */}
-      <div className="cam-pilot-charts">
-        {/* Bar chart — regional distribution */}
-        <div className="cam-pilot-panel">
-          <div className="cam-pilot-panel-head">
-            <h2 className="cam-admin-h2">Répartition territoriale</h2>
-            <span className="cam-admin-meta">{fmt(totalSubmissions)} déclarations</span>
-          </div>
-          <div className="cam-pilot-panel-body">
-            <ul className="cam-pilot-hbars" aria-label="Soumissions par région">
-              {regionalData.map((r) => {
-                const pct = maxRegionalCount > 0 ? (r.count / maxRegionalCount) * 100 : 0;
-                return (
-                  <li key={r.name} className="cam-pilot-hbar">
-                    <span className="cam-pilot-hbar-label">{r.name}</span>
-                    <div className="cam-pilot-hbar-track" aria-hidden="true">
-                      <div className="cam-pilot-hbar-fill" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="cam-pilot-hbar-val">{r.count}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <RegionalCoverage rows={regionalData} />
         </div>
 
-        {/* Donut chart — status distribution */}
-        <div className="cam-pilot-panel">
-          <div className="cam-pilot-panel-head">
-            <h2 className="cam-admin-h2">Statut des fiches</h2>
-            <span className="cam-admin-meta">{fmt(totalStatusCount)} fiches</span>
-          </div>
-          <div className="cam-pilot-panel-body cam-pilot-donut-wrap">
-            <div
-              className="cam-pilot-donut"
-              style={{ background: conicGradient }}
-              aria-label={`Répartition des statuts : ${donutSegments.map((s) => `${s.label} ${s.count}`).join(", ")}`}
-            />
-            <ul className="cam-pilot-donut-legend">
-              {donutSegments.map((seg) => (
-                <li key={seg.label} className="cam-pilot-donut-item">
-                  <span className="cam-pilot-donut-dot" style={{ background: seg.color }} />
-                  <span className="cam-pilot-donut-item-label">{seg.label}</span>
-                  <span className="cam-pilot-donut-item-val">{seg.count}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Files de traitement + activité récente */}
-      <div className="cam-pilot-bottom">
-        {/* Queue summary */}
-        <div className="cam-pilot-panel cam-pilot-panel--narrow">
-          <div className="cam-pilot-panel-head">
-            <h2 className="cam-admin-h2">Files de traitement</h2>
-          </div>
-          <ul className="cam-admin-queue">
-            {[
-              {
-                href: "/admin/files-attente?tab=anomalies",
-                count: queues.blockingAnomaliesCount,
-                tone: "var(--cam-error)",
-                title: "Anomalies bloquantes",
-                hint: "Incohérences arithmétiques ouvertes",
-              },
-              {
-                href: "/admin/files-attente?tab=visas",
-                count: queues.pendingNationalVisasCount,
-                tone: "var(--cam-info)",
-                title: "Visas nationaux en attente",
-                hint: "Transmis par les délégations",
-              },
-              {
-                href: "/admin/files-attente?tab=corrections",
-                count: queues.correctionsUnderReviewCount,
-                tone: "var(--cam-warning)",
-                title: "Corrections demandées",
-                hint: "Renvoyées aux employeurs",
-              },
-              {
-                href: "/admin/diffusion",
-                count: queues.statisticallyReadyCount,
-                tone: "var(--cam-success)",
-                title: "Éligibles à la diffusion",
-                hint: "Visés et sans anomalie",
-              },
-            ].map((q) => (
-              <li key={q.href}>
-                <Link href={q.href}>
-                  <span className="cam-admin-queue-count" style={{ color: q.count > 0 ? q.tone : "var(--cam-text-muted)" }}>
-                    {q.count}
-                  </span>
-                  <span>
-                    <span className="cam-admin-queue-title" style={{ display: "block" }}>{q.title}</span>
-                    <span className="cam-admin-meta">{q.hint}</span>
-                  </span>
-                  <span className="cam-admin-queue-arrow" aria-hidden="true">→</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Recent activity table */}
-        <div className="cam-pilot-panel cam-pilot-panel--wide">
-          <div className="cam-pilot-panel-head">
-            <h2 className="cam-admin-h2">Activité récente</h2>
-            <Link href="/admin/dossiers" className="cam-admin-meta" style={{ color: "var(--cam-green)", fontWeight: 600, textDecoration: "none" }}>
-              Voir tous →
-            </Link>
-          </div>
-          {recentActivity.length === 0 ? (
-            <div className="cam-pilot-panel-body">
-              <p className="cam-admin-meta" style={{ padding: "var(--cam-space-4) 0", textAlign: "center" }}>
-                {questionnairesQuery.isLoading ? "Chargement…" : "Aucune déclaration enregistrée"}
-              </p>
-            </div>
-          ) : (
-            <div className="cam-pilot-table-wrap">
-              <table className="cam-pilot-table">
-                <thead>
-                  <tr>
-                    <th>Répondant</th>
-                    <th>Type de fiche</th>
-                    <th>Région</th>
-                    <th>Statut</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentActivity.map((s: any) => {
-                    const statusKey = s.adminStatus || s.status || "PENDING_REVIEW";
-                    const meta = STATUS_META[statusKey] ?? STATUS_META.PENDING_REVIEW;
-                    return (
-                      <tr key={s.id}>
-                        <td className="cam-pilot-td-name">
-                          <Link href={`/admin/dossiers/${s.id}`}>
-                            {s.companyName || s.rawData?.enterprise?.companyName || "—"}
-                          </Link>
-                        </td>
-                        <td>{s.formType || s.questionnaire?.type || "—"}</td>
-                        <td>{s.region || s.rawData?.enterprise?.region || "—"}</td>
-                        <td>
-                          <span className="cam-pilot-badge" style={{ color: meta.color, background: meta.bg }}>
-                            {meta.label}
-                          </span>
-                        </td>
-                        <td className="cam-pilot-td-date">{fmtDate(s.submittedAt || s.createdAt || "")}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div className="cam-dash-column">
+          <RecentActivity items={recentActivity} isLoading={questionnairesQuery.isLoading} />
+          <DataQuality eligibilityPct={eligibilityPct} hasData={totalSubmissions > 0} />
+          <StatusDonut segments={donutSegments} total={totalStatusCount} />
         </div>
       </div>
     </div>

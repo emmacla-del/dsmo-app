@@ -32,7 +32,45 @@ All 15 Figma frames exported to `docs/figma/`. Tree mirrors route names.
 - `39dec6e1` — `AdminPageHeader`
 - `0faaa24f` — `AdminSidebar`
 - `08fd571b` — wired `AdminSidebar` into layout (Commit 4)
+- `63fd6ac6` — removed sticky topbar; layout renders `AdminPageHeader` fallback (Commit 5)
+- Commit 6 — `admin/pilotage` refactor (`KpiTile`, `AdminHeaderActions`)
 
 ## Next
 Commit 5: remove sticky topbar from `admin/layout.tsx`, relocate survivors
 into `AdminPageHeader` or page content. Then start page-by-page refactors.
+
+## Removed during refactor
+Every removal is logged here. Anything that has a Figma equivalent is listed
+as "replaced by"; anything dropped outright says why.
+
+### Commit 5 — layout topbar
+- **Topbar search box** — removed. It was a non-functional placeholder
+  (`aria-hidden`, no input). Add a real search when a backend exists.
+- **Campaign pill in `AdminSidebar`** — removed. Header-only per Figma
+  (now in `AdminHeaderActions`).
+
+### Commit 6 — `admin/pilotage`
+- **Quick-action buttons** ("Données et exports", "Traiter les dossiers en
+  instance") — removed. Duplicated sidebar links (Exports, Dossiers en instance).
+- **KPI row** (Total Soumissions, Taux d'éligibilité, Visas en instance,
+  Anomalies bloquantes) — replaced by the "À traiter" tiles and pipeline:
+  Total → pipeline "Déclarations"; Éligibilité → "Qualité des Données";
+  Visas → "Déclarations à examiner" tile + pipeline control stages;
+  Anomalies → "Alertes qualité" tile.
+- **"Files de traitement" queue panel** — replaced by the "À traiter" tiles
+  (same `/admin/files-attente?tab=…` links). Its "Éligibles à la diffusion"
+  count is now the pipeline "Exportables" stage, which is not a link
+  (the Figma pipeline has no links; Exports stays reachable from the sidebar).
+- **"Activité récente" table** — replaced by the Figma timeline. The
+  "Type de fiche" column is no longer shown; each item still links to its dossier.
+- **"Répartition territoriale" bar chart** — replaced by the "Couverture
+  Régionale" table (same per-region counts, all 10 regions).
+- **Kept although not in Figma:** "Statut des fiches" donut
+  (`TODO(design, S)` in `pilotage/page.tsx`).
+
+## Follow-ups (small, non-blocking)
+- `scripts/todo-report.mjs` writes Windows backslash paths (`srcpp\...`) into
+  `docs/pending-work.md` when run on Windows. Normalise with `.replaceAll("\\", "/")`.
+- `admin/sectors` and `admin/utilisateurs` render their own `<h1>` in the
+  access-denied state while the layout fallback header also renders one
+  (two `<h1>`s, since Commit 5). Fix when those pages are refactored.
