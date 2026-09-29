@@ -348,9 +348,9 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
-    if (role === 'DIVISIONAL' && !department) {
+    if (role === 'DIVISIONAL' && (!department || !region)) {
       throw new BadRequestException(
-        'Les utilisateurs divisionnaires doivent avoir un département assigné',
+        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
       );
     }
     if (role === 'REGIONAL' && !region) {
@@ -433,9 +433,9 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
-    if (dto.role === 'DIVISIONAL' && !dto.department) {
+    if (dto.role === 'DIVISIONAL' && (!dto.department || !dto.region)) {
       throw new BadRequestException(
-        'Les utilisateurs divisionnaires doivent avoir un département assigné',
+        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
       );
     }
     if (dto.role === 'REGIONAL' && !dto.region) {
@@ -902,6 +902,19 @@ export class AuthService {
     if (user.role === 'COMPANY') {
       throw new BadRequestException(
         'Le rôle des comptes entreprise ne peut pas être modifié',
+      );
+    }
+    // Promotion keeps the account's stored territory, which must already be
+    // complete (also enforced by users_divisional_requires_territory_chk and
+    // users_regional_requires_region_chk).
+    if (role === 'DIVISIONAL' && (!user.department || !user.region)) {
+      throw new BadRequestException(
+        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
+      );
+    }
+    if (role === 'REGIONAL' && !user.region) {
+      throw new BadRequestException(
+        'Les utilisateurs régionaux doivent avoir une région assignée',
       );
     }
     return this.prisma.user.update({

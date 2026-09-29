@@ -42,8 +42,12 @@ describe('staff administration scope', () => {
 });
 
 describe('AuthService user management enforces the scope server-side', () => {
-  const accounts: Record<string, { id: string; role: string; status: string }> = {
-    regional: { id: 'regional', role: 'REGIONAL', status: 'PENDING_APPROVAL' },
+  const accounts: Record<string, { id: string; role: string; status: string; region?: string | null; department?: string | null }> = {
+    regional: { id: 'regional', role: 'REGIONAL', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri' },
+    regionOnly: { id: 'regionOnly', role: 'REGIONAL', status: 'ACTIVE', region: 'Littoral', department: null },
+    departmentOnly: { id: 'departmentOnly', role: 'CENTRAL', status: 'ACTIVE', region: null, department: 'Wouri' },
+    noTerritory: { id: 'noTerritory', role: 'CENTRAL', status: 'ACTIVE', region: null, department: null },
+    blankRegion: { id: 'blankRegion', role: 'CENTRAL', status: 'ACTIVE', region: '', department: null },
     dsmoAdmin: { id: 'dsmoAdmin', role: 'SUPER_ADMIN_DSMO', status: 'ACTIVE' },
   };
   let prisma: any;
@@ -66,6 +70,28 @@ describe('AuthService user management enforces the scope server-side', () => {
     await expect(service.approveUser('regional', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ status: 'ACTIVE' });
     await expect(service.setUserActive('regional', false, 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ isActive: false });
     await expect(service.updateUserRole('regional', 'DIVISIONAL', 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ role: 'DIVISIONAL' });
+  });
+
+  it('refuses promotion to DIVISIONAL without a region and a department, before any write', async () => {
+    for (const id of ['regionOnly', 'departmentOnly']) {
+      await expect(service.updateUserRole(id, 'DIVISIONAL', 'me', 'SUPER_ADMIN')).rejects.toThrow(
+        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
+      );
+    }
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses promotion to REGIONAL without a region, before any write', async () => {
+    for (const id of ['noTerritory', 'blankRegion', 'departmentOnly']) {
+      await expect(service.updateUserRole(id, 'REGIONAL', 'me', 'SUPER_ADMIN')).rejects.toThrow(
+        'Les utilisateurs régionaux doivent avoir une région assignée',
+      );
+    }
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('allows promotion to REGIONAL when the account has a region', async () => {
+    await expect(service.updateUserRole('regionOnly', 'REGIONAL', 'me', 'SUPER_ADMIN')).resolves.toMatchObject({ role: 'REGIONAL' });
   });
 
   it('refuses every action on an out-of-scope account, before any write', async () => {
