@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { ONEFOP_STAFF_ROLES, assertCanManageRole, manageableRolesFor } from './staff-scope';
+import { ONEFOP_STAFF_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import { buildUserListWhere } from './user-list-filter';
 
 describe('staff administration scope', () => {
@@ -135,6 +135,62 @@ describe('AuthService user management enforces the scope server-side', () => {
   });
 });
 
+describe('assertCanApproveRegistration (D3)', () => {
+  const regional = { role: 'REGIONAL', region: 'Littoral' };
+  const divisional = { role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' };
+
+  it('lets REGIONAL approve ONEFOP staff in its region (names match case-insensitively)', () => {
+    expect(() => assertCanApproveRegistration(regional, { role: 'DIVISIONAL', region: 'LITTORAL', department: 'Nkam' })).not.toThrow();
+  });
+
+  it('refuses REGIONAL outside its region', () => {
+    expect(() => assertCanApproveRegistration(regional, { role: 'DIVISIONAL', region: 'Centre', department: 'Mfoundi' })).toThrow(ForbiddenException);
+  });
+
+  it('fails closed when the target has no region', () => {
+    expect(() => assertCanApproveRegistration(regional, { role: 'DIVISIONAL', region: null })).toThrow(ForbiddenException);
+    expect(() => assertCanApproveRegistration(regional, { role: 'DIVISIONAL', region: '' })).toThrow(ForbiddenException);
+  });
+
+  it('lets DIVISIONAL approve in its region and department', () => {
+    expect(() => assertCanApproveRegistration(divisional, { role: 'DIVISIONAL', region: 'Littoral', department: 'wouri' })).not.toThrow();
+  });
+
+  it('refuses DIVISIONAL in another department, even in its region', () => {
+    expect(() => assertCanApproveRegistration(divisional, { role: 'DIVISIONAL', region: 'Littoral', department: 'Nkam' })).toThrow(ForbiddenException);
+  });
+
+  it('refuses DIVISIONAL when the actor has no territory (fail closed)', () => {
+    expect(() => assertCanApproveRegistration({ role: 'DIVISIONAL' }, { role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' })).toThrow(ForbiddenException);
+  });
+
+  it('never lets REGIONAL/DIVISIONAL reach administrator or company accounts, even in territory', () => {
+    for (const target of ['SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP', 'SUPER_ADMIN_DSMO', 'COMPANY']) {
+      expect(() => assertCanApproveRegistration(regional, { role: target, region: 'Littoral' })).toThrow(ForbiddenException);
+      expect(() => assertCanApproveRegistration(divisional, { role: target, region: 'Littoral', department: 'Wouri' })).toThrow(ForbiddenException);
+    }
+  });
+
+  it('refuses SUPER_ADMIN_ONEFOP on a non-ONEFOP target and allows ONEFOP staff anywhere', () => {
+    for (const target of ['SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'COMPANY']) {
+      expect(() => assertCanApproveRegistration({ role: 'SUPER_ADMIN_ONEFOP' }, { role: target })).toThrow(ForbiddenException);
+    }
+    expect(() => assertCanApproveRegistration({ role: 'SUPER_ADMIN_ONEFOP' }, { role: 'REGIONAL', region: null })).not.toThrow();
+  });
+
+  it('lets SUPER_ADMIN approve anything', () => {
+    for (const target of ['SUPER_ADMIN_DSMO', 'COMPANY', 'REGIONAL', 'CENTRAL']) {
+      expect(() => assertCanApproveRegistration({ role: 'SUPER_ADMIN' }, { role: target })).not.toThrow();
+    }
+  });
+
+  it('refuses every other role, national ones included', () => {
+    for (const role of ['CENTRAL', 'SUPER_ADMIN_DSMO', 'DATA_MANAGER', 'ANALYST', 'AUDITOR', 'CAMPAIGN_MANAGER', 'COMPANY', undefined]) {
+      expect(() => assertCanApproveRegistration({ role }, { role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' })).toThrow(ForbiddenException);
+    }
+  });
+});
+
 describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
   const accounts: Record<string, any> = {
     pendingWouri: { id: 'pendingWouri', role: 'DIVISIONAL', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri' },
@@ -176,5 +232,50 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
 
   it('SUPER_ADMIN_ONEFOP reassigns ONEFOP staff', async () => {
     await expect(service.updateUserTerritory('activeWouri', 'REGIONAL', 'Centre', null, 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ role: 'REGIONAL', region: 'Centre' });
+  });
+});
+
+describe('AuthService — D3 registration review by DR roles', () => {
+  const accounts: Record<string, any> = {
+    pendingWouri: { id: 'pendingWouri', role: 'DIVISIONAL', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri' },
+    activeWouri: { id: 'activeWouri', role: 'DIVISIONAL', status: 'ACTIVE', region: 'Littoral', department: 'Wouri' },
+    pendingCentre: { id: 'pendingCentre', role: 'DIVISIONAL', status: 'PENDING_APPROVAL', region: 'Centre', department: 'Mfoundi' },
+    dsmoAdmin: { id: 'dsmoAdmin', role: 'SUPER_ADMIN_DSMO', status: 'ACTIVE', region: null, department: null },
+  };
+  let prisma: any;
+  let service: AuthService;
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findUnique: jest.fn(async ({ where }: any) => (where.id ? accounts[where.id] ?? null : null)),
+        update: jest.fn(async ({ where, data }: any) => ({ ...accounts[where.id], ...data })),
+        create: jest.fn(async ({ data }: any) => ({ id: 'new', ...data })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+    };
+    service = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
+  });
+
+  it('REGIONAL approves a pending registration in its region', async () => {
+    await expect(service.approveUser('pendingWouri', 'REGIONAL', { region: 'Littoral' })).resolves.toMatchObject({ status: 'ACTIVE' });
+  });
+
+  it('REGIONAL cannot approve or reject outside its region, before any write', async () => {
+    await expect(service.approveUser('pendingCentre', 'REGIONAL', { region: 'Littoral' })).rejects.toThrow(ForbiddenException);
+    await expect(service.rejectUser('pendingCentre', 'REGIONAL', { region: 'Littoral' })).rejects.toThrow(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('REGIONAL/DIVISIONAL without a territory on the request fail closed', async () => {
+    await expect(service.approveUser('pendingWouri', 'REGIONAL')).rejects.toThrow(ForbiddenException);
+    await expect(service.approveUser('pendingWouri', 'DIVISIONAL')).rejects.toThrow(ForbiddenException);
+  });
+
+  it('DIVISIONAL can reject a pending registration but not deactivate an active colleague', async () => {
+    const actor = { region: 'Littoral', department: 'Wouri' };
+    await expect(service.rejectUser('pendingWouri', 'DIVISIONAL', actor)).resolves.toMatchObject({ status: 'REJECTED' });
+    await expect(service.rejectUser('activeWouri', 'DIVISIONAL', actor)).rejects.toThrow("Cet utilisateur n'est pas en attente d'approbation");
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
   });
 });
