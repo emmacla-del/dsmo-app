@@ -41,6 +41,49 @@ frontend work that does not exist yet:
 
 ---
 
+## /admin/parametres — Figma editable settings not wirable (2026-09-30)
+
+The supervision Figma (`react-web/docs/figma/administration/parametres.png`)
+shows editable forms. The rebuild (branch `admin/parametres`) renders them
+read-only because nothing can persist them without a schema change, and the
+feature matrix lists no write capability for this screen.
+
+The only settings store is the `SystemSettings` singleton
+(`passwordMinLength`, `require2FAForStaff`, `maintenanceMode`,
+`maintenanceMessage`), served by `GET/PATCH /system-settings`
+(`@Roles('SUPER_ADMIN')`). None of its columns match a Figma field.
+
+Needs new columns (schema review required) before any of these can be saved:
+- [ ] Nom de l'observatoire
+- [ ] Pays
+- [ ] Langue par défaut
+- [ ] Fuseau horaire
+- [ ] Campagne active par défaut (campaign activation already lives on
+      `/admin/campagnes`; confirm a separate "default" is wanted)
+- [ ] Nombre maximum de fiches par superviseur
+- [ ] Délai de soumission (jours) (overlaps campaign deadlines — needs
+      domain review)
+- [ ] Soumission hors-ligne autorisée (toggle)
+- [ ] Validation automatique des fiches conformes (toggle — affects the
+      visa workflow; needs domain review)
+
+Not built, by guardrail:
+- [ ] "Ajouter un Rôle" / "Éditer" on Rôles & Permissions — roles are a
+      fixed enum; editing them is an RBAC change. Screen shows a read-only
+      role/scope reference and links to `/admin/utilisateurs`.
+- [ ] "Voir le journal complet →" — `/admin/journal-audit` does not exist.
+- [ ] Feature matrix is wrong on one point: it says no audit-log endpoint
+      exists; `GET /audit/reports` (`src/report/audit.controller.ts`,
+      SUPER_ADMIN / SUPER_ADMIN_ONEFOP / AUDITOR) returns the latest
+      `AuditLog` rows of every type. The rebuild uses it for "Journal
+      d'audit récent". SUPER_ADMIN_DSMO can open the page but not this
+      endpoint, so the section shows a notice for that role.
+- [ ] Page role gate (SUPER_ADMIN*, 3 roles) is wider than
+      `/system-settings` (SUPER_ADMIN only) — reconcile if the settings
+      endpoint is ever wired here.
+
+---
+
 ## CORRECTION_REQUESTED structural gaps — deferred (2026-09-30)
 
 Three structural issues identified during CORRECTION_REQUESTED discovery.
@@ -183,29 +226,28 @@ These are real but non-blocking. Tracked here so they don't get lost.
       `PATCH /auth/users/:id/territory`, SUPER_ADMIN only.
       (Shipped as `7d36ee0d`.)
 - [x] Dossier detail "Rejeter la Fiche" / "Valider et Archiver" buttons
-      render but have no onClick — wired in 012b01de.
-- [ ] /admin/diffusion KPI tiles show hardcoded "—" — backend endpoint
-      (GET /data-management/stats) exists but isn't wired.
-- [ ] /admin/diffusion export history table is fully mocked — no
+      render but have no onClick — wired in `012b01de`.
+- [ ] `/admin/diffusion` KPI tiles show hardcoded "—" — backend endpoint
+      (`GET /data-management/stats`) exists but isn't wired.
+- [ ] `/admin/diffusion` export history table is fully mocked — no
       endpoint called.
 - [ ] Unused AdminQuestionnairesController endpoints with no frontend
-      caller: GET /pending, GET /correction-requested (GET /:id is now
-      used by the dossier detail page)
-
-      - [ ] Correction resubmission creates a new row with no link to the
+      caller: `GET /pending`, `GET /correction-requested` (`GET /:id` is
+      now used by the dossier detail page)
+- [ ] Correction resubmission creates a new row with no link to the
       original. For a statistical portal this corrupts response rate,
       coverage, and non-response analysis — one respondent counts as
       two submissions and the corrected version can't be traced to
-      its predecessor. Policy decision needed: add originalSubmissionId
+      its predecessor. Policy decision needed: add `originalSubmissionId`
       FK, mark the original as superseded, or switch to in-place edit.
       Not blocking; blocking for anyone reading response-rate numbers.
 - [ ] `rejectionReason` field is overloaded — stores both rejection
       motives and correction comments. Respondent detail screen shows
       the correction comment as "rejection reason" even after the
       correction cycle ends.
-      - [ ] Dossiers export uses fetch+blob on the frontend, not a native
+- [ ] Dossiers export uses fetch+blob on the frontend, not a native
       download. Works but buffers the whole file in browser memory.
-      Switch to <a download href="/admin/questionnaires/export?...">
+      Switch to `<a download href="/admin/questionnaires/export?...">`
       when convenient.
 
 ---
