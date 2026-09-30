@@ -1678,10 +1678,10 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> rejectQuestionnaire(
-      String id, String reason) async {
+      String id, String reason, {required bool certified}) async {
     try {
-      final response = await dio
-          .patch('/admin/questionnaires/$id/reject', data: {'reason': reason});
+      final response = await dio.patch('/admin/questionnaires/$id/reject',
+          data: {'reason': reason, 'certified': certified});
       return response.data;
     } on DioException catch (e) {
       throw ApiException(

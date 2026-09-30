@@ -1855,7 +1855,7 @@ class _SubmissionDetailScreenState
   }
 
   Future<void> _reject() async {
-    final reason = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<({String reason, bool certified})>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1863,16 +1863,20 @@ class _SubmissionDetailScreenState
         title: LocalizedText(
             fr: 'Rejeter la soumission', en: 'Reject the submission'),
         hintText: LocalizedText(
-            fr: 'Motif du rejet (optionnel)', en: 'Reason for rejection (optional)'),
+            fr: 'Motif du rejet', en: 'Reason for rejection'),
         confirmLabel:
             LocalizedText(fr: 'Confirmer le rejet', en: 'Confirm rejection'),
         confirmColor: UltraTheme.error,
         icon: Icons.block_rounded,
+        minLength: 10,
+        requireCertification: true,
       ),
     );
-    if (reason == null) return;
+    if (result == null) return;
     await _runAction(
-      () => ref.read(apiClientProvider).rejectQuestionnaire(widget.submission.id, reason),
+      () => ref.read(apiClientProvider).rejectQuestionnaire(
+            widget.submission.id, result.reason,
+            certified: result.certified),
       const LocalizedText(fr: 'Soumission rejetée', en: 'Submission rejected'),
       UltraTheme.error,
       Icons.cancel_rounded,
@@ -1880,7 +1884,7 @@ class _SubmissionDetailScreenState
   }
 
   Future<void> _requestCorrection() async {
-    final comments = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<({String reason, bool certified})>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1897,9 +1901,9 @@ class _SubmissionDetailScreenState
         icon: Icons.edit_note_rounded,
       ),
     );
-    if (comments == null) return;
+    if (result == null) return;
     await _runAction(
-      () => ref.read(apiClientProvider).requestCorrection(widget.submission.id, comments),
+      () => ref.read(apiClientProvider).requestCorrection(widget.submission.id, result.reason),
       const LocalizedText(
           fr: 'Correction demandée', en: 'Correction requested'),
       const Color(0xFFB45309),
@@ -2667,6 +2671,8 @@ class _ActionReasonSheet extends StatefulWidget {
     required this.confirmLabel,
     required this.confirmColor,
     required this.icon,
+    this.minLength = 0,
+    this.requireCertification = false,
   });
 
   final LocalizedText title;
@@ -2674,6 +2680,8 @@ class _ActionReasonSheet extends StatefulWidget {
   final LocalizedText confirmLabel;
   final Color confirmColor;
   final IconData icon;
+  final int minLength;
+  final bool requireCertification;
 
   @override
   State<_ActionReasonSheet> createState() => _ActionReasonSheetState();
@@ -2681,6 +2689,13 @@ class _ActionReasonSheet extends StatefulWidget {
 
 class _ActionReasonSheetState extends State<_ActionReasonSheet> {
   final _ctrl = TextEditingController();
+  bool _certified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -2690,6 +2705,10 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final trimmed = _ctrl.text.trim();
+    final meetsLength = trimmed.length >= widget.minLength;
+    final meetsCert = !widget.requireCertification || _certified;
+    final canConfirm = meetsLength && meetsCert;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
@@ -2745,6 +2764,43 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
               ),
             ),
           ),
+          if (widget.minLength > 0 &&
+              trimmed.isNotEmpty &&
+              trimmed.length < widget.minLength)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  LocalizedText(
+                    fr: 'Minimum ${widget.minLength} caractères.',
+                    en: 'Minimum ${widget.minLength} characters.',
+                  ).of(context.loc),
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: widget.confirmColor,
+                  ),
+                ),
+              ),
+            ),
+          if (widget.requireCertification) ...[
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              value: _certified,
+              onChanged: (v) => setState(() => _certified = v ?? false),
+              title: Text(
+                const LocalizedText(
+                  fr: "Je certifie sur l'honneur avoir examiné cette soumission et confirme son rejet administratif.",
+                  en: 'I certify on my honour that I have reviewed this submission and confirm its administrative rejection.',
+                ).of(context.loc),
+                style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
+              ),
+              activeColor: widget.confirmColor,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
           const SizedBox(height: 20),
           Row(children: [
             Expanded(
@@ -2765,7 +2821,10 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+                onPressed: canConfirm
+                    ? () => Navigator.pop(context,
+                          (reason: _ctrl.text.trim(), certified: _certified))
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.confirmColor,
                   foregroundColor: Colors.white,
