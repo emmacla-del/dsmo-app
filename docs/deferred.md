@@ -628,3 +628,28 @@ shows "—" with a reason, rather than displaying invented numbers:
   SUPER_ADMIN_DSMO in @Roles. The page follows the backend (only REGIONAL is
   read-only). If DSMO administrators should not mutate ONEFOP campaigns, that
   is a backend @Roles change, and D2 should be reworded at the same time.
+
+---
+
+## /admin/parametres editable rebuild — not resolved (2026-09-30)
+
+Branch `admin/parametres-rebuild`. The Général identity form is wired
+(four new nullable columns, migration
+`20260930170000_add_system_settings_identity_fields`, **not applied** —
+a human runs `npx prisma migrate deploy`). Still open from the section
+"/admin/parametres — Figma editable settings not wirable" above:
+
+- [ ] Campagne active par défaut — campaign activation lives on
+      /admin/campagnes; a second "default" needs a product decision.
+- [ ] Nombre maximum de fiches par superviseur — no agent/fiche assignment
+      model exists, so a stored value would enforce nothing.
+- [ ] Délai de soumission (jours) — overlaps campaign deadlines (domain review).
+- [ ] Soumission hors-ligne autorisée — no consumer; would need the Flutter
+      offline path to read it.
+- [ ] Validation automatique des fiches conformes — changes the visa
+      workflow (§21, domain review).
+- [ ] The identity values are stored and shown only: next-intl's default
+      locale and date formatting do not read `defaultLanguage` / `timezone`.
+- [ ] SUPER_ADMIN_ONEFOP / SUPER_ADMIN_DSMO can open the page but not
+      /system-settings (SUPER_ADMIN only), so they keep the read-only
+      display. Widening @Roles is a permission change — not done.
