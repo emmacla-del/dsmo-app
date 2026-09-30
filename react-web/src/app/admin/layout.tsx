@@ -28,7 +28,7 @@ const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; 
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
   "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
   "/admin/campagnes":     { title: "Gestion des campagnes", sub: "Pilotage des campagnes de collecte statistique nationale", group: "Collecte", nav: "Campagnes" },
-  "/admin/parametres":    { title: "Paramètres", sub: "Configuration de la plateforme CAM-LEAP", group: "Administration", nav: "Paramètres" },
+  "/admin/parametres":    { title: "Paramètres du système", sub: "Configuration générale, utilisateurs et sécurité", group: "Administration", nav: "Paramètres" },
 };
 
 const ADMIN_ROLES: UserRole[] = [

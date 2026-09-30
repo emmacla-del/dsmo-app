@@ -1666,12 +1666,153 @@
   flex-wrap: wrap;
 }
 
-/* ── Settings grid ── */
-.cam-param-grid {
+/* ── Settings (admin/parametres): section nav + stacked sections ── */
+.cam-param-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: var(--cam-space-4);
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--cam-space-5);
   align-items: start;
+}
+
+.cam-param-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--cam-space-2);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+}
+
+.cam-param-nav-item {
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border: none;
+  border-radius: var(--cam-radius-md);
+  background: none;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cam-param-nav-item:hover {
+  color: var(--cam-green-dark);
+}
+
+.cam-param-nav-item[aria-selected="true"] {
+  background: var(--cam-success-bg);
+  color: var(--cam-green-dark);
+  font-weight: 600;
+}
+
+.cam-param-nav-item:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: -2px;
+}
+
+.cam-param-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-5);
+  min-width: 0;
+}
+
+.cam-param-note {
+  margin: var(--cam-space-4) 0 0;
+  line-height: var(--cam-line-height-base);
+}
+
+.cam-param-note a {
+  color: var(--cam-green-dark);
+  font-weight: 600;
+}
+
+/* Role reference: ruled rows, label | scope. */
+.cam-param-roles {
+  margin: 0;
+}
+
+.cam-param-roles > div {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--cam-space-2) var(--cam-space-5);
+  padding: var(--cam-space-3) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-param-roles > div:first-child {
+  padding-top: 0;
+}
+
+.cam-param-roles dt {
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+}
+
+.cam-param-roles dd {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+
+.cam-param-list {
+  margin: 0;
+  padding-left: var(--cam-space-5);
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.9;
+  color: var(--cam-text);
+}
+
+/* Recent audit entries: when | who | what, ruled rows (no grey fills). */
+.cam-param-audit {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-param-audit li {
+  display: grid;
+  grid-template-columns: 110px 160px minmax(0, 1fr);
+  gap: var(--cam-space-1) var(--cam-space-4);
+  padding: var(--cam-space-3) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-param-audit li:first-child {
+  padding-top: 0;
+}
+
+.cam-param-audit time {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-param-audit span {
+  overflow-wrap: anywhere;
+}
+
+/* Tablet / phone: section nav becomes a horizontal tab row above the panel. */
+@media (max-width: 899px) {
+  .cam-param-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-param-nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 599px) {
+  .cam-param-roles > div,
+  .cam-param-audit li {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Visually hidden, still announced by screen readers. */
