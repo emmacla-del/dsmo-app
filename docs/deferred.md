@@ -371,3 +371,18 @@ These are real but non-blocking. Tracked here so they don't get lost.
       annuaire/etablissements, inscriptions, centre qualité.
 - [ ] BLOCKED: établissement detail (multi-user relations, company
       roles), questionnaires (canonical AST).
+## Deferred — align Flutter dashboard analytics to Figma
+
+The Flutter dashboard's analytics widgets should match the Figma
+frame at <path/TBD>. /onefop-analytics/* currently serves the
+dashboard; the data it returns must be shaped to match what the
+frame displays.
+
+- Backend: keep /onefop-analytics/*. Reshape responses as needed.
+- Flutter: dashboard widgets render against the frame.
+- Standalone /analytics route and OnefopDashboardScreen are out of
+  the product — remove them as part of this work, not before.
+- Not scoped: which endpoints need reshaping, which fields are
+  missing, whether the Flutter widgets need rebuilding.
+
+Separate workstream from the React admin rebuild.
