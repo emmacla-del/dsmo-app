@@ -10,6 +10,64 @@ top with a date.
 
 ---
 
+## /admin/diffusion — Figma elements not built (2026-09-30)
+
+Built on branch `admin/diffusion`. Additive backend: `onefopInScope` on
+`GET /data-management/stats`; opt-in `summary` on the SPSS manifest.
+
+- [ ] **Export history ("Historique des exports récents")** — shown as an
+      empty state, not wired. An audit read does not suffice:
+      - The SPSS `.sav` / `.csv` / `.sps` and Excel exports of this page
+        write **no audit row at all** (only the dossier-list export writes
+        `AUDIT_LIST_EXPORT`). Official statistical exports are untraced.
+      - The Figma needs file size, job status (En cours / Terminé) and a
+        re-download link, which an audit row cannot hold.
+      - `GET /audit/reports` is limited to SUPER_ADMIN, SUPER_ADMIN_ONEFOP
+        and AUDITOR; most users of this page (CENTRAL, REGIONAL,
+        DATA_MANAGER, ANALYST) could not read it.
+      Needs: an audit write on each data-management export (additive), and
+      for size/status/re-download an export-job table (**schema change** —
+      review required, see feature-matrix "Screens needing schema
+      changes").
+- [ ] **"Sections à inclure"** — not built. The previous checkboxes were
+      UI-only (never sent). Filtering sections would change the content of
+      official exports (CLAUDE.md §21): needs a domain ruling, and the
+      Figma's section names do not match the current page's.
+- [ ] **Périmètre "Par campagne" / "Par région" / "Toutes les données"** —
+      the scope stays "Données officielles" vs "Sélection personnalisée
+      des statuts". "Toutes les données" as the default would change the
+      official statistical base. A campaign filter needs a `quarterCode`
+      (or campaign) parameter on the export filters — additive, but a
+      change to official export selection; not done here.
+- [ ] **Codebooks "Dictionnaire des variables (.pdf)" and "Guide de
+      recodage (.sps)"**, versions and file sizes — no such files exist.
+      Only the generated `.sps` syntax is offered ("Codebook principal").
+- [ ] **"Taille estimée"** in the dataset summary — no basis to compute
+      it before generating the file; omitted.
+- [ ] **"+14.2 % ce mois"** — shown as "+N ce mois" (new non-draft
+      submissions since the 1st). A growth rate needs a definition.
+- [ ] **"Compatible avec IBM SPSS Statistics 25+"** — not verified;
+      omitted.
+- [ ] **KPI "En attente de révision"** counts PENDING_REVIEW only;
+      CORRECTION_REQUESTED is shown as a separate hint, not summed in.
+
+Found while building (not fixed — outside this screen's guardrails):
+
+- [ ] **Exports return no rows for SUPER_ADMIN_DSMO, DATA_MANAGER and
+      ANALYST.** Those roles may call the export endpoints, but
+      `territoryWhere` (`src/auth/territory.ts`) only treats SUPER_ADMIN,
+      SUPER_ADMIN_ONEFOP and CENTRAL as national and returns no rows for
+      every other non-geographic role. The new KPI counts follow the same
+      rule, so they show 0 for those roles. Needs a territory-policy
+      decision.
+- [ ] **`GET /data-management/stats` national fields are unscoped.**
+      `totals`, `onefopByStatus`, `companiesByRegion` etc. are national
+      for every caller, REGIONAL included. React Web no longer reads them;
+      Flutter `regions_sectors_screen.dart` does. Scoping them would change
+      an existing response — needs review.
+- [ ] **The page has no role guard.** It inherits the layout's admin
+      roles, but the export and stats endpoints refuse DIVISIONAL,
+      AUDITOR and CAMPAIGN_MANAGER (403 shown as an error).
 ## Decision — campaign progress is ONEFOP-only (2026-09-30)
 
 B2 (PR #17) implemented the campaign progress fix for ONEFOP
@@ -427,10 +485,12 @@ These are real but non-blocking. Tracked here so they don't get lost.
       (Shipped as `7d36ee0d`.)
 - [x] Dossier detail "Rejeter la Fiche" / "Valider et Archiver" buttons
       render but have no onClick — wired in `012b01de`.
-- [ ] `/admin/diffusion` KPI tiles show hardcoded "—" — backend endpoint
-      (`GET /data-management/stats`) exists but isn't wired.
-- [ ] `/admin/diffusion` export history table is fully mocked — no
-      endpoint called.
+- [x] `/admin/diffusion` KPI tiles show hardcoded "—" — wired to the new
+      territory-scoped `onefopInScope` field of `GET /data-management/stats`
+      (branch `admin/diffusion`).
+- [ ] `/admin/diffusion` export history table is fully mocked — mock rows
+      replaced by an explicit empty state; the data source is still
+      missing (see "/admin/diffusion — Figma elements not built").
 - [ ] Unused AdminQuestionnairesController endpoints with no frontend
       caller: `GET /pending`, `GET /correction-requested` (`GET /:id` is
       now used by the dossier detail page)

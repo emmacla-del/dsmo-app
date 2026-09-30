@@ -32,4 +32,13 @@ pending a decision.
 no widgets are retained from it. The one control beyond the Figma frame, the
 "Type d'objet" filter, comes from the matrix capability (object filters →
 `resourceType`) and is not a retained widget.
+
+| Screen | Widget | Matrix capability | Why retained | Status |
+|---|---|---|---|---|
+| /admin/diffusion | Scope "Données officielles" vs "Sélection personnalisée des statuts" (with per-status checkboxes) | Données et exports: scope mode radio | Preserves the official statistical base as the default export scope | IMPLEMENTED |
+| /admin/diffusion | Filters questionnaire/entity type, année, région, département (were under "Filtres avancés") | Données et exports: advanced filters | Only way to narrow an official export; Figma shows campagne/région/statut only | IMPLEMENTED |
+| /admin/diffusion | Scope summary line ("Périmètre : …") | Données et exports: export actions | Confirms exactly what will be exported before launching | IMPLEMENTED |
+| /admin/diffusion | .sps syntax-only download (was the ".sps" format radio) — now "Codebook principal" in Codebooks disponibles | Données et exports: "Lancer l'export .sps" | Figma's formats are .SAV/.CSV/.XLSX; the syntax file stays downloadable on its own | IMPLEMENTED |
+| /admin/diffusion | Error / success notices for exports | Données et exports: export actions | Export failures must be visible | IMPLEMENTED |
+| /admin/diffusion | "Sections à inclure" checkboxes (UI-only, never sent) | Données et exports: sections checkboxes (UI only) | Not rebuilt: no effect on the file; filtering sections needs a §21 ruling (deferred.md) | OPEN |
 | /admin/parametres | Read-only "Informations de l'observatoire" display for SUPER_ADMIN_ONEFOP / SUPER_ADMIN_DSMO (the editable form is SUPER_ADMIN only) | Paramètres: read-only reference display | GET/PATCH /system-settings are @Roles(SUPER_ADMIN); the other two page roles would get a 403 | IMPLEMENTED |

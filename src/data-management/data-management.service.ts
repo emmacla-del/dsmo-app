@@ -13,6 +13,15 @@ import {
     resolveExportPartition,
     type OnefopExportFilters,
 } from './spss/export-filters';
+import { Territory, territoryWhere } from '../auth/territory';
+
+export interface SpssExportSummary {
+    rowCount: number;
+    variableCount: number;
+    /** Distinct questionnaire sections; null on the legacy flat-column path. */
+    sectionCount: number | null;
+    byFormType: { formType: string; count: number }[];
+}
 import { Territory, territoryWhereForExport } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
 import * as ExcelJS from 'exceljs';
@@ -569,7 +578,7 @@ export class DataManagementService {
         return { success: true };
     }
 
-    async getDataStats() {
+    async getDataStats(territory?: Territory) {
         const [
             totalCompanies,
             totalDeclarations,
@@ -620,7 +629,32 @@ export class DataManagementService {
                 region: r.region,
                 count: r._count,
             })),
+            onefopInScope: await this.getOnefopInScope(territory),
             generatedAt: new Date(),
+        };
+    }
+
+    /// Additive to GET /data-management/stats (admin/diffusion KPI tiles).
+    /// Unlike the national totals above, scoped to the caller's territory
+    /// with the same territoryWhere as the exports, and DRAFT excluded
+    /// (drafts are never exported or listed).
+    private async getOnefopInScope(territory?: Territory) {
+        const where = { AND: [territoryWhere(territory), { status: { not: 'DRAFT' as const } }] };
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        const [byStatus, newThisMonth] = await Promise.all([
+            this.prisma.onefopSubmission.groupBy({ by: ['status'], where, _count: true }),
+            this.prisma.onefopSubmission.count({ where: { AND: [where, { createdAt: { gte: monthStart } }] } }),
+        ]);
+        const counts = byStatus.reduce(
+            (acc, s) => ({ ...acc, [s.status]: s._count }),
+            {} as Record<string, number>,
+        );
+        return {
+            total: Object.values(counts).reduce((sum, n) => sum + n, 0),
+            byStatus: counts,
+            newThisMonth,
         };
     }
 
@@ -717,15 +751,41 @@ export class DataManagementService {
     /// (Pass A, see the comment above ENUM_PIVOT_MODELS), never the
     /// submissions' own data. Call this first, then stream the CSV via
     /// streamApprovedOnefopSubmissionsCsv with the same filters.
-    async buildSpssManifest(filters: OnefopExportFilters, territory?: Territory): Promise<{ sps: string }> {
+    ///
+    /// `summary: true` (admin/diffusion "Résumé du jeu de données") adds the
+    /// selection's row count, variable/section counts and per-type counts,
+    /// all from the same `where` and variable list as the export itself.
+    async buildSpssManifest(
+        filters: OnefopExportFilters,
+        territory?: Territory,
+        options: { summary?: boolean } = {},
+    ): Promise<{ sps: string; summary?: SpssExportSummary }> {
         const where = this.buildSpssWhere(filters, territory);
         if (this.canonicalAdapter) {
             const partition = resolveExportPartition(filters);
             const variables = this.canonicalAdapter.getVariablesForPartition(partition);
-            return { sps: this.canonicalAdapter.buildSpssSyntax(variables, 'onefop_submissions.csv') };
+            const sps = this.canonicalAdapter.buildSpssSyntax(variables, 'onefop_submissions.csv');
+            if (!options.summary) return { sps };
+            const sections = new Set(variables.map((v) => v.sectionId).filter((id) => id && id !== 'system'));
+            return { sps, summary: await this.buildExportSummary(where, variables.length, sections.size) };
         }
         const columns = await this.buildFlatColumns(where);
-        return { sps: this.buildSpssSyntax(columns, 'onefop_submissions.csv') };
+        const sps = this.buildSpssSyntax(columns, 'onefop_submissions.csv');
+        if (!options.summary) return { sps };
+        return { sps, summary: await this.buildExportSummary(where, columns.length, null) };
+    }
+
+    private async buildExportSummary(where: any, variableCount: number, sectionCount: number | null): Promise<SpssExportSummary> {
+        const byFormType = await this.prisma.onefopSubmission.groupBy({ by: ['formType'], where, _count: true });
+        const rows = byFormType
+            .map((r) => ({ formType: r.formType as string, count: r._count }))
+            .sort((a, b) => b.count - a.count);
+        return {
+            rowCount: rows.reduce((sum, r) => sum + r.count, 0),
+            variableCount,
+            sectionCount,
+            byFormType: rows,
+        };
     }
 
     /// The data half — writes the CSV straight to the HTTP response as it's

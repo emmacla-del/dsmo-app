@@ -14,8 +14,8 @@
 - **SPSS / Excel export** (`POST /data-management/export/submissions/spss/sav`, `/excel`): official statistical dissemination — loss of filter parameters (region, department, entityType, statuses, year) would silently change the scope of exported data.
 - **Campaign lifecycle** (`POST /campaigns/:id/activate|pause|close`): activating a campaign opens SubmissionRounds that control whether the declaration wizard accepts submissions; changes here affect the whole declaration system.
 - **User management actions** (approve, role-change, suspend, delete via `/auth/users/*`): role changes are a privilege-escalation vector; delete is hard and irreversible (backend returns 409 if linked data exists, which the frontend surfaces).
-- **Diffusion KPI tiles** on `/admin/diffusion` show hardcoded "—" values; the backend endpoint for real counts is not yet wired (`GET /data-management/stats` exists but is unused by this page).
-- **Export history table** on `/admin/diffusion` is entirely mocked with hardcoded rows — no endpoint is called.
+- **Diffusion KPI tiles** on `/admin/diffusion` are wired to `GET /data-management/stats` `onefopInScope` (territory-scoped, drafts excluded).
+- **Export history table** on `/admin/diffusion` shows an explicit empty state: the page's SPSS/Excel exports write no audit row, and size/status/re-download need an export-job table (see deferred.md).
 - **Dossier detail "Rejeter" and "Valider et Archiver" buttons** are rendered but have no `onClick` wired to the backend (`PATCH /admin/questionnaires/:id/reject` and `PATCH /admin/questionnaires/:id/approve` exist but are unused from this page).
 - **Unused backend endpoints** on `AdminQuestionnairesController`: `GET /admin/questionnaires/pending`, `GET /admin/questionnaires/correction-requested`, `GET /admin/questionnaires/:id` (single-dossier GET) are all exposed but have no frontend caller.
 
@@ -383,33 +383,38 @@ None.
 ### Données et exports — `/admin/diffusion`
 
 **Sidebar section:** DONNÉES
-**Role gate:** All admin roles (inherited from layout — no extra `useAdminScreenGuard` call in this page)
-**Classification:** CHANGE (KPI tiles and export history table are mocked; sections-to-include checkboxes are UI-only and not sent to backend; codebook download buttons are not wired)
+**Role gate:** All admin roles (inherited from layout — no extra `useAdminScreenGuard` call in this page); the endpoints below refuse DIVISIONAL, AUDITOR and CAMPAIGN_MANAGER
+**Classification:** CHANGE — rebuilt 2026-09-30 (branch `admin/diffusion`). Export history is an empty state (no data source); "Sections à inclure" not built (§21). See deferred.md.
 
 #### Tables
-Export history table: Date / Utilisateur / Format / Périmètre / Taille / Statut / Action — **hardcoded mock data**, no backend call.
+Export history table: not rendered — explicit empty state. The page's exports write no audit row, and size/status/re-download need an export-job table.
 
 #### Filters / search
-- Format radio: .sav / .sps / .xlsx
-- Include codebook checkbox (UI only, not sent to backend)
-- Scope mode radio: "Données officielles" vs "Choisir les statuts" (with per-status checkboxes)
-- Advanced filters (collapsible): entity type, year, region, department
+- Format radio: .sav / .csv / .xlsx
+- "Générer le codebook (.sps)" checkbox — downloads the .sps syntax with the export
+- Scope mode radio: "Données officielles" vs "Sélection personnalisée des statuts" (with per-status checkboxes)
+- Filters: entity type, year, region, department
+
+#### Displays
+- KPI strip: total / validées / en attente / rejetées from `GET /data-management/stats` → `onefopInScope` (caller's territory, drafts excluded)
+- Résumé du jeu de données: rows, variables, sections, per-type counts for the current filters, from the manifest with `summary: true`
 
 #### Actions
 | Label | What it does | Backend endpoint | Endpoint roles |
 |---|---|---|---|
 | "Lancer l'export .sav" | Downloads SPSS .sav binary | POST /data-management/export/submissions/spss/sav | SUPER_ADMIN, SUPER_ADMIN_DSMO, SUPER_ADMIN_ONEFOP, CENTRAL, DATA_MANAGER, ANALYST, REGIONAL |
-| "Lancer l'export .sps" | Downloads SPSS syntax via manifest | POST /data-management/export/submissions/spss/manifest | Same |
+| "Lancer l'export .csv" | Downloads the CSV read by the .sps syntax | POST /data-management/export/submissions/spss/csv | Same |
 | "Lancer l'export .xlsx" | Downloads Excel workbook | POST /data-management/export/submissions/excel | Same |
-| Codebook download buttons | Not wired — no onClick | — | — |
-| Export history "re-download" button | Not wired | — | — |
+| Codebook checkbox / "Codebook principal" | Downloads the .sps syntax for the current filters | POST /data-management/export/submissions/spss/manifest | Same |
 
 #### Backend endpoints
 | Method | Path | Controller method | Roles | Spec exists? |
 |---|---|---|---|---|
-| POST | /data-management/export/submissions/spss/manifest | `DataManagementController.getSpssManifest` (POST) | SUPER_ADMIN, SUPER_ADMIN_DSMO, SUPER_ADMIN_ONEFOP, CENTRAL, DATA_MANAGER, ANALYST, REGIONAL | `data-management.service.spec.ts`, `spss/*.spec.ts` |
-| POST | /data-management/export/submissions/spss/sav | `DataManagementController.downloadSav` (POST) | Same | Same |
-| POST | /data-management/export/submissions/excel | `DataManagementController.downloadExcel` (POST) | Same | `data-management.service.spec.ts` |
+| GET | /data-management/stats | `DataManagementController.getDataStats` (reads `onefopInScope`) | Same | `data-management.service.spec.ts` (onefopInScope) |
+| POST | /data-management/export/submissions/spss/manifest | `DataManagementController.postExportSubmissionsSpssManifest` (`summary: true` opt-in) | Same | `data-management.service.spec.ts`, `spss/*.spec.ts` |
+| POST | /data-management/export/submissions/spss/sav | `DataManagementController.postExportSubmissionsSpssSav` | Same | Same |
+| POST | /data-management/export/submissions/spss/csv | `DataManagementController.postExportSubmissionsSpssCsv` | Same | `data-management.service.spec.ts` |
+| POST | /data-management/export/submissions/excel | `DataManagementController.postExportOnefopSubmissionsExcel` | Same | `data-management.service.spec.ts` |
 
 #### Test coverage
 - Frontend: None.
@@ -500,10 +505,8 @@ The following `@Roles`-decorated endpoints in admin/related controllers are not 
 | PATCH | /admin/questionnaires/:id/approve | `AdminQuestionnairesController.approve` | Single-dossier approve button exists in detail page UI but onClick is not wired |
 | PATCH | /admin/questionnaires/:id/reject | `AdminQuestionnairesController.reject` | Same — button is rendered but has no onClick |
 | PATCH | /admin/questionnaires/:id/request-correction | `AdminQuestionnairesController.requestCorrection` | No UI entry point |
-| GET | /data-management/stats | `DataManagementController.getStats` | Would power the diffusion KPI tiles but is not called |
 | GET | /data-management/export/submissions (GET variant) | `DataManagementController` | POST variant is used; GET variant is not |
 | GET | /data-management/export/submissions/spss/manifest (GET variant) | Same | POST variant is used |
-| GET | /data-management/export/submissions/spss/csv | Same | CSV export function exists in api-client.ts (`downloadSpssCsvBlob`) but diffusion page does not expose it |
 | GET | /data-management/export/submissions/excel (GET variant) | Same | POST variant is used |
 | GET | /campaigns/active/current | `CampaignController.getActiveCurrent` | Used by `AdminHeaderActions` via `useActiveCampaign` hook |
 | GET | /campaigns/conflicts | `CampaignController.getConflicts` | Not used by any frontend page |
@@ -551,7 +554,7 @@ The following `@Roles`-decorated endpoints in admin/related controllers are not 
 | Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
 |---|---|---|---|---|
 | Établissements (annuaire) — `declarants/etablissements.png` | PARTIAL | `createdBy` + registration method (self-registration vs admin) on `Company` or `User`; optionally an explicit city field (today only `subdivision` / `area`) | Admin create-establishment endpoint (only self-service `POST /dsmo/company` and `/auth/register-company` exist); list export; region/type/sector filters on `GET /dsmo/companies` if missing | Definition of account status "Incomplet"; mapping of Figma type "ASFOP" (not in `OnefopEntityType`) — display only here, render existing types meanwhile |
-| Données et exports (diffusion) — `donnees/exports.png` | PARTIAL | New export-job table (user, format, scope, size, status, stored file key) for export history, size, status and re-download | Wire `GET /data-management/stats` for the KPI tiles (exists); campaign (`quarterCode`) filter on the export endpoints; export-history list endpoint | "Sections à inclure" would change the content of official exports (§21); codebook versioning ("Codebook Principal v2.4") |
+| Données et exports (diffusion) — `donnees/exports.png` | PARTIAL — rebuilt (`/admin/diffusion`); history, sections and campaign scope remain | New export-job table (user, format, scope, size, status, stored file key) for export history, size, status and re-download | Done: KPI tiles (`stats.onefopInScope`), dataset summary (manifest `summary`). Remaining: audit write on each export; campaign (`quarterCode`) filter on the export endpoints; export-history list endpoint | "Sections à inclure" would change the content of official exports (§21); codebook versioning ("Codebook Principal v2.4") |
 
 ### Batch 2 — relations
 
