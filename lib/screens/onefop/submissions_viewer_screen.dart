@@ -1892,18 +1892,22 @@ class _SubmissionDetailScreenState
         title: LocalizedText(
             fr: 'Demander une correction', en: 'Request a correction'),
         hintText: LocalizedText(
-          fr: 'Précisez ce qui doit être corrigé (optionnel)',
-          en: 'Specify what needs to be corrected (optional)',
+          fr: 'Précisez ce qui doit être corrigé (10 caractères minimum)',
+          en: 'Specify what needs to be corrected (10 characters minimum)',
         ),
         confirmLabel: LocalizedText(
             fr: 'Demander la correction', en: 'Request correction'),
         confirmColor: Color(0xFFB45309),
         icon: Icons.edit_note_rounded,
+        minLength: 10,
+        requireCertification: true,
       ),
     );
     if (result == null) return;
     await _runAction(
-      () => ref.read(apiClientProvider).requestCorrection(widget.submission.id, result.reason),
+      () => ref.read(apiClientProvider).requestCorrection(
+            widget.submission.id, result.reason,
+            certified: result.certified),
       const LocalizedText(
           fr: 'Correction demandée', en: 'Correction requested'),
       const Color(0xFFB45309),

@@ -1692,11 +1692,11 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> requestCorrection(
-      String id, String comments) async {
+      String id, String comments, {required bool certified}) async {
     try {
       final response = await dio.patch(
           '/admin/questionnaires/$id/request-correction',
-          data: {'comments': comments});
+          data: {'comments': comments, 'certified': certified});
       return response.data;
     } on DioException catch (e) {
       throw ApiException(
