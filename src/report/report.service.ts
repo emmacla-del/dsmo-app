@@ -6,6 +6,8 @@ import { ReportType, ReportFormat } from '../types/prisma.types';
 import { ReportPdfService } from './report-pdf.service';
 import { OnefopAnalyticsService } from '../analytics/onefop-analytics.service';
 import { AuditService } from '../dsmo/audit.service';
+import { Prisma } from '@prisma/client';
+import { AuditLogFilters, buildAuditLogWhere } from './audit-log-filter';
 
 // ── Camel-case helper ────────────────────────────────────────
 function toCamel(s: string): string {
@@ -602,14 +604,35 @@ export class ReportService {
     }
 
     // ── GET /audit/reports ──────────────────────────────────────────────────
-    async getAuditLog(limit: number = 100) {
+    async getAuditLog(limit: number = 100, filters: AuditLogFilters = {}) {
         return this.prisma.auditLog.findMany({
+            where: buildAuditLogWhere(filters) as Prisma.AuditLogWhereInput,
             orderBy: { timestamp: 'desc' },
             take: limit,
             include: {
                 user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
             },
         });
+    }
+
+    // ── GET /audit/reports?paginate=true ────────────────────────────────────
+    // The page and its total share one `where`, so paging never hides rows.
+    // `id` breaks timestamp ties so offset paging is stable.
+    async getAuditLogPage(filters: AuditLogFilters, limit: number, offset: number) {
+        const where = buildAuditLogWhere(filters) as Prisma.AuditLogWhereInput;
+        const [items, total] = await this.prisma.$transaction([
+            this.prisma.auditLog.findMany({
+                where,
+                orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+                take: limit,
+                skip: offset,
+                include: {
+                    user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+                },
+            }),
+            this.prisma.auditLog.count({ where }),
+        ]);
+        return { items, total, limit, offset };
     }
 
     // ── GET /reports/:id/data ────────────────────────────────────────────────
