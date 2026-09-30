@@ -7,6 +7,12 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../types/prisma.types';
 import { territoryFromUser } from '../auth/territory';
 
+// Opt-in `summary` on the SPSS manifest (query string or JSON body). The key
+// is ignored by the export `where` builder, which reads only known filters.
+function wantsSummary(filters: any): boolean {
+  return filters?.summary === true || filters?.summary === 'true';
+}
+
 @Controller('data-management')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DataManagementController {
@@ -53,8 +59,8 @@ export class DataManagementController {
 
   @Get('stats')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getDataStats() {
-    return this.dataManagementService.getDataStats();
+  async getDataStats(@Request() req: any) {
+    return this.dataManagementService.getDataStats(territoryFromUser(req.user));
   }
 
   @Get('export/submissions')
@@ -99,13 +105,17 @@ export class DataManagementController {
   @Get('export/submissions/spss/manifest')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
   async getExportSubmissionsSpssManifest(@Query() queryFilters: any, @Request() req: any) {
-    return this.dataManagementService.buildSpssManifest(queryFilters || {}, territoryFromUser(req.user));
+    return this.dataManagementService.buildSpssManifest(queryFilters || {}, territoryFromUser(req.user), {
+      summary: wantsSummary(queryFilters),
+    });
   }
 
   @Post('export/submissions/spss/manifest')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
   async postExportSubmissionsSpssManifest(@Body() bodyFilters: any, @Request() req: any) {
-    return this.dataManagementService.buildSpssManifest(bodyFilters || {}, territoryFromUser(req.user));
+    return this.dataManagementService.buildSpssManifest(bodyFilters || {}, territoryFromUser(req.user), {
+      summary: wantsSummary(bodyFilters),
+    });
   }
 
   @Get('export/submissions/spss/csv')

@@ -626,3 +626,62 @@ describe('DataManagementService — VOCATIONAL_TRAINING breakdown sheets (VT-8)'
   });
 });
 
+
+describe('DataManagementService — admin/diffusion additive fields', () => {
+  it('onefopInScope: territory-scoped, DRAFT excluded, totals the status counts', async () => {
+    const groupBy = jest.fn().mockResolvedValue([
+      { status: 'APPROVED', _count: 7 },
+      { status: 'PENDING_REVIEW', _count: 2 },
+      { status: 'REJECTED', _count: 1 },
+    ]);
+    const count = jest.fn().mockResolvedValue(3);
+    const { service } = makeService({ onefopSubmission: { groupBy, count } });
+
+    const scoped = await service.getOnefopInScope({ role: 'REGIONAL', region: 'Centre' });
+
+    expect(scoped).toEqual({ total: 10, byStatus: { APPROVED: 7, PENDING_REVIEW: 2, REJECTED: 1 }, newThisMonth: 3 });
+    const where = groupBy.mock.calls[0][0].where;
+    expect(where.AND).toContainEqual({ status: { not: 'DRAFT' } });
+    expect(where.AND[0]).toEqual({ region: { equals: 'Centre', mode: 'insensitive' } });
+    expect(count.mock.calls[0][0].where.AND[1].createdAt.gte).toBeInstanceOf(Date);
+  });
+
+  it('buildSpssManifest: no summary unless asked (legacy shape unchanged)', async () => {
+    const adapter = {
+      getVariablesForPartition: jest.fn().mockReturnValue([]),
+      buildSpssSyntax: jest.fn().mockReturnValue('SPS'),
+    };
+    const groupBy = jest.fn();
+    const prisma = { onefopSubmission: { groupBy } };
+    const service = new DataManagementService(prisma as any, undefined, adapter as any);
+    await expect(service.buildSpssManifest({ statuses: ['APPROVED'] })).resolves.toEqual({ sps: 'SPS' });
+    expect(groupBy).not.toHaveBeenCalled();
+  });
+
+  it('buildSpssManifest summary: counts from the export where and the partition variables', async () => {
+    const adapter = {
+      getVariablesForPartition: jest.fn().mockReturnValue([
+        { sectionId: 'system' }, { sectionId: 'S1' }, { sectionId: 'S1' }, { sectionId: 'S2' },
+      ]),
+      buildSpssSyntax: jest.fn().mockReturnValue('SPS'),
+    };
+    const groupBy = jest.fn().mockResolvedValue([
+      { formType: 'COOPERATIVE', _count: 2 },
+      { formType: 'ENTREPRISE', _count: 5 },
+    ]);
+    const prisma = { onefopSubmission: { groupBy } };
+    const service = new DataManagementService(prisma as any, undefined, adapter as any);
+
+    const result = await service.buildSpssManifest({ statuses: ['APPROVED'], region: 'Littoral' }, undefined, { summary: true });
+
+    expect(result.summary).toEqual({
+      rowCount: 7,
+      variableCount: 4,
+      sectionCount: 2,
+      byFormType: [{ formType: 'ENTREPRISE', count: 5 }, { formType: 'COOPERATIVE', count: 2 }],
+    });
+    const where = groupBy.mock.calls[0][0].where;
+    expect(where.status).toEqual({ in: ['APPROVED'] });
+    expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+  });
+});
