@@ -38,6 +38,14 @@ UI = needs a frontend change on a page outside this pass.
 
 | Date | Screen | Element | Type | What is missing | Shown today |
 |---|---|---|---|---|---|
+| 2026-09-30 | /admin/questionnaires | "Aperçu" — canonical AST viewer | DECISION | No viewer exists; what it shows (sections, questions, tables, gateways) and whether it reads onefop.schema.json or the AST needs a model decision | Disabled button + placeholder panel |
+| 2026-09-30 | /admin/questionnaires | "+ Nouveau questionnaire" | DECISION | Questionnaire structure belongs to `onefop_ast.dart` (§3, §21), not to the console | Disabled |
+| 2026-09-30 | /admin/questionnaires | "Actif" status pill | DECISION | Questionnaire status is not modelled anywhere (AST or DB) | "Statut —" |
+| 2026-09-30 | /admin/questionnaires | Taux de complétion | DECISION | No definition of completion per questionnaire type, and no data | "—" |
+| 2026-09-30 | /admin/questionnaires | ASFOP (Recensement) card | DECISION | Not an `OnefopEntityType` value; adding one is a questionnaire-structure change (§21) | Not rendered; the seven existing types are shown |
+| 2026-09-30 | /admin/questionnaires | "Voir soumissions" filtered by type | UI | `/admin/dossiers` reads only `?status=` from the URL, not `?formType=`; that page is out of scope for this pass | Links to the unfiltered `/admin/dossiers` |
+| 2026-09-30 | /admin/questionnaires | Total soumissions for roles outside AdminQuestionnairesController @Roles | DECISION | GET /admin/questionnaires is SUPER_ADMIN / SUPER_ADMIN_ONEFOP / CENTRAL / REGIONAL / DIVISIONAL | "—" |
+| 2026-09-30 | /admin/questionnaires | Sidebar entry "Questionnaires" | DECISION | `_routes.ts` has `href: null`; out of bounds for this pass | Page reachable by URL only |
 | 2026-09-30 | /admin/etablissement-detail | "Comptes utilisateurs rattachés" — several accounts per establishment, "+ Ajouter un utilisateur" | DECISION | `Company.userId` is one-to-one; D5 rules out company-side roles and admin user creation. A multi-user model needs a decision | The single account + placeholder line; button disabled |
 | 2026-09-30 | /admin/etablissement-detail | "Modifier le rôle" (Administrateur / Responsable / Comptable / Lecteur) in the account dialog | DECISION | D5: no company-side RBAC | Not rendered |
 | 2026-09-30 | /admin/etablissement-detail | Addressing an establishment | ENDPOINT | No GET-by-id for companies; the page resolves `?id=<establishmentId>` through `GET /dsmo/companies?search=` with an exact match | Works for establishmentId only; lookup field when absent |
