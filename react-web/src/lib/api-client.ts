@@ -635,11 +635,38 @@ export function resolveAnomaly(id: string, payload: { resolutionType: string; re
   });
 }
 
+export interface SpssExportSummary {
+  rowCount: number;
+  variableCount: number;
+  /** null when the server has no canonical schema adapter (flat columns). */
+  sectionCount: number | null;
+  byFormType: { formType: string; count: number }[];
+}
+
 export function getSpssManifest(filters: Record<string, any> = {}) {
-  return apiFetch<{ sps: string }>("/data-management/export/submissions/spss/manifest", {
+  return apiFetch<{ sps: string; summary?: SpssExportSummary }>("/data-management/export/submissions/spss/manifest", {
     method: "POST",
     body: JSON.stringify(filters),
   });
+}
+
+/** Same filters as the export itself; `summary` is opt-in on the manifest. */
+export function getExportSummary(filters: Record<string, unknown> = {}) {
+  return getSpssManifest({ ...filters, summary: true }).then((m) => m.summary ?? null);
+}
+
+// GET /data-management/stats. Only `onefopInScope` is read by React Web:
+// the caller's territory, DRAFT excluded. The other fields are national.
+export interface DataStats {
+  onefopInScope?: {
+    total: number;
+    byStatus: Record<string, number>;
+    newThisMonth: number;
+  };
+}
+
+export function getDataStats() {
+  return apiFetch<DataStats>("/data-management/stats");
 }
 
 // Shared by the three export downloads. A bare fetch() failure only says
