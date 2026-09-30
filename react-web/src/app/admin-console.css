@@ -2045,3 +2045,226 @@ a.cam-kpi-tile:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ── Dossier detail (admin/dossiers/[id]) ── */
+.cam-dossier-axes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cam-space-5);
+  padding: var(--cam-space-5);
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-left: 4px solid var(--cam-flag-yellow);
+  border-radius: var(--cam-radius-lg);
+}
+
+.cam-dossier-axes.is-approved {
+  border-left-color: var(--cam-green);
+}
+
+.cam-dossier-axes.is-rejected {
+  border-left-color: var(--cam-error);
+}
+
+.cam-dossier-axis {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cam-space-2);
+  min-width: 0;
+}
+
+.cam-dossier-label {
+  margin: 0;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cam-text-muted);
+}
+
+.cam-dossier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--cam-radius-full);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cam-dossier-pill--ok {
+  background: var(--cam-success-bg);
+  color: var(--cam-success);
+}
+
+.cam-dossier-pill--warn {
+  background: var(--cam-warning-bg);
+  color: var(--cam-warning);
+}
+
+.cam-dossier-pill--error {
+  background: var(--cam-error-bg);
+  color: var(--cam-error);
+}
+
+.cam-dossier-note {
+  margin: 0;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-dossier-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.85fr);
+  gap: var(--cam-space-5);
+  align-items: start;
+}
+
+.cam-dossier-card-title {
+  margin: 0;
+  padding-bottom: var(--cam-space-3);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  font-size: var(--cam-font-size-lg);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+}
+
+.cam-dossier-fields {
+  display: grid;
+  gap: var(--cam-space-4);
+  margin: var(--cam-space-4) 0 0;
+}
+
+.cam-dossier-fields--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cam-space-4) var(--cam-space-5);
+}
+
+.cam-dossier-fields dt {
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cam-text-muted);
+}
+
+.cam-dossier-fields dd {
+  margin: 2px 0 0;
+  font-size: var(--cam-font-size-base);
+  color: var(--cam-text);
+  overflow-wrap: anywhere;
+}
+
+.cam-dossier-section {
+  background: var(--cam-surface);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  overflow: hidden;
+}
+
+.cam-dossier-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  font-size: var(--cam-font-size-lg);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cam-dossier-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cam-dossier-section > summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.cam-dossier-section[open] > summary {
+  background: var(--cam-green-dark);
+  color: var(--cam-surface);
+}
+
+.cam-dossier-section[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.cam-dossier-section-body {
+  padding: var(--cam-space-2) var(--cam-space-5) var(--cam-space-5);
+}
+
+.cam-dossier-history {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--cam-space-5);
+  margin: var(--cam-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cam-dossier-history li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-dossier-history-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-success-bg);
+  box-shadow: inset 0 0 0 6px var(--cam-success-bg), inset 0 0 0 10px var(--cam-success);
+}
+
+.cam-dossier-history-dot.is-current {
+  background: var(--cam-warning-bg);
+  box-shadow: inset 0 0 0 6px var(--cam-warning-bg), inset 0 0 0 10px var(--cam-warning);
+}
+
+.cam-dossier-history-dot.is-rejected {
+  background: var(--cam-error-bg);
+  box-shadow: inset 0 0 0 6px var(--cam-error-bg), inset 0 0 0 10px var(--cam-error);
+}
+
+.cam-dossier-history strong {
+  display: block;
+  color: var(--cam-green-dark);
+}
+
+.cam-dossier-history p {
+  margin: 2px 0 0;
+  color: var(--cam-text-muted);
+}
+
+.cam-dossier-history time {
+  display: block;
+  margin-top: 2px;
+  font-weight: 600;
+  color: var(--cam-green);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1199px) {
+  .cam-dossier-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 639px) {
+  .cam-dossier-axes,
+  .cam-dossier-fields--two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

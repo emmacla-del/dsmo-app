@@ -17,13 +17,13 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 // Layout-level page header: the fallback for admin pages that don't render
 // their own AdminPageHeader yet. When a page is refactored to render its own
 // header, remove its entry here so it never shows two <h1>s. Refactored so
-// far: /admin/pilotage.
+// far: /admin/pilotage, /admin/dossiers/[id].
 // `group` / `nav` mirror the page's section and label in AdminSidebar.
-// `detail` labels a sub-route (e.g. /admin/dossiers/[id]): its breadcrumb
-// becomes group › nav (linking back to the list) › detail.
+// `detail` labels a sub-route: its breadcrumb becomes group › nav (linking
+// back to the list) › detail. A sub-route without `detail` renders its own.
 const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
   "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
-  "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions", detail: "Détail du dossier" },
+  "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions" },
   "/admin/diffusion":     { title: "Données et exports", sub: "Homologation et diffusion des données statistiques certifiées", group: "Données", nav: "Exports" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
   "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
@@ -145,7 +145,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
 
         <main className="cam-admin-main">
-          {pageTitle && (
+          {pageTitle && (!isSubRoute || pageTitle.detail) && (
             <AdminPageHeader
               breadcrumb={breadcrumb}
               title={pageTitle.title}

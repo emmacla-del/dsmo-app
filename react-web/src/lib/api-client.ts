@@ -535,6 +535,36 @@ export function listAdminQuestionnaires(
   return apiFetch<AdminQuestionnairesPage>(`/admin/questionnaires${qs ? `?${qs}` : ""}`);
 }
 
+/** Subset of GET /admin/questionnaires/:id read by the dossier detail page. */
+export interface AdminDossier {
+  id: string;
+  submissionId: string;
+  formType: string;
+  status: string;
+  region: string | null;
+  department: string | null;
+  subdivision: string | null;
+  submissionDate: string;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  quarterCode: string | null;
+  taxNumber: string | null;
+  cnpsNumber: string | null;
+  registrationNumber: string | null;
+  respondent: { respondentName: string; respondentFunction: string; phone1: string; phone2: string | null; email: string | null } | null;
+  enterpriseDetail: Record<string, unknown> | null;
+  cooperativeDetail: Record<string, unknown> | null;
+  ctdDetail: Record<string, unknown> | null;
+  ongDetail: Record<string, unknown> | null;
+  administrationDetail: Record<string, unknown> | null;
+  projectProgramDetail: Record<string, unknown> | null;
+  vocationalTrainingDetail: Record<string, unknown> | null;
+}
+
+export function getAdminDossier(id: string) {
+  return apiFetch<AdminDossier>(`/admin/questionnaires/${encodeURIComponent(id)}`);
+}
+
 export function getDossierDiagnostic(id: string) {
   return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic`);
 }
