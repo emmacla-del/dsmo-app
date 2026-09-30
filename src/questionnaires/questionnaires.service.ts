@@ -3057,7 +3057,21 @@ export class QuestionnairesService {
   }
 
   async requestCorrection(id: string, comments: string, reviewedBy?: string, territory?: Territory) {
-    await this.getById(id, territory);
+    const submission = await this.getById(id, territory);
+    if (submission.status !== 'PENDING_REVIEW') {
+      throw new BadRequestException(`Impossible de demander une correction sur un dossier au statut ${submission.status}.`);
+    }
+    if (reviewedBy) {
+      await (this.prisma as any).auditLog.create({
+        data: {
+          userId: reviewedBy,
+          action: 'AUDIT_CORRECTION',
+          resourceType: 'OnefopSubmission',
+          resourceId: id,
+          details: { comments, previousStatus: submission.status },
+        },
+      });
+    }
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 }

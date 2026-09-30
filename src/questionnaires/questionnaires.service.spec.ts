@@ -914,6 +914,59 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
   });
 
+  describe('QuestionnairesService.requestCorrection (status precondition + audit)', () => {
+    let service: QuestionnairesService;
+    let prisma: any;
+
+    beforeEach(() => {
+      prisma = {
+        onefopSubmission: {
+          findFirst: jest.fn(),
+          update: jest.fn(),
+        },
+        auditLog: {
+          create: jest.fn(),
+        },
+      };
+      service = new QuestionnairesService(prisma);
+    });
+
+    it('throws 400 when status is APPROVED', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-approved',
+        status: OnefopStatus.APPROVED,
+        anomalies: [],
+      });
+      await expect(service.requestCorrection('sub-approved', 'Motif valide de correction', 'actor-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('succeeds for PENDING_REVIEW and writes AUDIT_CORRECTION', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-pending',
+        status: OnefopStatus.PENDING_REVIEW,
+        anomalies: [],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({ id: 'sub-pending', status: 'CORRECTION_REQUESTED' });
+
+      await service.requestCorrection('sub-pending', 'Veuillez préciser le secteur d\'activité.', 'actor-1');
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'AUDIT_CORRECTION',
+          userId: 'actor-1',
+          resourceType: 'OnefopSubmission',
+          resourceId: 'sub-pending',
+          details: expect.objectContaining({ previousStatus: OnefopStatus.PENDING_REVIEW }),
+        }),
+      });
+      expect(prisma.onefopSubmission.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'CORRECTION_REQUESTED' }) }),
+      );
+    });
+  });
+
   describe('QuestionnairesService — REPORTED Matrix Completeness (Phase 4.3)', () => {
     const service = new QuestionnairesService({} as PrismaService);
 
