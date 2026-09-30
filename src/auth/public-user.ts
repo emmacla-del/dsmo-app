@@ -46,6 +46,19 @@ export const SECRET_USER_FIELDS = [
   'emailVerificationExpires',
   'twoFactorCodeHash',
   'twoFactorCodeExpires',
+  // Admin rebuild B1 (user & registration): internal tracking and review
+  // fields. Nothing reads these from a client-facing user yet; move one to
+  // PUBLIC_USER_SELECT only when a screen needs it.
+  'lastLoginAt',
+  'approvedAt',
+  'createdBy',
+  'registrationMethod',
+  'tokenVersion',
+  'registrationNumber',
+  'assigneeId',
+  'lastReminderAt',
+  'approvalComment',
+  'perAgentTarget',
 ] as const;
 
 /** A user row as clients may see it. Reading a secret column is a type error. */

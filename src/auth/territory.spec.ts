@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { assertTerritorialAuthority, territoryFromUser, territoryWhere } from './territory';
+import { assertTerritorialAuthority, territoryFromUser, territoryWhere, territoryWhereForExport } from './territory';
 
 const NO_ROWS = { id: { in: [] } };
 const ieq = (value: string) => ({ equals: value, mode: 'insensitive' });
@@ -141,6 +141,72 @@ describe('assertTerritorialAuthority', () => {
       'Authentification requise.',
     );
     expect(() => assertTerritorialAuthority(territoryFromUser(undefined), LITTORAL)).toThrow(ForbiddenException);
+  });
+});
+
+describe('territoryWhereForExport (D7)', () => {
+  const D7_ROLES = ['SUPER_ADMIN_DSMO', 'DATA_MANAGER', 'ANALYST'];
+
+  it('gives the D7 roles national scope on exports', () => {
+    for (const role of D7_ROLES) {
+      expect(territoryWhereForExport({ role })).toEqual({});
+      // A stray region on the account must not narrow its export scope.
+      expect(territoryWhereForExport({ role, region: 'Littoral', regionId: 'reg-lt' })).toEqual({});
+    }
+  });
+
+  it('keeps the existing national roles national on exports', () => {
+    for (const role of ['SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP', 'CENTRAL']) {
+      expect(territoryWhereForExport({ role, region: 'Littoral' })).toEqual({});
+    }
+  });
+
+  it('leaves the general territoryWhere failing closed for the D7 roles', () => {
+    for (const role of D7_ROLES) {
+      expect(territoryWhere({ role })).toEqual(NO_ROWS);
+      expect(territoryWhere({ role, region: 'Littoral', regionId: 'reg-lt' })).toEqual(NO_ROWS);
+    }
+  });
+
+  it('grants the D7 roles no write scope: assertTerritorialAuthority still refuses them', () => {
+    for (const role of D7_ROLES) {
+      expect(() => assertTerritorialAuthority({ role, region: 'Littoral', regionId: 'reg-lt' }, CENTRE)).toThrow(
+        'Privilèges territoriaux insuffisants.',
+      );
+    }
+  });
+
+  it('still scopes REGIONAL and DIVISIONAL exactly like territoryWhere', () => {
+    const scoped = [
+      { role: 'REGIONAL', regionId: 'reg-lt', region: 'Littoral' },
+      { role: 'REGIONAL', region: 'Littoral' },
+      { role: 'DIVISIONAL', departmentId: 'dep-wouri', department: 'Wouri' },
+      { role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' },
+    ];
+    for (const territory of scoped) {
+      expect(territoryWhereForExport(territory)).toEqual(territoryWhere(territory));
+      expect(territoryWhereForExport(territory)).not.toEqual({});
+    }
+    expect(territoryWhereForExport({ role: 'REGIONAL', region: 'Littoral' })).toEqual({ region: ieq('Littoral') });
+    expect(territoryWhereForExport({ role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' })).toEqual({
+      region: ieq('Littoral'),
+      department: ieq('Wouri'),
+    });
+  });
+
+  it('still fails closed for unassigned territorial accounts and other roles', () => {
+    expect(territoryWhereForExport({ role: 'REGIONAL' })).toEqual(NO_ROWS);
+    expect(territoryWhereForExport({ role: 'DIVISIONAL', department: 'Wouri' })).toEqual(NO_ROWS);
+    for (const role of ['AUDITOR', 'CAMPAIGN_MANAGER', 'COMPANY', 'not-a-role']) {
+      expect(territoryWhereForExport({ role, region: 'Littoral' })).toEqual(NO_ROWS);
+    }
+    expect(territoryWhereForExport({})).toEqual(NO_ROWS);
+    expect(territoryWhereForExport(territoryFromUser(undefined))).toEqual(NO_ROWS);
+  });
+
+  it('applies no restriction to internal calls with no territory', () => {
+    expect(territoryWhereForExport(undefined)).toEqual({});
+    expect(territoryWhereForExport(null)).toEqual({});
   });
 });
 

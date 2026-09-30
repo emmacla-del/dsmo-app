@@ -26,6 +26,7 @@ import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
+import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 
@@ -1354,6 +1355,49 @@ export class QuestionnairesService {
         }
       }
       throw err;
+    }
+
+    // Campaign progress, phase B2 (docs/deferred.md, "CampaignSubmission is
+    // never updated"). A final submission is attributed to the campaign whose
+    // SubmissionRound carries this quarterCode, and that campaign's
+    // CampaignSubmission row for the company moves to SUBMITTED. Drafts are
+    // never counted. No round, a round without a campaign, or no
+    // CampaignSubmission row for this company (not targeted at activation)
+    // is skipped silently — a row is never created here. Best-effort: the
+    // OnefopSubmission is already saved, so a failure is logged, not thrown.
+    if (!isDraft) {
+      try {
+        const round = await this.prisma.submissionRound.findFirst({
+          // module filter: a ONEFOP submit must never mark progress on a DSMO campaign's round.
+          where: { quarterCode: resolvedQuarterCode, module: 'ONEFOP' },
+          select: { campaignId: true },
+        });
+        if (round?.campaignId) {
+          // One transaction: both writes apply or neither does. updateMany
+          // (not update) so a missing CampaignSubmission row updates nothing
+          // and the transaction still commits.
+          await this.prisma.$transaction([
+            this.prisma.onefopSubmission.update({
+              where: { submissionId: result.submissionId },
+              data: { campaignId: round.campaignId },
+            }),
+            // No status condition, deliberately: EXEMPT becomes SUBMITTED too.
+            // Exemption reflects whether the establishment was required to
+            // submit, not whether a submission counts. Nothing in src/
+            // creates EXEMPT rows today.
+            this.prisma.campaignSubmission.updateMany({
+              where: { campaignId: round.campaignId, companyId: resolvedCompanyId },
+              data: { status: 'SUBMITTED', submittedAt: new Date() },
+            }),
+          ]);
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `Campaign progress update failed for ONEFOP submission ${result.submissionId} ` +
+          `(company ${resolvedCompanyId}, quarter ${resolvedQuarterCode})`,
+          err?.stack,
+        );
+      }
     }
 
     return {
@@ -3017,7 +3061,10 @@ export class QuestionnairesService {
       throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
     }
     await this.eligibilityEngine!.assertCanApprove(id);
-    return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    // Campaign progress B4: best-effort, never fails the approval.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'VALIDATED');
+    return updated;
   }
 
   async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory) {
@@ -3039,7 +3086,10 @@ export class QuestionnairesService {
         },
       });
     }
-    return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    // Campaign progress B4: best-effort, never fails the rejection.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'PENDING');
+    return updated;
   }
 
   async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory) {
@@ -3064,7 +3114,10 @@ export class QuestionnairesService {
         },
       });
     }
-    return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    // Campaign progress B4: best-effort, never fails the correction request.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'PENDING');
+    return updated;
   }
 
   // ── Dossier list export helpers ─────────────────────────────────────────────
