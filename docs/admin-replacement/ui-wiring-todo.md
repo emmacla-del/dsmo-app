@@ -9,6 +9,18 @@ or table; DECISION = needs a product / domain / permission ruling first.
 
 | Date | Screen | Element | Type | What is missing | Shown today |
 |---|---|---|---|---|---|
+| 2026-09-30 | /admin/centre-qualite | KPI Complétude | DECISION | No definition of the completeness rate and no stored measure (computation over the canonical schema or a new column) | "—" + reason |
+| 2026-09-30 | /admin/centre-qualite | KPI Cohérence | DECISION | Coherence checks are advisory and client-side (§7); `OnefopSubmission.flags` is not an aggregate. Rate definition needed | "—" + reason |
+| 2026-09-30 | /admin/centre-qualite | KPI Taux d'anomalies / Avertissements | ENDPOINT | No aggregate over `onefop_anomalies` per declaration (blocking vs warning) | "—" + reason |
+| 2026-09-30 | /admin/centre-qualite | KPI Éligibilité statistique | ENDPOINT | The eligibility engine answers per dossier (`/diagnostic`); no rate endpoint | "—" + reason |
+| 2026-09-30 | /admin/centre-qualite | Anomalies par type (occurrences, % du total, tendance) | ENDPOINT | `GET /admin/questionnaires/anomalies/registry` lists; no group-by `ruleCode` / `ruleFamily`, no trend window | Panel with reason |
+| 2026-09-30 | /admin/centre-qualite | Anomalies par région (déclarations, anomalies, taux) | ENDPOINT | No per-region aggregate | Panel with reason |
+| 2026-09-30 | /admin/centre-qualite | Region Statut bands (Critique / Élevé / Modéré / Acceptable / Bon) | DECISION | Thresholds are undefined; storing them is a config table that needs a domain ruling | Not shown |
+| 2026-09-30 | /admin/centre-qualite | Contrôles récents: "Contrôle automatique terminé — Lot #847" entries | SCHEMA | No control-run table; the feed shows the latest anomalies only | Latest 5 anomalies (wired) |
+| 2026-09-30 | /admin/centre-qualite | Règles de validation list with Actif / Désactivé | DECISION | No rules table; toggling a rule changes validation semantics (§21). D6 only settles who (SUPER_ADMIN*) | Panel with reason |
+| 2026-09-30 | /admin/centre-qualite | "Gérer les règles de validation →" | DECISION | Same as above | Disabled |
+| 2026-09-30 | /admin/centre-qualite | Recent feed for roles outside AdminQuestionnairesController @Roles (e.g. DATA_MANAGER, ANALYST, AUDITOR) | DECISION | Registry is SUPER_ADMIN / SUPER_ADMIN_ONEFOP / CENTRAL / REGIONAL / DIVISIONAL | "—" + reason |
+| 2026-09-30 | /admin/centre-qualite | Sidebar entries "Anomalies" / "Qualité" | DECISION | `_routes.ts` has `href: null`; out of bounds for this pass | Page reachable by URL only |
 | 2026-09-30 | /admin/inscriptions | Whole queue for roles other than SUPER_ADMIN | DECISION | GET /auth/users lists COMPANY accounts for SUPER_ADMIN only; SUPER_ADMIN_ONEFOP is limited to ONEFOP staff and REGIONAL / DIVISIONAL cannot list (D3 grants them approve/reject only). Whether they review establishment registrations is a permission change | Info notice, empty table |
 | 2026-09-30 | /admin/inscriptions | Rows at all | DECISION | POST /auth/register-company creates COMPANY accounts ACTIVE, so none is ever PENDING_APPROVAL; a registration review step is an auth-flow change | "Aucune inscription en attente" |
 | 2026-09-30 | /admin/inscriptions | N° Inscription column | ENDPOINT | `users.registrationNumber` (B1) has no generator and is not returned by /auth/users | "—" |
@@ -26,6 +38,14 @@ UI = needs a frontend change on a page outside this pass.
 
 | Date | Screen | Element | Type | What is missing | Shown today |
 |---|---|---|---|---|---|
+| 2026-09-30 | /admin/questionnaires | "Aperçu" — canonical AST viewer | DECISION | No viewer exists; what it shows (sections, questions, tables, gateways) and whether it reads onefop.schema.json or the AST needs a model decision | Disabled button + placeholder panel |
+| 2026-09-30 | /admin/questionnaires | "+ Nouveau questionnaire" | DECISION | Questionnaire structure belongs to `onefop_ast.dart` (§3, §21), not to the console | Disabled |
+| 2026-09-30 | /admin/questionnaires | "Actif" status pill | DECISION | Questionnaire status is not modelled anywhere (AST or DB) | "Statut —" |
+| 2026-09-30 | /admin/questionnaires | Taux de complétion | DECISION | No definition of completion per questionnaire type, and no data | "—" |
+| 2026-09-30 | /admin/questionnaires | ASFOP (Recensement) card | DECISION | Not an `OnefopEntityType` value; adding one is a questionnaire-structure change (§21) | Not rendered; the seven existing types are shown |
+| 2026-09-30 | /admin/questionnaires | "Voir soumissions" filtered by type | UI | `/admin/dossiers` reads only `?status=` from the URL, not `?formType=`; that page is out of scope for this pass | Links to the unfiltered `/admin/dossiers` |
+| 2026-09-30 | /admin/questionnaires | Total soumissions for roles outside AdminQuestionnairesController @Roles | DECISION | GET /admin/questionnaires is SUPER_ADMIN / SUPER_ADMIN_ONEFOP / CENTRAL / REGIONAL / DIVISIONAL | "—" |
+| 2026-09-30 | /admin/questionnaires | Sidebar entry "Questionnaires" | DECISION | `_routes.ts` has `href: null`; out of bounds for this pass | Page reachable by URL only |
 | 2026-09-30 | /admin/etablissement-detail | "Comptes utilisateurs rattachés" — several accounts per establishment, "+ Ajouter un utilisateur" | DECISION | `Company.userId` is one-to-one; D5 rules out company-side roles and admin user creation. A multi-user model needs a decision | The single account + placeholder line; button disabled |
 | 2026-09-30 | /admin/etablissement-detail | "Modifier le rôle" (Administrateur / Responsable / Comptable / Lecteur) in the account dialog | DECISION | D5: no company-side RBAC | Not rendered |
 | 2026-09-30 | /admin/etablissement-detail | Addressing an establishment | ENDPOINT | No GET-by-id for companies; the page resolves `?id=<establishmentId>` through `GET /dsmo/companies?search=` with an exact match | Works for establishmentId only; lookup field when absent |
