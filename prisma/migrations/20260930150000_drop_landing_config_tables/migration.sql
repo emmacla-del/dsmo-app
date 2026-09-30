@@ -1,5 +1,5 @@
 -- DropTable
-DROP TABLE "landing_config";
+DROP TABLE IF EXISTS "landing_config";
 
 -- DropTable
-DROP TABLE "landing_config_versions";
+DROP TABLE IF EXISTS "landing_config_versions";
