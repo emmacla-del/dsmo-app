@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -19,9 +20,12 @@ import {
 } from '../types/eligibility.types';
 import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
+import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 
 @Injectable()
 export class EligibilityEngineService {
+  private readonly logger = new Logger(EligibilityEngineService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -371,7 +375,13 @@ export class EligibilityEngineService {
       throw new BadRequestException('Aucun dossier sélectionné pour le visa groupé.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    // Campaign progress B4: filled per dossier in the loop below, applied
+    // after commit. On PostgreSQL a failed statement aborts the interactive
+    // transaction, so a CampaignSubmission error inside it would undo the
+    // visa itself; outside it, the error is only logged.
+    const campaignTargets: Array<{ id: string; campaignId: string | null; companyId: string | null }> = [];
+
+    const result = await this.prisma.$transaction(async (tx) => {
       // 1. Fetch all requested dossiers with open blocking anomalies and territorial fields
       const candidates = await tx.onefopSubmission.findMany({
         where: { id: { in: dto.submissionIds } },
@@ -423,6 +433,7 @@ export class EligibilityEngineService {
         }
 
         approvedIds.push(candidate.id);
+        campaignTargets.push({ id: candidate.id, campaignId: candidate.campaignId, companyId: candidate.companyId });
       }
 
       // 2. Atomically update all verified clean candidates.
@@ -469,6 +480,11 @@ export class EligibilityEngineService {
         timestamp: new Date().toISOString(),
       };
     });
+
+    for (const target of campaignTargets) {
+      await syncCampaignSubmissionOnReview(this.prisma, this.logger, target, 'VALIDATED');
+    }
+    return result;
   }
 
   /**
@@ -491,10 +507,13 @@ export class EligibilityEngineService {
       throw new BadRequestException('La justification doit comporter au moins 10 caractères.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    // Campaign progress B4: same post-commit pattern as executeBulkVisa.
+    const campaignTargets: Array<{ id: string; campaignId: string | null; companyId: string | null }> = [];
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const candidates = await tx.onefopSubmission.findMany({
         where: { id: { in: dto.submissionIds } },
-        select: { id: true, status: true, region: true, department: true },
+        select: { id: true, status: true, region: true, department: true, campaignId: true, companyId: true },
       });
 
       const rejectableIds: string[] = [];
@@ -530,6 +549,7 @@ export class EligibilityEngineService {
         }
 
         rejectableIds.push(candidate.id);
+        campaignTargets.push({ id: candidate.id, campaignId: candidate.campaignId, companyId: candidate.companyId });
       }
 
       if (rejectableIds.length > 0) {
@@ -577,6 +597,11 @@ export class EligibilityEngineService {
         timestamp: new Date().toISOString(),
       };
     });
+
+    for (const target of campaignTargets) {
+      await syncCampaignSubmissionOnReview(this.prisma, this.logger, target, 'PENDING');
+    }
+    return result;
   }
 
   /**

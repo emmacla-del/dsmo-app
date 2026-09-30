@@ -150,6 +150,31 @@ model User {
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   status                     UserStatus         @default(PENDING_APPROVAL)
+  // ── Admin rebuild B1 (user & registration) — all nullable or defaulted.
+  // See docs/deferred.md "Phase B1 — user & registration schema".
+  lastLoginAt                DateTime?
+  approvedAt                 DateTime?
+  // Account that created this one (e.g. an admin-created MINEFOP agent);
+  // null = self-registration or unknown.
+  createdBy                  String?
+  // Free text until the values settle (e.g. SELF_REGISTRATION, ADMIN_CREATED).
+  registrationMethod         String?
+  // Reserved for session invalidation ("réinitialiser la session"); not read yet.
+  tokenVersion               Int                @default(0)
+  // Human-readable registration number (e.g. INS-2026-0847); no generator yet.
+  registrationNumber         String?            @unique
+  // Agent the registration is assigned to for review.
+  assigneeId                 String?
+  lastReminderAt             DateTime?
+  // Reviewer comment on approval / complements request (kept apart from rejectionReason).
+  approvalComment            String?
+  perAgentTarget             Int?
+  createdByUser              User?              @relation("UserCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdUsers               User[]             @relation("UserCreatedBy")
+  assignee                   User?              @relation("UserAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignedUsers              User[]             @relation("UserAssignee")
+  registrationDocuments      RegistrationDocument[] @relation("RegistrationDocumentOwner")
+  verifiedDocuments          RegistrationDocument[] @relation("RegistrationDocumentVerifier")
   auditLogs                  AuditLog[]
   batchJobs                  BatchJob[]
   company                    Company?
@@ -171,7 +196,36 @@ model User {
   @@index([role])
   @@index([serviceCode])
   @@index([status])
+  @@index([createdBy])
+  @@index([assigneeId])
   @@map("users")
+}
+
+// One row per document a registrant must provide (Figma "Documents
+// fournis": attestation d'enregistrement, pièce d'identité, certificat
+// d'imposition…). A row with no fileRef is an expected document that has
+// not been provided ("Manquant").
+model RegistrationDocument {
+  id         String    @id @default(uuid())
+  userId     String
+  // Document type code; free text until the list per entity type is ruled.
+  kind       String
+  // Supabase Storage object path, signed on read — same pattern as
+  // Company.attestationUrl (PdfService.getSignedUrlForPath). No bytes here.
+  fileRef    String?
+  // PENDING | VERIFIED | REJECTED | MISSING — free text until the workflow settles.
+  state      String    @default("PENDING")
+  uploadedAt DateTime?
+  verifiedAt DateTime?
+  verifiedBy String?
+  // Restrict: deleting a registrant with documents answers 409 (deleteUser
+  // maps P2003), the same as a user with a company or submissions.
+  user       User      @relation("RegistrationDocumentOwner", fields: [userId], references: [id], onDelete: Restrict)
+  verifier   User?     @relation("RegistrationDocumentVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([verifiedBy])
+  @@map("registration_documents")
 }
 
 model Company {
@@ -293,9 +347,14 @@ model Declaration {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   fillingDate          DateTime?
+  // Campaign this declaration was filed under (campaign progress, phase B1).
+  // Nullable: pre-existing rows and declarations filed outside a campaign
+  // have none. Nothing writes it yet.
+  campaignId           String?
   auditLogs            AuditLog[]
   movements            DeclarationMovement[]
   company              Company               @relation(fields: [companyId], references: [id])
+  campaign             DataCampaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   employees            Employee[]
   qualitativeQuestions QualitativeQuestion[]
   validationSteps      ValidationStep[]
@@ -309,6 +368,7 @@ model Declaration {
   @@index([year])
   @@index([createdAt])
   @@index([submittedAt])
+  @@index([campaignId])
   @@map("declarations")
 }
 
@@ -482,6 +542,8 @@ model DataCampaign {
   freezes           CampaignFreeze[]
   creator           User?                @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
   round             SubmissionRound?
+  onefopSubmissions OnefopSubmission[]
+  declarations      Declaration[]
 
   @@index([status])
   @@map("data_campaigns")
@@ -692,6 +754,10 @@ model OnefopSubmission {
   quarterCode           String?                       @default("2025-T1")
   taxNumber             String?
   cnpsNumber            String?
+  // Campaign this submission was filed under (campaign progress, phase B1).
+  // Nullable: pre-existing rows and submissions filed outside a campaign
+  // have none. Nothing writes it yet.
+  campaignId            String?
   registrationNumber    String?
   metaJson              Json?
   administrationDetail  OnefopAdministrationDetail?
@@ -729,6 +795,7 @@ model OnefopSubmission {
   respondent            OnefopRespondent?
   skillNeeds            OnefopSkillNeed[]
   company               Company?                      @relation(fields: [companyId], references: [id])
+  campaign              DataCampaign?                 @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   departmentRef         Department?                   @relation(fields: [departmentId], references: [id])
   regionRef             Region?                       @relation(fields: [regionId], references: [id])
   subdivisionRef        Subdivision?                  @relation(fields: [subdivisionId], references: [id])
@@ -747,6 +814,7 @@ model OnefopSubmission {
   @@index([taxNumber])
   @@index([cnpsNumber])
   @@index([companyId], map: "idx_onefop_submissions_companyId")
+  @@index([campaignId])
   // Added for the SPSS/Excel bulk-export filters (DataManagementService) —
   // `department` and the `createdAt` from/to range were the only two
   // export filter columns without an index; at large submission counts
@@ -1752,38 +1820,17 @@ model SystemSettings {
   require2FAForStaff Boolean  @default(false)
   maintenanceMode    Boolean  @default(false)
   maintenanceMessage String?
+  // Observatory identity (/admin/parametres "Informations de l'observatoire").
+  // Nullable: unset means "not configured yet". Stored and displayed only —
+  // nothing else reads them yet (see docs/deferred.md).
+  observatoryName    String?
+  countryCode        String?
+  defaultLanguage    String?
+  timezone           String?
   updatedBy          String?
   updatedAt          DateTime @updatedAt
 
   @@map("system_settings")
-}
-
-// Singleton row (fixed id "singleton") holding the Super-Admin-editable
-// content for the public landing page (LandingScreen). `data` mirrors the
-// Flutter LandingConfig.fromJson/defaults() contract exactly — see
-// lib/models/landing_config.dart — so the API can just pass it through
-// unchanged; kept as one Json blob rather than scalar columns because the
-// `roadmap` field is inherently a list of structured {label, done} objects.
-model LandingConfig {
-  id        String   @id @default("singleton")
-  data      Json
-  updatedBy String?
-  updatedAt DateTime @updatedAt
-
-  @@map("landing_config")
-}
-
-// Append-only snapshot of LandingConfig.data taken right before each
-// overwrite (see LandingConfigService.updateConfig), so a bad Super Admin
-// save can be rolled back. Pruned to the most recent MAX_VERSIONS rows.
-model LandingConfigVersion {
-  id        String   @id @default(cuid())
-  data      Json
-  updatedBy String?
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
-  @@map("landing_config_versions")
 }
 
 enum BatchStatus {
@@ -1817,6 +1864,11 @@ enum UserStatus {
   PENDING_APPROVAL
   ACTIVE
   REJECTED
+  // Admin rebuild B1 — registration review states (additive).
+  DRAFT
+  UNDER_REVIEW
+  COMPLEMENTS_REQUESTED
+  DOCUMENTS_INCOMPLETE
 }
 
 enum DeclarationStatus {

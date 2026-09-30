@@ -68,6 +68,146 @@ Found while building (not fixed — outside this screen's guardrails):
 - [ ] **The page has no role guard.** It inherits the layout's admin
       roles, but the export and stats endpoints refuse DIVISIONAL,
       AUDITOR and CAMPAIGN_MANAGER (403 shown as an error).
+## Decision — campaign progress is ONEFOP-only (2026-09-30)
+
+B2 (PR #17) implemented the campaign progress fix for ONEFOP
+questionnaire submissions only. DSMO is intentionally out of scope.
+
+B3 (DSMO write path) is cancelled. The DSMO progression is not
+tracked in CampaignSubmission and will not be. Reminders, progress
+and reports will reflect ONEFOP submissions only.
+
+Consequence: if a campaign targets DSMO entities, its progress
+counts will not move on DSMO submissions. If that ever becomes
+desired, it is a new decision, not a resumption of B3.
+
+B4 (review transitions) is scoped to ONEFOP only:
+  - approve  -> CampaignSubmission VALIDATED
+  - reject / request-correction -> CampaignSubmission PENDING
+
+The Declaration.campaignId column added in B1 stays in the schema.
+It is unused and harmless. Removing it is not worth a migration.
+
+---
+
+## Phase B2a — permission model: held items and findings (2026-09-30)
+
+Branch `admin/b2a-permissions`. D1 and D3 shipped. D7 shipped later,
+export-only (PR #12, see below).
+
+**RESOLVED: `RolesGuard` ignored class-level `@Roles`.**
+`src/auth/roles.guard.ts` read `reflector.get('roles', context.getHandler())`
+only. When `@Roles` sat on the controller class, the lookup returned
+`undefined` and the guard let **any authenticated user** through.
+Fixed in `337dede` (PR #9): the guard now reads
+`reflector.getAllAndOverride('roles', [handler, class])`, so handler-level
+`@Roles` wins and the class list is the fallback. Covered by
+`src/auth/roles.guard.spec.ts`.
+- [x] `src/system-settings/system-settings.controller.ts`: `GET`/`PATCH
+      /system-settings`, now SUPER_ADMIN only.
+- [x] `src/landing-config/admin-landing-config.controller.ts`: moot, the
+      feature was removed in `3c438173`.
+- [x] `src/analytics/onefop-analytics.controller.ts`: class list enforced.
+- [x] `src/questionnaires/admin-questionnaires.controller.ts`: class list
+      enforced (territory scoping still applies on top).
+
+Post-fix audit (2026-09-30). No handler-level `@Roles` exists on any of
+these controllers, so the class list decides every route. Before #9, all
+11 `UserRole` values reached every route.
+
+| Controller | Routes | Class `@Roles` (allowed now) | Cut by #9 |
+|---|---|---|---|
+| `system-settings` | `GET /`, `PATCH /` | SUPER_ADMIN | the other 10 roles |
+| `onefop-analytics` | all 44 GET routes | CENTRAL, REGIONAL, DIVISIONAL, SUPER_ADMIN, SUPER_ADMIN_ONEFOP | COMPANY, SUPER_ADMIN_DSMO, DATA_MANAGER, CAMPAIGN_MANAGER, ANALYST, AUDITOR |
+| `admin/questionnaires` | 15 routes (queues, bulk-visa, bulk-reject, anomaly registry/resolve, list, pending, correction-requested, export, `:id`, diagnostic, approve, reject, request-correction) | same 5 | same 6 |
+
+Note: `onefop-analytics` has no territory scoping, so before #9 every
+role, COMPANY included, read national ONEFOP analytics.
+
+- [ ] **Decision needed: ANALYST, DATA_MANAGER and SUPER_ADMIN_DSMO on
+      `onefop-analytics`.** D7 calls these roles analytical with a
+      national mandate, but #9 cut them from every ONEFOP analytics
+      endpoint. If they should read analytics, that is a `@Roles` change
+      on `OnefopAnalyticsController` (read-only routes, no territory
+      scoping) and needs review. The same three roles are also cut from
+      `GET admin/questionnaires/export`; D7 does not need that route (its
+      exports are the data-management endpoints).
+
+- [x] **D7 (national scope for SUPER_ADMIN_DSMO / DATA_MANAGER / ANALYST)**
+      shipped export-only in `ed588791` (PR #12): a separate
+      `EXPORT_NATIONAL_ROLES` list in `src/auth/territory.ts`, used only
+      by `territoryWhereForExport` in the two data-management export
+      where-builders. `NATIONAL_ROLES` and `assertTerritorialAuthority`
+      are unchanged, so the three roles gained no national write scope
+      (the risk this item originally warned about).
+
+Findings on the D3 / D1 endpoints (not changed — outside this run):
+- [ ] D3 lets REGIONAL/DIVISIONAL approve **any** pending ONEFOP staff
+      role in their territory, including CENTRAL, DATA_MANAGER, ANALYST,
+      AUDITOR, CAMPAIGN_MANAGER and REGIONAL (for a DIVISIONAL, if the
+      target carries a matching department). DATA_MANAGER / ANALYST become
+      national under D7. Decide whether DR approvers should be limited to
+      field roles (e.g. REGIONAL → DIVISIONAL only).
+- [ ] D3 covers **staff** registrations only: `approveUser` answers 400
+      for COMPANY accounts ("Les entreprises sont automatiquement
+      approuvées"). Company inscriptions (Figma /admin/inscriptions) have no
+      approval step today.
+- [ ] `PATCH /auth/reject-user/:id` receives `reason` but never passes it to
+      the service; `rejectionReason` is not written.
+- [ ] `approveUser` / `rejectUser` write no audit row and do not set the B1
+      `approvedAt` column.
+- [ ] `src/auth/public-user.spec.ts` fails on master since B1: the ten new
+      User columns are not classified in `PUBLIC_USER_SELECT` /
+      `SECRET_USER_FIELDS` (`src/auth/public-user.ts`). `tokenVersion` at
+      least belongs in the secret list.
+
+---
+
+## Phase B1 — user & registration schema (2026-09-30)
+
+Schema only (branch `admin/schema-user-registration`). Migrations
+`20260930120000_add_user_status_registration_values` and
+`20260930120100_add_user_registration_fields`, **not applied** — a human
+runs `npx prisma migrate deploy`. Nothing in the application reads or
+writes these yet.
+
+**Phase column:** B2–B7 are not defined in the repo docs (only B2 is
+mentioned, as the territory-model work in role-decisions.md D7). Each item
+is mapped to its decision and screen; assign it to a phase when the plan
+exists.
+
+| Item | Table | Consumer (screen / decision) | Phase |
+|---|---|---|---|
+| `lastLoginAt` | users | utilisateurs "Dernier accès"; établissement detail "Dernière connexion". Needs the login path to write it (auth — review) | unassigned |
+| `approvedAt` | users | inscriptions KPI "Approuvées ce trimestre"; approve action writes it (D3) | unassigned |
+| `createdBy` (→ users, SET NULL) | users | annuaire / établissement "Créé par"; admin-created agents (D1). D4: no admin-created establishments | unassigned |
+| `registrationMethod` | users | établissement detail "Méthode"; annuaire "Créé par" (auto-inscription) | unassigned |
+| `tokenVersion` (default 0) | users | établissement detail "Réinitialiser la session". Enforcing it changes JWT validation — auth review required, not scheduled | unassigned |
+| `registrationNumber` (unique) | users | inscriptions "N° Inscription"; needs a generator | unassigned |
+| `assigneeId` (→ users, SET NULL) | users | inscriptions "Assigné à" (D3 — DR review in territory) | unassigned |
+| `lastReminderAt` | users | inscriptions "Relancer" | unassigned |
+| `approvalComment` | users | validation du compte "Motif ou commentaire" for complements / approval (D3); keeps rejectionReason for rejections | unassigned |
+| `perAgentTarget` | users | utilisateurs "Taux de complétion" per agent — needs a domain definition of the target | unassigned |
+| `UserStatus.DRAFT` | enum | utilisateurs "Brouillon" | unassigned |
+| `UserStatus.UNDER_REVIEW` | enum | inscriptions "En vérification" (D3) | unassigned |
+| `UserStatus.COMPLEMENTS_REQUESTED` | enum | inscriptions / validation du compte "Compléments demandés" (D3) | unassigned |
+| `UserStatus.DOCUMENTS_INCOMPLETE` | enum | inscriptions "Documents incomplets" (D3) | unassigned |
+| `registration_documents` table | new | inscriptions "Documents 3/3"; validation du compte "Documents fournis" (D3) | unassigned |
+
+Follow-ups:
+- [ ] `registrationMethod` is free text: turn it into an enum once the
+      values are stable (candidates: SELF_REGISTRATION, ADMIN_CREATED).
+- [ ] `registration_documents.kind` and `.state` are free text for the same
+      reason (state candidates: PENDING, VERIFIED, REJECTED, MISSING); the
+      required documents per entity type need a ruling.
+- [ ] Any code that sets or filters on the four new `UserStatus` values must
+      handle them everywhere status is interpreted (login gating, approve /
+      reject, directory filters and badges) — none do today.
+- [ ] `prisma validate` cannot run in the cloud sandbox: the datasource
+      needs `DATABASE_URL` / `DIRECT_URL` even on master. The schema was
+      checked with `prisma generate` instead.
+
+---
 
 ## /admin/journal-audit — Figma elements not built (2026-09-30)
 
@@ -386,3 +526,190 @@ These are real but non-blocking. Tracked here so they don't get lost.
       annuaire/etablissements, inscriptions, centre qualité.
 - [ ] BLOCKED: établissement detail (multi-user relations, company
       roles), questionnaires (canonical AST).
+## Deferred — align Flutter dashboard analytics to Figma
+
+The Flutter dashboard's analytics widgets should match the Figma
+frame at <path/TBD>. /onefop-analytics/* currently serves the
+dashboard; the data it returns must be shaped to match what the
+frame displays.
+
+- Backend: keep /onefop-analytics/*. Reshape responses as needed.
+- Flutter: dashboard widgets render against the frame.
+- Standalone /analytics route and OnefopDashboardScreen are out of
+  the product — remove them as part of this work, not before.
+- Not scoped: which endpoints need reshaping, which fields are
+  missing, whether the Flutter widgets need rebuilding.
+
+Separate workstream from the React admin rebuild.
+
+## Deferred — territory leak on /data-management/export/submissions
+
+GET and POST /data-management/export/submissions call
+exportSubmissions(filters) with no territory argument. Scoping is
+driven by the request's region parameter, so a REGIONAL account can
+pass any region — or omit it — and get national DSMO declaration
+data. This is a live territory leak, independent of D7.
+
+Fix: derive the region from the caller's territory and refuse (or
+override) a request-supplied region that differs.
+
+## Deferred — duplicate NATIONAL_ROLES in notification.service.ts
+
+src/notifications/notification.service.ts defines its own local
+NATIONAL_ROLES twice. It already includes SUPER_ADMIN_DSMO, so it
+behaves consistently today, but it is a second source of truth and
+exactly what the D7 note warned against. Consolidate with
+territory.ts when notifications are next touched.
+
+## Deferred — react-web lockfile also out of sync
+
+react-web/package-lock.json is out of sync with package.json, same
+pattern as the backend. Cloud sessions install with --no-save to
+avoid dirtying the diff. Any `npm ci` in react-web will fail until
+the lockfile is regenerated.
+
+Fix both lockfiles in one pass. Backend: npm install --package-lock-only
+in root. Frontend: same in react-web/. Only the two lockfiles change;
+no package.json edits, no version bumps.
+
+## Deferred — /admin/utilisateurs Figma elements without backend support (2026-09-30)
+
+The "Utilisateurs ONEFOP" frame (react-web/docs/figma/declarants/utilisateurs.png)
+shows elements the backend cannot serve today. The rebuild leaves them out
+rather than showing invented or empty data:
+
+- "Enquêtes/Fiches assignées" column: there is no agent-to-questionnaire or
+  agent-to-establishment assignment model.
+- "Fiches soumises" and "Taux de complétion" columns: no endpoint attributes
+  submissions or completion to an agent.
+- "Dernier accès" column: User.lastLoginAt exists (B1) but nothing writes it
+  at login, and it is classified secret in src/auth/public-user.ts. Needs a
+  write path and a deliberate public classification.
+- "Profil" row link: there is no agent profile page and no GET /auth/users/:id.
+- "Brouillon" account status pill: no such account status exists.
+- KPI "Nouvelles inscriptions (mois)": GET /auth/users has no creation-date
+  filter. The tile shows all pending accounts, labelled "Inscriptions en
+  attente".
+- KPI "Agents inactifs — En attente d'affectation": there is no "awaiting
+  assignment" state. The tile counts suspended (isActive=false) accounts,
+  labelled "Comptes suspendus".
+- "Ajouter Agent" for non-field roles: POST /auth/admin/create-minefop-user
+  accepts CENTRAL, REGIONAL and DIVISIONAL only, so DATA_MANAGER,
+  CAMPAIGN_MANAGER, ANALYST and AUDITOR accounts cannot be created here.
+- Page title "Utilisateurs ONEFOP" with the primary action in the header:
+  the admin layout renders this route's header from PAGE_TITLES ("Agents
+  ONEFOP"). Matching the frame means removing that entry and rendering the
+  page's own AdminPageHeader, which is a layout change.
+
+Also stale: docs/admin-replacement/feature-matrix.md still lists Réassigner as
+"SUPER_ADMIN only / not wired" and Ajouter Agent as disabled. Both are wired
+now and open to SUPER_ADMIN_ONEFOP per D1.
+
+
+## Deferred - CampaignSubmission is never updated (investigation 2026-09-30)
+
+STATUS (2026-09-30): superseded by the "Decision — campaign progress
+is ONEFOP-only" section above. B2 merged (PR #17). B3 cancelled.
+B4 is ONEFOP-only. The historical plan below is kept for context only.
+
+CampaignSubmission has one writer: createMany at campaign
+activation. Nothing ever updates it. It is read by:
+  - GET /campaigns/:id/progress and GET /campaigns (progress tile)
+  - reminders (_getPendingCompanies filters status NOT IN
+    [SUBMITTED, VALIDATED])
+  - company dashboards (mySubmission in active/current)
+  - report.service.ts (completion rate, regional breakdown)
+
+Consequences: reminders go to every targeted establishment,
+including those who already submitted. Company dashboards show the
+campaign as not started. Every report completion rate is 0.
+
+Root cause: neither OnefopSubmission nor Declaration records the
+campaign. The only indirect link is SubmissionRound.quarterCode
+(ONEFOP) or "the round open at submit time" (DSMO).
+
+Fix in phases:
+  B1 DONE (PR #16): campaignId nullable FK on both submission
+    models, migration additive.
+  B2: ONEFOP write path - set campaignId at submit, update
+    CampaignSubmission for (campaignId, companyId).
+  B3: DSMO write path - same, via the active DSMO round.
+  B4: review transitions - approve -> VALIDATED, reject/correction
+    -> PENDING.
+  No backfill (decided): historical submissions keep NULL
+  campaignId. Only new submissions are tracked.
+
+Note: campaign_submissions was created by prisma db push, not a
+migration. A database built from migrations alone would not have
+it. Same drift class as landing_config.
+## Deferred — /admin/campagnes Figma elements without backend support (2026-09-30)
+
+The "Campagnes de Collecte" frame (react-web/docs/figma/collecte/campagnes.png)
+shows elements the backend cannot serve today. The rebuild leaves them out, or
+shows "—" with a reason, rather than displaying invented numbers:
+
+- **Campaign submission tracking is never updated (backend bug).**
+  CampaignService._initializeCampaignSubmissions creates one CampaignSubmission
+  row per targeted establishment with status NOT_STARTED at activation.
+  Nothing in src/ (and no database trigger in prisma/migrations) ever updates
+  those rows when an establishment submits. So `progress.submitted` and
+  `progress.completionRate` from GET /campaigns and GET /campaigns/:id/progress
+  are always 0. This blocks the frame's "Soumissions collectées 10 128 / 12 847
+  attendus", "Avancement global 78.8%", and the history table's "Soumissions"
+  and "Taux complétion" columns. The rebuild shows `progress.total` as
+  "Établissements ciblés" (accurate) and "—" for collected submissions. Fix:
+  update the CampaignSubmission row when a declaration or questionnaire is
+  submitted for the campaign's round, or compute progress from the
+  submissions themselves. Either is a backend change touching statistics
+  (§5), so it needs review.
+  UPDATE (2026-09-30): the ONEFOP path is fixed by B2 (PR #17).
+  DSMO remains intentionally out of scope — see the ONEFOP-only
+  decision section. "Soumissions collectées" / "Taux complétion"
+  will now populate for ONEFOP campaigns only.
+- "Agents actifs 342 / 380": there is no agent-to-campaign link. Needs a schema
+  change.
+- "Exporter l'historique" link and the per-row download icon: no export
+  endpoint for campaigns.
+- "Questionnaires assignés" section counts ("4 sections d'enquête"): section
+  counts live in the canonical AST / generated schema, not in any campaign
+  endpoint. The panel lists the campaign's module and targetEntityTypes only.
+- "Échéancier" third step "Clôture & validation": no date field for it
+  (DataCampaign.endDate exists but nothing in the campaign service sets or
+  reads it). The panel shows Lancement (startDate) and the effective deadline
+  (extendedDeadline ?? deadline).
+- History "Période" column ("Oct - Déc 2025"): the covered period is computed
+  server-side for notifications but is not returned by GET /campaigns. The
+  table shows the campaign name, code and opening/closing dates instead.
+- Page title "Campagnes de Collecte": the admin layout renders this route's
+  header from PAGE_TITLES ("Gestion des campagnes"). Changing it is a layout
+  change.
+- Role wording: the task brief described SUPER_ADMIN_DSMO as read-only here,
+  but POST /campaigns/:id/activate|pause|close|remind all include
+  SUPER_ADMIN_DSMO in @Roles. The page follows the backend (only REGIONAL is
+  read-only). If DSMO administrators should not mutate ONEFOP campaigns, that
+  is a backend @Roles change, and D2 should be reworded at the same time.
+
+---
+
+## /admin/parametres editable rebuild — not resolved (2026-09-30)
+
+Branch `admin/parametres-rebuild`. The Général identity form is wired
+(four new nullable columns, migration
+`20260930170000_add_system_settings_identity_fields`, **not applied** —
+a human runs `npx prisma migrate deploy`). Still open from the section
+"/admin/parametres — Figma editable settings not wirable" above:
+
+- [ ] Campagne active par défaut — campaign activation lives on
+      /admin/campagnes; a second "default" needs a product decision.
+- [ ] Nombre maximum de fiches par superviseur — no agent/fiche assignment
+      model exists, so a stored value would enforce nothing.
+- [ ] Délai de soumission (jours) — overlaps campaign deadlines (domain review).
+- [ ] Soumission hors-ligne autorisée — no consumer; would need the Flutter
+      offline path to read it.
+- [ ] Validation automatique des fiches conformes — changes the visa
+      workflow (§21, domain review).
+- [ ] The identity values are stored and shown only: next-intl's default
+      locale and date formatting do not read `defaultLanguage` / `timezone`.
+- [ ] SUPER_ADMIN_ONEFOP / SUPER_ADMIN_DSMO can open the page but not
+      /system-settings (SUPER_ADMIN only), so they keep the read-only
+      display. Widening @Roles is a permission change — not done.

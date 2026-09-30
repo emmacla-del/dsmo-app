@@ -522,7 +522,18 @@
     "deleteUserTitle": "Delete {name}?",
     "deleteWarning": "This action is irreversible. If this account has linked declarations, submissions, or notifications, the deletion will be refused — suspend it instead.",
     "typeToConfirmLabel": "Type \"{email}\" to confirm",
-    "actionError": "Error: {error}"
+    "actionError": "Error: {error}",
+    "agentColumn": "Agent name",
+    "regionColumn": "Assigned region",
+    "reassign": "Reassign",
+    "reassignTitle": "Reassign {name}",
+    "reassignHint": "Role, region and department are saved together and recorded in the audit log.",
+    "reassignRegionLabel": "Region",
+    "reassignDepartmentLabel": "Department",
+    "reassignNone": "— None —",
+    "reassignRegionRequired": "A region is required for this role.",
+    "reassignDepartmentRequired": "A department is required for a divisional agent.",
+    "reassignSubmit": "Save assignment"
   },
   "fieldControl": {
     "emptySelectionPlaceholder": "—"

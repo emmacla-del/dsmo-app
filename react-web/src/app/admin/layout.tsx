@@ -11,6 +11,7 @@ import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import type { UserRole } from "@/lib/user-types";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
@@ -26,7 +27,7 @@ const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; 
   "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions" },
   "/admin/diffusion":     { title: "Gestion des données et exports", sub: "Gérer, filtrer et exporter les données collectées", group: "Données", nav: "Exports" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
-  "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
+  "/admin/utilisateurs":  { title: "Utilisateurs ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
   "/admin/campagnes":     { title: "Gestion des campagnes", sub: "Pilotage des campagnes de collecte statistique nationale", group: "Collecte", nav: "Campagnes" },
   "/admin/journal-audit": { title: "Journal d'audit systémique", sub: "Traçabilité des actions et décisions enregistrées sur la plateforme", group: "Administration", nav: "Journal d'audit" },
   "/admin/parametres":    { title: "Paramètres du système", sub: "Configuration générale, utilisateurs et sécurité", group: "Administration", nav: "Paramètres" },
@@ -122,6 +123,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           initials,
           roleLabel: user?.role ? directoryRoleLabel(user.role) : "Agent",
         }}
+        role={user?.role}
         pendingCount={pendingCount}
       />
 
@@ -146,15 +148,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
 
         <main className="cam-admin-main">
-          {pageTitle && (!isSubRoute || pageTitle.detail) && (
-            <AdminPageHeader
-              breadcrumb={breadcrumb}
-              title={pageTitle.title}
-              subtitle={pageTitle.sub}
-              actions={<AdminHeaderActions />}
-            />
-          )}
-          {children}
+          {/* D8: per-page gate on top of the console gate above. */}
+          <RequireAdminRole>
+            {pageTitle && (!isSubRoute || pageTitle.detail) && (
+              <AdminPageHeader
+                breadcrumb={breadcrumb}
+                title={pageTitle.title}
+                subtitle={pageTitle.sub}
+                actions={<AdminHeaderActions />}
+              />
+            )}
+            {children}
+          </RequireAdminRole>
         </main>
       </div>
     </div>

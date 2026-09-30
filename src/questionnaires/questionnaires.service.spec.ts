@@ -1487,3 +1487,310 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
   });
 });
+
+// Campaign progress, phase B2 (docs/deferred.md, "CampaignSubmission is never
+// updated"): a final ONEFOP submission sets OnefopSubmission.campaignId and
+// moves the company's CampaignSubmission row to SUBMITTED, via the
+// SubmissionRound whose quarterCode matches. Best-effort: never fails the
+// submission, never creates a CampaignSubmission row.
+describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', () => {
+  const QUARTER = '2026-T3';
+
+  function buildMockPrisma(roundCampaignId: string | null): any {
+    return {
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'company-1', establishmentId: 'EST-1' }),
+      },
+      submissionRound: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+          quarterCode: QUARTER, campaignId: roundCampaignId,
+        }),
+      },
+      onefopSubmission: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({ submissionId: data.submissionId })),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      campaignSubmission: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn(),
+        upsert: jest.fn(),
+        createMany: jest.fn(),
+      },
+      // Array form only: the mocked update/updateMany calls return their
+      // promises, so this just resolves them in order.
+      $transaction: jest.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
+      subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
+      department: { findFirst: jest.fn().mockResolvedValue(null) },
+      region: { findFirst: jest.fn().mockResolvedValue(null) },
+      sector: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+  }
+
+  // Smallest final payload that passes enforceFinalRequiredFields (same
+  // shape as the VT-8 "succeeds" test above).
+  const finalVtData = {
+    VT1_15_NAME: 'Jean Dupont',
+    VT1_15_FUNCTION: 'Directeur',
+    VT1_15_TEL1: '699999999',
+    VT1_15_EMAIL: 'jean@test.cm',
+    VT1_15_SEX: 'Féminin',
+    VT1_2: 'Centre Complet',
+    VT1_4: 'Centre',
+    VT1_5: 'Mfoundi',
+    VT1_6: 'Yaoundé I',
+    VT1_8: 'Nlongkak',
+    VT1_9: 'Urbain/ Urban',
+  };
+
+  function submit(service: QuestionnairesService, formId: string, isDraft = false) {
+    return service.submitQuestionnaire({
+      formId,
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft,
+      quarterCode: QUARTER,
+      data: finalVtData,
+    } as any);
+  }
+
+  it('round with campaignId: sets OnefopSubmission.campaignId and marks the CampaignSubmission row SUBMITTED', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-with-campaign');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-with-campaign' });
+    expect(prisma.submissionRound.findFirst).toHaveBeenCalledWith({
+      where: { quarterCode: QUARTER, module: 'ONEFOP' },
+      select: { campaignId: true },
+    });
+    expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
+      where: { submissionId: 'b2-with-campaign' },
+      data: { campaignId: 'campaign-1' },
+    });
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
+    expect(args.where).toEqual({ campaignId: 'campaign-1', companyId: 'company-1' });
+    expect(args.data.status).toBe('SUBMITTED');
+    expect(args.data.submittedAt).toBeInstanceOf(Date);
+    // Both writes are queued into one array-form $transaction call.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    const ops = prisma.$transaction.mock.calls[0][0];
+    expect(ops).toHaveLength(2);
+    expect(ops[0]).toBe(prisma.onefopSubmission.update.mock.results[0].value);
+    expect(ops[1]).toBe(prisma.campaignSubmission.updateMany.mock.results[0].value);
+  });
+
+  it('round lookup is scoped to the ONEFOP module', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const service = new QuestionnairesService(prisma);
+
+    await submit(service, 'b2-module-filter');
+
+    const lookups = prisma.submissionRound.findFirst.mock.calls
+      .map((c: any[]) => c[0])
+      .filter((q: any) => q.where?.quarterCode === QUARTER);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0].where.module).toBe('ONEFOP');
+  });
+
+  it("an EXEMPT company that submits becomes SUBMITTED: the update carries no status condition", async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    // The mock can't hold row state, so it stands in for the database:
+    // it only reports the EXEMPT row as matched if the where clause
+    // doesn't exclude it.
+    const existingRow = { campaignId: 'campaign-1', companyId: 'company-1', status: 'EXEMPT' };
+    prisma.campaignSubmission.updateMany.mockImplementation(({ where }: any) =>
+      Promise.resolve({
+        count:
+          where.campaignId === existingRow.campaignId &&
+          where.companyId === existingRow.companyId &&
+          where.status === undefined ? 1 : 0,
+      }));
+    const service = new QuestionnairesService(prisma);
+
+    await submit(service, 'b2-exempt');
+
+    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
+    expect(args.where).not.toHaveProperty('status');
+    expect(args.data.status).toBe('SUBMITTED');
+    await expect(prisma.campaignSubmission.updateMany.mock.results[0].value).resolves.toEqual({ count: 1 });
+  });
+
+  it('round with campaignId null: does nothing to CampaignSubmission or OnefopSubmission.campaignId', async () => {
+    const prisma = buildMockPrisma(null);
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-no-campaign');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-no-campaign' });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('no matching CampaignSubmission row: does not error and does not create a row', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    prisma.campaignSubmission.updateMany.mockResolvedValue({ count: 0 });
+    const service = new QuestionnairesService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    const result = await submit(service, 'b2-no-row');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-no-row' });
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.campaignSubmission.create).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.upsert).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.createMany).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('a rejected campaign-progress transaction does not fail the submission (logged at error level with the stack)', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const boom = new Error('connection reset');
+    prisma.$transaction.mockRejectedValue(boom);
+    const service = new QuestionnairesService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    const result = await submit(service, 'b2-update-throws');
+
+    expect(result).toEqual({
+      success: true,
+      submissionId: 'b2-update-throws',
+      message: 'Formulaire soumis avec succès',
+      data: undefined,
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('b2-update-throws');
+    expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
+  });
+
+  it('draft: never touches CampaignSubmission', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-draft', true);
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-draft' });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+// ── Campaign progress B4: single-dossier review transitions ──────────────────
+
+describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', () => {
+
+
+  function buildPrisma(submission: Record<string, unknown>) {
+    const prisma: any = {
+      onefopSubmission: {
+        findFirst: jest.fn(async () => ({ anomalies: [], ...submission })),
+        update: jest.fn(async ({ where, data }: any) => ({ id: where.id, ...data })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+      campaignSubmission: { updateMany: jest.fn(async () => ({ count: 1 })) },
+    };
+    return prisma;
+  }
+
+  function buildService(prisma: any) {
+    return new QuestionnairesService(prisma, undefined, new EligibilityEngineService(prisma));
+  }
+
+  const linked = { id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, campaignId: 'camp-1', companyId: 'co-1' };
+
+  it('approve: CampaignSubmission -> VALIDATED, submittedAt untouched', async () => {
+    const prisma = buildPrisma(linked);
+    const result = await buildService(prisma).approve('sub-1', 'admin-1');
+
+    expect(result.status).toBe('APPROVED');
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
+    expect(args.where).toEqual({ campaignId: 'camp-1', companyId: 'co-1' });
+    expect(args.data).toEqual({ status: 'VALIDATED' });
+    expect(args.data).not.toHaveProperty('submittedAt');
+    // Runs after the OnefopSubmission status is written.
+    expect(prisma.onefopSubmission.update.mock.invocationCallOrder[0])
+      .toBeLessThan(prisma.campaignSubmission.updateMany.mock.invocationCallOrder[0]);
+
+  });
+
+  it('reject: CampaignSubmission -> PENDING, submittedAt = null', async () => {
+    const prisma = buildPrisma(linked);
+    const result = await buildService(prisma).reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1');
+
+    expect(result.status).toBe('REJECTED');
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
+      where: { campaignId: 'camp-1', companyId: 'co-1' },
+      data: { status: 'PENDING', submittedAt: null },
+    });
+    expect(prisma.onefopSubmission.update.mock.invocationCallOrder[0])
+      .toBeLessThan(prisma.campaignSubmission.updateMany.mock.invocationCallOrder[0]);
+  });
+
+  it('request-correction: CampaignSubmission -> PENDING, submittedAt = null', async () => {
+    const prisma = buildPrisma(linked);
+    const result = await buildService(prisma).requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1');
+
+    expect(result.status).toBe('CORRECTION_REQUESTED');
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
+      where: { campaignId: 'camp-1', companyId: 'co-1' },
+      data: { status: 'PENDING', submittedAt: null },
+    });
+  });
+
+  it('campaignId null: no CampaignSubmission update, no error, review succeeds', async () => {
+    const prisma = buildPrisma({ ...linked, campaignId: null });
+    const service = buildService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(service.approve('sub-1', 'admin-1')).resolves.toMatchObject({ status: 'APPROVED' });
+    await expect(service.reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1')).resolves.toMatchObject({ status: 'REJECTED' });
+    await expect(service.requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1')).resolves.toMatchObject({ status: 'CORRECTION_REQUESTED' });
+
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('companyId null: no CampaignSubmission update (would match establishment rows)', async () => {
+    const prisma = buildPrisma({ ...linked, companyId: null });
+    await buildService(prisma).approve('sub-1', 'admin-1');
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('no matching CampaignSubmission row (count 0): skipped silently', async () => {
+    const prisma = buildPrisma(linked);
+    prisma.campaignSubmission.updateMany.mockResolvedValue({ count: 0 });
+    const service = buildService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(service.approve('sub-1', 'admin-1')).resolves.toMatchObject({ status: 'APPROVED' });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['approve', (s: QuestionnairesService) => s.approve('sub-1', 'admin-1'), 'APPROVED'],
+    ['reject', (s: QuestionnairesService) => s.reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1'), 'REJECTED'],
+    ['requestCorrection', (s: QuestionnairesService) => s.requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1'), 'CORRECTION_REQUESTED'],
+  ])('%s: a failing CampaignSubmission update is logged and does not fail the review', async (_name, act, expectedStatus) => {
+    const prisma = buildPrisma(linked);
+    const boom = new Error('campaign_submissions unavailable');
+    prisma.campaignSubmission.updateMany.mockRejectedValue(boom);
+    const service = buildService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    const result = await act(service);
+
+    expect(result).toEqual(expect.objectContaining({ id: 'sub-1', status: expectedStatus }));
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('sub-1');
+    expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
+  });
+});

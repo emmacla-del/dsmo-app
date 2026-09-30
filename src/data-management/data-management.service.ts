@@ -22,6 +22,7 @@ export interface SpssExportSummary {
     sectionCount: number | null;
     byFormType: { formType: string; count: number }[];
 }
+import { Territory, territoryWhereForExport } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -733,7 +734,7 @@ export class DataManagementService {
     private buildApprovedOnefopWhere(filters: OnefopExportFilters, territory?: Territory): any {
         const base = buildOnefopExportWhere(filters, this.eligibilityWhere());
         if (!territory) return base;
-        return { AND: [territoryWhere(territory), base] };
+        return { AND: [territoryWhereForExport(territory), base] };
     }
 
     /// SPSS/CSV rows additionally restricted to the partition whose variables
@@ -742,7 +743,7 @@ export class DataManagementService {
     private buildSpssWhere(filters: OnefopExportFilters, territory?: Territory): any {
         const base = buildSpssExportWhere(filters, this.eligibilityWhere());
         if (!territory) return base;
-        return { AND: [territoryWhere(territory), base] };
+        return { AND: [territoryWhereForExport(territory), base] };
     }
 
     /// The .sps syntax half of the SPSS export — fast and bounded regardless
