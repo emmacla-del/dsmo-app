@@ -1487,3 +1487,150 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
   });
 });
+
+// Campaign progress, phase B2 (docs/deferred.md, "CampaignSubmission is never
+// updated"): a final ONEFOP submission sets OnefopSubmission.campaignId and
+// moves the company's CampaignSubmission row to SUBMITTED, via the
+// SubmissionRound whose quarterCode matches. Best-effort: never fails the
+// submission, never creates a CampaignSubmission row.
+describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', () => {
+  const QUARTER = '2026-T3';
+
+  function buildMockPrisma(roundCampaignId: string | null): any {
+    return {
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'company-1', establishmentId: 'EST-1' }),
+      },
+      submissionRound: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+          quarterCode: QUARTER, campaignId: roundCampaignId,
+        }),
+      },
+      onefopSubmission: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({ submissionId: data.submissionId })),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      campaignSubmission: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn(),
+        upsert: jest.fn(),
+        createMany: jest.fn(),
+      },
+      subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
+      department: { findFirst: jest.fn().mockResolvedValue(null) },
+      region: { findFirst: jest.fn().mockResolvedValue(null) },
+      sector: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+  }
+
+  // Smallest final payload that passes enforceFinalRequiredFields (same
+  // shape as the VT-8 "succeeds" test above).
+  const finalVtData = {
+    VT1_15_NAME: 'Jean Dupont',
+    VT1_15_FUNCTION: 'Directeur',
+    VT1_15_TEL1: '699999999',
+    VT1_15_EMAIL: 'jean@test.cm',
+    VT1_15_SEX: 'Féminin',
+    VT1_2: 'Centre Complet',
+    VT1_4: 'Centre',
+    VT1_5: 'Mfoundi',
+    VT1_6: 'Yaoundé I',
+    VT1_8: 'Nlongkak',
+    VT1_9: 'Urbain/ Urban',
+  };
+
+  function submit(service: QuestionnairesService, formId: string, isDraft = false) {
+    return service.submitQuestionnaire({
+      formId,
+      userId: 'user-1',
+      entityType: 'VOCATIONAL_TRAINING',
+      isDraft,
+      quarterCode: QUARTER,
+      data: finalVtData,
+    } as any);
+  }
+
+  it('round with campaignId: sets OnefopSubmission.campaignId and marks the CampaignSubmission row SUBMITTED', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-with-campaign');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-with-campaign' });
+    expect(prisma.submissionRound.findFirst).toHaveBeenCalledWith({
+      where: { quarterCode: QUARTER, module: 'ONEFOP' },
+      select: { campaignId: true },
+    });
+    expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
+      where: { submissionId: 'b2-with-campaign' },
+      data: { campaignId: 'campaign-1' },
+    });
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
+    expect(args.where).toEqual({ campaignId: 'campaign-1', companyId: 'company-1' });
+    expect(args.data.status).toBe('SUBMITTED');
+    expect(args.data.submittedAt).toBeInstanceOf(Date);
+  });
+
+  it('round with campaignId null: does nothing to CampaignSubmission or OnefopSubmission.campaignId', async () => {
+    const prisma = buildMockPrisma(null);
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-no-campaign');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-no-campaign' });
+    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('no matching CampaignSubmission row: does not error and does not create a row', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    prisma.campaignSubmission.updateMany.mockResolvedValue({ count: 0 });
+    const service = new QuestionnairesService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    const result = await submit(service, 'b2-no-row');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-no-row' });
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.campaignSubmission.create).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.upsert).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.createMany).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('a failure in the CampaignSubmission update does not fail the submission (logged at error level with the stack)', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const boom = new Error('connection reset');
+    prisma.campaignSubmission.updateMany.mockRejectedValue(boom);
+    const service = new QuestionnairesService(prisma);
+    const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+    const result = await submit(service, 'b2-update-throws');
+
+    expect(result).toEqual({
+      success: true,
+      submissionId: 'b2-update-throws',
+      message: 'Formulaire soumis avec succès',
+      data: undefined,
+    });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('b2-update-throws');
+    expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
+  });
+
+  it('draft: never touches CampaignSubmission', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-draft', true);
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-draft' });
+    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+  });
+});
