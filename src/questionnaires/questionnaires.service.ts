@@ -3162,78 +3162,80 @@ export class QuestionnairesService {
       row.respondent?.name ?? '',
     ];
 
-    if (format === 'csv') {
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="dossiers_${date}.csv"`);
-      res.write('﻿' + this.csvSemicolonRow(columns));
+    try {
+      if (format === 'csv') {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="dossiers_${date}.csv"`);
+        res.write('﻿' + this.csvSemicolonRow(columns));
 
-      let cursor: string | undefined;
-      try {
-        for (;;) {
-          const batch: any[] = await (this.prisma as any).onefopSubmission.findMany({
-            where,
-            orderBy: { id: 'asc' },
-            take: BATCH_SIZE,
-            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-            include,
-          });
-          if (batch.length === 0) break;
-          let chunk = '';
-          for (const row of batch) chunk += this.csvSemicolonRow(rowFields(row));
-          if (!res.write(chunk)) {
-            await new Promise<void>((resolve) => res.once('drain', resolve));
+        let cursor: string | undefined;
+        try {
+          for (;;) {
+            const batch: any[] = await (this.prisma as any).onefopSubmission.findMany({
+              where,
+              orderBy: { id: 'asc' },
+              take: BATCH_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+              include,
+            });
+            if (batch.length === 0) break;
+            let chunk = '';
+            for (const row of batch) chunk += this.csvSemicolonRow(rowFields(row));
+            if (!res.write(chunk)) {
+              await new Promise<void>((resolve) => res.once('drain', resolve));
+            }
+            cursor = batch[batch.length - 1].id;
+            if (batch.length < BATCH_SIZE) break;
           }
-          cursor = batch[batch.length - 1].id;
-          if (batch.length < BATCH_SIZE) break;
+        } catch (err) {
+          console.error('❌ Dossiers CSV export failed mid-stream:', err);
         }
-      } catch (err) {
-        console.error('❌ Dossiers CSV export failed mid-stream:', err);
-      }
-      res.end();
-    } else {
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="dossiers_${date}.xlsx"`);
-      const workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: res, useStyles: true });
-      workbookWriter.creator = 'MINEFOP';
-      workbookWriter.created = new Date();
-      const sheet = workbookWriter.addWorksheet('Dossiers');
-      (sheet.addRow(columns) as any).commit();
+        res.end();
+      } else {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="dossiers_${date}.xlsx"`);
+        const workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: res, useStyles: true });
+        workbookWriter.creator = 'MINEFOP';
+        workbookWriter.created = new Date();
+        const sheet = workbookWriter.addWorksheet('Dossiers');
+        (sheet.addRow(columns) as any).commit();
 
-      let cursor: string | undefined;
-      try {
-        for (;;) {
-          const batch: any[] = await (this.prisma as any).onefopSubmission.findMany({
-            where,
-            orderBy: { id: 'asc' },
-            take: BATCH_SIZE,
-            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-            include,
+        let cursor: string | undefined;
+        try {
+          for (;;) {
+            const batch: any[] = await (this.prisma as any).onefopSubmission.findMany({
+              where,
+              orderBy: { id: 'asc' },
+              take: BATCH_SIZE,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+              include,
+            });
+            if (batch.length === 0) break;
+            for (const row of batch) (sheet.addRow(rowFields(row)) as any).commit();
+            cursor = batch[batch.length - 1].id;
+            if (batch.length < BATCH_SIZE) break;
+          }
+        } catch (err) {
+          console.error('❌ Dossiers Excel export failed mid-stream:', err);
+        }
+        (sheet as any).commit();
+        await workbookWriter.commit();
+      }
+    } finally {
+      if (userId) {
+        try {
+          await (this.prisma as any).auditLog.create({
+            data: {
+              userId,
+              action: 'AUDIT_LIST_EXPORT',
+              resourceType: 'OnefopSubmission',
+              resourceId: null,
+              details: { format, filters, count },
+            },
           });
-          if (batch.length === 0) break;
-          for (const row of batch) (sheet.addRow(rowFields(row)) as any).commit();
-          cursor = batch[batch.length - 1].id;
-          if (batch.length < BATCH_SIZE) break;
+        } catch (auditErr) {
+          console.error('❌ Export audit log failed:', auditErr);
         }
-      } catch (err) {
-        console.error('❌ Dossiers Excel export failed mid-stream:', err);
-      }
-      (sheet as any).commit();
-      await workbookWriter.commit();
-    }
-
-    if (userId) {
-      try {
-        await (this.prisma as any).auditLog.create({
-          data: {
-            userId,
-            action: 'AUDIT_LIST_EXPORT',
-            resourceType: 'OnefopSubmission',
-            resourceId: null,
-            details: { format, filters, count },
-          },
-        });
-      } catch (auditErr) {
-        console.error('❌ Export audit log failed:', auditErr);
       }
     }
   }
