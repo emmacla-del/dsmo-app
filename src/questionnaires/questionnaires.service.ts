@@ -1367,18 +1367,28 @@ export class QuestionnairesService {
     if (!isDraft) {
       try {
         const round = await this.prisma.submissionRound.findFirst({
+          // module filter: a ONEFOP submit must never mark progress on a DSMO campaign's round.
           where: { quarterCode: resolvedQuarterCode, module: 'ONEFOP' },
           select: { campaignId: true },
         });
         if (round?.campaignId) {
-          await this.prisma.onefopSubmission.update({
-            where: { submissionId: result.submissionId },
-            data: { campaignId: round.campaignId },
-          });
-          await this.prisma.campaignSubmission.updateMany({
-            where: { campaignId: round.campaignId, companyId: resolvedCompanyId },
-            data: { status: 'SUBMITTED', submittedAt: new Date() },
-          });
+          // One transaction: both writes apply or neither does. updateMany
+          // (not update) so a missing CampaignSubmission row updates nothing
+          // and the transaction still commits.
+          await this.prisma.$transaction([
+            this.prisma.onefopSubmission.update({
+              where: { submissionId: result.submissionId },
+              data: { campaignId: round.campaignId },
+            }),
+            // No status condition, deliberately: EXEMPT becomes SUBMITTED too.
+            // Exemption reflects whether the establishment was required to
+            // submit, not whether a submission counts. Nothing in src/
+            // creates EXEMPT rows today.
+            this.prisma.campaignSubmission.updateMany({
+              where: { campaignId: round.campaignId, companyId: resolvedCompanyId },
+              data: { status: 'SUBMITTED', submittedAt: new Date() },
+            }),
+          ]);
         }
       } catch (err: any) {
         this.logger.error(
