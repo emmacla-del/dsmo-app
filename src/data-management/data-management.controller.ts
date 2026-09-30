@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res, UseGuards, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res, Request, UseGuards, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { DataManagementService } from './data-management.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../types/prisma.types';
+import { territoryFromUser } from '../auth/territory';
 
 @Controller('data-management')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -58,17 +59,17 @@ export class DataManagementController {
 
   @Get('export/submissions')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getExportSubmissions(@Query() queryFilters: any, @Res({ passthrough: true }) res: Response) {
-    return this.handleExportSubmissions(queryFilters, res);
+  async getExportSubmissions(@Query() queryFilters: any, @Res({ passthrough: true }) res: Response, @Request() req: any) {
+    return this.handleExportSubmissions(queryFilters, res, req);
   }
 
   @Post('export/submissions')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async postExportSubmissions(@Body() bodyFilters: any, @Res({ passthrough: true }) res: Response) {
-    return this.handleExportSubmissions(bodyFilters, res);
+  async postExportSubmissions(@Body() bodyFilters: any, @Res({ passthrough: true }) res: Response, @Request() req: any) {
+    return this.handleExportSubmissions(bodyFilters, res, req);
   }
 
-  private async handleExportSubmissions(filters: any, res: Response) {
+  private async handleExportSubmissions(filters: any, res: Response, req?: any) {
     const result = await this.dataManagementService.exportSubmissions(filters || {});
 
     if (Buffer.isBuffer(result)) {
@@ -85,49 +86,49 @@ export class DataManagementController {
 
   @Get('export/submissions/excel')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getExportOnefopSubmissionsExcel(@Query() queryFilters: any, @Res() res: Response) {
-    await this.dataManagementService.streamOnefopSubmissionsExcel(queryFilters || {}, res);
+  async getExportOnefopSubmissionsExcel(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
+    await this.dataManagementService.streamOnefopSubmissionsExcel(queryFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/excel')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async postExportOnefopSubmissionsExcel(@Body() bodyFilters: any, @Res() res: Response) {
-    await this.dataManagementService.streamOnefopSubmissionsExcel(bodyFilters || {}, res);
+  async postExportOnefopSubmissionsExcel(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    await this.dataManagementService.streamOnefopSubmissionsExcel(bodyFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Get('export/submissions/spss/manifest')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getExportSubmissionsSpssManifest(@Query() queryFilters: any) {
-    return this.dataManagementService.buildSpssManifest(queryFilters || {});
+  async getExportSubmissionsSpssManifest(@Query() queryFilters: any, @Request() req: any) {
+    return this.dataManagementService.buildSpssManifest(queryFilters || {}, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/spss/manifest')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async postExportSubmissionsSpssManifest(@Body() bodyFilters: any) {
-    return this.dataManagementService.buildSpssManifest(bodyFilters || {});
+  async postExportSubmissionsSpssManifest(@Body() bodyFilters: any, @Request() req: any) {
+    return this.dataManagementService.buildSpssManifest(bodyFilters || {}, territoryFromUser(req.user));
   }
 
   @Get('export/submissions/spss/csv')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getExportSubmissionsSpssCsv(@Query() queryFilters: any, @Res() res: Response) {
-    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(queryFilters || {}, res);
+  async getExportSubmissionsSpssCsv(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(queryFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/spss/csv')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async postExportSubmissionsSpssCsv(@Body() bodyFilters: any, @Res() res: Response) {
-    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(bodyFilters || {}, res);
+  async postExportSubmissionsSpssCsv(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsCsv(bodyFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Get('export/submissions/spss/sav')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getExportSubmissionsSpssSav(@Query() queryFilters: any, @Res() res: Response) {
-    await this.dataManagementService.streamApprovedOnefopSubmissionsSav(queryFilters || {}, res);
+  async getExportSubmissionsSpssSav(@Query() queryFilters: any, @Res() res: Response, @Request() req: any) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsSav(queryFilters || {}, res, territoryFromUser(req.user));
   }
 
   @Post('export/submissions/spss/sav')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async postExportSubmissionsSpssSav(@Body() bodyFilters: any, @Res() res: Response) {
-    await this.dataManagementService.streamApprovedOnefopSubmissionsSav(bodyFilters || {}, res);
+  async postExportSubmissionsSpssSav(@Body() bodyFilters: any, @Res() res: Response, @Request() req: any) {
+    await this.dataManagementService.streamApprovedOnefopSubmissionsSav(bodyFilters || {}, res, territoryFromUser(req.user));
   }
 }

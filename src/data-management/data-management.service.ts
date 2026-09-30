@@ -13,6 +13,7 @@ import {
     resolveExportPartition,
     type OnefopExportFilters,
 } from './spss/export-filters';
+import { Territory, territoryWhere } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -696,15 +697,19 @@ export class DataManagementService {
     /// Rows for every ONEFOP export. Without `statuses` this is the official
     /// statistical base (APPROVED, no open blocking anomaly); with `statuses`
     /// it is exactly those administrative statuses — see export-filters.ts.
-    private buildApprovedOnefopWhere(filters: OnefopExportFilters): any {
-        return buildOnefopExportWhere(filters, this.eligibilityWhere());
+    private buildApprovedOnefopWhere(filters: OnefopExportFilters, territory?: Territory): any {
+        const base = buildOnefopExportWhere(filters, this.eligibilityWhere());
+        if (!territory) return base;
+        return { AND: [territoryWhere(territory), base] };
     }
 
     /// SPSS/CSV rows additionally restricted to the partition whose variables
     /// the file carries, so a demand file never contains TVET rows (and the
     /// reverse) — they would otherwise come out almost entirely blank.
-    private buildSpssWhere(filters: OnefopExportFilters): any {
-        return buildSpssExportWhere(filters, this.eligibilityWhere());
+    private buildSpssWhere(filters: OnefopExportFilters, territory?: Territory): any {
+        const base = buildSpssExportWhere(filters, this.eligibilityWhere());
+        if (!territory) return base;
+        return { AND: [territoryWhere(territory), base] };
     }
 
     /// The .sps syntax half of the SPSS export — fast and bounded regardless
@@ -712,8 +717,8 @@ export class DataManagementService {
     /// (Pass A, see the comment above ENUM_PIVOT_MODELS), never the
     /// submissions' own data. Call this first, then stream the CSV via
     /// streamApprovedOnefopSubmissionsCsv with the same filters.
-    async buildSpssManifest(filters: OnefopExportFilters): Promise<{ sps: string }> {
-        const where = this.buildSpssWhere(filters);
+    async buildSpssManifest(filters: OnefopExportFilters, territory?: Territory): Promise<{ sps: string }> {
+        const where = this.buildSpssWhere(filters, territory);
         if (this.canonicalAdapter) {
             const partition = resolveExportPartition(filters);
             const variables = this.canonicalAdapter.getVariablesForPartition(partition);
@@ -733,8 +738,9 @@ export class DataManagementService {
     async streamApprovedOnefopSubmissionsCsv(
         filters: OnefopExportFilters,
         res: Response,
+        territory?: Territory,
     ): Promise<void> {
-        const where = this.buildSpssWhere(filters);
+        const where = this.buildSpssWhere(filters, territory);
 
         if (this.canonicalAdapter) {
             const partition = resolveExportPartition(filters);
@@ -857,9 +863,10 @@ export class DataManagementService {
     async streamApprovedOnefopSubmissionsSav(
         filters: OnefopExportFilters,
         res: Response,
+        territory?: Territory,
     ): Promise<void> {
         // Outside the try: an invalid filter is a 400, not a generation failure.
-        const where = this.buildSpssWhere(filters);
+        const where = this.buildSpssWhere(filters, territory);
         const partition = resolveExportPartition(filters);
         const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onefop-sav-'));
         const tmpSav = path.join(tmpDir, 'onefop_submissions.sav');
@@ -1446,8 +1453,9 @@ export class DataManagementService {
     async streamOnefopSubmissionsExcel(
         filters: OnefopExportFilters,
         res: Response,
+        territory?: Territory,
     ): Promise<void> {
-        const where = this.buildApprovedOnefopWhere(filters);
+        const where = this.buildApprovedOnefopWhere(filters, territory);
         const sheetDefs = this.onefopSheetDefs();
         const BATCH_SIZE = 250;
 
