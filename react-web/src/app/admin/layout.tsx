@@ -11,6 +11,7 @@ import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import type { UserRole } from "@/lib/user-types";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
@@ -122,6 +123,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           initials,
           roleLabel: user?.role ? directoryRoleLabel(user.role) : "Agent",
         }}
+        role={user?.role}
         pendingCount={pendingCount}
       />
 
@@ -146,15 +148,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
 
         <main className="cam-admin-main">
-          {pageTitle && (!isSubRoute || pageTitle.detail) && (
-            <AdminPageHeader
-              breadcrumb={breadcrumb}
-              title={pageTitle.title}
-              subtitle={pageTitle.sub}
-              actions={<AdminHeaderActions />}
-            />
-          )}
-          {children}
+          {/* D8: per-page gate on top of the console gate above. */}
+          <RequireAdminRole>
+            {pageTitle && (!isSubRoute || pageTitle.detail) && (
+              <AdminPageHeader
+                breadcrumb={breadcrumb}
+                title={pageTitle.title}
+                subtitle={pageTitle.sub}
+                actions={<AdminHeaderActions />}
+              />
+            )}
+            {children}
+          </RequireAdminRole>
         </main>
       </div>
     </div>

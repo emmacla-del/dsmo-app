@@ -3,76 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { ADMIN_ROUTES, isRoleAllowed, type AdminRoute } from "@/app/admin/_routes";
+import type { UserRole } from "@/lib/user-types";
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface NavItem {
-  label: string;
-  href: string | null;   // null = not yet implemented (rendered as non-link span)
-  badge?: number;
-}
-
-interface NavSection {
-  group: string;
-  items: NavItem[];
-}
-
-// ── Static nav structure (mirrors Figma dashboard.png sidebar exactly) ───────
+// ── Nav structure ────────────────────────────────────────────────────────────
 //
-// Routes that exist today are wired; unimplemented pages use href: null
-// so they render as non-navigable spans rather than dead links.
+// Sections, items and their allowedRoles live in app/admin/_routes.ts, shared
+// with the per-page gate (RequireAdminRole) so the two never disagree.
 
-const NAV: NavSection[] = [
-  {
-    group: "Supervision",
-    items: [
-      { label: "Tableau de bord",     href: "/admin/pilotage" },
-      { label: "Dossiers en instance", href: "/admin/files-attente" }, // badge injected via props
-      { label: "Activité & alertes",   href: null },
-    ],
-  },
-  {
-    group: "Collecte",
-    items: [
-      { label: "Campagnes",      href: "/admin/campagnes" },
-      { label: "Questionnaires", href: null },
-    ],
-  },
-  {
-    group: "Déclarants",
-    items: [
-      { label: "Inscriptions",    href: null },              // badge injected via props
-      { label: "Établissements",  href: "/home/annuaire" },
-      { label: "Utilisateurs",    href: null },
-    ],
-  },
-  {
-    group: "Contrôle qualité",
-    items: [
-      { label: "Contrôle régional", href: null },
-      { label: "Contrôle national", href: null },
-      { label: "Anomalies",         href: null },            // badge injected via props
-      { label: "Visas & décisions", href: "/admin/dossiers" },
-    ],
-  },
-  {
-    group: "Données",
-    items: [
-      { label: "Jeux de données", href: null },
-      { label: "Qualité",         href: null },
-      { label: "Exports",         href: "/admin/diffusion" },
-    ],
-  },
-  {
-    group: "Administration",
-    items: [
-      { label: "Utilisateurs",       href: "/admin/utilisateurs" },
-      { label: "Rôles & permissions", href: null },
-      { label: "Journal d'audit",    href: "/admin/journal-audit" },
-      { label: "Paramètres",         href: "/admin/parametres" },
-    ],
-  },
-];
+type NavItem = AdminRoute;
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +21,8 @@ export interface AdminSidebarProps {
     roleLabel: string;
     initials: string;
   };
+  /** Current user's role key; items outside their allowedRoles are hidden. */
+  role?: UserRole;
   /** Badge count on "Dossiers en instance" */
   pendingCount?: number;
   /** Badge count on "Inscriptions" */
@@ -207,6 +148,7 @@ function NavLink({
  */
 export function AdminSidebar({
   user,
+  role,
   pendingCount = 0,
   inscriptionsCount = 0,
   anomaliesCount = 0,
@@ -228,6 +170,11 @@ export function AdminSidebar({
     if (label === "Anomalies") return anomaliesCount || undefined;
     return undefined;
   }
+
+  // D8: only the items this role may open; sections left empty are dropped.
+  const sections = ADMIN_ROUTES
+    .map((section) => ({ ...section, items: section.items.filter((item) => isRoleAllowed(item.allowedRoles, role)) }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <aside
@@ -270,7 +217,7 @@ export function AdminSidebar({
       {/* Grow to push the footer down, but never shrink below content: on short
           viewports the rail scrolls instead of the footer overlapping the nav. */}
       <nav style={{ flex: "1 0 auto", paddingBottom: "var(--cam-space-4)" }}>
-        {NAV.map((section) => (
+        {sections.map((section) => (
           <div key={section.group} style={{ marginTop: 18 }}>
             {/* Section label */}
             <div
