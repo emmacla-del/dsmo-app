@@ -1520,6 +1520,9 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
         upsert: jest.fn(),
         createMany: jest.fn(),
       },
+      // Array form only: the mocked update/updateMany calls return their
+      // promises, so this just resolves them in order.
+      $transaction: jest.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
       subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
       department: { findFirst: jest.fn().mockResolvedValue(null) },
       region: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -1574,6 +1577,48 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     expect(args.where).toEqual({ campaignId: 'campaign-1', companyId: 'company-1' });
     expect(args.data.status).toBe('SUBMITTED');
     expect(args.data.submittedAt).toBeInstanceOf(Date);
+    // Both writes are queued into one array-form $transaction call.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    const ops = prisma.$transaction.mock.calls[0][0];
+    expect(ops).toHaveLength(2);
+    expect(ops[0]).toBe(prisma.onefopSubmission.update.mock.results[0].value);
+    expect(ops[1]).toBe(prisma.campaignSubmission.updateMany.mock.results[0].value);
+  });
+
+  it('round lookup is scoped to the ONEFOP module', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const service = new QuestionnairesService(prisma);
+
+    await submit(service, 'b2-module-filter');
+
+    const lookups = prisma.submissionRound.findFirst.mock.calls
+      .map((c: any[]) => c[0])
+      .filter((q: any) => q.where?.quarterCode === QUARTER);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0].where.module).toBe('ONEFOP');
+  });
+
+  it("an EXEMPT company that submits becomes SUBMITTED: the update carries no status condition", async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    // The mock can't hold row state, so it stands in for the database:
+    // it only reports the EXEMPT row as matched if the where clause
+    // doesn't exclude it.
+    const existingRow = { campaignId: 'campaign-1', companyId: 'company-1', status: 'EXEMPT' };
+    prisma.campaignSubmission.updateMany.mockImplementation(({ where }: any) =>
+      Promise.resolve({
+        count:
+          where.campaignId === existingRow.campaignId &&
+          where.companyId === existingRow.companyId &&
+          where.status === undefined ? 1 : 0,
+      }));
+    const service = new QuestionnairesService(prisma);
+
+    await submit(service, 'b2-exempt');
+
+    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
+    expect(args.where).not.toHaveProperty('status');
+    expect(args.data.status).toBe('SUBMITTED');
+    await expect(prisma.campaignSubmission.updateMany.mock.results[0].value).resolves.toEqual({ count: 1 });
   });
 
   it('round with campaignId null: does nothing to CampaignSubmission or OnefopSubmission.campaignId', async () => {
@@ -1583,6 +1628,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     const result = await submit(service, 'b2-no-campaign');
 
     expect(result).toMatchObject({ success: true, submissionId: 'b2-no-campaign' });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
@@ -1603,10 +1649,10 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('a failure in the CampaignSubmission update does not fail the submission (logged at error level with the stack)', async () => {
+  it('a rejected campaign-progress transaction does not fail the submission (logged at error level with the stack)', async () => {
     const prisma = buildMockPrisma('campaign-1');
     const boom = new Error('connection reset');
-    prisma.campaignSubmission.updateMany.mockRejectedValue(boom);
+    prisma.$transaction.mockRejectedValue(boom);
     const service = new QuestionnairesService(prisma);
     const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
@@ -1618,6 +1664,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
       message: 'Formulaire soumis avec succès',
       data: undefined,
     });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0][0]).toContain('b2-update-throws');
     expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
@@ -1630,6 +1677,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     const result = await submit(service, 'b2-draft', true);
 
     expect(result).toMatchObject({ success: true, submissionId: 'b2-draft' });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
