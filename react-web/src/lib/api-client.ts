@@ -552,6 +552,13 @@ export function rejectDossier(id: string, reason: string) {
   });
 }
 
+export function requestCorrectionDossier(id: string, comments: string) {
+  return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/request-correction`, {
+    method: "PATCH",
+    body: JSON.stringify({ comments }),
+  });
+}
+
 export function bulkVisaDeclarations(payload: { submissionIds: string[]; certified: boolean; notes?: string }) {
   return apiFetch<{
     success: boolean;

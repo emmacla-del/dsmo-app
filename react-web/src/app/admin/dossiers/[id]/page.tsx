@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDossierDiagnostic, approveDossier, rejectDossier } from "@/lib/api-client";
+import { getDossierDiagnostic, approveDossier, rejectDossier, requestCorrectionDossier } from "@/lib/api-client";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
 function axis1Label(status: string) {
@@ -92,12 +92,37 @@ function SubmissionDetailContent() {
     setIsApproveOpen(true);
   };
 
+  // ── Correction dialog state ───────────────────────────────────────────────
+  const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
+  const [correctionComments, setCorrectionComments] = useState("");
+  const [correctionSuccess, setCorrectionSuccess] = useState(false);
+
+  const correctionMutation = useMutation({
+    mutationFn: () => requestCorrectionDossier(id, correctionComments.trim()),
+    onSuccess: () => {
+      setCorrectionSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+    },
+  });
+
+  const openCorrectionDialog = () => {
+    setCorrectionSuccess(false);
+    correctionMutation.reset();
+    setCorrectionComments("");
+    setIsCorrectionOpen(true);
+  };
+
   // ── Button disable logic ──────────────────────────────────────────────────
   const diag = diagnosticQuery.data;
 
   const canReject =
     !!diag &&
     (diag.axis1Status === "PENDING_REVIEW" || diag.axis1Status === "CORRECTION_REQUESTED");
+
+  const canRequestCorrection =
+    !!diag &&
+    diag.axis1Status === "PENDING_REVIEW";
 
   const canApprove =
     !!diag &&
@@ -108,6 +133,15 @@ function SubmissionDetailContent() {
     if (!diag) return "Chargement du diagnostic en cours…";
     if (diag.axis1Status === "APPROVED") return "Dossier déjà visé";
     if (diag.axis1Status === "REJECTED") return "Dossier déjà rejeté";
+    if (diag.axis1Status === "CORRECTION_REQUESTED") return "Correction déjà demandée — attendez la resoumission ou rejetez";
+    return undefined;
+  }
+
+  function correctionDisabledReason(): string | undefined {
+    if (!diag) return "Chargement du diagnostic en cours…";
+    if (diag.axis1Status === "APPROVED") return "Dossier déjà visé";
+    if (diag.axis1Status === "REJECTED") return "Dossier rejeté — ne peut plus être corrigé";
+    if (diag.axis1Status === "CORRECTION_REQUESTED") return "Correction déjà demandée — attendez la resoumission";
     return undefined;
   }
 
@@ -188,6 +222,16 @@ function SubmissionDetailContent() {
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Rejeter la Fiche
+          </button>
+          <button
+            type="button"
+            className="cam-button cam-button-sm"
+            disabled={!canRequestCorrection}
+            title={correctionDisabledReason()}
+            onClick={openCorrectionDialog}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Demander une correction
           </button>
           <button
             type="button"
@@ -396,6 +440,71 @@ function SubmissionDetailContent() {
             {rejectMutation.isError && (
               <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
                 <span>{(rejectMutation.error as Error)?.message ?? "Erreur lors du rejet."}</span>
+              </div>
+            )}
+          </>
+        )}
+      </AdminDialog>
+
+      {/* ── Correction dialog ────────────────────────────────────────────── */}
+      <AdminDialog
+        open={isCorrectionOpen}
+        onClose={() => setIsCorrectionOpen(false)}
+        title="Demander une correction"
+        eyebrow="Renvoi au déclarant"
+        footer={
+          correctionSuccess ? (
+            <button type="button" className="cam-button cam-button-sm" onClick={() => setIsCorrectionOpen(false)}>
+              Fermer
+            </button>
+          ) : (
+            <>
+              <button type="button" className="cam-button cam-button-sm" onClick={() => setIsCorrectionOpen(false)} disabled={correctionMutation.isPending}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="cam-button cam-button-sm"
+                style={{ borderColor: "rgba(180,83,9,0.4)", color: "#b45309" }}
+                disabled={correctionMutation.isPending || correctionComments.trim().length < 10}
+                onClick={() => correctionMutation.mutate()}
+              >
+                {correctionMutation.isPending ? "Envoi en cours…" : "Envoyer la demande"}
+              </button>
+            </>
+          )
+        }
+      >
+        {correctionSuccess ? (
+          <div className="cam-admin-notice cam-admin-notice--success" role="status">
+            <span>La demande de correction a été transmise. Le déclarant verra le motif dans son espace.</span>
+          </div>
+        ) : (
+          <>
+            <p style={{ margin: "0 0 var(--cam-space-4)", color: "var(--cam-text-muted)", fontSize: "var(--cam-font-size-sm)" }}>
+              Dossier #{ref} — {name}
+            </p>
+            <label htmlFor="correction-comments" style={{ display: "block", fontWeight: 600, marginBottom: "var(--cam-space-2)", color: "var(--cam-text)", fontSize: "var(--cam-font-size-sm)" }}>
+              Commentaires pour le déclarant <span style={{ color: "#b45309" }}>*</span>
+            </label>
+            <textarea
+              id="correction-comments"
+              rows={4}
+              className="cam-input"
+              style={{ width: "100%", resize: "vertical", minHeight: 96, boxSizing: "border-box" }}
+              placeholder="Décrivez les corrections attendues (10 caractères minimum)…"
+              value={correctionComments}
+              onChange={(e) => setCorrectionComments(e.target.value)}
+              disabled={correctionMutation.isPending}
+            />
+            {correctionComments.trim().length > 0 && correctionComments.trim().length < 10 && (
+              <p style={{ margin: "var(--cam-space-1) 0 0", color: "#b45309", fontSize: "var(--cam-font-size-xs)" }}>
+                Le commentaire doit faire au moins 10 caractères ({correctionComments.trim().length}/10).
+              </p>
+            )}
+            {correctionMutation.isError && (
+              <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
+                <span>{(correctionMutation.error as Error)?.message ?? "Erreur lors de la demande de correction."}</span>
               </div>
             )}
           </>
