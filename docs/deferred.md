@@ -171,6 +171,10 @@ These are real but non-blocking. Tracked here so they don't get lost.
       motives and correction comments. Respondent detail screen shows
       the correction comment as "rejection reason" even after the
       correction cycle ends.
+      - [ ] Dossiers export uses fetch+blob on the frontend, not a native
+      download. Works but buffers the whole file in browser memory.
+      Switch to <a download href="/admin/questionnaires/export?...">
+      when convenient.
 
 ---
 
