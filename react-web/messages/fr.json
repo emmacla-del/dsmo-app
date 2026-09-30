@@ -522,7 +522,18 @@
     "deleteUserTitle": "Supprimer {name} ?",
     "deleteWarning": "Action irréversible. Si ce compte a des déclarations, soumissions ou notifications liées, la suppression sera refusée — suspendez-le à la place.",
     "typeToConfirmLabel": "Tapez \"{email}\" pour confirmer",
-    "actionError": "Erreur : {error}"
+    "actionError": "Erreur : {error}",
+    "agentColumn": "Nom de l'agent",
+    "regionColumn": "Région assignée",
+    "reassign": "Réassigner",
+    "reassignTitle": "Réassigner {name}",
+    "reassignHint": "Le rôle, la région et le département sont enregistrés ensemble et tracés dans le journal d'audit.",
+    "reassignRegionLabel": "Région",
+    "reassignDepartmentLabel": "Département",
+    "reassignNone": "— Aucun —",
+    "reassignRegionRequired": "Une région est requise pour ce rôle.",
+    "reassignDepartmentRequired": "Un département est requis pour un divisionnaire.",
+    "reassignSubmit": "Enregistrer l'affectation"
   },
   "fieldControl": {
     "emptySelectionPlaceholder": "—"
