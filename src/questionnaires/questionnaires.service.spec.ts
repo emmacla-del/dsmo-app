@@ -937,7 +937,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         status: OnefopStatus.APPROVED,
         anomalies: [],
       });
-      await expect(service.requestCorrection('sub-approved', 'Motif valide de correction', 'actor-1')).rejects.toThrow(BadRequestException);
+      await expect(service.requestCorrection('sub-approved', 'Motif valide de correction', true, 'actor-1')).rejects.toThrow(BadRequestException);
       expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
@@ -950,7 +950,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       });
       prisma.onefopSubmission.update.mockResolvedValue({ id: 'sub-pending', status: 'CORRECTION_REQUESTED' });
 
-      await service.requestCorrection('sub-pending', 'Veuillez préciser le secteur d\'activité.', 'actor-1');
+      await service.requestCorrection('sub-pending', 'Veuillez préciser le secteur d\'activité.', true, 'actor-1');
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -958,12 +958,48 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
           userId: 'actor-1',
           resourceType: 'OnefopSubmission',
           resourceId: 'sub-pending',
-          details: expect.objectContaining({ previousStatus: OnefopStatus.PENDING_REVIEW }),
+          details: expect.objectContaining({ previousStatus: OnefopStatus.PENDING_REVIEW, certified: true }),
         }),
       });
       expect(prisma.onefopSubmission.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'CORRECTION_REQUESTED' }) }),
       );
+    });
+
+    it('throws 400 when certified is false', async () => {
+      await expect(
+        service.requestCorrection('sub-any', 'Justification suffisante pour la correction.', false, 'actor-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopSubmission.findFirst).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('throws 400 when comments is fewer than 10 characters', async () => {
+      await expect(
+        service.requestCorrection('sub-any', 'court', true, 'actor-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopSubmission.findFirst).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('audit details include certified: true on success', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-pending',
+        status: OnefopStatus.PENDING_REVIEW,
+        anomalies: [],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({ id: 'sub-pending', status: 'CORRECTION_REQUESTED' });
+
+      await service.requestCorrection('sub-pending', 'Veuillez préciser le secteur d\'activité.', true, 'actor-1');
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'AUDIT_CORRECTION',
+          details: expect.objectContaining({ certified: true }),
+        }),
+      });
     });
   });
 

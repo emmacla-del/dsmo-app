@@ -3056,7 +3056,13 @@ export class QuestionnairesService {
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 
-  async requestCorrection(id: string, comments: string, reviewedBy?: string, territory?: Territory) {
+  async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory) {
+    if (certified !== true) {
+      throw new BadRequestException('La certification est requise pour confirmer la demande de correction.');
+    }
+    if (!comments || comments.trim().length < 10) {
+      throw new BadRequestException('La justification de la demande de correction doit comporter au moins 10 caractères.');
+    }
     const submission = await this.getById(id, territory);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible de demander une correction sur un dossier au statut ${submission.status}.`);
@@ -3068,7 +3074,7 @@ export class QuestionnairesService {
           action: 'AUDIT_CORRECTION',
           resourceType: 'OnefopSubmission',
           resourceId: id,
-          details: { comments, previousStatus: submission.status },
+          details: { comments, previousStatus: submission.status, certified: true },
         },
       });
     }

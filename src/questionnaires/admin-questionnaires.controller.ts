@@ -206,8 +206,9 @@ export class AdminQuestionnairesController {
   async requestCorrection(
     @Param('id') id: string,
     @Body('comments') comments: string,
+    @Body('certified') certified: boolean,
     @Request() req: any,
   ) {
-    return this.service.requestCorrection(id, comments, req.user?.id, territoryFromUser(req.user));
+    return this.service.requestCorrection(id, comments, certified, req.user?.id, territoryFromUser(req.user));
   }
 }
