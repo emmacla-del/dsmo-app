@@ -2939,24 +2939,6 @@ export class QuestionnairesService {
     return `${year}-T${quarter}`;
   }
 
-  async getAllQuestionnaires(territory?: Territory) {
-    return (this.prisma as any).onefopSubmission.findMany({
-      where: territoryWhere(territory),
-      orderBy: { createdAt: 'desc' },
-      include: {
-        respondent: true,
-        enterpriseDetail: true,
-        cooperativeDetail: true,
-        ctdDetail: true,
-        ongDetail: true,
-        administrationDetail: true,
-        projectProgramDetail: true,
-        vocationalTrainingDetail: true,
-        anomalies: true,
-      },
-    });
-  }
-
   async getQuestionnaireById(id: string, territory?: Territory) {
     return (this.prisma as any).onefopSubmission.findFirst({
       where: { id, ...territoryWhere(territory) },
