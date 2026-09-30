@@ -34,38 +34,54 @@ It is unused and harmless. Removing it is not worth a migration.
 
 ## Phase B2a — permission model: held items and findings (2026-09-30)
 
-Branch `admin/b2a-permissions`. D1 and D3 shipped; **D7 is held**.
+Branch `admin/b2a-permissions`. D1 and D3 shipped. D7 shipped later,
+export-only (PR #12, see below).
 
-**BLOCKER — `RolesGuard` ignores class-level `@Roles`.**
-`src/auth/roles.guard.ts` reads `reflector.get('roles', context.getHandler())`
-only. When `@Roles` sits on the controller class, the lookup returns
-`undefined` and the guard lets **any authenticated user** through
-(verified with Nest's `Reflector`). Four controllers use class-level
-`@Roles` only:
-- [ ] `src/system-settings/system-settings.controller.ts` — `GET`/`PATCH
-      /system-settings`: any logged-in account (companies included) can
-      turn maintenance mode on, change the password policy, or set
-      `require2FAForStaff`. **Urgent.**
-- [ ] `src/landing-config/admin-landing-config.controller.ts` — any
-      account can overwrite / restore the public landing page.
-- [ ] `src/analytics/onefop-analytics.controller.ts` — any account.
-- [ ] `src/questionnaires/admin-questionnaires.controller.ts` — any account;
-      today only territory scoping (fail-closed for non-geographic roles)
-      stops other roles from acting on dossiers.
-Fix direction: `reflector.getAllAndOverride('roles', [handler, class])`.
-Needs review: it starts enforcing the class lists, which may cut roles
-that currently rely on the gap (e.g. SUPER_ADMIN_DSMO on analytics).
+**RESOLVED: `RolesGuard` ignored class-level `@Roles`.**
+`src/auth/roles.guard.ts` read `reflector.get('roles', context.getHandler())`
+only. When `@Roles` sat on the controller class, the lookup returned
+`undefined` and the guard let **any authenticated user** through.
+Fixed in `337dede` (PR #9): the guard now reads
+`reflector.getAllAndOverride('roles', [handler, class])`, so handler-level
+`@Roles` wins and the class list is the fallback. Covered by
+`src/auth/roles.guard.spec.ts`.
+- [x] `src/system-settings/system-settings.controller.ts`: `GET`/`PATCH
+      /system-settings`, now SUPER_ADMIN only.
+- [x] `src/landing-config/admin-landing-config.controller.ts`: moot, the
+      feature was removed in `3c438173`.
+- [x] `src/analytics/onefop-analytics.controller.ts`: class list enforced.
+- [x] `src/questionnaires/admin-questionnaires.controller.ts`: class list
+      enforced (territory scoping still applies on top).
 
-- [ ] **D7 (national scope for SUPER_ADMIN_DSMO / DATA_MANAGER / ANALYST)
-      not applied.** Adding them to `NATIONAL_ROLES` makes territory
-      checks pass for them everywhere. Because of the guard bug above, the
-      three roles can reach `admin/questionnaires`, whose visa / reject /
-      request-correction / bulk-visa / bulk-reject paths are authorized by
-      territory alone (`questionnaires.service.ts` territoryWhere,
-      `eligibility-engine.service.ts` assertTerritorialAuthority). D7 would
-      therefore let them visa and reject ONEFOP dossiers nationwide — far
-      beyond "national scope on exports". Apply D7 after the guard fix, or
-      scope it to the export endpoints only.
+Post-fix audit (2026-09-30). No handler-level `@Roles` exists on any of
+these controllers, so the class list decides every route. Before #9, all
+11 `UserRole` values reached every route.
+
+| Controller | Routes | Class `@Roles` (allowed now) | Cut by #9 |
+|---|---|---|---|
+| `system-settings` | `GET /`, `PATCH /` | SUPER_ADMIN | the other 10 roles |
+| `onefop-analytics` | all 44 GET routes | CENTRAL, REGIONAL, DIVISIONAL, SUPER_ADMIN, SUPER_ADMIN_ONEFOP | COMPANY, SUPER_ADMIN_DSMO, DATA_MANAGER, CAMPAIGN_MANAGER, ANALYST, AUDITOR |
+| `admin/questionnaires` | 15 routes (queues, bulk-visa, bulk-reject, anomaly registry/resolve, list, pending, correction-requested, export, `:id`, diagnostic, approve, reject, request-correction) | same 5 | same 6 |
+
+Note: `onefop-analytics` has no territory scoping, so before #9 every
+role, COMPANY included, read national ONEFOP analytics.
+
+- [ ] **Decision needed: ANALYST, DATA_MANAGER and SUPER_ADMIN_DSMO on
+      `onefop-analytics`.** D7 calls these roles analytical with a
+      national mandate, but #9 cut them from every ONEFOP analytics
+      endpoint. If they should read analytics, that is a `@Roles` change
+      on `OnefopAnalyticsController` (read-only routes, no territory
+      scoping) and needs review. The same three roles are also cut from
+      `GET admin/questionnaires/export`; D7 does not need that route (its
+      exports are the data-management endpoints).
+
+- [x] **D7 (national scope for SUPER_ADMIN_DSMO / DATA_MANAGER / ANALYST)**
+      shipped export-only in `ed588791` (PR #12): a separate
+      `EXPORT_NATIONAL_ROLES` list in `src/auth/territory.ts`, used only
+      by `territoryWhereForExport` in the two data-management export
+      where-builders. `NATIONAL_ROLES` and `assertTerritorialAuthority`
+      are unchanged, so the three roles gained no national write scope
+      (the risk this item originally warned about).
 
 Findings on the D3 / D1 endpoints (not changed — outside this run):
 - [ ] D3 lets REGIONAL/DIVISIONAL approve **any** pending ONEFOP staff
