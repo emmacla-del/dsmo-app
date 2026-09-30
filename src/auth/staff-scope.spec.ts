@@ -134,3 +134,47 @@ describe('AuthService user management enforces the scope server-side', () => {
     expect(prisma.user.findMany.mock.calls[0][0].where.role).toEqual({ in: ['REGIONAL'] });
   });
 });
+
+describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
+  const accounts: Record<string, any> = {
+    pendingWouri: { id: 'pendingWouri', role: 'DIVISIONAL', status: 'PENDING_APPROVAL', region: 'Littoral', department: 'Wouri' },
+    activeWouri: { id: 'activeWouri', role: 'DIVISIONAL', status: 'ACTIVE', region: 'Littoral', department: 'Wouri' },
+    pendingCentre: { id: 'pendingCentre', role: 'DIVISIONAL', status: 'PENDING_APPROVAL', region: 'Centre', department: 'Mfoundi' },
+    dsmoAdmin: { id: 'dsmoAdmin', role: 'SUPER_ADMIN_DSMO', status: 'ACTIVE', region: null, department: null },
+  };
+  let prisma: any;
+  let service: AuthService;
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findUnique: jest.fn(async ({ where }: any) => (where.id ? accounts[where.id] ?? null : null)),
+        update: jest.fn(async ({ where, data }: any) => ({ ...accounts[where.id], ...data })),
+        create: jest.fn(async ({ data }: any) => ({ id: 'new', ...data })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+    };
+    service = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
+  });
+
+  it('SUPER_ADMIN_ONEFOP creates ONEFOP field staff; other roles are refused before any write', async () => {
+    const dto = { email: 'a@b.cm', firstName: 'A', lastName: 'B', role: 'CENTRAL' };
+    await expect(service.adminCreateMinefopUser(dto, 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ user: { role: 'CENTRAL' } });
+    await expect(service.adminCreateMinefopUser(dto, 'SUPER_ADMIN')).resolves.toMatchObject({ user: { role: 'CENTRAL' } });
+    prisma.user.create.mockClear();
+    for (const actor of ['REGIONAL', 'SUPER_ADMIN_DSMO', 'CENTRAL']) {
+      await expect(service.adminCreateMinefopUser(dto, actor)).rejects.toThrow(ForbiddenException);
+    }
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('SUPER_ADMIN_ONEFOP cannot reassign an administrator (existing assertCanManageRole in updateUserTerritory)', async () => {
+    await expect(service.updateUserTerritory('dsmoAdmin', 'REGIONAL', 'Littoral', null, 'me', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
+    await expect(service.updateUserTerritory('pendingWouri', 'SUPER_ADMIN', null, null, 'me', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('SUPER_ADMIN_ONEFOP reassigns ONEFOP staff', async () => {
+    await expect(service.updateUserTerritory('activeWouri', 'REGIONAL', 'Centre', null, 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ role: 'REGIONAL', region: 'Centre' });
+  });
+});

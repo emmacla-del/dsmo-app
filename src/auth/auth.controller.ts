@@ -152,10 +152,11 @@ export class AuthController {
   // SUPER_ADMIN creates the agent account directly (ACTIVE immediately,
   // mustChangePassword: true) instead of the agent registering and
   // waiting for approve-user below.
+  // D1: SUPER_ADMIN_ONEFOP too; the service limits it to ONEFOP staff roles.
   @Post('admin/create-minefop-user')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
-  async adminCreateMinefopUser(@Body() body: {
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+  async adminCreateMinefopUser(@Request() req: any, @Body() body: {
     email: string;
     firstName: string;
     lastName: string;
@@ -167,7 +168,7 @@ export class AuthController {
     serviceCode?: string;
     positionType?: string;
   }) {
-    return this.authService.adminCreateMinefopUser(body);
+    return this.authService.adminCreateMinefopUser(body, req.user.role);
   }
 
   @Get('pending-minefop')
@@ -230,9 +231,11 @@ export class AuthController {
     return this.authService.updateUserRole(id, role, req.user.id, req.user.role);
   }
 
+  // D1: SUPER_ADMIN_ONEFOP too; updateUserTerritory already calls
+  // assertCanManageRole on the target's current role and on the new role.
   @Patch('users/:id/territory')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
   async updateUserTerritory(
     @Param('id') id: string,
     @Body('role') role: string,
