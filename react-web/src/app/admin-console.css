@@ -1828,6 +1828,112 @@
   border: 0;
 }
 
+/* ── Données et exports (admin/diffusion) ── */
+.cam-diff-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-5);
+}
+
+.cam-diff-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  margin: 0;
+  padding: 0 0 var(--cam-space-5);
+  border: none;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-diff-fieldset > legend {
+  padding: 0;
+  margin-bottom: var(--cam-space-2);
+}
+
+.cam-diff-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-5);
+  padding-left: var(--cam-space-6);
+}
+
+.cam-diff-scope {
+  margin: 0;
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-diff-launch {
+  width: 100%;
+  justify-content: center;
+}
+
+.cam-diff-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-5);
+  min-width: 0;
+}
+
+.cam-diff-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--cam-space-3) var(--cam-space-4);
+  margin: 0;
+}
+
+.cam-diff-summary dt {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-diff-summary dd {
+  margin: 2px 0 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--cam-text);
+}
+
+.cam-diff-summary[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.cam-diff-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  margin-top: var(--cam-space-5);
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+/* Whole row is the download button; no boxed card around it. */
+.cam-diff-codebook {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-green-dark);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cam-diff-codebook:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cam-diff-codebook:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
 /* ── KpiTile ("À traiter" tiles, Figma dashboard) ── */
 .cam-kpi-tile {
   display: flex;
