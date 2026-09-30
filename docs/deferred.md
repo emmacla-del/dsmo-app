@@ -10,6 +10,50 @@ top with a date.
 
 ---
 
+## CORRECTION_REQUESTED structural gaps — deferred (2026-09-30)
+
+Three structural issues identified during CORRECTION_REQUESTED discovery.
+None block the current workflow but affect statistics and admin UX.
+
+**1. Resubmission creates an unlinked new row**
+When a respondent resubmits after a correction request, the submission
+engine creates a new row (`status: PENDING_REVIEW`, new `formId`). The
+old row stays in the database with `status: CORRECTION_REQUESTED`. There
+is no foreign key or `originalSubmissionId` linking them.
+
+Impact:
+- An admin reviewing the new PENDING_REVIEW row has no visible link to
+  the previous CORRECTION_REQUESTED row or its admin comments.
+- Statistical exports see both rows for the same company/quarter; the
+  CORRECTION_REQUESTED row is excluded by status filters but the
+  relationship is not explicit.
+- Deduplication logic relies on status exclusion, not on explicit linkage.
+
+Fix direction: add `previousSubmissionId` nullable FK on
+`OnefopSubmission`; set it on resubmit when a CORRECTION_REQUESTED row
+for the same company + quarter exists. Requires migration review.
+
+**2. `rejectionReason` field overloaded**
+`service.reject()` and `service.requestCorrection()` both write to
+`rejectionReason`. Once a corrected dossier is resubmitted and later
+approved, the old CORRECTION_REQUESTED row's `rejectionReason` remains
+readable by respondents through the dashboard and submissions viewer.
+
+Fix direction: add a dedicated `correctionComments` column, or rename
+`rejectionReason` to `adminNotes` / `reviewNotes` and update all
+references. Requires schema migration and API/Flutter client update.
+
+**3. No admin UI to see "which PENDING_REVIEW is a correction of which row"**
+Even if (1) is fixed with a FK, the dossiers list and detail page show
+no visual indication that a dossier is a resubmission of a prior
+CORRECTION_REQUESTED row. Admins must manually correlate by company name
+and quarter.
+
+Fix direction: add a "Resoumission suite à correction" badge on the
+dossier list and detail page, with a link to the prior row.
+
+---
+
 ## Email infrastructure — deferred (2026-09-30)
 
 **Status:** Render free tier blocks outbound SMTP (ports 25, 465, 587)
@@ -115,6 +159,18 @@ These are real but non-blocking. Tracked here so they don't get lost.
       endpoint called.
 - [ ] Unused AdminQuestionnairesController endpoints with no frontend
       caller: GET /pending, GET /correction-requested, GET /:id
+
+      - [ ] Correction resubmission creates a new row with no link to the
+      original. For a statistical portal this corrupts response rate,
+      coverage, and non-response analysis — one respondent counts as
+      two submissions and the corrected version can't be traced to
+      its predecessor. Policy decision needed: add originalSubmissionId
+      FK, mark the original as superseded, or switch to in-place edit.
+      Not blocking; blocking for anyone reading response-rate numbers.
+- [ ] `rejectionReason` field is overloaded — stores both rejection
+      motives and correction comments. Respondent detail screen shows
+      the correction comment as "rejection reason" even after the
+      correction cycle ends.
 
 ---
 
