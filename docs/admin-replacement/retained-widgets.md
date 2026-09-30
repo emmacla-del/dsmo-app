@@ -32,3 +32,4 @@ pending a decision.
 no widgets are retained from it. The one control beyond the Figma frame, the
 "Type d'objet" filter, comes from the matrix capability (object filters →
 `resourceType`) and is not a retained widget.
+| /admin/parametres | Read-only "Informations de l'observatoire" display for SUPER_ADMIN_ONEFOP / SUPER_ADMIN_DSMO (the editable form is SUPER_ADMIN only) | Paramètres: read-only reference display | GET/PATCH /system-settings are @Roles(SUPER_ADMIN); the other two page roles would get a 403 | IMPLEMENTED |
