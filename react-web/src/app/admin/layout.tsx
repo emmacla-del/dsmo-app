@@ -28,6 +28,7 @@ const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; 
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
   "/admin/utilisateurs":  { title: "Agents ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
   "/admin/campagnes":     { title: "Gestion des campagnes", sub: "Pilotage des campagnes de collecte statistique nationale", group: "Collecte", nav: "Campagnes" },
+  "/admin/journal-audit": { title: "Journal d'audit systémique", sub: "Traçabilité des actions et décisions enregistrées sur la plateforme", group: "Administration", nav: "Journal d'audit" },
   "/admin/parametres":    { title: "Paramètres du système", sub: "Configuration générale, utilisateurs et sécurité", group: "Administration", nav: "Paramètres" },
 };
 

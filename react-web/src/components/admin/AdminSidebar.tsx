@@ -68,7 +68,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Utilisateurs",       href: "/admin/utilisateurs" },
       { label: "Rôles & permissions", href: null },
-      { label: "Journal d'audit",    href: null },
+      { label: "Journal d'audit",    href: "/admin/journal-audit" },
       { label: "Paramètres",         href: "/admin/parametres" },
     ],
   },
