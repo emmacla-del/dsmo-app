@@ -9,6 +9,16 @@ const SECRETS: Record<(typeof SECRET_USER_FIELDS)[number], unknown> = {
   emailVerificationExpires: new Date(),
   twoFactorCodeHash: '2fa-hash',
   twoFactorCodeExpires: new Date(),
+  lastLoginAt: new Date(),
+  approvedAt: new Date(),
+  createdBy: 'admin-1',
+  registrationMethod: 'SELF_REGISTRATION',
+  tokenVersion: 0,
+  registrationNumber: 'INS-2026-0847',
+  assigneeId: 'agent-1',
+  lastReminderAt: new Date(),
+  approvalComment: 'reviewer note',
+  perAgentTarget: 25,
 };
 
 function fullUser(): User {
