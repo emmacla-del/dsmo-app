@@ -443,3 +443,22 @@ frame displays.
   missing, whether the Flutter widgets need rebuilding.
 
 Separate workstream from the React admin rebuild.
+
+## Deferred — territory leak on /data-management/export/submissions
+
+GET and POST /data-management/export/submissions call
+exportSubmissions(filters) with no territory argument. Scoping is
+driven by the request's region parameter, so a REGIONAL account can
+pass any region — or omit it — and get national DSMO declaration
+data. This is a live territory leak, independent of D7.
+
+Fix: derive the region from the caller's territory and refuse (or
+override) a request-supplied region that differs.
+
+## Deferred — duplicate NATIONAL_ROLES in notification.service.ts
+
+src/notifications/notification.service.ts defines its own local
+NATIONAL_ROLES twice. It already includes SUPER_ADMIN_DSMO, so it
+behaves consistently today, but it is a second source of truth and
+exactly what the D7 note warned against. Consolidate with
+territory.ts when notifications are next touched.
