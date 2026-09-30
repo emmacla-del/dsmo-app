@@ -300,6 +300,7 @@ None.
 **Sidebar section:** ADMINISTRATION
 **Role gate:** SUPER_ADMIN, SUPER_ADMIN_ONEFOP (own guard, plus the server limits SUPER_ADMIN_ONEFOP to ONEFOP personnel via `staff-scope.ts`)
 **Classification:** KEEP
+**Figma frame:** `docs/figma/declarants/utilisateurs.png` — header "Administration > Utilisateurs ONEFOP" (the ONEFOP agent roster, despite the `declarants/` folder)
 
 #### Tables
 Uses `UsersDirectory` component (paginated, 20 per page):
@@ -328,6 +329,7 @@ Also shows 3 KPI tiles (Agents Actifs, Agents Inactifs, Nouvelles Inscriptions) 
 | Suspend | Suspends active user | PATCH /auth/users/:id/suspend | Same |
 | Activate | Reactivates suspended user | PATCH /auth/users/:id/activate | Same |
 | Delete | Hard-delete (email confirmation required) | DELETE /auth/users/:id | Same |
+| Reassign (Figma "Réassigner") | Changes an agent's role + region/department. Not yet wired in React Web | PATCH /auth/users/:id/territory | SUPER_ADMIN only |
 | "Ajouter Agent" (toolbar) | Disabled — creation in Flutter | — | — |
 
 #### Backend endpoints
@@ -340,6 +342,7 @@ Also shows 3 KPI tiles (Agents Actifs, Agents Inactifs, Nouvelles Inscriptions) 
 | PATCH | /auth/users/:id/suspend | `AuthController.suspendUser` | Same | No |
 | PATCH | /auth/users/:id/activate | `AuthController.activateUser` | Same | No |
 | DELETE | /auth/users/:id | `AuthController.deleteUser` | Same | No |
+| PATCH | /auth/users/:id/territory | `AuthController.updateUserTerritory` | SUPER_ADMIN only (narrower than the page gate) | No (`auth/territory.spec.ts` covers the territory helpers, not this endpoint) |
 
 #### Test coverage
 - Frontend: None.
@@ -467,7 +470,7 @@ UsersDirectory actions (Utilisateurs tab, SUPER_ADMIN only): same as `/admin/uti
 | SUPERVISION | Activité & alertes | No matching Figma frame found in `docs/figma/` |
 | COLLECTE | Questionnaires | `docs/figma/collecte/questionnaires.png` — shows a questionnaire management screen |
 | DÉCLARANTS | Inscriptions | `docs/figma/declarants/inscriptions.png` — shows a registration approval queue with company details |
-| DÉCLARANTS | Utilisateurs | `docs/figma/declarants/utilisateurs.png` — appears to be a company-side user roster (different from the ONEFOP agent roster in ADMINISTRATION) |
+| DÉCLARANTS | Utilisateurs | No matching Figma frame. `docs/figma/declarants/utilisateurs.png` is **not** this screen: its header reads "Administration > Utilisateurs ONEFOP", so it is the frame for `/admin/utilisateurs` |
 | CONTRÔLE QUALITÉ | Contrôle régional | No matching Figma frame |
 | CONTRÔLE QUALITÉ | Contrôle national | No matching Figma frame |
 | CONTRÔLE QUALITÉ | Anomalies | `docs/figma/qualite/centre.png` — shows a quality control centre with anomaly registers |
@@ -480,7 +483,7 @@ Notes on Figma frames found that map to null-href entries:
 - **inscriptions.png** shows a queue of establishment registrations pending approval — the concept exists in the backend (`POST /auth/register-company`, `PATCH /auth/approve-user/:id`) but no admin list-registrations endpoint is wired to a frontend screen.
 - **questionnaires.png** shows a questionnaire version / schema management screen.
 - **qualite/centre.png** is the target for both "Anomalies" and "Qualité" sidebar items; the files-attente page handles anomaly resolution but the quality centre screen (with charts, breakdown by rule family, trend lines) is not built.
-- **journal-audit.png** is a full audit log — referenced in a TODO comment in `pilotage/page.tsx` ("Voir tout le journal" needs `/admin/journal-audit`). No backend audit-log endpoint exists.
+- **journal-audit.png** is a full audit log — referenced in a TODO comment in `pilotage/page.tsx` ("Voir tout le journal" needs `/admin/journal-audit`). The backend endpoint exists: `GET /audit/reports?limit=N` (`AuditController.getAuditLog`, `src/report/audit.controller.ts`; roles SUPER_ADMIN, SUPER_ADMIN_ONEFOP, AUDITOR) returns the latest `AuditLog` rows of every type with the acting user. It takes only `limit` — no filters, pagination total, or export (see "Screens needing schema changes").
 - The three Figma frames for `declarants/etablissements/_id.png` and `_id/approbation.png` show an establishment detail + approval flow that is not implemented in the React Web frontend.
 
 ---
@@ -510,7 +513,71 @@ The following `@Roles`-decorated endpoints in admin/related controllers are not 
 | DELETE | /campaigns/:id | `CampaignController.delete` | Not used in React Web UI |
 | POST | /auth/admin/create-minefop-user | `AuthController.createMinefopUser` | "Ajouter Agent" button on utilisateurs page is disabled; creation still via Flutter |
 | GET | /auth/pending-minefop | `AuthController.getPendingMinefop` | Not used; legacy approval queue |
+| PATCH | /auth/users/:id/territory | `AuthController.updateUserTerritory` | SUPER_ADMIN only. Target for the Figma "Réassigner" action on `/admin/utilisateurs`; no React Web caller yet |
 | PATCH | /data-management/regions/:id | `DataManagementController.updateRegion` | Not used |
 | DELETE | /data-management/regions/:id | Same | Not used |
 | PATCH | /data-management/sectors/:id | Same | Not used |
 | DELETE | /data-management/sectors/:id | Same | Not used |
+
+---
+
+## Screens needing schema changes
+
+> Discovery date: 2026-09-30. Source: the 10 Figma frames under
+> `react-web/docs/figma/` checked against `prisma/schema.prisma` and the
+> controllers. Values the frames show that can be computed from existing
+> columns (counts, rates, trends, timeline dates, relation-derived names)
+> are not listed. No migrations have been run; every schema change below
+> needs explicit review (CLAUDE.md §6, §21).
+
+**Status definitions**
+
+- **READY**: no schema change needed; any endpoint additions are additive only; no domain ruling needed. A rebuild can run next.
+- **PARTIAL**: some schema changes needed, but a meaningful subset of the screen can be rebuilt now (with retained widgets and explicit empty states for the missing parts).
+- **BLOCKED**: needs a domain ruling (§7, §21) or a restructuring migration (RBAC, entity-type enums) before a rebuild is meaningful. Do not run.
+
+**Resolved**
+
+- RESOLVED — `audit_logs.userId` NOT NULL (blocked "Système" as an audit actor). Being made nullable in a separate change; not an open gap for any screen below.
+
+### Batch 0 — no schema change
+
+| Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
+|---|---|---|---|---|
+| Journal d'audit — `administration/journal-audit.png` | READY | None | Extend `GET /audit/reports` additively: period, actor, action-type and object filters; offset/limit with total; export | None |
+
+### Batch 1 — cheap foundation (new nullable columns or one standalone table)
+
+| Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
+|---|---|---|---|---|
+| Établissements (annuaire) — `declarants/etablissements.png` | PARTIAL | `createdBy` + registration method (self-registration vs admin) on `Company` or `User`; optionally an explicit city field (today only `subdivision` / `area`) | Admin create-establishment endpoint (only self-service `POST /dsmo/company` and `/auth/register-company` exist); list export; region/type/sector filters on `GET /dsmo/companies` if missing | Definition of account status "Incomplet"; mapping of Figma type "ASFOP" (not in `OnefopEntityType`) — display only here, render existing types meanwhile |
+| Données et exports (diffusion) — `donnees/exports.png` | PARTIAL | New export-job table (user, format, scope, size, status, stored file key) for export history, size, status and re-download | Wire `GET /data-management/stats` for the KPI tiles (exists); campaign (`quarterCode`) filter on the export endpoints; export-history list endpoint | "Sections à inclure" would change the content of official exports (§21); codebook versioning ("Codebook Principal v2.4") |
+
+### Batch 2 — relations
+
+| Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
+|---|---|---|---|---|
+| Agents ONEFOP — `/admin/utilisateurs` (`declarants/utilisateurs.png`) | PARTIAL | Agent ↔ entity-type assignment ("Enquêtes/Fiches assignées", "En attente d'affectation"); `User.lastLoginAt`; per-agent target/quota; `UserStatus` value for "Brouillon" | Per-agent stats (forms, completion); "Réassigner" can use `PATCH /auth/users/:id/territory` (exists, SUPER_ADMIN only); "Ajouter Agent" can use `POST /auth/admin/create-minefop-user` (exists) | What "Fiches soumises" means per agent (`OnefopSubmission.reviewedBy` records the reviewer, not a collector); whether per-agent quotas exist at all |
+| Campagnes — `collecte/campagnes.png` | PARTIAL | Agent ↔ campaign link (for "Agents actifs 342 / 380") | Wire `GET /campaigns/:id/progress` (exists, unused); campaign-history export; section counts come from the canonical schema, not the DB | Mapping of Figma type "ASFOP" in "Questionnaires assignés" (render `targetEntityTypes` meanwhile) |
+| Détail établissement — `declarants/etablissements/_id.png` (+ account modal) | BLOCKED | Several user accounts per establishment (`Company.userId` is `@unique` — one-to-one restructuring); company-side roles Administrateur / Responsable / Comptable / Lecteur (new `UserRole` values — RBAC); `User.lastLoginAt`; login-history table (or LOGIN events in `AuditLog`); session reset (e.g. token version); `updatedBy`; `createdBy` + creation method; verification status; full creation date (today `yearOfCreation` string) | Admin company edit; account unlock (`lockedUntil` exists, no endpoint); per-establishment audit timeline (filter `AuditLog` by `resourceId`); session reset | RBAC change for company roles (§21); ownership model for multi-user establishments |
+
+### Batch 3 — documents
+
+| Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
+|---|---|---|---|---|
+| Inscriptions — `declarants/inscriptions.png` | PARTIAL | Registration number (INS-YYYY-NNNN); registration-documents table; `UserStatus` values EN VÉRIFICATION / COMPLÉMENTS DEMANDÉS / DOCUMENTS INCOMPLETS; assignee; `User.approvedAt`; last-reminder timestamp | Registration queue list (company users by status, with filters) — `GET /auth/users` may cover part; "Relancer" reminder; approve/reject exist (`PATCH /auth/approve-user/:id`, `/auth/reject-user/:id`) | Which documents are required per entity type |
+| Validation du compte — `declarants/etablissements/_id/approbation.png` | PARTIAL | Documents table with per-document verification state (shared with Inscriptions); "Demander des compléments" status value; dedicated comment column (`rejectionReason` is already overloaded — see deferred.md) | Request-complements endpoint; approve/reject with reason exist | Complements workflow and who may request them. Host the dialog on Inscriptions until the establishment detail screen is unblocked |
+
+### Batch 4 — quality
+
+| Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
+|---|---|---|---|---|
+| Centre de contrôle qualité — `qualite/centre.png` (Anomalies + Qualité) | PARTIAL | Completeness storage (or a computation over the schema); persisted coherence results (today `OnefopSubmission.flags` Json + client-side checks); automated control-run table ("Lot #847"); region status thresholds (config); validation-rules table with active/inactive state | Anomaly aggregates by type and by region (`GET /admin/questionnaires/anomalies/registry` lists, does not aggregate); recent-controls feed; eligibility rate (from the diagnostic engine) | Coherence must stay advisory (§7); enabling/disabling validation rules changes validation semantics (§21); definition of the Complétude and Cohérence rates |
+
+### Not batchable — canonical AST
+
+| Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
+|---|---|---|---|---|
+| Questionnaires — `collecte/questionnaires.png` | BLOCKED | Questionnaire status and "Nouveau Questionnaire" belong to the canonical AST (`lib/core/focus/compiler/onefop_ast.dart`), not DB columns; "ASFOP (Recensement)" needs a new `OnefopEntityType` value | Per-type submission totals and completion (derivable from `formType`); schema preview from `onefop.schema.json` | Questionnaire structure and entity-type changes (§21) |
+
+`/admin/parametres` is not listed: it is rebuilt read-only on branch `admin/parametres` (draft PR emmacla-del/dsmo-app#1), which logs its unsaveable Figma fields in `docs/deferred.md`.
