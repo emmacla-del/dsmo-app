@@ -10,6 +10,52 @@ top with a date.
 
 ---
 
+## Phase B1 — user & registration schema (2026-09-30)
+
+Schema only (branch `admin/schema-user-registration`). Migrations
+`20260930120000_add_user_status_registration_values` and
+`20260930120100_add_user_registration_fields`, **not applied** — a human
+runs `npx prisma migrate deploy`. Nothing in the application reads or
+writes these yet.
+
+**Phase column:** B2–B7 are not defined in the repo docs (only B2 is
+mentioned, as the territory-model work in role-decisions.md D7). Each item
+is mapped to its decision and screen; assign it to a phase when the plan
+exists.
+
+| Item | Table | Consumer (screen / decision) | Phase |
+|---|---|---|---|
+| `lastLoginAt` | users | utilisateurs "Dernier accès"; établissement detail "Dernière connexion". Needs the login path to write it (auth — review) | unassigned |
+| `approvedAt` | users | inscriptions KPI "Approuvées ce trimestre"; approve action writes it (D3) | unassigned |
+| `createdBy` (→ users, SET NULL) | users | annuaire / établissement "Créé par"; admin-created agents (D1). D4: no admin-created establishments | unassigned |
+| `registrationMethod` | users | établissement detail "Méthode"; annuaire "Créé par" (auto-inscription) | unassigned |
+| `tokenVersion` (default 0) | users | établissement detail "Réinitialiser la session". Enforcing it changes JWT validation — auth review required, not scheduled | unassigned |
+| `registrationNumber` (unique) | users | inscriptions "N° Inscription"; needs a generator | unassigned |
+| `assigneeId` (→ users, SET NULL) | users | inscriptions "Assigné à" (D3 — DR review in territory) | unassigned |
+| `lastReminderAt` | users | inscriptions "Relancer" | unassigned |
+| `approvalComment` | users | validation du compte "Motif ou commentaire" for complements / approval (D3); keeps rejectionReason for rejections | unassigned |
+| `perAgentTarget` | users | utilisateurs "Taux de complétion" per agent — needs a domain definition of the target | unassigned |
+| `UserStatus.DRAFT` | enum | utilisateurs "Brouillon" | unassigned |
+| `UserStatus.UNDER_REVIEW` | enum | inscriptions "En vérification" (D3) | unassigned |
+| `UserStatus.COMPLEMENTS_REQUESTED` | enum | inscriptions / validation du compte "Compléments demandés" (D3) | unassigned |
+| `UserStatus.DOCUMENTS_INCOMPLETE` | enum | inscriptions "Documents incomplets" (D3) | unassigned |
+| `registration_documents` table | new | inscriptions "Documents 3/3"; validation du compte "Documents fournis" (D3) | unassigned |
+
+Follow-ups:
+- [ ] `registrationMethod` is free text: turn it into an enum once the
+      values are stable (candidates: SELF_REGISTRATION, ADMIN_CREATED).
+- [ ] `registration_documents.kind` and `.state` are free text for the same
+      reason (state candidates: PENDING, VERIFIED, REJECTED, MISSING); the
+      required documents per entity type need a ruling.
+- [ ] Any code that sets or filters on the four new `UserStatus` values must
+      handle them everywhere status is interpreted (login gating, approve /
+      reject, directory filters and badges) — none do today.
+- [ ] `prisma validate` cannot run in the cloud sandbox: the datasource
+      needs `DATABASE_URL` / `DIRECT_URL` even on master. The schema was
+      checked with `prisma generate` instead.
+
+---
+
 ## /admin/journal-audit — Figma elements not built (2026-09-30)
 
 Built on branch `admin/journal-audit`. `GET /audit/reports` was extended
