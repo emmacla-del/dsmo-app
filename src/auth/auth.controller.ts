@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
 import { USER_ADMIN_ROLES } from './staff-scope';
+import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
@@ -152,10 +153,11 @@ export class AuthController {
   // SUPER_ADMIN creates the agent account directly (ACTIVE immediately,
   // mustChangePassword: true) instead of the agent registering and
   // waiting for approve-user below.
+  // D1: SUPER_ADMIN_ONEFOP too; the service limits it to ONEFOP staff roles.
   @Post('admin/create-minefop-user')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
-  async adminCreateMinefopUser(@Body() body: {
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+  async adminCreateMinefopUser(@Request() req: any, @Body() body: {
     email: string;
     firstName: string;
     lastName: string;
@@ -167,7 +169,7 @@ export class AuthController {
     serviceCode?: string;
     positionType?: string;
   }) {
-    return this.authService.adminCreateMinefopUser(body);
+    return this.authService.adminCreateMinefopUser(body, req.user.role);
   }
 
   @Get('pending-minefop')
@@ -177,18 +179,21 @@ export class AuthController {
     return this.authService.getPendingMinefopUsers();
   }
 
+  // D3: REGIONAL / DIVISIONAL may review registrations in their territory
+  // (assertCanApproveRegistration). Inline, not USER_ADMIN_ROLES, which also
+  // guards list / suspend / delete / re-role.
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
   async approveUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.approveUser(id, req.user.role);
+    return this.authService.approveUser(id, req.user.role, territoryFromUser(req.user));
   }
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id, req.user.role);
+    return this.authService.rejectUser(id, req.user.role, territoryFromUser(req.user));
   }
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
@@ -230,9 +235,11 @@ export class AuthController {
     return this.authService.updateUserRole(id, role, req.user.id, req.user.role);
   }
 
+  // D1: SUPER_ADMIN_ONEFOP too; updateUserTerritory already calls
+  // assertCanManageRole on the target's current role and on the new role.
   @Patch('users/:id/territory')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
   async updateUserTerritory(
     @Param('id') id: string,
     @Body('role') role: string,
