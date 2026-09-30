@@ -1,5 +1,5 @@
 // src/questionnaires/questionnaires.service.ts
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -386,6 +386,8 @@ function debugLog(label: string, value: any, maxChars = 2000): void {
 
 @Injectable()
 export class QuestionnairesService {
+  private readonly logger = new Logger(QuestionnairesService.name);
+
   // Optional with a default so every existing `new QuestionnairesService(prisma)`
   // in *.spec.ts keeps compiling unchanged; NestJS DI (questionnaires.module.ts)
   // passes the real shared instance instead of this fallback.
@@ -3229,12 +3231,21 @@ export class QuestionnairesService {
               userId,
               action: 'AUDIT_LIST_EXPORT',
               resourceType: 'OnefopSubmission',
-              resourceId: null,
+              // resourceId is a required column: a list export has no single
+              // row, so use a sentinel, as bulk visa does with BULK_<timestamp>.
+              resourceId: `EXPORT_${Date.now()}`,
               details: { format, filters, count },
             },
           });
         } catch (auditErr) {
-          console.error('❌ Export audit log failed:', auditErr);
+          // An export without its audit row must not pass unnoticed. The file
+          // is already sent; Nest's exception filter only ends the response
+          // (headers sent) and logs the rethrown error again.
+          this.logger.error(
+            `AUDIT_LIST_EXPORT audit write failed (user ${userId}, ${format}, ${count} rows)`,
+            auditErr instanceof Error ? auditErr.stack : String(auditErr),
+          );
+          throw auditErr;
         }
       }
     }

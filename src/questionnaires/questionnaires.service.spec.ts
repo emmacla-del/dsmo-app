@@ -1053,6 +1053,28 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       expect(countCall.where).toHaveProperty('AND');
     });
 
+    it('writes the AUDIT_LIST_EXPORT row with an EXPORT_<timestamp> resourceId', async () => {
+      prisma.onefopSubmission.count.mockResolvedValue(0);
+      prisma.auditLog.create.mockResolvedValue({});
+      await service.streamDossiersExport({}, 'csv', undefined, 'actor-1', makeRes() as any);
+      const data = prisma.auditLog.create.mock.calls[0][0].data;
+      expect(data).toEqual(expect.objectContaining({ userId: 'actor-1', action: 'AUDIT_LIST_EXPORT', resourceType: 'OnefopSubmission' }));
+      expect(data.resourceId).toMatch(/^EXPORT_\d+$/);
+    });
+
+    it('logs the audit write failure with its stack and rethrows it', async () => {
+      prisma.onefopSubmission.count.mockResolvedValue(0);
+      const auditErr = new Error('audit insert rejected');
+      prisma.auditLog.create.mockRejectedValue(auditErr);
+      const logSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+      const res = makeRes();
+      await expect(
+        service.streamDossiersExport({}, 'csv', undefined, 'actor-1', res as any),
+      ).rejects.toBe(auditErr);
+      expect(res.end).toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('AUDIT_LIST_EXPORT'), auditErr.stack);
+    });
+
     it('csvSemicolonRow: BOM, semicolons, formula injection, date formatting', () => {
       const row = (service as any).csvSemicolonRow(['normal', '=DANGEROUS', 'with;semi', new Date('2024-01-15'), null]);
       expect(row).toMatch(/^normal;/);
