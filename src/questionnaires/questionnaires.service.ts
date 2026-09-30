@@ -26,6 +26,7 @@ import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
+import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 
@@ -3060,7 +3061,10 @@ export class QuestionnairesService {
       throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
     }
     await this.eligibilityEngine!.assertCanApprove(id);
-    return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    // Campaign progress B4: best-effort, never fails the approval.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'VALIDATED');
+    return updated;
   }
 
   async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory) {
@@ -3082,7 +3086,10 @@ export class QuestionnairesService {
         },
       });
     }
-    return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    // Campaign progress B4: best-effort, never fails the rejection.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'PENDING');
+    return updated;
   }
 
   async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory) {
@@ -3107,7 +3114,10 @@ export class QuestionnairesService {
         },
       });
     }
-    return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+    // Campaign progress B4: best-effort, never fails the correction request.
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'PENDING');
+    return updated;
   }
 
   // ── Dossier list export helpers ─────────────────────────────────────────────
