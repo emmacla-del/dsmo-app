@@ -23,13 +23,51 @@ export interface Campaign {
   startDate?: string | null;
   deadline?: string | null;
   extendedDeadline?: string | null;
+  closedAt?: string | null;
+  targetRegions?: string[];
+  targetDepartments?: string[];
+  targetEntityTypes?: string[];
+  /** Embedded by GET /campaigns (CampaignService._buildProgress). */
+  progress?: CampaignProgress;
   createdAt: string;
   [key: string]: unknown;
+}
+
+// Counts of CampaignSubmission rows by status. Rows are created NOT_STARTED
+// at activation (one per targeted establishment) and nothing updates them
+// afterwards, so `total` is the targeted count while `submitted` and
+// `completionRate` stay at 0 — see docs/deferred.md.
+export interface CampaignProgress {
+  total: number;
+  submitted: number;
+  notStarted: number;
+  inProgress: number;
+  completionRate: string;
+  byStatus: Record<string, number>;
+}
+
+export interface CampaignReminderEntry {
+  id: string;
+  sentAt: string;
+  reminderType: string;
+  recipientCount: number;
+  failedCount: number;
+  subject?: string | null;
+}
+
+/** GET /campaigns/:id — the campaign plus its creator and last 10 reminders. */
+export interface CampaignDetail extends Campaign {
+  creator?: { firstName: string | null; lastName: string | null; email: string } | null;
+  reminders?: CampaignReminderEntry[];
 }
 
 export function listCampaigns(status?: string) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return apiFetch<Campaign[]>(`/campaigns${qs}`);
+}
+
+export function getCampaign(id: string) {
+  return apiFetch<CampaignDetail>(`/campaigns/${id}`);
 }
 
 export function activateCampaign(id: string) {

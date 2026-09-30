@@ -506,3 +506,46 @@ rather than showing invented or empty data:
 Also stale: docs/admin-replacement/feature-matrix.md still lists Réassigner as
 "SUPER_ADMIN only / not wired" and Ajouter Agent as disabled. Both are wired
 now and open to SUPER_ADMIN_ONEFOP per D1.
+
+## Deferred — /admin/campagnes Figma elements without backend support (2026-09-30)
+
+The "Campagnes de Collecte" frame (react-web/docs/figma/collecte/campagnes.png)
+shows elements the backend cannot serve today. The rebuild leaves them out, or
+shows "—" with a reason, rather than displaying invented numbers:
+
+- **Campaign submission tracking is never updated (backend bug).**
+  CampaignService._initializeCampaignSubmissions creates one CampaignSubmission
+  row per targeted establishment with status NOT_STARTED at activation.
+  Nothing in src/ (and no database trigger in prisma/migrations) ever updates
+  those rows when an establishment submits. So `progress.submitted` and
+  `progress.completionRate` from GET /campaigns and GET /campaigns/:id/progress
+  are always 0. This blocks the frame's "Soumissions collectées 10 128 / 12 847
+  attendus", "Avancement global 78.8%", and the history table's "Soumissions"
+  and "Taux complétion" columns. The rebuild shows `progress.total` as
+  "Établissements ciblés" (accurate) and "—" for collected submissions. Fix:
+  update the CampaignSubmission row when a declaration or questionnaire is
+  submitted for the campaign's round, or compute progress from the
+  submissions themselves. Either is a backend change touching statistics
+  (§5), so it needs review.
+- "Agents actifs 342 / 380": there is no agent-to-campaign link. Needs a schema
+  change.
+- "Exporter l'historique" link and the per-row download icon: no export
+  endpoint for campaigns.
+- "Questionnaires assignés" section counts ("4 sections d'enquête"): section
+  counts live in the canonical AST / generated schema, not in any campaign
+  endpoint. The panel lists the campaign's module and targetEntityTypes only.
+- "Échéancier" third step "Clôture & validation": no date field for it
+  (DataCampaign.endDate exists but nothing in the campaign service sets or
+  reads it). The panel shows Lancement (startDate) and the effective deadline
+  (extendedDeadline ?? deadline).
+- History "Période" column ("Oct - Déc 2025"): the covered period is computed
+  server-side for notifications but is not returned by GET /campaigns. The
+  table shows the campaign name, code and opening/closing dates instead.
+- Page title "Campagnes de Collecte": the admin layout renders this route's
+  header from PAGE_TITLES ("Gestion des campagnes"). Changing it is a layout
+  change.
+- Role wording: the task brief described SUPER_ADMIN_DSMO as read-only here,
+  but POST /campaigns/:id/activate|pause|close|remind all include
+  SUPER_ADMIN_DSMO in @Roles. The page follows the backend (only REGIONAL is
+  read-only). If DSMO administrators should not mutate ONEFOP campaigns, that
+  is a backend @Roles change, and D2 should be reworded at the same time.
