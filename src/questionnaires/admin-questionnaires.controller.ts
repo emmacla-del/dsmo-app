@@ -193,8 +193,12 @@ export class AdminQuestionnairesController {
   async reject(
     @Param('id') id: string,
     @Body('reason') reason: string,
+    @Body('certified') certified: boolean,
     @Request() req: any,
   ) {
+    if (certified !== true) {
+      throw new BadRequestException('Vous devez certifier la décision de rejet avant de confirmer.');
+    }
     return this.service.reject(id, reason, req.user?.id, territoryFromUser(req.user));
   }
 

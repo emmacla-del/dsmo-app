@@ -57,7 +57,7 @@ function SubmissionDetailContent() {
   const [rejectSuccess, setRejectSuccess] = useState(false);
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectDossier(id, rejectReason.trim()),
+    mutationFn: () => rejectDossier(id, rejectReason.trim(), certifiedReject),
     onSuccess: () => {
       setRejectSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });

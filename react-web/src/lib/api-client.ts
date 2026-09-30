@@ -545,10 +545,10 @@ export function approveDossier(id: string) {
   });
 }
 
-export function rejectDossier(id: string, reason: string) {
+export function rejectDossier(id: string, reason: string, certified: boolean) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reject`, {
     method: "PATCH",
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ reason, certified }),
   });
 }
 
