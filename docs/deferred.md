@@ -10,6 +10,54 @@ top with a date.
 
 ---
 
+## /admin/journal-audit — Figma elements not built (2026-09-30)
+
+Built on branch `admin/journal-audit`. `GET /audit/reports` was extended
+additively (filters + `paginate=true` envelope). Not built:
+
+- [ ] **"Exporter le journal"** (header primary action). Needs a
+      server-side export that writes its own audit entry (as
+      `AUDIT_LIST_EXPORT` does for dossiers). The screen's allowed backend
+      scope was filters + pagination only, and a client-side export of the
+      audit log would leave no trace.
+- [ ] **Header "Toutes les dates" dropdown** — duplicates the Période
+      filter; only the filter-bar control is built.
+- [ ] **Acteur as a user dropdown** — built as a name/e-mail text search.
+      A dropdown needs a list of actors; `GET /auth/users` is closed to
+      AUDITOR and a distinct-actors endpoint was out of scope.
+- [ ] **"Rechercher par ID ou nom"** — search is by `resourceId` only.
+      Object names are not stored on `AuditLog`; resolving them needs a
+      per-resourceType join.
+- [ ] **Human-readable object labels** (e.g. "SABC S.A. (ETB-001847)")
+      — the Objet column shows type + raw ID for the same reason.
+- [ ] **Numbered pagination** — Précédent / Suivant, as on the dossier
+      list.
+- [ ] **Row background tinting per outcome** — replaced by a coloured
+      action badge (CLAUDE.md §8, no decorative fills).
+- [ ] **Action filter list is static** (`AUDIT_ACTIONS` in
+      `react-web/src/lib/audit-log.ts`, from a grep of the backend's
+      audit writes). A new backend action string lists and renders under
+      its raw code but can't be picked in the filter until it is added.
+- [ ] **Figma events not written today**: "Anomalie détectée",
+      "Contrôle automatique", "Inscription approuvée", "Compte suspendu",
+      "Coordonnées modifiées" (as a diff), "Campagne modifiée". The screen
+      shows whatever `AuditLog` holds; those backend paths do not write
+      audit rows yet.
+
+Found while building (not fixed — outside this screen):
+
+- [ ] **`AUDIT_LIST_EXPORT` audit row is probably never written.**
+      `src/questionnaires/questionnaires.service.ts` (list export) creates
+      it with `resourceId: null`, but `AuditLog.resourceId` is a required
+      `String`. Prisma rejects the insert; the surrounding try/catch only
+      logs it. Dossier exports then leave no audit trail. Fix: pass a
+      non-null resourceId (e.g. `LIST_EXPORT`), or make the column
+      nullable (schema review). Not verified against a database.
+- [ ] **Pilotage "Voir tout le journal"** (`RecentActivity`, TODO in
+      `react-web/src/app/admin/pilotage/page.tsx`) can now link to
+      `/admin/journal-audit`, but only for SUPER_ADMIN, SUPER_ADMIN_ONEFOP
+      and AUDITOR.
+
 ## Dossier detail rebuild — Figma elements not built (2026-09-30)
 
 `/admin/dossiers/[id]` was rebuilt against
