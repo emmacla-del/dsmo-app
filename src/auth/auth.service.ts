@@ -421,10 +421,12 @@ export class AuthService {
     poste?: string;
     serviceCode?: string;
     positionType?: string;
-  }) {
+  }, actorRole: string) {
     if (!AuthService.MINEFOP_FIELD_ROLES.includes(dto.role)) {
       throw new BadRequestException('Rôle invalide pour la création directe');
     }
+    // D1: SUPER_ADMIN_ONEFOP may create ONEFOP staff only.
+    assertCanManageRole(actorRole, dto.role);
     const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
