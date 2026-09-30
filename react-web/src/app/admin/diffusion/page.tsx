@@ -22,15 +22,13 @@ const ENTITY_TYPE_OPTIONS = [
   { value: "VOCATIONAL_TRAINING", label: "Centres de formation professionnelle" },
 ];
 
-// These values must match the OnefopSubmissionStatus enum on the backend
-// (src/questionnaires/onefop-submission.entity.ts). Previous values
-// (DRAFT, PENDING_REVIEW, APPROVED…) did not exist in the enum and produced
-// silent empty exports.
+// Values must match the OnefopStatus Prisma enum (DRAFT excluded — drafts
+// are never exported). Previous values (SUBMITTED, DIVISION_APPROVED, …)
+// were DSMO statuses and produced 400 responses from the ONEFOP endpoint.
 const STATUS_OPTIONS = [
-  { value: "SUBMITTED", label: "Soumise" },
-  { value: "DIVISION_APPROVED", label: "Visée (Divisionnaire)" },
-  { value: "REGION_APPROVED", label: "Visée (Régional)" },
-  { value: "FINAL_APPROVED", label: "Visée finale (Centrale)" },
+  { value: "PENDING_REVIEW", label: "En instance de visa" },
+  { value: "APPROVED", label: "Visée" },
+  { value: "CORRECTION_REQUESTED", label: "Correction demandée" },
   { value: "REJECTED", label: "Rejetée" },
 ];
 
