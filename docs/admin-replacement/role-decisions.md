@@ -70,6 +70,20 @@ Note for B2: the territory model is now role-dependent. Encode
 "which roles bypass territory" as an explicit list, not an implicit
 assumption. Do not let it become a per-controller ad-hoc check.
 
+IMPLEMENTED (export scope only). src/auth/territory.ts keeps two
+explicit lists:
+- NATIONAL_ROLES (SUPER_ADMIN, SUPER_ADMIN_ONEFOP, CENTRAL) drives
+  territoryWhere and assertTerritorialAuthority, unchanged.
+- EXPORT_NATIONAL_ROLES (NATIONAL_ROLES + SUPER_ADMIN_DSMO,
+  DATA_MANAGER, ANALYST) drives territoryWhereForExport, used only
+  by the ONEFOP export where-builders in data-management
+  (buildApprovedOnefopWhere, buildSpssWhere).
+The three roles were deliberately NOT added to NATIONAL_ROLES: that
+list also authorizes writes (visa, reject, bulk, anomaly resolution),
+so any later @Roles change on a write route would have silently
+granted them national write scope. Any further endpoint that should
+get D7 scope must opt in to territoryWhereForExport explicitly.
+
 ## D8 - Page-level role guards
 ADD A SHARED PATTERN. Every admin page declares its allowed roles.
 Unauthorized roles get a clean "not for you" state, not an error
