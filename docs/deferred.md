@@ -462,3 +462,14 @@ NATIONAL_ROLES twice. It already includes SUPER_ADMIN_DSMO, so it
 behaves consistently today, but it is a second source of truth and
 exactly what the D7 note warned against. Consolidate with
 territory.ts when notifications are next touched.
+
+## Deferred — react-web lockfile also out of sync
+
+react-web/package-lock.json is out of sync with package.json, same
+pattern as the backend. Cloud sessions install with --no-save to
+avoid dirtying the diff. Any `npm ci` in react-web will fail until
+the lockfile is regenerated.
+
+Fix both lockfiles in one pass. Backend: npm install --package-lock-only
+in root. Frontend: same in react-web/. Only the two lockfiles change;
+no package.json edits, no version bumps.
