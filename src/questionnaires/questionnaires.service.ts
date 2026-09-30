@@ -1356,6 +1356,49 @@ export class QuestionnairesService {
       throw err;
     }
 
+    // Campaign progress, phase B2 (docs/deferred.md, "CampaignSubmission is
+    // never updated"). A final submission is attributed to the campaign whose
+    // SubmissionRound carries this quarterCode, and that campaign's
+    // CampaignSubmission row for the company moves to SUBMITTED. Drafts are
+    // never counted. No round, a round without a campaign, or no
+    // CampaignSubmission row for this company (not targeted at activation)
+    // is skipped silently — a row is never created here. Best-effort: the
+    // OnefopSubmission is already saved, so a failure is logged, not thrown.
+    if (!isDraft) {
+      try {
+        const round = await this.prisma.submissionRound.findFirst({
+          // module filter: a ONEFOP submit must never mark progress on a DSMO campaign's round.
+          where: { quarterCode: resolvedQuarterCode, module: 'ONEFOP' },
+          select: { campaignId: true },
+        });
+        if (round?.campaignId) {
+          // One transaction: both writes apply or neither does. updateMany
+          // (not update) so a missing CampaignSubmission row updates nothing
+          // and the transaction still commits.
+          await this.prisma.$transaction([
+            this.prisma.onefopSubmission.update({
+              where: { submissionId: result.submissionId },
+              data: { campaignId: round.campaignId },
+            }),
+            // No status condition, deliberately: EXEMPT becomes SUBMITTED too.
+            // Exemption reflects whether the establishment was required to
+            // submit, not whether a submission counts. Nothing in src/
+            // creates EXEMPT rows today.
+            this.prisma.campaignSubmission.updateMany({
+              where: { campaignId: round.campaignId, companyId: resolvedCompanyId },
+              data: { status: 'SUBMITTED', submittedAt: new Date() },
+            }),
+          ]);
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `Campaign progress update failed for ONEFOP submission ${result.submissionId} ` +
+          `(company ${resolvedCompanyId}, quarter ${resolvedQuarterCode})`,
+          err?.stack,
+        );
+      }
+    }
+
     return {
       success: true,
       submissionId: result.submissionId as string,
