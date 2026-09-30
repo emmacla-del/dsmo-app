@@ -582,3 +582,121 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     }
   });
 });
+
+// ── Campaign progress B4: bulk review transitions ────────────────────────────
+
+describe('EligibilityEngineService — campaign progress on bulk review (B4)', () => {
+  const actor = { id: 'actor-1', role: UserRole.SUPER_ADMIN, email: 'agent@onefop.cm' };
+  let tx: any;
+  let prisma: any;
+  let engine: EligibilityEngineService;
+
+  function build(candidates: any[]) {
+    tx = {
+      onefopSubmission: {
+        findMany: jest.fn(async () => candidates),
+        updateMany: jest.fn(async () => ({ count: candidates.length })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+      campaignSubmission: { updateMany: jest.fn() },
+    };
+    prisma = {
+      $transaction: jest.fn((fn: any) => fn(tx)),
+      campaignSubmission: { updateMany: jest.fn(async () => ({ count: 1 })) },
+    };
+    engine = new EligibilityEngineService(prisma);
+  }
+
+  function dossier(id: string, campaignId: string | null, companyId: string | null, status: OnefopStatus = OnefopStatus.PENDING_REVIEW) {
+    return { id, status, region: 'Centre', department: 'Mfoundi', anomalies: [], campaignId, companyId };
+  }
+
+  const rejectDto = (ids: string[]) => ({
+    submissionIds: ids,
+    certified: true,
+    reason: 'Motif de rejet suffisamment long pour passer la validation',
+  });
+
+  it('bulk visa: each approved dossier CampaignSubmission -> VALIDATED, after commit', async () => {
+    build([dossier('s1', 'camp-1', 'co-1'), dossier('s2', 'camp-1', 'co-2')]);
+    const result = await engine.executeBulkVisa(actor, { submissionIds: ['s1', 's2'], certified: true });
+
+    expect(result.approvedIds).toEqual(['s1', 's2']);
+    expect(prisma.campaignSubmission.updateMany.mock.calls).toEqual([
+      [{ where: { campaignId: 'camp-1', companyId: 'co-1' }, data: { status: 'VALIDATED' } }],
+      [{ where: { campaignId: 'camp-1', companyId: 'co-2' }, data: { status: 'VALIDATED' } }],
+    ]);
+    // Not written through the transaction client.
+    expect(tx.campaignSubmission.updateMany).not.toHaveBeenCalled();
+    expect(tx.onefopSubmission.updateMany.mock.invocationCallOrder[0])
+      .toBeLessThan(prisma.campaignSubmission.updateMany.mock.invocationCallOrder[0]);
+  });
+
+  it('bulk visa: dossiers not approved (wrong status) are not synced', async () => {
+    build([dossier('s1', 'camp-1', 'co-1'), dossier('s2', 'camp-1', 'co-2', OnefopStatus.APPROVED)]);
+    await engine.executeBulkVisa(actor, { submissionIds: ['s1', 's2'], certified: true });
+
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.campaignSubmission.updateMany.mock.calls[0][0].where).toEqual({ campaignId: 'camp-1', companyId: 'co-1' });
+  });
+
+  it('bulk reject: each rejected dossier CampaignSubmission -> PENDING, submittedAt = null', async () => {
+    build([dossier('s1', 'camp-1', 'co-1'), dossier('s2', 'camp-2', 'co-2', OnefopStatus.CORRECTION_REQUESTED)]);
+    const result = await engine.executeBulkReject(actor, rejectDto(['s1', 's2']));
+
+    expect(result.rejectedIds).toEqual(['s1', 's2']);
+    expect(prisma.campaignSubmission.updateMany.mock.calls).toEqual([
+      [{ where: { campaignId: 'camp-1', companyId: 'co-1' }, data: { status: 'PENDING', submittedAt: null } }],
+      [{ where: { campaignId: 'camp-2', companyId: 'co-2' }, data: { status: 'PENDING', submittedAt: null } }],
+    ]);
+    expect(tx.campaignSubmission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('bulk reject: loads campaignId and companyId in the candidate select', async () => {
+    build([dossier('s1', 'camp-1', 'co-1')]);
+    await engine.executeBulkReject(actor, rejectDto(['s1']));
+    const [{ select }] = tx.onefopSubmission.findMany.mock.calls[0];
+    expect(select).toMatchObject({ campaignId: true, companyId: true });
+  });
+
+  it('campaignId null: no update, no error', async () => {
+    build([dossier('s1', null, 'co-1')]);
+    const errorSpy = jest.spyOn((engine as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(engine.executeBulkVisa(actor, { submissionIds: ['s1'], certified: true }))
+      .resolves.toMatchObject({ success: true, processedCount: 1 });
+    await expect(engine.executeBulkReject(actor, rejectDto(['s1'])))
+      .resolves.toMatchObject({ success: true, processedCount: 1 });
+
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('a failing update is logged per dossier and does not fail the bulk action', async () => {
+    build([dossier('s1', 'camp-1', 'co-1'), dossier('s2', 'camp-1', 'co-2')]);
+    const boom = new Error('campaign_submissions unavailable');
+    prisma.campaignSubmission.updateMany
+      .mockRejectedValueOnce(boom)
+      .mockResolvedValueOnce({ count: 1 });
+    const errorSpy = jest.spyOn((engine as any).logger, 'error').mockImplementation(() => undefined);
+
+    const result = await engine.executeBulkVisa(actor, { submissionIds: ['s1', 's2'], certified: true });
+
+    expect(result).toMatchObject({ success: true, processedCount: 2, approvedIds: ['s1', 's2'] });
+    // The second dossier is still synced after the first one failed.
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(2);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('s1');
+    expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
+  });
+
+  it('bulk reject: a failing update does not fail the action', async () => {
+    build([dossier('s1', 'camp-1', 'co-1')]);
+    prisma.campaignSubmission.updateMany.mockRejectedValue(new Error('down'));
+    const errorSpy = jest.spyOn((engine as any).logger, 'error').mockImplementation(() => undefined);
+
+    await expect(engine.executeBulkReject(actor, rejectDto(['s1'])))
+      .resolves.toMatchObject({ success: true, processedCount: 1, rejectedIds: ['s1'] });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+});
