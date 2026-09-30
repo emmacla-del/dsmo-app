@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   bulkVisaDeclarations,
+  bulkRejectDeclarations,
   listAdminQuestionnaires,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
@@ -71,11 +72,17 @@ function DossiersContent() {
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Modal / Drawer state
+  // Modal / Drawer state — bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [certifiedBulk, setCertifiedBulk] = useState(false);
   const [bulkNotes, setBulkNotes] = useState("");
   const [bulkResult, setBulkResult] = useState<any | null>(null);
+
+  // Modal state — bulk reject
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [certifiedReject, setCertifiedReject] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectResult, setRejectResult] = useState<any | null>(null);
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
   // TODO(design, S): what is "ASFOP" in the Figma's questionnaire types? Labels use entityTypeLabel until the domain answers (VOCATIONAL_TRAINING?)
@@ -104,8 +111,18 @@ function DossiersContent() {
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
       setSelectedIds(new Set());
-      // Visas move dossiers out of status-filtered views, which can empty the
-      // current page; restart from the first page.
+      setOffset(0);
+    },
+  });
+
+  // Bulk reject mutation
+  const rejectMutation = useMutation({
+    mutationFn: bulkRejectDeclarations,
+    onSuccess: (data) => {
+      setRejectResult(data);
+      queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      setSelectedIds(new Set());
       setOffset(0);
     },
   });
@@ -176,6 +193,11 @@ function DossiersContent() {
     (d) => selectedIds.has(d.id) && d.adminStatus === "PENDING_REVIEW" && d.blockingCount === 0
   );
 
+  // Rejectable = PENDING_REVIEW or CORRECTION_REQUESTED (no anomaly check — rejecting is explicit)
+  const rejectableSelected = dossiers.filter(
+    (d) => selectedIds.has(d.id) && (d.adminStatus === "PENDING_REVIEW" || d.adminStatus === "CORRECTION_REQUESTED")
+  );
+
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedIds(new Set(dossiers.map((d) => d.id)));
@@ -199,6 +221,14 @@ function DossiersContent() {
     setIsBulkModalOpen(true);
   };
 
+  const handleOpenRejectModal = () => {
+    setRejectResult(null);
+    rejectMutation.reset();
+    setCertifiedReject(false);
+    setRejectReason("");
+    setIsRejectModalOpen(true);
+  };
+
   const handleConfirmBulkVisa = () => {
     if (!certifiedBulk) return;
     const idsToApprove = cleanPendingSelected.map((d) => d.id);
@@ -216,10 +246,8 @@ function DossiersContent() {
       ? `Région ${user.region}`
       : "National (MINEFOP / ONEFOP)";
 
-  // ROUND 2 (disabled until the backend supports them; see docs/figma/supervision/dossiers.png):
-  // TODO(backend, M): ROUND 2 — bulk reject endpoint for "Rejeter Sélection"
   // TODO(backend, M): ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)"
-  const round2Hint = "Disponible prochainement";
+  const exportHint = "Disponible prochainement";
 
   return (
     <div className="cam-admin-page">
@@ -305,11 +333,18 @@ function DossiersContent() {
             Viser la sélection
             <span className="cam-button-count">{cleanPendingSelected.length}</span>
           </button>
-          <button type="button" className="cam-button cam-button-danger cam-button-sm" disabled title={round2Hint}>
+          <button
+            type="button"
+            className="cam-button cam-button-danger cam-button-sm"
+            onClick={handleOpenRejectModal}
+            disabled={rejectableSelected.length === 0}
+            title={rejectableSelected.length === 0 ? "Sélectionnez des dossiers en instance ou en correction" : undefined}
+          >
             Rejeter la sélection
+            <span className="cam-button-count">{rejectableSelected.length}</span>
           </button>
         </div>
-        <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled title={round2Hint}>
+        <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled title={exportHint}>
           Exporter (CSV/Excel)
         </button>
       </div>
@@ -475,6 +510,110 @@ function DossiersContent() {
           </div>
         </div>
       </section>
+
+      {/* Bulk reject — certified, audited */}
+      <AdminDialog
+        open={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        eyebrow="Rejet administratif officiel"
+        title="Rejet groupé de dossiers"
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsRejectModalOpen(false)}>
+              {rejectResult ? "Fermer" : "Annuler"}
+            </button>
+            {!rejectResult && (
+              <button
+                type="button"
+                className="cam-button cam-button-danger cam-button-sm"
+                onClick={() => {
+                  if (!certifiedReject || rejectReason.trim().length < 10) return;
+                  rejectMutation.mutate({
+                    submissionIds: rejectableSelected.map((d) => d.id),
+                    certified: true,
+                    reason: rejectReason.trim(),
+                  });
+                }}
+                disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? "Transaction en cours…" : `Confirmer ${rejectableSelected.length} rejet${rejectableSelected.length > 1 ? "s" : ""}`}
+              </button>
+            )}
+          </>
+        }
+      >
+        {rejectMutation.isError && (
+          <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+            <span>
+              Le rejet groupé a échoué : {(rejectMutation.error as Error)?.message || "erreur serveur."} Rechargez la liste pour vérifier l&apos;état des dossiers avant de réessayer.
+            </span>
+          </div>
+        )}
+        {rejectResult ? (
+          <>
+            <div className="cam-admin-notice cam-admin-notice--success" role="status">
+              <span>
+                <strong>{rejectResult.processedCount} dossier{rejectResult.processedCount > 1 ? "s" : ""} rejeté{rejectResult.processedCount > 1 ? "s" : ""}.</strong>{" "}
+                Opération journalisée sous l&apos;empreinte <span className="cam-admin-code">AUDIT_BULK_REJECT</span>.
+              </span>
+            </div>
+            {rejectResult.rejectedCount > 0 && (
+              <div>
+                <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>
+                  {rejectResult.rejectedCount} dossier{rejectResult.rejectedCount > 1 ? "s" : ""} non traité{rejectResult.rejectedCount > 1 ? "s" : ""} par le serveur
+                </h3>
+                <ul className="cam-admin-issues is-warn">
+                  {(rejectResult.rejectedItems ?? []).map((item: { id: string; reason: string }) => (
+                    <li key={item.id}>
+                      <strong>{dossiers.find((d) => d.id === item.id)?.companyName ?? item.id}</strong> — {item.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p style={{ margin: 0 }}>
+              Vous allez rejeter <strong>{rejectableSelected.length} dossier{rejectableSelected.length > 1 ? "s" : ""}</strong> en instance ou en correction. Cette action est irréversible sans intervention d&apos;un administrateur.
+            </p>
+            <dl className="cam-admin-kv" style={{ padding: "var(--cam-space-4)", background: "var(--cam-bg)", borderRadius: "var(--cam-radius-md)" }}>
+              <div>
+                <dt>Agent signataire</dt>
+                <dd>{user?.email}</dd>
+              </div>
+              <div>
+                <dt>Ressort</dt>
+                <dd>{scopeLabel}</dd>
+              </div>
+            </dl>
+            <div className="cam-field" style={{ margin: 0 }}>
+              <label className="cam-admin-label" htmlFor="reject-reason">
+                Motif de rejet <span style={{ color: "var(--cam-error)" }}>*</span>
+              </label>
+              <textarea
+                id="reject-reason"
+                className="cam-admin-textarea"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+                placeholder="Décrivez le motif de rejet (10 caractères minimum)…"
+              />
+              {rejectReason.length > 0 && rejectReason.trim().length < 10 && (
+                <p className="cam-admin-meta" style={{ color: "var(--cam-error)", marginTop: "var(--cam-space-1)" }}>
+                  Le motif doit comporter au moins 10 caractères.
+                </p>
+              )}
+            </div>
+            <label className="cam-admin-choice" style={{ padding: "var(--cam-space-3)", border: "var(--cam-border-width) solid var(--cam-error-border, var(--cam-error))", background: "var(--cam-error-bg, #fff5f5)", borderRadius: "var(--cam-radius-sm)" }}>
+              <input type="checkbox" checked={certifiedReject} onChange={(e) => setCertifiedReject(e.target.checked)} />
+              <span>
+                <strong>Je certifie sur l&apos;honneur</strong> avoir examiné ces {rejectableSelected.length} dossier{rejectableSelected.length > 1 ? "s" : ""} et confirme leur rejet administratif.
+              </span>
+            </label>
+          </>
+        )}
+      </AdminDialog>
 
       {/* Bulk national visa — certified, audited */}
       <AdminDialog

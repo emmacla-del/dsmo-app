@@ -553,6 +553,20 @@ export function bulkVisaDeclarations(payload: { submissionIds: string[]; certifi
   });
 }
 
+export function bulkRejectDeclarations(payload: { submissionIds: string[]; certified: boolean; reason: string }) {
+  return apiFetch<{
+    success: boolean;
+    processedCount: number;
+    rejectedCount: number;
+    rejectedIds: string[];
+    rejectedItems: Array<{ id: string; reason: string }>;
+    timestamp: string;
+  }>("/admin/questionnaires/bulk-reject", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function listAnomaliesRegistry(params: { submissionId?: string; status?: string; isBlocking?: boolean; limit?: number; offset?: number } = {}) {
   const query = new URLSearchParams();
   if (params.submissionId) query.set("submissionId", params.submissionId);
