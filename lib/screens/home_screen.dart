@@ -15,7 +15,7 @@
 // Resolution table:
 //   backend role    stream     resolved role        dashboards
 //   ─────────────── ────────── ──────────────────── ─────────────────────
-//   SUPER_ADMIN     DSMO       SUPER_ADMIN_DSMO      DSMO only  (4 tabs)
+//   SUPER_ADMIN     DSMO       SUPER_ADMIN_DSMO      DSMO only  (3 tabs)
 //   SUPER_ADMIN     ONEFOP     SUPER_ADMIN_ONEFOP    ONEFOP only (3 tabs)
 //   SUPER_ADMIN     null       SUPER_ADMIN           BOTH        (5 tabs)
 //   CENTRAL         —          CENTRAL               BOTH        (3 tabs)
@@ -260,8 +260,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return [
           _Tab(context.l10n.declarationsTabLabel, Icons.folder_open_outlined,
               const DeclarationsListScreen()),
-          _Tab(context.l10n.homeTabAnalyticsDsmo, Icons.bar_chart_outlined,
-              const OnefopDashboardScreen()),
           _Tab(context.l10n.annuaireLabel, Icons.contacts_outlined,
               const AnnuaireScreen(showUsersTab: false)),
           _Tab(context.l10n.settingsTabNotifications,
