@@ -552,10 +552,10 @@ export function rejectDossier(id: string, reason: string, certified: boolean) {
   });
 }
 
-export function requestCorrectionDossier(id: string, comments: string) {
+export function requestCorrectionDossier(id: string, comments: string, certified: boolean) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/request-correction`, {
     method: "PATCH",
-    body: JSON.stringify({ comments }),
+    body: JSON.stringify({ comments, certified }),
   });
 }
 

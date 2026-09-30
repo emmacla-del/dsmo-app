@@ -95,10 +95,11 @@ function SubmissionDetailContent() {
   // ── Correction dialog state ───────────────────────────────────────────────
   const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
   const [correctionComments, setCorrectionComments] = useState("");
+  const [correctionCertified, setCorrectionCertified] = useState(false);
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   const correctionMutation = useMutation({
-    mutationFn: () => requestCorrectionDossier(id, correctionComments.trim()),
+    mutationFn: () => requestCorrectionDossier(id, correctionComments.trim(), correctionCertified),
     onSuccess: () => {
       setCorrectionSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -110,6 +111,7 @@ function SubmissionDetailContent() {
     setCorrectionSuccess(false);
     correctionMutation.reset();
     setCorrectionComments("");
+    setCorrectionCertified(false);
     setIsCorrectionOpen(true);
   };
 
@@ -466,7 +468,7 @@ function SubmissionDetailContent() {
                 type="button"
                 className="cam-button cam-button-sm"
                 style={{ borderColor: "rgba(180,83,9,0.4)", color: "#b45309" }}
-                disabled={correctionMutation.isPending || correctionComments.trim().length < 10}
+                disabled={correctionMutation.isPending || correctionComments.trim().length < 10 || !correctionCertified}
                 onClick={() => correctionMutation.mutate()}
               >
                 {correctionMutation.isPending ? "Envoi en cours…" : "Envoyer la demande"}
@@ -502,6 +504,18 @@ function SubmissionDetailContent() {
                 Le commentaire doit faire au moins 10 caractères ({correctionComments.trim().length}/10).
               </p>
             )}
+            <label style={{ display: "flex", alignItems: "flex-start", gap: "var(--cam-space-2)", marginTop: "var(--cam-space-4)", cursor: "pointer", fontSize: "var(--cam-font-size-sm)", color: "var(--cam-text)" }}>
+              <input
+                type="checkbox"
+                checked={correctionCertified}
+                onChange={(e) => setCorrectionCertified(e.target.checked)}
+                disabled={correctionMutation.isPending}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Je certifie sur l&rsquo;honneur avoir examiné ce dossier et confirme la demande de correction.
+              </span>
+            </label>
             {correctionMutation.isError && (
               <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
                 <span>{(correctionMutation.error as Error)?.message ?? "Erreur lors de la demande de correction."}</span>
