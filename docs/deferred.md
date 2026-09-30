@@ -10,6 +10,28 @@ top with a date.
 
 ---
 
+## Decision — campaign progress is ONEFOP-only (2026-09-30)
+
+B2 (PR #17) implemented the campaign progress fix for ONEFOP
+questionnaire submissions only. DSMO is intentionally out of scope.
+
+B3 (DSMO write path) is cancelled. The DSMO progression is not
+tracked in CampaignSubmission and will not be. Reminders, progress
+and reports will reflect ONEFOP submissions only.
+
+Consequence: if a campaign targets DSMO entities, its progress
+counts will not move on DSMO submissions. If that ever becomes
+desired, it is a new decision, not a resumption of B3.
+
+B4 (review transitions) is scoped to ONEFOP only:
+  - approve  -> CampaignSubmission VALIDATED
+  - reject / request-correction -> CampaignSubmission PENDING
+
+The Declaration.campaignId column added in B1 stays in the schema.
+It is unused and harmless. Removing it is not worth a migration.
+
+---
+
 ## Phase B2a — permission model: held items and findings (2026-09-30)
 
 Branch `admin/b2a-permissions`. D1 and D3 shipped; **D7 is held**.
@@ -510,6 +532,10 @@ now and open to SUPER_ADMIN_ONEFOP per D1.
 
 ## Deferred - CampaignSubmission is never updated (investigation 2026-09-30)
 
+STATUS (2026-09-30): superseded by the "Decision — campaign progress
+is ONEFOP-only" section above. B2 merged (PR #17). B3 cancelled.
+B4 is ONEFOP-only. The historical plan below is kept for context only.
+
 CampaignSubmission has one writer: createMany at campaign
 activation. Nothing ever updates it. It is read by:
   - GET /campaigns/:id/progress and GET /campaigns (progress tile)
@@ -560,6 +586,10 @@ shows "—" with a reason, rather than displaying invented numbers:
   submitted for the campaign's round, or compute progress from the
   submissions themselves. Either is a backend change touching statistics
   (§5), so it needs review.
+  UPDATE (2026-09-30): the ONEFOP path is fixed by B2 (PR #17).
+  DSMO remains intentionally out of scope — see the ONEFOP-only
+  decision section. "Soumissions collectées" / "Taux complétion"
+  will now populate for ONEFOP campaigns only.
 - "Agents actifs 342 / 380": there is no agent-to-campaign link. Needs a schema
   change.
 - "Exporter l'historique" link and the per-row download icon: no export
@@ -582,24 +612,3 @@ shows "—" with a reason, rather than displaying invented numbers:
   SUPER_ADMIN_DSMO in @Roles. The page follows the backend (only REGIONAL is
   read-only). If DSMO administrators should not mutate ONEFOP campaigns, that
   is a backend @Roles change, and D2 should be reworded at the same time.
-
-
-## Decision - campaign progress is ONEFOP-only
-
-B2 (PR #17) implemented the campaign progress fix for ONEFOP
-declarations only. DSMO is intentionally out of scope.
-
-B3 (DSMO write path) is cancelled. The DSMO progression is not
-tracked in CampaignSubmission and will not be. Reminders, progress
-and reports will reflect ONEFOP submissions only.
-
-Consequence: if a campaign targets DSMO entities, its progress
-counts will not move on DSMO submissions. If that ever becomes
-desired, it is a new decision, not a resumption of B3.
-
-B4 (review transitions) is scoped to ONEFOP only:
-  - approve  -> CampaignSubmission VALIDATED
-  - reject / request-correction -> CampaignSubmission PENDING
-
-The Declaration.campaignId column added in B1 stays in the schema.
-It is unused and harmless. Removing it is not worth a migration.
