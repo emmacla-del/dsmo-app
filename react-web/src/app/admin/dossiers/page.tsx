@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  API_BASE_URL,
   bulkVisaDeclarations,
   bulkRejectDeclarations,
+  getToken,
   listAdminQuestionnaires,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
@@ -246,8 +248,44 @@ function DossiersContent() {
       ? `Région ${user.region}`
       : "National (MINEFOP / ONEFOP)";
 
-  // TODO(backend, M): ROUND 2 — list/selection export endpoint for "Exporter (CSV/Excel)"
-  const exportHint = "Disponible prochainement";
+  const [exportInProgress, setExportInProgress] = useState(false);
+
+  async function handleExport(fmt: "csv" | "xlsx") {
+    if (exportInProgress) return;
+    setExportInProgress(true);
+    try {
+      const params = new URLSearchParams({ format: fmt });
+      if (statusFilter) params.set("status", statusFilter);
+      if (typeFilter) params.set("formType", typeFilter);
+      if (regionFilter) params.set("region", regionFilter);
+      if (periodFilter) params.set("period", periodFilter);
+      if (search) params.set("search", search);
+      const token = getToken();
+      const resp = await fetch(
+        `${API_BASE_URL}/admin/questionnaires/export?${params.toString()}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body?.message ?? `Échec de l'export (${resp.status})`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `dossiers_${date}.${fmt}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(`L'export a échoué : ${msg}`);
+    } finally {
+      setExportInProgress(false);
+    }
+  }
 
   return (
     <div className="cam-admin-page">
@@ -344,8 +382,21 @@ function DossiersContent() {
             <span className="cam-button-count">{rejectableSelected.length}</span>
           </button>
         </div>
-        <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled title={exportHint}>
-          Exporter (CSV/Excel)
+        <button
+          type="button"
+          className="cam-button cam-button-secondary cam-button-sm"
+          onClick={() => handleExport("csv")}
+          disabled={exportInProgress}
+        >
+          {exportInProgress ? "Export…" : "Exporter CSV"}
+        </button>
+        <button
+          type="button"
+          className="cam-button cam-button-secondary cam-button-sm"
+          onClick={() => handleExport("xlsx")}
+          disabled={exportInProgress}
+        >
+          {exportInProgress ? "Export…" : "Exporter Excel"}
         </button>
       </div>
 
