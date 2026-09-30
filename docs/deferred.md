@@ -473,3 +473,36 @@ the lockfile is regenerated.
 Fix both lockfiles in one pass. Backend: npm install --package-lock-only
 in root. Frontend: same in react-web/. Only the two lockfiles change;
 no package.json edits, no version bumps.
+
+## Deferred — /admin/utilisateurs Figma elements without backend support (2026-09-30)
+
+The "Utilisateurs ONEFOP" frame (react-web/docs/figma/declarants/utilisateurs.png)
+shows elements the backend cannot serve today. The rebuild leaves them out
+rather than showing invented or empty data:
+
+- "Enquêtes/Fiches assignées" column: there is no agent-to-questionnaire or
+  agent-to-establishment assignment model.
+- "Fiches soumises" and "Taux de complétion" columns: no endpoint attributes
+  submissions or completion to an agent.
+- "Dernier accès" column: User.lastLoginAt exists (B1) but nothing writes it
+  at login, and it is classified secret in src/auth/public-user.ts. Needs a
+  write path and a deliberate public classification.
+- "Profil" row link: there is no agent profile page and no GET /auth/users/:id.
+- "Brouillon" account status pill: no such account status exists.
+- KPI "Nouvelles inscriptions (mois)": GET /auth/users has no creation-date
+  filter. The tile shows all pending accounts, labelled "Inscriptions en
+  attente".
+- KPI "Agents inactifs — En attente d'affectation": there is no "awaiting
+  assignment" state. The tile counts suspended (isActive=false) accounts,
+  labelled "Comptes suspendus".
+- "Ajouter Agent" for non-field roles: POST /auth/admin/create-minefop-user
+  accepts CENTRAL, REGIONAL and DIVISIONAL only, so DATA_MANAGER,
+  CAMPAIGN_MANAGER, ANALYST and AUDITOR accounts cannot be created here.
+- Page title "Utilisateurs ONEFOP" with the primary action in the header:
+  the admin layout renders this route's header from PAGE_TITLES ("Agents
+  ONEFOP"). Matching the frame means removing that entry and rendering the
+  page's own AdminPageHeader, which is a layout change.
+
+Also stale: docs/admin-replacement/feature-matrix.md still lists Réassigner as
+"SUPER_ADMIN only / not wired" and Ajouter Agent as disabled. Both are wired
+now and open to SUPER_ADMIN_ONEFOP per D1.

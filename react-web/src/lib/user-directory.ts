@@ -88,6 +88,48 @@ export function deleteUser(id: string) {
   return apiFetch<{ message: string }>(`/auth/users/${id}`, { method: "DELETE" });
 }
 
+// PATCH /auth/users/:id/territory — role + region + department in one write,
+// audited server-side as USER_TERRITORY_CHANGED. SUPER_ADMIN and
+// SUPER_ADMIN_ONEFOP (D1); the server applies assertCanManageRole to both the
+// current and the new role, refuses self-reassignment, and requires a region
+// for REGIONAL and a region + department for DIVISIONAL. Blank values are
+// omitted so they are stored as null, not "".
+export function updateUserTerritory(id: string, body: { role: string; region?: string; department?: string }) {
+  return apiFetch<DirectoryUser>(`/auth/users/${id}/territory`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      role: body.role,
+      region: body.region || undefined,
+      department: body.department || undefined,
+    }),
+  });
+}
+
+export interface CreateMinefopUserBody {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  region?: string;
+  department?: string;
+  matricule?: string;
+  poste?: string;
+}
+
+// POST /auth/admin/create-minefop-user — creates an ACTIVE account with
+// mustChangePassword set, skipping approval. SUPER_ADMIN and
+// SUPER_ADMIN_ONEFOP (D1). The temporary password is returned once, in
+// plaintext, and never again: show it to the admin, never store it.
+export function createMinefopUser(body: CreateMinefopUserBody) {
+  return apiFetch<{ user: DirectoryUser; temporaryPassword: string }>("/auth/admin/create-minefop-user", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// Mirrors AuthService.MINEFOP_FIELD_ROLES: the only roles create-minefop-user accepts.
+export const MINEFOP_FIELD_ROLES = ["CENTRAL", "REGIONAL", "DIVISIONAL"];
+
 // Mirrors AuthService.ASSIGNABLE_ROLES / widgets/admin_kit.dart's
 // kAssignableRoles exactly (same order).
 export const ASSIGNABLE_ROLES = [
