@@ -1820,6 +1820,13 @@ model SystemSettings {
   require2FAForStaff Boolean  @default(false)
   maintenanceMode    Boolean  @default(false)
   maintenanceMessage String?
+  // Observatory identity (/admin/parametres "Informations de l'observatoire").
+  // Nullable: unset means "not configured yet". Stored and displayed only —
+  // nothing else reads them yet (see docs/deferred.md).
+  observatoryName    String?
+  countryCode        String?
+  defaultLanguage    String?
+  timezone           String?
   updatedBy          String?
   updatedAt          DateTime @updatedAt
 
