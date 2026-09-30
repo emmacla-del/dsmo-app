@@ -918,6 +918,57 @@ export class AuthService {
     }));
   }
 
+  async updateUserTerritory(
+    id: string,
+    role: string,
+    region: string | null,
+    department: string | null,
+    actingUserId: string,
+    actorRole: string,
+  ) {
+    if (id === actingUserId) {
+      throw new BadRequestException('Vous ne pouvez pas modifier votre propre territoire');
+    }
+    if (!AuthService.ASSIGNABLE_ROLES.includes(role)) {
+      throw new BadRequestException('Rôle invalide');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    assertCanManageRole(actorRole, user.role);
+    assertCanManageRole(actorRole, role);
+    if (role === 'DIVISIONAL' && (!region || !department)) {
+      throw new BadRequestException(
+        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
+      );
+    }
+    if (role === 'REGIONAL' && !region) {
+      throw new BadRequestException(
+        'Les utilisateurs régionaux doivent avoir une région assignée',
+      );
+    }
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { role: role as any, region: region ?? null, department: department ?? null },
+    });
+    await (this.prisma as any).auditLog.create({
+      data: {
+        userId: actingUserId,
+        action: 'USER_TERRITORY_CHANGED',
+        resourceType: 'User',
+        resourceId: id,
+        details: {
+          previousRole: user.role,
+          previousRegion: user.region ?? null,
+          previousDepartment: user.department ?? null,
+          newRole: role,
+          newRegion: region ?? null,
+          newDepartment: department ?? null,
+        },
+      },
+    });
+    return toPublicUser(updated);
+  }
+
   async setUserActive(id: string, isActive: boolean, actingUserId: string, actorRole: string) {
     if (id === actingUserId) {
       throw new BadRequestException(

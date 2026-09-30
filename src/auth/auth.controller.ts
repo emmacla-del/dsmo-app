@@ -230,6 +230,26 @@ export class AuthController {
     return this.authService.updateUserRole(id, role, req.user.id, req.user.role);
   }
 
+  @Patch('users/:id/territory')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN')
+  async updateUserTerritory(
+    @Param('id') id: string,
+    @Body('role') role: string,
+    @Body('region') region: string,
+    @Body('department') department: string,
+    @Request() req: any,
+  ) {
+    return this.authService.updateUserTerritory(
+      id,
+      role,
+      region ?? null,
+      department ?? null,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
   @Patch('users/:id/suspend')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...USER_ADMIN_ROLES)
