@@ -16,3 +16,8 @@ pending a decision.
 | /admin/parametres | Rappels automatiques block — under "Notifications" | Paramètres: read-only reference display | Explains where reminders are triggered (Campagnes) | IMPLEMENTED |
 | /admin/parametres | Collecte statistique + Exercice statistique values (questionnaire, visa flow, coherence mode, reference year, period) — shown as "Paramètres de collecte" | Paramètres: read-only reference display | Figma's collecte fields have no persisted source; these are the real values | IMPLEMENTED |
 | /admin/parametres | Organisation value in "Informations de l'observatoire" | Paramètres: read-only reference display | Existing identity field not in Figma | IMPLEMENTED |
+
+`/admin/journal-audit` was a new screen (the sidebar entry had no page), so
+no widgets are retained from it. The one control beyond the Figma frame, the
+"Type d'objet" filter, comes from the matrix capability (object filters →
+`resourceType`) and is not a retained widget.

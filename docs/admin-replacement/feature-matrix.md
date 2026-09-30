@@ -483,7 +483,7 @@ Notes on Figma frames found that map to null-href entries:
 - **inscriptions.png** shows a queue of establishment registrations pending approval — the concept exists in the backend (`POST /auth/register-company`, `PATCH /auth/approve-user/:id`) but no admin list-registrations endpoint is wired to a frontend screen.
 - **questionnaires.png** shows a questionnaire version / schema management screen.
 - **qualite/centre.png** is the target for both "Anomalies" and "Qualité" sidebar items; the files-attente page handles anomaly resolution but the quality centre screen (with charts, breakdown by rule family, trend lines) is not built.
-- **journal-audit.png** is a full audit log — referenced in a TODO comment in `pilotage/page.tsx` ("Voir tout le journal" needs `/admin/journal-audit`). The backend endpoint exists: `GET /audit/reports?limit=N` (`AuditController.getAuditLog`, `src/report/audit.controller.ts`; roles SUPER_ADMIN, SUPER_ADMIN_ONEFOP, AUDITOR) returns the latest `AuditLog` rows of every type with the acting user. It takes only `limit` — no filters, pagination total, or export (see "Screens needing schema changes").
+- **journal-audit.png** is a full audit log — referenced in a TODO comment in `pilotage/page.tsx` ("Voir tout le journal" needs `/admin/journal-audit`). The backend endpoint exists: `GET /audit/reports?limit=N` (`AuditController.getAuditLog`, `src/report/audit.controller.ts`; roles SUPER_ADMIN, SUPER_ADMIN_ONEFOP, AUDITOR) returns the latest `AuditLog` rows of every type with the acting user. It now also accepts `period`, `actor`, `action`, `resourceType`, `resourceId` and, with `paginate=true`, returns `{ items, total, limit, offset }`; without `paginate=true` it still returns the plain array. There is still no export. `/admin/journal-audit` uses it.
 - The three Figma frames for `declarants/etablissements/_id.png` and `_id/approbation.png` show an establishment detail + approval flow that is not implemented in the React Web frontend.
 
 ---
@@ -544,7 +544,7 @@ The following `@Roles`-decorated endpoints in admin/related controllers are not 
 
 | Screen | Status | Required schema changes | Required endpoint additions | Domain rulings needed |
 |---|---|---|---|---|
-| Journal d'audit — `administration/journal-audit.png` | READY | None | Extend `GET /audit/reports` additively: period, actor, action-type and object filters; offset/limit with total; export | None |
+| Journal d'audit — `administration/journal-audit.png` | READY — built (`/admin/journal-audit`) | None | Filters + pagination: done. Remaining: a self-auditing server-side export | None |
 
 ### Batch 1 — cheap foundation (new nullable columns or one standalone table)
 
