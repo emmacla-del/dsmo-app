@@ -892,6 +892,26 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       expect(prisma.onefopSubmission.update).toHaveBeenCalled();
       expect(result.status).toBe(OnefopStatus.APPROVED);
     });
+
+    it('throws 400 when status is CORRECTION_REQUESTED', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-correction',
+        status: OnefopStatus.CORRECTION_REQUESTED,
+        anomalies: [],
+      });
+      await expect(service.approve('sub-correction', 'admin-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('throws 400 when status is REJECTED', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-rejected',
+        status: OnefopStatus.REJECTED,
+        anomalies: [],
+      });
+      await expect(service.approve('sub-rejected', 'admin-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('QuestionnairesService — REPORTED Matrix Completeness (Phase 4.3)', () => {

@@ -3026,7 +3026,10 @@ export class QuestionnairesService {
   }
 
   async approve(id: string, reviewedBy?: string, territory?: Territory) {
-    await this.getById(id, territory);
+    const submission = await this.getById(id, territory);
+    if (submission.status !== 'PENDING_REVIEW') {
+      throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
+    }
     await this.eligibilityEngine!.assertCanApprove(id);
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
