@@ -10,6 +10,63 @@ top with a date.
 
 ---
 
+## Phase B2a — permission model: held items and findings (2026-09-30)
+
+Branch `admin/b2a-permissions`. D1 and D3 shipped; **D7 is held**.
+
+**BLOCKER — `RolesGuard` ignores class-level `@Roles`.**
+`src/auth/roles.guard.ts` reads `reflector.get('roles', context.getHandler())`
+only. When `@Roles` sits on the controller class, the lookup returns
+`undefined` and the guard lets **any authenticated user** through
+(verified with Nest's `Reflector`). Four controllers use class-level
+`@Roles` only:
+- [ ] `src/system-settings/system-settings.controller.ts` — `GET`/`PATCH
+      /system-settings`: any logged-in account (companies included) can
+      turn maintenance mode on, change the password policy, or set
+      `require2FAForStaff`. **Urgent.**
+- [ ] `src/landing-config/admin-landing-config.controller.ts` — any
+      account can overwrite / restore the public landing page.
+- [ ] `src/analytics/onefop-analytics.controller.ts` — any account.
+- [ ] `src/questionnaires/admin-questionnaires.controller.ts` — any account;
+      today only territory scoping (fail-closed for non-geographic roles)
+      stops other roles from acting on dossiers.
+Fix direction: `reflector.getAllAndOverride('roles', [handler, class])`.
+Needs review: it starts enforcing the class lists, which may cut roles
+that currently rely on the gap (e.g. SUPER_ADMIN_DSMO on analytics).
+
+- [ ] **D7 (national scope for SUPER_ADMIN_DSMO / DATA_MANAGER / ANALYST)
+      not applied.** Adding them to `NATIONAL_ROLES` makes territory
+      checks pass for them everywhere. Because of the guard bug above, the
+      three roles can reach `admin/questionnaires`, whose visa / reject /
+      request-correction / bulk-visa / bulk-reject paths are authorized by
+      territory alone (`questionnaires.service.ts` territoryWhere,
+      `eligibility-engine.service.ts` assertTerritorialAuthority). D7 would
+      therefore let them visa and reject ONEFOP dossiers nationwide — far
+      beyond "national scope on exports". Apply D7 after the guard fix, or
+      scope it to the export endpoints only.
+
+Findings on the D3 / D1 endpoints (not changed — outside this run):
+- [ ] D3 lets REGIONAL/DIVISIONAL approve **any** pending ONEFOP staff
+      role in their territory, including CENTRAL, DATA_MANAGER, ANALYST,
+      AUDITOR, CAMPAIGN_MANAGER and REGIONAL (for a DIVISIONAL, if the
+      target carries a matching department). DATA_MANAGER / ANALYST become
+      national under D7. Decide whether DR approvers should be limited to
+      field roles (e.g. REGIONAL → DIVISIONAL only).
+- [ ] D3 covers **staff** registrations only: `approveUser` answers 400
+      for COMPANY accounts ("Les entreprises sont automatiquement
+      approuvées"). Company inscriptions (Figma /admin/inscriptions) have no
+      approval step today.
+- [ ] `PATCH /auth/reject-user/:id` receives `reason` but never passes it to
+      the service; `rejectionReason` is not written.
+- [ ] `approveUser` / `rejectUser` write no audit row and do not set the B1
+      `approvedAt` column.
+- [ ] `src/auth/public-user.spec.ts` fails on master since B1: the ten new
+      User columns are not classified in `PUBLIC_USER_SELECT` /
+      `SECRET_USER_FIELDS` (`src/auth/public-user.ts`). `tokenVersion` at
+      least belongs in the secret list.
+
+---
+
 ## Phase B1 — user & registration schema (2026-09-30)
 
 Schema only (branch `admin/schema-user-registration`). Migrations
