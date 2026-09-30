@@ -347,9 +347,14 @@ model Declaration {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   fillingDate          DateTime?
+  // Campaign this declaration was filed under (campaign progress, phase B1).
+  // Nullable: pre-existing rows and declarations filed outside a campaign
+  // have none. Nothing writes it yet.
+  campaignId           String?
   auditLogs            AuditLog[]
   movements            DeclarationMovement[]
   company              Company               @relation(fields: [companyId], references: [id])
+  campaign             DataCampaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   employees            Employee[]
   qualitativeQuestions QualitativeQuestion[]
   validationSteps      ValidationStep[]
@@ -363,6 +368,7 @@ model Declaration {
   @@index([year])
   @@index([createdAt])
   @@index([submittedAt])
+  @@index([campaignId])
   @@map("declarations")
 }
 
@@ -536,6 +542,8 @@ model DataCampaign {
   freezes           CampaignFreeze[]
   creator           User?                @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
   round             SubmissionRound?
+  onefopSubmissions OnefopSubmission[]
+  declarations      Declaration[]
 
   @@index([status])
   @@map("data_campaigns")
@@ -746,6 +754,10 @@ model OnefopSubmission {
   quarterCode           String?                       @default("2025-T1")
   taxNumber             String?
   cnpsNumber            String?
+  // Campaign this submission was filed under (campaign progress, phase B1).
+  // Nullable: pre-existing rows and submissions filed outside a campaign
+  // have none. Nothing writes it yet.
+  campaignId            String?
   registrationNumber    String?
   metaJson              Json?
   administrationDetail  OnefopAdministrationDetail?
@@ -783,6 +795,7 @@ model OnefopSubmission {
   respondent            OnefopRespondent?
   skillNeeds            OnefopSkillNeed[]
   company               Company?                      @relation(fields: [companyId], references: [id])
+  campaign              DataCampaign?                 @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   departmentRef         Department?                   @relation(fields: [departmentId], references: [id])
   regionRef             Region?                       @relation(fields: [regionId], references: [id])
   subdivisionRef        Subdivision?                  @relation(fields: [subdivisionId], references: [id])
@@ -801,6 +814,7 @@ model OnefopSubmission {
   @@index([taxNumber])
   @@index([cnpsNumber])
   @@index([companyId], map: "idx_onefop_submissions_companyId")
+  @@index([campaignId])
   // Added for the SPSS/Excel bulk-export filters (DataManagementService) —
   // `department` and the `createdAt` from/to range were the only two
   // export filter columns without an index; at large submission counts
