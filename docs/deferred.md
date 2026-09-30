@@ -46,13 +46,12 @@ additively (filters + `paginate=true` envelope). Not built:
 
 Found while building (not fixed — outside this screen):
 
-- [ ] **`AUDIT_LIST_EXPORT` audit row is probably never written.**
-      `src/questionnaires/questionnaires.service.ts` (list export) creates
-      it with `resourceId: null`, but `AuditLog.resourceId` is a required
-      `String`. Prisma rejects the insert; the surrounding try/catch only
-      logs it. Dossier exports then leave no audit trail. Fix: pass a
-      non-null resourceId (e.g. `LIST_EXPORT`), or make the column
-      nullable (schema review). Not verified against a database.
+- [x] **`AUDIT_LIST_EXPORT` audit row was written with a null
+      resourceId.** Fixed in `6bb79de9`: `resourceId` is now
+      `` `EXPORT_${Date.now()}` ``, matching the bulk-visa
+      `BULK_<timestamp>` convention, and the surrounding catch now
+      logs at error level with the stack and rethrows instead of
+      swallowing.
 - [ ] **Pilotage "Voir tout le journal"** (`RecentActivity`, TODO in
       `react-web/src/app/admin/pilotage/page.tsx`) can now link to
       `/admin/journal-audit`, but only for SUPER_ADMIN, SUPER_ADMIN_ONEFOP
@@ -119,13 +118,16 @@ Not built, by guardrail:
 - [ ] "Ajouter un Rôle" / "Éditer" on Rôles & Permissions — roles are a
       fixed enum; editing them is an RBAC change. Screen shows a read-only
       role/scope reference and links to `/admin/utilisateurs`.
-- [ ] "Voir le journal complet →" — `/admin/journal-audit` does not exist.
-- [ ] Feature matrix is wrong on one point: it says no audit-log endpoint
+- [x] "Voir le journal complet →" — `/admin/journal-audit` now exists
+      (`admin/journal-audit` branch, `dc55e3a0` + `9771c52b`). The
+      parametres section could link to it instead of only showing the
+      recent-5 panel; not done in this pass.
+- [x] Feature matrix is wrong on one point: it says no audit-log endpoint
       exists; `GET /audit/reports` (`src/report/audit.controller.ts`,
       SUPER_ADMIN / SUPER_ADMIN_ONEFOP / AUDITOR) returns the latest
-      `AuditLog` rows of every type. The rebuild uses it for "Journal
-      d'audit récent". SUPER_ADMIN_DSMO can open the page but not this
-      endpoint, so the section shows a notice for that role.
+      `AuditLog` rows of every type. Corrected in `0b5ee606`.
+      SUPER_ADMIN_DSMO can open the page but not this endpoint, so the
+      section shows a notice for that role.
 - [ ] Page role gate (SUPER_ADMIN*, 3 roles) is wider than
       `/system-settings` (SUPER_ADMIN only) — reconcile if the settings
       endpoint is ever wired here.
@@ -212,6 +214,15 @@ paid Render plan.
 - [ ] **Suspended account → next request → 401.**
       Code shipped (`95b1d71f`). Reloads user state from DB in
       `JwtStrategy.validate()`. Not yet tested live.
+
+---
+
+## Test suite — pre-existing failures
+
+- [ ] `src/data-management/spss/export-filters.spec.ts` —
+      "filters rows by entity type, place and year" fails on master.
+      Confirmed pre-existing, unrelated to any recent change.
+      Investigate and fix. (Full suite: 521 pass, 1 fail.)
 
 ---
 
@@ -305,3 +316,12 @@ These are real but non-blocking. Tracked here so they don't get lost.
 - [x] Feature matrix: `docs/admin-replacement/feature-matrix.md`.
       10 screens, 34 capabilities, 38 endpoints inventoried. Risk
       summary at top.
+- [x] Schema-gap classification: matrix now has READY / PARTIAL /
+      BLOCKED per screen. Shipped as `0b5ee606`.
+- [x] Screens rebuilt: `/admin/parametres` (`84dbf903`),
+      `/admin/dossiers/[id]` (`66f9eec3`), `/admin/journal-audit`
+      (`ad889022` backend, `1d479741` frontend).
+- [ ] Remaining PARTIAL screens: utilisateurs, campagnes, diffusion,
+      annuaire/etablissements, inscriptions, centre qualité.
+- [ ] BLOCKED: établissement detail (multi-user relations, company
+      roles), questionnaires (canonical AST).
