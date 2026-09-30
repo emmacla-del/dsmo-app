@@ -23,6 +23,10 @@ pending a decision.
 | /admin/utilisateurs | "N départements sans divisionnaire actif" warning | Agents ONEFOP: warning for departments with no active Divisional agent | Coverage gap the national supervisor must act on | IMPLEMENTED |
 | /admin/utilisateurs | Pagination (20 per page) | Agents ONEFOP: Tables (paginated, 20 per page) | Roster exceeds one page nationally | IMPLEMENTED |
 | /admin/utilisateurs | Account count + "Actualiser" button above the table | — (no matrix entry) | Kept pending a decision; calls only GET /auth/users | OPEN |
+| /admin/campagnes | History columns Code (under the name), Type, Ouverture, Clôture with the "Prorogée (était …)" indicator — the frame shows Période / Soumissions / Taux complétion instead | Gestion des campagnes: Tables | Live campaign fields; the frame's submission columns have no data source (see deferred.md) | IMPLEMENTED |
+| /admin/campagnes | "Activer" button on DRAFT / PAUSED history rows | Gestion des campagnes: Actions ("Activer") | Only way to open a collection round from this screen | IMPLEMENTED |
+| /admin/campagnes | "Envoyer un rappel" button + reminder-type dialog on the active campaign card (replaces the per-row "Rappel", since active campaigns now sit in the card) | Gestion des campagnes: Actions ("Envoyer un rappel", "Rappel") | Manual reminders to establishments that have not submitted | IMPLEMENTED |
+| /admin/campagnes | "Mettre en pause" button on the active campaign card | Gestion des campagnes: Actions ("Mettre en pause") | Pausing is distinct from closing and has no Figma control | IMPLEMENTED |
 
 `/admin/journal-audit` was a new screen (the sidebar entry had no page), so
 no widgets are retained from it. The one control beyond the Figma frame, the
