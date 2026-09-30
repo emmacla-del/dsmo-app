@@ -3,6 +3,19 @@
 Decisions taken 2026-09-30. Every rebuild run and every backend
 endpoint PR reads this before choosing what to wire or guard.
 
+## Ground rule - Figma frames are visual targets, not feature lists
+A Figma frame shows what a screen should look like. It is NOT a
+request to build a capability. If a frame shows something the
+product does not do, do NOT build it - note it here and rebuild the
+screen without it. Two frames have already implied capabilities the
+product does not have (D4, D5). Check before building.
+
+Corollary: this is the ONEFOP ADMIN panel. It is for ONEFOP
+administration - reviewing establishments, registrations, agents,
+campaigns, quality. Anything scoped to a company's internal
+operations (its own users, its own roles) is out of scope unless
+explicitly requested.
+
 ## D1 - SUPER_ADMIN_ONEFOP on /admin/utilisateurs
 WIDEN. SUPER_ADMIN_ONEFOP may reassign agents and create minefop
 users, on par with SUPER_ADMIN. Matches its existing write powers
@@ -25,34 +38,21 @@ SKIP. Companies self-register. No admin "create establishment"
 endpoint or permission. Annuaire shows what exists.
 
 ## D5 - Company-side RBAC
-BUILD, with two clarifications:
+SKIP. The four roles shown in the Figma (Administrateur,
+Responsable, Comptable, Lecteur) are a company's INTERNAL roles.
+This admin panel is for ONEFOP administration, not for managing a
+company's own staff. The product has no company-scoped permission
+model and none is needed here.
 
-1. SCOPE. Figma's four roles (Administrateur, Responsable,
-   Comptable, Lecteur) are COMPANY-SCOPED permission roles, not
-   platform roles. Distinct from:
-   - the existing "respondent role" dropdown in the company
-     creation wizard (descriptive, not permission-granting), AND
-   - the platform UserRole enum.
+Do NOT add UserRole values, CompanyUserRole, or a CompanyMember
+relation. Do NOT build a permission matrix. Do NOT add an
+"Ajouter un utilisateur" or "Company roles" section.
 
-2. STORAGE. Do NOT add these values to UserRole. That enum holds
-   platform roles; adding company roles creates ambiguity in every
-   @Roles() check. Use a separate CompanyUserRole enum and a
-   CompanyMember relation:
-     CompanyMember { userId, companyId, role: CompanyUserRole }
-   Company.userId @unique -> one-to-many becomes
-   Company.members -> CompanyMember[].
-   Migration: each existing Company.userId becomes a CompanyMember
-   with role = ADMINISTRATEUR.
-
-3. PERMISSION MATRIX. Define before implementing:
-   - Administrateur: full
-   - Lecteur: read-only
-   - Responsable: TBD
-   - Comptable: TBD
-   TBD items are an open item - do not implement until decided.
-
-Largest schema change on the list. Sequence after B1/B2. Does not
-block any rebuild except /admin/etablissement-detail.
+Consequence: /admin/etablissement-detail rebuilds WITHOUT the
+company-roles section and WITHOUT admin user-creation for a
+company. The screen shows what exists for ONEFOP oversight:
+company info, its user account(s), and the actions ONEFOP can
+already take (reset password, suspend, delete).
 
 ## D6 - Quality-rule toggling
 SUPER_ADMIN* ONLY. Validation rules are system config, not
@@ -84,7 +84,3 @@ in the admin layout. Apply to each rebuild as it runs; retrofit
 - Export history on /admin/diffusion needs an export-job table
   (size, status, re-download) - schema, separate from audit.
 - /admin/parametres save endpoint + settings columns.
-- D5 permission matrix: Responsable and Comptable roles are TBD.
-  Resolve before B3 begins.
-- D5 (company RBAC) restructures Company.userId to one-to-many.
-  Sequence deliberately, not in the same PR as B1.
