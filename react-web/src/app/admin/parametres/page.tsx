@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { apiFetch } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { entityTypeLabel } from "@/lib/companies-directory";
 import type { UserRole } from "@/lib/user-types";
+import {
+  COUNTRY_OPTIONS,
+  LANGUAGE_OPTIONS,
+  TIMEZONE_OPTIONS,
+  getSystemSettings,
+  updateObservatoryIdentity,
+  type ObservatoryIdentityUpdate,
+  type SystemSettings,
+} from "@/lib/system-settings";
 
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "SUPER_ADMIN_DSMO"];
 
@@ -16,6 +25,9 @@ const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "SUPER_A
 const AUDIT_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP"];
 // /admin/utilisateurs has its own guard: SUPER_ADMIN, SUPER_ADMIN_ONEFOP.
 const AGENTS_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP"];
+// GET / PATCH /system-settings are @Roles(SUPER_ADMIN); the two other
+// super-admin roles keep the read-only reference display.
+const SETTINGS_ROLES: UserRole[] = ["SUPER_ADMIN"];
 
 type Tab = "general" | "utilisateurs" | "territoires" | "etablissements" | "notifications" | "securite" | "integration";
 
@@ -81,11 +93,12 @@ function RecentAudit({ enabled }: { enabled: boolean }) {
     enabled,
   });
 
-  // TODO(frontend, M): Figma "Voir le journal complet →" needs /admin/journal-audit (not built)
   return (
     <section className="cam-admin-section" aria-labelledby="param-audit-title">
       <div className="cam-admin-section-head">
         <h2 className="cam-admin-h2" id="param-audit-title">Journal d&apos;audit récent</h2>
+        {/* /admin/journal-audit allows SUPER_ADMIN, SUPER_ADMIN_ONEFOP, AUDITOR — a superset of `enabled`. */}
+        {enabled && <Link href="/admin/journal-audit" className="cam-text-button">Voir le journal complet →</Link>}
       </div>
       <div className="cam-admin-section-body">
         {!enabled ? (
@@ -137,6 +150,111 @@ function RolesSummary({ canManageAgents }: { canManageAgents: boolean }) {
   );
 }
 
+const identityOf = (s: SystemSettings): ObservatoryIdentityUpdate => ({
+  observatoryName: s.observatoryName,
+  countryCode: s.countryCode,
+  defaultLanguage: s.defaultLanguage,
+  timezone: s.timezone,
+});
+
+// Unset columns render as empty fields ("Non défini"), never as invented defaults.
+function ObservatoryIdentity() {
+  const queryClient = useQueryClient();
+  const settingsQuery = useQuery({ queryKey: ["system-settings"], queryFn: getSystemSettings });
+  const [draft, setDraft] = useState<ObservatoryIdentityUpdate | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: updateObservatoryIdentity,
+    onSuccess: (row) => {
+      queryClient.setQueryData(["system-settings"], row);
+      setDraft(null);
+      setSaved(true);
+    },
+  });
+
+  const stored = settingsQuery.data ? identityOf(settingsQuery.data) : null;
+  const form = draft ?? stored;
+  const dirty = !!draft && !!stored && (Object.keys(draft) as (keyof ObservatoryIdentityUpdate)[]).some((k) => draft[k] !== stored[k]);
+
+  const set = (key: keyof ObservatoryIdentityUpdate) => (value: string) => {
+    if (!form) return;
+    setSaved(false);
+    mutation.reset();
+    setDraft({ ...form, [key]: value === "" ? null : value });
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (form && dirty) mutation.mutate({ ...form, observatoryName: form.observatoryName?.trim() || null });
+  };
+
+  return (
+    <section className="cam-admin-section" aria-labelledby="param-ident-title">
+      <div className="cam-admin-section-head">
+        <h2 className="cam-admin-h2" id="param-ident-title">Informations de l&apos;observatoire</h2>
+      </div>
+      <div className="cam-admin-section-body">
+        {settingsQuery.isLoading ? (
+          <p className="cam-admin-meta">Chargement…</p>
+        ) : settingsQuery.isError || !form ? (
+          <div className="cam-admin-notice cam-admin-notice--error" role="alert">
+            <span>Impossible de charger les paramètres : {(settingsQuery.error as Error | null)?.message ?? "réponse vide"}</span>
+          </div>
+        ) : (
+          <form onSubmit={submit} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "var(--cam-space-4)" }}>
+            <div className="cam-field" style={{ gridColumn: "1 / -1" }}>
+              <label className="cam-label" htmlFor="param-observatory-name">Nom de l&apos;observatoire</label>
+              <input
+                id="param-observatory-name"
+                className="cam-input"
+                maxLength={120}
+                placeholder="Non défini"
+                value={form.observatoryName ?? ""}
+                onChange={(e) => set("observatoryName")(e.target.value)}
+              />
+            </div>
+            <SelectField id="param-country" label="Pays" value={form.countryCode} options={COUNTRY_OPTIONS} onChange={set("countryCode")} />
+            <SelectField id="param-language" label="Langue par défaut" value={form.defaultLanguage} options={LANGUAGE_OPTIONS} onChange={set("defaultLanguage")} />
+            <SelectField id="param-timezone" label="Fuseau horaire" value={form.timezone} options={TIMEZONE_OPTIONS} onChange={set("timezone")} />
+            <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: "var(--cam-space-3)" }}>
+              {saved && <span role="status" className="cam-admin-meta">Modifications enregistrées.</span>}
+              <button type="submit" className="cam-button cam-button-primary" disabled={!dirty || mutation.isPending}>
+                {mutation.isPending ? "Enregistrement…" : "Enregistrer les modifications"}
+              </button>
+            </div>
+            {mutation.isError && (
+              <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ gridColumn: "1 / -1" }}>
+                <span>L&apos;enregistrement a échoué : {(mutation.error as Error).message}</span>
+              </div>
+            )}
+          </form>
+        )}
+        <p className="cam-admin-meta cam-param-note">
+          Informations enregistrées pour l&apos;observatoire. La langue et le fuseau horaire de l&apos;interface ne
+          changent pas encore en fonction de ces valeurs.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function SelectField({ id, label, value, options, onChange }: {
+  id: string; label: string; value: string | null; options: { value: string; label: string }[]; onChange: (v: string) => void;
+}) {
+  // A stored value outside the offered list is still shown, not silently replaced.
+  const all = value && !options.some((o) => o.value === value) ? [...options, { value, label: value }] : options;
+  return (
+    <div className="cam-field">
+      <label className="cam-label" htmlFor={id}>{label}</label>
+      <select id={id} className="cam-select" value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Non défini</option>
+        {all.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
 export default function ParametresPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(ALLOWED_ROLES);
   const [activeTab, setActiveTab] = useState<Tab>("general");
@@ -154,6 +272,7 @@ export default function ParametresPage() {
   const role = user?.role;
   const canReadAudit = !!role && AUDIT_ROLES.includes(role);
   const canManageAgents = !!role && AGENTS_ROLES.includes(role);
+  const canEditSettings = !!role && SETTINGS_ROLES.includes(role);
 
   return (
     <div className="cam-admin-page">
@@ -178,19 +297,26 @@ export default function ParametresPage() {
         <div role="tabpanel" id={`param-panel-${activeTab}`} aria-labelledby={`param-tab-${activeTab}`} className="cam-param-panel">
           {activeTab === "general" && (
             <>
-              <section className="cam-admin-section" aria-labelledby="param-ident-title">
-                <div className="cam-admin-section-head">
-                  <h2 className="cam-admin-h2" id="param-ident-title">Informations de l&apos;observatoire</h2>
-                </div>
-                <div className="cam-admin-section-body">
-                  <dl className="cam-admin-kv">
-                    <div><dt>Nom de la plateforme</dt><dd>CAM-LEAP · ONEFOP</dd></div>
-                    <div><dt>Organisation</dt><dd>ONEFOP / MINEFOP — République du Cameroun</dd></div>
-                    <div><dt>Pays</dt><dd>Cameroun</dd></div>
-                    <div><dt>Langue par défaut</dt><dd>Français (FR)</dd></div>
-                  </dl>
-                </div>
-              </section>
+              {canEditSettings ? (
+                <ObservatoryIdentity />
+              ) : (
+                <section className="cam-admin-section" aria-labelledby="param-ident-title">
+                  <div className="cam-admin-section-head">
+                    <h2 className="cam-admin-h2" id="param-ident-title">Informations de l&apos;observatoire</h2>
+                  </div>
+                  <div className="cam-admin-section-body">
+                    <dl className="cam-admin-kv">
+                      <div><dt>Nom de la plateforme</dt><dd>CAM-LEAP · ONEFOP</dd></div>
+                      <div><dt>Organisation</dt><dd>ONEFOP / MINEFOP — République du Cameroun</dd></div>
+                      <div><dt>Pays</dt><dd>Cameroun</dd></div>
+                      <div><dt>Langue par défaut</dt><dd>Français (FR)</dd></div>
+                    </dl>
+                    <p className="cam-admin-meta cam-param-note">
+                      La modification de ces informations est réservée au super-administrateur plateforme.
+                    </p>
+                  </div>
+                </section>
+              )}
 
               <section className="cam-admin-section" aria-labelledby="param-collection-title">
                 <div className="cam-admin-section-head">
@@ -206,7 +332,9 @@ export default function ParametresPage() {
                   </dl>
                   <p className="cam-admin-meta cam-param-note">
                     Les campagnes de collecte (ouverture, échéances, clôture) se gèrent sur la page{" "}
-                    <Link href="/admin/campagnes">Campagnes</Link>.
+                    <Link href="/admin/campagnes">Campagnes</Link>. Campagne par défaut, plafond de fiches par
+                    superviseur, délai de soumission, soumission hors ligne et validation automatique ne sont pas
+                    configurables ici : leur effet sur la collecte et le circuit de visa doit d&apos;abord être arbitré.
                   </p>
                 </div>
               </section>
