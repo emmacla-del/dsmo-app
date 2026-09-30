@@ -1833,34 +1833,6 @@ model SystemSettings {
   @@map("system_settings")
 }
 
-// Singleton row (fixed id "singleton") holding the Super-Admin-editable
-// content for the public landing page (LandingScreen). `data` mirrors the
-// Flutter LandingConfig.fromJson/defaults() contract exactly — see
-// lib/models/landing_config.dart — so the API can just pass it through
-// unchanged; kept as one Json blob rather than scalar columns because the
-// `roadmap` field is inherently a list of structured {label, done} objects.
-model LandingConfig {
-  id        String   @id @default("singleton")
-  data      Json
-  updatedBy String?
-  updatedAt DateTime @updatedAt
-
-  @@map("landing_config")
-}
-
-// Append-only snapshot of LandingConfig.data taken right before each
-// overwrite (see LandingConfigService.updateConfig), so a bad Super Admin
-// save can be rolled back. Pruned to the most recent MAX_VERSIONS rows.
-model LandingConfigVersion {
-  id        String   @id @default(cuid())
-  data      Json
-  updatedBy String?
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
-  @@map("landing_config_versions")
-}
-
 enum BatchStatus {
   PENDING
   RUNNING
