@@ -16,7 +16,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
-import { BulkVisaDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { territoryFromUser } from '../auth/territory';
 import { ADMIN_LIST_FORM_TYPES, ADMIN_LIST_PERIODS, ADMIN_LIST_STATUSES, AdminListPeriod } from './admin-list-filter';
 
@@ -65,6 +65,14 @@ export class AdminQuestionnairesController {
   @Post('bulk-visa')
   async bulkVisa(@Body() dto: BulkVisaDto, @Request() req: any) {
     return this.eligibilityEngine.executeBulkVisa(req.user, dto);
+  }
+
+  /**
+   * Protected Transactional Bulk Reject
+   */
+  @Post('bulk-reject')
+  async bulkReject(@Body() dto: BulkRejectDto, @Request() req: any) {
+    return this.eligibilityEngine.executeBulkReject(req.user, dto);
   }
 
   /**

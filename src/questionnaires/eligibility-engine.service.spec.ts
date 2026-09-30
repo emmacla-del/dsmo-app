@@ -302,7 +302,7 @@ describe('EligibilityEngineService', () => {
       expect(result.rejectedCount).toBe(1);
       expect(result.rejectedItems[0].id).toBe('dirty-2');
       expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['clean-1'] } },
+        where: { id: { in: ['clean-1'] }, status: OnefopStatus.PENDING_REVIEW },
         data: expect.objectContaining({ status: OnefopStatus.APPROVED }),
       });
       expect(prisma.auditLog.create).toHaveBeenCalledWith(
@@ -311,6 +311,237 @@ describe('EligibilityEngineService', () => {
         })
       );
     });
+  });
+});
+
+// ── companion fix: executeBulkVisa — territory first, missing IDs, status re-check ───
+
+describe('EligibilityEngineService.executeBulkVisa — companion fixes', () => {
+  let engine: EligibilityEngineService;
+  let tx: any;
+
+  function buildEngine(candidates: any[]) {
+    tx = {
+      onefopSubmission: {
+        findMany: jest.fn(async () => candidates),
+        updateMany: jest.fn(async () => ({ count: 0 })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+    };
+    const prisma: any = { $transaction: jest.fn((fn: any) => fn(tx)) };
+    engine = new EligibilityEngineService(prisma);
+    return engine;
+  }
+
+  it('reports missing IDs instead of silently dropping them', async () => {
+    buildEngine([{
+      id: 's1', status: OnefopStatus.PENDING_REVIEW, region: 'Centre', department: 'Mfoundi', anomalies: [],
+    }]);
+    const result = await engine.executeBulkVisa(
+      { id: 'actor', role: UserRole.SUPER_ADMIN, email: 'a@a.cm' },
+      { submissionIds: ['s1', 'ghost'], certified: true },
+    );
+    expect(result.rejectedCount).toBe(1);
+    expect(result.rejectedItems[0]).toMatchObject({
+      id: 'ghost',
+      reason: expect.stringMatching(/introuvable|ressort/i),
+    });
+  });
+
+  it('territory check runs before status check — out-of-territory reason is generic', async () => {
+    // DIVISIONAL in Wouri; sub is in Mfoundi (different department)
+    buildEngine([{
+      id: 's1', status: OnefopStatus.APPROVED, region: 'Centre', department: 'Mfoundi', anomalies: [],
+    }]);
+    const divActor = { id: 'a', role: UserRole.DIVISIONAL, region: 'Centre', department: 'Wouri', email: 'a@a.cm' };
+    const result = await engine.executeBulkVisa(divActor, { submissionIds: ['s1'], certified: true });
+    // Must NOT reveal that the status was APPROVED (territory info-leak)
+    expect(result.rejectedItems[0].reason).not.toMatch(/APPROVED/i);
+    expect(result.rejectedItems[0].reason).toMatch(/introuvable|ressort/i);
+  });
+
+  it('updateMany includes status condition (concurrency guard)', async () => {
+    buildEngine([{
+      id: 's1', status: OnefopStatus.PENDING_REVIEW, region: 'Centre', department: 'Mfoundi', anomalies: [],
+    }]);
+    await engine.executeBulkVisa(
+      { id: 'a', role: UserRole.SUPER_ADMIN, email: 'a@a.cm' },
+      { submissionIds: ['s1'], certified: true },
+    );
+    const [{ where }] = tx.onefopSubmission.updateMany.mock.calls[0];
+    expect(where).toMatchObject({ status: OnefopStatus.PENDING_REVIEW });
+  });
+});
+
+// ── executeBulkReject ─────────────────────────────────────────────────────────
+
+describe('EligibilityEngineService.executeBulkReject', () => {
+  let engine: EligibilityEngineService;
+  let tx: any;
+
+  function buildEngine(candidates: any[]) {
+    tx = {
+      onefopSubmission: {
+        findMany: jest.fn(async () => candidates),
+        updateMany: jest.fn(async () => ({ count: 0 })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+    };
+    const prisma: any = { $transaction: jest.fn((fn: any) => fn(tx)) };
+    engine = new EligibilityEngineService(prisma);
+    return engine;
+  }
+
+  const actor = { id: 'actor-1', role: UserRole.SUPER_ADMIN, email: 'agent@onefop.cm' };
+  const validDto = {
+    submissionIds: ['s1'],
+    certified: true,
+    reason: 'Motif de rejet suffisamment long pour passer la validation',
+  };
+
+  function sub(id: string, status: OnefopStatus, region = 'Centre', department = 'Mfoundi') {
+    return { id, status, region, department };
+  }
+
+  it('rejects PENDING_REVIEW and writes one audit record', async () => {
+    buildEngine([sub('s1', OnefopStatus.PENDING_REVIEW)]);
+    const result = await engine.executeBulkReject(actor, validDto);
+    expect(result.processedCount).toBe(1);
+    expect(result.rejectedIds).toEqual(['s1']);
+    expect(result.rejectedCount).toBe(0);
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    const [{ data }] = tx.auditLog.create.mock.calls[0];
+    expect(data.action).toBe('AUDIT_BULK_REJECT');
+    expect(data.details.reason).toBe(validDto.reason);
+  });
+
+  it('rejects CORRECTION_REQUESTED', async () => {
+    buildEngine([sub('s1', OnefopStatus.CORRECTION_REQUESTED)]);
+    const result = await engine.executeBulkReject(actor, validDto);
+    expect(result.processedCount).toBe(1);
+  });
+
+  it('skips APPROVED with a status reason (not a territory reason)', async () => {
+    buildEngine([sub('s1', OnefopStatus.APPROVED)]);
+    const result = await engine.executeBulkReject(actor, validDto);
+    expect(result.processedCount).toBe(0);
+    expect(result.rejectedItems[0].reason).toMatch(/APPROVED/i);
+    // No audit record if nothing was actually rejected
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('updateMany uses status-in condition (concurrency guard)', async () => {
+    buildEngine([sub('s1', OnefopStatus.PENDING_REVIEW)]);
+    await engine.executeBulkReject(actor, validDto);
+    const [{ where }] = tx.onefopSubmission.updateMany.mock.calls[0];
+    expect(where.status).toMatchObject({
+      in: expect.arrayContaining([OnefopStatus.PENDING_REVIEW, OnefopStatus.CORRECTION_REQUESTED]),
+    });
+  });
+
+  it('reports missing IDs with the generic message', async () => {
+    buildEngine([]);
+    const result = await engine.executeBulkReject(actor, { ...validDto, submissionIds: ['ghost'] });
+    expect(result.rejectedItems[0]).toMatchObject({
+      id: 'ghost',
+      reason: expect.stringMatching(/introuvable|ressort/i),
+    });
+  });
+
+  it('territory check before status check — out-of-territory reason is generic', async () => {
+    const divActor = { id: 'a', role: UserRole.DIVISIONAL, region: 'Centre', department: 'Wouri', email: 'a@a.cm' };
+    buildEngine([sub('s1', OnefopStatus.APPROVED, 'Centre', 'Mfoundi')]);
+    const result = await engine.executeBulkReject(divActor, validDto);
+    expect(result.rejectedItems[0].reason).not.toMatch(/APPROVED/i);
+    expect(result.rejectedItems[0].reason).toMatch(/introuvable|ressort/i);
+  });
+
+  it('throws 400 when certified is false', async () => {
+    buildEngine([]);
+    await expect(
+      engine.executeBulkReject(actor, { ...validDto, certified: false }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws 400 when submissionIds is empty', async () => {
+    buildEngine([]);
+    await expect(
+      engine.executeBulkReject(actor, { ...validDto, submissionIds: [] }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws 400 when reason is under 10 chars', async () => {
+    buildEngine([]);
+    await expect(
+      engine.executeBulkReject(actor, { ...validDto, reason: 'court' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('response shape matches the contract', async () => {
+    buildEngine([sub('s1', OnefopStatus.PENDING_REVIEW)]);
+    const result = await engine.executeBulkReject(actor, validDto);
+    expect(result).toMatchObject({
+      success: true,
+      processedCount: expect.any(Number),
+      rejectedCount: expect.any(Number),
+      rejectedIds: expect.any(Array),
+      rejectedItems: expect.any(Array),
+      timestamp: expect.any(String),
+    });
+  });
+});
+
+// ── QuestionnairesService.reject — companion fix tests ────────────────────────
+
+import { QuestionnairesService } from './questionnaires.service';
+
+describe('QuestionnairesService.reject — companion fixes', () => {
+  function buildService(existingStatus: string) {
+    const submission = { id: 's1', status: existingStatus, region: 'Centre', department: 'Mfoundi' };
+    const prisma: any = {
+      onefopSubmission: {
+        findFirst: jest.fn(async () => submission),
+        update: jest.fn(async (args: any) => ({ ...submission, ...args.data })),
+      },
+      auditLog: { create: jest.fn(async () => ({})) },
+    };
+    return { service: new QuestionnairesService(prisma), prisma };
+  }
+
+  it('throws 400 when reason is too short', async () => {
+    const { service } = buildService('PENDING_REVIEW');
+    await expect(service.reject('s1', 'court')).rejects.toThrow(BadRequestException);
+    await expect(service.reject('s1', '')).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws 400 when status is APPROVED', async () => {
+    const { service } = buildService('APPROVED');
+    await expect(
+      service.reject('s1', 'Justification valide et suffisamment longue'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws 400 when status is DRAFT', async () => {
+    const { service } = buildService('DRAFT');
+    await expect(
+      service.reject('s1', 'Justification valide et suffisamment longue'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('succeeds for PENDING_REVIEW and writes AUDIT_REJECT', async () => {
+    const { service, prisma } = buildService('PENDING_REVIEW');
+    await service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1');
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+    const [{ data }] = prisma.auditLog.create.mock.calls[0];
+    expect(data.action).toBe('AUDIT_REJECT');
+    expect(data.userId).toBe('actor-1');
+  });
+
+  it('succeeds for CORRECTION_REQUESTED', async () => {
+    const { service } = buildService('CORRECTION_REQUESTED');
+    await expect(
+      service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1'),
+    ).resolves.not.toThrow();
   });
 });
 

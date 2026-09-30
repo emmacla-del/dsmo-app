@@ -2,6 +2,21 @@
 import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { AnomalyResolutionType } from '@prisma/client';
 
+export class BulkRejectDto {
+  @IsArray()
+  @IsNotEmpty()
+  @IsString({ each: true })
+  submissionIds: string[];
+
+  @IsBoolean()
+  certified: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10, { message: 'La justification doit comporter au moins 10 caractères.' })
+  reason: string;
+}
+
 export class BulkVisaDto {
   @IsArray()
   @IsNotEmpty()

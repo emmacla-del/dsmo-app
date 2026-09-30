@@ -3032,7 +3032,24 @@ export class QuestionnairesService {
   }
 
   async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory) {
-    await this.getById(id, territory);
+    if (!reason || reason.trim().length < 10) {
+      throw new BadRequestException('La justification du rejet doit comporter au moins 10 caractères.');
+    }
+    const submission = await this.getById(id, territory);
+    if (submission.status !== 'PENDING_REVIEW' && submission.status !== 'CORRECTION_REQUESTED') {
+      throw new BadRequestException(`Impossible de rejeter un dossier au statut ${submission.status}.`);
+    }
+    if (reviewedBy) {
+      await (this.prisma as any).auditLog.create({
+        data: {
+          userId: reviewedBy,
+          action: 'AUDIT_REJECT',
+          resourceType: 'OnefopSubmission',
+          resourceId: id,
+          details: { reason },
+        },
+      });
+    }
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
   }
 

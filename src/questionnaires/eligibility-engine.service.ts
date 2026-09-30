@@ -17,7 +17,7 @@ import {
   PilotageQueues,
   StatisticalExclusionReason,
 } from '../types/eligibility.types';
-import { BulkVisaDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { BulkVisaDto, BulkRejectDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 
 @Injectable()
@@ -385,8 +385,26 @@ export class EligibilityEngineService {
       const approvedIds: string[] = [];
       const rejectedItems: Array<{ id: string; reason: string }> = [];
 
+      // IDs not returned by findMany were either missing or already filtered by DB.
+      // Report them with the same message used for out-of-territory rows (no info leak).
+      const foundSet = new Set(candidates.map((c) => c.id));
+      for (const requestedId of dto.submissionIds) {
+        if (!foundSet.has(requestedId)) {
+          rejectedItems.push({ id: requestedId, reason: 'Dossier introuvable ou hors ressort.' });
+        }
+      }
+
       for (const candidate of candidates) {
-        // Condition A: Must be in PENDING_REVIEW
+        // Condition A (FIRST): Territorial jurisdiction check.
+        // Out-of-territory rows get the same generic message as missing rows — no leak.
+        try {
+          assertTerritorialAuthority(actor, candidate);
+        } catch {
+          rejectedItems.push({ id: candidate.id, reason: 'Dossier introuvable ou hors ressort.' });
+          continue;
+        }
+
+        // Condition B: Must be in PENDING_REVIEW
         if (candidate.status !== OnefopStatus.PENDING_REVIEW) {
           rejectedItems.push({
             id: candidate.id,
@@ -395,7 +413,7 @@ export class EligibilityEngineService {
           continue;
         }
 
-        // Condition B: Zero open blocking anomalies (Axe 2 Quality condition)
+        // Condition C: Zero open blocking anomalies (Axe 2 Quality condition)
         if (candidate.anomalies.length > 0) {
           rejectedItems.push({
             id: candidate.id,
@@ -404,24 +422,15 @@ export class EligibilityEngineService {
           continue;
         }
 
-        // Condition C: Territorial jurisdiction check
-        try {
-          assertTerritorialAuthority(actor, candidate);
-        } catch (err: any) {
-          rejectedItems.push({
-            id: candidate.id,
-            reason: `Hors du ressort territorial de l'agent (${err.message}).`,
-          });
-          continue;
-        }
-
         approvedIds.push(candidate.id);
       }
 
-      // 2. Atomically update all verified clean candidates
+      // 2. Atomically update all verified clean candidates.
+      // The status condition inside the where re-checks status atomically,
+      // preventing a concurrent action between our read and this write.
       if (approvedIds.length > 0) {
         await tx.onefopSubmission.updateMany({
-          where: { id: { in: approvedIds } },
+          where: { id: { in: approvedIds }, status: OnefopStatus.PENDING_REVIEW },
           data: {
             status: OnefopStatus.APPROVED,
             reviewedBy: actor.id,
@@ -457,6 +466,114 @@ export class EligibilityEngineService {
         rejectedCount: rejectedItems.length,
         approvedIds,
         rejectedItems,
+        timestamp: new Date().toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Protected Transactional Bulk Reject
+   * Mirrors executeBulkVisa: territory check first, one transaction, one audit record.
+   * Rejectable statuses: PENDING_REVIEW and CORRECTION_REQUESTED only.
+   */
+  async executeBulkReject(actor: any, dto: BulkRejectDto) {
+    if (!dto.certified) {
+      throw new BadRequestException(
+        'Le rejet groupé requiert une certification formelle de la part de l\'officier ministériel.',
+      );
+    }
+
+    if (!dto.submissionIds || dto.submissionIds.length === 0) {
+      throw new BadRequestException('Aucun dossier sélectionné pour le rejet groupé.');
+    }
+
+    if (!dto.reason || dto.reason.trim().length < 10) {
+      throw new BadRequestException('La justification doit comporter au moins 10 caractères.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const candidates = await tx.onefopSubmission.findMany({
+        where: { id: { in: dto.submissionIds } },
+        select: { id: true, status: true, region: true, department: true },
+      });
+
+      const rejectableIds: string[] = [];
+      const skippedItems: Array<{ id: string; reason: string }> = [];
+
+      // Missing IDs — same message as out-of-territory (no info leak)
+      const foundSet = new Set(candidates.map((c) => c.id));
+      for (const requestedId of dto.submissionIds) {
+        if (!foundSet.has(requestedId)) {
+          skippedItems.push({ id: requestedId, reason: 'Dossier introuvable ou hors ressort.' });
+        }
+      }
+
+      for (const candidate of candidates) {
+        // Territory FIRST — out-of-territory rows get the same generic message
+        try {
+          assertTerritorialAuthority(actor, candidate);
+        } catch {
+          skippedItems.push({ id: candidate.id, reason: 'Dossier introuvable ou hors ressort.' });
+          continue;
+        }
+
+        // Status precondition: only PENDING_REVIEW or CORRECTION_REQUESTED
+        if (
+          candidate.status !== OnefopStatus.PENDING_REVIEW &&
+          candidate.status !== OnefopStatus.CORRECTION_REQUESTED
+        ) {
+          skippedItems.push({
+            id: candidate.id,
+            reason: `Statut administratif invalide (${candidate.status}).`,
+          });
+          continue;
+        }
+
+        rejectableIds.push(candidate.id);
+      }
+
+      if (rejectableIds.length > 0) {
+        // Status condition inside where prevents concurrent overwrites
+        await tx.onefopSubmission.updateMany({
+          where: {
+            id: { in: rejectableIds },
+            status: { in: [OnefopStatus.PENDING_REVIEW, OnefopStatus.CORRECTION_REQUESTED] },
+          },
+          data: {
+            status: OnefopStatus.REJECTED,
+            rejectionReason: dto.reason,
+            reviewedBy: actor.id,
+            reviewedAt: new Date(),
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: actor.id,
+            action: 'AUDIT_BULK_REJECT',
+            resourceType: 'OnefopSubmission',
+            resourceId: `BULK_${Date.now()}`,
+            details: {
+              actorRole: actor.role,
+              actorEmail: actor.email,
+              totalRequested: dto.submissionIds.length,
+              rejectedCount: rejectableIds.length,
+              skippedCount: skippedItems.length,
+              rejectedIds: rejectableIds,
+              skippedItems,
+              reason: dto.reason,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+      }
+
+      return {
+        success: true,
+        processedCount: rejectableIds.length,
+        rejectedCount: skippedItems.length,
+        rejectedIds: rejectableIds,
+        rejectedItems: skippedItems,
         timestamp: new Date().toISOString(),
       };
     });
