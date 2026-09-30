@@ -506,3 +506,36 @@ rather than showing invented or empty data:
 Also stale: docs/admin-replacement/feature-matrix.md still lists Réassigner as
 "SUPER_ADMIN only / not wired" and Ajouter Agent as disabled. Both are wired
 now and open to SUPER_ADMIN_ONEFOP per D1.
+
+## Deferred - CampaignSubmission is never updated (investigation 2026-09-30)
+
+CampaignSubmission has one writer: createMany at campaign
+activation. Nothing ever updates it. It is read by:
+  - GET /campaigns/:id/progress and GET /campaigns (progress tile)
+  - reminders (_getPendingCompanies filters status NOT IN
+    [SUBMITTED, VALIDATED])
+  - company dashboards (mySubmission in active/current)
+  - report.service.ts (completion rate, regional breakdown)
+
+Consequences: reminders go to every targeted establishment,
+including those who already submitted. Company dashboards show the
+campaign as not started. Every report completion rate is 0.
+
+Root cause: neither OnefopSubmission nor Declaration records the
+campaign. The only indirect link is SubmissionRound.quarterCode
+(ONEFOP) or "the round open at submit time" (DSMO).
+
+Fix in phases:
+  B1 DONE (PR #16): campaignId nullable FK on both submission
+    models, migration additive.
+  B2: ONEFOP write path - set campaignId at submit, update
+    CampaignSubmission for (campaignId, companyId).
+  B3: DSMO write path - same, via the active DSMO round.
+  B4: review transitions - approve -> VALIDATED, reject/correction
+    -> PENDING.
+  No backfill (decided): historical submissions keep NULL
+  campaignId. Only new submissions are tracked.
+
+Note: campaign_submissions was created by prisma db push, not a
+migration. A database built from migrations alone would not have
+it. Same drift class as landing_config.
