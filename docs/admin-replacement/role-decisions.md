@@ -25,16 +25,34 @@ SKIP. Companies self-register. No admin "create establishment"
 endpoint or permission. Annuaire shows what exists.
 
 ## D5 - Company-side RBAC
-BUILD, with a naming caveat. Figma's four roles (Administrateur,
-Responsable, Comptable, Lecteur) are PERMISSION roles. They are
-distinct from the existing "respondent role" dropdown in the
-company creation wizard, which is descriptive, not permission-
-granting. Do not conflate. Work includes:
-- UserRole enum additions for the four company-side roles
-- Company.userId @unique -> one-to-many
-- Permission matrix per role
-- Migration of existing company users to Administrateur
-Largest schema change on the list; sequenced after B1/B2.
+BUILD, with two clarifications:
+
+1. SCOPE. Figma's four roles (Administrateur, Responsable,
+   Comptable, Lecteur) are COMPANY-SCOPED permission roles, not
+   platform roles. Distinct from:
+   - the existing "respondent role" dropdown in the company
+     creation wizard (descriptive, not permission-granting), AND
+   - the platform UserRole enum.
+
+2. STORAGE. Do NOT add these values to UserRole. That enum holds
+   platform roles; adding company roles creates ambiguity in every
+   @Roles() check. Use a separate CompanyUserRole enum and a
+   CompanyMember relation:
+     CompanyMember { userId, companyId, role: CompanyUserRole }
+   Company.userId @unique -> one-to-many becomes
+   Company.members -> CompanyMember[].
+   Migration: each existing Company.userId becomes a CompanyMember
+   with role = ADMINISTRATEUR.
+
+3. PERMISSION MATRIX. Define before implementing:
+   - Administrateur: full
+   - Lecteur: read-only
+   - Responsable: TBD
+   - Comptable: TBD
+   TBD items are an open item - do not implement until decided.
+
+Largest schema change on the list. Sequence after B1/B2. Does not
+block any rebuild except /admin/etablissement-detail.
 
 ## D6 - Quality-rule toggling
 SUPER_ADMIN* ONLY. Validation rules are system config, not
@@ -66,6 +84,7 @@ in the admin layout. Apply to each rebuild as it runs; retrofit
 - Export history on /admin/diffusion needs an export-job table
   (size, status, re-download) - schema, separate from audit.
 - /admin/parametres save endpoint + settings columns.
-- D5 (company RBAC) is the largest schema change on the list and
-  will restructure Company.userId to one-to-many. Sequence it
-  deliberately, not in the same PR as B1.
+- D5 permission matrix: Responsable and Comptable roles are TBD.
+  Resolve before B3 begins.
+- D5 (company RBAC) restructures Company.userId to one-to-many.
+  Sequence deliberately, not in the same PR as B1.
