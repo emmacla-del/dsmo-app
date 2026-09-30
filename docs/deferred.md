@@ -179,8 +179,9 @@ These are real but non-blocking. Tracked here so they don't get lost.
       "Visas & décisions" in the sidebar, "Instruction et visas" in
       the header, and "dossiers" in the route; "Dossiers en instance"
       points at `/admin/files-attente`
-- [ ] No admin path to change a user's region or department — requires
-      direct SQL
+- [x] Admin path to change region/department:
+      `PATCH /auth/users/:id/territory`, SUPER_ADMIN only.
+      (Shipped as `7d36ee0d`.)
 - [x] Dossier detail "Rejeter la Fiche" / "Valider et Archiver" buttons
       render but have no onClick — wired in 012b01de.
 - [ ] /admin/diffusion KPI tiles show hardcoded "—" — backend endpoint
