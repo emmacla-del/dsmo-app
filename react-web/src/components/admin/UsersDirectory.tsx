@@ -19,6 +19,7 @@ import {
   rowStatusMeta,
   suspendUser,
   updateUserRole,
+  updateUserTerritory,
 } from "@/lib/user-directory";
 import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
 
@@ -29,7 +30,8 @@ type Modal =
   | { type: "reject"; user: DirectoryUser }
   | { type: "role"; user: DirectoryUser }
   | { type: "toggle"; user: DirectoryUser }
-  | { type: "delete"; user: DirectoryUser };
+  | { type: "delete"; user: DirectoryUser }
+  | { type: "reassign"; user: DirectoryUser };
 
 /**
  * Faithful port of users_directory_screen.dart — the SUPER_ADMIN-only roster
@@ -43,9 +45,9 @@ type Modal =
  * account's exact email before the delete button enables, matching
  * _DeleteConfirmSheet precisely rather than a plain "are you sure".
  *
- * "Nouvel agent" (CreateMinefopUserScreen, a separate creation form) is not
- * ported in this slice — this component covers the roster/actions surface
- * only.
+ * Account creation ("Ajouter Agent") is not part of this component: it lives
+ * on /admin/utilisateurs, which owns the toolbar. This component covers the
+ * roster/actions surface only.
  */
 export interface RoleScope {
   key: string;
@@ -61,9 +63,20 @@ interface UsersDirectoryProps {
   showRegionFilter?: boolean;
   /** Roles offered in the role-change dialog (default: every assignable role). */
   assignableRoles?: string[];
+  /**
+   * Agent-roster layout (Figma "Utilisateurs ONEFOP"): initials avatar, assigned
+   * region column and text-link row actions. Off by default so the Annuaire
+   * "Utilisateurs" tab keeps its current layout.
+   */
+  agentRoster?: boolean;
+  /**
+   * Enables the "Réassigner" action (PATCH /auth/users/:id/territory) with
+   * these roles on offer. Omitted = no reassign action.
+   */
+  reassignRoles?: string[];
 }
 
-export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ASSIGNABLE_ROLES }: UsersDirectoryProps = {}) {
+export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ASSIGNABLE_ROLES, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
   const t = useTranslations();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -129,6 +142,11 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
     onSuccess: () => { invalidate(); setModal(null); },
   });
   const deleteMutation = useMutation({ mutationFn: (id: string) => deleteUser(id), onSuccess: () => { invalidate(); setModal(null); } });
+  const reassignMutation = useMutation({
+    mutationFn: ({ id, role, region, department }: { id: string; role: string; region: string; department: string }) =>
+      updateUserTerritory(id, { role, region, department }),
+    onSuccess: () => { invalidate(); setModal(null); },
+  });
 
   useEffect(() => {
     if (modal) dialogRef.current?.showModal();
@@ -232,8 +250,8 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
             <table className="cam-table">
               <thead>
                 <tr>
-                  <th scope="col">{t("usersDirectory.userColumn")}</th>
-                  <th scope="col">{t("usersDirectory.locationColumn")}</th>
+                  <th scope="col">{agentRoster ? t("usersDirectory.agentColumn") : t("usersDirectory.userColumn")}</th>
+                  <th scope="col">{agentRoster ? t("usersDirectory.regionColumn") : t("usersDirectory.locationColumn")}</th>
                   <th scope="col">{t("usersDirectory.roleColumn")}</th>
                   <th scope="col">{t("usersDirectory.statusColumn")}</th>
                   <th scope="col" style={{ textAlign: "right" }}>{t("usersDirectory.actionsColumn")}</th>
@@ -247,22 +265,38 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                   return (
                     <tr key={u.id}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{name || u.email}</div>
-                        {name && (
-                          <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
-                            {u.email}
+                        <div style={agentRoster ? { display: "flex", alignItems: "center", gap: "var(--cam-space-3)" } : undefined}>
+                          {agentRoster && (
+                            <span aria-hidden="true" style={avatarStyle}>{initialsOf(u)}</span>
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, color: agentRoster ? "var(--cam-green-dark)" : undefined }}>{name || u.email}</div>
+                            {name && (
+                              <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>
+                                {u.email}
+                              </div>
+                            )}
+                            {u.matricule && (
+                              <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
+                                {u.matricule}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {u.matricule && (
-                          <div style={{ fontFamily: "var(--cam-font-mono)", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                            {u.matricule}
-                          </div>
-                        )}
+                        </div>
                       </td>
                       <td>
-                        <span style={{ color: location ? "var(--cam-text)" : "var(--cam-text-muted)" }}>
-                          {location || "—"}
-                        </span>
+                        {agentRoster ? (
+                          <>
+                            <div style={{ color: u.region ? "var(--cam-text)" : "var(--cam-text-muted)" }}>{u.region || "—"}</div>
+                            {u.department && (
+                              <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)" }}>{u.department}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span style={{ color: location ? "var(--cam-text)" : "var(--cam-text-muted)" }}>
+                            {location || "—"}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span className="cam-badge cam-badge-neutral" style={{ color: directoryRoleColor(u.role), borderColor: "var(--cam-border)" }}>
@@ -279,6 +313,13 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                         </span>
                       </td>
                       <td style={{ textAlign: "right" }}>
+                        {agentRoster ? (
+                          <RosterActions
+                            user={u}
+                            canReassign={!!reassignRoles}
+                            onOpen={(type) => setModal({ type, user: u } as Modal)}
+                          />
+                        ) : (
                         <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center", justifyContent: "flex-end" }}>
                           {u.status === "PENDING_APPROVAL" && (
                             <>
@@ -333,6 +374,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
                             </>
                           )}
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -410,6 +452,16 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
             onConfirm={(role) => roleMutation.mutate({ id: modal.user.id, role })}
           />
         )}
+        {modal?.type === "reassign" && reassignRoles && (
+          <ReassignModal
+            user={modal.user}
+            roles={reassignRoles}
+            pending={reassignMutation.isPending}
+            error={reassignMutation.error as Error | null}
+            onCancel={() => setModal(null)}
+            onConfirm={(v) => reassignMutation.mutate({ id: modal.user.id, ...v })}
+          />
+        )}
         {modal?.type === "delete" && (
           <DeleteModal
             user={modal.user}
@@ -420,6 +472,51 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
           />
         )}
       </dialog>
+    </div>
+  );
+}
+
+const avatarStyle: React.CSSProperties = {
+  width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: "var(--cam-radius-full)",
+  background: "var(--cam-green-dark)", color: "#fff", fontSize: "var(--cam-font-size-2xs)", fontWeight: 700,
+};
+
+function initialsOf(u: DirectoryUser): string {
+  const fromName = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join("");
+  return (fromName || u.email.slice(0, 2)).toUpperCase();
+}
+
+type RosterModal = "approve" | "reject" | "role" | "toggle" | "delete" | "reassign";
+
+// Figma row actions: text links separated by a thin rule, instead of buttons.
+function RosterActions({ user, canReassign, onOpen }: { user: DirectoryUser; canReassign: boolean; onOpen: (type: RosterModal) => void }) {
+  const t = useTranslations();
+  const actions: { type: RosterModal; label: string; danger?: boolean }[] =
+    user.status === "PENDING_APPROVAL"
+      ? [{ type: "approve", label: t("usersDirectory.approve") }, { type: "reject", label: t("usersDirectory.reject"), danger: true }]
+      : user.status === "REJECTED"
+        ? [{ type: "delete", label: t("usersDirectory.delete"), danger: true }]
+        : [
+            ...(canReassign ? [{ type: "reassign" as const, label: t("usersDirectory.reassign") }] : []),
+            { type: "role", label: t("usersDirectory.roleButton") },
+            { type: "toggle", label: user.isActive ? t("usersDirectory.suspend") : t("usersDirectory.reactivate") },
+            { type: "delete", label: t("usersDirectory.delete"), danger: true },
+          ];
+  return (
+    <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: "var(--cam-space-2)" }}>
+      {actions.map((a, i) => (
+        <span key={a.type} style={{ display: "inline-flex", alignItems: "center", gap: "var(--cam-space-2)" }}>
+          {i > 0 && <span aria-hidden="true" style={{ color: "var(--cam-border-strong)" }}>|</span>}
+          <button
+            type="button"
+            className="cam-text-button"
+            style={a.danger ? { color: "var(--cam-error)" } : undefined}
+            onClick={() => onOpen(a.type)}
+          >
+            {a.label}
+          </button>
+        </span>
+      ))}
     </div>
   );
 }
@@ -506,6 +603,72 @@ function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user:
       </div>
       <div style={modalActionsRow}>
         <button type="button" className="cam-button cam-button-secondary" style={{ width: "100%" }} onClick={onCancel}>{t("common.cancel")}</button>
+      </div>
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+// Role + region + department in one PATCH /auth/users/:id/territory. Mirrors
+// the server's rules so the admin sees them before submitting: REGIONAL needs
+// a region, DIVISIONAL a region and a department. The server re-checks all of
+// it and refuses reassigning your own account.
+function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
+  user: DirectoryUser; roles: string[]; pending: boolean; error: Error | null; onCancel: () => void;
+  onConfirm: (v: { role: string; region: string; department: string }) => void;
+}) {
+  const t = useTranslations();
+  const initialRegion = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name.toLowerCase() === (user.region ?? "").toLowerCase())?.name ?? "";
+  const [role, setRole] = useState(roles.includes(user.role) ? user.role : roles[0]);
+  const [region, setRegion] = useState(initialRegion);
+  const [department, setDepartment] = useState(
+    CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === initialRegion)?.departments
+      .find((d) => d.name.toLowerCase() === (user.department ?? "").toLowerCase())?.name ?? "",
+  );
+  const departments = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === region)?.departments ?? [];
+  const missing =
+    (role === "REGIONAL" || role === "DIVISIONAL") && !region
+      ? t("usersDirectory.reassignRegionRequired")
+      : role === "DIVISIONAL" && !department
+        ? t("usersDirectory.reassignDepartmentRequired")
+        : null;
+  const fieldStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "var(--cam-space-1)", marginTop: "var(--cam-space-3)" };
+  return (
+    <div style={modalBodyStyle}>
+      <h2 style={modalTitleStyle}>{t("usersDirectory.reassignTitle", { name: directoryUserName(user) || user.email })}</h2>
+      <p style={{ color: "var(--cam-text-muted)", fontSize: "var(--cam-font-size-sm)" }}>{t("usersDirectory.reassignHint")}</p>
+      <div style={fieldStyle}>
+        <label className="cam-label" htmlFor="reassign-role">{t("usersDirectory.roleColumn")}</label>
+        <select id="reassign-role" className="cam-select" value={role} onChange={(e) => setRole(e.target.value)}>
+          {roles.map((r) => <option key={r} value={r}>{directoryRoleLabel(r)}</option>)}
+        </select>
+      </div>
+      <div style={fieldStyle}>
+        <label className="cam-label" htmlFor="reassign-region">{t("usersDirectory.reassignRegionLabel")}</label>
+        <select id="reassign-region" className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
+          <option value="">{t("usersDirectory.reassignNone")}</option>
+          {CAMEROON_ADMIN_HIERARCHY.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+        </select>
+      </div>
+      <div style={fieldStyle}>
+        <label className="cam-label" htmlFor="reassign-department">{t("usersDirectory.reassignDepartmentLabel")}</label>
+        <select id="reassign-department" className="cam-select" value={department} disabled={!region} onChange={(e) => setDepartment(e.target.value)}>
+          <option value="">{t("usersDirectory.reassignNone")}</option>
+          {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+        </select>
+      </div>
+      {missing && <p role="alert" style={{ color: "var(--cam-warning)", fontSize: "var(--cam-font-size-sm)", marginTop: "var(--cam-space-3)" }}>{missing}</p>}
+      <div style={modalActionsRow}>
+        <button type="button" className="cam-button cam-button-secondary" style={cancelBtnStyle} onClick={onCancel}>{t("common.cancel")}</button>
+        <button
+          type="button"
+          className="cam-button cam-button-primary"
+          style={{ flex: 1 }}
+          disabled={pending || !!missing}
+          onClick={() => onConfirm({ role, region, department })}
+        >
+          {pending ? "…" : t("usersDirectory.reassignSubmit")}
+        </button>
       </div>
       <ErrorLine error={error} />
     </div>
