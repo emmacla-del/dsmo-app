@@ -10,6 +10,37 @@ top with a date.
 
 ---
 
+## Dossier detail rebuild — Figma elements not built (2026-09-30)
+
+`/admin/dossiers/[id]` was rebuilt against
+`react-web/docs/figma/supervision/dossiers/_id.png` and
+`.../_id/retour-correction.png`. These Figma elements need backend or
+frontend work that does not exist yet:
+
+- [ ] **Sections 2–4 content** (Emploi, Départs, Formation accordions).
+      `GET /admin/questionnaires/:id` returns the data, but no read-only
+      renderer for the statistical tables exists in react-web. Needs a
+      schema-driven viewer built on `onefop.schema.json`, not hand-coded
+      tables. Page shows a one-line notice instead of empty accordions.
+- [ ] **"Superviseur: …" in the header subtitle and reviewer names in the
+      history.** `reviewedBy` is a bare user id; no name is returned.
+- [ ] **"Fiche d'enquête initialisée" history step.** Draft creation is not
+      recorded separately from submission (`createdAt` = `submissionDate`).
+      A full history needs an audit-log read endpoint (none exists).
+- [ ] **Retour pour correction: section concernée, axe affecté, délai de
+      correction, documents justificatifs.** `request-correction` accepts
+      only `comments` + `certified`. Adding these is a schema + API change.
+- [ ] **Single-dossier approve writes no audit record.** Bulk visa writes
+      `AUDIT_BULK_VISA_GRANTED`, reject and correction write `AUDIT_REJECT`
+      / `AUDIT_CORRECTION`, but `QuestionnairesService.approve` writes
+      nothing. The old approve dialog claimed it did; the claim was removed.
+      Single approve also has no certification step, unlike bulk visa.
+- [ ] **Payload size.** The page calls `GET /admin/questionnaires/:id`,
+      which includes ~30 relations to render ~20 fields. Fine per request;
+      a slimmer admin-summary endpoint would help on slow connections.
+
+---
+
 ## CORRECTION_REQUESTED structural gaps — deferred (2026-09-30)
 
 Three structural issues identified during CORRECTION_REQUESTED discovery.
@@ -150,15 +181,15 @@ These are real but non-blocking. Tracked here so they don't get lost.
       points at `/admin/files-attente`
 - [ ] No admin path to change a user's region or department — requires
       direct SQL
-- [ ] Dossier detail "Rejeter la Fiche" / "Valider et Archiver" buttons
-      render but have no onClick — endpoints exist
-      (PATCH /:id/reject, /:id/approve) but aren't called. Dead UI.
+- [x] Dossier detail "Rejeter la Fiche" / "Valider et Archiver" buttons
+      render but have no onClick — wired in 012b01de.
 - [ ] /admin/diffusion KPI tiles show hardcoded "—" — backend endpoint
       (GET /data-management/stats) exists but isn't wired.
 - [ ] /admin/diffusion export history table is fully mocked — no
       endpoint called.
 - [ ] Unused AdminQuestionnairesController endpoints with no frontend
-      caller: GET /pending, GET /correction-requested, GET /:id
+      caller: GET /pending, GET /correction-requested (GET /:id is now
+      used by the dossier detail page)
 
       - [ ] Correction resubmission creates a new row with no link to the
       original. For a statistical portal this corrupts response rate,
