@@ -539,6 +539,19 @@ export function getDossierDiagnostic(id: string) {
   return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic`);
 }
 
+export function approveDossier(id: string) {
+  return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/approve`, {
+    method: "PATCH",
+  });
+}
+
+export function rejectDossier(id: string, reason: string) {
+  return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export function bulkVisaDeclarations(payload: { submissionIds: string[]; certified: boolean; notes?: string }) {
   return apiFetch<{
     success: boolean;
