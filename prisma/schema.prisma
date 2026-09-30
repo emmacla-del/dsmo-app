@@ -150,6 +150,31 @@ model User {
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   status                     UserStatus         @default(PENDING_APPROVAL)
+  // ── Admin rebuild B1 (user & registration) — all nullable or defaulted.
+  // See docs/deferred.md "Phase B1 — user & registration schema".
+  lastLoginAt                DateTime?
+  approvedAt                 DateTime?
+  // Account that created this one (e.g. an admin-created MINEFOP agent);
+  // null = self-registration or unknown.
+  createdBy                  String?
+  // Free text until the values settle (e.g. SELF_REGISTRATION, ADMIN_CREATED).
+  registrationMethod         String?
+  // Reserved for session invalidation ("réinitialiser la session"); not read yet.
+  tokenVersion               Int                @default(0)
+  // Human-readable registration number (e.g. INS-2026-0847); no generator yet.
+  registrationNumber         String?            @unique
+  // Agent the registration is assigned to for review.
+  assigneeId                 String?
+  lastReminderAt             DateTime?
+  // Reviewer comment on approval / complements request (kept apart from rejectionReason).
+  approvalComment            String?
+  perAgentTarget             Int?
+  createdByUser              User?              @relation("UserCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdUsers               User[]             @relation("UserCreatedBy")
+  assignee                   User?              @relation("UserAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignedUsers              User[]             @relation("UserAssignee")
+  registrationDocuments      RegistrationDocument[] @relation("RegistrationDocumentOwner")
+  verifiedDocuments          RegistrationDocument[] @relation("RegistrationDocumentVerifier")
   auditLogs                  AuditLog[]
   batchJobs                  BatchJob[]
   company                    Company?
@@ -171,7 +196,36 @@ model User {
   @@index([role])
   @@index([serviceCode])
   @@index([status])
+  @@index([createdBy])
+  @@index([assigneeId])
   @@map("users")
+}
+
+// One row per document a registrant must provide (Figma "Documents
+// fournis": attestation d'enregistrement, pièce d'identité, certificat
+// d'imposition…). A row with no fileRef is an expected document that has
+// not been provided ("Manquant").
+model RegistrationDocument {
+  id         String    @id @default(uuid())
+  userId     String
+  // Document type code; free text until the list per entity type is ruled.
+  kind       String
+  // Supabase Storage object path, signed on read — same pattern as
+  // Company.attestationUrl (PdfService.getSignedUrlForPath). No bytes here.
+  fileRef    String?
+  // PENDING | VERIFIED | REJECTED | MISSING — free text until the workflow settles.
+  state      String    @default("PENDING")
+  uploadedAt DateTime?
+  verifiedAt DateTime?
+  verifiedBy String?
+  // Restrict: deleting a registrant with documents answers 409 (deleteUser
+  // maps P2003), the same as a user with a company or submissions.
+  user       User      @relation("RegistrationDocumentOwner", fields: [userId], references: [id], onDelete: Restrict)
+  verifier   User?     @relation("RegistrationDocumentVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([verifiedBy])
+  @@map("registration_documents")
 }
 
 model Company {
@@ -1817,6 +1871,11 @@ enum UserStatus {
   PENDING_APPROVAL
   ACTIVE
   REJECTED
+  // Admin rebuild B1 — registration review states (additive).
+  DRAFT
+  UNDER_REVIEW
+  COMPLEMENTS_REQUESTED
+  DOCUMENTS_INCOMPLETE
 }
 
 enum DeclarationStatus {
