@@ -1863,13 +1863,18 @@ class _SubmissionDetailScreenState
         title: LocalizedText(
             fr: 'Rejeter la soumission', en: 'Reject the submission'),
         hintText: LocalizedText(
-            fr: 'Motif du rejet', en: 'Reason for rejection'),
+            fr: 'Motif du rejet (10 caractères minimum)',
+            en: 'Reason for rejection (10 characters minimum)'),
         confirmLabel:
             LocalizedText(fr: 'Confirmer le rejet', en: 'Confirm rejection'),
         confirmColor: UltraTheme.error,
         icon: Icons.block_rounded,
         minLength: 10,
         requireCertification: true,
+        certificationText: LocalizedText(
+          fr: "Je certifie sur l'honneur avoir examiné cette soumission et confirme son rejet administratif.",
+          en: 'I certify on my honour that I have reviewed this submission and confirm its administrative rejection.',
+        ),
       ),
     );
     if (result == null) return;
@@ -1901,6 +1906,10 @@ class _SubmissionDetailScreenState
         icon: Icons.edit_note_rounded,
         minLength: 10,
         requireCertification: true,
+        certificationText: LocalizedText(
+          fr: "Je certifie sur l'honneur avoir examiné cette soumission et confirme la demande de correction.",
+          en: 'I certify on my honour that I have reviewed this submission and confirm the correction request.',
+        ),
       ),
     );
     if (result == null) return;
@@ -2664,10 +2673,10 @@ class _SubmissionDetailScreenState
 /// One label/value pair in the detail header's metadata grid. Sized to
 /// reflow via [Wrap] — multiple columns on desktop/tablet, single column
 /// once the viewport gets narrow.
-/// Bottom sheet capturing an optional reason/comment for reject and
-/// request-correction actions. Pops with the entered text (possibly
-/// empty), or null if cancelled — mirrors the reason-capture pattern
-/// already used for user rejection in users_directory_screen.dart.
+/// Bottom sheet capturing a required reason and certification for reject
+/// and request-correction actions. Pops with a `({String reason, bool
+/// certified})` record, or null if cancelled. Pass [certificationText]
+/// whenever [requireCertification] is true — the assert enforces this.
 class _ActionReasonSheet extends StatefulWidget {
   const _ActionReasonSheet({
     required this.title,
@@ -2677,7 +2686,8 @@ class _ActionReasonSheet extends StatefulWidget {
     required this.icon,
     this.minLength = 0,
     this.requireCertification = false,
-  });
+    this.certificationText,
+  }) : assert(!requireCertification || certificationText != null);
 
   final LocalizedText title;
   final LocalizedText hintText;
@@ -2686,6 +2696,7 @@ class _ActionReasonSheet extends StatefulWidget {
   final IconData icon;
   final int minLength;
   final bool requireCertification;
+  final LocalizedText? certificationText;
 
   @override
   State<_ActionReasonSheet> createState() => _ActionReasonSheetState();
@@ -2794,10 +2805,7 @@ class _ActionReasonSheetState extends State<_ActionReasonSheet> {
               value: _certified,
               onChanged: (v) => setState(() => _certified = v ?? false),
               title: Text(
-                const LocalizedText(
-                  fr: "Je certifie sur l'honneur avoir examiné cette soumission et confirme son rejet administratif.",
-                  en: 'I certify on my honour that I have reviewed this submission and confirm its administrative rejection.',
-                ).of(context.loc),
+                widget.certificationText!.of(context.loc),
                 style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
               ),
               activeColor: widget.confirmColor,
