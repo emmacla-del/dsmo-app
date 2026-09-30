@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { Territory, assertTerritorialAuthority } from './territory';
 
 /**
  * Which staff accounts an administrator may see and manage through the
@@ -37,4 +38,43 @@ export function assertCanManageRole(actorRole: string | undefined, targetRole: s
   if (allowed && !allowed.includes(targetRole)) {
     throw new ForbiddenException("Ce compte ne relève pas de votre périmètre d'administration.");
   }
+}
+
+/**
+ * Roles that may approve or reject pending staff registrations inside their
+ * own territory (role-decisions D3). Deliberately NOT part of
+ * USER_ADMIN_ROLES or manageableRolesFor: these roles get no other user
+ * management power (list, suspend, delete, re-role).
+ */
+export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL', 'DIVISIONAL'] as const;
+
+/**
+ * Authorization for PATCH /auth/approve-user/:id and /auth/reject-user/:id.
+ *
+ * - REGIONAL / DIVISIONAL: the target must be ONEFOP staff AND inside the
+ *   actor's region (REGIONAL) or region + department (DIVISIONAL), checked
+ *   by assertTerritorialAuthority. A target with no region/department
+ *   fails closed.
+ * - Every other role: the existing assertCanManageRole rule (SUPER_ADMIN
+ *   unrestricted, SUPER_ADMIN_ONEFOP limited to ONEFOP staff, anyone else
+ *   refused).
+ */
+export function assertCanApproveRegistration(
+  actor: Territory,
+  target: {
+    role: string;
+    region?: string | null;
+    department?: string | null;
+    regionId?: string | null;
+    departmentId?: string | null;
+  },
+): void {
+  if (actor?.role && (TERRITORIAL_APPROVER_ROLES as readonly string[]).includes(actor.role)) {
+    if (!(ONEFOP_STAFF_ROLES as readonly string[]).includes(target.role)) {
+      throw new ForbiddenException("Ce compte ne relève pas de votre périmètre d'administration.");
+    }
+    assertTerritorialAuthority(actor, target);
+    return;
+  }
+  assertCanManageRole(actor?.role ?? undefined, target.role);
 }

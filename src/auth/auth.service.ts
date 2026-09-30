@@ -16,7 +16,8 @@ import { PdfService } from '../dsmo/pdf.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { computeOnefopFeatures } from '../common/onefop-features.util';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
-import { assertCanManageRole, manageableRolesFor } from './staff-scope';
+import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
+import type { Territory } from './territory';
 import { toPublicUser } from './public-user';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -793,10 +794,13 @@ export class AuthService {
     return { available: !user };
   }
 
-  async approveUser(id: string, actorRole: string) {
+  // actorTerritory: the acting user's region/department (territoryFromUser
+  // of req.user). Only REGIONAL/DIVISIONAL actors need it (D3); without it
+  // they fail closed.
+  async approveUser(id: string, actorRole: string, actorTerritory?: Territory) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
-    assertCanManageRole(actorRole, user.role);
+    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     if (user.role === 'COMPANY') {
       throw new BadRequestException('Les entreprises sont automatiquement approuvées');
     }
@@ -809,12 +813,17 @@ export class AuthService {
     }));
   }
 
-  async rejectUser(id: string, actorRole: string) {
+  async rejectUser(id: string, actorRole: string, actorTerritory?: Territory) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
-    assertCanManageRole(actorRole, user.role);
+    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     if (user.role === 'COMPANY') {
       throw new BadRequestException('Les entreprises ne peuvent pas être rejetées');
+    }
+    // D3 grants REGIONAL/DIVISIONAL registration review only: without this,
+    // "reject" on an ACTIVE colleague would deactivate the account.
+    if ((TERRITORIAL_APPROVER_ROLES as readonly string[]).includes(actorRole) && user.status !== 'PENDING_APPROVAL') {
+      throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
     }
     return toPublicUser(await this.prisma.user.update({
       where: { id },

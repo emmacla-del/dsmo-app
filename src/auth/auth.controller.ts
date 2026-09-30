@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
 import { USER_ADMIN_ROLES } from './staff-scope';
+import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
@@ -178,18 +179,21 @@ export class AuthController {
     return this.authService.getPendingMinefopUsers();
   }
 
+  // D3: REGIONAL / DIVISIONAL may review registrations in their territory
+  // (assertCanApproveRegistration). Inline, not USER_ADMIN_ROLES, which also
+  // guards list / suspend / delete / re-role.
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
   async approveUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.approveUser(id, req.user.role);
+    return this.authService.approveUser(id, req.user.role, territoryFromUser(req.user));
   }
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(...USER_ADMIN_ROLES)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id, req.user.role);
+    return this.authService.rejectUser(id, req.user.role, territoryFromUser(req.user));
   }
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
