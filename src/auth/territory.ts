@@ -17,6 +17,19 @@ export interface Territory {
 
 const NATIONAL_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL];
 
+/**
+ * Roles with national scope on the ONEFOP statistical exports only
+ * (role-decisions D7). Deliberately separate from NATIONAL_ROLES, which also
+ * drives assertTerritorialAuthority: these roles must not gain national
+ * write scope (visa, reject, anomaly resolution) through this list.
+ */
+const EXPORT_NATIONAL_ROLES: string[] = [
+  ...NATIONAL_ROLES,
+  UserRole.SUPER_ADMIN_DSMO,
+  UserRole.DATA_MANAGER,
+  UserRole.ANALYST,
+];
+
 /** Prisma filter that matches no row — used to fail closed. */
 const NO_ROWS = { id: { in: [] as string[] } };
 
@@ -64,10 +77,26 @@ export function territoryFromUser(user: any): Territory {
  * is globally unique and suffices on its own.
  */
 export function territoryWhere(territory?: Territory | null): Record<string, unknown> {
+  return territoryWhereWithRoles(territory, NATIONAL_ROLES);
+}
+
+/**
+ * territoryWhere for the ONEFOP export endpoints (role-decisions D7):
+ * identical, except that EXPORT_NATIONAL_ROLES also read nationally.
+ * Use only for export where-builders — never for a route that mutates.
+ */
+export function territoryWhereForExport(territory?: Territory | null): Record<string, unknown> {
+  return territoryWhereWithRoles(territory, EXPORT_NATIONAL_ROLES);
+}
+
+function territoryWhereWithRoles(
+  territory: Territory | null | undefined,
+  nationalRoles: string[],
+): Record<string, unknown> {
   if (territory === undefined || territory === null) return {};
 
   const role = territory.role;
-  if (role && NATIONAL_ROLES.includes(role)) return {};
+  if (role && nationalRoles.includes(role)) return {};
 
   if (role === UserRole.REGIONAL) {
     if (territory.regionId) return { regionId: territory.regionId };
