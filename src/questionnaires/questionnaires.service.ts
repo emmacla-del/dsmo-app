@@ -26,6 +26,8 @@ import { OnefopShadowValidatorService } from '../onefop-schema-validation/onefop
 import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-schema-loader.service';
 import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
+import * as ExcelJS from 'exceljs';
+import type { Response } from 'express';
 
 type FlatFormData = Record<string, string | number>;
 type TxClient = any;
@@ -3079,6 +3081,179 @@ export class QuestionnairesService {
       });
     }
     return (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
+  }
+
+  // ── Dossier list export helpers ─────────────────────────────────────────────
+
+  private csvSemicolonRow(fields: unknown[]): string {
+    const cells = fields.map((f) => {
+      if (f === null || f === undefined) return '';
+      const s = f instanceof Date ? f.toISOString().slice(0, 10) : String(f);
+      const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+      return /[;"'\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    });
+    return cells.join(';') + '\r\n';
+  }
+
+  private exportEntityName(row: any): string {
+    return (
+      row.enterpriseDetail?.companyName ||
+      row.cooperativeDetail?.cooperativeName ||
+      row.ongDetail?.ongName ||
+      row.administrationDetail?.name ||
+      row.projectProgramDetail?.name ||
+      row.vocationalTrainingDetail?.name ||
+      `Dossier ${row.submissionId}`
+    );
+  }
+
+  private exportStatusLabel(status: string): string {
+    switch (status) {
+      case 'APPROVED': return 'Visé';
+      case 'PENDING_REVIEW': return 'En instance';
+      case 'REJECTED': return 'Rejeté';
+      default: return 'Correction demandée';
+    }
+  }
+
+  private exportQualityLabel(row: any): string {
+    const blockingCount = row.anomalies?.filter((a: any) => a.isBlocking && a.status === 'OPEN').length ?? 0;
+    const warningCount = row.anomalies?.filter((a: any) => !a.isBlocking && a.status === 'OPEN').length ?? 0;
+    if (blockingCount > 0) return `Anomalies (${blockingCount})`;
+    if (warningCount > 0) return `Avertissements (${warningCount})`;
+    return 'Conforme';
+  }
+
+  private exportEligibilityLabel(row: any): string {
+    const blockingCount = row.anomalies?.filter((a: any) => a.isBlocking && a.status === 'OPEN').length ?? 0;
+    return row.status === 'APPROVED' && blockingCount === 0 ? 'Diffusable' : 'Exclu';
+  }
+
+  async streamDossiersExport(
+    filters: AdminListFilters,
+    format: 'csv' | 'xlsx',
+    territory: Territory | undefined,
+    userId: string | undefined,
+    res: Response,
+  ): Promise<void> {
+    const EXPORT_MAX_ROWS = 50_000;
+    const BATCH_SIZE = 500;
+    const where = buildAdminListWhere(filters, territory);
+
+    const count: number = await (this.prisma as any).onefopSubmission.count({ where });
+    if (count > EXPORT_MAX_ROWS) {
+      res.status(400).json({
+        statusCode: 400,
+        message: `L'export est limité à ${EXPORT_MAX_ROWS.toLocaleString()} lignes. Affinez les filtres pour réduire la sélection (${count} dossiers trouvés).`,
+      });
+      return;
+    }
+
+    const columns = [
+      'ID soumission', 'Entité', 'Type', 'Région', 'Période',
+      'Statut', 'Qualité', 'Diffusabilité', 'Date de soumission', 'Répondant',
+    ];
+    const date = new Date().toISOString().slice(0, 10);
+
+    const include = {
+      respondent: true,
+      enterpriseDetail: true,
+      cooperativeDetail: true,
+      ctdDetail: true,
+      ongDetail: true,
+      administrationDetail: true,
+      projectProgramDetail: true,
+      vocationalTrainingDetail: true,
+      anomalies: { select: { isBlocking: true, status: true } },
+    };
+
+    const rowFields = (row: any): unknown[] => [
+      row.submissionId,
+      this.exportEntityName(row),
+      row.formType ?? '',
+      row.region ?? '',
+      row.period ?? '',
+      this.exportStatusLabel(row.status),
+      this.exportQualityLabel(row),
+      this.exportEligibilityLabel(row),
+      row.submittedAt,
+      row.respondent?.name ?? '',
+    ];
+
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="dossiers_${date}.csv"`);
+      res.write('﻿' + this.csvSemicolonRow(columns));
+
+      let cursor: string | undefined;
+      try {
+        for (;;) {
+          const batch: any[] = await (this.prisma as any).onefopSubmission.findMany({
+            where,
+            orderBy: { id: 'asc' },
+            take: BATCH_SIZE,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            include,
+          });
+          if (batch.length === 0) break;
+          let chunk = '';
+          for (const row of batch) chunk += this.csvSemicolonRow(rowFields(row));
+          if (!res.write(chunk)) {
+            await new Promise<void>((resolve) => res.once('drain', resolve));
+          }
+          cursor = batch[batch.length - 1].id;
+          if (batch.length < BATCH_SIZE) break;
+        }
+      } catch (err) {
+        console.error('❌ Dossiers CSV export failed mid-stream:', err);
+      }
+      res.end();
+    } else {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="dossiers_${date}.xlsx"`);
+      const workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: res, useStyles: true });
+      workbookWriter.creator = 'MINEFOP';
+      workbookWriter.created = new Date();
+      const sheet = workbookWriter.addWorksheet('Dossiers');
+      (sheet.addRow(columns) as any).commit();
+
+      let cursor: string | undefined;
+      try {
+        for (;;) {
+          const batch: any[] = await (this.prisma as any).onefopSubmission.findMany({
+            where,
+            orderBy: { id: 'asc' },
+            take: BATCH_SIZE,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            include,
+          });
+          if (batch.length === 0) break;
+          for (const row of batch) (sheet.addRow(rowFields(row)) as any).commit();
+          cursor = batch[batch.length - 1].id;
+          if (batch.length < BATCH_SIZE) break;
+        }
+      } catch (err) {
+        console.error('❌ Dossiers Excel export failed mid-stream:', err);
+      }
+      (sheet as any).commit();
+      await workbookWriter.commit();
+    }
+
+    if (userId) {
+      try {
+        await (this.prisma as any).auditLog.create({
+          data: {
+            userId,
+            action: 'AUDIT_LIST_EXPORT',
+            resourceType: 'OnefopSubmission',
+            resourceId: null,
+            details: { format, filters, count },
+          },
+        });
+      } catch (auditErr) {
+        console.error('❌ Export audit log failed:', auditErr);
+      }
+    }
   }
 }
 

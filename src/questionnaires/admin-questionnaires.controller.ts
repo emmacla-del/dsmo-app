@@ -10,7 +10,9 @@ import {
   UseGuards,
   Request,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -169,6 +171,49 @@ export class AdminQuestionnairesController {
     @Request() req?: any,
   ) {
     return this.service.listByStatus('CORRECTION_REQUESTED', limit ?? 100, offset ?? 0, territoryFromUser(req?.user));
+  }
+
+  /**
+   * Stream the current filtered list as CSV or Excel.
+   * Must appear before :id routes so the literal "export" is not matched as an id.
+   */
+  @Get('export')
+  async exportDossiers(
+    @Query('format') format: string,
+    @Query('status') status?: string,
+    @Query('region') region?: string,
+    @Query('search') search?: string,
+    @Query('formType') formType?: string,
+    @Query('period') period?: string,
+    @Request() req?: any,
+    @Res() res?: Response,
+  ) {
+    const exportFormat: 'csv' | 'xlsx' = format === 'xlsx' ? 'xlsx' : 'csv';
+    const statusFilter = optionalText(status);
+    if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
+      throw new BadRequestException('Statut de dossier inconnu.');
+    }
+    const typeFilter = optionalText(formType);
+    if (typeFilter && !ADMIN_LIST_FORM_TYPES.includes(typeFilter)) {
+      throw new BadRequestException('Type de questionnaire inconnu.');
+    }
+    const periodFilter = optionalText(period);
+    if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
+      throw new BadRequestException('Période inconnue.');
+    }
+    await this.service.streamDossiersExport(
+      {
+        status: statusFilter,
+        formType: typeFilter,
+        period: periodFilter as AdminListPeriod | undefined,
+        region: optionalText(region),
+        search: optionalText(search),
+      },
+      exportFormat,
+      territoryFromUser(req?.user),
+      req?.user?.id,
+      res!,
+    );
   }
 
   /**

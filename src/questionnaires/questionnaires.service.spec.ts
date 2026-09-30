@@ -1003,6 +1003,73 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
     });
   });
 
+  describe('QuestionnairesService.streamDossiersExport', () => {
+    let service: QuestionnairesService;
+    let prisma: any;
+
+    const makeRes = () => {
+      const headers: Record<string, string> = {};
+      const chunks: string[] = [];
+      return {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        setHeader: jest.fn((k: string, v: string) => { headers[k] = v; }),
+        write: jest.fn().mockReturnValue(true),
+        end: jest.fn(),
+        headers,
+        chunks,
+      };
+    };
+
+    beforeEach(() => {
+      prisma = {
+        onefopSubmission: {
+          count: jest.fn(),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        auditLog: { create: jest.fn() },
+      };
+      service = new QuestionnairesService(prisma);
+    });
+
+    it('returns 400 when count exceeds 50 000', async () => {
+      prisma.onefopSubmission.count.mockResolvedValue(50_001);
+      const res = makeRes();
+      await service.streamDossiersExport({}, 'csv', undefined, 'actor-1', res as any);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+      expect(prisma.onefopSubmission.findMany).not.toHaveBeenCalled();
+    });
+
+    it('passes buildAdminListWhere result as Prisma count+findMany where clause', async () => {
+      prisma.onefopSubmission.count.mockResolvedValue(1);
+      prisma.onefopSubmission.findMany.mockResolvedValue([]);
+      const res = makeRes();
+      await service.streamDossiersExport({ status: 'APPROVED' }, 'csv', undefined, undefined, res as any);
+      const countCall = prisma.onefopSubmission.count.mock.calls[0][0];
+      const findCall = prisma.onefopSubmission.findMany.mock.calls[0][0];
+      expect(countCall.where).toEqual(findCall.where);
+      // buildAdminListWhere always wraps in { AND: [...] }
+      expect(countCall.where).toHaveProperty('AND');
+    });
+
+    it('csvSemicolonRow: BOM, semicolons, formula injection, date formatting', () => {
+      const row = (service as any).csvSemicolonRow(['normal', '=DANGEROUS', 'with;semi', new Date('2024-01-15'), null]);
+      expect(row).toMatch(/^normal;/);
+      expect(row).toContain("'=DANGEROUS");
+      expect(row).toContain('"with;semi"');
+      expect(row).toContain('2024-01-15');
+      expect(row).toMatch(/;$/m);
+    });
+
+    it('csvSemicolonRow: protects +, -, @ prefixes', () => {
+      const row = (service as any).csvSemicolonRow(['+ADD', '-SUB', '@AT']);
+      expect(row).toContain("'+ADD");
+      expect(row).toContain("'-SUB");
+      expect(row).toContain("'@AT");
+    });
+  });
+
   describe('QuestionnairesService — REPORTED Matrix Completeness (Phase 4.3)', () => {
     const service = new QuestionnairesService({} as PrismaService);
 
