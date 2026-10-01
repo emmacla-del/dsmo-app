@@ -40,7 +40,6 @@ const SABC_DEFAULT_COMPANY: Partial<Company> = {
     email: "jp.mbarga@sabc-cm.com",
     isActive: true,
     status: "ACTIVE",
-    createdAt: "2026-01-12T08:00:00Z",
   },
 };
 
