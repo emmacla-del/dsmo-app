@@ -280,6 +280,11 @@ export default function CampagnesPage() {
                           <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
                             {c.collectionType ?? c.type ?? "—"}
                           </span>
+                          {c.referenceYear && c.referenceQuarter && (
+                            <div style={{ fontSize: "11px", color: "var(--cam-text-muted)", marginTop: "2px" }}>
+                              {c.referenceYear}-T{c.referenceQuarter}
+                            </div>
+                          )}
                         </td>
                         <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>{fmt(c.startDate)}</td>
                         <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
@@ -419,6 +424,11 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
             <span className="cam-admin-code" style={{ fontSize: "12px", background: "var(--cam-surface-subtle)", padding: "2px 8px", borderRadius: "4px" }}>
               {c.code}
             </span>
+            {c.referenceYear && c.referenceQuarter && (
+              <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
+                {c.referenceYear}-T{c.referenceQuarter}
+              </span>
+            )}
             <StatusBadge status={c.status} />
           </div>
           <span className="cam-admin-meta">
@@ -566,6 +576,9 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
           <dl className="cam-admin-kv">
             <div><dt>Statut</dt><dd><StatusBadge status={d.status} /></dd></div>
             <div><dt>Module</dt><dd>{MODULE_LABELS[d.collectionType ?? ""] ?? d.collectionType ?? "—"}</dd></div>
+            {d.referenceYear && d.referenceQuarter && (
+              <div><dt>Période de référence</dt><dd>{d.referenceYear}-T{d.referenceQuarter}</dd></div>
+            )}
             <div><dt>Type</dt><dd>{d.type ?? "—"}</dd></div>
             <div><dt>Ouverture</dt><dd>{fmt(d.startDate)}</dd></div>
             <div><dt>Échéance</dt><dd>{fmt(d.deadline)}</dd></div>
@@ -627,6 +640,8 @@ function CreateCampaignDialog({
 
   const [startDate, setStartDate] = useState(todayStr);
   const [deadline, setDeadline] = useState(defaultDeadline);
+  const [referenceYear, setReferenceYear] = useState("");
+  const [referenceQuarter, setReferenceQuarter] = useState("");
   const [description, setDescription] = useState("");
   const [autoReminders, setAutoReminders] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -640,6 +655,8 @@ function CreateCampaignDialog({
         deadline: new Date(deadline).toISOString(),
         description: description.trim() || undefined,
         autoReminders,
+        referenceYear: collectionType === "ONEFOP" ? Number(referenceYear) : undefined,
+        referenceQuarter: collectionType === "ONEFOP" ? Number(referenceQuarter) : undefined,
       }),
     onSuccess: () => {
       onCreated("Campagne créée et activée avec succès.");
@@ -657,6 +674,12 @@ function CreateCampaignDialog({
     if (new Date(deadline) <= new Date(startDate)) {
       setError("La date limite doit être postérieure à la date de début.");
       return;
+    }
+    if (collectionType === "ONEFOP") {
+      if (!referenceYear || !referenceQuarter) {
+        setError("Veuillez renseigner l'année et le trimestre de référence.");
+        return;
+      }
     }
     setError(null);
     mutation.mutate();
@@ -703,6 +726,46 @@ function CreateCampaignDialog({
             <option value="ONEFOP">Questionnaire ONEFOP (Emplois créés)</option>
           </select>
         </div>
+
+        {collectionType === "ONEFOP" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="cam-ref-year">Année de référence *</label>
+                <input
+                  id="cam-ref-year"
+                  type="number"
+                  className="cam-input"
+                  placeholder="ex. 2026"
+                  value={referenceYear}
+                  onChange={(e) => setReferenceYear(e.target.value)}
+                  min={2000}
+                  max={2100}
+                  required
+                />
+              </div>
+              <div className="cam-field">
+                <label className="cam-admin-label" htmlFor="cam-ref-quarter">Trimestre de référence *</label>
+                <select
+                  id="cam-ref-quarter"
+                  className="cam-select"
+                  value={referenceQuarter}
+                  onChange={(e) => setReferenceQuarter(e.target.value)}
+                  required
+                >
+                  <option value="">Sélectionner…</option>
+                  <option value="1">T1 (1er trimestre)</option>
+                  <option value="2">T2 (2e trimestre)</option>
+                  <option value="3">T3 (3e trimestre)</option>
+                  <option value="4">T4 (4e trimestre)</option>
+                </select>
+              </div>
+            </div>
+            <p className="cam-admin-meta" style={{ margin: "4px 0 0", fontSize: "12px" }}>
+              Période sur laquelle portent les données
+            </p>
+          </div>
+        )}
 
         <div className="cam-field">
           <label className="cam-admin-label" htmlFor="cam-freq-type">Périodicité</label>

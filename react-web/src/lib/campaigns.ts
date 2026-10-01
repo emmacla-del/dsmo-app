@@ -27,6 +27,8 @@ export interface Campaign {
   targetRegions?: string[];
   targetDepartments?: string[];
   targetEntityTypes?: string[];
+  referenceYear?: number | null;
+  referenceQuarter?: number | null;
   /** Embedded by GET /campaigns (CampaignService._buildProgress). */
   progress?: CampaignProgress;
   createdAt: string;
@@ -80,6 +82,8 @@ export function createCampaign(data: {
   targetDepartments?: string[];
   targetEntityTypes?: string[];
   autoReminders?: boolean;
+  referenceYear?: number;
+  referenceQuarter?: number;
 }) {
   return apiFetch<Campaign>("/campaigns", {
     method: "POST",
