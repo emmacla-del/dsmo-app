@@ -6,7 +6,6 @@ import { useQueries } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
-import { entityTypeLabel } from "@/lib/companies-directory";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
