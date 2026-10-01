@@ -1129,6 +1129,7 @@
 
 /* ── Dialogs (native <dialog>: focus trap + Escape for free) ── */
 .cam-admin-dialog {
+  margin: auto;
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   padding: 0;

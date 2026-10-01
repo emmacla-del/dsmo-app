@@ -19,7 +19,6 @@ import {
 } from "@/lib/audit-log";
 import type { UserRole } from "@/lib/user-types";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 const PAGE_SIZE = 12;
@@ -285,18 +284,11 @@ export default function JournalAuditPage() {
       <AdminPageHeader
         breadcrumb={[{ label: "Administration" }, { label: "Journal d'audit" }]}
         title="Journal d'Audit Systémique"
-        actions={
-          <AdminHeaderActions
-            showCampaignPill={false}
-            showBell={false}
-            showSearchInput={true}
-          />
-        }
         hideTabs={true}
       />
 
       {/* ── 3 Sub-navigation Tabs matching Figma ── */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-4">
         <Link
           href="/admin/utilisateurs"
           className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
@@ -304,7 +296,7 @@ export default function JournalAuditPage() {
           Utilisateurs &amp; rôles
         </Link>
         <span
-          className="px-4 py-2 text-sm font-semibold text-white bg-[#006644] rounded-lg shadow-xs cursor-default"
+          className="px-4 py-2 text-sm font-semibold text-white bg-[#164e32] rounded-lg shadow-xs cursor-default"
         >
           Journal d&apos;audit
         </span>
@@ -467,8 +459,17 @@ export default function JournalAuditPage() {
                     ? "text-rose-700 font-semibold"
                     : "text-slate-600";
 
+                const isDangerRow = row.actionTone === "danger";
+
                 return (
-                  <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
+                  <tr
+                    key={row.id}
+                    className={`transition-colors ${
+                      isDangerRow
+                        ? "bg-rose-50/50 hover:bg-rose-50/80"
+                        : "hover:bg-slate-50/60"
+                    }`}
+                  >
                     <td className="py-3 px-4 whitespace-nowrap text-slate-500">
                       {row.timestamp}
                     </td>
@@ -515,7 +516,7 @@ export default function JournalAuditPage() {
               onClick={() => setCurrentPage(1)}
               className={`w-8 h-8 rounded-lg font-semibold flex items-center justify-center transition-colors ${
                 currentPage === 1
-                  ? "bg-[#006644] text-white"
+                  ? "bg-[#164e32] text-white"
                   : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >

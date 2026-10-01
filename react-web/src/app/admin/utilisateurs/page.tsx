@@ -200,46 +200,55 @@ export default function OnefopUsersPage() {
         breadcrumb={[{ label: "Administration" }, { label: "Utilisateurs & rôles" }]}
         title="Utilisateurs & rôles"
         subtitle="Gestion des accès, des rôles et des activités administratives"
+        hideTabs={true}
         actions={
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 18px",
-                background: "#006644",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              }}
-            >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Ajouter Agent
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "9px 20px",
+              background: "#164e32",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+            }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Ajouter Agent
+          </button>
         }
       />
 
-      {/* Subnav Pills matching Figma */}
-      <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
+      {/* Subnav Pills matching Figma enclosed container */}
+      <div
+        style={{
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: 8,
+          padding: 6,
+          display: "flex",
+          gap: 6,
+          margin: "20px 0 24px",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
         <Link
           href="/admin/utilisateurs"
           style={{
-            padding: "8px 18px",
-            background: "#006644",
+            padding: "8px 20px",
+            background: "#164e32",
             color: "#ffffff",
-            borderRadius: 8,
+            borderRadius: 6,
             fontWeight: 600,
-            fontSize: 14,
+            fontSize: 13,
             textDecoration: "none",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
           }}
         >
           Utilisateurs & rôles
@@ -247,13 +256,12 @@ export default function OnefopUsersPage() {
         <Link
           href="/admin/journal-audit"
           style={{
-            padding: "8px 18px",
-            background: "#ffffff",
+            padding: "8px 20px",
+            background: "transparent",
             color: "#374151",
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
+            borderRadius: 6,
             fontWeight: 500,
-            fontSize: 14,
+            fontSize: 13,
             textDecoration: "none",
           }}
         >
@@ -262,13 +270,12 @@ export default function OnefopUsersPage() {
         <Link
           href="/admin/parametres"
           style={{
-            padding: "8px 18px",
-            background: "#ffffff",
+            padding: "8px 20px",
+            background: "transparent",
             color: "#374151",
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
+            borderRadius: 6,
             fontWeight: 500,
-            fontSize: 14,
+            fontSize: 13,
             textDecoration: "none",
           }}
         >
@@ -312,7 +319,7 @@ export default function OnefopUsersPage() {
             <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
               28
             </div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
+            <div style={{ fontSize: 13, color: "#059669", marginTop: 8, fontWeight: 500 }}>
               En attente d&apos;affectation
             </div>
           </div>
