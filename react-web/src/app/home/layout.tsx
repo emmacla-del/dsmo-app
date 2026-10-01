@@ -50,6 +50,22 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     setMounted(true);
   }, []);
 
+  const user = meQuery.data ?? authUser ?? getCachedUser();
+  const awaitingApproval =
+    user?.role === "COMPANY" &&
+    (user.status === "PENDING_APPROVAL" || user.status === "COMPLEMENTS_REQUESTED");
+
+  // A company whose registration is still under review holds a valid
+  // session but has no operational screens yet, so it belongs on its status
+  // page. This runs in an effect rather than in render: router.replace() in
+  // a render body is a side effect in render and re-fires under StrictMode.
+  useEffect(() => {
+    if (!mounted || authState !== "authed") return;
+    if (awaitingApproval && pathname !== "/home/inscription-en-attente") {
+      router.replace("/home/inscription-en-attente");
+    }
+  }, [mounted, authState, awaitingApproval, pathname, router]);
+
   if (!mounted || authState !== "authed") {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--cam-bg)", color: "var(--cam-text-muted)" }}>
@@ -58,7 +74,6 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const user = meQuery.data ?? authUser ?? getCachedUser();
   const effectiveRole = user ? resolveEffectiveRole(user) : null;
   const navItems = (effectiveRole ? navItemsForRole(effectiveRole) : []).filter(
     (item) => !item.rawRoles || (!!user && item.rawRoles.includes(user.role)),

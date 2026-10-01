@@ -46,6 +46,9 @@ export interface User {
   weeklyDigestEnabled: boolean;
   smsNotificationsEnabled: boolean;
   twoFactorEnabled: boolean;
+  status?: string | null;
+  approvalComment?: string | null;
+  rejectionReason?: string | null;
   features: UserFeatures;
 }
 
