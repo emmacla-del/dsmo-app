@@ -14,6 +14,7 @@ import { listCampaigns, type Campaign } from "@/lib/campaigns";
 import {
   buildTargetPayload,
   clearRegionDraft,
+  hasUnsavedChanges,
   initDrafts,
   normalizeRegions,
   type PayloadChange,
@@ -204,6 +205,17 @@ function TargetsPanel({
   const [pendingChanges, setPendingChanges] = useState<PayloadChange[]>([]);
   const draftsBeforeClear = useRef<Record<string, RegionDraft> | null>(null);
 
+  const unsavedChanges = useMemo(
+    () =>
+      hasUnsavedChanges({
+        regions,
+        drafts,
+        originalCentral,
+        centralInput,
+      }),
+    [regions, drafts, originalCentral, centralInput],
+  );
+
   useEffect(() => {
     if (!query.data) return;
     setDrafts(initDrafts(regions));
@@ -317,6 +329,7 @@ function TargetsPanel({
         showCentral={showCentral}
         canWrite={canWrite}
         expanded={expanded}
+        hasUnsavedChanges={unsavedChanges}
         onToggle={(regionId) =>
           setExpanded((current) => {
             const next = new Set(current);

@@ -5,6 +5,7 @@ import {
   applyEditMode,
   buildTargetPayload,
   clearRegionDraft,
+  hasUnsavedChanges,
   initDrafts,
   normalizeRegions,
   parseTargetInput,
@@ -469,3 +470,85 @@ test("quota clear entry has no submissionTarget field", () => {
   if (!result.ok) return;
   assert.deepEqual(result.body.entries, [{ regionId: "r2", clear: true }]);
 });
+
+test("hasUnsavedChanges returns false for pristine drafts and central", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "REGION",
+    target: 50,
+  });
+  const drafts = initDrafts([centre]);
+  assert.equal(
+    hasUnsavedChanges({
+      regions: [centre],
+      drafts,
+      originalCentral: 100,
+      centralInput: "100",
+    }),
+    false,
+  );
+});
+
+test("hasUnsavedChanges detects region input, department input, or central input change", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "DEPARTMENT",
+    target: 20,
+    departments: [
+      { departmentId: "d1", name: "Mfoundi", target: 20 },
+      { departmentId: "d2", name: "Lekie", target: null },
+    ],
+  });
+
+  // Pristine
+  const pristineDrafts = initDrafts([centre]);
+  assert.equal(
+    hasUnsavedChanges({
+      regions: [centre],
+      drafts: pristineDrafts,
+      originalCentral: null,
+      centralInput: "",
+    }),
+    false,
+  );
+
+  // Department input change
+  const deptDrafts = initDrafts([centre]);
+  deptDrafts.r1.departmentInputs.d2 = "15";
+  assert.equal(
+    hasUnsavedChanges({
+      regions: [centre],
+      drafts: deptDrafts,
+      originalCentral: null,
+      centralInput: "",
+    }),
+    true,
+  );
+
+  // Central change
+  assert.equal(
+    hasUnsavedChanges({
+      regions: [centre],
+      drafts: pristineDrafts,
+      originalCentral: null,
+      centralInput: "50",
+    }),
+    true,
+  );
+
+  // Mode change
+  const modeDrafts = initDrafts([centre]);
+  modeDrafts.r1.mode = "REGION";
+  assert.equal(
+    hasUnsavedChanges({
+      regions: [centre],
+      drafts: modeDrafts,
+      originalCentral: null,
+      centralInput: "",
+    }),
+    true,
+  );
+});
+

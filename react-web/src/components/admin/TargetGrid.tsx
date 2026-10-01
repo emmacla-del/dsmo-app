@@ -21,6 +21,7 @@ export function TargetGrid({
   canWrite,
   expanded,
   onToggle,
+  hasUnsavedChanges,
 }: {
   regions: NormalizedRegion[];
   drafts: Record<string, RegionDraft>;
@@ -32,6 +33,7 @@ export function TargetGrid({
   canWrite: boolean;
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
+  hasUnsavedChanges?: boolean;
 }) {
   if (regions.length === 0) {
     return (
@@ -65,6 +67,7 @@ export function TargetGrid({
                 onToggle={() => onToggle(region.regionId)}
                 onDraftChange={(next) => onDraftChange(region.regionId, next)}
                 onClear={() => onClearRegion(region.regionId)}
+                hasUnsavedChanges={hasUnsavedChanges}
               />
             );
           })}
@@ -102,6 +105,7 @@ function RegionBlock({
   onToggle,
   onDraftChange,
   onClear,
+  hasUnsavedChanges,
 }: {
   region: NormalizedRegion;
   draft: RegionDraft | undefined;
@@ -111,6 +115,7 @@ function RegionBlock({
   onToggle: () => void;
   onDraftChange: (draft: RegionDraft) => void;
   onClear: () => void;
+  hasUnsavedChanges?: boolean;
 }) {
   const mode = draft?.mode ?? null;
   const liveSum = draft ? sumFilled(draft.departmentInputs) : null;
@@ -187,9 +192,22 @@ function RegionBlock({
       {canWrite && region.mode !== "UNSET" && (
         <tr className="cam-target-note">
           <td colSpan={3}>
-            <button type="button" className="cam-button cam-button-danger cam-button-sm" onClick={onClear}>
-              Effacer les cibles de la région
-            </button>
+            <span
+              title={
+                hasUnsavedChanges
+                  ? "Enregistrez ou annulez vos modifications avant d'effacer une région"
+                  : undefined
+              }
+            >
+              <button
+                type="button"
+                className="cam-button cam-button-danger cam-button-sm"
+                disabled={hasUnsavedChanges}
+                onClick={onClear}
+              >
+                Effacer les cibles de la région
+              </button>
+            </span>
           </td>
         </tr>
       )}

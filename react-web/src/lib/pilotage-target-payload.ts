@@ -339,3 +339,26 @@ function fmt(value: number): string {
   return value.toLocaleString("fr-FR");
 }
 
+export function hasUnsavedChanges(args: {
+  regions: NormalizedRegion[];
+  drafts: Record<string, RegionDraft>;
+  originalCentral: number | null;
+  centralInput: string;
+}): boolean {
+  const originalCentralText = args.originalCentral == null ? "" : String(args.originalCentral);
+  if (args.centralInput.trim() !== originalCentralText) {
+    return true;
+  }
+  for (const region of args.regions) {
+    const draft = args.drafts[region.regionId];
+    if (!draft) continue;
+    const initial = initRegionDraft(region);
+    if (draft.mode !== initial.mode) return true;
+    if (draft.regionInput.trim() !== initial.regionInput.trim()) return true;
+    for (const [deptId, val] of Object.entries(draft.departmentInputs)) {
+      if (val.trim() !== (initial.departmentInputs[deptId] ?? "").trim()) return true;
+    }
+  }
+  return false;
+}
+
