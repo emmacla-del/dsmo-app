@@ -167,11 +167,13 @@ $$\text{ControlTarget} = \text{ControlQuestion}(E_1)$$
 - Unique constraint: `@@unique([campaignId, establishmentId])`.
 - Tracking: Each establishment has its own target card and submission status (`NOT_STARTED`, `SUBMITTED`, etc.) within the campaign.
 
-### 5.2 Mid-Campaign Creation Rule
-If a company registers a new secondary site while a campaign is currently active (`status = ACTIVE`):
-- A `CampaignSubmission` record is automatically generated for the new establishment with status `NOT_STARTED`.
+### 5.2 Mid-Campaign Site Approval Rule
+If a company registers a new secondary site while one or more campaigns are currently active (`status = ACTIVE`):
+- The new establishment does **not** receive a `CampaignSubmission` upon creation.
+- A `CampaignSubmission` record is generated **only when the site is APPROVED** by staff, and **only if the active campaign's scope** (`targetRegions`, `targetDepartments`, `targetEntityTypes`) includes the site's territory and entity type.
+- Upon approval into an active campaign, the `CampaignSubmission` starts with status `NOT_STARTED`.
 - The campaign's targeted establishment count is updated dynamically.
-- Regional pilotage reflect the new target in the site's respective territory.
+- Regional pilotage reflects the newly targeted establishment in the site's respective territory.
 
 ---
 
