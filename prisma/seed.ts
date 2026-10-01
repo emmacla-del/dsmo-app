@@ -793,13 +793,23 @@ async function seed() {
         // 7. Create sample companies
         console.log('🏢 Creating sample companies...');
         const sectorList = await prisma.sector.findMany();
-        const regionList = await prisma.region.findMany();
-        const departmentList = await prisma.department.findMany({ include: { subdivisions: true } });
+        const regionsWithHierarchy = await prisma.region.findMany({
+            include: {
+                departments: {
+                    include: {
+                        subdivisions: true,
+                    },
+                },
+            },
+        });
 
         let companyCreated = 0;
         for (let i = 1; i <= 20; i++) {
-            const region = regionList[Math.floor(Math.random() * regionList.length)];
-            const department = departmentList[Math.floor(Math.random() * departmentList.length)];
+            const region = regionsWithHierarchy[Math.floor(Math.random() * regionsWithHierarchy.length)];
+            const departments = region.departments;
+            const department = departments[Math.floor(Math.random() * departments.length)];
+            const subdivisions = department.subdivisions;
+            const subdivision = subdivisions[Math.floor(Math.random() * subdivisions.length)];
             const sector = sectorList[Math.floor(Math.random() * sectorList.length)];
             const companyEmail = `company${i}@example.cm`;
 
@@ -828,7 +838,10 @@ async function seed() {
                             secondaryActivity: 'General Services',
                             region: region.name,
                             department: department.name,
-                            subdivision: department.subdivisions?.[0]?.name || 'Unknown',
+                            subdivision: subdivision.name,
+                            regionId: region.id,
+                            departmentId: department.id,
+                            subdivisionId: subdivision.id,
                             address: `P.O. Box ${1000 + i}, ${region.name}`,
                             taxNumber: `CT${String(i).padStart(6, '0')}`,
                             cnpsNumber: `CN${String(i).padStart(6, '0')}`,
