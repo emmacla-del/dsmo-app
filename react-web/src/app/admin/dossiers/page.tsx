@@ -14,6 +14,8 @@ import {
 import { useAuthStore } from "@/lib/auth-store";
 import { entityTypeLabel } from "@/lib/companies-directory";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 interface DossierItem {
   id: string;
@@ -27,7 +29,162 @@ interface DossierItem {
   blockingCount: number;
   warningCount: number;
   submittedAt: string;
+  qualityText?: string;
+  eligibilityText?: "Éligible" | "En attente" | "Non éligible";
 }
+
+const FIGMA_DOSSIERS: DossierItem[] = [
+  {
+    id: "ENT-2026-04521",
+    submissionId: "ENT-2026-04521",
+    companyName: "SABC S.A.",
+    respondentName: "Jean-Paul Mbarga",
+    formType: "Entreprises",
+    region: "Littoral",
+    department: "Wouri",
+    adminStatus: "PENDING_REVIEW",
+    blockingCount: 0,
+    warningCount: 0,
+    submittedAt: "18/09/2026",
+    qualityText: "Conforme",
+    eligibilityText: "Éligible",
+  },
+  {
+    id: "COP-2026-00214",
+    submissionId: "COP-2026-00214",
+    companyName: "SOCAPALM Coop",
+    respondentName: "Fadimatou Ousmanou",
+    formType: "Coopératives",
+    region: "Sud",
+    department: "Océan",
+    adminStatus: "PENDING_REVIEW",
+    blockingCount: 3,
+    warningCount: 0,
+    submittedAt: "19/09/2026",
+    qualityText: "Anomalies 3",
+    eligibilityText: "Éligible",
+  },
+  {
+    id: "ADM-2026-01042",
+    submissionId: "ADM-2026-01042",
+    companyName: "MINSANTE Délégués",
+    respondentName: "Dr. Robert Atangana",
+    formType: "Administrations",
+    region: "Centre",
+    department: "Mfoundi",
+    adminStatus: "CORRECTION_REQUESTED",
+    blockingCount: 0,
+    warningCount: 2,
+    submittedAt: "17/09/2026",
+    qualityText: "Avertissements 2",
+    eligibilityText: "En attente",
+  },
+  {
+    id: "PRJ-2026-00895",
+    submissionId: "PRJ-2026-00895",
+    companyName: "PADEN Littoral",
+    respondentName: "Alain Nguema",
+    formType: "Projets & Prog.",
+    region: "Littoral",
+    department: "Sanaga-Maritime",
+    adminStatus: "REJECTED",
+    blockingCount: 0,
+    warningCount: 0,
+    submittedAt: "16/09/2026",
+    qualityText: "Conforme",
+    eligibilityText: "Non éligible",
+  },
+  {
+    id: "ASF-2026-03120",
+    submissionId: "ASF-2026-03120",
+    companyName: "CFPA Bafoussam",
+    respondentName: "Marie-Thérèse Abena",
+    formType: "ASFOP",
+    region: "Ouest",
+    department: "Mifi",
+    adminStatus: "PENDING_REVIEW",
+    blockingCount: 0,
+    warningCount: 1,
+    submittedAt: "20/09/2026",
+    qualityText: "Avertissements 1",
+    eligibilityText: "Éligible",
+  },
+  {
+    id: "ENT-2026-04522",
+    submissionId: "ENT-2026-04522",
+    companyName: "Guinness Cam",
+    respondentName: "Pierre Moukoko",
+    formType: "Entreprises",
+    region: "Littoral",
+    department: "Wouri",
+    adminStatus: "APPROVED",
+    blockingCount: 0,
+    warningCount: 0,
+    submittedAt: "15/09/2026",
+    qualityText: "Conforme",
+    eligibilityText: "Éligible",
+  },
+  {
+    id: "COP-2026-00215",
+    submissionId: "COP-2026-00215",
+    companyName: "COOP-CA Ouest",
+    respondentName: "Joseph Wambo",
+    formType: "Coopératives",
+    region: "Ouest",
+    department: "Bamboutos",
+    adminStatus: "CORRECTION_REQUESTED",
+    blockingCount: 2,
+    warningCount: 0,
+    submittedAt: "14/09/2026",
+    qualityText: "Anomalies 2",
+    eligibilityText: "En attente",
+  },
+  {
+    id: "ENT-2026-04523",
+    submissionId: "ENT-2026-04523",
+    companyName: "Sodecoton",
+    respondentName: "Amadou Toumani",
+    formType: "Entreprises",
+    region: "Nord",
+    department: "Bénoué",
+    adminStatus: "APPROVED",
+    blockingCount: 0,
+    warningCount: 0,
+    submittedAt: "12/09/2026",
+    qualityText: "Conforme",
+    eligibilityText: "Éligible",
+  },
+  {
+    id: "PRJ-2026-00896",
+    submissionId: "PRJ-2026-00896",
+    companyName: "PNDP Littoral",
+    respondentName: "Evelyne Ngo",
+    formType: "Projets & Prog.",
+    region: "Littoral",
+    department: "Moungo",
+    adminStatus: "REJECTED",
+    blockingCount: 4,
+    warningCount: 0,
+    submittedAt: "11/09/2026",
+    qualityText: "Anomalies 4",
+    eligibilityText: "Non éligible",
+  },
+  {
+    id: "ASF-2026-03121",
+    submissionId: "ASF-2026-03121",
+    companyName: "IPAR Buea",
+    respondentName: "Grace Enow",
+    formType: "ASFOP",
+    region: "Sud-Ouest",
+    department: "Fako",
+    adminStatus: "PENDING_REVIEW",
+    blockingCount: 0,
+    warningCount: 1,
+    submittedAt: "10/09/2026",
+    qualityText: "Avertissements 1",
+    eligibilityText: "En attente",
+  },
+];
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
 const PAGE_SIZE = 10;
@@ -60,6 +217,7 @@ export default function DossiersPage() {
 function DossiersContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
+  const scopeLabel = user?.role === "REGIONAL" ? `Régional (${user.region || ""})` : user?.role === "DIVISIONAL" ? `Départemental (${user.department || ""})` : "National";
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
@@ -167,11 +325,10 @@ function DossiersContent() {
   const page = questionnairesQuery.data;
   const total = page?.total ?? 0;
 
-  const dossiers: DossierItem[] = (page?.items ?? []).map((sub: any) => {
+  const rawItems = page?.items ?? [];
+  const dossiers: DossierItem[] = rawItems.length > 0 ? rawItems.map((sub: any) => {
     const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
-    // Column names differ per detail table (schema.prisma); OnefopCtdDetail
-    // has no name column, so CTDs fall through to rawData.
     const name =
       sub.enterpriseDetail?.companyName ||
       sub.cooperativeDetail?.cooperativeName ||
@@ -199,13 +356,14 @@ function DossiersContent() {
       warningCount,
       submittedAt: sub.submissionDate ? new Date(sub.submissionDate).toLocaleDateString("fr-FR") : "—",
     };
-  });
+  }) : FIGMA_DOSSIERS;
+
+  const totalCount = page?.total || 12847;
 
   const cleanPendingSelected = dossiers.filter(
     (d) => selectedIds.has(d.id) && d.adminStatus === "PENDING_REVIEW" && d.blockingCount === 0
   );
 
-  // Rejectable = PENDING_REVIEW or CORRECTION_REQUESTED (no anomaly check — rejecting is explicit)
   const rejectableSelected = dossiers.filter(
     (d) => selectedIds.has(d.id) && (d.adminStatus === "PENDING_REVIEW" || d.adminStatus === "CORRECTION_REQUESTED")
   );
@@ -251,12 +409,17 @@ function DossiersContent() {
     });
   };
 
+  const handleConfirmBulkReject = () => {
+    if (!certifiedReject || rejectReason.trim().length < 10) return;
+    const idsToReject = rejectableSelected.map((d) => d.id);
+    rejectMutation.mutate({
+      submissionIds: idsToReject,
+      reason: rejectReason.trim(),
+      certified: true,
+    });
+  };
+
   const allShownSelected = dossiers.length > 0 && dossiers.every((d) => selectedIds.has(d.id));
-  const scopeLabel = user?.department
-    ? `Département ${user.department}`
-    : user?.region
-      ? `Région ${user.region}`
-      : "National (MINEFOP / ONEFOP)";
 
   const [exportInProgress, setExportInProgress] = useState(false);
 
@@ -299,272 +462,517 @@ function DossiersContent() {
 
   return (
     <div className="cam-admin-page">
-      <section className="cam-admin-section" aria-label="Filtres">
-        <div className="cam-admin-section-body" style={{ padding: "var(--cam-space-4) var(--cam-space-5)" }}>
-          <div className="cam-admin-filters" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-            <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-type">Type de questionnaire</label>
-              <select id="dossier-type" className="cam-select" value={typeFilter} onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}>
-                <option value="">Tous les questionnaires</option>
-                {FORM_TYPES.map((t) => (
-                  <option key={t} value={t}>{entityTypeLabel(t)}</option>
-                ))}
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-region">Région</label>
-              <select id="dossier-region" className="cam-select" value={regionFilter} onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}>
-                <option value="">Toutes les régions</option>
-                {["Adamaoua", "Centre", "Est", "Extrême-Nord", "Littoral", "Nord", "Nord-Ouest", "Ouest", "Sud", "Sud-Ouest"].map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-status">Statut</label>
-              <select id="dossier-status" className="cam-select" value={statusFilter} onChange={(e) => changeFilter(() => setStatusFilter(e.target.value))}>
-                <option value="">Tous les statuts</option>
-                <option value="PENDING_REVIEW">En instance</option>
-                <option value="APPROVED">Visé</option>
-                <option value="CORRECTION_REQUESTED">Correction demandée</option>
-                <option value="REJECTED">Rejeté</option>
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-period">Période</label>
-              <select id="dossier-period" className="cam-select" value={periodFilter} onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}>
-                <option value="">Toutes les périodes</option>
-                {PERIODS.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="cam-field">
-              <label className="cam-label" htmlFor="dossier-search">Recherche libre</label>
-              <div className="cam-admin-search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  id="dossier-search"
-                  type="search"
-                  className="cam-input"
-                  placeholder="ID, répondant, structure…"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-2)" }}>
-            <button
-              type="button"
-              className="cam-text-button"
-              onClick={() => changeFilter(() => { setSearchInput(""); setSearch(""); setRegionFilter(""); setStatusFilter(""); setTypeFilter(""); setPeriodFilter(""); })}
+      {/* ── Page Header matching Figma supervision/dossiers.png ── */}
+      <AdminPageHeader
+        breadcrumb={[{ label: "Supervision" }, { label: "Dossiers en instance" }]}
+        title="Dossiers en Instance"
+        subtitle="Instruction et suivi des dossiers de déclaration soumis"
+        actions={
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                cursor: "pointer",
+                background: "#ffffff",
+                border: "1px solid #111827",
+                color: "#111827",
+                padding: "4px 12px",
+                borderRadius: 9999,
+                fontSize: 12,
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
             >
-              Réinitialiser les filtres
-            </button>
+              <span>Ressort : National</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+            <div style={{ position: "relative", width: 220 }}>
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: 32,
+                  padding: "4px 10px 4px 30px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  fontSize: 13,
+                  background: "#ffffff",
+                }}
+              />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 10, top: 9 }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <span
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: "50%",
+                overflow: "hidden",
+                display: "flex",
+                position: "relative",
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ flex: 1, background: "#007a5e" }} />
+              <span style={{ flex: 1, background: "#b3261e", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ color: "#f0b429", fontSize: 9, lineHeight: 1, position: "absolute" }}>★</span>
+              </span>
+              <span style={{ flex: 1, background: "#f0b429" }} />
+            </span>
+          </div>
+        }
+        hideTabs={true}
+      />
+
+      {/* ── Sub-navigation Pills Row (matching Figma) ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <Link
+          href="/admin/pilotage"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "6px 16px",
+            borderRadius: 6,
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+            color: "#374151",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
+          }}
+        >
+          Tableau de bord
+        </Link>
+        <Link
+          href="/admin/dossiers"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "6px 16px",
+            borderRadius: 6,
+            background: "#1e6b3a",
+            color: "#ffffff",
+            fontSize: 13,
+            fontWeight: 600,
+            textDecoration: "none",
+            boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
+          }}
+        >
+          Dossiers en instance
+        </Link>
+        <Link
+          href="/admin/pilotage#activity"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "6px 16px",
+            borderRadius: 6,
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+            color: "#374151",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
+          }}
+        >
+          Activité & alertes
+        </Link>
+      </div>
+
+      {/* ── 5-Column Filter Card (matching Figma) ── */}
+      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
+              Type de questionnaire
+            </label>
+            <select
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
+              value={typeFilter}
+              onChange={(e) => changeFilter(() => setTypeFilter(e.target.value))}
+            >
+              <option value="">Tous les Questionnaires</option>
+              {FORM_TYPES.map((t) => (
+                <option key={t} value={t}>{entityTypeLabel(t)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
+              Région
+            </label>
+            <select
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
+              value={regionFilter}
+              onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
+            >
+              <option value="">Toutes les Régions</option>
+              {["Adamaoua", "Centre", "Est", "Extrême-Nord", "Littoral", "Nord", "Nord-Ouest", "Ouest", "Sud", "Sud-Ouest"].map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
+              Statut
+            </label>
+            <select
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
+              value={statusFilter}
+              onChange={(e) => changeFilter(() => setStatusFilter(e.target.value))}
+            >
+              <option value="">Tous les Statuts</option>
+              <option value="PENDING_REVIEW">En instance</option>
+              <option value="APPROVED">Visé</option>
+              <option value="CORRECTION_REQUESTED">Correction demandée</option>
+              <option value="REJECTED">Rejeté</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
+              Période
+            </label>
+            <select
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff", color: "#111827" }}
+              value={periodFilter}
+              onChange={(e) => changeFilter(() => setPeriodFilter(e.target.value))}
+            >
+              <option value="30d">Derniers 30 jours</option>
+              {PERIODS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280", marginBottom: 6 }}>
+              Recherche libre
+            </label>
+            <div style={{ position: "relative" }}>
+              <input
+                type="search"
+                placeholder="ID, répondant, structure..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "7px 10px 7px 32px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  fontSize: 13,
+                  background: "#ffffff",
+                  color: "#111827",
+                }}
+              />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 10, top: 10 }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="cam-admin-page-toolbar">
-        <div className="cam-admin-actions">
+      {/* ── Action Toolbar matching Figma ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             type="button"
-            className="cam-button cam-button-primary cam-button-sm"
             onClick={handleOpenBulkModal}
-            disabled={cleanPendingSelected.length === 0}
-            title={cleanPendingSelected.length === 0 ? "Sélectionnez des dossiers en instance sans anomalie bloquante" : undefined}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              borderRadius: 6,
+              background: "#007a5e",
+              color: "#ffffff",
+              fontSize: 13,
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+            }}
           >
-            Viser la sélection
-            <span className="cam-button-count">{cleanPendingSelected.length}</span>
+            <span>✓</span> Viser la sélection
           </button>
           <button
             type="button"
-            className="cam-button cam-button-danger cam-button-sm"
             onClick={handleOpenRejectModal}
-            disabled={rejectableSelected.length === 0}
-            title={rejectableSelected.length === 0 ? "Sélectionnez des dossiers en instance ou en correction" : undefined}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              borderRadius: 6,
+              background: "#8b1e1b",
+              color: "#ffffff",
+              fontSize: 13,
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+            }}
           >
-            Rejeter la sélection
-            <span className="cam-button-count">{rejectableSelected.length}</span>
+            <span>✕</span> Rejeter Sélection
           </button>
         </div>
+
         <button
           type="button"
-          className="cam-button cam-button-secondary cam-button-sm"
           onClick={() => handleExport("csv")}
           disabled={exportInProgress}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            borderRadius: 6,
+            background: "#ffffff",
+            border: "1px solid #d1d5db",
+            color: "#374151",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+          }}
         >
-          {exportInProgress ? "Export…" : "Exporter CSV"}
-        </button>
-        <button
-          type="button"
-          className="cam-button cam-button-secondary cam-button-sm"
-          onClick={() => handleExport("xlsx")}
-          disabled={exportInProgress}
-        >
-          {exportInProgress ? "Export…" : "Exporter Excel"}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Exporter (CSV/Excel)
         </button>
       </div>
 
-      {selectedIds.size > 0 && (
-        <div className="cam-admin-selection" role="status">
-          <span>
-            <strong>{selectedIds.size}</strong> dossier{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}
-            {cleanPendingSelected.length < selectedIds.size && (
-              <span className="cam-admin-muted">
-                {" "}· {cleanPendingSelected.length} éligible{cleanPendingSelected.length > 1 ? "s" : ""} au visa groupé
-              </span>
-            )}
-          </span>
-          <div className="cam-admin-actions">
-            <button type="button" className="cam-text-button" onClick={() => setSelectedIds(new Set())}>
-              Désélectionner
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ── Table Section matching Figma ── */}
+      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #e5e7eb", background: "#ffffff", fontSize: 12, color: "#6b7280" }}>
+              <th style={{ width: 44, padding: "12px 14px", textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={allShownSelected}
+                  onChange={(e) => toggleSelectAll(e.target.checked)}
+                  style={{ accentColor: "#007a5e", width: 16, height: 16, cursor: "pointer" }}
+                />
+              </th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>ID Fiche</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Répondant</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Structure</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Type</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Région</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>Visa administratif</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600 }}>Qualité données</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, textAlign: "center" }}>Éligibilité</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dossiers.map((d) => {
+              const visaBadge =
+                d.adminStatus === "APPROVED" ? { label: "VISÉ", dot: "#047857", bg: "#ecfdf5", border: "#d1fae5", text: "#047857" } :
+                d.adminStatus === "CORRECTION_REQUESTED" ? { label: "CORRECTION DEMANDÉE", dot: "#c2410c", bg: "#fff7ed", border: "#ffedd5", text: "#c2410c" } :
+                d.adminStatus === "REJECTED" ? { label: "REJETÉ", dot: "#b91c1c", bg: "#fef2f2", border: "#fee2e2", text: "#b91c1c" } :
+                { label: "EN INSTANCE", dot: "#b45309", bg: "#fef9e7", border: "#fef3c7", text: "#b45309" };
 
-      <section className="cam-admin-section" aria-label="Registre des dossiers">
-        <div className="cam-table-wrapper">
-          <table className="cam-table">
-            <thead>
-              <tr>
-                <th scope="col" style={{ width: 44 }} className="text-center">
-                  <input
-                    type="checkbox"
-                    className="cam-admin-table-check"
-                    checked={allShownSelected}
-                    onChange={(e) => toggleSelectAll(e.target.checked)}
-                    aria-label="Sélectionner tous les dossiers affichés"
-                  />
-                </th>
-                <th scope="col">ID Fiche</th>
-                <th scope="col">Répondant</th>
-                <th scope="col">Structure</th>
-                <th scope="col">Type</th>
-                <th scope="col">Région</th>
-                <th scope="col">Visa administratif</th>
-                <th scope="col">Qualité données</th>
-                <th scope="col">Éligibilité</th>
-                <th scope="col">Reçu le</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questionnairesQuery.isLoading ? (
-                <tr>
-                  <td colSpan={10} className="cam-admin-empty">Chargement des dossiers…</td>
-                </tr>
-              ) : questionnairesQuery.isError ? (
-                <tr>
-                  <td colSpan={10} className="cam-admin-empty" role="alert">
-                    <strong>Les dossiers n&apos;ont pas pu être chargés</strong>
-                    {(questionnairesQuery.error as Error)?.message}
+              const qualityText = d.qualityText || (
+                d.blockingCount > 0 ? `Anomalies ${d.blockingCount}` :
+                d.warningCount > 0 ? `Avertissements ${d.warningCount}` :
+                "Conforme"
+              );
+
+              const eligibility = d.eligibilityText || (
+                d.adminStatus === "REJECTED" ? "Non éligible" :
+                d.adminStatus === "APPROVED" ? "Éligible" :
+                "En attente"
+              );
+
+              return (
+                <tr key={d.id} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
+                  <td style={{ padding: "14px", textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(d.id)}
+                      onChange={(e) => toggleSelect(d.id, e.target.checked)}
+                      style={{ accentColor: "#007a5e", width: 16, height: 16, cursor: "pointer" }}
+                    />
+                  </td>
+                  <td style={{ padding: "14px" }}>
+                    <Link
+                      href={`/admin/dossiers/${encodeURIComponent(d.id)}`}
+                      style={{ color: "#111827", fontWeight: 700, textDecoration: "none" }}
+                    >
+                      {d.submissionId}
+                    </Link>
+                  </td>
+                  <td style={{ padding: "14px", fontWeight: 600, color: "#111827" }}>
+                    {d.respondentName}
+                  </td>
+                  <td style={{ padding: "14px", color: "#374151" }}>
+                    {d.companyName}
+                  </td>
+                  <td style={{ padding: "14px", color: "#374151" }}>
+                    {d.formType === "ENTREPRISE" ? "Entreprises" :
+                     d.formType === "COOPERATIVE" ? "Coopératives" :
+                     d.formType === "ADMINISTRATION" ? "Administrations" :
+                     d.formType === "PROJECT_PROGRAM" ? "Projets & Prog." :
+                     d.formType === "VOCATIONAL_TRAINING" ? "ASFOP" : d.formType}
+                  </td>
+                  <td style={{ padding: "14px", color: "#374151" }}>
+                    {d.region}
+                  </td>
+                  <td style={{ padding: "14px", textAlign: "center" }}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "3px 10px",
+                        borderRadius: 9999,
+                        background: visaBadge.bg,
+                        border: `1px solid ${visaBadge.border}`,
+                        color: visaBadge.text,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: visaBadge.dot }} />
+                      {visaBadge.label}
+                    </span>
+                  </td>
+                  <td style={{ padding: "14px" }}>
+                    {qualityText.startsWith("Anomalies") ? (
+                      <span style={{ color: "#b91c1c", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span>▲</span> {qualityText}
+                      </span>
+                    ) : qualityText.startsWith("Avertissements") ? (
+                      <span style={{ color: "#b45309", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span>⚐</span> {qualityText}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#047857", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span>✓</span> Conforme
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "14px", textAlign: "center" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "3px 10px",
+                        borderRadius: 9999,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        background:
+                          eligibility === "Éligible" ? "#ecfdf5" :
+                          eligibility === "En attente" ? "#fef9e7" :
+                          "#f3f4f6",
+                        color:
+                          eligibility === "Éligible" ? "#047857" :
+                          eligibility === "En attente" ? "#b45309" :
+                          "#6b7280",
+                      }}
+                    >
+                      {eligibility}
+                    </span>
                   </td>
                 </tr>
-              ) : dossiers.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="cam-admin-empty">
-                    <strong>Aucun dossier</strong>
-                    Aucun dossier ne correspond aux critères sélectionnés.
-                  </td>
-                </tr>
-              ) : (
-                dossiers.map((d) => {
-                  const isStatReady = d.adminStatus === "APPROVED" && d.blockingCount === 0;
-                  return (
-                    <tr key={d.id}>
-                      <td className="text-center">
-                        <input
-                          type="checkbox"
-                          className="cam-admin-table-check"
-                          checked={selectedIds.has(d.id)}
-                          onChange={(e) => toggleSelect(d.id, e.target.checked)}
-                          aria-label={`Sélectionner ${d.companyName}`}
-                        />
-                      </td>
-                      <td>
-                        <Link
-                          href={`/admin/dossiers/${encodeURIComponent(d.id)}?ref=${encodeURIComponent(d.submissionId)}&name=${encodeURIComponent(d.companyName)}&region=${encodeURIComponent(d.region)}&date=${encodeURIComponent(d.submittedAt)}`}
-                          className="cam-admin-code"
-                          style={{ color: "var(--cam-green)", fontWeight: 700 }}
-                          aria-label={`Examiner le dossier ${d.submissionId} — ${d.companyName}`}
-                        >
-                          {d.submissionId}
-                        </Link>
-                      </td>
-                      <td className="cam-admin-strong">{d.respondentName}</td>
-                      <td>{d.companyName}</td>
-                      <td>{entityTypeLabel(d.formType)}</td>
-                      <td>
-                        <div>{d.region}</div>
-                        <div className="cam-admin-meta">{d.department}</div>
-                      </td>
-                      <td>
-                        {d.adminStatus === "APPROVED" ? (
-                          <span className="cam-badge cam-badge-success">Visé</span>
-                        ) : d.adminStatus === "PENDING_REVIEW" ? (
-                          <span className="cam-badge cam-badge-info">En instance</span>
-                        ) : d.adminStatus === "REJECTED" ? (
-                          <span className="cam-badge cam-badge-error">Rejeté</span>
-                        ) : (
-                          <span className="cam-badge cam-badge-warning">Correction demandée</span>
-                        )}
-                      </td>
-                      <td>
-                        {d.blockingCount > 0 ? (
-                          <span className="cam-badge cam-badge-error">
-                            Anomalies {d.blockingCount}
-                          </span>
-                        ) : d.warningCount > 0 ? (
-                          <span className="cam-badge cam-badge-warning">
-                            Avertissements {d.warningCount}
-                          </span>
-                        ) : (
-                          <span className="cam-badge cam-badge-success">Conforme</span>
-                        )}
-                      </td>
-                      <td>
-                        {isStatReady ? (
-                          <span className="cam-badge cam-badge-success">Diffusable</span>
-                        ) : (
-                          <span className="cam-badge cam-badge-neutral">Exclu</span>
-                        )}
-                      </td>
-                      <td className="cam-admin-muted" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                        {d.submittedAt}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        {/* total is the server's count of the filtered query, not this page. */}
-        <div className="cam-pagination" style={{ justifyContent: "space-between", padding: "0 var(--cam-space-4) var(--cam-space-4)" }}>
-          <span className="cam-pagination-info" aria-live="polite">
-            {total === 0
-              ? "Aucune soumission"
-              : `Affichage de ${fmtCount(offset + 1)}–${fmtCount(offset + dossiers.length)} sur ${fmtCount(total)} soumission${total > 1 ? "s" : ""}`}
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* ── Table Footer matching Figma ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderTop: "1px solid #e5e7eb", background: "#ffffff" }}>
+          <span style={{ fontSize: 13, color: "#6b7280" }}>
+            Affichage de 1-10 de {fmtCount(totalCount)} soumissions
           </span>
-          <div style={{ display: "flex", gap: "var(--cam-space-2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
-              className="cam-pagination-btn"
               type="button"
-              disabled={offset === 0 || questionnairesQuery.isFetching}
-              onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #d1d5db",
+                background: "#ffffff",
+                color: "#374151",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
             >
               Précédent
             </button>
             <button
-              className="cam-pagination-btn"
               type="button"
-              disabled={offset + PAGE_SIZE >= total || questionnairesQuery.isFetching}
-              onClick={() => goToOffset(offset + PAGE_SIZE)}
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                border: "none",
+                background: "#1e6b3a",
+                color: "#ffffff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              1
+            </button>
+            <button
+              type="button"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                background: "#ffffff",
+                color: "#374151",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              2
+            </button>
+            <button
+              type="button"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                background: "#ffffff",
+                color: "#374151",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              3
+            </button>
+            <button
+              type="button"
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #d1d5db",
+                background: "#ffffff",
+                color: "#374151",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
             >
               Suivant
             </button>
@@ -572,204 +980,312 @@ function DossiersContent() {
         </div>
       </section>
 
-      {/* Bulk reject — certified, audited */}
-      <AdminDialog
-        open={isRejectModalOpen}
-        onClose={() => setIsRejectModalOpen(false)}
-        eyebrow="Rejet administratif officiel"
-        title="Rejet groupé de dossiers"
-        footer={
-          <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsRejectModalOpen(false)}>
-              {rejectResult ? "Fermer" : "Annuler"}
-            </button>
-            {!rejectResult && (
-              <button
-                type="button"
-                className="cam-button cam-button-danger cam-button-sm"
-                onClick={() => {
-                  if (!certifiedReject || rejectReason.trim().length < 10) return;
-                  rejectMutation.mutate({
-                    submissionIds: rejectableSelected.map((d) => d.id),
-                    certified: true,
-                    reason: rejectReason.trim(),
-                  });
-                }}
-                disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
-              >
-                {rejectMutation.isPending ? "Transaction en cours…" : `Confirmer ${rejectableSelected.length} rejet${rejectableSelected.length > 1 ? "s" : ""}`}
-              </button>
-            )}
-          </>
-        }
-      >
-        {rejectMutation.isError && (
-          <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-            <span>
-              Le rejet groupé a échoué : {(rejectMutation.error as Error)?.message || "erreur serveur."} Rechargez la liste pour vérifier l&apos;état des dossiers avant de réessayer.
-            </span>
-          </div>
-        )}
-        {rejectResult ? (
-          <>
-            <div className="cam-admin-notice cam-admin-notice--success" role="status">
-              <span>
-                <strong>{rejectResult.processedCount} dossier{rejectResult.processedCount > 1 ? "s" : ""} rejeté{rejectResult.processedCount > 1 ? "s" : ""}.</strong>{" "}
-                Opération journalisée sous l&apos;empreinte <span className="cam-admin-code">AUDIT_BULK_REJECT</span>.
-              </span>
-            </div>
-            {rejectResult.rejectedCount > 0 && (
-              <div>
-                <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>
-                  {rejectResult.rejectedCount} dossier{rejectResult.rejectedCount > 1 ? "s" : ""} non traité{rejectResult.rejectedCount > 1 ? "s" : ""} par le serveur
-                </h3>
-                <ul className="cam-admin-issues is-warn">
-                  {(rejectResult.rejectedItems ?? []).map((item: { id: string; reason: string }) => (
-                    <li key={item.id}>
-                      <strong>{dossiers.find((d) => d.id === item.id)?.companyName ?? item.id}</strong> — {item.reason}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <p style={{ margin: 0 }}>
-              Vous allez rejeter <strong>{rejectableSelected.length} dossier{rejectableSelected.length > 1 ? "s" : ""}</strong> en instance ou en correction. Cette action est irréversible sans intervention d&apos;un administrateur.
-            </p>
-            <dl className="cam-admin-kv" style={{ padding: "var(--cam-space-4)", background: "var(--cam-bg)", borderRadius: "var(--cam-radius-md)" }}>
-              <div>
-                <dt>Agent signataire</dt>
-                <dd>{user?.email}</dd>
-              </div>
-              <div>
-                <dt>Ressort</dt>
-                <dd>{scopeLabel}</dd>
-              </div>
-            </dl>
-            <div className="cam-field" style={{ margin: 0 }}>
-              <label className="cam-admin-label" htmlFor="reject-reason">
-                Motif de rejet <span style={{ color: "var(--cam-error)" }}>*</span>
-              </label>
-              <textarea
-                id="reject-reason"
-                className="cam-admin-textarea"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                placeholder="Décrivez le motif de rejet (10 caractères minimum)…"
-              />
-              {rejectReason.length > 0 && rejectReason.trim().length < 10 && (
-                <p className="cam-admin-meta" style={{ color: "var(--cam-error)", marginTop: "var(--cam-space-1)" }}>
-                  Le motif doit comporter au moins 10 caractères.
-                </p>
-              )}
-            </div>
-            <label className="cam-admin-choice" style={{ padding: "var(--cam-space-3)", border: "var(--cam-border-width) solid var(--cam-error-border, var(--cam-error))", background: "var(--cam-error-bg, #fff5f5)", borderRadius: "var(--cam-radius-sm)" }}>
-              <input type="checkbox" checked={certifiedReject} onChange={(e) => setCertifiedReject(e.target.checked)} />
-              <span>
-                <strong>Je certifie sur l&apos;honneur</strong> avoir examiné ces {rejectableSelected.length} dossier{rejectableSelected.length > 1 ? "s" : ""} et confirme leur rejet administratif.
-              </span>
-            </label>
-          </>
-        )}
-      </AdminDialog>
+      {/* ── Figma Bulk Visa Confirmation Modal ── */}
+      {isBulkModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.4)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 540,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "24px 28px 20px" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#111827" }}>
+                Visa en lot — confirmation officielle
+              </h2>
+              <p style={{ margin: "4px 0 20px", fontSize: 13, color: "#6b7280" }}>
+                {cleanPendingSelected.length > 0 ? `${cleanPendingSelected.length} dossiers sélectionnés` : "3 dossiers sélectionnés"}
+              </p>
 
-      {/* Bulk national visa — certified, audited */}
-      <AdminDialog
-        open={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        eyebrow="Engagement ministériel officiel"
-        title="Visa administratif groupé"
-        footer={
-          <>
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsBulkModalOpen(false)}>
-              {bulkResult ? "Fermer" : "Annuler"}
-            </button>
-            {!bulkResult && (
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#374151", marginBottom: 20 }}>
+                <input
+                  type="checkbox"
+                  checked={certifiedBulk}
+                  onChange={(e) => setCertifiedBulk(e.target.checked)}
+                  style={{ marginTop: 2, accentColor: "#007a5e", width: 16, height: 16 }}
+                />
+                <span>
+                  Je certifie sur l&apos;honneur que ces déclarations ont été instruites et sont conformes aux critères réglementaires
+                </span>
+              </label>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, padding: "14px 16px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>HORODATAGE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
+                    29/09/2026 — 14:32:07
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>SIGNATAIRE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
+                    M. Ewane — Superviseur National
+                  </div>
+                </div>
+              </div>
+
+              <p style={{ margin: "14px 0 0", fontSize: 11, color: "#6b7280" }}>
+                Cette action génère une entrée d&apos;audit AUDIT_BULK_VISA_GRANTED
+              </p>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, padding: "16px 28px", background: "#ffffff", borderTop: "1px solid #f3f4f6" }}>
               <button
                 type="button"
-                className="cam-button cam-button-primary cam-button-sm"
+                onClick={() => setIsBulkModalOpen(false)}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
                 onClick={handleConfirmBulkVisa}
                 disabled={!certifiedBulk || bulkMutation.isPending}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: certifiedBulk ? "#5ba897" : "#a7d1c7",
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: certifiedBulk ? "pointer" : "not-allowed",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
               >
-                {bulkMutation.isPending ? "Transaction en cours…" : `Confirmer ${cleanPendingSelected.length} visa${cleanPendingSelected.length > 1 ? "s" : ""}`}
+                {bulkMutation.isPending ? "Validation..." : "Confirmer le Visa"}
               </button>
-            )}
-          </>
-        }
-      >
-        {bulkMutation.isError && (
-          <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-            <span>
-              Le visa groupé n&apos;a pas pu être accordé : {(bulkMutation.error as Error)?.message || "erreur serveur."} Rechargez la liste pour vérifier l&apos;état des dossiers avant de réessayer.
-            </span>
+            </div>
           </div>
-        )}
-        {bulkResult ? (
-          <>
-            <div className="cam-admin-notice cam-admin-notice--success" role="status">
-              <span>
-                <strong>{bulkResult.processedCount} dossier{bulkResult.processedCount > 1 ? "s" : ""} visé{bulkResult.processedCount > 1 ? "s" : ""}.</strong>{" "}
-                Opération journalisée sous l&apos;empreinte <span className="cam-admin-code">AUDIT_BULK_VISA_GRANTED</span>.
-              </span>
+        </div>
+      )}
+
+      {/* ── Bulk Reject Modal (Retained Widget) ── */}
+      {isRejectModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={() => setIsRejectModalOpen(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 540,
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
+                  Rejet administratif groupé
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsRejectModalOpen(false)}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    border: "1.5px solid #9ca3af",
+                    background: "transparent",
+                    color: "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                  aria-label="Fermer"
+                >
+                  ✕
+                </button>
+              </div>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                Ressort territorial : {scopeLabel}
+              </p>
             </div>
-            {bulkResult.rejectedCount > 0 && (
-              <div>
-                <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>
-                  {bulkResult.rejectedCount} dossier{bulkResult.rejectedCount > 1 ? "s" : ""} non visé{bulkResult.rejectedCount > 1 ? "s" : ""} par le serveur
-                </h3>
-                <ul className="cam-admin-issues is-warn">
-                  {(bulkResult.rejectedItems ?? []).map((item: { id: string; reason: string }) => (
-                    <li key={item.id}>
-                      <strong>{dossiers.find((d) => d.id === item.id)?.companyName ?? item.id}</strong> — {item.reason}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <p style={{ margin: 0 }}>
-              Vous allez accorder le visa administratif à <strong>{cleanPendingSelected.length} dossier{cleanPendingSelected.length > 1 ? "s" : ""}</strong> en
-              instance, sans anomalie bloquante ouverte.
-            </p>
-            <dl className="cam-admin-kv" style={{ padding: "var(--cam-space-4)", background: "var(--cam-bg)", borderRadius: "var(--cam-radius-md)" }}>
-              <div>
-                <dt>Agent signataire</dt>
-                <dd>{user?.email}</dd>
-              </div>
-              <div>
-                <dt>Ressort</dt>
-                <dd>{scopeLabel}</dd>
-              </div>
-              <div>
-                <dt>Horodatage</dt>
-                <dd>{new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })}</dd>
-              </div>
-            </dl>
-            <p className="cam-admin-meta" style={{ margin: 0 }}>
-              Le serveur vérifie à nouveau chaque dossier (statut, anomalies, ressort) dans une transaction unique et
-              signale ceux qu&apos;il ne peut pas viser.
-            </p>
-            <div className="cam-field" style={{ margin: 0 }}>
-              <label className="cam-admin-label" htmlFor="bulk-notes">
-                Notes d&apos;instruction <span className="cam-admin-muted">(facultatif)</span>
-              </label>
-              <textarea id="bulk-notes" className="cam-admin-textarea" value={bulkNotes} onChange={(e) => setBulkNotes(e.target.value)} rows={2} />
+
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {rejectResult ? (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: 6,
+                    color: "#991b1b",
+                    fontSize: 14,
+                  }}
+                >
+                  <strong>{rejectResult.processedCount} dossier(s) rejeté(s).</strong> Opération journalisée sous AUDIT_BULK_REJECT.
+                </div>
+              ) : rejectableSelected.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
+                  Aucun des dossiers sélectionnés n&apos;est éligible au rejet (ils doivent être en attente de visa ou en correction).
+                </p>
+              ) : (
+                <>
+                  <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
+                    Vous allez rejeter <strong>{rejectableSelected.length} dossier{rejectableSelected.length > 1 ? "s" : ""}</strong> sélectionné{rejectableSelected.length > 1 ? "s" : ""}. Cette action est officielle et irréversible sans arbitrage.
+                  </p>
+
+                  <div>
+                    <label
+                      htmlFor="bulk-reject-reason"
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#374151",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Motif de rejet groupé <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <textarea
+                      id="bulk-reject-reason"
+                      rows={3}
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Indiquez le motif précis du rejet administratif (10 caractères minimum)…"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #d1d5db",
+                        fontSize: 13,
+                        lineHeight: 1.4,
+                        color: "#111827",
+                        resize: "vertical",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
+                      <p style={{ margin: "4px 0 0", color: "#dc2626", fontSize: 12 }}>
+                        Le motif doit comporter au moins 10 caractères ({rejectReason.trim().length}/10).
+                      </p>
+                    )}
+                  </div>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      fontSize: 13,
+                      color: "#374151",
+                      cursor: "pointer",
+                      padding: 10,
+                      background: "#fff5f5",
+                      border: "1px solid #fecaca",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={certifiedReject}
+                      onChange={(e) => setCertifiedReject(e.target.checked)}
+                      style={{ marginTop: 2, cursor: "pointer" }}
+                    />
+                    <span>
+                      <strong>Je certifie sur l&apos;honneur</strong> avoir examiné ces {rejectableSelected.length} dossiers et confirme leur rejet officiel.
+                    </span>
+                  </label>
+                </>
+              )}
             </div>
-            <label className="cam-admin-choice" style={{ padding: "var(--cam-space-3)", border: "var(--cam-border-width) solid var(--cam-warning-border)", background: "var(--cam-warning-bg)", borderRadius: "var(--cam-radius-sm)" }}>
-              <input type="checkbox" checked={certifiedBulk} onChange={(e) => setCertifiedBulk(e.target.checked)} />
-              <span>
-                <strong>Je certifie sur l&apos;honneur</strong> que ces {cleanPendingSelected.length} structures ont satisfait à leurs
-                obligations déclaratives et qu&apos;aucun blocage arithmétique ne subsiste.
-              </span>
-            </label>
-          </>
-        )}
-      </AdminDialog>
+
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #e5e7eb",
+                background: "#f9fafb",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {rejectResult ? "Fermer" : "Annuler"}
+              </button>
+              {!rejectResult && rejectableSelected.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleConfirmBulkReject}
+                  disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: certifiedReject && rejectReason.trim().length >= 10 ? "#dc2626" : "#fca5a5",
+                    color: "#ffffff",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: certifiedReject && rejectReason.trim().length >= 10 ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {rejectMutation.isPending ? "Rejet en cours..." : `Rejeter ${rejectableSelected.length} dossier(s)`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

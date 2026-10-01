@@ -165,50 +165,29 @@ export function AdminSidebar({
       />
 
       {/* ── Brand ── */}
-      <div style={{ padding: "18px 16px 14px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-        <div
-          aria-hidden="true"
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 7,
-            background: "#fff",
-            display: "grid",
-            placeItems: "center",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-            flexShrink: 0,
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--cam-green-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9" />
-            <circle cx="12" cy="12" r="4" fill="var(--cam-green-dark)" />
-          </svg>
-        </div>
+      <div style={{ padding: "24px 20px 16px", flexShrink: 0 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", letterSpacing: "0.04em", lineHeight: 1 }}>
-            ONEFOP
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: "0.06em", lineHeight: 1.1 }}>
+            NEFOP
           </div>
-          <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", marginTop: 3, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>
             Observatoire National
           </div>
         </div>
+        {/* Cameroon stripes */}
+        <div
+          aria-hidden="true"
+          style={{
+            marginTop: 14,
+            height: 3,
+            borderRadius: 2,
+            background: `linear-gradient(90deg, #007a5e 0 33.33%, #b3261e 33.33% 66.66%, #f0b429 66.66% 100%)`,
+          }}
+        />
       </div>
 
       {/* ── 6 Primary Navigation Hubs ── */}
-      <nav style={{ flex: "1 0 auto", padding: "10px 10px var(--cam-space-4)", display: "flex", flexDirection: "column", gap: 4 }}>
-        <div
-          style={{
-            padding: "0 8px 6px",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.38)",
-          }}
-        >
-          Modules
-        </div>
-
+      <nav style={{ flex: "1 0 auto", padding: "12px 12px var(--cam-space-4)", display: "flex", flexDirection: "column", gap: 4 }}>
         {visibleHubs.map((hub) => {
           const isActive = activeHub?.key === hub.key;
           const badgeCount = getBadgeCount(hub.badgeKey);
@@ -226,12 +205,11 @@ export function AdminSidebar({
                 padding: "10px 14px",
                 borderRadius: 8,
                 textDecoration: "none",
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: isActive ? 600 : 500,
-                background: isActive ? "rgba(255, 255, 255, 0.96)" : "transparent",
-                color: isActive ? "var(--cam-green-dark)" : "rgba(255, 255, 255, 0.85)",
-                borderLeft: isActive ? "3px solid var(--cam-flag-yellow)" : "3px solid transparent",
-                boxShadow: isActive ? "0 2px 6px rgba(0,0,0,0.12)" : "none",
+                background: isActive ? "#1e6b3a" : "transparent",
+                color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.78)",
+                boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.25)" : "none",
                 transition: "all 0.15s ease",
               }}
             >
@@ -241,13 +219,11 @@ export function AdminSidebar({
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background: isActive ? "rgba(0, 102, 68, 0.08)" : "rgba(255, 255, 255, 0.08)",
-                  color: isActive ? "var(--cam-green-dark)" : "rgba(255, 255, 255, 0.75)",
+                  width: 24,
+                  height: 24,
+                  color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.78)",
                   flexShrink: 0,
-                  transition: "color 0.15s ease, background 0.15s ease",
+                  transition: "color 0.15s ease",
                 }}
               >
                 <HubIcon name={hub.iconName} />

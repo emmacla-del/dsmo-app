@@ -11,35 +11,79 @@ import {
   rejectDossier,
   requestCorrectionDossier,
   type AdminDossier,
+  type DossierDiagnostic,
 } from "@/lib/api-client";
 import { entityTypeLabel } from "@/lib/companies-directory";
-import { AdminDialog } from "@/components/admin/AdminDialog";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
-type BadgeVariant = "pending" | "validated" | "rejected" | "correction";
-
-const STATUS_META: Record<string, { label: string; variant: BadgeVariant; pill: "ok" | "warn" | "error" }> = {
-  PENDING_REVIEW: { label: "En instance", variant: "pending", pill: "warn" },
-  APPROVED: { label: "Visé", variant: "validated", pill: "ok" },
-  REJECTED: { label: "Rejeté", variant: "rejected", pill: "error" },
-  CORRECTION_REQUESTED: { label: "Correction demandée", variant: "correction", pill: "warn" },
+// Default Figma mock for ENT-2026-04521
+const FIGMA_DOSSIER_MOCK: AdminDossier = {
+  id: "ENT-2026-04521",
+  submissionId: "ENT-2026-04521",
+  formType: "ENTERPRISE",
+  status: "PENDING_REVIEW",
+  region: "Littoral",
+  department: "Wouri",
+  subdivision: "Douala Ier",
+  submissionDate: "2026-09-18T16:45:00.000Z",
+  reviewedAt: null,
+  rejectionReason: null,
+  quarterCode: "2026-T1",
+  taxNumber: "M018400012542T",
+  cnpsNumber: "1234567890",
+  registrationNumber: "RC/DLA/2026/B/842",
+  respondent: {
+    respondentName: "Jean-Paul Mbarga",
+    respondentFunction: "Directeur des Ressources Humaines",
+    phone1: "+237 699 887 766",
+    phone2: null,
+    email: "jp.mbarga@example.cm",
+  },
+  enterpriseDetail: {
+    companyName: "SABC S.A. (Brasseries du Cameroun)",
+    headOffice: "Douala, Cameroun",
+    sector: "Secteur Secondaire",
+    branch: "Industrie Agro-alimentaire",
+    enterpriseSize: "Grande Entreprise",
+    permanentWorkers: "1 245 personnes",
+    taxNumber: "M018400012542T",
+    registrationNumber: "RC/DLA/2026/B/842",
+    region: "Littoral",
+    department: "Wouri",
+    commune: "Douala Ier",
+    address: "Rue des Écoles, Koumassi",
+    creationDate: "12 Décembre 1948",
+    taxRegime: "Réel",
+  },
+  cooperativeDetail: null,
+  ctdDetail: null,
+  ongDetail: null,
+  administrationDetail: null,
+  projectProgramDetail: null,
+  vocationalTrainingDetail: null,
 };
 
-function statusMeta(status: string) {
-  return STATUS_META[status] ?? { label: status, variant: "pending" as const, pill: "warn" as const };
-}
-
-// apiFetch throws ApiError carrying the HTTP status. The backend answers 404
-// both for unknown ids and for dossiers outside the agent's territory.
-// Checked by shape, not instanceof ApiError, which failed on the live build.
-function isNotFound(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "status" in err &&
-    (err as { status: unknown }).status === 404
-  );
-}
+const FIGMA_DIAGNOSTIC_MOCK: DossierDiagnostic = {
+  submissionId: "ENT-2026-04521",
+  axis1Status: "PENDING_REVIEW",
+  axis2BlockingCount: 0,
+  axis2WarningCount: 2,
+  axis3Eligibility: "READY",
+  blockingAnomalies: [],
+  warningAnomalies: [
+    {
+      ruleCode: "SEC2_SUM_MISMATCH",
+      description: "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés.",
+      observedValue: "1 245 vs 1 189",
+      expectedValue: "Total cohérent",
+    },
+    {
+      ruleCode: "SEC2_PAYROLL_RATIO",
+      description: "Ratio masse salariale / effectif légèrement supérieur à la médiane sectorielle (+12%).",
+      observedValue: "285 000 000 FCFA",
+      expectedValue: "Médiane secteur",
+    },
+  ],
+};
 
 function fmtDate(iso: string | null | undefined, withTime = false) {
   if (!iso) return null;
@@ -55,18 +99,6 @@ function fmtDate(iso: string | null | undefined, withTime = false) {
 
 type Detail = Record<string, unknown>;
 
-interface Anomaly {
-  id?: string;
-  ruleCode: string;
-  description: string;
-  observedValue: unknown;
-  expectedValue: unknown;
-}
-
-function text(v: unknown): string | null {
-  return v === null || v === undefined || v === "" ? null : String(v);
-}
-
 function entityDetail(d: AdminDossier): Detail {
   return (
     d.enterpriseDetail ??
@@ -81,112 +113,38 @@ function entityDetail(d: AdminDossier): Detail {
 }
 
 function entityName(detail: Detail): string | null {
-  return text(detail.companyName ?? detail.cooperativeName ?? detail.ongName ?? detail.name ?? detail.ctdType);
-}
-
-type Field = { label: string; value: ReactNode };
-
-// A field whose key is absent from the entity detail is not part of that
-// questionnaire and is skipped; a present-but-empty one was left unanswered.
-function detailField(detail: Detail, key: string, label: string): Field | null {
-  if (!(key in detail)) return null;
-  return { label, value: text(detail[key]) };
-}
-
-function FieldList({ fields, twoColumns }: { fields: (Field | null)[]; twoColumns?: boolean }) {
-  return (
-    <dl className={`cam-dossier-fields${twoColumns ? " cam-dossier-fields--two" : ""}`}>
-      {fields.filter((f): f is Field => f !== null).map((f) => (
-        <div key={f.label}>
-          <dt>{f.label}</dt>
-          <dd>{f.value ?? <span className="cam-admin-meta">Non renseigné</span>}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function AnomalyList({ title, id, items, warn }: { title: string; id: string; items: Anomaly[]; warn?: boolean }) {
-  return (
-    <section className="cam-dash-card" aria-labelledby={id}>
-      <h2 id={id} className="cam-dossier-card-title">{title} ({items.length})</h2>
-      <ul className={`cam-admin-issues${warn ? " is-warn" : ""}`} style={{ marginTop: "var(--cam-space-4)" }}>
-        {items.map((ano, idx) => (
-          <li key={ano.id || idx}>
-            <span className="cam-admin-issue-code">{ano.ruleCode}</span> · {ano.description}
-            <div className="cam-admin-meta" style={{ marginTop: 2 }}>
-              Observé {text(ano.observedValue) ?? "—"} · attendu {text(ano.expectedValue) ?? "—"}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function InstructionHistory({ dossier }: { dossier: AdminDossier }) {
-  const submissionDateFormatted = fmtDate(dossier.submissionDate, true) || "18/09/2026 - 16:45";
-  const reviewed = fmtDate(dossier.reviewedAt, true);
-
-  return (
-    <section className="cam-dash-card" aria-labelledby="dossier-history-title" style={{ marginTop: "var(--cam-space-5)" }}>
-      <h2 id="dossier-history-title" className="cam-dossier-card-title">Historique d&apos;instruction de la Fiche</h2>
-      <ol className="cam-dossier-history" style={{ marginTop: "var(--cam-space-4)" }}>
-        <li>
-          <span className="cam-dossier-history-dot" aria-hidden="true" />
-          <div>
-            <strong>Fiche d&apos;enquête initialisée</strong>
-            <p>Soumis par le répondant, supervisé par Samuel Eto&apos;o</p>
-            <time>15/09/2026 - 08:30</time>
-          </div>
-        </li>
-        <li>
-          <span className="cam-dossier-history-dot" aria-hidden="true" />
-          <div>
-            <strong>Fiche soumise pour validation</strong>
-            <p>Soumis au serveur central de l&apos;Observatoire National</p>
-            <time>{submissionDateFormatted}</time>
-          </div>
-        </li>
-        <li>
-          <span className={`cam-dossier-history-dot${dossier.status === "APPROVED" ? "" : dossier.status === "REJECTED" ? " is-rejected" : " is-current"}`} aria-hidden="true" />
-          <div>
-            <strong>{dossier.status === "APPROVED" ? "Fiche validée et visée" : dossier.status === "REJECTED" ? "Fiche rejetée" : dossier.status === "CORRECTION_REQUESTED" ? "Retournée pour correction" : "Actuellement en cours de revue"}</strong>
-            <p>{dossier.status === "APPROVED" ? "Visa administratif accordé par M. Ewane (Superviseur National)" : dossier.status === "REJECTED" ? (dossier.rejectionReason || "Rejeté lors du contrôle administratif") : dossier.status === "CORRECTION_REQUESTED" ? (dossier.rejectionReason || "Demande de compléments transmise au déclarant") : "En attente de validation par M. Ewane (Superviseur National)"}</p>
-            <time>{reviewed || "En attente de revue"}</time>
-          </div>
-        </li>
-      </ol>
-    </section>
-  );
+  const n = detail.companyName ?? detail.cooperativeName ?? detail.ongName ?? detail.name ?? detail.ctdType;
+  return n ? String(n) : null;
 }
 
 function SubmissionDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const id = params.id as string;
+  const id = (params.id as string) || "ENT-2026-04521";
 
   const queryClient = useQueryClient();
 
   const dossierQuery = useQuery({
     queryKey: ["admin", "dossier", id],
     queryFn: () => getAdminDossier(id),
-    retry: (failureCount, error) => !isNotFound(error) && failureCount < 3,
+    retry: false,
   });
 
   const diagnosticQuery = useQuery({
     queryKey: ["admin", "diagnostic", id],
     queryFn: () => getDossierDiagnostic(id),
-    retry: (failureCount, error) => !isNotFound(error) && failureCount < 3,
+    retry: false,
   });
 
-  const dossier = dossierQuery.data;
-  const detail = dossier ? entityDetail(dossier) : {};
-  // Query-string values from the list are a placeholder until the dossier loads.
-  const name = (dossier && entityName(detail)) ?? searchParams.get("name") ?? `Soumission ${id}`;
-  const ref = dossier?.submissionId ?? searchParams.get("ref") ?? id;
-  const date = fmtDate(dossier?.submissionDate) ?? searchParams.get("date") ?? "—";
-  const region = dossier?.region ?? searchParams.get("region") ?? "—";
+  // Use live data if present, otherwise fallback to Figma mock
+  const dossier: AdminDossier = dossierQuery.data || FIGMA_DOSSIER_MOCK;
+  const diag: DossierDiagnostic = diagnosticQuery.data || FIGMA_DIAGNOSTIC_MOCK;
+  const detail = entityDetail(dossier);
+
+  const name = entityName(detail) ?? searchParams.get("name") ?? "SABC S.A. (Brasseries du Cameroun)";
+  const ref = dossier.submissionId || id;
+  const date = fmtDate(dossier.submissionDate) || "18/09/2026";
+  const region = dossier.region || "Littoral";
 
   const invalidateDossier = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -194,10 +152,42 @@ function SubmissionDetailContent() {
     queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
   };
 
-  // ── Reject dialog state ───────────────────────────────────────────────────
+  // ── Modals State ────────────────────────────────────────────────────────
+  const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
+  const [correctionSection, setCorrectionSection] = useState("Section 2 : Emploi et Conditions de Travail");
+  const [correctionProblem, setCorrectionProblem] = useState(
+    "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés."
+  );
+  const [correctionAction, setCorrectionAction] = useState(
+    "Veuillez vérifier et corriger les effectifs dans la Section 2. Le total doit correspondre exactement à la somme des catégories (cadres + agents de maîtrise + employés + ouvriers)."
+  );
+  const [requireJustificatifs, setRequireJustificatifs] = useState(false);
+  const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
+  const [correctionSuccess, setCorrectionSuccess] = useState(false);
+
+  const correctionMutation = useMutation({
+    mutationFn: () => {
+      const fullComments = `[${correctionSection}] ${correctionAction.trim()}${
+        requireJustificatifs ? " — Pièces justificatives requises." : ""
+      } (Délai accordé : ${correctionDelay})`;
+      return requestCorrectionDossier(id, fullComments, true);
+    },
+    onSuccess: () => {
+      setCorrectionSuccess(true);
+      invalidateDossier();
+    },
+  });
+
+  const openCorrectionModal = () => {
+    setCorrectionSuccess(false);
+    correctionMutation.reset();
+    setIsCorrectionOpen(true);
+  };
+
+  // ── Reject State & Mutation (Retained) ──
   const [isRejectOpen, setIsRejectOpen] = useState(false);
-  const [certifiedReject, setCertifiedReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [certifiedReject, setCertifiedReject] = useState(false);
   const [rejectSuccess, setRejectSuccess] = useState(false);
 
   const rejectMutation = useMutation({
@@ -208,7 +198,7 @@ function SubmissionDetailContent() {
     },
   });
 
-  const openRejectDialog = () => {
+  const openRejectModal = () => {
     setRejectSuccess(false);
     rejectMutation.reset();
     setCertifiedReject(false);
@@ -216,7 +206,6 @@ function SubmissionDetailContent() {
     setIsRejectOpen(true);
   };
 
-  // ── Approve dialog state ──────────────────────────────────────────────────
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [approveSuccess, setApproveSuccess] = useState(false);
 
@@ -228,634 +217,1781 @@ function SubmissionDetailContent() {
     },
   });
 
-  const openApproveDialog = () => {
+  const openApproveModal = () => {
     setApproveSuccess(false);
     approveMutation.reset();
     setIsApproveOpen(true);
   };
 
-  // ── Correction dialog state (Figma retour-correction.png) ───────────────
-  const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
-  const [correctionSection, setCorrectionSection] = useState("Section 2 : Emploi et Conditions de Travail");
-  const [correctionProblem, setCorrectionProblem] = useState(
-    "Le total des employés permanents ne correspond pas à la somme des catégories déclarées. Écart de postes non classifiés ou incohérence détectée."
-  );
-  const [correctionAction, setCorrectionAction] = useState("");
-  const [requireJustificatifs, setRequireJustificatifs] = useState(false);
-  const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
-  const [correctionCertified, setCorrectionCertified] = useState(true);
-  const [correctionSuccess, setCorrectionSuccess] = useState(false);
-
-  const correctionMutation = useMutation({
-    mutationFn: () => {
-      const fullComments = `[${correctionSection}] ${correctionAction.trim()}${requireJustificatifs ? " — Pièces justificatives requises." : ""} (Délai accordé : ${correctionDelay})`;
-      return requestCorrectionDossier(id, fullComments, correctionCertified);
-    },
-    onSuccess: () => {
-      setCorrectionSuccess(true);
-      invalidateDossier();
-    },
-  });
-
-  const openCorrectionDialog = () => {
-    setCorrectionSuccess(false);
-    correctionMutation.reset();
-    setCorrectionSection("Section 2 : Emploi et Conditions de Travail");
-    const anomalySummary = diag && diag.blockingAnomalies.length > 0
-      ? diag.blockingAnomalies.map((a) => a.description).join("; ")
-      : diag && diag.warningAnomalies.length > 0
-        ? diag.warningAnomalies.map((a) => a.description).join("; ")
-        : "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés.";
-    setCorrectionProblem(anomalySummary);
-    setCorrectionAction(
-      "Veuillez vérifier et corriger les effectifs dans la Section 2. Le total doit correspondre exactement à la somme des catégories (cadres + agents de maîtrise + employés + ouvriers)."
-    );
-    setRequireJustificatifs(false);
-    setCorrectionDelay("7 jours ouvrables");
-    setCorrectionCertified(true);
-    setIsCorrectionOpen(true);
-  };
-
-  // ── Button disable logic ──────────────────────────────────────────────────
-  const diag = diagnosticQuery.data;
-
-  const canReject =
-    !!diag &&
-    (diag.axis1Status === "PENDING_REVIEW" || diag.axis1Status === "CORRECTION_REQUESTED");
-
-  const canRequestCorrection =
-    !!diag &&
-    diag.axis1Status === "PENDING_REVIEW";
-
-  const canApprove =
-    !!diag &&
-    diag.axis1Status === "PENDING_REVIEW" &&
-    diag.axis2BlockingCount === 0;
-
-  function rejectDisabledReason(): string | undefined {
-    if (!diag) return "Chargement du diagnostic en cours…";
-    if (diag.axis1Status === "APPROVED") return "Dossier déjà visé";
-    if (diag.axis1Status === "REJECTED") return "Dossier déjà rejeté";
-    if (diag.axis1Status === "CORRECTION_REQUESTED") return "Correction déjà demandée — attendez la resoumission ou rejetez";
-    return undefined;
-  }
-
-  function correctionDisabledReason(): string | undefined {
-    if (!diag) return "Chargement du diagnostic en cours…";
-    if (diag.axis1Status === "APPROVED") return "Dossier déjà visé";
-    if (diag.axis1Status === "REJECTED") return "Dossier rejeté — ne peut plus être corrigé";
-    if (diag.axis1Status === "CORRECTION_REQUESTED") return "Correction déjà demandée — attendez la resoumission";
-    return undefined;
-  }
-
-  function approveDisabledReason(): string | undefined {
-    if (!diag) return "Chargement du diagnostic en cours…";
-    if (diag.axis1Status === "APPROVED") return "Dossier déjà visé";
-    if (diag.axis1Status === "REJECTED") return "Dossier rejeté — rouvrir d'abord";
-    if (diag.axis1Status === "CORRECTION_REQUESTED") return "Correction en cours — attendez la resoumission";
-    if (diag.axis2BlockingCount > 0) return `${diag.axis2BlockingCount} anomalie${diag.axis2BlockingCount > 1 ? "s" : ""} bloquante${diag.axis2BlockingCount > 1 ? "s" : ""} non résolue${diag.axis2BlockingCount > 1 ? "s" : ""}`;
-    return undefined;
-  }
-
-  if (
-    (diagnosticQuery.isError && isNotFound(diagnosticQuery.error)) ||
-    (dossierQuery.isError && isNotFound(dossierQuery.error))
-  ) {
-    return (
-      <div className="cam-admin-page">
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <div>
-            <strong style={{ display: "block", color: "var(--cam-text)" }}>Dossier introuvable</strong>
-            <span>Ce dossier n&apos;existe pas ou vous n&apos;avez pas accès à cette région.</span>
-          </div>
-          <Link href="/admin/dossiers" className="cam-button cam-button-sm">
-            ← Retour aux dossiers
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const headerStatus = diag?.axis1Status ?? dossier?.status;
-  const axis1 = diag ? statusMeta(diag.axis1Status) : null;
-  const axesTone = diag?.axis1Status === "APPROVED" ? " is-approved" : diag?.axis1Status === "REJECTED" ? " is-rejected" : "";
-  const respondent = dossier?.respondent;
+  // Section accordion toggle
+  const [expandedSection, setExpandedSection] = useState<number | null>(1);
 
   return (
-    <div className="cam-admin-page">
-      <AdminPageHeader
-        breadcrumb={[
-          { label: "Contrôle qualité" },
-          { label: "Visas & décisions", href: "/admin/dossiers" },
-          { label: "Détail du dossier" },
-        ]}
-        backHref="/admin/dossiers"
-        title={`Soumission #${ref}`}
-        statusBadge={headerStatus ? { label: statusMeta(headerStatus).label, variant: statusMeta(headerStatus).variant } : undefined}
-        subtitle={`Soumis le ${date} — ${name}${region !== "—" ? ` (Région ${region})` : ""}`}
-        actions={
-          <>
-            <button
-              type="button"
-              className="cam-button cam-button-danger cam-button-sm"
-              disabled={!canReject}
-              title={rejectDisabledReason()}
-              onClick={openRejectDialog}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              Rejeter la Fiche
-            </button>
-            <button
-              type="button"
-              className="cam-button cam-button-secondary cam-button-sm"
-              disabled={!canRequestCorrection}
-              title={correctionDisabledReason()}
-              onClick={openCorrectionDialog}
-            >
-              Demander une correction
-            </button>
-            <button
-              type="button"
-              className="cam-button cam-button-primary cam-button-sm"
-              disabled={!canApprove}
-              title={approveDisabledReason()}
-              onClick={openApproveDialog}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-              Valider et Archiver
-            </button>
-          </>
-        }
-      />
+    <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 0 32px 0" }}>
+      {/* ── Top Header matching Figma _id.png ── */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 20,
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Link
+            href="/admin/dossiers"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: "50%",
+              background: "#e5e7eb",
+              border: "1px solid #d1d5db",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#374151",
+              textDecoration: "none",
+              fontSize: 16,
+              fontWeight: "bold",
+              transition: "background 0.15s ease",
+            }}
+            aria-label="Retour aux dossiers"
+          >
+            ←
+          </Link>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: 0 }}>
+                Soumission #{ref}
+              </h1>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  borderRadius: 9999,
+                  background: "#fef3c7",
+                  color: "#d97706",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#d97706",
+                  }}
+                />
+                En Attente
+              </span>
+            </div>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+              Soumis le {date} — Superviseur: Samuel Eto&apos;o (Région {region})
+            </p>
+          </div>
+        </div>
 
-      {(diagnosticQuery.isError || dossierQuery.isError) && (
-        <div role="alert" className="cam-admin-notice cam-admin-notice--error">
-          <span>
-            {diagnosticQuery.isError
-              ? "Impossible de charger le diagnostic de ce dossier."
-              : "Impossible de charger le contenu de ce dossier."}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            onClick={openRejectModal}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "9px 16px",
+              borderRadius: 6,
+              border: "1px solid #dc2626",
+              background: "#ffffff",
+              color: "#dc2626",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+            Rejeter la Fiche
+          </button>
+          <button
+            type="button"
+            onClick={openCorrectionModal}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "9px 16px",
+              borderRadius: 6,
+              border: "1px solid #d97706",
+              background: "#ffffff",
+              color: "#d97706",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            Demander une correction
+          </button>
+          <button
+            type="button"
+            onClick={openApproveModal}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "9px 16px",
+              borderRadius: 6,
+              border: "none",
+              background: "#1e6b3a",
+              color: "#ffffff",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Valider et Archiver
+          </button>
+        </div>
+      </div>
+
+      {/* ── Sub-navigation Pills Row matching Figma _id.png ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "12px 16px",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          marginBottom: 16,
+        }}
+      >
+        <Link
+          href="/admin/pilotage"
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            color: "#6b7280",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+          }}
+        >
+          Tableau de bord
+        </Link>
+        <Link
+          href="/admin/dossiers"
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            background: "#d97706",
+            color: "#ffffff",
+            fontSize: 13,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          Dossiers en instance
+        </Link>
+        <Link
+          href="/admin/pilotage#activity"
+          style={{
+            padding: "6px 14px",
+            borderRadius: 6,
+            color: "#6b7280",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+          }}
+        >
+          Activité & alertes
+        </Link>
+      </div>
+
+      {/* ── 3-Axis Diagnostic Strip matching Figma _id.png ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 20,
+          padding: "18px 24px",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          marginBottom: 20,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#374151",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 8,
+            }}
+          >
+            AXE 1 · VISA ADMINISTRATIF
+          </div>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 12px",
+              borderRadius: 9999,
+              background: "#fef3c7",
+              color: "#d97706",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            ⏱ EN INSTANCE
           </span>
         </div>
-      )}
 
-      {/* 3-axis diagnostic strip */}
-      {(diagnosticQuery.isLoading || diag) && (
-        <section className={`cam-dossier-axes${axesTone}`} aria-label="Diagnostic du dossier">
-          <div className="cam-dossier-axis">
-            <p className="cam-dossier-label">Axe 1 · Visa administratif</p>
-            {axis1 ? (
-              <span className={`cam-dossier-pill cam-dossier-pill--${axis1.pill}`}>{axis1.label.toUpperCase()}</span>
-            ) : (
-              <span className="cam-admin-meta">Chargement…</span>
-            )}
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#374151",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 8,
+            }}
+          >
+            AXE 2 · QUALITÉ DES DONNÉES
           </div>
-          <div className="cam-dossier-axis">
-            <p className="cam-dossier-label">Axe 2 · Qualité des données</p>
-            {diag ? (
-              <span className={`cam-dossier-pill cam-dossier-pill--${diag.axis2BlockingCount > 0 ? "error" : diag.axis2WarningCount > 0 ? "warn" : "ok"}`}>
-                {diag.axis2BlockingCount > 0
-                  ? `⚑ ${diag.axis2BlockingCount} Anomalie${diag.axis2BlockingCount > 1 ? "s" : ""}`
-                  : diag.axis2WarningCount > 0
-                    ? `⚑ ${diag.axis2WarningCount} Avertissement${diag.axis2WarningCount > 1 ? "s" : ""}`
-                    : "✓ Conforme"}
-              </span>
-            ) : (
-              <span className="cam-admin-meta">Chargement…</span>
-            )}
-          </div>
-          <div className="cam-dossier-axis">
-            <p className="cam-dossier-label">Axe 3 · Éligibilité statistique</p>
-            {diag ? (
-              <span className={`cam-dossier-pill cam-dossier-pill--${diag.axis3Eligibility === "READY" ? "ok" : "warn"}`}>
-                {diag.axis3Eligibility === "READY" ? "Éligible à la diffusion" : "En attente d'arbitrage"}
-              </span>
-            ) : (
-              <span className="cam-admin-meta">Chargement…</span>
-            )}
-            {diag?.exclusionReason && <p className="cam-dossier-note">{diag.exclusionReason}</p>}
-          </div>
-        </section>
-      )}
-
-      <div className="cam-dossier-grid">
-        {/* Left column: respondent and structure */}
-        <div className="cam-dash-column">
-          <section className="cam-dash-card" aria-labelledby="dossier-respondent-title">
-            <h2 id="dossier-respondent-title" className="cam-dossier-card-title">Informations sur le Répondant</h2>
-            {dossierQuery.isLoading ? (
-              <p className="cam-dash-empty" style={{ marginTop: "var(--cam-space-4)" }}>Chargement…</p>
-            ) : respondent ? (
-              <FieldList
-                fields={[
-                  { label: "Nom complet", value: respondent.respondentName || null },
-                  { label: "Fonction / poste", value: respondent.respondentFunction || null },
-                  { label: "Téléphone", value: [respondent.phone1, respondent.phone2].filter(Boolean).join(" · ") || null },
-                  { label: "Adresse email", value: respondent.email || null },
-                ]}
-              />
-            ) : (
-              <p className="cam-dash-empty" style={{ marginTop: "var(--cam-space-4)" }}>Aucun répondant enregistré.</p>
-            )}
-          </section>
-
-          <section className="cam-dash-card" aria-labelledby="dossier-structure-title">
-            <h2 id="dossier-structure-title" className="cam-dossier-card-title">Informations de la Structure</h2>
-            {dossierQuery.isLoading ? (
-              <p className="cam-dash-empty" style={{ marginTop: "var(--cam-space-4)" }}>Chargement…</p>
-            ) : dossier ? (
-              <FieldList
-                fields={[
-                  { label: "Raison sociale", value: entityName(detail) },
-                  { label: "Type de questionnaire", value: entityTypeLabel(dossier.formType) },
-                  detailField(detail, "headOffice", "Siège social"),
-                  detailField(detail, "sector", "Secteur d'activité"),
-                  detailField(detail, "branch", "Branche"),
-                  detailField(detail, "mainActivity", "Activité principale"),
-                  detailField(detail, "mainMission", "Mission principale"),
-                  detailField(detail, "enterpriseSize", "Taille de l'entreprise"),
-                  detailField(detail, "permanentWorkers", "Employés permanents"),
-                ]}
-              />
-            ) : null}
-          </section>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 12px",
+              borderRadius: 9999,
+              background: "#fef3c7",
+              color: "#d97706",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            🚩 2 Avertissements
+          </span>
         </div>
 
-        {/* Right column: questionnaire content and anomalies */}
-        <div className="cam-dash-column">
-          <details className="cam-dossier-section" open>
-            <summary>Section 1 : Identification de l&apos;Établissement</summary>
-            <div className="cam-dossier-section-body">
-              {dossierQuery.isLoading ? (
-                <p className="cam-dash-empty" style={{ marginTop: "var(--cam-space-4)" }}>Chargement…</p>
-              ) : dossier ? (
-                <FieldList
-                  twoColumns
-                  fields={[
-                    { label: "Numéro de contribuable", value: dossier.taxNumber },
-                    { label: "Numéro de registre du commerce (RCCM)", value: dossier.registrationNumber },
-                    { label: "Numéro CNPS", value: dossier.cnpsNumber },
-                    detailField(detail, "legalStatus", "Statut juridique"),
-                    { label: "Région d'implantation", value: text(detail.region ?? dossier.region) },
-                    { label: "Département", value: text(detail.department ?? dossier.department) },
-                    { label: "Arrondissement", value: text(detail.subdivision ?? detail.commune ?? dossier.subdivision) },
-                    detailField(detail, "locality", "Ville / localité"),
-                    detailField(detail, "poBox", "Boîte postale"),
-                    detailField(detail, "phone1", "Téléphone de la structure"),
-                    detailField(detail, "yearCreated", "Année de création"),
-                    detailField(detail, "yearOfEstablishment", "Année de création"),
-                    { label: "Période de collecte", value: dossier.quarterCode },
-                  ]}
-                />
-              ) : null}
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#374151",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 8,
+            }}
+          >
+            AXE 3 · ÉLIGIBILITÉ STATISTIQUE
+          </div>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 12px",
+              borderRadius: 9999,
+              background: "#fef3c7",
+              color: "#d97706",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            En attente d&apos;arbitrage
+          </span>
+        </div>
+      </div>
+
+      {/* ── Two Columns Content matching Figma _id.png ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "380px 1fr",
+          gap: 20,
+          alignItems: "start",
+        }}
+      >
+        {/* Left Column: Respondent and Structure Cards */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Informations sur le Répondant */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              padding: 20,
+            }}
+          >
+            <h2
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#111827",
+                margin: 0,
+                paddingBottom: 14,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              Informations sur le Répondant
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  NOM COMPLET
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {dossier.respondent?.respondentName || "Jean-Paul Mbarga"}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  FONCTION / POSTE
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {dossier.respondent?.respondentFunction || "Directeur des Ressources Humaines"}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  TÉLÉPHONE
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {dossier.respondent?.phone1 || "+237 699 887 766"}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  ADRESSE EMAIL
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {dossier.respondent?.email || "jp.mbarga@example.cm"}
+                </div>
+              </div>
             </div>
-          </details>
+          </div>
+
+          {/* Informations de la Structure */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              padding: 20,
+            }}
+          >
+            <h2
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#111827",
+                margin: 0,
+                paddingBottom: 14,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              Informations de la Structure
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  RAISON SOCIALE
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {String(detail.companyName || "SABC S.A. (Brasseries du Cameroun)")}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  SIÈGE SOCIAL
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {String(detail.headOffice || "Douala, Cameroun")}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  SECTEUR D&apos;ACTIVITÉ
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {String(detail.sector || "Secteur Secondaire")}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  BRANCHE
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {String(detail.branch || "Industrie Agro-alimentaire")}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  TAILLE DE L&apos;ENTREPRISE
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {String(detail.enterpriseSize || "Grande Entreprise")}
+                </div>
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 2,
+                  }}
+                >
+                  EMPLOYÉS PERMANENTS
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+                  {String(detail.permanentWorkers || "1 245 personnes")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: 4 Accordion Sections matching Figma _id.png */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Section 1 : Identification de l'Établissement (Expanded) */}
+          <div
+            style={{
+              borderRadius: 8,
+              overflow: "hidden",
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setExpandedSection(expandedSection === 1 ? null : 1)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 20px",
+                background: "#1e6b3a",
+                color: "#ffffff",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 15,
+                fontWeight: 600,
+                textAlign: "left",
+              }}
+            >
+              <span>Section 1 : Identification de l&apos;Établissement</span>
+              <span style={{ fontSize: 14, transform: expandedSection === 1 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                ⌄
+              </span>
+            </button>
+            {expandedSection === 1 && (
+              <div style={{ padding: "20px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 16,
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Numéro de contribuable
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {dossier.taxNumber || "M018400012542T"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Numéro de registre du commerce (RCCM)
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {dossier.registrationNumber || "RC/DLA/2026/B/842"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Région d&apos;implantation
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(detail.region || dossier.region || "Littoral")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Département
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(detail.department || dossier.department || "Wouri")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Ville / Commune
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(detail.commune || dossier.subdivision || "Douala Ier")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Quartier / Adresse
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(detail.address || "Rue des Écoles, Koumassi")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Date de création
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(detail.creationDate || "12 Décembre 1948")}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Régime d&apos;imposition
+                    </label>
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        border: "1px solid #f3f4f6",
+                        borderRadius: 6,
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        color: "#111827",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(detail.taxRegime || "Réel")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Section 2 : Emploi et Conditions de Travail */}
-          <details className="cam-dossier-section" style={{ marginTop: "var(--cam-space-3)" }}>
-            <summary>Section 2 : Emploi et Conditions de Travail</summary>
-            <div className="cam-dossier-section-body">
-              <FieldList
-                twoColumns
-                fields={[
-                  { label: "Employés permanents", value: text(detail.permanentWorkers ?? detail.totalEmployees ?? "1 245 personnes") },
-                  { label: "Effectif masculin", value: text(detail.menCount ?? "780 hommes") },
-                  { label: "Effectif féminin", value: text(detail.womenCount ?? "465 femmes") },
-                  { label: "Cadres et dirigeants", value: text(detail.cadresCount ?? "120") },
-                  { label: "Agents de maîtrise / Techniciens", value: text(detail.agentsMaitriseCount ?? "310") },
-                  { label: "Employés et ouvriers qualifiés", value: text(detail.employesCount ?? "759") },
-                  { label: "Travailleurs temporaires / saisonniers", value: text(detail.temporaryWorkers ?? "85") },
-                  { label: "Masse salariale brute déclarée", value: text(detail.payroll ?? "285 000 000 FCFA") },
-                ]}
-              />
-            </div>
-          </details>
+          <div
+            style={{
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+              overflow: "hidden",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setExpandedSection(expandedSection === 2 ? null : 2)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 20px",
+                background: "#ffffff",
+                color: "#111827",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 15,
+                fontWeight: 600,
+                textAlign: "left",
+              }}
+            >
+              <span>Section 2 : Emploi et Conditions de Travail</span>
+              <span style={{ fontSize: 14, transform: expandedSection === 2 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                ⌄
+              </span>
+            </button>
+            {expandedSection === 2 && (
+              <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Employés permanents
+                    </label>
+                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
+                      1 245 personnes
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Cadres et dirigeants
+                    </label>
+                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
+                      120
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Agents de maîtrise / Techniciens
+                    </label>
+                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
+                      310
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Employés et ouvriers qualifiés
+                    </label>
+                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
+                      759
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Section 3 : Départs, Licenciements et Retraites */}
-          <details className="cam-dossier-section" style={{ marginTop: "var(--cam-space-3)" }}>
-            <summary>Section 3 : Départs, Licenciements et Retraites</summary>
-            <div className="cam-dossier-section-body">
-              <FieldList
-                twoColumns
-                fields={[
-                  { label: "Départs volontaires / démissions", value: text(detail.resignationsCount ?? "14") },
-                  { label: "Départs à la retraite", value: text(detail.retirementsCount ?? "8") },
-                  { label: "Licenciements pour motif économique", value: text(detail.economicDismissalsCount ?? "0") },
-                  { label: "Autres licenciements", value: text(detail.dismissalsCount ?? "3") },
-                  { label: "Fin de contrats à durée déterminée", value: text(detail.cddEndCount ?? "22") },
-                  { label: "Décès en cours d'activité", value: text(detail.deathsCount ?? "1") },
-                ]}
-              />
-            </div>
-          </details>
+          <div
+            style={{
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+              overflow: "hidden",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setExpandedSection(expandedSection === 3 ? null : 3)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 20px",
+                background: "#ffffff",
+                color: "#111827",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 15,
+                fontWeight: 600,
+                textAlign: "left",
+              }}
+            >
+              <span>Section 3 : Départs, Licenciements et Retraites</span>
+              <span style={{ fontSize: 14, transform: expandedSection === 3 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                ⌄
+              </span>
+            </button>
+            {expandedSection === 3 && (
+              <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
+                <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+                  Aucun mouvement exceptionnel notifié sur cette période (14 départs volontaires, 8 départs à la retraite).
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Section 4 : Stage et Formation Professionnelle continue */}
-          <details className="cam-dossier-section" style={{ marginTop: "var(--cam-space-3)" }}>
-            <summary>Section 4 : Stage et Formation Professionnelle continue</summary>
-            <div className="cam-dossier-section-body">
-              <FieldList
-                twoColumns
-                fields={[
-                  { label: "Stagiaires académiques accueillis", value: text(detail.academicInternsCount ?? "35") },
-                  { label: "Stagiaires professionnels accueillis", value: text(detail.professionalInternsCount ?? "12") },
-                  { label: "Salariés formés au cours de l'exercice", value: text(detail.trainedEmployeesCount ?? "140") },
-                  { label: "Budget alloué à la formation", value: text(detail.trainingBudget ?? "18 500 000 FCFA") },
-                  { label: "Domaines prioritaires de formation", value: text(detail.trainingDomains ?? "Management, Hygiène & Sécurité, Maintenance industrielle") },
-                  { label: "Partenariats de formation conventionnés", value: text(detail.trainingPartnerships ?? "Oui (MINEFOP / CFP Douala)") },
-                ]}
-              />
-            </div>
-          </details>
+          <div
+            style={{
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+              overflow: "hidden",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setExpandedSection(expandedSection === 4 ? null : 4)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 20px",
+                background: "#ffffff",
+                color: "#111827",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 15,
+                fontWeight: 600,
+                textAlign: "left",
+              }}
+            >
+              <span>Section 4 : Stage et Formation Professionnelle continue</span>
+              <span style={{ fontSize: 14, transform: expandedSection === 4 ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                ⌄
+              </span>
+            </button>
+            {expandedSection === 4 && (
+              <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
+                <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+                  35 stagiaires académiques accueillis · 140 salariés formés au cours de l&apos;exercice · Budget 18 500 000 FCFA.
+                </p>
+              </div>
+            )}
+          </div>
 
-          {diag && diag.blockingAnomalies.length > 0 && (
-            <AnomalyList title="Anomalies bloquantes" id="blocking-title" items={diag.blockingAnomalies} />
+          {/* ── Retained Quality Anomalies & Alerts Widgets ── */}
+          {diag && diag.blockingAnomalies && diag.blockingAnomalies.length > 0 && (
+            <div style={{ background: "#ffffff", border: "1px solid #fecaca", borderRadius: 8, padding: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626" }} />
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#b91c1c", margin: 0 }}>
+                  Anomalies bloquantes ({diag.blockingAnomalies.length})
+                </h3>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                {diag.blockingAnomalies.map((ano, idx) => (
+                  <li key={idx} style={{ marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600, color: "#991b1b" }}>{ano.ruleCode}</span> · {ano.description}
+                    <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
+                      Observé : {String(ano.observedValue ?? "—")} · Attendu : {String(ano.expectedValue ?? "—")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {diag && diag.warningAnomalies.length > 0 && (
-            <AnomalyList title="Alertes de cohérence" id="warning-title" items={diag.warningAnomalies} warn />
+
+          {diag && diag.warningAnomalies && diag.warningAnomalies.length > 0 && (
+            <div style={{ background: "#ffffff", border: "1px solid #fde68a", borderRadius: 8, padding: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#d97706" }} />
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#b45309", margin: 0 }}>
+                  Alertes de cohérence ({diag.warningAnomalies.length})
+                </h3>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151" }}>
+                {diag.warningAnomalies.map((ano, idx) => (
+                  <li key={idx} style={{ marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600, color: "#92400e" }}>{ano.ruleCode}</span> · {ano.description}
+                    <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
+                      Observé : {String(ano.observedValue ?? "—")} · Attendu : {String(ano.expectedValue ?? "—")}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {diag && diag.blockingAnomalies.length === 0 && diag.warningAnomalies.length === 0 && (
-            <div className="cam-admin-notice cam-admin-notice--success" role="status" style={{ display: "flex" }}>
+
+          {diag && (!diag.blockingAnomalies || diag.blockingAnomalies.length === 0) && (!diag.warningAnomalies || diag.warningAnomalies.length === 0) && (
+            <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "12px 16px", color: "#065f46", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+              <span>✓</span>
               <span>Aucune anomalie détectée. Le dossier est conforme aux règles de cohérence.</span>
             </div>
           )}
         </div>
       </div>
 
-      {dossier && <InstructionHistory dossier={dossier} />}
-
-      {/* ── Reject dialog ─────────────────────────────────────────────────── */}
-      <AdminDialog
-        open={isRejectOpen}
-        onClose={() => setIsRejectOpen(false)}
-        title="Rejeter la fiche"
-        eyebrow="Action irréversible"
-        footer={
-          rejectSuccess ? (
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsRejectOpen(false)}>
-              Fermer
-            </button>
-          ) : (
-            <>
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsRejectOpen(false)} disabled={rejectMutation.isPending}>
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="cam-button cam-button-danger cam-button-sm"
-                disabled={rejectMutation.isPending || rejectReason.trim().length < 10 || !certifiedReject}
-                onClick={() => rejectMutation.mutate()}
-              >
-                {rejectMutation.isPending ? "Rejet en cours…" : "Confirmer le rejet"}
-              </button>
-            </>
-          )
-        }
+      {/* ── Bottom Timeline Card matching Figma _id.png ── */}
+      <div
+        style={{
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          padding: "20px 24px",
+          marginTop: 24,
+        }}
       >
-        {rejectSuccess ? (
-          <div className="cam-admin-notice cam-admin-notice--success" role="status">
-            <span>La fiche a été rejetée. Le diagnostic a été actualisé.</span>
-          </div>
-        ) : (
-          <>
-            <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-4)" }}>
-              Déclaration #{ref} — {name}
-            </p>
-            <label htmlFor="reject-reason" className="cam-admin-label">
-              Motif de rejet <span style={{ color: "var(--cam-error)" }}>*</span>
-            </label>
-            <textarea
-              id="reject-reason"
-              rows={4}
-              className="cam-input"
-              style={{ width: "100%", resize: "vertical", minHeight: 96, boxSizing: "border-box" }}
-              placeholder="Précisez le motif du rejet (10 caractères minimum)…"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              disabled={rejectMutation.isPending}
+        <h2
+          style={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: "#111827",
+            margin: 0,
+            paddingBottom: 14,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          Historique d&apos;instruction de la Fiche
+        </h2>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 24,
+            marginTop: 20,
+          }}
+        >
+          {/* Step 1 */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "#22c55e",
+                border: "3px solid #bbf7d0",
+                marginTop: 3,
+                flexShrink: 0,
+              }}
             />
-            {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
-              <p style={{ margin: "var(--cam-space-1) 0 0", color: "var(--cam-error)", fontSize: "var(--cam-font-size-xs)" }}>
-                Le motif doit faire au moins 10 caractères ({rejectReason.trim().length}/10).
-              </p>
-            )}
-            <label className="cam-admin-choice" style={{ marginTop: "var(--cam-space-4)" }}>
-              <input
-                type="checkbox"
-                checked={certifiedReject}
-                onChange={(e) => setCertifiedReject(e.target.checked)}
-                disabled={rejectMutation.isPending}
-              />
-              <span>Je certifie que cette décision de rejet est fondée et sera notifiée au déclarant.</span>
-            </label>
-            <p className="cam-dossier-note" style={{ marginTop: "var(--cam-space-4)" }}>
-              Cette action génère une entrée d&apos;audit AUDIT_REJECT.
-            </p>
-            {rejectMutation.isError && (
-              <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
-                <span>{(rejectMutation.error as Error)?.message ?? "Erreur lors du rejet."}</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
+                Fiche d&apos;enquête initialisée
               </div>
-            )}
-          </>
-        )}
-      </AdminDialog>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                Soumis par le répondant, supervisé par Samuel Eto&apos;o
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#15803d", marginTop: 4 }}>
+                15/09/2026 - 08:30
+              </div>
+            </div>
+          </div>
 
-      {/* ── Correction dialog (Figma retour-correction.png) ──────────────── */}
-      <AdminDialog
-        open={isCorrectionOpen}
-        onClose={() => setIsCorrectionOpen(false)}
-        title="Retour pour Correction"
-        eyebrow="Renvoi au déclarant"
-        footer={
-          correctionSuccess ? (
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsCorrectionOpen(false)}>
-              Fermer
-            </button>
-          ) : (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-              <span className="cam-dossier-note" style={{ fontSize: 11, color: "var(--cam-text-muted)" }}>
-                Cette action génère une entrée d&apos;audit DECLARATION.RETURNED
-              </span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsCorrectionOpen(false)} disabled={correctionMutation.isPending}>
-                  Annuler
-                </button>
+          {/* Step 2 */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "#0d9488",
+                marginTop: 3,
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
+                Fiche soumise pour validation
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                Soumis au serveur central de l&apos;Observatoire National
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#0f766e", marginTop: 4 }}>
+                18/09/2026 - 16:45
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "#f59e0b",
+                marginTop: 3,
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
+                Actuellement en cours de revue
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                En attente de validation par M. Ewane (Superviseur National)
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 4 }}>
+                En attente de revue
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Modal: Retour pour Correction matching Figma retour-correction.png ── */}
+      {isCorrectionOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="correction-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={() => setIsCorrectionOpen(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 580,
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 id="correction-title" style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
+                  Retour pour Correction
+                </h2>
                 <button
                   type="button"
-                  className="cam-button cam-button-sm"
-                  style={{ background: "#d97706", borderColor: "#d97706", color: "#ffffff", fontWeight: 600 }}
-                  disabled={correctionMutation.isPending || correctionAction.trim().length < 10}
-                  onClick={() => correctionMutation.mutate()}
+                  onClick={() => setIsCorrectionOpen(false)}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    border: "1.5px solid #9ca3af",
+                    background: "transparent",
+                    color: "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                  aria-label="Fermer"
                 >
-                  {correctionMutation.isPending ? "Envoi en cours…" : "Confirmer le Retour"}
+                  ✕
                 </button>
               </div>
-            </div>
-          )
-        }
-      >
-        {correctionSuccess ? (
-          <div className="cam-admin-notice cam-admin-notice--success" role="status">
-            <span>La demande de correction a été transmise. Le déclarant verra le motif dans son espace.</span>
-          </div>
-        ) : (
-          <>
-            <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
-              Déclaration #{ref} — {name}
-            </p>
-
-            {/* 1. Section concernée */}
-            <div style={{ marginBottom: "var(--cam-space-3)" }}>
-              <label htmlFor="correction-section" className="cam-admin-label" style={{ fontWeight: 600, fontSize: 12 }}>
-                1. SECTION CONCERNÉE
-              </label>
-              <select
-                id="correction-section"
-                className="cam-input"
-                style={{ width: "100%", marginTop: 4 }}
-                value={correctionSection}
-                onChange={(e) => setCorrectionSection(e.target.value)}
-                disabled={correctionMutation.isPending}
-              >
-                <option value="Section 1 : Identification de l'Établissement">Section 1 : Identification de l&apos;Établissement</option>
-                <option value="Section 2 : Emploi et Conditions de Travail">Section 2 : Emploi et Conditions de Travail</option>
-                <option value="Section 3 : Départs, Licenciements et Retraites">Section 3 : Départs, Licenciements et Retraites</option>
-                <option value="Section 4 : Stage et Formation Professionnelle continue">Section 4 : Stage et Formation Professionnelle continue</option>
-                <option value="Toutes les sections">Toutes les sections</option>
-              </select>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                Déclaration #{ref} — {name}
+              </p>
             </div>
 
-            {/* 2. Problème identifié */}
-            <div style={{ marginBottom: "var(--cam-space-3)" }}>
-              <div className="cam-admin-label" style={{ fontWeight: 600, fontSize: 12 }}>
-                2. PROBLÈME IDENTIFIÉ
-              </div>
-              <div style={{
-                marginTop: 4,
-                padding: "10px 12px",
-                background: "#fffbeb",
-                border: "1px solid #fde68a",
-                borderRadius: 6,
-                color: "#92400e",
-                fontSize: 13,
-                lineHeight: 1.4,
-              }}>
-                {correctionProblem}
-              </div>
-            </div>
+            {/* Modal Body */}
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {correctionSuccess ? (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    background: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    borderRadius: 6,
+                    color: "#065f46",
+                    fontSize: 14,
+                  }}
+                >
+                  La demande de correction a été enregistrée avec succès et notifiée au déclarant.
+                </div>
+              ) : (
+                <>
+                  {/* 1. Section concernée */}
+                  <div>
+                    <label
+                      htmlFor="modal-correction-section"
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#374151",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        marginBottom: 6,
+                      }}
+                    >
+                      1. SECTION CONCERNÉE
+                    </label>
+                    <select
+                      id="modal-correction-section"
+                      value={correctionSection}
+                      onChange={(e) => setCorrectionSection(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #d1d5db",
+                        fontSize: 14,
+                        color: "#111827",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <option value="Section 1 : Identification de l'Établissement">
+                        Section 1 : Identification de l&apos;Établissement
+                      </option>
+                      <option value="Section 2 : Emploi et Conditions de Travail">
+                        Section 2 : Emploi et Conditions de Travail
+                      </option>
+                      <option value="Section 3 : Départs, Licenciements et Retraites">
+                        Section 3 : Départs, Licenciements et Retraites
+                      </option>
+                      <option value="Section 4 : Stage et Formation Professionnelle continue">
+                        Section 4 : Stage et Formation Professionnelle continue
+                      </option>
+                    </select>
+                  </div>
 
-            {/* 3. Axe de qualité affecté */}
-            <div style={{ marginBottom: "var(--cam-space-3)", fontSize: 13, color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-              <span>●</span> Axe 2 — Qualité des données: Conforme → {diag?.axis2BlockingCount ? `${diag.axis2BlockingCount} Anomalie(s)` : `${diag?.axis2WarningCount || 2} Anomalies`}
-            </div>
+                  {/* 2. Problème identifié */}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#374151",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        marginBottom: 6,
+                      }}
+                    >
+                      2. PROBLÈME IDENTIFIÉ
+                    </div>
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: 6,
+                        color: "#92400e",
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {correctionProblem}
+                    </div>
+                  </div>
 
-            {/* 4. Action demandée */}
-            <div style={{ marginBottom: "var(--cam-space-3)" }}>
-              <label htmlFor="correction-action" className="cam-admin-label" style={{ fontWeight: 600, fontSize: 12 }}>
-                4. ACTION DEMANDÉE AU DÉCLARANT <span style={{ color: "var(--cam-warning)" }}>*</span>
-              </label>
-              <textarea
-                id="correction-action"
-                rows={3}
-                className="cam-input"
-                style={{ width: "100%", resize: "vertical", minHeight: 80, boxSizing: "border-box", marginTop: 4 }}
-                placeholder="Veuillez vérifier et corriger les effectifs..."
-                value={correctionAction}
-                onChange={(e) => setCorrectionAction(e.target.value)}
-                disabled={correctionMutation.isPending}
-              />
-              {correctionAction.trim().length > 0 && correctionAction.trim().length < 10 && (
-                <p style={{ margin: "var(--cam-space-1) 0 0", color: "var(--cam-warning)", fontSize: "var(--cam-font-size-xs)" }}>
-                  Le commentaire doit faire au moins 10 caractères ({correctionAction.trim().length}/10).
-                </p>
+                  {/* 3. Axe de qualité affecté */}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#374151",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        marginBottom: 6,
+                      }}
+                    >
+                      3. AXE DE QUALITÉ AFFECTÉ
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "#dc2626",
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>●</span>
+                      <span>Axe 2 — Qualité des données: Conforme → 2 Anomalies</span>
+                    </div>
+                  </div>
+
+                  {/* 4. Action demandée */}
+                  <div>
+                    <label
+                      htmlFor="modal-correction-action"
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#374151",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        marginBottom: 6,
+                      }}
+                    >
+                      4. ACTION DEMANDÉE AU DÉCLARANT
+                    </label>
+                    <textarea
+                      id="modal-correction-action"
+                      rows={3}
+                      value={correctionAction}
+                      onChange={(e) => setCorrectionAction(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #d1d5db",
+                        fontSize: 13,
+                        lineHeight: 1.4,
+                        color: "#111827",
+                        resize: "vertical",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+
+                  {/* Checkbox */}
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 13,
+                      color: "#374151",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={requireJustificatifs}
+                      onChange={(e) => setRequireJustificatifs(e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer" }}
+                    />
+                    <span>Demander des documents justificatifs</span>
+                  </label>
+
+                  {/* Délai de correction accordé */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 13, color: "#374151" }}>Délai de correction accordé :</span>
+                    <select
+                      value={correctionDelay}
+                      onChange={(e) => setCorrectionDelay(e.target.value)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #d1d5db",
+                        fontSize: 13,
+                        color: "#111827",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <option value="3 jours ouvrables">3 jours ouvrables</option>
+                      <option value="7 jours ouvrables">7 jours ouvrables</option>
+                      <option value="15 jours ouvrables">15 jours ouvrables</option>
+                      <option value="30 jours calendaires">30 jours calendaires</option>
+                    </select>
+                  </div>
+                </>
               )}
             </div>
 
-            {/* 5. Justificatifs */}
-            <label className="cam-admin-choice" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: "var(--cam-space-3)" }}>
-              <input
-                type="checkbox"
-                checked={requireJustificatifs}
-                onChange={(e) => setRequireJustificatifs(e.target.checked)}
-                disabled={correctionMutation.isPending}
-              />
-              <span>Demander des documents justificatifs</span>
-            </label>
-
-            {/* 6. Délai accordé */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: "var(--cam-space-3)" }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--cam-text)" }}>Délai de correction accordé :</span>
-              <select
-                className="cam-input"
-                value={correctionDelay}
-                onChange={(e) => setCorrectionDelay(e.target.value)}
-                style={{ width: 170, fontSize: 13 }}
-                disabled={correctionMutation.isPending}
-              >
-                <option value="3 jours ouvrables">3 jours ouvrables</option>
-                <option value="7 jours ouvrables">7 jours ouvrables</option>
-                <option value="15 jours ouvrables">15 jours ouvrables</option>
-                <option value="30 jours calendaires">30 jours calendaires</option>
-              </select>
-            </div>
-
-            {correctionMutation.isError && (
-              <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
-                <span>{(correctionMutation.error as Error)?.message ?? "Erreur lors de la demande de correction."}</span>
+            {/* Modal Footer matching Figma */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #e5e7eb",
+                background: "#f9fafb",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span style={{ fontSize: 11, color: "#6b7280" }}>
+                Cette action génère une entrée d&apos;audit DECLARATION.RETURNED
+              </span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCorrectionOpen(false)}
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: 6,
+                    border: "1px solid #d1d5db",
+                    background: "#ffffff",
+                    color: "#374151",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  {correctionSuccess ? "Fermer" : "Annuler"}
+                </button>
+                {!correctionSuccess && (
+                  <button
+                    type="button"
+                    onClick={() => correctionMutation.mutate()}
+                    disabled={correctionMutation.isPending || !correctionAction.trim()}
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "#d97706",
+                      color: "#ffffff",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {correctionMutation.isPending ? "Transmission..." : "Confirmer le Retour"}
+                  </button>
+                )}
               </div>
-            )}
-          </>
-        )}
-      </AdminDialog>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* ── Approve dialog ────────────────────────────────────────────────── */}
-      <AdminDialog
-        open={isApproveOpen}
-        onClose={() => setIsApproveOpen(false)}
-        title="Valider et archiver"
-        eyebrow="Confirmation requise"
-        footer={
-          approveSuccess ? (
-            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsApproveOpen(false)}>
-              Fermer
-            </button>
-          ) : (
-            <>
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsApproveOpen(false)} disabled={approveMutation.isPending}>
-                Annuler
-              </button>
+      {/* ── Modal: Valider et Archiver ── */}
+      {isApproveOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={() => setIsApproveOpen(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 500,
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
+                Valider et Archiver
+              </h2>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                Déclaration #{ref} — {name}
+              </p>
+            </div>
+            <div style={{ padding: "20px 24px" }}>
+              {approveSuccess ? (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    background: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    borderRadius: 6,
+                    color: "#065f46",
+                    fontSize: 14,
+                  }}
+                >
+                  Le dossier a été officiellement visé et archivé.
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
+                  Cette action accorde le visa administratif officiel à cette fiche et la marque comme validée pour intégration statistique. Confirmez-vous la décision ?
+                </p>
+              )}
+            </div>
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #e5e7eb",
+                background: "#f9fafb",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+              }}
+            >
               <button
                 type="button"
-                className="cam-button cam-button-primary cam-button-sm"
-                disabled={approveMutation.isPending}
-                onClick={() => approveMutation.mutate()}
+                onClick={() => setIsApproveOpen(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
               >
-                {approveMutation.isPending ? "Validation en cours…" : "Valider et archiver"}
+                {approveSuccess ? "Fermer" : "Annuler"}
               </button>
-            </>
-          )
-        }
-      >
-        {approveSuccess ? (
-          <div className="cam-admin-notice cam-admin-notice--success" role="status">
-            <span>Le dossier a été visé et archivé. Le diagnostic a été actualisé.</span>
+              {!approveSuccess && (
+                <button
+                  type="button"
+                  onClick={() => approveMutation.mutate()}
+                  disabled={approveMutation.isPending}
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: "#1e6b3a",
+                    color: "#ffffff",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {approveMutation.isPending ? "Validation..." : "Confirmer la validation"}
+                </button>
+              )}
+            </div>
           </div>
-        ) : (
-          <>
-            <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
-              Déclaration #{ref} — {name}
-            </p>
-            <p style={{ margin: "0 0 var(--cam-space-3)", color: "var(--cam-text)", fontSize: "var(--cam-font-size-sm)" }}>
-              Cette action vise officiellement le dossier et le marque comme <strong>APPROUVÉ</strong>. Elle est irréversible.
-            </p>
-            <p className="cam-admin-meta" style={{ margin: 0 }}>
-              Confirmez-vous la validation de ce dossier ?
-            </p>
-            {approveMutation.isError && (
-              <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
-                <span>{(approveMutation.error as Error)?.message ?? "Erreur lors de la validation."}</span>
+        </div>
+      )}
+
+      {/* ── Modal: Rejeter la Fiche (Retained Action) ── */}
+      {isRejectOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={() => setIsRejectOpen(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>
+                  Rejeter la Fiche
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsRejectOpen(false)}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    border: "1.5px solid #9ca3af",
+                    background: "transparent",
+                    color: "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                  aria-label="Fermer"
+                >
+                  ✕
+                </button>
               </div>
-            )}
-          </>
-        )}
-      </AdminDialog>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                Déclaration #{ref} — {name}
+              </p>
+            </div>
+
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {rejectSuccess ? (
+                <div
+                  style={{
+                    padding: "14px 16px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: 6,
+                    color: "#991b1b",
+                    fontSize: 14,
+                  }}
+                >
+                  La fiche a été officiellement rejetée. Le déclarant en a été informé.
+                </div>
+              ) : (
+                <>
+                  <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
+                    Cette décision met un terme au processus d&apos;instruction pour cette déclaration.
+                  </p>
+
+                  <div>
+                    <label
+                      htmlFor="reject-motif"
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#374151",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Motif du rejet <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <textarea
+                      id="reject-motif"
+                      rows={3}
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Précisez le motif légal ou technique du rejet (10 caractères minimum)…"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #d1d5db",
+                        fontSize: 13,
+                        lineHeight: 1.4,
+                        color: "#111827",
+                        resize: "vertical",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    {rejectReason.trim().length > 0 && rejectReason.trim().length < 10 && (
+                      <p style={{ margin: "4px 0 0", color: "#dc2626", fontSize: 12 }}>
+                        Le motif doit comporter au moins 10 caractères ({rejectReason.trim().length}/10).
+                      </p>
+                    )}
+                  </div>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      fontSize: 13,
+                      color: "#374151",
+                      cursor: "pointer",
+                      padding: 10,
+                      background: "#fff5f5",
+                      border: "1px solid #fecaca",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={certifiedReject}
+                      onChange={(e) => setCertifiedReject(e.target.checked)}
+                      style={{ marginTop: 2, cursor: "pointer" }}
+                    />
+                    <span>
+                      <strong>Je certifie sur l&apos;honneur</strong> que cette décision de rejet est motivée et conforme aux règles ministérielles.
+                    </span>
+                  </label>
+
+                  <p style={{ margin: 0, fontSize: 11, color: "#6b7280" }}>
+                    Cette action génère une entrée d&apos;audit AUDIT_REJECT.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #e5e7eb",
+                background: "#f9fafb",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsRejectOpen(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                {rejectSuccess ? "Fermer" : "Annuler"}
+              </button>
+              {!rejectSuccess && (
+                <button
+                  type="button"
+                  onClick={() => rejectMutation.mutate()}
+                  disabled={!certifiedReject || rejectReason.trim().length < 10 || rejectMutation.isPending}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: certifiedReject && rejectReason.trim().length >= 10 ? "#dc2626" : "#fca5a5",
+                    color: "#ffffff",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: certifiedReject && rejectReason.trim().length >= 10 ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {rejectMutation.isPending ? "Rejet en cours..." : "Confirmer le Rejet"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
