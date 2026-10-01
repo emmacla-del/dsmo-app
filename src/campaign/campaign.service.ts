@@ -1,5 +1,5 @@
-// src/campaign/campaign.service.ts
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+
 import { Prisma, DataCampaign, OnefopEntityType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
@@ -36,19 +36,100 @@ export class CampaignService {
         private notificationService: NotificationService,
     ) { }
 
+    private validateReferencePeriod(
+        collectionType: string,
+        referenceYear?: any,
+        referenceQuarter?: any,
+    ): { referenceYear?: number; referenceQuarter?: number } {
+        if (collectionType === 'ONEFOP') {
+            if (
+                referenceYear === undefined ||
+                referenceYear === null ||
+                (typeof referenceYear === 'string' && referenceYear.trim() === '') ||
+                !Number.isInteger(Number(referenceYear)) ||
+                Number(referenceYear) < 2000 ||
+                Number(referenceYear) > 2100
+            ) {
+                throw new BadRequestException("L'année de référence est obligatoire pour les campagnes ONEFOP (ex: 2026).");
+            }
+            if (
+                referenceQuarter === undefined ||
+                referenceQuarter === null ||
+                (typeof referenceQuarter === 'string' && referenceQuarter.trim() === '') ||
+                !Number.isInteger(Number(referenceQuarter)) ||
+                Number(referenceQuarter) < 1 ||
+                Number(referenceQuarter) > 4
+            ) {
+                throw new BadRequestException("Le trimestre de référence est obligatoire pour les campagnes ONEFOP (valeur entre 1 et 4).");
+            }
+            return {
+                referenceYear: Number(referenceYear),
+                referenceQuarter: Number(referenceQuarter),
+            };
+        }
+
+        const year = referenceYear !== undefined && referenceYear !== null && referenceYear !== ''
+            ? Number(referenceYear)
+            : undefined;
+        const quarter = referenceQuarter !== undefined && referenceQuarter !== null && referenceQuarter !== ''
+            ? Number(referenceQuarter)
+            : undefined;
+
+        if (quarter !== undefined && (!Number.isInteger(quarter) || quarter < 1 || quarter > 4)) {
+            throw new BadRequestException("Le trimestre de référence doit être compris entre 1 et 4.");
+        }
+
+        return { referenceYear: year, referenceQuarter: quarter };
+    }
+
+    private async assertNoPeriodDuplicate(
+        collectionType: string,
+        referenceYear?: number,
+        referenceQuarter?: number,
+    ) {
+        if (collectionType === 'ONEFOP' && referenceYear !== undefined && referenceQuarter !== undefined) {
+            const duplicate = await this.prisma.dataCampaign.findFirst({
+                where: {
+                    collectionType: 'ONEFOP',
+                    referenceYear,
+                    referenceQuarter,
+                    status: { not: 'ARCHIVED' },
+                },
+                select: { code: true },
+            });
+            if (duplicate) {
+                throw new ConflictException(
+                    `Une campagne ONEFOP existe déjà pour la période ${referenceYear}-T${referenceQuarter} (campagne ${duplicate.code}).`,
+                );
+            }
+        }
+    }
+
     async createCampaign(data: any) {
         const collectionType = data.collectionType === 'DSMO' ? 'DSMO' : 'ONEFOP';
+        const { referenceYear, referenceQuarter } = this.validateReferencePeriod(
+            collectionType,
+            data.referenceYear,
+            data.referenceQuarter,
+        );
+        await this.assertNoPeriodDuplicate(collectionType, referenceYear, referenceQuarter);
+
         const startDate = new Date(data.startDate);
-        const code = await this.generateCampaignCode(data.type, startDate);
+        const refPeriod = referenceYear !== undefined && referenceQuarter !== undefined
+            ? { year: referenceYear, quarter: referenceQuarter }
+            : undefined;
+        const code = await this.generateCampaignCode(data.type, startDate, refPeriod);
 
         const campaign = await this.prisma.dataCampaign.create({
             data: {
                 code,
                 name: `${this.campaignNameByCollectionType[collectionType]} ` +
-                    this.buildPeriodSuffix(data.type, startDate),
+                    this.buildPeriodSuffix(data.type, startDate, refPeriod),
                 description: data.description,
                 type: data.type,
                 collectionType,
+                referenceYear,
+                referenceQuarter,
                 startDate: new Date(data.startDate),
                 deadline: new Date(data.deadline),
                 targetRegions: data.targetRegions || [],
@@ -65,6 +146,7 @@ export class CampaignService {
         // manual "activate" step the admin may not know to take.
         return this.activateCampaign(campaign.id, data.createdBy);
     }
+
 
     async listCampaigns(status?: string, type?: string, user?: any) {
         const where: any = {};
@@ -139,6 +221,10 @@ export class CampaignService {
     }
 
     async updateCampaign(id: string, data: any) {
+        if (data.referenceYear !== undefined || data.referenceQuarter !== undefined) {
+            throw new BadRequestException('La période de référence (année et trimestre) ne peut pas être modifiée après création.');
+        }
+
         // name is intentionally not editable here — it's derived from
         // collectionType, which is itself immutable after creation.
         const campaign = await this.prisma.dataCampaign.update({
@@ -642,9 +728,9 @@ export class CampaignService {
      * when a campaign is created or which period it's backdated/scheduled
      * for.
      */
-    private buildPeriodSuffix(type: string, startDate: Date): string {
-        const year = startDate.getFullYear();
-        const quarter = Math.ceil((startDate.getMonth() + 1) / 3); // 1..4
+    private buildPeriodSuffix(type: string, startDate: Date, refPeriod?: { year: number; quarter: number }): string {
+        const year = refPeriod?.year ?? startDate.getFullYear();
+        const quarter = refPeriod?.quarter ?? Math.ceil((startDate.getMonth() + 1) / 3); // 1..4
 
         if (type === 'SEMESTER') {
             const semesterOrdinals = ['PREMIER', 'DEUXIEME'];
@@ -666,10 +752,14 @@ export class CampaignService {
      *
      * e.g. QUARTERLY_2024_T3_001, QUARTERLY_2024_T3_002
      */
-    private async generateCampaignCode(type: string, startDate?: Date): Promise<string> {
+    private async generateCampaignCode(
+        type: string,
+        startDate?: Date,
+        refPeriod?: { year: number; quarter: number },
+    ): Promise<string> {
         const d = startDate ?? new Date();
-        const year = d.getFullYear();
-        const quarter = Math.ceil((d.getMonth() + 1) / 3);
+        const year = refPeriod?.year ?? d.getFullYear();
+        const quarter = refPeriod?.quarter ?? Math.ceil((d.getMonth() + 1) / 3);
 
         const suffix =
             type === 'QUARTERLY' ? `T${quarter}` :
