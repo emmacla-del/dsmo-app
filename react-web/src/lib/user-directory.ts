@@ -69,6 +69,67 @@ export function rejectUser(id: string, reason?: string) {
   });
 }
 
+export function requestComplements(id: string, message: string) {
+  return apiFetch(`/auth/request-complements/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ message }),
+  });
+}
+
+export interface CompanyRegistrationItem {
+  id: string;
+  companyId: string;
+  organisation: string;
+  email: string;
+  entityType: string | null;
+  region: string;
+  department: string;
+  status: string;
+  taxNumber: string;
+  cnpsNumber: string | null;
+  submittedAt: string;
+  registrationNumber: string | null;
+  approvalComment: string | null;
+  rejectionReason: string | null;
+  duplicateHints: string[];
+  requiresCentralStructureCheck: boolean;
+}
+
+export interface CompanyRegistrationsResult {
+  items: CompanyRegistrationItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: { pending: number; complements: number; approved: number; rejected: number };
+}
+
+export function listCompanyRegistrations(params: {
+  entityType?: string;
+  region?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params.entityType) query.set("entityType", params.entityType);
+  if (params.region) query.set("region", params.region);
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.search) query.set("search", params.search);
+  if (params.status) query.set("status", params.status);
+  if (params.page) query.set("page", String(params.page));
+  if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+  return apiFetch<CompanyRegistrationsResult>(`/auth/company-registrations${qs ? `?${qs}` : ""}`);
+}
+
+export function resubmitRegistration() {
+  return apiFetch(`/auth/resubmit-registration`, { method: "POST" });
+}
+
 export function updateUserRole(id: string, role: string) {
   return apiFetch(`/auth/users/${id}/role`, {
     method: "PATCH",
