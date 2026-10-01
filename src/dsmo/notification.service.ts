@@ -4,6 +4,21 @@ import { UserRole, DeclarationStatus } from '../types/prisma.types';
 import * as nodemailer from 'nodemailer';
 import { AuditService } from './audit.service';
 
+/**
+ * Escapes the five HTML-significant characters, leaving newlines alone:
+ * generateEmailHtml turns those into paragraph breaks. Used for values that
+ * originate from a user rather than from this codebase — currently the
+ * reviewer's rejection reason / complements message.
+ */
+function escapeEmailHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class NotificationService {
     private readonly logger = new Logger(NotificationService.name);
@@ -500,6 +515,67 @@ export class NotificationService {
             subject: '[DSMO] Confirmez votre adresse e-mail',
             text,
             html,
+        });
+    }
+
+    /**
+     * Registration review outcomes (R.1). All three reuse the shared
+     * generateEmailHtml shell so they carry the same MINEFOP branding as the
+     * rest of the platform mail, and all three escape the reviewer's free
+     * text: the reason / complements message is staff input that lands in an
+     * HTML body.
+     */
+    async sendRegistrationApprovedEmail(to: string, companyName: string, establishmentId: string) {
+        const message =
+            `Votre inscription à CAM-LEAP a été validée.
+` +
+            `Identifiant d'établissement : ${establishmentId}
+` +
+            `Vous pouvez désormais déclarer sur la plateforme.`;
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[CAM-LEAP] Inscription validée',
+            text: `${companyName}
+
+${message}`,
+            html: this.generateEmailHtml(escapeEmailHtml(companyName), escapeEmailHtml(message)),
+        });
+    }
+
+    async sendRegistrationRejectedEmail(to: string, companyName: string, reason: string) {
+        const message =
+            `Votre inscription à CAM-LEAP a été rejetée.
+` +
+            `Motif : ${reason}
+` +
+            `Pour toute question, contactez votre délégation régionale.`;
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[CAM-LEAP] Inscription rejetée',
+            text: `${companyName}
+
+${message}`,
+            html: this.generateEmailHtml(escapeEmailHtml(companyName), escapeEmailHtml(message)),
+        });
+    }
+
+    async sendRegistrationComplementsEmail(to: string, companyName: string, complements: string) {
+        const message =
+            `Des compléments sont demandés pour votre inscription à CAM-LEAP.
+` +
+            `${complements}
+` +
+            `Connectez-vous pour mettre à jour votre dossier et le renvoyer.`;
+        await this.transporter.sendMail({
+            from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
+            to,
+            subject: '[CAM-LEAP] Compléments demandés pour votre inscription',
+            text: `${companyName}
+
+${message}`,
+            html: this.generateEmailHtml(escapeEmailHtml(companyName), escapeEmailHtml(message)),
         });
     }
 
