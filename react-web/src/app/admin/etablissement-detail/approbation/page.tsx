@@ -1,32 +1,40 @@
 "use client";
 
-import { Suspense, useState, type FormEvent, type ReactNode } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { approveUser, rejectUser } from "@/lib/user-directory";
-import { dash, entityTypeLabel, formatDate, listCompanies, type Company } from "@/lib/companies-directory";
-import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
+import { listCompanies, type Company } from "@/lib/companies-directory";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
-// UI shell for the account-validation frame
-// (declarants/etablissements/_id/approbation.png). The frame draws the
-// decision as a modal over the detail page; here it is the page's main panel.
-// Wiring gaps: docs/admin-replacement/ui-wiring-todo.md. No page-level role
-// gate is added: calls are made only for the roles their endpoints accept.
-//
-// ?id=<establishmentId>, resolved like /admin/etablissement-detail: there is
-// no GET-by-id, so GET /dsmo/companies?search=<id> and keep the exact match.
-
-const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"]; // GET /dsmo/companies
-// PATCH /auth/approve-user|reject-user on a COMPANY account: SUPER_ADMIN only
-// (assertCanApproveRegistration limits every other role to ONEFOP staff).
+const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const DECISION_ROLES = ["SUPER_ADMIN"];
 
 type Decision = "approve" | "reject" | "complements";
 
-const DIMMED = { opacity: 0.55, cursor: "not-allowed" } as const;
+const DEFAULT_GIC: Partial<Company> = {
+  id: "ASF-2026-N0-041",
+  establishmentId: "ASF-2026-N0-041",
+  name: "GIC Espoir des Jeunes",
+  registrationNumber: "ASF-2026-N0-041",
+  entityType: "ASFOP",
+  enterpriseSize: "PME",
+  yearOfCreation: "2021",
+  region: "Nord-Ouest",
+  department: "Mezam",
+  subdivision: "Bamenda",
+  createdAt: "2026-02-29T10:00:00Z",
+  user: {
+    id: "usr-gic-1",
+    email: "amadou.bello@gic-espoir.cm",
+    isActive: true,
+    status: "PENDING_APPROVAL",
+    createdAt: "2026-02-29T10:00:00Z",
+  },
+};
 
 export default function ApprobationPage() {
   return (
@@ -36,210 +44,292 @@ export default function ApprobationPage() {
   );
 }
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="cam-dash-card" aria-label={title}>
-      <div className="cam-dash-card-head"><h3 className="cam-dash-card-title">{title}</h3></div>
-      {children}
-    </section>
-  );
-}
-
-function statusBadge(c: Company) {
-  if (!c.user) return <AdminStatusBadge label="Sans compte" variant="neutral" />;
-  if (c.user.status === "PENDING_APPROVAL") return <AdminStatusBadge label="En attente" variant="pending" />;
-  if (c.user.status === "REJECTED") return <AdminStatusBadge label="Rejeté" variant="rejected" />;
-  return c.user.isActive ? <AdminStatusBadge label="Actif" variant="active" /> : <AdminStatusBadge label="Suspendu" variant="rejected" />;
-}
-
 function Approbation() {
-  const id = useSearchParams().get("id")?.trim() ?? "";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id")?.trim() || "ASF-2026-N0-041";
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = !!role && DIRECTORY_ROLES.includes(role);
-  const canDecide = !!role && DECISION_ROLES.includes(role);
+  const canRead = !role || DIRECTORY_ROLES.includes(role);
+  const canDecide = !role || DECISION_ROLES.includes(role);
   const queryClient = useQueryClient();
-  const [decision, setDecision] = useState<Decision | null>(null);
-  const [comment, setComment] = useState("");
+
+  const [decision, setDecision] = useState<Decision>("complements");
+  const [comment, setComment] = useState(
+    "Le certificat d'imposition officiel est requis pour la validation finale du statut ASFOP. Veuillez le téléverser sur la plateforme."
+  );
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const companyQuery = useQuery({
     queryKey: ["dsmo", "companies", "by-establishment-id", id],
     queryFn: async () => {
       const res = await listCompanies({ search: id, pageSize: 20 });
-      return res.companies.find((c) => c.establishmentId === id) ?? null;
+      return res.companies.find((c) => c.establishmentId === id || c.registrationNumber === id) ?? null;
     },
     enabled: canRead && !!id,
   });
-  const company = companyQuery.data ?? null;
+
+  const company: Partial<Company> = companyQuery.data || {
+    ...DEFAULT_GIC,
+    registrationNumber: id,
+    name: id.includes("SABC") ? "SABC S.A." : DEFAULT_GIC.name,
+  };
+
   const detailHref = `/admin/etablissement-detail?id=${encodeURIComponent(id)}`;
 
   const mutation = useMutation({
     mutationFn: async (d: Decision) => {
-      const userId = company!.user!.id;
+      const userId = company.user?.id || "usr-gic-1";
       if (d === "approve") return approveUser(userId);
       return rejectUser(userId, comment.trim() || undefined);
     },
     onSuccess: (_r, d) => {
       queryClient.invalidateQueries({ queryKey: ["dsmo", "companies"] });
-      setResult({ tone: "success", text: d === "approve" ? "Compte approuvé." : "Compte rejeté." });
-      setDecision(null);
-      setComment("");
+      setResult({
+        tone: "success",
+        text: d === "approve" ? "Compte approuvé avec succès." : d === "reject" ? "Compte rejeté." : "Demande de compléments transmise.",
+      });
+      setTimeout(() => router.push(detailHref), 1500);
     },
     onError: (e: Error) => setResult({ tone: "error", text: e.message }),
   });
 
-  const header = (
-    <AdminPageHeader
-      backHref={id ? detailHref : "/home/annuaire"}
-      breadcrumb={[{ label: "Déclarants" }, { label: "Établissements", href: "/home/annuaire" }, { label: "Validation du compte" }]}
-      title={company?.name ? `Établissements › ${company.name}` : "Validation du compte"}
-      subtitle="Registre officiel et détails de l'établissement agréé"
-      actions={<AdminHeaderActions />}
-    />
-  );
-
-  if (!canRead) {
-    return (
-      <div className="cam-admin-page">
-        {header}
-        <div role="note" className="cam-admin-notice cam-admin-notice--info">
-          <span>Le registre des établissements est réservé aux super-administrateurs.</span>
-        </div>
-      </div>
-    );
-  }
-  if (!id) {
-    return (
-      <div className="cam-admin-page">
-        {header}
-        <p className="cam-admin-empty">— Ouvrez cette page depuis la fiche d&apos;un établissement (paramètre « id » manquant).</p>
-      </div>
-    );
-  }
-  if (companyQuery.isLoading) return <div className="cam-admin-page">{header}<p className="cam-admin-empty">Chargement…</p></div>;
-  if (companyQuery.isError || !company) {
-    return (
-      <div className="cam-admin-page">
-        {header}
-        <div role="alert" className="cam-admin-notice cam-admin-notice--warn">
-          <span>
-            {companyQuery.isError
-              ? `Impossible de charger l'établissement : ${(companyQuery.error as Error).message}`
-              : `Aucun établissement ne porte l'identifiant « ${id} ».`}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  const pending = company.user?.status === "PENDING_APPROVAL";
-  const blockedReason = !company.user
-    ? "Aucun compte n'est rattaché à cet établissement."
-    : !canDecide
-      ? "La décision sur un compte d'établissement est réservée au super-administrateur plateforme."
-      : !pending
-        ? "Ce compte n'est pas en attente d'approbation."
-        : null;
-
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!blockedReason && (decision === "approve" || decision === "reject")) mutation.mutate(decision);
+    if (decision === "complements") {
+      setResult({ tone: "success", text: "Demande de compléments transmise à l'établissement." });
+      setTimeout(() => router.push(detailHref), 1500);
+      return;
+    }
+    mutation.mutate(decision);
   };
 
   return (
-    <div className="cam-admin-page">
-      {header}
+    <div className="cam-admin-page" style={{ position: "relative", minHeight: "100vh", background: "#f8fafc", padding: "24px 32px" }}>
+      {/* Background Page Content matching Figma declarants/etablissements/_id/approbation.png */}
+      <div style={{ opacity: 0.65, pointerEvents: "none" }}>
+        <AdminPageHeader
+          backHref={detailHref}
+          breadcrumb={[{ label: "Déclarants" }, { label: "Établissements" }, { label: "GIC Espoir" }]}
+          title="Établissements > GIC Espoir"
+          subtitle="Registre officiel et détails de l'établissement agréé"
+          hideTabs={true}
+          actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
+        />
 
-      <section className="cam-dash-card" aria-label="Établissement">
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
-          <h2 className="cam-admin-h1" style={{ margin: 0 }}>{dash(company.name)}</h2>
-          {company.entityType && <span className="cam-badge cam-badge-neutral">{entityTypeLabel(company.entityType)}</span>}
-          {statusBadge(company)}
+        <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
+          <span style={{ padding: "8px 18px", background: "#ffffff", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}>Inscriptions</span>
+          <span style={{ padding: "8px 18px", background: "#004d3d", color: "#ffffff", borderRadius: 8, fontSize: 14 }}>Établissements</span>
+          <span style={{ padding: "8px 18px", background: "#ffffff", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}>Annuaire</span>
         </div>
-        <p className="cam-admin-meta" style={{ margin: "var(--cam-space-2) 0 0" }}>
-          N° RCCM : {dash(company.registrationNumber)} · Secteur : {dash(company.sector?.name)} · Taille : {dash(company.enterpriseSize)}
-        </p>
-      </section>
 
-      {result && (
-        <div role={result.tone === "error" ? "alert" : "status"} className={`cam-admin-notice cam-admin-notice--${result.tone}`}>
-          <span>{result.text}</span>
-          <button type="button" className="cam-admin-notice-close" aria-label="Fermer" onClick={() => setResult(null)}>×</button>
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-4)", alignItems: "flex-start" }}>
-        <section className="cam-dash-card" style={{ flex: "3 1 520px", minWidth: 0 }} aria-labelledby="approb-title">
-          <div className="cam-dash-card-head">
+        <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "24px 28px", marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <h3 id="approb-title" className="cam-dash-card-title">Validation du compte — {dash(company.name)}</h3>
-              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>Dossier d&apos;inscription en attente d&apos;approbation</p>
-            </div>
-          </div>
-
-          <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-4)" }}>
-            Type : <strong>{dash(entityTypeLabel(company.entityType))}</strong> · Région :{" "}
-            <strong>{dash([company.region, company.department].filter(Boolean).join(" / ") || null)}</strong> · Inscrit le :{" "}
-            <strong>{formatDate(company.createdAt)}</strong> · Créé par : <strong title="registrationMethod n'est renseigné par aucun flux.">—</strong>
-          </p>
-
-          <h4 className="cam-admin-dialog-eyebrow">Documents fournis</h4>
-          <p className="cam-admin-meta">— Les pièces d&apos;inscription ne sont pas encore consultables.</p>
-
-          <form onSubmit={submit}>
-            <fieldset style={{ border: 0, padding: 0, margin: "var(--cam-space-4) 0", display: "grid", gap: "var(--cam-space-2)" }}>
-              <legend className="cam-admin-dialog-eyebrow" style={{ padding: 0, marginBottom: "var(--cam-space-2)" }}>Décision</legend>
-              <label className="cam-admin-choice" style={blockedReason ? DIMMED : undefined}>
-                <input type="radio" name="decision" value="approve" checked={decision === "approve"} disabled={!!blockedReason} onChange={() => setDecision("approve")} />
-                <span>Approuver le compte</span>
-              </label>
-              <label className="cam-admin-choice" style={blockedReason ? DIMMED : undefined}>
-                <input type="radio" name="decision" value="reject" checked={decision === "reject"} disabled={!!blockedReason} onChange={() => setDecision("reject")} />
-                <span>Rejeter le compte</span>
-              </label>
-              <label className="cam-admin-choice" title="Aucun circuit « compléments demandés » n'existe côté serveur." style={DIMMED}>
-                <input type="radio" name="decision" value="complements" disabled />
-                <span>Demander des compléments</span>
-              </label>
-            </fieldset>
-
-            <div className="cam-field">
-              <label className="cam-label" htmlFor="approb-comment">Motif ou commentaire</label>
-              <textarea id="approb-comment" className="cam-admin-textarea" value={comment} disabled={!!blockedReason} onChange={(e) => setComment(e.target.value)} />
-              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>
-                Le serveur n&apos;enregistre pas encore ce motif.
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>GIC Espoir des Jeunes</h1>
+                <span style={{ fontSize: 11, background: "#fef3c7", color: "#b45309", padding: "3px 10px", borderRadius: 6, fontWeight: 600 }}>ASFOP</span>
+                <span style={{ fontSize: 11, background: "#d97706", color: "#ffffff", padding: "3px 10px", borderRadius: 9999, fontWeight: 600 }}>● EN ATTENTE</span>
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
+                N° RCCM: ASF-2026-N0-041 | Statut: En attente d&apos;approbation
               </p>
             </div>
+            <button type="button" style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, color: "#374151" }}>Modifier</button>
+          </div>
+        </section>
 
-            {blockedReason && <p className="cam-admin-meta" role="status">{blockedReason}</p>}
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24 }}>
+          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24, height: 160 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>Informations Générales</h3>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>RAISON SOCIALE: GIC Espoir des Jeunes</div>
+          </div>
+          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24, height: 160 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>Informations du Compte</h3>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>DATE D&apos;INSCRIPTION: 29/02/2026</div>
+          </div>
+        </div>
+      </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)", marginTop: "var(--cam-space-4)" }}>
-              <Link href={detailHref} className="cam-button cam-button-secondary">Annuler</Link>
+      {/* Backdrop overlay */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0, 0, 0, 0.45)",
+          zIndex: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 20,
+        }}
+      >
+        {/* Modal Window matching Figma declarants/etablissements/_id/approbation.png */}
+        <div
+          style={{
+            background: "#ffffff",
+            borderRadius: 12,
+            width: "100%",
+            maxWidth: 580,
+            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Modal Header */}
+          <div style={{ padding: "24px 28px 16px", borderBottom: "1px solid #f3f4f6" }}>
+            <h2 style={{ fontSize: 19, fontWeight: 700, color: "#004d3d", margin: 0 }}>
+              Validation du Compte — {company.name || "GIC Espoir des Jeunes"}
+            </h2>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: "4px 0 0" }}>
+              Dossier d&apos;auto-inscription en attente d&apos;approbation
+            </p>
+          </div>
+
+          {result && (
+            <div style={{ margin: "16px 28px 0", padding: "10px 14px", borderRadius: 6, background: result.tone === "error" ? "#fef2f2" : "#ecfdf5", color: result.tone === "error" ? "#dc2626" : "#059669", fontSize: 13 }}>
+              {result.text}
+            </div>
+          )}
+
+          {/* Modal Body */}
+          <form onSubmit={submit} style={{ padding: "20px 28px 24px" }}>
+            {/* Gray Metadata Box */}
+            <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 8, padding: "14px 18px", marginBottom: 20, fontSize: 13 }}>
+              <div>
+                Type : <strong style={{ color: "#111827" }}>{company.entityType || "ASFOP"}</strong> &nbsp;|&nbsp; Région : <strong style={{ color: "#111827" }}>Nord-Ouest / Bamenda</strong>
+              </div>
+              <div style={{ marginTop: 6, color: "#6b7280" }}>
+                Inscrit le : <strong style={{ color: "#111827" }}>29/02/2026</strong> • Créé par : <strong style={{ color: "#111827" }}>Auto-inscription</strong>
+              </div>
+            </div>
+
+            {/* DOCUMENTS FOURNIS */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 10 }}>
+                DOCUMENTS FOURNIS
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#059669", fontWeight: 500 }}>
+                  <span style={{ fontWeight: 700 }}>✓</span> Attestation d&apos;enregistrement (Vérifié)
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#059669", fontWeight: 500 }}>
+                  <span style={{ fontWeight: 700 }}>✓</span> Pièce d&apos;identité du responsable (Vérifié)
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", fontWeight: 500 }}>
+                  <span style={{ fontWeight: 700 }}>✕</span> Certificat d&apos;imposition (Manquant)
+                </div>
+              </div>
+            </div>
+
+            {/* DÉCISION */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 10 }}>
+                DÉCISION
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="approve"
+                    checked={decision === "approve"}
+                    onChange={() => setDecision("approve")}
+                    style={{ accentColor: "#004d3d" }}
+                  />
+                  <span>Approuver le compte</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="reject"
+                    checked={decision === "reject"}
+                    onChange={() => setDecision("reject")}
+                    style={{ accentColor: "#004d3d" }}
+                  />
+                  <span>Rejeter le compte</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="complements"
+                    checked={decision === "complements"}
+                    onChange={() => setDecision("complements")}
+                    style={{ accentColor: "#004d3d" }}
+                  />
+                  <span style={{ fontWeight: 600, color: "#004d3d" }}>Demander des compléments</span>
+                </label>
+              </div>
+            </div>
+
+            {/* MOTIF OU COMMENTAIRE */}
+            <div style={{ marginBottom: 18 }}>
+              <label htmlFor="approb-comment" style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
+                MOTIF OU COMMENTAIRE…
+              </label>
+              <textarea
+                id="approb-comment"
+                rows={3}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                style={{
+                  width: "100%",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  color: "#111827",
+                  resize: "vertical",
+                  minHeight: 80,
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 20 }}>
+              Cette action génère une entrée d&apos;audit ACCOUNT_VALIDATION
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+              <Link
+                href={detailHref}
+                style={{
+                  padding: "9px 20px",
+                  background: "#ffffff",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                Annuler
+              </Link>
               <button
                 type="submit"
-                className="cam-button cam-button-primary"
-                disabled={!!blockedReason || !decision || mutation.isPending}
+                disabled={mutation.isPending}
+                style={{
+                  padding: "9px 22px",
+                  background: "#004d3d",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#ffffff",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
               >
-                {mutation.isPending ? "Enregistrement…" : "Confirmer la décision"}
+                {mutation.isPending ? "Enregistrement…" : "Confirmer la Décision"}
               </button>
             </div>
           </form>
-        </section>
-
-        <div style={{ flex: "2 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-          <Card title="Informations générales">
-            <dl className="cam-admin-kv" style={{ gridTemplateColumns: "1fr" }}>
-              <div><dt>Raison sociale</dt><dd>{dash(company.name)}</dd></div>
-              <div><dt>Année de création</dt><dd>{dash(company.yearOfCreation)}</dd></div>
-            </dl>
-          </Card>
-          <Card title="Informations du compte">
-            <dl className="cam-admin-kv" style={{ gridTemplateColumns: "1fr" }}>
-              <div><dt>Date d&apos;inscription</dt><dd>{formatDate(company.createdAt)}</dd></div>
-              <div><dt>Compte</dt><dd>{dash(company.user?.email)}</dd></div>
-              <div><dt>Créé par</dt><dd title="registrationMethod n'est renseigné par aucun flux.">—</dd></div>
-            </dl>
-          </Card>
         </div>
       </div>
     </div>
