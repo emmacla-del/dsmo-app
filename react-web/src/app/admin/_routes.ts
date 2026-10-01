@@ -1,13 +1,10 @@
 import type { UserRole } from "@/lib/user-types";
 
-// Admin console navigation & routes — the single source of truth for the 6 primary
-// hubs, their secondary sub-routes, and the per-page role gate (role-decisions D8).
+// Admin console role-based navigation & permissions single source of truth.
+// Maps all 6 primary hubs and their sub-routes to allowed user roles, mirroring
+// backend NestJS controller @Roles annotations.
 //
-// allowedRoles is the UNION of roles that can do anything on the page,
-// derived from the backend @Roles on the endpoints the page calls. It is UX,
-// not security: the backend still enforces every action.
-//
-// allowedRoles undefined = no per-page gate (visible to every console role).
+// allowedRoles undefined = accessible to all console staff roles.
 
 export type HubKey =
   | "supervision"
@@ -46,8 +43,64 @@ export interface AdminRouteSection {
   items: AdminRoute[];
 }
 
-const SUPER_ADMINS: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
-const DOSSIER_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "DIVISIONAL"];
+// ── Role Groups ──────────────────────────────────────────────────────────────
+
+export const SUPER_ADMIN_ROLES: UserRole[] = [
+  "SUPER_ADMIN",
+  "SUPER_ADMIN_DSMO",
+  "SUPER_ADMIN_ONEFOP",
+];
+
+export const DOSSIER_PROCESSORS: UserRole[] = [
+  ...SUPER_ADMIN_ROLES,
+  "CENTRAL",
+  "REGIONAL",
+  "DIVISIONAL",
+];
+
+export const CAMPAIGN_MANAGERS: UserRole[] = [
+  ...SUPER_ADMIN_ROLES,
+  "CENTRAL",
+  "CAMPAIGN_MANAGER",
+  "REGIONAL",
+  "DATA_MANAGER",
+  "ANALYST",
+];
+
+export const QUESTIONNAIRE_MANAGERS: UserRole[] = [
+  ...SUPER_ADMIN_ROLES,
+  "CENTRAL",
+  "CAMPAIGN_MANAGER",
+  "DATA_MANAGER",
+  "REGIONAL",
+  "DIVISIONAL",
+];
+
+export const DATA_ROLES: UserRole[] = [
+  ...SUPER_ADMIN_ROLES,
+  "CENTRAL",
+  "DATA_MANAGER",
+  "ANALYST",
+  "REGIONAL",
+  "AUDITOR",
+];
+
+export const DIRECTORY_ROLES: UserRole[] = [
+  ...SUPER_ADMIN_ROLES,
+  "CENTRAL",
+  "REGIONAL",
+  "DIVISIONAL",
+  "DATA_MANAGER",
+  "ANALYST",
+  "AUDITOR",
+];
+
+// Administrative roles
+export const SETTINGS_ROLES: UserRole[] = [...SUPER_ADMIN_ROLES];
+export const USER_ADMIN_ROLES: UserRole[] = [...SUPER_ADMIN_ROLES];
+export const AUDIT_LOG_ROLES: UserRole[] = [...SUPER_ADMIN_ROLES, "AUDITOR"];
+
+// ── Primary 6 Hubs Definition ────────────────────────────────────────────────
 
 export const ADMIN_HUBS: AdminHub[] = [
   {
@@ -59,7 +112,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/pilotage", "/admin/files-attente"],
     subRoutes: [
       { label: "Tableau de bord", href: "/admin/pilotage" },
-      { label: "Dossiers en instance", href: "/admin/files-attente", badgeKey: "pending" },
+      { label: "Dossiers en instance", href: "/admin/files-attente", badgeKey: "pending", allowedRoles: [...DOSSIER_PROCESSORS, "AUDITOR"] },
       { label: "Activité & alertes", href: "/admin/pilotage#activity" },
     ],
   },
@@ -68,10 +121,11 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Collecte",
     href: "/admin/campagnes",
     iconName: "collecte",
+    allowedRoles: [...CAMPAIGN_MANAGERS, ...QUESTIONNAIRE_MANAGERS],
     matchPrefixes: ["/admin/campagnes", "/admin/questionnaires"],
     subRoutes: [
-      { label: "Campagnes", href: "/admin/campagnes" },
-      { label: "Questionnaires", href: "/admin/questionnaires" },
+      { label: "Campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_MANAGERS },
+      { label: "Questionnaires", href: "/admin/questionnaires", allowedRoles: QUESTIONNAIRE_MANAGERS },
     ],
   },
   {
@@ -82,9 +136,9 @@ export const ADMIN_HUBS: AdminHub[] = [
     badgeKey: "inscriptions",
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
-      { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions" },
-      { label: "Établissements", href: "/admin/etablissements" },
-      { label: "Annuaire déclarants", href: "/home/annuaire?tab=users" },
+      { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: DOSSIER_PROCESSORS },
+      { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
+      { label: "Annuaire déclarants", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
     ],
   },
   {
@@ -93,11 +147,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/dossiers",
     iconName: "quality",
     badgeKey: "anomalies",
+    allowedRoles: [...DOSSIER_PROCESSORS, "DATA_MANAGER", "AUDITOR"],
     matchPrefixes: ["/admin/dossiers"],
     subRoutes: [
-      { label: "Visas & décisions", href: "/admin/dossiers" },
-      { label: "Anomalies", href: "/admin/files-attente?tab=anomalies", badgeKey: "anomalies" },
-      { label: "Contrôle régional", href: "/admin/dossiers?status=PENDING_REVIEW" },
+      { label: "Visas & décisions", href: "/admin/dossiers", allowedRoles: DOSSIER_PROCESSORS },
+      { label: "Anomalies", href: "/admin/files-attente?tab=anomalies", badgeKey: "anomalies", allowedRoles: [...DOSSIER_PROCESSORS, "DATA_MANAGER", "AUDITOR"] },
+      { label: "Contrôle régional", href: "/admin/dossiers?status=PENDING_REVIEW", allowedRoles: DOSSIER_PROCESSORS },
     ],
   },
   {
@@ -105,11 +160,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Données",
     href: "/admin/centre-qualite",
     iconName: "data",
+    allowedRoles: DATA_ROLES,
     matchPrefixes: ["/admin/centre-qualite", "/admin/sectors", "/admin/diffusion"],
     subRoutes: [
-      { label: "Centre Qualité", href: "/admin/centre-qualite" },
+      { label: "Centre Qualité", href: "/admin/centre-qualite", allowedRoles: DATA_ROLES },
       { label: "Jeux de données (Secteurs)", href: "/admin/sectors" },
-      { label: "Gestion & Exports", href: "/admin/diffusion" },
+      { label: "Gestion & Exports", href: "/admin/diffusion", allowedRoles: DATA_ROLES },
     ],
   },
   {
@@ -117,11 +173,13 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Administration",
     href: "/admin/parametres",
     iconName: "settings",
+    // Visible only if user role has at least one administrative permission
+    allowedRoles: [...SETTINGS_ROLES, ...USER_ADMIN_ROLES, ...AUDIT_LOG_ROLES],
     matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit"],
     subRoutes: [
-      { label: "Paramètres généraux", href: "/admin/parametres" },
-      { label: "Utilisateurs ONEFOP", href: "/admin/utilisateurs" },
-      { label: "Journal d'audit", href: "/admin/journal-audit" },
+      { label: "Paramètres généraux", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
+      { label: "Utilisateurs ONEFOP", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
+      { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_LOG_ROLES },
     ],
   },
 ];
@@ -140,6 +198,30 @@ export const ADMIN_ROUTES: AdminRouteSection[] = ADMIN_HUBS.map((hub) => ({
 export function isRoleAllowed(allowedRoles: UserRole[] | undefined, role: UserRole | undefined): boolean {
   if (!allowedRoles) return true;
   return !!role && allowedRoles.includes(role);
+}
+
+/**
+ * Returns the visible hubs for a given role, tailoring the primary landing href
+ * to the first allowed sub-route for that role.
+ */
+export function getVisibleHubs(role: UserRole | undefined): AdminHub[] {
+  return ADMIN_HUBS.map((hub) => {
+    // If hub has role gates and role doesn't match, hide
+    if (!isRoleAllowed(hub.allowedRoles, role)) return null;
+
+    // Filter sub-routes allowed for this role
+    const allowedSubRoutes = hub.subRoutes.filter((sub) => isRoleAllowed(sub.allowedRoles, role));
+    if (allowedSubRoutes.length === 0) return null;
+
+    // Set landing URL to the first sub-route the user actually has access to
+    const effectiveHref = allowedSubRoutes[0].href;
+
+    return {
+      ...hub,
+      href: effectiveHref,
+      subRoutes: allowedSubRoutes,
+    };
+  }).filter(Boolean) as AdminHub[];
 }
 
 /**

@@ -5,7 +5,8 @@ import { Suspense, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getPilotageQueues } from "@/lib/api-client";
-import { getActiveHub, isSubRouteActive } from "@/app/admin/_routes";
+import { useAuthStore } from "@/lib/auth-store";
+import { getActiveHub, isRoleAllowed, isSubRouteActive } from "@/app/admin/_routes";
 
 // ── Breadcrumb ──────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ export interface AdminHeaderTab {
 function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const role = useAuthStore((s) => s.user?.role);
 
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
@@ -117,7 +119,11 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   }
 
   const activeHub = getActiveHub(pathname, searchParams);
-  if (!activeHub || activeHub.subRoutes.length <= 1) return null;
+  if (!activeHub) return null;
+
+  // Filter sub-routes strictly by user role permissions
+  const allowedSubRoutes = activeHub.subRoutes.filter((sub) => isRoleAllowed(sub.allowedRoles, role));
+  if (allowedSubRoutes.length <= 1) return null;
 
   const pendingCount =
     (queuesQuery.data?.blockingAnomaliesCount ?? 0) +
@@ -131,8 +137,8 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
       className="cam-admin-tabs"
       style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
     >
-      {activeHub.subRoutes.map((sub) => {
-        const isActive = isSubRouteActive(sub.href, pathname, searchParams, activeHub.subRoutes);
+      {allowedSubRoutes.map((sub) => {
+        const isActive = isSubRouteActive(sub.href, pathname, searchParams, allowedSubRoutes);
         let badge: number | undefined;
         if (sub.badgeKey === "pending") badge = pendingCount || undefined;
         if (sub.badgeKey === "anomalies") badge = anomaliesCount || undefined;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { ADMIN_HUBS, getActiveHub, isRoleAllowed, type AdminHub } from "@/app/admin/_routes";
+import { getVisibleHubs, getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
 
 export interface AdminSidebarProps {
@@ -125,12 +125,8 @@ export function AdminSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Filter hubs by allowedRoles and visible sub-routes
-  const visibleHubs = ADMIN_HUBS.filter((hub) => {
-    if (!isRoleAllowed(hub.allowedRoles, role)) return false;
-    const hasVisibleSub = hub.subRoutes.some((sub) => isRoleAllowed(sub.allowedRoles, role));
-    return hasVisibleSub;
-  });
+  // Filter hubs by user role and tailor landing URL to first allowed sub-route
+  const visibleHubs = getVisibleHubs(role);
 
   const activeHub = getActiveHub(pathname, searchParams);
 
