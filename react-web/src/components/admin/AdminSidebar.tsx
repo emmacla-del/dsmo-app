@@ -3,17 +3,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { ADMIN_ROUTES, isRoleAllowed, type AdminRoute } from "@/app/admin/_routes";
+import { ADMIN_HUBS, getActiveHub, isRoleAllowed, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
-
-// ── Nav structure ────────────────────────────────────────────────────────────
-//
-// Sections, items and their allowedRoles live in app/admin/_routes.ts, shared
-// with the per-page gate (RequireAdminRole) so the two never disagree.
-
-type NavItem = AdminRoute;
-
-// ── Props ────────────────────────────────────────────────────────────────────
 
 export interface AdminSidebarProps {
   user?: {
@@ -23,15 +14,72 @@ export interface AdminSidebarProps {
   };
   /** Current user's role key; items outside their allowedRoles are hidden. */
   role?: UserRole;
-  /** Badge count on "Dossiers en instance" */
+  /** Badge count on "Supervision" (blocking anomalies + pending national visas) */
   pendingCount?: number;
-  /** Badge count on "Inscriptions" */
+  /** Badge count on "Déclarants" */
   inscriptionsCount?: number;
-  /** Badge count on "Anomalies" */
+  /** Badge count on "Contrôle Qualité" */
   anomaliesCount?: number;
   /** Current locale for the FR | EN switcher */
   locale?: "fr" | "en";
   onLocaleChange?: (locale: "fr" | "en") => void;
+}
+
+// ── Hub Icons ────────────────────────────────────────────────────────────────
+
+function HubIcon({ name }: { name: AdminHub["iconName"] }) {
+  switch (name) {
+    case "dashboard":
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="9" rx="1" />
+          <rect x="14" y="3" width="7" height="5" rx="1" />
+          <rect x="14" y="12" width="7" height="9" rx="1" />
+          <rect x="3" y="16" width="7" height="5" rx="1" />
+        </svg>
+      );
+    case "collecte":
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+      );
+    case "declarants":
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "quality":
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
+    case "data":
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      );
+  }
 }
 
 // ── Badge pill ────────────────────────────────────────────────────────────────
@@ -63,90 +111,8 @@ function Badge({ count }: { count: number }) {
   );
 }
 
-// ── Single nav item ───────────────────────────────────────────────────────────
-
-function NavLink({
-  item,
-  badge,
-  isActive,
-}: {
-  item: NavItem;
-  badge?: number;
-  isActive: boolean;
-}) {
-  const base: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "7px 16px 7px 0",
-    fontSize: 13,
-    fontWeight: isActive ? 600 : 400,
-    lineHeight: 1.3,
-    textDecoration: "none",
-    transition: "background 0.1s ease, color 0.1s ease",
-    borderRadius: 0,
-    cursor: item.href ? "pointer" : "default",
-    // Active: white card with amber left accent
-    // Inactive: translucent white text
-    background: isActive ? "rgba(255,255,255,0.96)" : "transparent",
-    color: isActive ? "var(--cam-green-dark)" : "rgba(255,255,255,0.78)",
-    borderLeft: isActive
-      ? `3px solid var(--cam-flag-yellow)`
-      : "3px solid transparent",
-    paddingLeft: 13, // 16 - 3px border
-  };
-
-  const dot = !isActive && (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 5,
-        height: 5,
-        borderRadius: "50%",
-        background: "rgba(255,255,255,0.45)",
-        flexShrink: 0,
-        marginLeft: 3,
-      }}
-    />
-  );
-
-  const content: ReactNode = (
-    <>
-      {dot}
-      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {item.label}
-      </span>
-      {badge !== undefined && badge > 0 && <Badge count={badge} />}
-    </>
-  );
-
-  if (!item.href) {
-    return (
-      <span style={{ ...base, opacity: 0.55 }}>
-        {content}
-      </span>
-    );
-  }
-
-  return (
-    <Link
-      href={item.href}
-      style={base}
-      className="cam-admin-rail-link"
-      aria-current={isActive ? "page" : undefined}
-    >
-      {content}
-    </Link>
-  );
-}
-
 // ── AdminSidebar ──────────────────────────────────────────────────────────────
 
-/**
- * Admin navigation rail. Renders as `#cam-admin-rail.cam-admin-rail` so
- * admin-console.css controls width, sticky positioning and the off-canvas
- * mobile drawer — never override those with inline styles.
- */
 export function AdminSidebar({
   user,
   role,
@@ -159,55 +125,20 @@ export function AdminSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // D8: only the items this role may open; sections left empty are dropped.
-  const sections = ADMIN_ROUTES
-    .map((section) => ({ ...section, items: section.items.filter((item) => isRoleAllowed(item.allowedRoles, role)) }))
-    .filter((section) => section.items.length > 0);
+  // Filter hubs by allowedRoles and visible sub-routes
+  const visibleHubs = ADMIN_HUBS.filter((hub) => {
+    if (!isRoleAllowed(hub.allowedRoles, role)) return false;
+    const hasVisibleSub = hub.subRoutes.some((sub) => isRoleAllowed(sub.allowedRoles, role));
+    return hasVisibleSub;
+  });
 
-  // Derive active item: supports exact path, query parameter matching, and path prefixes
-  function isActive(href: string | null): boolean {
-    if (!href) return false;
-    const [targetPath, targetQuery] = href.split("?");
-    const cleanPath = targetPath.split("#")[0];
+  const activeHub = getActiveHub(pathname, searchParams);
 
-    // If target has a query string, both path and query parameters must match
-    if (targetQuery) {
-      if (pathname !== cleanPath) return false;
-      const targetParams = new URLSearchParams(targetQuery);
-      let match = true;
-      targetParams.forEach((val, key) => {
-        if (searchParams?.get(key) !== val) match = false;
-      });
-      return match;
-    }
-
-    // If target has no query string, check if current URL has a query that another route specializes
-    if (pathname === cleanPath) {
-      const isOverriddenBySpecificQuery = sections.some((sec) =>
-        sec.items.some((it) => {
-          if (!it.href || it.href === href) return false;
-          const [itPath, itQuery] = it.href.split("?");
-          if (itPath !== cleanPath || !itQuery) return false;
-          const itParams = new URLSearchParams(itQuery);
-          let match = true;
-          itParams.forEach((val, key) => {
-            if (searchParams?.get(key) !== val) match = false;
-          });
-          return match;
-        })
-      );
-      return !isOverriddenBySpecificQuery;
-    }
-
-    return pathname.startsWith(cleanPath + "/");
-  }
-
-  // Badge injection by label
-  function badgeFor(label: string): number | undefined {
-    if (label === "Dossiers en instance") return pendingCount || undefined;
-    if (label === "Inscriptions") return inscriptionsCount || undefined;
-    if (label === "Anomalies") return anomaliesCount || undefined;
-    return undefined;
+  function getBadgeCount(badgeKey?: AdminHub["badgeKey"]): number {
+    if (badgeKey === "pending") return pendingCount;
+    if (badgeKey === "inscriptions") return inscriptionsCount;
+    if (badgeKey === "anomalies") return anomaliesCount;
+    return 0;
   }
 
   return (
@@ -238,13 +169,13 @@ export function AdminSidebar({
       />
 
       {/* ── Brand ── */}
-      <div style={{ padding: "16px 16px 12px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ padding: "18px 16px 14px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
         <div
           aria-hidden="true"
           style={{
             width: 34,
             height: 34,
-            borderRadius: 6,
+            borderRadius: 7,
             background: "#fff",
             display: "grid",
             placeItems: "center",
@@ -267,41 +198,77 @@ export function AdminSidebar({
         </div>
       </div>
 
-      {/* ── Nav sections ── */}
-      {/* Grow to push the footer down, but never shrink below content: on short
-          viewports the rail scrolls instead of the footer overlapping the nav. */}
-      <nav style={{ flex: "1 0 auto", paddingBottom: "var(--cam-space-4)" }}>
-        {sections.map((section) => (
-          <div key={section.group} style={{ marginTop: 18 }}>
-            {/* Section label */}
-            <div
+      {/* ── 6 Primary Navigation Hubs ── */}
+      <nav style={{ flex: "1 0 auto", padding: "10px 10px var(--cam-space-4)", display: "flex", flexDirection: "column", gap: 4 }}>
+        <div
+          style={{
+            padding: "0 8px 6px",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.38)",
+          }}
+        >
+          Modules
+        </div>
+
+        {visibleHubs.map((hub) => {
+          const isActive = activeHub?.key === hub.key;
+          const badgeCount = getBadgeCount(hub.badgeKey);
+
+          return (
+            <Link
+              key={hub.key}
+              href={hub.href}
+              className="cam-admin-rail-hub"
+              aria-current={isActive ? "page" : undefined}
               style={{
-                padding: "0 16px 4px",
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.38)",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 14px",
+                borderRadius: 8,
+                textDecoration: "none",
+                fontSize: 13.5,
+                fontWeight: isActive ? 600 : 500,
+                background: isActive ? "rgba(255, 255, 255, 0.96)" : "transparent",
+                color: isActive ? "var(--cam-green-dark)" : "rgba(255, 255, 255, 0.85)",
+                borderLeft: isActive ? "3px solid var(--cam-flag-yellow)" : "3px solid transparent",
+                boxShadow: isActive ? "0 2px 6px rgba(0,0,0,0.12)" : "none",
+                transition: "all 0.15s ease",
               }}
             >
-              {section.group}
-            </div>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  background: isActive ? "rgba(0, 102, 68, 0.08)" : "rgba(255, 255, 255, 0.08)",
+                  color: isActive ? "var(--cam-green-dark)" : "rgba(255, 255, 255, 0.75)",
+                  flexShrink: 0,
+                  transition: "color 0.15s ease, background 0.15s ease",
+                }}
+              >
+                <HubIcon name={hub.iconName} />
+              </span>
 
-            {/* Items */}
-            {section.items.map((item) => (
-              <NavLink
-                key={item.label}
-                item={item}
-                badge={badgeFor(item.label)}
-                isActive={isActive(item.href)}
-              />
-            ))}
-          </div>
-        ))}
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {hub.label}
+              </span>
+
+              {badgeCount > 0 && <Badge count={badgeCount} />}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* ── Footer: locale toggle + user card ── */}
-      <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "10px 16px" }}>
+      <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "12px 16px" }}>
         {/* FR | EN */}
         <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
           {(["fr", "en"] as const).map((l, i) => (
@@ -333,8 +300,8 @@ export function AdminSidebar({
             <div
               aria-hidden="true"
               style={{
-                width: 30,
-                height: 30,
+                width: 32,
+                height: 32,
                 borderRadius: "50%",
                 background: "rgba(255,255,255,0.15)",
                 display: "grid",

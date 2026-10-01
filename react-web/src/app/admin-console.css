@@ -147,7 +147,8 @@
   overflow: hidden;
 }
 
-.cam-admin-rail-link {
+.cam-admin-rail-link,
+.cam-admin-rail-hub {
   cursor: pointer;
   user-select: none;
 }
@@ -157,7 +158,18 @@
   color: #fff !important;
 }
 
-.cam-admin-rail-link:focus-visible {
+.cam-admin-rail-hub:hover:not([aria-current="page"]) {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+.cam-admin-rail-hub:hover:not([aria-current="page"]) span[aria-hidden="true"] {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+.cam-admin-rail-link:focus-visible,
+.cam-admin-rail-hub:focus-visible {
   outline: 2px solid var(--cam-flag-yellow);
   outline-offset: -2px;
 }

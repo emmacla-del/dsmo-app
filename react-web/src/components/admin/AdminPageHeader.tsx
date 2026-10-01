@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { getPilotageQueues } from "@/lib/api-client";
+import { getActiveHub, isSubRouteActive } from "@/app/admin/_routes";
 
 // ── Breadcrumb ──────────────────────────────────────────────────────────────
 
@@ -66,6 +70,95 @@ export function AdminStatusBadge({ label, variant }: { label: string; variant: S
   );
 }
 
+// ── In-Page Sub-navigation Tabs ─────────────────────────────────────────────
+
+export interface AdminHeaderTab {
+  label: string;
+  href: string;
+  badge?: number;
+  isActive?: boolean;
+}
+
+function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const queuesQuery = useQuery({
+    queryKey: ["admin", "pilotage", "queues"],
+    queryFn: getPilotageQueues,
+    staleTime: 30000,
+  });
+
+  if (customTabs && customTabs.length > 0) {
+    return (
+      <nav
+        role="tablist"
+        aria-label="Sous-navigation"
+        className="cam-admin-tabs"
+        style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
+      >
+        {customTabs.map((tab) => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            role="tab"
+            aria-selected={tab.isActive}
+            className="cam-admin-tab"
+            style={{ textDecoration: "none" }}
+          >
+            {tab.label}
+            {tab.badge !== undefined && tab.badge > 0 && (
+              <span className="cam-admin-tab-count">{tab.badge}</span>
+            )}
+          </Link>
+        ))}
+      </nav>
+    );
+  }
+
+  const activeHub = getActiveHub(pathname, searchParams);
+  if (!activeHub || activeHub.subRoutes.length <= 1) return null;
+
+  const pendingCount =
+    (queuesQuery.data?.blockingAnomaliesCount ?? 0) +
+    (queuesQuery.data?.pendingNationalVisasCount ?? 0);
+  const anomaliesCount = queuesQuery.data?.blockingAnomaliesCount ?? 0;
+
+  return (
+    <nav
+      role="tablist"
+      aria-label="Sous-navigation"
+      className="cam-admin-tabs"
+      style={{ width: "100%", marginTop: "var(--cam-space-3)", marginBottom: "-1px" }}
+    >
+      {activeHub.subRoutes.map((sub) => {
+        const isActive = isSubRouteActive(sub.href, pathname, searchParams, activeHub.subRoutes);
+        let badge: number | undefined;
+        if (sub.badgeKey === "pending") badge = pendingCount || undefined;
+        if (sub.badgeKey === "anomalies") badge = anomaliesCount || undefined;
+
+        return (
+          <Link
+            key={sub.href}
+            href={sub.href}
+            role="tab"
+            aria-selected={isActive}
+            className="cam-admin-tab"
+            style={{ textDecoration: "none" }}
+          >
+            {sub.label}
+            {badge !== undefined && badge > 0 && (
+              <span className={`cam-admin-tab-count${sub.badgeKey === "anomalies" ? " is-alert" : ""}`}>
+                {badge > 99 ? "99+" : badge}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 // ── AdminPageHeader ─────────────────────────────────────────────────────────
 
 export interface AdminPageHeaderProps {
@@ -81,12 +174,16 @@ export interface AdminPageHeaderProps {
   backHref?: string;
   /** Right-hand actions (buttons, chips, etc.) */
   actions?: ReactNode;
+  /** Explicit tabs to render. If omitted and hideTabs is false, active hub sub-routes are used */
+  tabs?: AdminHeaderTab[];
+  /** Hide horizontal sub-navigation tabs (useful on deep detail pages) */
+  hideTabs?: boolean;
 }
 
 /**
  * Shared page-level header for all admin screens.
  *
- * List pages:  breadcrumb · title + subtitle on left, chips/icons on right.
+ * List pages:  breadcrumb · title + subtitle on left, actions on right, sub-tabs on bottom.
  * Detail pages: back arrow · title + inline status badge · subtitle on left,
  *               action buttons on right.
  */
@@ -97,7 +194,11 @@ export function AdminPageHeader({
   statusBadge,
   backHref,
   actions,
+  tabs,
+  hideTabs = false,
 }: AdminPageHeaderProps) {
+  const shouldHideTabs = hideTabs || (backHref !== undefined && tabs === undefined);
+
   return (
     <header
       style={{
@@ -105,14 +206,14 @@ export function AdminPageHeader({
         alignItems: "flex-start",
         justifyContent: "space-between",
         flexWrap: "wrap",
-        gap: "var(--cam-space-6)",
-        paddingBottom: "var(--cam-space-5)",
+        gap: "var(--cam-space-4)",
+        paddingBottom: shouldHideTabs ? "var(--cam-space-5)" : 0,
         borderBottom: "var(--cam-border-width) solid var(--cam-border)",
         marginBottom: "var(--cam-space-5)",
       }}
     >
       {/* ── Left: breadcrumb + title row + subtitle ── */}
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         {breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
 
         <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)", flexWrap: "wrap" }}>
@@ -184,6 +285,13 @@ export function AdminPageHeader({
         >
           {actions}
         </div>
+      )}
+
+      {/* ── Bottom: secondary in-page navigation tabs ── */}
+      {!shouldHideTabs && (
+        <Suspense fallback={null}>
+          <AdminSubNav customTabs={tabs} />
+        </Suspense>
       )}
     </header>
   );
