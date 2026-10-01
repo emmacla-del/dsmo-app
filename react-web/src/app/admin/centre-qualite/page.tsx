@@ -291,7 +291,7 @@ export default function CentreQualitePage() {
           {/* Left: Breadcrumbs + Title */}
           <div>
             <nav aria-label="Fil d'Ariane" style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
-              <Link href="/admin/diffusion" style={{ color: "#64748b", textDecoration: "none" }}>Données</Link>
+              <Link href="/admin/centre-qualite" style={{ color: "#64748b", textDecoration: "none" }}>Contrôle Qualité</Link>
               <span style={{ margin: "0 6px" }}>›</span>
               <span style={{ color: "#1e293b" }}>Centre qualité</span>
             </nav>
@@ -307,23 +307,7 @@ export default function CentreQualitePage() {
         </div>
 
         {/* Sub-navigation Pill Tabs immediately under Title, above the divider */}
-        <nav aria-label="Sections du module Données" style={{ display: "flex", gap: 10, marginTop: 18 }}>
-          <Link
-            href="/admin/sectors"
-            style={{
-              padding: "7px 18px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-              color: "#475569",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-            }}
-          >
-            Jeux de données
-          </Link>
+        <nav aria-label="Sections du module Contrôle Qualité" style={{ display: "flex", gap: 10, marginTop: 18 }}>
           <Link
             href="/admin/centre-qualite"
             style={{
@@ -338,10 +322,10 @@ export default function CentreQualitePage() {
               boxShadow: "0 1px 2px rgba(0, 122, 94, 0.08)",
             }}
           >
-            Centre qualité
+            Centre Qualité
           </Link>
           <Link
-            href="/admin/diffusion"
+            href="/admin/files-attente?tab=anomalies"
             style={{
               padding: "7px 18px",
               borderRadius: 8,
@@ -354,7 +338,23 @@ export default function CentreQualitePage() {
               boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
             }}
           >
-            Exports
+            Anomalies
+          </Link>
+          <Link
+            href="/admin/centre-qualite?tab=regional"
+            style={{
+              padding: "7px 18px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              textDecoration: "none",
+              color: "#475569",
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+            }}
+          >
+            Contrôle régional
           </Link>
         </nav>
       </header>

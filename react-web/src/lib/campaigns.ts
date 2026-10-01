@@ -70,6 +70,23 @@ export function getCampaign(id: string) {
   return apiFetch<CampaignDetail>(`/campaigns/${id}`);
 }
 
+export function createCampaign(data: {
+  collectionType: "ONEFOP" | "DSMO";
+  type: "QUARTERLY" | "ANNUAL" | "SPECIAL";
+  startDate: string;
+  deadline: string;
+  description?: string;
+  targetRegions?: string[];
+  targetDepartments?: string[];
+  targetEntityTypes?: string[];
+  autoReminders?: boolean;
+}) {
+  return apiFetch<Campaign>("/campaigns", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export function activateCampaign(id: string) {
   return apiFetch<Campaign>(`/campaigns/${id}/activate`, { method: "POST" });
 }

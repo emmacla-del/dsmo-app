@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listCampaigns,
   getCampaign,
+  createCampaign,
   activateCampaign,
   pauseCampaign,
   closeCampaign,
@@ -63,6 +64,20 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+export function formatCampaignDisplayName(name: string): string {
+  if (!name) return "—";
+  if (name.includes("COLLECTE DES DONNEES SUR LES EMPLOIS") || name.includes("SECTEUR MODERNE")) {
+    return "Collecte des données sur les emplois (Secteur moderne)";
+  }
+  if (name.includes("DECLARATION SUR LA SITUATION DE LA MAIN D'OEUVRE") || name.includes("MAIN D'OEUVRE")) {
+    return "Déclaration sur la situation de la main d'œuvre (DSMO)";
+  }
+  if (name.length > 40 && name === name.toUpperCase()) {
+    return name.charAt(0) + name.slice(1).toLowerCase();
+  }
+  return name;
+}
+
 // A disabled <button> swallows the pointer without showing its own title, so
 // the reason sits on a wrapper span and the disabled button lets the pointer
 // through (GATED_OFF) to reach it. Keyboard users get the same reason from the
@@ -90,6 +105,7 @@ export default function CampagnesPage() {
   const canMutate = !!role && MUTATE_ROLES.includes(role);
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [reminderType, setReminderType] = useState(REMINDER_TYPES[0].value);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -105,6 +121,7 @@ export default function CampagnesPage() {
     setActionSuccess(message);
     setActionError(null);
     setDialog(null);
+    setCreateOpen(false);
   };
   const failed = (e: Error) => setActionError(e.message);
 
@@ -137,7 +154,28 @@ export default function CampagnesPage() {
       <AdminPageHeader
         breadcrumb={[{ label: "Collecte" }, { label: "Campagnes" }]}
         title="Campagnes Nationales de Recensement"
-        actions={<AdminHeaderActions />}
+        actions={
+          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
+            <AdminHeaderActions />
+            <Gated allowed={canMutate}>
+              {(disabled) => (
+                <button
+                  type="button"
+                  className="cam-button cam-button-primary cam-button-sm"
+                  disabled={disabled}
+                  style={disabled ? GATED_OFF : undefined}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: 6 }}>
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Lancer une campagne
+                </button>
+              )}
+            </Gated>
+          </div>
+        }
       />
       {!canMutate && (
         <div role="note" className="cam-admin-notice cam-admin-notice--info">
@@ -165,7 +203,7 @@ export default function CampagnesPage() {
           </svg>
           <div>
             <div className="cam-campaign-banner-title">Aucune campagne active</div>
-            <div className="cam-campaign-banner-meta">Activez une campagne en brouillon ci-dessous, ou créez-en une depuis la console Flutter.</div>
+            <div className="cam-campaign-banner-meta">Activez une campagne en brouillon ci-dessous, ou lancez-en une nouvelle avec le bouton ci-dessus.</div>
           </div>
         </div>
       ) : (
@@ -200,7 +238,7 @@ export default function CampagnesPage() {
             ) : otherCampaigns.length === 0 ? (
               <div className="cam-admin-empty">
                 <strong>Aucune autre campagne</strong>
-                Les campagnes sont créées depuis la console de gestion Flutter.
+                Créez et activez une campagne avec le bouton « Lancer une campagne » ci-dessus.
               </div>
             ) : (
               // Wide tables scroll horizontally inside the panel; no second bordered box.
@@ -208,7 +246,7 @@ export default function CampagnesPage() {
                 <table className="cam-table">
                   <thead>
                     <tr>
-                      <th scope="col">Campagne</th>
+                      <th scope="col" style={{ width: "42%" }}>Campagne</th>
                       <th scope="col">Type</th>
                       <th scope="col">Ouverture</th>
                       <th scope="col">Clôture</th>
@@ -219,20 +257,39 @@ export default function CampagnesPage() {
                   <tbody>
                     {otherCampaigns.map((c) => (
                       <tr key={c.id}>
-                        <td>
-                          <div className="cam-admin-strong">{c.name}</div>
-                          <div className="cam-admin-code cam-admin-muted">{c.code}</div>
+                        <td style={{ maxWidth: 360, padding: "10px 14px", verticalAlign: "middle" }}>
+                          <div
+                            className="cam-admin-strong"
+                            title={c.name}
+                            style={{
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              color: "var(--cam-text)",
+                            }}
+                          >
+                            {formatCampaignDisplayName(c.name)}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                            <span className="cam-admin-code cam-admin-muted" style={{ fontSize: "11px" }}>{c.code}</span>
+                          </div>
                         </td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>{c.collectionType ?? c.type ?? "—"}</td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>{fmt(c.startDate)}</td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>
+                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
+                          <span className="cam-badge cam-badge-neutral" style={{ fontSize: "11px", fontWeight: 600 }}>
+                            {c.collectionType ?? c.type ?? "—"}
+                          </span>
+                        </td>
+                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>{fmt(c.startDate)}</td>
+                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
                           {fmt(effectiveDeadline(c))}
                           {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && (
-                            <div className="cam-admin-meta" style={{ color: "var(--cam-info)" }}>Prorogée (était {fmt(c.deadline)})</div>
+                            <div className="cam-admin-meta" style={{ color: "var(--cam-info)", fontSize: "11px" }}>Prorogée (était {fmt(c.deadline)})</div>
                           )}
                         </td>
-                        <td><StatusBadge status={c.status} /></td>
-                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <td style={{ padding: "10px 14px", verticalAlign: "middle" }}><StatusBadge status={c.status} /></td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
                           <div style={{ display: "inline-flex", gap: "var(--cam-space-3)", alignItems: "center", justifyContent: "flex-end" }}>
                             {canActivate(c.status) && (
                               <Gated allowed={canMutate}>
@@ -336,6 +393,11 @@ export default function CampagnesPage() {
       </AdminDialog>
 
       {dialog?.type === "details" && <DetailsDialog campaign={dialog.campaign} onClose={() => setDialog(null)} />}
+      <CreateCampaignDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(msg) => done(msg)}
+      />
     </div>
   );
 }
@@ -353,7 +415,10 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
       <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
-            <h2 className="cam-admin-h2" style={{ margin: 0 }}>{c.name}</h2>
+            <h2 className="cam-admin-h2" style={{ margin: 0 }} title={c.name}>{formatCampaignDisplayName(c.name)}</h2>
+            <span className="cam-admin-code" style={{ fontSize: "12px", background: "var(--cam-surface-subtle)", padding: "2px 8px", borderRadius: "4px" }}>
+              {c.code}
+            </span>
             <StatusBadge status={c.status} />
           </div>
           <span className="cam-admin-meta">
@@ -542,3 +607,165 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
     </AdminDialog>
   );
 }
+
+// ── Création de campagne (POST /campaigns) ─────────────────────────────────
+
+function CreateCampaignDialog({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (msg: string) => void;
+}) {
+  const [collectionType, setCollectionType] = useState<"DSMO" | "ONEFOP">("DSMO");
+  const [type, setType] = useState<"QUARTERLY" | "ANNUAL" | "SPECIAL">("QUARTERLY");
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const defaultDeadline = new Date(Date.now() + 90 * 86_400_000).toISOString().split("T")[0];
+
+  const [startDate, setStartDate] = useState(todayStr);
+  const [deadline, setDeadline] = useState(defaultDeadline);
+  const [description, setDescription] = useState("");
+  const [autoReminders, setAutoReminders] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      createCampaign({
+        collectionType,
+        type,
+        startDate: new Date(startDate).toISOString(),
+        deadline: new Date(deadline).toISOString(),
+        description: description.trim() || undefined,
+        autoReminders,
+      }),
+    onSuccess: () => {
+      onCreated("Campagne créée et activée avec succès.");
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!startDate || !deadline) {
+      setError("Veuillez renseigner les dates de début et d'échéance.");
+      return;
+    }
+    if (new Date(deadline) <= new Date(startDate)) {
+      setError("La date limite doit être postérieure à la date de début.");
+      return;
+    }
+    setError(null);
+    mutation.mutate();
+  };
+
+  return (
+    <AdminDialog
+      open={open}
+      onClose={onClose}
+      eyebrow="Nouvelle collecte"
+      title="Lancer une campagne de recensement"
+      footer={
+        <>
+          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose} disabled={mutation.isPending}>
+            Annuler
+          </button>
+          <button
+            type="button"
+            className="cam-button cam-button-primary cam-button-sm"
+            onClick={handleSubmit}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? "Création en cours…" : "Lancer la campagne"}
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
+        {error && (
+          <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ marginBottom: "var(--cam-space-2)" }}>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="cam-field">
+          <label className="cam-admin-label" htmlFor="cam-col-type">Module de collecte</label>
+          <select
+            id="cam-col-type"
+            className="cam-select"
+            value={collectionType}
+            onChange={(e) => setCollectionType(e.target.value as "DSMO" | "ONEFOP")}
+          >
+            <option value="DSMO">Déclaration sur la situation de la main d&apos;œuvre (DSMO)</option>
+            <option value="ONEFOP">Questionnaire ONEFOP (Emplois créés)</option>
+          </select>
+        </div>
+
+        <div className="cam-field">
+          <label className="cam-admin-label" htmlFor="cam-freq-type">Périodicité</label>
+          <select
+            id="cam-freq-type"
+            className="cam-select"
+            value={type}
+            onChange={(e) => setType(e.target.value as "QUARTERLY" | "ANNUAL" | "SPECIAL")}
+          >
+            <option value="QUARTERLY">Trimestrielle</option>
+            <option value="ANNUAL">Annuelle</option>
+            <option value="SPECIAL">Spéciale / Ponctuelle</option>
+          </select>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--cam-space-3)" }}>
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="cam-start-date">Date de début</label>
+            <input
+              id="cam-start-date"
+              type="date"
+              className="cam-input"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+            />
+          </div>
+          <div className="cam-field">
+            <label className="cam-admin-label" htmlFor="cam-deadline">Date limite (Échéance)</label>
+            <input
+              id="cam-deadline"
+              type="date"
+              className="cam-input"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="cam-field">
+          <label className="cam-admin-label" htmlFor="cam-desc">Description ou instructions (optionnel)</label>
+          <textarea
+            id="cam-desc"
+            className="cam-textarea"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Instructions particulières communiquées aux établissements déclarant…"
+          />
+        </div>
+
+        <label style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", cursor: "pointer", fontSize: "13px", marginTop: "var(--cam-space-1)" }}>
+          <input
+            type="checkbox"
+            checked={autoReminders}
+            onChange={(e) => setAutoReminders(e.target.checked)}
+            style={{ width: 16, height: 16 }}
+          />
+          <span>Activer les rappels automatiques (relances envoyées à J-7, J-3 et J-1 de l&apos;échéance)</span>
+        </label>
+      </form>
+    </AdminDialog>
+  );
+}
+
