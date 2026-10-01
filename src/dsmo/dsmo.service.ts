@@ -14,6 +14,7 @@ import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { PdfService, PdfData } from './pdf.service';
 import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
+import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 
 @Injectable()
 export class DsmoService {
@@ -194,9 +195,20 @@ export class DsmoService {
     return { companies, total, page, pageSize };
   }
 
-  // ✅ UPDATED: saveCompanyProfile with establishmentId generation
+  // ✅ UPDATED: saveCompanyProfile with establishmentId generation and territory validation
   async saveCompanyProfile(userId: string, dto: any) {
-    const subdivisionValue = dto.subdivision ?? dto.department ?? 'Non spécifié';
+    const resolvedTerritory = await resolveAndValidateTerritory(
+      this.prisma,
+      {
+        regionId: dto.regionId,
+        departmentId: dto.departmentId,
+        subdivisionId: dto.subdivisionId,
+        region: dto.region,
+        department: dto.department,
+        subdivision: dto.subdivision,
+      },
+      { requireSubdivision: true },
+    );
 
     // Check if company already exists
     const existing = await this.prisma.company.findUnique({
@@ -206,20 +218,11 @@ export class DsmoService {
     let establishmentId = dto.establishmentId;
 
     // Generate establishmentId if not provided and we have entityType
-    if (!establishmentId && dto.entityType && !existing?.establishmentId) {
-      // Get subdivision code
-      let subdivisionCode = '00';
-      if (dto.subdivision) {
-        const subdivision = await this.prisma.subdivision.findFirst({
-          where: { name: dto.subdivision }
-        });
-        subdivisionCode = subdivision?.code?.slice(-2) || '00';
-      } else if (dto.department) {
-        const department = await this.prisma.department.findFirst({
-          where: { name: dto.department }
-        });
-        subdivisionCode = department?.code?.slice(-2) || '00';
-      }
+    if (!establishmentId && dto.entityType && !existing?.establishmentId && resolvedTerritory.subdivisionId) {
+      const subdivision = await this.prisma.subdivision.findUnique({
+        where: { id: resolvedTerritory.subdivisionId },
+      });
+      const subdivisionCode = subdivision?.code?.slice(-2) || '00';
 
       establishmentId = await EstablishmentIdGenerator.generate(
         this.prisma,
@@ -232,9 +235,12 @@ export class DsmoService {
       name: dto.name,
       taxNumber: dto.taxNumber,
       mainActivity: dto.mainActivity,
-      region: dto.region,
-      department: dto.department,
-      subdivision: subdivisionValue,
+      region: resolvedTerritory.region,
+      department: resolvedTerritory.department,
+      subdivision: resolvedTerritory.subdivision!,
+      regionId: resolvedTerritory.regionId,
+      departmentId: resolvedTerritory.departmentId,
+      subdivisionId: resolvedTerritory.subdivisionId,
       address: dto.address,
       phone: dto.phone,
       parentCompany: dto.parentCompany,
@@ -275,9 +281,20 @@ export class DsmoService {
     }
   }
 
-  // ✅ UPDATED: createOrUpdateCompany with establishmentId generation
+  // ✅ UPDATED: createOrUpdateCompany with establishmentId generation and territory validation
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
-    const subdivisionValue = dto.subdivision ?? 'Non spécifié';
+    const resolvedTerritory = await resolveAndValidateTerritory(
+      this.prisma,
+      {
+        regionId: dto.regionId,
+        departmentId: dto.departmentId,
+        subdivisionId: dto.subdivisionId,
+        region: dto.region,
+        department: dto.department,
+        subdivision: dto.subdivision,
+      },
+      { requireSubdivision: true },
+    );
 
     // Check if company already exists
     const existing = await this.prisma.company.findUnique({
@@ -287,19 +304,11 @@ export class DsmoService {
     let establishmentId = (dto as any).establishmentId;
 
     // Generate establishmentId if not provided and we have entityType
-    if (!establishmentId && (dto as any).entityType && !existing?.establishmentId) {
-      let subdivisionCode = '00';
-      if (dto.subdivision) {
-        const subdivision = await this.prisma.subdivision.findFirst({
-          where: { name: dto.subdivision }
-        });
-        subdivisionCode = subdivision?.code?.slice(-2) || '00';
-      } else if (dto.department) {
-        const department = await this.prisma.department.findFirst({
-          where: { name: dto.department }
-        });
-        subdivisionCode = department?.code?.slice(-2) || '00';
-      }
+    if (!establishmentId && (dto as any).entityType && !existing?.establishmentId && resolvedTerritory.subdivisionId) {
+      const subdivision = await this.prisma.subdivision.findUnique({
+        where: { id: resolvedTerritory.subdivisionId },
+      });
+      const subdivisionCode = subdivision?.code?.slice(-2) || '00';
 
       establishmentId = await EstablishmentIdGenerator.generate(
         this.prisma,
@@ -313,9 +322,12 @@ export class DsmoService {
       parentCompany: dto.parentCompany,
       mainActivity: dto.mainActivity,
       secondaryActivity: dto.secondaryActivity,
-      region: dto.region,
-      department: dto.department,
-      subdivision: subdivisionValue,
+      region: resolvedTerritory.region,
+      department: resolvedTerritory.department,
+      subdivision: resolvedTerritory.subdivision!,
+      regionId: resolvedTerritory.regionId,
+      departmentId: resolvedTerritory.departmentId,
+      subdivisionId: resolvedTerritory.subdivisionId,
       address: dto.address,
       taxNumber: dto.taxNumber,
       cnpsNumber: dto.cnpsNumber,

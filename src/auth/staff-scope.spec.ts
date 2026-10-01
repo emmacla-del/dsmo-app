@@ -202,11 +202,29 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
   let service: AuthService;
 
   beforeEach(() => {
+    const mockRegions = [
+      { id: 'reg-centre', name: 'Centre' },
+      { id: 'reg-littoral', name: 'Littoral' },
+    ];
+    const mockDepartments = [
+      { id: 'dept-wouri', name: 'Wouri', regionId: 'reg-littoral', region: { id: 'reg-littoral', name: 'Littoral' } },
+      { id: 'dept-mfoundi', name: 'Mfoundi', regionId: 'reg-centre', region: { id: 'reg-centre', name: 'Centre' } },
+    ];
+
     prisma = {
       user: {
         findUnique: jest.fn(async ({ where }: any) => (where.id ? accounts[where.id] ?? null : null)),
         update: jest.fn(async ({ where, data }: any) => ({ ...accounts[where.id], ...data })),
         create: jest.fn(async ({ data }: any) => ({ id: 'new', ...data })),
+      },
+      region: {
+        findMany: jest.fn(async () => mockRegions),
+      },
+      department: {
+        findMany: jest.fn(async ({ where }: any) =>
+          mockDepartments.filter(d => !where?.regionId || d.regionId === where.regionId),
+        ),
+        findFirst: jest.fn(async () => null),
       },
       auditLog: { create: jest.fn(async () => ({})) },
     };
@@ -230,8 +248,24 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
-  it('SUPER_ADMIN_ONEFOP reassigns ONEFOP staff', async () => {
-    await expect(service.updateUserTerritory('activeWouri', 'REGIONAL', 'Centre', null, 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ role: 'REGIONAL', region: 'Centre' });
+  it('SUPER_ADMIN_ONEFOP reassigns ONEFOP staff with canonical territory names', async () => {
+    await expect(service.updateUserTerritory('activeWouri', 'REGIONAL', 'centre', null, 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ role: 'REGIONAL', region: 'Centre' });
+  });
+
+  it('rejects staff territory reassignment with hierarchy mismatch', async () => {
+    await expect(
+      service.updateUserTerritory('activeWouri', 'DIVISIONAL', 'Centre', 'Wouri', 'me', 'SUPER_ADMIN_ONEFOP'),
+    ).rejects.toThrow("Département inconnu : 'Wouri'");
+  });
+
+  it('validates territory on adminCreateMinefopUser and stores canonical names', async () => {
+    const dto = { email: 'div@minefop.cm', firstName: 'Div', lastName: 'Agent', role: 'DIVISIONAL', region: 'littoral', department: 'wouri' };
+    const res = await service.adminCreateMinefopUser(dto, 'SUPER_ADMIN_ONEFOP');
+    expect(res.user).toMatchObject({
+      role: 'DIVISIONAL',
+      region: 'Littoral',
+      department: 'Wouri',
+    });
   });
 });
 

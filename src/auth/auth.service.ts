@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   BadRequestException,
   ConflictException,
@@ -19,6 +19,7 @@ import { buildUserListWhere, type UserListFilterParams } from './user-list-filte
 import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import type { Territory } from './territory';
 import { toPublicUser } from './public-user';
+import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -346,16 +347,15 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
-    if (role === 'DIVISIONAL' && (!department || !region)) {
-      throw new BadRequestException(
-        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
-      );
+
+    let canonicalRegion = region ?? null;
+    let canonicalDepartment = department ?? null;
+    if (role === 'REGIONAL' || role === 'DIVISIONAL') {
+      const resolved = await resolveStaffTerritory(this.prisma, role, { region, department });
+      canonicalRegion = resolved.region;
+      canonicalDepartment = resolved.department;
     }
-    if (role === 'REGIONAL' && !region) {
-      throw new BadRequestException(
-        'Les utilisateurs régionaux doivent avoir une région assignée',
-      );
-    }
+
     const hashed = await bcrypt.hash(password, 10);
     const isMinefop = role !== 'COMPANY';
     try {
@@ -366,8 +366,8 @@ export class AuthService {
           firstName,
           lastName,
           role: role as any,
-          region,
-          department,
+          region: canonicalRegion,
+          department: canonicalDepartment,
           matricule,
           poste,
           serviceCode: serviceCode ?? null,
@@ -432,16 +432,11 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
-    if (dto.role === 'DIVISIONAL' && (!dto.department || !dto.region)) {
-      throw new BadRequestException(
-        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
-      );
-    }
-    if (dto.role === 'REGIONAL' && !dto.region) {
-      throw new BadRequestException(
-        'Les utilisateurs régionaux doivent avoir une région assignée',
-      );
-    }
+
+    const resolvedTerritory = await resolveStaffTerritory(this.prisma, dto.role, {
+      region: dto.region,
+      department: dto.department,
+    });
 
     const temporaryPassword = this.generateTemporaryPassword();
     const hashed = await bcrypt.hash(temporaryPassword, 10);
@@ -453,8 +448,8 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           role: dto.role as any,
-          region: dto.region,
-          department: dto.department,
+          region: resolvedTerritory.region,
+          department: resolvedTerritory.department,
           matricule: dto.matricule,
           poste: dto.poste,
           serviceCode: dto.serviceCode ?? null,
@@ -484,6 +479,9 @@ export class AuthService {
       region: string;
       department: string;
       subdivision: string;
+      regionId?: string;
+      departmentId?: string;
+      subdivisionId?: string;
       address: string;
       taxNumber: string;
       cnpsNumber?: string;
@@ -559,12 +557,25 @@ export class AuthService {
       }
     }
 
+    // Validate and resolve territory hierarchy against canonical DB records
+    const resolvedTerritory = await resolveAndValidateTerritory(
+      this.prisma,
+      {
+        regionId: companyData.regionId,
+        departmentId: companyData.departmentId,
+        subdivisionId: companyData.subdivisionId,
+        region: companyData.region,
+        department: companyData.department,
+        subdivision: companyData.subdivision,
+      },
+      { requireSubdivision: true },
+    );
+
     // ✅ GENERATE ESTABLISHMENT ID
     let establishmentId: string | undefined;
-    if (companyData.entityType && companyData.subdivision) {
-      // Get subdivision code from name
-      const subdivision = await this.prisma.subdivision.findFirst({
-        where: { name: companyData.subdivision }
+    if (companyData.entityType && resolvedTerritory.subdivisionId) {
+      const subdivision = await this.prisma.subdivision.findUnique({
+        where: { id: resolvedTerritory.subdivisionId },
       });
       const subdivisionCode = subdivision?.code?.slice(-2) || '00';
 
@@ -594,8 +605,8 @@ export class AuthService {
           role: 'COMPANY',
           firstName: companyData.respondentFirstName ?? companyData.contactName ?? email.split('@')[0],
           lastName: companyData.respondentLastName ?? '',
-          region: companyData.region,
-          department: companyData.department,
+          region: resolvedTerritory.region,
+          department: resolvedTerritory.department,
           status: 'ACTIVE',
           isActive: true,
           emailVerified: false,
@@ -609,9 +620,12 @@ export class AuthService {
           parentCompany: companyData.parentCompany,
           mainActivity: companyData.mainActivity,
           secondaryActivity: companyData.secondaryActivity,
-          region: companyData.region,
-          department: companyData.department,
-          subdivision: companyData.subdivision,
+          region: resolvedTerritory.region,
+          department: resolvedTerritory.department,
+          subdivision: resolvedTerritory.subdivision!,
+          regionId: resolvedTerritory.regionId,
+          departmentId: resolvedTerritory.departmentId,
+          subdivisionId: resolvedTerritory.subdivisionId,
           address: companyData.address,
           fax: companyData.fax,
           taxNumber: resolvedTaxNumber,
@@ -947,19 +961,19 @@ export class AuthService {
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     assertCanManageRole(actorRole, user.role);
     assertCanManageRole(actorRole, role);
-    if (role === 'DIVISIONAL' && (!region || !department)) {
-      throw new BadRequestException(
-        'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
-      );
-    }
-    if (role === 'REGIONAL' && !region) {
-      throw new BadRequestException(
-        'Les utilisateurs régionaux doivent avoir une région assignée',
-      );
-    }
+
+    const resolvedTerritory = await resolveStaffTerritory(this.prisma, role, {
+      region,
+      department,
+    });
+
     const updated = await this.prisma.user.update({
       where: { id },
-      data: { role: role as any, region: region ?? null, department: department ?? null },
+      data: {
+        role: role as any,
+        region: resolvedTerritory.region,
+        department: resolvedTerritory.department,
+      },
     });
     await (this.prisma as any).auditLog.create({
       data: {
@@ -972,8 +986,8 @@ export class AuthService {
           previousRegion: user.region ?? null,
           previousDepartment: user.department ?? null,
           newRole: role,
-          newRegion: region ?? null,
-          newDepartment: department ?? null,
+          newRegion: resolvedTerritory.region,
+          newDepartment: resolvedTerritory.department,
         },
       },
     });

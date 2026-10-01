@@ -248,6 +248,9 @@ export interface RegisterCompanyPayload {
   region?: string;
   department?: string;
   subdivision?: string;
+  regionId?: string;
+  departmentId?: string;
+  subdivisionId?: string;
   area?: string;
   entityType?: string;
   companyName: string;

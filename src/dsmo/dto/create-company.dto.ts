@@ -1,4 +1,4 @@
-﻿import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCompanyDto {
@@ -17,13 +17,28 @@ export class CreateCompanyDto {
   secondaryActivity?: string;
 
   @IsString()
+  @IsNotEmpty()
   region!: string;
 
   @IsString()
+  @IsNotEmpty()
   department!: string;
 
   @IsString()
+  @IsNotEmpty()
   subdivision!: string;
+
+  @IsOptional()
+  @IsString()
+  regionId?: string;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  subdivisionId?: string;
 
   @IsString()
   address!: string;
