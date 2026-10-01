@@ -1,4 +1,4 @@
-import { IsEmail, IsInt, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class RegisterCompanyDto {
@@ -12,7 +12,16 @@ export class RegisterCompanyDto {
   companyName!: string;
 
   @IsString()
+  @IsNotEmpty()
   region!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  department!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  subdivision!: string;
 
   @IsString()
   address!: string;
@@ -20,8 +29,9 @@ export class RegisterCompanyDto {
   @IsOptional() @IsString() parentCompany?: string;
   @IsOptional() @IsString() mainActivity?: string;
   @IsOptional() @IsString() secondaryActivity?: string;
-  @IsOptional() @IsString() department?: string;
-  @IsOptional() @IsString() subdivision?: string;
+  @IsOptional() @IsString() regionId?: string;
+  @IsOptional() @IsString() departmentId?: string;
+  @IsOptional() @IsString() subdivisionId?: string;
   @IsOptional() @IsString() taxNumber?: string;
   @IsOptional() @IsString() cnpsNumber?: string;
   @IsOptional() @IsInt() @Min(0) @Type(() => Number) socialCapital?: number;

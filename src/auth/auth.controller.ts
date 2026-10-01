@@ -1,4 +1,4 @@
-﻿import { Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UsePipes, ValidationPipe, Request, Get, Patch, Delete, Param, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
@@ -109,6 +109,9 @@ export class AuthController {
         region: body.region,
         department: body.department,
         subdivision: body.subdivision,
+        regionId: body.regionId,
+        departmentId: body.departmentId,
+        subdivisionId: body.subdivisionId,
         address: body.address,
         taxNumber: body.taxNumber,
         cnpsNumber: body.cnpsNumber,
