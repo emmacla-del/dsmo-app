@@ -25,12 +25,7 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
   "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
   "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions" },
-  "/admin/diffusion":     { title: "Gestion des Données et Exports", sub: "Gérer, filtrer et exporter les données collectées", group: "Données", nav: "Exports" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité", group: "Données", nav: "Jeux de données" },
-  "/admin/utilisateurs":  { title: "Utilisateurs ONEFOP", sub: "Réseau national d'enquêteurs de l'Observatoire National", group: "Administration", nav: "Utilisateurs" },
-  "/admin/campagnes":     { title: "Campagnes de Collecte", sub: "Gestion des campagnes de collecte et workflow de validation", group: "Collecte", nav: "Campagnes" },
-  "/admin/journal-audit": { title: "Journal d'Audit Systémique", sub: "Traçabilité des actions et décisions enregistrées sur la plateforme", group: "Administration", nav: "Journal d'audit" },
-  "/admin/parametres":    { title: "Paramètres du Système", sub: "Configuration générale, gestion des utilisateurs et sécurité", group: "Administration", nav: "Paramètres" },
 };
 
 const ADMIN_ROLES: UserRole[] = [
