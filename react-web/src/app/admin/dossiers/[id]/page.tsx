@@ -439,7 +439,7 @@ function SubmissionDetailContent() {
           Dossiers en instance
         </Link>
         <Link
-          href="/admin/pilotage#activity"
+          href="/admin/activite"
           style={{
             padding: "6px 14px",
             borderRadius: 6,

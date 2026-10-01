@@ -38,14 +38,28 @@ export function AdminHeaderActions() {
       ? `Région ${user.region}`
       : "National";
 
-  const campaignName = activeCampaign?.name || "Campagne 2026-T1";
+  const rawCampaignName = activeCampaign?.name || activeCampaign?.code || "Campagne 2026-T1";
+  const campaignName = (() => {
+    if (activeCampaign?.code) {
+      return activeCampaign.code.toLowerCase().includes("campagne") ? activeCampaign.code : `Campagne ${activeCampaign.code}`;
+    }
+    const m = rawCampaignName.match(/(PREMIER|DEUXIEME|TROISIEME|QUATRIEME)\s+TRIMESTRE\s+(\d{4})/i);
+    if (m) {
+      const qMap: Record<string, string> = { premier: "T1", deuxieme: "T2", troisieme: "T3", quatrieme: "T4" };
+      return `Campagne ${m[2]}-${qMap[m[1].toLowerCase()] || "T1"}`;
+    }
+    if (rawCampaignName.length > 22) {
+      return rawCampaignName.slice(0, 20) + "…";
+    }
+    return rawCampaignName;
+  })();
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
       {/* Campaign pill */}
       <span
         className="cam-admin-campaign-pill"
-        title="Campagne de collecte active"
+        title={rawCampaignName}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -57,10 +71,17 @@ export function AdminHeaderActions() {
           color: "#374151",
           fontSize: 12,
           fontWeight: 500,
+          maxWidth: 200,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          flexShrink: 0,
         }}
       >
-        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
-        {campaignName}
+        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {campaignName}
+        </span>
       </span>
 
       {/* Territory selector */}
