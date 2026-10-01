@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { listAnomaliesRegistry, resolveAnomaly } from "@/lib/api-client";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
@@ -87,11 +86,11 @@ const VALIDATION_RULES = [
 const FIGMA_ANOMALIES_BY_TYPE = [
   { type: "Incohérence effectifs", count: 142, pct: "28.4%", trend: "up", trendColor: "#dc2626" },
   { type: "Champ obligatoire manquant", count: 98, pct: "19.6%", trend: "down", trendColor: "#16a34a" },
-  { type: "Valeur hors limites", count: 87, pct: "17.4%", trend: "right", trendColor: "#9ca3af" },
+  { type: "Valeur hors limites", count: 87, pct: "17.4%", trend: "right", trendColor: "#64748b" },
   { type: "Doublon potentiel", count: 64, pct: "12.8%", trend: "up", trendColor: "#dc2626" },
-  { type: "Incohérence sectorielle", count: 52, pct: "10.4%", trend: "right", trendColor: "#9ca3af" },
+  { type: "Incohérence sectorielle", count: 52, pct: "10.4%", trend: "right", trendColor: "#64748b" },
   { type: "Format invalide", count: 34, pct: "6.8%", trend: "down", trendColor: "#16a34a" },
-  { type: "Autre", count: 23, pct: "4.6%", trend: "right", trendColor: "#9ca3af" },
+  { type: "Autre", count: 23, pct: "4.6%", trend: "right", trendColor: "#64748b" },
 ];
 
 const FIGMA_ANOMALIES_BY_REGION = [
@@ -189,43 +188,6 @@ export default function CentreQualitePage() {
     },
   });
 
-  // Calculate dynamic stats when available, fallback to Figma metrics
-  const stats = useMemo(() => {
-    let openBlocking = 0;
-    let openWarning = 0;
-    let resolvedCount = 0;
-
-    const byType: Record<string, number> = {};
-    const byRegion: Record<string, { total: number; blocking: number }> = {};
-
-    items.forEach((item) => {
-      if (item.status === "OPEN") {
-        if (item.isBlocking) openBlocking++;
-        else openWarning++;
-      } else {
-        resolvedCount++;
-      }
-
-      const typeKey = item.ruleFamily || item.ruleCode || "Autre contrôle";
-      byType[typeKey] = (byType[typeKey] || 0) + 1;
-
-      const reg = item.submission?.region || "Non renseignée";
-      if (!byRegion[reg]) byRegion[reg] = { total: 0, blocking: 0 };
-      byRegion[reg].total++;
-      if (item.isBlocking && item.status === "OPEN") {
-        byRegion[reg].blocking++;
-      }
-    });
-
-    return {
-      openBlocking,
-      openWarning,
-      resolvedCount,
-      byType: Object.entries(byType).sort((a, b) => b[1] - a[1]),
-      byRegion: Object.entries(byRegion).sort((a, b) => b[1].total - a[1].total),
-    };
-  }, [items]);
-
   const handleOpenResolveModal = (a: AnomalyItem) => {
     setSelectedAnomaly(a);
     setResolutionType("DECLARANT_CORRECTION");
@@ -258,66 +220,80 @@ export default function CentreQualitePage() {
   };
 
   return (
-    <div className="cam-admin-page" style={{ padding: "20px 28px", maxWidth: 1440, margin: "0 auto", background: "#f8fafc" }}>
+    <div className="cam-admin-page" style={{ padding: "16px 28px 40px", maxWidth: 1440, margin: "0 auto", background: "#f8fafc" }}>
       {/* ── Top Header matching Figma qualite/centre.png ── */}
-      <AdminPageHeader
-        breadcrumb={[{ label: "Données", href: "/admin/diffusion" }, { label: "Centre qualité" }]}
-        title="Centre de Contrôle de Qualité"
-        actions={<AdminHeaderActions />}
-        hideTabs={true}
-      />
+      <header style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid #e2e8f0" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          {/* Left: Breadcrumbs + Title */}
+          <div>
+            <nav aria-label="Fil d'Ariane" style={{ fontSize: 13, color: "#64748b", marginBottom: 6 }}>
+              <Link href="/admin/diffusion" style={{ color: "#64748b", textDecoration: "none" }}>Données</Link>
+              <span style={{ margin: "0 6px" }}>›</span>
+              <span style={{ color: "#1e293b" }}>Centre qualité</span>
+            </nav>
+            <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a", margin: 0 }}>
+              Centre de Contrôle de Qualité
+            </h1>
+          </div>
 
-      {/* ── Secondary Pill Tabs matching Figma ── */}
-      <nav aria-label="Sections du module Données" style={{ display: "flex", gap: 10, marginTop: -12, marginBottom: 24 }}>
-        <Link
-          href="/admin/sectors"
-          style={{
-            padding: "6px 16px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: "none",
-            color: "#475569",
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            transition: "all 0.15s ease",
-          }}
-        >
-          Jeux de données
-        </Link>
-        <Link
-          href="/admin/centre-qualite"
-          style={{
-            padding: "6px 16px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            textDecoration: "none",
-            color: "#007a5e",
-            background: "#ffffff",
-            border: "1.5px solid #007a5e",
-            boxShadow: "0 1px 2px rgba(0, 122, 94, 0.08)",
-          }}
-        >
-          Centre qualité
-        </Link>
-        <Link
-          href="/admin/diffusion"
-          style={{
-            padding: "6px 16px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: "none",
-            color: "#475569",
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            transition: "all 0.15s ease",
-          }}
-        >
-          Exports
-        </Link>
-      </nav>
+          {/* Right: Actions Chips & User Tools */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <AdminHeaderActions />
+          </div>
+        </div>
+
+        {/* Sub-navigation Pill Tabs immediately under Title, above the divider */}
+        <nav aria-label="Sections du module Données" style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <Link
+            href="/admin/sectors"
+            style={{
+              padding: "7px 18px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              textDecoration: "none",
+              color: "#475569",
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+            }}
+          >
+            Jeux de données
+          </Link>
+          <Link
+            href="/admin/centre-qualite"
+            style={{
+              padding: "7px 18px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+              color: "#007a5e",
+              background: "#ffffff",
+              border: "1.5px solid #007a5e",
+              boxShadow: "0 1px 2px rgba(0, 122, 94, 0.08)",
+            }}
+          >
+            Centre qualité
+          </Link>
+          <Link
+            href="/admin/diffusion"
+            style={{
+              padding: "7px 18px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              textDecoration: "none",
+              color: "#475569",
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+            }}
+          >
+            Exports
+          </Link>
+        </nav>
+      </header>
 
       {/* ── Toast Alert ── */}
       {successToast && (
@@ -331,7 +307,7 @@ export default function CentreQualitePage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gridTemplateColumns: "repeat(5, 1fr)",
           gap: 16,
           marginBottom: 24,
         }}
@@ -351,7 +327,7 @@ export default function CentreQualitePage() {
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
             COMPLÉTUDE
           </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 10px 0", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             94.2%
           </div>
           <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
@@ -374,7 +350,7 @@ export default function CentreQualitePage() {
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
             COHÉRENCE
           </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 10px 0", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             91.7%
           </div>
           <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
@@ -397,11 +373,11 @@ export default function CentreQualitePage() {
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
             TAUX D&apos;ANOMALIES
           </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 10px 0", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             4.8%
           </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "25%", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
+          <div style={{ width: "70%", height: 5, background: "#f8fafc", borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{ width: "35px", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
           </div>
         </div>
 
@@ -420,11 +396,11 @@ export default function CentreQualitePage() {
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
             AVERTISSEMENTS
           </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 10px 0", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             8.2%
           </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "35%", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
+          <div style={{ width: "70%", height: 5, background: "#f8fafc", borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{ width: "55px", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
           </div>
         </div>
 
@@ -443,7 +419,7 @@ export default function CentreQualitePage() {
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
             ÉLIGIBILITÉ STATISTIQUE
           </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 10px 0", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             87.5%
           </div>
           <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
@@ -453,7 +429,7 @@ export default function CentreQualitePage() {
       </div>
 
       {/* ── Main Content Grid matching Figma qualite/centre.png ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", gap: 24, alignItems: "start", marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.62fr) minmax(0, 1fr)", gap: 24, alignItems: "start", marginBottom: 32 }}>
         
         {/* ── Left Column: ANOMALIES PAR TYPE & ANOMALIES PAR RÉGION ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
