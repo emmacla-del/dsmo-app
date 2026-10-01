@@ -980,6 +980,12 @@ abstract class AppLocalizations {
   /// **'Veuillez sélectionner un département'**
   String get registerSelectDepartment;
 
+  /// No description provided for @registerSelectSubdivision.
+  ///
+  /// In fr, this message translates to:
+  /// **'Veuillez sélectionner un arrondissement'**
+  String get registerSelectSubdivision;
+
   /// No description provided for @registerLoadRegionsError.
   ///
   /// In fr, this message translates to:

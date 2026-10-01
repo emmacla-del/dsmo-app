@@ -485,6 +485,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get registerSelectDepartment => 'Please select a department';
 
   @override
+  String get registerSelectSubdivision => 'Please select a subdivision';
+
+  @override
   String get registerLoadRegionsError =>
       'Unable to load regions. Please try again.';
 
