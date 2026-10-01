@@ -190,16 +190,61 @@ export class AuthController {
   // guards list / suspend / delete / re-role.
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
   async approveUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.approveUser(id, req.user.role, territoryFromUser(req.user));
+    return this.authService.approveUser(id, req.user.id, req.user.role, territoryFromUser(req.user));
   }
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id, req.user.role, territoryFromUser(req.user));
+    return this.authService.rejectUser(id, req.user.id, req.user.role, territoryFromUser(req.user), reason ?? '');
+  }
+
+  @Patch('request-complements/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  async requestComplements(@Param('id') id: string, @Request() req: any, @Body('message') message?: string) {
+    return this.authService.requestComplements(
+      id,
+      req.user.id,
+      req.user.role,
+      territoryFromUser(req.user),
+      message ?? '',
+    );
+  }
+
+  @Get('company-registrations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  async listCompanyRegistrations(
+    @Request() req: any,
+    @Query('entityType') entityType?: string,
+    @Query('region') region?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.authService.listCompanyRegistrations(territoryFromUser(req.user), {
+      entityType,
+      region,
+      from,
+      to,
+      search,
+      status,
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    });
+  }
+
+  @Post('resubmit-registration')
+  @UseGuards(JwtAuthGuard)
+  async resubmitRegistration(@Request() req: any) {
+    return this.authService.resubmitRegistration(req.user.id);
   }
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
