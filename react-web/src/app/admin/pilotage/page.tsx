@@ -88,9 +88,14 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
               Aucune campagne de collecte active actuellement.
             </p>
           </div>
-          <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-            Gérer les campagnes →
-          </Link>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+              Gérer les campagnes →
+            </Link>
+            <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+              Cibles et couverture →
+            </Link>
+          </div>
         </div>
       </section>
     );
@@ -124,9 +129,14 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
             {dateRange}
           </p>
         </div>
-        <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-          Voir les détails de la campagne →
-        </Link>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+            Voir les détails de la campagne →
+          </Link>
+          <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+            Cibles et couverture →
+          </Link>
+        </div>
       </div>
 
       <div style={{ marginTop: 16 }}>
