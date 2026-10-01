@@ -43,6 +43,7 @@ describe('PilotageController roles', () => {
   it('lets writers read and write, regional and divisional accounts read, and every other role through neither', async () => {
     const handlers = [
       ['getInscriptionTargets', read],
+      ['getCoverage', read],
       ['getCampaignQuotas', read],
       ['putInscriptionTargets', write],
       ['putCampaignQuotas', write],

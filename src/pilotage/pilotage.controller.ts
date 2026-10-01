@@ -31,6 +31,12 @@ export class PilotageController {
     return this.pilotage.getInscriptionTargets(territoryFromUser(req.user), year);
   }
 
+  @Get('coverage')
+  @Roles(...PILOTAGE_READ_ROLES)
+  getCoverage(@Query('year') year: string, @Req() req: any) {
+    return this.pilotage.getCoverage(territoryFromUser(req.user), year);
+  }
+
   @Put('targets/inscriptions')
   @Roles(...PILOTAGE_WRITE_ROLES)
   putInscriptionTargets(@Query('year') year: string, @Body() body: unknown, @Req() req: any) {

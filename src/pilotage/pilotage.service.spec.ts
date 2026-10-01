@@ -29,6 +29,7 @@ function createHarness() {
   const campaignQuotas: TargetRow[] = [];
   const centralInscriptions: Array<Record<string, unknown>> = [];
   const centralQuotas: Array<Record<string, unknown>> = [];
+  const companies: Array<Record<string, unknown>> = [];
   const audits: Array<Record<string, unknown>> = [];
   const campaigns: Array<Record<string, unknown>> = [];
   let seq = 1;
@@ -107,6 +108,15 @@ function createHarness() {
     campaignQuota: collection(campaignQuotas as unknown as Array<Record<string, unknown>>),
     centralInscriptionTarget: collection(centralInscriptions),
     centralCampaignQuota: collection(centralQuotas),
+    company: {
+      findMany: jest.fn(async (args?: { where?: { regionId?: string; departmentId?: string } }) =>
+        companies.filter((company) => {
+          if (args?.where?.regionId && company.regionId !== args.where.regionId) return false;
+          if (args?.where?.departmentId && company.departmentId !== args.where.departmentId) return false;
+          return true;
+        }),
+      ),
+    },
     auditLog: {
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
         audits.push(data);
@@ -127,6 +137,7 @@ function createHarness() {
     campaignQuotas,
     centralInscriptions,
     centralQuotas,
+    companies,
     audits,
     campaigns,
     transactionOptions,
@@ -377,5 +388,165 @@ describe('PilotageService reads', () => {
     const result = await harness.service.getInscriptionTargets(regional, '2026');
     expect(result.regions[0]).toMatchObject({ name: 'Centre', mode: 'UNSET', inscriptionTarget: null });
     expect(asRegions(result.regions)[0].departments.every((department: { inscriptionTarget: number | null }) => department.inscriptionTarget === null)).toBe(true);
+  });
+});
+
+describe('PilotageService coverage', () => {
+  function company(overrides: Record<string, unknown> = {}) {
+    return {
+      entityType: 'ENTREPRISE',
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      establishmentId: 'EN26000100',
+      establishmentIdGeneratedAt: new Date('2026-06-01T10:00:00.000Z'),
+      createdAt: new Date('2026-01-15T10:00:00.000Z'),
+      departmentRef: { regionId: 'r-centre' },
+      user: { status: 'ACTIVE', isActive: true },
+      ...overrides,
+    };
+  }
+
+  it('computes stock, in-year, pending, and rate for a national reader', async () => {
+    const harness = createHarness();
+    harness.territoryTargets.push(
+      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
+      { id: 'lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 0 },
+    );
+    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 4 });
+    harness.companies.push(
+      company(),
+      company({ establishmentId: 'EN25000100', establishmentIdGeneratedAt: new Date('2025-03-01T00:00:00.000Z') }),
+      company({ user: { status: 'PENDING_APPROVAL', isActive: true }, establishmentId: null }),
+      company({ user: { status: 'UNDER_REVIEW', isActive: true }, establishmentId: null }),
+      company({ user: { status: 'COMPLEMENTS_REQUESTED', isActive: true }, establishmentId: null }),
+      company({ entityType: 'ADMINISTRATION', regionId: 'r-centre', departmentId: 'd-mfoundi', establishmentId: 'AD26000100' }),
+      company({ entityType: null, establishmentId: 'EN26000900' }),
+      company({ regionId: null, departmentId: null, establishmentId: 'EN26000800' }),
+      company({ departmentId: 'd-lekie', establishmentId: 'EN26000200', departmentRef: { regionId: 'r-centre' } }),
+      company({ user: { status: 'ACTIVE', isActive: false } }),
+      company({ user: { status: 'DRAFT', isActive: true } }),
+    );
+    const result = await harness.service.getCoverage(national, '2026');
+    expect(result.central).toMatchObject({
+      registered: 1,
+      registeredInYear: 1,
+      inscriptionTarget: 4,
+      rate: 0.25,
+    });
+    expect(result.unassigned).toMatchObject({ registered: 1, pendingApproval: 0 });
+    expect(result.nullEntityType).toMatchObject({ registered: 1 });
+    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
+    expect(centre).toMatchObject({
+      mode: 'DEPARTMENT',
+      registered: 3,
+      registeredInYear: 2,
+      pendingApproval: 1,
+      pendingReview: 1,
+      complementsRequested: 1,
+      inscriptionTarget: 10,
+      rate: 0.3,
+    });
+    const mfoundi = centre!.departments.find((department: { name: string }) => department.name === 'Mfoundi');
+    expect(mfoundi).toMatchObject({
+      registered: 2,
+      registeredInYear: 1,
+      pendingApproval: 1,
+      pendingReview: 1,
+      complementsRequested: 1,
+      inscriptionTarget: 10,
+      rate: 0.2,
+    });
+    const lekie = centre!.departments.find((department: { name: string }) => department.name === 'Lékié');
+    expect(lekie).toMatchObject({ registered: 1, inscriptionTarget: 0, rate: null });
+  });
+
+  it('hides central, unassigned, and other regions from a regional reader', async () => {
+    const harness = createHarness();
+    harness.territoryTargets.push(
+      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
+    );
+    harness.centralInscriptions.push({ id: 'central', year: 2026, inscriptionTarget: 4 });
+    harness.companies.push(
+      company(),
+      company({ regionId: 'r-littoral', departmentId: 'd-wouri', departmentRef: { regionId: 'r-littoral' } }),
+      company({ entityType: 'ADMINISTRATION' }),
+    );
+    const result = await harness.service.getCoverage(regional, '2026');
+    expect(result.central).toBeNull();
+    expect(result.unassigned).toBeNull();
+    expect(result.nullEntityType).toBeNull();
+    expect(result.regions).toHaveLength(1);
+    expect(result.regions[0]).toMatchObject({ name: 'Centre', registered: 1, rate: 0.1 });
+    expect((harness.prisma.centralInscriptionTarget as { findUnique: jest.Mock }).findUnique).not.toHaveBeenCalled();
+    expect((harness.prisma.company as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { regionId: 'r-centre' } }),
+    );
+  });
+
+  it('shows a divisional reader only their department stock and hides the region stock and rate', async () => {
+    const harness = createHarness();
+    harness.territoryTargets.push(
+      { id: 'mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10 },
+      { id: 'lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 15 },
+    );
+    harness.companies.push(
+      company(),
+      company({ departmentId: 'd-lekie', departmentRef: { regionId: 'r-centre' } }),
+    );
+    const result = await harness.service.getCoverage(divisional, '2026');
+    expect(result.central).toBeNull();
+    expect(result.regions).toEqual([
+      expect.objectContaining({
+        name: 'Centre',
+        mode: 'DEPARTMENT',
+        registered: null,
+        registeredInYear: null,
+        pendingApproval: null,
+        pendingReview: null,
+        complementsRequested: null,
+        inscriptionTarget: null,
+        rate: null,
+        departments: [
+          expect.objectContaining({
+            name: 'Mfoundi',
+            registered: 1,
+            inscriptionTarget: 10,
+            rate: 0.1,
+          }),
+        ],
+      }),
+    ]);
+    expect(JSON.stringify(result)).not.toContain('Lékié');
+    expect((harness.prisma.company as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { departmentId: 'd-mfoundi' } }),
+    );
+  });
+
+  it('keeps the region target visible to a divisional reader in REGION mode and still hides region stock', async () => {
+    const harness = createHarness();
+    harness.territoryTargets.push(
+      { id: 'region', year: 2026, regionId: 'r-centre', departmentId: null, inscriptionTarget: 80 },
+    );
+    harness.companies.push(company());
+    const result = await harness.service.getCoverage(divisional, '2026');
+    expect(result.regions[0]).toMatchObject({
+      mode: 'REGION',
+      inscriptionTarget: 80,
+      registered: null,
+      rate: null,
+      departments: [expect.objectContaining({ name: 'Mfoundi', registered: 1, inscriptionTarget: null, rate: null })],
+    });
+  });
+
+  it('returns an empty grid when scope fails closed', async () => {
+    const harness = createHarness();
+    await expect(harness.service.getCoverage(undefined, '2026')).resolves.toEqual({
+      year: 2026,
+      central: null,
+      unassigned: null,
+      nullEntityType: null,
+      regions: [],
+    });
+    expect((harness.prisma.company as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
   });
 });

@@ -320,6 +320,8 @@ model Company {
   dsmoDeclarationDraft       DsmoDeclarationDraft?
 
   @@index([establishmentId], map: "idx_companies_establishmentId")
+  @@index([regionId])
+  @@index([departmentId])
   @@map("companies")
 }
 

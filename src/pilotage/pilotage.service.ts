@@ -11,6 +11,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { resolveTargetScope, TargetScope } from './pilotage-scope';
 import {
+  addCounts,
+  applyRow,
+  bucketKey,
+  classifyBucket,
+  CompanyStockRow,
+  coverageRate,
+  emptyCounts,
+  StockCounts,
+} from './pilotage-coverage';
+import {
   assertEntryCount,
   ParsedTargetBody,
   parseTargetBody,
@@ -91,6 +101,88 @@ export class PilotageService {
       year,
       central: central ? { inscriptionTarget: central.inscriptionTarget } : null,
       regions: labelTargets(regions, 'inscriptionTarget'),
+    };
+  }
+
+  async getCoverage(territory: Territory | null | undefined, yearRaw: unknown) {
+    const year = parseYear(yearRaw);
+    const { scope, regions } = await this.loadGrid(territory, (current) =>
+      this.prisma.territoryTarget
+        .findMany({ where: { year, ...regionFilter(current) } })
+        .then((rows) => rows.map((row) => ({ regionId: row.regionId, departmentId: row.departmentId, target: row.inscriptionTarget }))),
+    );
+    if (scope.kind === 'none') {
+      return { year, central: null, unassigned: null, nullEntityType: null, regions: [] };
+    }
+
+    const national = scope.kind === 'national';
+    const hideRegionStock = scope.kind === 'department';
+    const [centralTarget, companies] = await Promise.all([
+      national ? this.prisma.centralInscriptionTarget.findUnique({ where: { year } }) : Promise.resolve(null),
+      this.prisma.company.findMany({
+        where: companyWhere(scope),
+        select: {
+          entityType: true,
+          regionId: true,
+          departmentId: true,
+          establishmentId: true,
+          establishmentIdGeneratedAt: true,
+          createdAt: true,
+          departmentRef: { select: { regionId: true } },
+          user: { select: { status: true, isActive: true } },
+        },
+      }),
+    ]);
+
+    const tallies = new Map<string, StockCounts>();
+    for (const company of companies) {
+      const row = toStockRow(company);
+      const key = bucketKey(classifyBucket(row));
+      const counts = tallies.get(key) ?? emptyCounts();
+      applyRow(counts, row, year);
+      tallies.set(key, counts);
+    }
+
+    return {
+      year,
+      central: national
+        ? withTarget(tallies.get('central') ?? emptyCounts(), centralTarget?.inscriptionTarget ?? null)
+        : null,
+      unassigned: national ? tallies.get('unassigned') ?? emptyCounts() : null,
+      nullEntityType: national ? tallies.get('nullEntityType') ?? emptyCounts() : null,
+      regions: regions.map((region) => {
+        const departments = region.departments.map((department) => {
+          const counts = tallies.get(bucketKey({
+            kind: 'department',
+            regionId: region.regionId,
+            departmentId: department.departmentId,
+          })) ?? emptyCounts();
+          return {
+            departmentId: department.departmentId,
+            name: department.name,
+            ...counts,
+            inscriptionTarget: department.target,
+            rate: coverageRate(counts.registered, department.target),
+          };
+        });
+        const summed = departments.reduce(
+          (total, department) => addCounts(total, department),
+          emptyCounts(),
+        );
+        return {
+          regionId: region.regionId,
+          name: region.name,
+          mode: region.mode,
+          registered: hideRegionStock ? null : summed.registered,
+          registeredInYear: hideRegionStock ? null : summed.registeredInYear,
+          pendingApproval: hideRegionStock ? null : summed.pendingApproval,
+          pendingReview: hideRegionStock ? null : summed.pendingReview,
+          complementsRequested: hideRegionStock ? null : summed.complementsRequested,
+          inscriptionTarget: region.target,
+          rate: hideRegionStock ? null : coverageRate(summed.registered, region.target),
+          departments,
+        };
+      }),
     };
   }
 
@@ -374,6 +466,43 @@ function requireActor(actorId: string): void {
 function regionFilter(scope: TargetScope): { regionId?: string } {
   if (scope.kind === 'region' || scope.kind === 'department') return { regionId: scope.regionId };
   return {};
+}
+
+function companyWhere(scope: TargetScope): Record<string, unknown> {
+  if (scope.kind === 'region') return { regionId: scope.regionId };
+  if (scope.kind === 'department') return { departmentId: scope.departmentId };
+  return {};
+}
+
+function toStockRow(company: {
+  entityType: string | null;
+  regionId: string | null;
+  departmentId: string | null;
+  establishmentId: string | null;
+  establishmentIdGeneratedAt: Date | null;
+  createdAt: Date;
+  departmentRef: { regionId: string } | null;
+  user: { status: string; isActive: boolean };
+}): CompanyStockRow {
+  return {
+    entityType: company.entityType,
+    regionId: company.regionId,
+    departmentId: company.departmentId,
+    departmentRegionId: company.departmentRef?.regionId ?? null,
+    establishmentId: company.establishmentId,
+    establishmentIdGeneratedAt: company.establishmentIdGeneratedAt,
+    createdAt: company.createdAt,
+    status: company.user.status,
+    isActive: company.user.isActive,
+  };
+}
+
+function withTarget(counts: StockCounts, inscriptionTarget: number | null) {
+  return {
+    ...counts,
+    inscriptionTarget,
+    rate: coverageRate(counts.registered, inscriptionTarget),
+  };
 }
 
 function numberOrNull(value: number | null | undefined): number | null {
