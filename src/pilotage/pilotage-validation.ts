@@ -17,6 +17,7 @@ export interface TargetEntry {
 
 export interface ParsedTargetBody {
   entries: TargetEntry[];
+  clearedRegionIds: string[];
   /**
    * undefined: the key was absent, leave the stored central value.
    * null: delete it.
@@ -54,15 +55,25 @@ export function parseTargetBody(body: unknown, field: TargetField): ParsedTarget
   if (!Array.isArray(record.entries)) {
     throw new BadRequestException('Le champ « entries » doit être un tableau.');
   }
-  const entries = record.entries.map((item, index) => parseEntry(item, index, field));
-  assertUniqueEntries(entries);
-  assertNoMixedMode(entries);
+  const parsedItems = record.entries.map((item, index) => parseEntry(item, index, field));
+  const entries: TargetEntry[] = [];
+  const clearedRegionIds: string[] = [];
+
+  for (const item of parsedItems) {
+    if (item.kind === 'clear') {
+      clearedRegionIds.push(item.regionId);
+    } else {
+      entries.push(item.entry);
+    }
+  }
+
+  assertUniqueEntries(parsedItems);
 
   let central: number | null | undefined;
   if (Object.prototype.hasOwnProperty.call(record, 'central')) {
     central = parseCentral(record.central, field);
   }
-  return { entries, central };
+  return { entries, clearedRegionIds, central };
 }
 
 export function assertEntryCount(count: number, cap: number): void {
@@ -85,13 +96,35 @@ export function summarizeRegion(rows: StoredTarget[]): { mode: TargetMode; targe
   return { mode: 'DEPARTMENT', target };
 }
 
-function parseEntry(item: unknown, index: number, field: TargetField): TargetEntry {
+type ParsedItem =
+  | { kind: 'target'; entry: TargetEntry; line: number }
+  | { kind: 'clear'; regionId: string; line: number };
+
+function parseEntry(item: unknown, index: number, field: TargetField): ParsedItem {
   const line = index + 1;
   if (item === null || typeof item !== 'object' || Array.isArray(item)) {
     throw new BadRequestException(`La ligne ${line} est invalide.`);
   }
   const record = item as Record<string, unknown>;
   const regionId = requireId(record.regionId, `La ligne ${line} doit indiquer une région.`);
+
+  if (Object.prototype.hasOwnProperty.call(record, 'clear')) {
+    if (record.clear !== true) {
+      throw new BadRequestException(`La ligne ${line} : le champ « clear » doit valoir true.`);
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'departmentId') && record.departmentId !== null) {
+      throw new BadRequestException(
+        `La ligne ${line} : l'option « clear » s'applique uniquement à une région entière.`,
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(record, field)) {
+      throw new BadRequestException(
+        `La ligne ${line} : « clear » ne peut pas être combiné avec une valeur cible.`,
+      );
+    }
+    return { kind: 'clear', regionId, line };
+  }
+
   let departmentId: string | null = null;
   if (Object.prototype.hasOwnProperty.call(record, 'departmentId') && record.departmentId !== null) {
     if (typeof record.departmentId !== 'string' || record.departmentId.trim() === '') {
@@ -105,7 +138,7 @@ function parseEntry(item: unknown, index: number, field: TargetField): TargetEnt
     throw new BadRequestException(`La ligne ${line} : « ${field} » doit être un entier positif ou nul.`);
   }
   const target = requireTarget(record[field], `La ligne ${line} : « ${field} » doit être un entier positif ou nul.`);
-  return { regionId, departmentId, target };
+  return { kind: 'target', entry: { regionId, departmentId, target }, line };
 }
 
 function parseCentral(value: unknown, field: TargetField): number | null {
@@ -133,10 +166,10 @@ function entryKey(entry: TargetEntry): string {
   return `${entry.regionId}\u0000${entry.departmentId ?? ''}`;
 }
 
-function assertUniqueEntries(entries: TargetEntry[]): void {
+function assertUniqueEntries(items: ParsedItem[]): void {
   const seen = new Map<string, number>();
-  entries.forEach((entry, index) => {
-    const key = entryKey(entry);
+  items.forEach((item, index) => {
+    const key = item.kind === 'clear' ? `${item.regionId}\u0000clear` : entryKey(item.entry);
     const first = seen.get(key);
     if (first !== undefined) {
       throw new BadRequestException(
@@ -147,17 +180,37 @@ function assertUniqueEntries(entries: TargetEntry[]): void {
   });
 }
 
-function assertNoMixedMode(entries: TargetEntry[]): void {
+export function assertNoMixedMode(
+  entries: TargetEntry[],
+  regionNames?: Map<string, string>,
+): void {
   const byRegion = new Map<string, { regionLevel: boolean; departmentLevel: boolean }>();
   for (const entry of entries) {
     const flags = byRegion.get(entry.regionId) ?? { regionLevel: false, departmentLevel: false };
     if (entry.departmentId === null) flags.regionLevel = true;
     else flags.departmentLevel = true;
     if (flags.regionLevel && flags.departmentLevel) {
+      const name = regionNames?.get(entry.regionId) ?? entry.regionId;
       throw new BadRequestException(
-        `La région « ${entry.regionId} » mélange un objectif régional et des objectifs départementaux.`,
+        `La région « ${name} » mélange un objectif régional et des objectifs départementaux.`,
       );
     }
     byRegion.set(entry.regionId, flags);
+  }
+}
+
+export function assertNoMixedClear(
+  entries: TargetEntry[],
+  clearedRegionIds: string[],
+  regionNames?: Map<string, string>,
+): void {
+  const clearedSet = new Set(clearedRegionIds);
+  for (const entry of entries) {
+    if (clearedSet.has(entry.regionId)) {
+      const name = regionNames?.get(entry.regionId) ?? entry.regionId;
+      throw new BadRequestException(
+        `La région « ${name} » ne peut pas combiner « clear » avec d'autres lignes.`,
+      );
+    }
   }
 }

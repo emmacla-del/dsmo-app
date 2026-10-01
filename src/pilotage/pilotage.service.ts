@@ -22,6 +22,8 @@ import {
 } from './pilotage-coverage';
 import {
   assertEntryCount,
+  assertNoMixedClear,
+  assertNoMixedMode,
   ParsedTargetBody,
   parseTargetBody,
   parseYear,
@@ -236,7 +238,17 @@ export class PilotageService {
       this.prisma.region.count(),
       this.prisma.department.count(),
     ]);
-    assertEntryCount(parsed.entries.length, regionCount + departmentCount);
+    assertEntryCount(parsed.entries.length + parsed.clearedRegionIds.length, regionCount + departmentCount);
+
+    const allRegions = await this.prisma.region.findMany({ select: { id: true, name: true } });
+    const regionNames = new Map(allRegions.map((r) => [r.id, r.name]));
+
+    for (const regionId of parsed.clearedRegionIds) {
+      if (!regionNames.has(regionId)) {
+        throw new BadRequestException(`Région introuvable (ID: '${regionId}').`);
+      }
+    }
+
     for (const entry of parsed.entries) {
       if (entry.departmentId) {
         await resolveAndValidateTerritory(this.prisma, {
@@ -244,13 +256,14 @@ export class PilotageService {
           departmentId: entry.departmentId,
         });
       } else {
-        const region = await this.prisma.region.findUnique({
-          where: { id: entry.regionId },
-          select: { id: true },
-        });
-        if (!region) throw new BadRequestException(`Région introuvable (ID: '${entry.regionId}').`);
+        if (!regionNames.has(entry.regionId)) {
+          throw new BadRequestException(`Région introuvable (ID: '${entry.regionId}').`);
+        }
       }
     }
+
+    assertNoMixedMode(parsed.entries, regionNames);
+    assertNoMixedClear(parsed.entries, parsed.clearedRegionIds, regionNames);
   }
 
   private async writeInscriptions(
@@ -260,7 +273,7 @@ export class PilotageService {
     parsed: ParsedTargetBody,
   ): Promise<void> {
     await this.replaceScoped(
-      tx, actorId, { year }, parsed.entries, 'territoryTarget', 'inscriptionTarget', 'TerritoryTarget',
+      tx, actorId, { year }, parsed.entries, parsed.clearedRegionIds, 'territoryTarget', 'inscriptionTarget', 'TerritoryTarget',
       PilotageAuditAction.INSCRIPTION_TARGET_UPSERT, PilotageAuditAction.INSCRIPTION_TARGET_DELETE,
     );
     await this.applyCentral(
@@ -276,7 +289,7 @@ export class PilotageService {
     parsed: ParsedTargetBody,
   ): Promise<void> {
     await this.replaceScoped(
-      tx, actorId, { campaignId }, parsed.entries, 'campaignQuota', 'submissionTarget', 'CampaignQuota',
+      tx, actorId, { campaignId }, parsed.entries, parsed.clearedRegionIds, 'campaignQuota', 'submissionTarget', 'CampaignQuota',
       PilotageAuditAction.CAMPAIGN_QUOTA_UPSERT, PilotageAuditAction.CAMPAIGN_QUOTA_DELETE,
     );
     await this.applyCentral(
@@ -285,12 +298,13 @@ export class PilotageService {
     );
   }
 
-  /** Regions named in the payload are replaced. Every other region is left as stored. */
+  /** Regions named in entries or clearedRegionIds are replaced. Every other region is left as stored. */
   private async replaceScoped(
     tx: Prisma.TransactionClient,
     actorId: string,
     scope: ScopeKey,
     entries: TargetEntry[],
+    clearedRegionIds: string[],
     delegate: ScopedDelegate,
     field: TargetField,
     resourceType: string,
@@ -298,6 +312,9 @@ export class PilotageService {
     deleteAction: string,
   ): Promise<void> {
     const byRegion = new Map<string, TargetEntry[]>();
+    for (const regionId of clearedRegionIds) {
+      byRegion.set(regionId, []);
+    }
     for (const entry of entries) {
       const list = byRegion.get(entry.regionId) ?? [];
       list.push(entry);

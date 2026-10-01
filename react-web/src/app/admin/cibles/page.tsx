@@ -13,6 +13,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns, type Campaign } from "@/lib/campaigns";
 import {
   buildTargetPayload,
+  clearRegionDraft,
   initDrafts,
   normalizeRegions,
   type PayloadChange,
@@ -197,10 +198,11 @@ function TargetsPanel({
 
   const [drafts, setDrafts] = useState<Record<string, RegionDraft>>({});
   const [centralInput, setCentralInput] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [clientErrors, setClientErrors] = useState<string[]>([]);
   const [pendingChanges, setPendingChanges] = useState<PayloadChange[]>([]);
+  const draftsBeforeClear = useRef<Record<string, RegionDraft> | null>(null);
 
   useEffect(() => {
     if (!query.data) return;
@@ -229,26 +231,50 @@ function TargetsPanel({
         kind === "inscriptions" ? ["admin", "pilotage", "inscriptions", year] : ["admin", "pilotage", "quotas", campaignId],
         data,
       );
+      draftsBeforeClear.current = null;
       setConfirmOpen(false);
       setClientErrors([]);
     },
   });
 
-  function requestSave() {
+  function requestSave(nextDrafts?: Record<string, RegionDraft>) {
+    const usedDrafts = nextDrafts ?? drafts;
     const built = buildTargetPayload({
       field,
       regions,
-      drafts,
+      drafts: usedDrafts,
       originalCentral,
       centralInput,
     });
     if (!built.ok) {
+      if (nextDrafts && draftsBeforeClear.current) {
+        setDrafts(draftsBeforeClear.current);
+        draftsBeforeClear.current = null;
+      }
       setClientErrors(built.errors);
       return;
     }
     setClientErrors([]);
     setPendingChanges(built.changes);
     setConfirmOpen(true);
+  }
+
+  function requestClear(regionId: string) {
+    const region = regions.find((item) => item.regionId === regionId);
+    if (!region) return;
+    draftsBeforeClear.current = drafts;
+    const next = { ...drafts, [regionId]: clearRegionDraft(region) };
+    setDrafts(next);
+    requestSave(next);
+  }
+
+  function closeConfirm() {
+    if (mutation.isPending) return;
+    if (draftsBeforeClear.current) {
+      setDrafts(draftsBeforeClear.current);
+      draftsBeforeClear.current = null;
+    }
+    setConfirmOpen(false);
   }
 
   if (query.isLoading) return <p className="cam-admin-lede">Chargement…</p>;
@@ -285,6 +311,7 @@ function TargetsPanel({
         regions={regions}
         drafts={drafts}
         onDraftChange={(regionId, next) => setDrafts((current) => ({ ...current, [regionId]: next }))}
+        onClearRegion={requestClear}
         centralInput={centralInput}
         onCentralChange={setCentralInput}
         showCentral={showCentral}
@@ -302,7 +329,7 @@ function TargetsPanel({
 
       {canWrite && (
         <div className="cam-target-actions">
-          <button type="button" className="cam-button cam-button-primary" onClick={requestSave} disabled={mutation.isPending}>
+          <button type="button" className="cam-button cam-button-primary" onClick={() => requestSave()} disabled={mutation.isPending}>
             Enregistrer
           </button>
         </div>
@@ -310,11 +337,11 @@ function TargetsPanel({
 
       <AdminDialog
         open={confirmOpen}
-        onClose={() => !mutation.isPending && setConfirmOpen(false)}
+        onClose={closeConfirm}
         title="Confirmer l'enregistrement"
         footer={
           <>
-            <button type="button" className="cam-button cam-button-secondary" onClick={() => setConfirmOpen(false)} disabled={mutation.isPending}>
+            <button type="button" className="cam-button cam-button-secondary" onClick={closeConfirm} disabled={mutation.isPending}>
               Annuler
             </button>
             <button type="button" className="cam-button cam-button-primary" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
@@ -344,7 +371,7 @@ function CoveragePanel({ year }: { year: number }) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!query.data) return;

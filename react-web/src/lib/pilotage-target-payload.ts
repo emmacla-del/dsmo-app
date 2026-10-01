@@ -29,6 +29,8 @@ export interface RegionDraft {
   mode: EditMode | null;
   regionInput: string;
   departmentInputs: Record<string, string>;
+  /** When true, the PUT clears every stored row for this region. */
+  clear?: boolean;
 }
 
 export interface PayloadChange {
@@ -44,12 +46,6 @@ export type BuildPayloadResult =
 
 const INVALID_INT = "doit être un entier positif ou nul.";
 
-/**
- * Follow-up (not implemented): the T.1 API cannot return a region to UNSET.
- * `replaceScoped` only rewrites regions named in `entries`, and every entry
- * stores a value. A region entry with an explicit clear flag would be the
- * way to delete all rows for that region without a dummy target.
- */
 export function normalizeRegions(regions: TargetRegionRow[], field: TargetField): NormalizedRegion[] {
   return regions.map((region) => ({
     regionId: region.regionId,
@@ -96,6 +92,16 @@ export function initRegionDraft(region: NormalizedRegion): RegionDraft {
 
 export function initDrafts(regions: NormalizedRegion[]): Record<string, RegionDraft> {
   return Object.fromEntries(regions.map((region) => [region.regionId, initRegionDraft(region)]));
+}
+
+export function clearRegionDraft(region: NormalizedRegion): RegionDraft {
+  return {
+    regionId: region.regionId,
+    mode: null,
+    regionInput: "",
+    departmentInputs: Object.fromEntries(region.departments.map((department) => [department.departmentId, ""])),
+    clear: true,
+  };
 }
 
 export function applyEditMode(region: NormalizedRegion, mode: EditMode): RegionDraft {
@@ -168,14 +174,15 @@ export function describeStored(region: NormalizedRegion): string {
 }
 
 export function describeDraft(region: NormalizedRegion, draft: RegionDraft): string {
+  if (draft.clear) return "Non défini";
   if (draft.mode == null) return modeLabel(region.mode);
   if (draft.mode === "REGION") {
     const parsed = parseTargetInput(draft.regionInput);
     if (parsed === "invalid") return "Région seule · valeur invalide";
-    return parsed == null ? "Région seule" : `Région seule · ${fmt(parsed)}`;
+    return parsed == null ? "Non défini" : `Région seule · ${fmt(parsed)}`;
   }
   const sum = sumFilled(draft.departmentInputs);
-  return sum == null ? "Par département" : `Par département · ${fmt(sum)}`;
+  return sum == null ? "Non défini" : `Par département · ${fmt(sum)}`;
 }
 
 export function buildTargetPayload(args: {
@@ -236,6 +243,10 @@ type Desired =
   | { kind: "error"; errors: string[] };
 
 function desiredEntries(field: TargetField, region: NormalizedRegion, draft: RegionDraft): Desired {
+  if (draft.clear) {
+    if (region.mode === "UNSET") return { kind: "skip" };
+    return { kind: "send", entries: [{ regionId: region.regionId, clear: true }] };
+  }
   if (draft.mode == null) return { kind: "skip" };
 
   if (draft.mode === "REGION") {
@@ -245,12 +256,7 @@ function desiredEntries(field: TargetField, region: NormalizedRegion, draft: Reg
     }
     if (parsed == null) {
       if (region.mode === "UNSET") return { kind: "skip" };
-      return {
-        kind: "error",
-        errors: [
-          `La région « ${region.name} » en mode région seule doit avoir un objectif. L'API ne peut pas revenir à « Non défini ».`,
-        ],
-      };
+      return { kind: "send", entries: [{ regionId: region.regionId, clear: true }] };
     }
     const stored = storedRegionEntries(region);
     const desired: TargetPutEntry[] = [{ regionId: region.regionId, departmentId: null, [field]: parsed }];
@@ -276,12 +282,7 @@ function desiredEntries(field: TargetField, region: NormalizedRegion, draft: Reg
   }
   if (desired.length === 0) {
     if (region.mode === "UNSET") return { kind: "skip" };
-    return {
-      kind: "error",
-      errors: [
-        `La région « ${region.name} » en mode départemental doit avoir au moins un objectif. L'API ne peut pas revenir à « Non défini ».`,
-      ],
-    };
+    return { kind: "send", entries: [{ regionId: region.regionId, clear: true }] };
   }
   const stored = storedRegionEntries(region);
   if (sameEntries(stored, desired, field)) return { kind: "skip" };
@@ -337,3 +338,4 @@ function numberOrNull(value: unknown): number | null {
 function fmt(value: number): string {
   return value.toLocaleString("fr-FR");
 }
+
