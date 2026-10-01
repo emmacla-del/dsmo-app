@@ -20,7 +20,7 @@ import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 // ── History entry model (matches _HistoryEntry in Flutter) ────────────────
 
 type Stream = "DSMO" | "ONEFOP";
-type Group = "draft" | "pending" | "approved" | "rejected";
+type Group = "draft" | "pending" | "approved" | "rejected" | "correction";
 
 interface HistoryEntry {
   id: string;
@@ -48,7 +48,7 @@ const DSMO_GROUP: Record<string, Group> = {
 const ONEFOP_GROUP: Record<string, Group> = {
   DRAFT: "draft",
   PENDING_REVIEW: "pending",
-  CORRECTION_REQUESTED: "pending",
+  CORRECTION_REQUESTED: "correction",
   APPROVED: "approved",
   REJECTED: "rejected",
 };
@@ -83,6 +83,7 @@ const GROUP_COLOR: Record<Group, string> = {
   pending: "#2563eb",
   approved: "var(--cam-success, #16a34a)",
   rejected: "var(--cam-error, #dc2626)",
+  correction: "#d97706",
 };
 
 function formatDate(d: Date | null, t: Translator): string {
@@ -374,6 +375,7 @@ export default function CompanyDeclarationsPage() {
               hasPdf={hasPdf(entry)}
               onPdf={() => openPdf(entry)}
               onContinue={entry.group === "draft" ? () => router.push("/home/declarations/new") : undefined}
+              onCorrect={entry.status === "CORRECTION_REQUESTED" ? () => router.push("/home/declarations/new") : undefined}
             />
           ))}
         </div>
@@ -410,11 +412,13 @@ function DeclarationTile({
   hasPdf,
   onPdf,
   onContinue,
+  onCorrect,
 }: {
   entry: HistoryEntry;
   hasPdf: boolean;
   onPdf: () => void;
   onContinue?: () => void;
+  onCorrect?: () => void;
 }) {
   const t = useTranslations();
   const statusLabel = entry.stream === "DSMO"
@@ -446,7 +450,7 @@ function DeclarationTile({
         {entry.stream}
       </div>
 
-      {/* Title + meta */}
+      {/* Title + meta + correction banner */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 14, color: "var(--cam-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {entry.subtitle}
@@ -454,6 +458,21 @@ function DeclarationTile({
         <div style={{ fontSize: 12, color: "var(--cam-text-muted)", marginTop: 2 }}>
           {formatDate(entry.date, t)} · {t("homeDeclarationsPage.periodLabel", { period: entry.period })}
         </div>
+        {entry.status === "CORRECTION_REQUESTED" && (
+          <div style={{
+            marginTop: 8,
+            padding: "8px 12px",
+            borderRadius: 6,
+            background: "#fffbeb",
+            border: "1px solid #fde68a",
+            color: "#92400e",
+            fontSize: 12,
+            lineHeight: 1.4,
+          }}>
+            <strong style={{ display: "block", marginBottom: 2 }}>⚠️ Demande de correction de l&apos;administration :</strong>
+            <span>{(entry.raw as any).rejectionReason || "Des ajustements ou compléments sont requis sur votre déclaration. Veuillez corriger et resoumettre."}</span>
+          </div>
+        )}
       </div>
 
       {/* Status pill */}
@@ -472,6 +491,15 @@ function DeclarationTile({
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        {onCorrect && (
+          <button
+            className="cam-button cam-button-primary"
+            onClick={onCorrect}
+            style={{ fontSize: 12, padding: "5px 12px", background: "#d97706", borderColor: "#d97706", color: "#fff", fontWeight: 600 }}
+          >
+            Corriger et resoumettre
+          </button>
+        )}
         {onContinue && (
           <button
             className="cam-button cam-button-secondary"

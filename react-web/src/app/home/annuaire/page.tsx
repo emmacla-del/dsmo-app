@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { resolveEffectiveRole } from "@/lib/role-navigation";
@@ -11,9 +12,27 @@ import type { UserRole } from "@/lib/user-types";
 const ANNUAIRE_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 
 export default function AnnuairePage() {
+  return (
+    <Suspense fallback={null}>
+      <AnnuaireContent />
+    </Suspense>
+  );
+}
+
+function AnnuaireContent() {
   const t = useTranslations();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
   const { isLoading, forbidden, user } = useAdminScreenGuard(ANNUAIRE_ROLES);
-  const [tab, setTab] = useState<"users" | "companies">("companies");
+  const [tab, setTab] = useState<"users" | "companies">(
+    requestedTab === "users" ? "users" : "companies"
+  );
+
+  useEffect(() => {
+    if (requestedTab === "users" || requestedTab === "companies") {
+      setTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   if (isLoading) return <p>{t("common.loading")}</p>;
 

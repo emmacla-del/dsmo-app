@@ -21,6 +21,8 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import type { UserRole } from "@/lib/user-types";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "CAMPAIGN_MANAGER"];
 
@@ -132,6 +134,11 @@ export default function CampagnesPage() {
 
   return (
     <div className="cam-admin-page">
+      <AdminPageHeader
+        breadcrumb={[{ label: "Collecte" }, { label: "Campagnes" }]}
+        title="Campagnes Nationales de Recensement"
+        actions={<AdminHeaderActions />}
+      />
       {!canMutate && (
         <div role="note" className="cam-admin-notice cam-admin-notice--info">
           <span>Consultation seule : l&apos;activation, la pause, la clôture et les rappels sont réservés aux administrateurs et au niveau central.</span>

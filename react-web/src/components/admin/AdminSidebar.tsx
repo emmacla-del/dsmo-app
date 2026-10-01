@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { ADMIN_ROUTES, isRoleAllowed, type AdminRoute } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
@@ -132,6 +132,7 @@ function NavLink({
     <Link
       href={item.href}
       style={base}
+      className="cam-admin-rail-link"
       aria-current={isActive ? "page" : undefined}
     >
       {content}
@@ -156,11 +157,49 @@ export function AdminSidebar({
   onLocaleChange,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  // Derive active item: longest matching prefix wins (same pattern as layout.tsx)
+  // D8: only the items this role may open; sections left empty are dropped.
+  const sections = ADMIN_ROUTES
+    .map((section) => ({ ...section, items: section.items.filter((item) => isRoleAllowed(item.allowedRoles, role)) }))
+    .filter((section) => section.items.length > 0);
+
+  // Derive active item: supports exact path, query parameter matching, and path prefixes
   function isActive(href: string | null): boolean {
     if (!href) return false;
-    return pathname === href || pathname.startsWith(href + "/");
+    const [targetPath, targetQuery] = href.split("?");
+    const cleanPath = targetPath.split("#")[0];
+
+    // If target has a query string, both path and query parameters must match
+    if (targetQuery) {
+      if (pathname !== cleanPath) return false;
+      const targetParams = new URLSearchParams(targetQuery);
+      let match = true;
+      targetParams.forEach((val, key) => {
+        if (searchParams?.get(key) !== val) match = false;
+      });
+      return match;
+    }
+
+    // If target has no query string, check if current URL has a query that another route specializes
+    if (pathname === cleanPath) {
+      const isOverriddenBySpecificQuery = sections.some((sec) =>
+        sec.items.some((it) => {
+          if (!it.href || it.href === href) return false;
+          const [itPath, itQuery] = it.href.split("?");
+          if (itPath !== cleanPath || !itQuery) return false;
+          const itParams = new URLSearchParams(itQuery);
+          let match = true;
+          itParams.forEach((val, key) => {
+            if (searchParams?.get(key) !== val) match = false;
+          });
+          return match;
+        })
+      );
+      return !isOverriddenBySpecificQuery;
+    }
+
+    return pathname.startsWith(cleanPath + "/");
   }
 
   // Badge injection by label
@@ -170,11 +209,6 @@ export function AdminSidebar({
     if (label === "Anomalies") return anomaliesCount || undefined;
     return undefined;
   }
-
-  // D8: only the items this role may open; sections left empty are dropped.
-  const sections = ADMIN_ROUTES
-    .map((section) => ({ ...section, items: section.items.filter((item) => isRoleAllowed(item.allowedRoles, role)) }))
-    .filter((section) => section.items.length > 0);
 
   return (
     <aside
@@ -204,12 +238,32 @@ export function AdminSidebar({
       />
 
       {/* ── Brand ── */}
-      <div style={{ padding: "14px 16px 10px", flexShrink: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", letterSpacing: "0.02em", lineHeight: 1 }}>
-          NEFOP
+      <div style={{ padding: "16px 16px 12px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 6,
+            background: "#fff",
+            display: "grid",
+            placeItems: "center",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            flexShrink: 0,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--cam-green-dark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="4" fill="var(--cam-green-dark)" />
+          </svg>
         </div>
-        <div style={{ fontSize: 10, fontWeight: 500, color: "rgba(255,255,255,0.5)", letterSpacing: "0.08em", marginTop: 2, textTransform: "uppercase" }}>
-          Observatoire National
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", letterSpacing: "0.04em", lineHeight: 1 }}>
+            ONEFOP
+          </div>
+          <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", marginTop: 3, textTransform: "uppercase" }}>
+            Observatoire National
+          </div>
         </div>
       </div>
 

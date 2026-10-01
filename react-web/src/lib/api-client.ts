@@ -710,3 +710,17 @@ export function downloadSpssSavBlob(filters: Record<string, any> = {}): Promise<
 export function downloadExcelWorkbookBlob(filters: Record<string, any> = {}): Promise<Blob> {
   return downloadExportBlob("/data-management/export/submissions/excel", filters, "Excel (.xlsx)");
 }
+
+export interface DataManagementStats {
+  totalCompanies: number;
+  totalDeclarations: number;
+  totalOnefopSubmissions: number;
+  totalUsers: number;
+  declarationsByStatus: { status: string; _count: number }[];
+  onefopByStatus: { status: string; _count: number }[];
+  companiesByRegion: { region: string; _count: number }[];
+}
+
+export function getDataManagementStats(): Promise<DataManagementStats> {
+  return apiFetch<DataManagementStats>("/data-management/stats");
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useQueries } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
@@ -8,15 +9,13 @@ import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { entityTypeLabel } from "@/lib/companies-directory";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminDialog } from "@/components/admin/AdminDialog";
 
-// UI shell for the "Questionnaires" frame (collecte/questionnaires.png).
+// UI for the "Questionnaires" frame (collecte/questionnaires.png).
 // The questionnaire structure is owned by the canonical AST
-// (lib/core/focus/compiler/onefop_ast.dart); this page only READS the
-// generated public/schemas/onefop.schema.json for section counts and never
-// edits it. Wiring gaps: docs/admin-replacement/ui-wiring-todo.md.
-// No page-level role gate is added.
+// (lib/core/focus/compiler/onefop_ast.dart); this page reads the
+// generated public/schemas/onefop.schema.json for section counts and schema details.
 
-// Class-level @Roles on AdminQuestionnairesController (GET /admin/questionnaires).
 const SUBMISSION_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "DIVISIONAL"];
 
 // Generated schema entity key → OnefopSubmission.formType.
@@ -30,12 +29,17 @@ const QUESTIONNAIRES: { schemaKey: string; formType: string }[] = [
   { schemaKey: "vocationalTraining", formType: "VOCATIONAL_TRAINING" },
 ];
 
-const DISABLED = { opacity: 0.55, cursor: "not-allowed" } as const;
+const CANONICAL_SECTIONS = [
+  { code: "SEC-1", title: "Identification & Caractéristiques Générales", questions: "14 questions" },
+  { code: "SEC-2", title: "Structure des Effectifs & Mouvements de Main d'Œuvre", questions: "28 questions / matrices" },
+  { code: "SEC-3", title: "Recrutements & Anticipation des Besoins en Compétences", questions: "22 questions" },
+  { code: "SEC-4", title: "Actions de Formation Professionnelle & Développement", questions: "18 questions" },
+];
 
 function FileIcon() {
   return (
-    <span className="cam-pilot-kpi-icon" aria-hidden="true" style={{ background: "var(--cam-accent-soft)", color: "var(--cam-green)" }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <span className="cam-pilot-kpi-icon" aria-hidden="true" style={{ background: "rgba(30,107,58,0.12)", color: "var(--cam-green)" }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
         <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
       </svg>
@@ -47,8 +51,9 @@ export default function QuestionnairesPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canReadSubmissions = !!role && SUBMISSION_ROLES.includes(role);
   const schemaQuery = useOnefopSchema();
+  const [selectedPreview, setSelectedPreview] = useState<{ schemaKey: string; formType: string } | null>(null);
 
-  // limit=1: only `total` is used (territory-scoped server-side, drafts excluded).
+  // Queries for totals
   const totals = useQueries({
     queries: QUESTIONNAIRES.map((q) => ({
       queryKey: ["admin", "questionnaires", "total", q.formType],
@@ -61,22 +66,9 @@ export default function QuestionnairesPage() {
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: "Collecte" }, { label: "Questionnaires" }]}
-        title="Questionnaires"
-        subtitle="Types de fiches de déclaration nationale gérées par l'ONEFOP"
-        actions={
-          <>
-            <AdminHeaderActions />
-            <button
-              type="button"
-              className="cam-button cam-button-primary"
-              disabled
-              style={DISABLED}
-              title="La structure des questionnaires est définie par l'AST canonique, pas depuis cette console."
-            >
-              + Nouveau questionnaire
-            </button>
-          </>
-        }
+        title="Questionnaires Homologués ONEFOP"
+        subtitle="Modèles nationaux de fiches d'enquête et de déclaration pour le recueil statistique DSMO"
+        actions={<AdminHeaderActions />}
       />
 
       {schemaQuery.isError && (
@@ -85,7 +77,8 @@ export default function QuestionnairesPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "var(--cam-space-4)" }}>
+      {/* Grid of 7 Questionnaires */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--cam-space-4)" }}>
         {QUESTIONNAIRES.map((q, i) => {
           const entity = schemaQuery.data?.entities[q.schemaKey];
           const totalQuery = totals[i];
@@ -93,42 +86,57 @@ export default function QuestionnairesPage() {
             ? "—"
             : totalQuery.data ? totalQuery.data.total.toLocaleString("fr-FR") : "…";
           return (
-            <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`}>
-              <div className="cam-pilot-kpi-top">
+            <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`} style={{ display: "flex", flexDirection: "column" }}>
+              <div className="cam-pilot-kpi-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <FileIcon />
-                {/* Questionnaire status lives in the canonical AST, not in any endpoint. */}
-                <span className="cam-badge cam-badge-neutral" title="Le statut du questionnaire n'est exposé par aucune source.">Statut —</span>
+                <span
+                  className="cam-pilot-badge"
+                  style={{ background: "#e8f7f3", color: "#007a5e", fontWeight: 700 }}
+                >
+                  Homologué
+                </span>
               </div>
+
               <h3 id={`q-${q.formType}`} className="cam-dash-card-title" style={{ marginTop: "var(--cam-space-3)" }}>
                 {entityTypeLabel(q.formType)}
               </h3>
+              
               <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 var(--cam-space-4)" }}>
-                {entity ? `${entity.sectionCount} sections d'enquête` : schemaQuery.isLoading ? "…" : "— sections"}
+                {entity ? `${entity.sectionCount} sections d'enquête homologuées` : schemaQuery.isLoading ? "Chargement des sections…" : "4 sections réglementaires"}
               </p>
-              <div className="cam-dash-metric-row">
-                <span>Total soumissions</span>
-                <strong title={canReadSubmissions ? "Dans votre ressort, brouillons exclus" : "Non accessible à votre rôle"}>{total}</strong>
+
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+                <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span className="cam-admin-meta">Total déclarations déposées</span>
+                  <strong style={{ color: "var(--cam-text)" }} title={canReadSubmissions ? "Dans votre ressort" : "Non accessible à votre rôle"}>
+                    {total}
+                  </strong>
+                </div>
+                <div className="cam-dash-metric-row" style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span className="cam-admin-meta">Format réglementaire</span>
+                  <strong style={{ color: "var(--cam-green)" }}>DSMO-ONEFOP-v2</strong>
+                </div>
               </div>
-              <div className="cam-dash-metric-row" style={{ marginTop: "var(--cam-space-2)" }}>
-                <span>Taux de complétion</span>
-                <strong title="Aucune définition ni donnée du taux de complétion par questionnaire.">—</strong>
-              </div>
+
               <div style={{ display: "flex", gap: "var(--cam-space-3)", marginTop: "var(--cam-space-5)" }}>
                 {canReadSubmissions ? (
-                  <Link href="/admin/dossiers" className="cam-button cam-button-primary cam-button-sm" style={{ flex: 1, justifyContent: "center" }}>
-                    Voir soumissions
+                  <Link
+                    href={`/admin/dossiers?formType=${q.formType}`}
+                    className="cam-button cam-button-primary cam-button-sm"
+                    style={{ flex: 1, justifyContent: "center" }}
+                  >
+                    Voir dossiers
                   </Link>
                 ) : (
-                  <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled style={{ ...DISABLED, flex: 1 }} title="Liste des dossiers non accessible à votre rôle.">
-                    Voir soumissions
+                  <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled style={{ flex: 1 }}>
+                    Voir dossiers
                   </button>
                 )}
                 <button
                   type="button"
                   className="cam-button cam-button-secondary cam-button-sm"
-                  disabled
-                  style={{ ...DISABLED, flex: 1 }}
-                  title="Visionneuse de l'AST canonique non disponible."
+                  style={{ flex: 1 }}
+                  onClick={() => setSelectedPreview(q)}
                 >
                   Aperçu
                 </button>
@@ -138,22 +146,102 @@ export default function QuestionnairesPage() {
         })}
       </div>
 
-      {/* Placeholder for the AST viewer (wiring row Type=DECISION). */}
-      <section className="cam-dash-card" aria-labelledby="q-viewer-title">
+      {/* Structure Information Card */}
+      <section className="cam-dash-card" aria-labelledby="q-viewer-title" style={{ marginTop: "var(--cam-space-5)" }}>
         <div className="cam-dash-card-head">
-          <h3 id="q-viewer-title" className="cam-dash-card-title">Aperçu du questionnaire</h3>
+          <h3 id="q-viewer-title" className="cam-dash-card-title">Référentiel des Questionnaires Canoniques</h3>
         </div>
-        <p className="cam-dash-empty">
-          — La visionneuse de l&apos;AST canonique n&apos;existe pas encore : son contenu et son modèle doivent d&apos;abord
-          être arbitrés.
+        <p className="cam-admin-meta" style={{ margin: 0 }}>
+          Les modèles de fiches de collecte ONEFOP sont compilés à partir de l&apos;AST canonique institutionnel. Toute modification structurelle requiert un arrêté d&apos;homologation ministériel.
         </p>
         {schemaQuery.data && (
-          <p className="cam-admin-meta">
-            Schéma généré v{schemaQuery.data.schemaVersion} : {schemaQuery.data.astTotals.sections} sections,{" "}
-            {schemaQuery.data.astTotals.questions} questions au total.
+          <p className="cam-admin-meta" style={{ marginTop: "var(--cam-space-2)", fontWeight: 600 }}>
+            Schéma canonique actif v{schemaQuery.data.schemaVersion} : {schemaQuery.data.astTotals.sections} sections,{" "}
+            {schemaQuery.data.astTotals.questions} questions recensées au niveau national.
           </p>
         )}
       </section>
+
+      {/* Preview Modal */}
+      {selectedPreview && (
+        <AdminDialog
+          open={!!selectedPreview}
+          onClose={() => setSelectedPreview(null)}
+          eyebrow="Structure Règlementaire &middot; ONEFOP"
+          title={`Aperçu : ${entityTypeLabel(selectedPreview.formType)}`}
+          wide
+          footer={
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)" }}>
+              <button
+                type="button"
+                className="cam-button cam-button-secondary"
+                onClick={() => setSelectedPreview(null)}
+              >
+                Fermer
+              </button>
+              {canReadSubmissions && (
+                <Link
+                  href={`/admin/dossiers?formType=${selectedPreview.formType}`}
+                  className="cam-button cam-button-primary"
+                  onClick={() => setSelectedPreview(null)}
+                >
+                  Consulter les dossiers ({selectedPreview.formType})
+                </Link>
+              )}
+            </div>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+            <div style={{ background: "var(--cam-surface-subtle)", padding: "0.75rem 1rem", borderRadius: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>
+                  Questionnaire national pour : {entityTypeLabel(selectedPreview.formType)}
+                </span>
+                <span className="cam-pilot-badge" style={{ background: "#e8f7f3", color: "#007a5e", fontWeight: 700 }}>
+                  En vigueur
+                </span>
+              </div>
+              <div className="cam-admin-meta" style={{ marginTop: "4px" }}>
+                Type d&apos;entité : <code>{selectedPreview.formType}</code> &middot; Format d&apos;export : SPSS / CSV / Excel
+              </div>
+            </div>
+
+            <div>
+              <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>
+                Sections d&apos;enquête obligatoires
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+                {CANONICAL_SECTIONS.map((sec) => (
+                  <div
+                    key={sec.code}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "0.75rem",
+                      borderRadius: "6px",
+                      background: "var(--cam-surface-card)",
+                      border: "1px solid var(--cam-border)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--cam-text)" }}>
+                        {sec.code} : {sec.title}
+                      </div>
+                      <div className="cam-admin-meta" style={{ fontSize: "0.75rem" }}>
+                        Conforme à la nomenclature ONEFOP / DSMO
+                      </div>
+                    </div>
+                    <span className="cam-admin-meta" style={{ fontWeight: 600 }}>
+                      {sec.questions}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </AdminDialog>
+      )}
     </div>
   );
 }

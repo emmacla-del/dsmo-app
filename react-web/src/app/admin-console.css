@@ -147,6 +147,21 @@
   overflow: hidden;
 }
 
+.cam-admin-rail-link {
+  cursor: pointer;
+  user-select: none;
+}
+
+.cam-admin-rail-link:hover:not([aria-current="page"]) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+.cam-admin-rail-link:focus-visible {
+  outline: 2px solid var(--cam-flag-yellow);
+  outline-offset: -2px;
+}
+
 /* Cameroon flag stripe at the top of the sidebar */
 .cam-admin-ribbon {
   flex-shrink: 0;
@@ -443,8 +458,9 @@
   border-radius: var(--cam-radius-full);
   overflow: hidden;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
 }
 
 .cam-admin-flag-circle span {
@@ -1911,8 +1927,8 @@ a.cam-kpi-tile:focus-visible {
 
 .cam-dash-pipeline {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--cam-space-6);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--cam-space-5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1929,13 +1945,20 @@ a.cam-kpi-tile:focus-visible {
   border: var(--cam-border-width) solid var(--cam-border);
   border-radius: var(--cam-radius-md);
   text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.cam-dash-pipeline li.is-highlighted {
+  border: 1.5px solid #d97706;
+  background: #fffdf5;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.12);
 }
 
 /* Chevron between stages */
 .cam-dash-pipeline li + li::before {
   content: "›";
   position: absolute;
-  left: calc(var(--cam-space-6) / -2);
+  left: calc(var(--cam-space-5) / -2);
   top: 50%;
   transform: translate(-50%, -50%);
   font-size: var(--cam-font-size-lg);
@@ -1945,7 +1968,7 @@ a.cam-kpi-tile:focus-visible {
 .cam-dash-pipeline-value {
   font-size: var(--cam-font-size-xl);
   font-weight: 700;
-  color: var(--cam-green-dark);
+  color: var(--cam-text, #111827);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
