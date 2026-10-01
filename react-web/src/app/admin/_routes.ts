@@ -138,7 +138,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     subRoutes: [
       { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: DOSSIER_PROCESSORS },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
-      { label: "Annuaire déclarants", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
+      { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
     ],
   },
   {
@@ -170,15 +170,15 @@ export const ADMIN_HUBS: AdminHub[] = [
   {
     key: "administration",
     label: "Administration",
-    href: "/admin/parametres",
+    href: "/admin/utilisateurs",
     iconName: "settings",
     // Visible only if user role has at least one administrative permission
     allowedRoles: [...SETTINGS_ROLES, ...USER_ADMIN_ROLES, ...AUDIT_LOG_ROLES],
     matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit"],
     subRoutes: [
-      { label: "Paramètres généraux", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
-      { label: "Utilisateurs ONEFOP", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
+      { label: "Utilisateurs & rôles", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
       { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_LOG_ROLES },
+      { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
     ],
   },
 ];
