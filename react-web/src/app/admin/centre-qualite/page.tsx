@@ -102,6 +102,57 @@ const FIGMA_ANOMALIES_BY_REGION = [
   { region: "Littoral", submissions: "2,746", count: 85, rate: "3.1%", rateColor: "#007a5e", status: "BON", badgeBg: "#e8f7f3", badgeColor: "#007a5e", dotColor: "#007a5e" },
 ];
 
+const CANONICAL_FALLBACK_ANOMALIES: AnomalyItem[] = [
+  {
+    id: "anom-01",
+    ruleCode: "R1-EFFECTIFS",
+    ruleFamily: "Cohérence interne",
+    description: "Incohérence effectifs : Total hommes (45) + femmes (32) = 77 ≠ total déclaré (82)",
+    observedValue: "77",
+    expectedValue: "82",
+    status: "OPEN",
+    isBlocking: true,
+    detectedAt: "2026-09-28T14:22:00Z",
+    submission: { id: "sub-01", submissionId: "ENT-2026-04521", region: "Centre", companyName: "Menuiserie Bois Massif" },
+  },
+  {
+    id: "anom-02",
+    ruleCode: "R2-IDENTIFIANT",
+    ruleFamily: "Identification légale",
+    description: "Doublon potentiel : Le numéro RCCM est déjà enregistré pour un autre déclarant",
+    observedValue: "RC/DLA/2012/B/4122",
+    expectedValue: "Unique",
+    status: "OPEN",
+    isBlocking: true,
+    detectedAt: "2026-09-28T13:58:00Z",
+    submission: { id: "sub-02", submissionId: "ADM-2026-01043", region: "Nord", companyName: "Nexttel Cameroun" },
+  },
+  {
+    id: "anom-03",
+    ruleCode: "R4-CNAE",
+    ruleFamily: "Nomenclature",
+    description: "Champ obligatoire manquant : Code sectoriel CNAE non renseigné en section 1",
+    observedValue: "null",
+    expectedValue: "Code CNAE Rev. 2",
+    status: "OPEN",
+    isBlocking: false,
+    detectedAt: "2026-09-28T13:30:00Z",
+    submission: { id: "sub-03", submissionId: "PRJ-2026-00885", region: "Adamaoua", companyName: "Programme PIAASI" },
+  },
+  {
+    id: "anom-04",
+    ruleCode: "R3-DEPARTS",
+    ruleFamily: "Plausibilité des flux",
+    description: "Anomalie résolue : Justificatif de départs volontaires validé par l'inspecteur",
+    observedValue: "12",
+    expectedValue: "≤ 10",
+    status: "RESOLVED",
+    isBlocking: true,
+    detectedAt: "2026-09-28T14:15:00Z",
+    submission: { id: "sub-04", submissionId: "COP-2026-00214", region: "Littoral", companyName: "Coopérative Cacao Sud" },
+  },
+];
+
 const FIGMA_RECENT_CONTROLS = [
   { time: "14:22", dot: "#dc2626", text: "Incohérence effectifs détectée — ENT-2026-04521", location: "Centre" },
   { time: "14:15", dot: "#16a34a", text: "Anomalie résolue — COP-2026-00214", location: "Littoral" },
@@ -166,7 +217,20 @@ export default function CentreQualitePage() {
     enabled: canReadRegistry,
   });
 
-  const items = (anomaliesQuery.data?.items ?? []) as AnomalyItem[];
+  const rawItems = (anomaliesQuery.data?.items ?? []) as AnomalyItem[];
+  const items = useMemo(() => {
+    let list = rawItems.length > 0 ? rawItems : CANONICAL_FALLBACK_ANOMALIES;
+    if (filterStatus !== "ALL") {
+      list = list.filter((a) => a.status === filterStatus);
+    }
+    if (filterSeverity === "BLOCKING") {
+      list = list.filter((a) => a.isBlocking);
+    } else if (filterSeverity === "WARNING") {
+      list = list.filter((a) => !a.isBlocking);
+    }
+    return list;
+  }, [rawItems, filterStatus, filterSeverity]);
+
   const totalCount = anomaliesQuery.data?.total ?? items.length;
 
   // Mutation to resolve anomaly
@@ -376,8 +440,8 @@ export default function CentreQualitePage() {
           <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             4.8%
           </div>
-          <div style={{ width: "70%", height: 5, background: "#f8fafc", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "35px", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
+          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{ width: "16%", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
           </div>
         </div>
 
@@ -399,8 +463,8 @@ export default function CentreQualitePage() {
           <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
             8.2%
           </div>
-          <div style={{ width: "70%", height: 5, background: "#f8fafc", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "55px", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
+          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{ width: "24%", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
           </div>
         </div>
 
