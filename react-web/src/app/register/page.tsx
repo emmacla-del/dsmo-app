@@ -260,8 +260,20 @@ export default function RegisterPage() {
       }
     }
     if (step === "location") {
-      if (!regionId || !area) {
-        setStepError(t("registerPage.errorRegionAreaRequired"));
+      if (!regionId) {
+        setStepError(t("registerPage.errorSelectRegion"));
+        return;
+      }
+      if (!departmentId) {
+        setStepError(t("registerPage.errorSelectDepartment"));
+        return;
+      }
+      if (!subdivisionId) {
+        setStepError(t("registerPage.errorSelectSubdivision"));
+        return;
+      }
+      if (!area) {
+        setStepError(t("registerPage.errorSelectArea"));
         return;
       }
     }
