@@ -712,13 +712,20 @@ export function downloadExcelWorkbookBlob(filters: Record<string, any> = {}): Pr
 }
 
 export interface DataManagementStats {
-  totalCompanies: number;
-  totalDeclarations: number;
-  totalOnefopSubmissions: number;
-  totalUsers: number;
-  declarationsByStatus: { status: string; _count: number }[];
-  onefopByStatus: { status: string; _count: number }[];
-  companiesByRegion: { region: string; _count: number }[];
+  totals?: {
+    companies: number;
+    declarations: number;
+    onefopSubmissions: number;
+    users: number;
+  };
+  totalCompanies?: number;
+  totalDeclarations?: number;
+  totalOnefopSubmissions?: number;
+  totalUsers?: number;
+  declarationsByStatus?: Record<string, number> | { status: string; _count: number }[];
+  onefopByStatus?: Record<string, number> | { status: string; _count: number }[];
+  companiesByRegion?: { region: string; count?: number; _count?: number }[];
+  generatedAt?: string | Date;
 }
 
 export function getDataManagementStats(): Promise<DataManagementStats> {

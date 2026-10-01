@@ -14,6 +14,27 @@ import { useAuthStore } from "@/lib/auth-store";
 import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
+import { DATA_ROLES } from "@/app/admin/_routes";
+
+function getStatusCount(
+  source: Record<string, number> | { status: string; _count: number }[] | undefined | null,
+  statuses: string[],
+): number | null {
+  if (!source) return null;
+  if (Array.isArray(source)) {
+    const item = source.find((s) => statuses.includes(s.status));
+    return item ? item._count : null;
+  }
+  if (typeof source === "object") {
+    for (const st of statuses) {
+      if (typeof (source as Record<string, number>)[st] === "number") {
+        return (source as Record<string, number>)[st];
+      }
+    }
+  }
+  return null;
+}
 
 const ENTITY_TYPE_OPTIONS = [
   { value: "", label: "Tous les employeurs (6 types)" },
@@ -144,12 +165,14 @@ interface ExportHistoryItem {
 }
 
 export default function DiffusionPage() {
+  const { isLoading, forbidden } = useAdminScreenGuard(DATA_ROLES);
   const user = useAuthStore((s) => s.user);
 
   // Stats query
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management-stats"],
     queryFn: getDataManagementStats,
+    enabled: !isLoading && !forbidden,
   });
   const stats = statsQuery.data;
 
@@ -223,16 +246,27 @@ export default function DiffusionPage() {
   ]);
 
   // Derived metrics from real stats
-  const totalSubmissions = stats?.totalOnefopSubmissions || stats?.totalDeclarations || 12847;
-  const approvedCount = stats?.onefopByStatus?.find((s) => s.status === "APPROVED")?._count
-    ?? stats?.declarationsByStatus?.find((s) => s.status === "APPROVED" || s.status === "CENTRAL_APPROVED")?._count
-    ?? 10128;
-  const pendingCount = stats?.onefopByStatus?.find((s) => s.status === "PENDING_REVIEW")?._count
-    ?? stats?.declarationsByStatus?.find((s) => s.status === "PENDING" || s.status === "SUBMITTED")?._count
-    ?? 2156;
-  const rejectedCount = stats?.onefopByStatus?.find((s) => s.status === "REJECTED")?._count
-    ?? stats?.declarationsByStatus?.find((s) => s.status === "REJECTED")?._count
-    ?? 563;
+  const totalSubmissions =
+    stats?.totals?.onefopSubmissions ??
+    stats?.totals?.declarations ??
+    stats?.totalOnefopSubmissions ??
+    stats?.totalDeclarations ??
+    12847;
+
+  const approvedCount =
+    getStatusCount(stats?.onefopByStatus, ["APPROVED"]) ??
+    getStatusCount(stats?.declarationsByStatus, ["APPROVED", "CENTRAL_APPROVED"]) ??
+    10128;
+
+  const pendingCount =
+    getStatusCount(stats?.onefopByStatus, ["PENDING_REVIEW"]) ??
+    getStatusCount(stats?.declarationsByStatus, ["PENDING", "SUBMITTED"]) ??
+    2156;
+
+  const rejectedCount =
+    getStatusCount(stats?.onefopByStatus, ["REJECTED"]) ??
+    getStatusCount(stats?.declarationsByStatus, ["REJECTED"]) ??
+    563;
 
   const approvedRate = totalSubmissions > 0 ? ((approvedCount / totalSubmissions) * 100).toFixed(1) : "78.8";
   const pendingRate = totalSubmissions > 0 ? ((pendingCount / totalSubmissions) * 100).toFixed(1) : "16.7";
@@ -405,13 +439,23 @@ export default function DiffusionPage() {
     showSuccess("Guide de recodage téléchargé avec succès.");
   };
 
+  if (isLoading) return null;
+
+  if (forbidden) {
+    return (
+      <div className="cam-admin-page">
+        <p className="cam-admin-lede">Accès restreint à la gestion et diffusion nationale des données.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="cam-admin-page">
       {/* ── Top App Bar (AdminPageHeader with right search, territory & flag) ── */}
       <AdminPageHeader
         breadcrumb={[{ label: "Données" }, { label: "Exports" }]}
         title="Gestion des Données et Exports"
-        subtitle="Gérer, filtrer et exporter les données collectées"
+        subtitle="Gérer, filtrer et exporter les données collectées - Campagne 2026"
         actions={
           <AdminHeaderActions
             showCampaignPill={false}
@@ -419,7 +463,6 @@ export default function DiffusionPage() {
             showSearchInput={true}
           />
         }
-        hideTabs={true}
       />
 
       {/* Alerts / feedback */}
@@ -435,37 +478,6 @@ export default function DiffusionPage() {
           <button type="button" onClick={() => setSuccessToast(null)} className="text-emerald-600 hover:text-emerald-900 text-lg font-bold cursor-pointer">×</button>
         </div>
       )}
-
-      {/* ── Sub-header with Title & Tab Navigation Pills (Figma donnees/exports.png) ── */}
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Données &gt; Exports
-        </h1>
-        <p className="text-sm text-slate-500 mt-1 mb-4">
-          Gérer, filtrer et exporter les données collectées - Campagne 2026
-        </p>
-
-        {/* Navigation Pill Buttons */}
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/admin/sectors"
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-          >
-            Jeux de données
-          </Link>
-          <Link
-            href="/admin/centre-qualite"
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-          >
-            Centre qualité
-          </Link>
-          <span
-            className="px-4 py-2 text-sm font-semibold text-white bg-[#006644] rounded-lg shadow-xs flex items-center gap-1.5 cursor-default"
-          >
-            Exports
-          </span>
-        </div>
-      </div>
 
       {/* ── 4 KPI Cards (Figma donnees/exports.png) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

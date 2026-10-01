@@ -81,8 +81,6 @@ export const DATA_ROLES: UserRole[] = [
   "CENTRAL",
   "DATA_MANAGER",
   "ANALYST",
-  "REGIONAL",
-  "AUDITOR",
 ];
 
 export const DIRECTORY_ROLES: UserRole[] = [
@@ -164,7 +162,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/diffusion", "/admin/sectors"],
     subRoutes: [
       { label: "Gestion & Exports", href: "/admin/diffusion", allowedRoles: DATA_ROLES },
-      { label: "Jeux de données (Secteurs)", href: "/admin/sectors" },
+      { label: "Jeux de données (Secteurs)", href: "/admin/sectors", allowedRoles: DATA_ROLES },
     ],
   },
   {

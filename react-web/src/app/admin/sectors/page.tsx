@@ -6,32 +6,12 @@ import { useTranslations } from "next-intl";
 import { getSectors } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
+import { DATA_ROLES } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
-
-// Phase 1's one low-consequence admin screen (plan's own example: "such as
-// regions or sectors"). GET /sectors is public and read-only on the
-// backend, so the risk here is genuinely low; access is still gated to
-// MINEFOP staff roles since a COMPANY account has no reason to browse the
-// sector reference list. There is no equivalent Flutter screen to port —
-// sectors only appear today as a lookup inside the company registration
-// wizard — so this access policy is a new, deliberately conservative
-// product choice for this slice, not a port of existing behavior.
-const STAFF_ROLES: UserRole[] = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "DATA_MANAGER",
-  "CAMPAIGN_MANAGER",
-  "ANALYST",
-  "AUDITOR",
-  "CENTRAL",
-  "REGIONAL",
-  "DIVISIONAL",
-];
 
 export default function AdminSectorsPage() {
   const t = useTranslations();
-  const { isLoading, isAuthenticated, forbidden } = useAdminScreenGuard(STAFF_ROLES);
+  const { isLoading, isAuthenticated, forbidden } = useAdminScreenGuard(DATA_ROLES);
   const logout = useAuthStore((s) => s.logout);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
