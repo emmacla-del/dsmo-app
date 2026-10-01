@@ -58,6 +58,8 @@ model Region {
   companies         Company[]
   departments       Department[]
   onefopSubmissions OnefopSubmission[]
+  territoryTargets  TerritoryTarget[]
+  campaignQuotas    CampaignQuota[]
 
   @@map("regions")
 }
@@ -74,6 +76,8 @@ model Department {
   region            Region             @relation(fields: [regionId], references: [id])
   onefopSubmissions OnefopSubmission[]
   subdivisions      Subdivision[]
+  territoryTargets  TerritoryTarget[]
+  campaignQuotas    CampaignQuota[]
 
   @@unique([regionId, name])
   @@map("departments")
@@ -192,6 +196,14 @@ model User {
   minefopService             MinefopService?    @relation(fields: [serviceCode], references: [code])
   resolvedAnomalies          OnefopAnomaly[]    @relation("AnomalyResolver")
   frozenCampaigns            CampaignFreeze[]   @relation("CampaignFrozenBy")
+  territoryTargetsCreated          TerritoryTarget[]          @relation("TerritoryTargetCreatedBy")
+  territoryTargetsUpdated          TerritoryTarget[]          @relation("TerritoryTargetUpdatedBy")
+  campaignQuotasCreated            CampaignQuota[]            @relation("CampaignQuotaCreatedBy")
+  campaignQuotasUpdated            CampaignQuota[]            @relation("CampaignQuotaUpdatedBy")
+  centralInscriptionTargetsCreated CentralInscriptionTarget[] @relation("CentralInscriptionTargetCreatedBy")
+  centralInscriptionTargetsUpdated CentralInscriptionTarget[] @relation("CentralInscriptionTargetUpdatedBy")
+  centralCampaignQuotasCreated     CentralCampaignQuota[]     @relation("CentralCampaignQuotaCreatedBy")
+  centralCampaignQuotasUpdated     CentralCampaignQuota[]     @relation("CentralCampaignQuotaUpdatedBy")
 
   @@index([role])
   @@index([serviceCode])
@@ -544,6 +556,8 @@ model DataCampaign {
   round             SubmissionRound?
   onefopSubmissions OnefopSubmission[]
   declarations      Declaration[]
+  quotas            CampaignQuota[]
+  centralQuota      CentralCampaignQuota?
 
   @@index([status])
   @@map("data_campaigns")
@@ -2344,5 +2358,98 @@ model CampaignFreeze {
   @@unique([campaignId, versionTag])
   @@index([campaignId])
   @@map("campaign_freezes")
+}
+
+// Territorial inscription targets and campaign quotas.
+//
+// departmentId is null on a region-level row. PostgreSQL unique constraints
+// treat those NULLs as distinct, so a plain @@unique([year, regionId,
+// departmentId]) would allow two region-level rows for the same year.
+// Uniqueness is two partial indexes in the migration SQL, same approach as
+// onefop_submissions_company_quarter_live_uidx. Do not add @@unique for
+// this key: Prisma cannot express the WHERE clause and would generate a
+// different constraint. Non-negative checks are SQL CHECKs for the same reason.
+//
+// "Niveau central" is not a Region and not a null regionId. Administrations
+// use CentralInscriptionTarget / CentralCampaignQuota.
+
+model TerritoryTarget {
+  id                String      @id @default(uuid())
+  year              Int
+  regionId          String
+  departmentId      String?
+  inscriptionTarget Int
+  createdBy         String
+  updatedBy         String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  region            Region      @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  department        Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdByUser     User        @relation("TerritoryTargetCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedByUser     User        @relation("TerritoryTargetUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@index([year])
+  @@index([regionId])
+  @@index([departmentId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@map("territory_targets")
+}
+
+model CampaignQuota {
+  id               String       @id @default(uuid())
+  campaignId       String
+  regionId         String
+  departmentId     String?
+  submissionTarget Int
+  createdBy        String
+  updatedBy        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  campaign         DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  region           Region       @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  department       Department?  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdByUser    User         @relation("CampaignQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedByUser    User         @relation("CampaignQuotaUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@index([campaignId])
+  @@index([regionId])
+  @@index([departmentId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@map("campaign_quotas")
+}
+
+model CentralInscriptionTarget {
+  id                String   @id @default(uuid())
+  year              Int      @unique
+  inscriptionTarget Int
+  createdBy         String
+  updatedBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdByUser     User     @relation("CentralInscriptionTargetCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedByUser     User     @relation("CentralInscriptionTargetUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@map("central_inscription_targets")
+}
+
+model CentralCampaignQuota {
+  id               String       @id @default(uuid())
+  campaignId       String       @unique
+  submissionTarget Int
+  createdBy        String
+  updatedBy        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  campaign         DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  createdByUser    User         @relation("CentralCampaignQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedByUser    User         @relation("CentralCampaignQuotaUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@map("central_campaign_quotas")
 }
 

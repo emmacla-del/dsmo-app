@@ -17,6 +17,7 @@ import { CampaignModule } from './campaign/campaign.module';
 import { ReportModule } from './report/report.module';
 import { DataManagementModule } from './data-management/data-management.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
+import { PilotageModule } from './pilotage/pilotage.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { SystemSettingsModule } from './system-settings/system-settings.module';
     ReportModule,
     DataManagementModule,
     SystemSettingsModule,
+    PilotageModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
