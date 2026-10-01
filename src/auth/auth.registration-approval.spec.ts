@@ -211,6 +211,7 @@ describe('AuthService registration review — approver role boundaries', () => {
     const pdf = { generateRegistrationAttestation: jest.fn(async () => ({ storagePath: 'p', signedUrl: 'u' })) };
     return {
       prisma,
+      notifications,
       service: new AuthService(prisma, {} as any, notifications as any, pdf as any, {} as any),
     };
   }
@@ -272,6 +273,40 @@ describe('AuthService registration review — approver role boundaries', () => {
     ).rejects.toThrow(ForbiddenException);
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('emails the company on approval, rejection and complements request', async () => {
+    const approved = makeService(pendingCompanyUser);
+    await approved.service.approveUser('u-co', 'actor-1', 'CENTRAL', {});
+    expect(approved.notifications.sendRegistrationApprovedEmail).toHaveBeenCalledWith(
+      'co@example.cm',
+      'Menuiserie',
+      expect.stringMatching(/^EN\d{6}12$/),
+    );
+
+    const rejected = makeService(pendingCompanyUser);
+    await rejected.service.rejectUser('u-co', 'actor-1', 'CENTRAL', {}, 'Dossier incomplet');
+    expect(rejected.notifications.sendRegistrationRejectedEmail).toHaveBeenCalledWith(
+      'co@example.cm',
+      'Menuiserie',
+      'Dossier incomplet',
+    );
+
+    const complements = makeService(pendingCompanyUser);
+    await complements.service.requestComplements('u-co', 'actor-1', 'CENTRAL', {}, 'Joindre le NIU');
+    expect(complements.notifications.sendRegistrationComplementsEmail).toHaveBeenCalledWith(
+      'co@example.cm',
+      'Menuiserie',
+      'Joindre le NIU',
+    );
+  });
+
+  it('a failing mail server does not fail the decision', async () => {
+    const { service, notifications } = makeService(pendingCompanyUser);
+    notifications.sendRegistrationApprovedEmail.mockRejectedValue(new Error('SMTP unreachable'));
+    await expect(service.approveUser('u-co', 'actor-1', 'CENTRAL', {})).resolves.toMatchObject({
+      status: 'ACTIVE',
+    });
   });
 
   it('CENTRAL cannot request complements on a STAFF account', async () => {

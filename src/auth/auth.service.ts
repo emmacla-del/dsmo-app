@@ -820,6 +820,11 @@ export class AuthService {
           details: { companyId: company.id, reason: trimmed },
         },
       });
+      // Fire-and-forget: SMTP is unreliable from the host, and a rejection
+      // that is already committed must not surface as a 500.
+      this.notificationService
+        .sendRegistrationRejectedEmail(updated.email, company.name, trimmed)
+        .catch((error) => this.logger.error(`Failed to send rejection email: ${(error as Error).message}`));
       return toPublicUser(updated);
     }
     assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
@@ -882,6 +887,9 @@ export class AuthService {
         details: { companyId: company.id, message: trimmed },
       },
     });
+    this.notificationService
+      .sendRegistrationComplementsEmail(updated.email, company.name, trimmed)
+      .catch((error) => this.logger.error(`Failed to send complements email: ${(error as Error).message}`));
     return toPublicUser(updated);
   }
 
@@ -1063,6 +1071,12 @@ export class AuthService {
           return { updated, establishmentId: issued };
         });
         establishmentId = result.establishmentId;
+        // Both of these run after COMMIT and swallow their own failures: the
+        // approval and the establishment ID are already durable, and neither
+        // the mail server nor the PDF pipeline may undo them.
+        this.notificationService
+          .sendRegistrationApprovedEmail(user.email, company.name, result.establishmentId)
+          .catch((error) => this.logger.error(`Failed to send approval email: ${(error as Error).message}`));
         this.issueAttestation(company.id, result.establishmentId, company, user.email).catch((error) =>
           this.logger.error(`Failed to generate attestation: ${(error as Error).message}`),
         );
