@@ -31,7 +31,6 @@ const READ_ONLY_REASON = "Action réservée aux administrateurs et au niveau cen
 const MODULE_LABELS: Record<string, string> = { ONEFOP: "Questionnaire ONEFOP", DSMO: "Déclaration DSMO" };
 
 const fmt = formatCampaignDate;
-const effectiveDeadline = (c: Campaign) => c.extendedDeadline ?? c.deadline ?? null;
 
 // Canonical Figma mock fallbacks
 const FIGMA_DEFAULT_CAMPAIGN: Campaign = {
