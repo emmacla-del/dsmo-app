@@ -768,13 +768,14 @@ export default function DiffusionPage() {
             <tbody>
               {history.map((item) => (
                 <tr key={item.id}>
-                  <td>
+                  <td suppressHydrationWarning>
                     {new Intl.DateTimeFormat("fr-FR", {
                       day: "2-digit",
                       month: "2-digit",
                       year: "numeric",
                       hour: "2-digit",
                       minute: "2-digit",
+                      timeZone: "UTC",
                     }).format(new Date(item.date))}
                   </td>
                   <td>{item.user}</td>
