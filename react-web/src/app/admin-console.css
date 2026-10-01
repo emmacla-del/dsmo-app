@@ -2480,3 +2480,82 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Cibles et couverture (/admin/cibles) ── */
+.cam-target-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cam-space-4);
+  margin: var(--cam-space-4) 0;
+}
+
+.cam-target-year {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-text);
+}
+
+.cam-target-year .cam-input,
+.cam-target-year .cam-select {
+  width: auto;
+  min-width: 12rem;
+}
+
+.cam-target-table .cam-target-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cam-target-table .cam-target-expand:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+.cam-target-dept th {
+  padding-left: var(--cam-space-7);
+  font-weight: 500;
+}
+
+.cam-input.cam-target-input {
+  width: 7rem;
+  max-width: 100%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cam-target-input[aria-invalid="true"] {
+  border-color: var(--cam-error);
+}
+
+.cam-target-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-3);
+}
+
+.cam-target-actions {
+  margin-top: var(--cam-space-5);
+}
+
+.cam-target-changes {
+  margin: var(--cam-space-3) 0 0;
+  padding-left: var(--cam-space-5);
+}
+
+.cam-target-note td {
+  padding-top: 0;
+  border-bottom: none;
+}

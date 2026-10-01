@@ -107,11 +107,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/pilotage",
     iconName: "dashboard",
     badgeKey: "pending",
-    matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/activite"],
+    matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/activite", "/admin/cibles"],
     subRoutes: [
       { label: "Tableau de bord", href: "/admin/pilotage" },
       { label: "Dossiers en instance", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: [...DOSSIER_PROCESSORS, "AUDITOR"] },
       { label: "Activité & alertes", href: "/admin/activite" },
+      { label: "Cibles et couverture", href: "/admin/cibles", allowedRoles: ["CENTRAL", "SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "REGIONAL", "DIVISIONAL"] },
     ],
   },
   {
