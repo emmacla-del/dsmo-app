@@ -542,6 +542,8 @@ model DataCampaign {
   deadline          DateTime?
   extendedDeadline  DateTime?
   name              String
+  referenceYear     Int?
+  referenceQuarter  Int?
   reminderDays      Int[]                @default([])
   targetDepartments String[]             @default([])
   targetEntityTypes String[]             @default([])
@@ -774,6 +776,8 @@ model OnefopSubmission {
   // Nullable: pre-existing rows and submissions filed outside a campaign
   // have none. Nothing writes it yet.
   campaignId            String?
+  isLate                Boolean                       @default(false)
+  effectiveDeadlineSnapshot DateTime?
   registrationNumber    String?
   metaJson              Json?
   administrationDetail  OnefopAdministrationDetail?
