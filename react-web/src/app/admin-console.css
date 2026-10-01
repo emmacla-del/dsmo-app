@@ -845,60 +845,76 @@
   cursor: pointer;
 }
 
-/* ── Tabs ── */
+/* ── Sub-navigation Pills (matching Figma) ── */
 .cam-admin-tabs {
   display: flex;
-  gap: var(--cam-space-1);
+  align-items: center;
+  gap: 8px;
   overflow-x: auto;
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  border-bottom: none;
+  padding: 4px 0;
 }
 
 .cam-admin-tab {
   display: inline-flex;
   align-items: center;
-  gap: var(--cam-space-2);
-  padding: var(--cam-space-3) var(--cam-space-4);
-  border: none;
-  background: none;
+  gap: 6px;
+  padding: 6px 16px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 6px;
   font: inherit;
-  font-size: var(--cam-font-size-sm);
-  font-weight: 600;
-  color: var(--cam-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: inset 0 -2px 0 transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+  text-decoration: none;
 }
 
 .cam-admin-tab:hover {
-  color: var(--cam-text);
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .cam-admin-tab[aria-selected="true"] {
-  color: var(--cam-green-dark);
-  box-shadow: inset 0 -2px 0 var(--cam-green);
+  background: #1e6b3a;
+  border-color: #1e6b3a;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(30, 107, 58, 0.2);
 }
 
 .cam-admin-tab:focus-visible {
   outline: 2px solid var(--cam-focus);
-  outline-offset: -2px;
+  outline-offset: 1px;
 }
 
 .cam-admin-tab-count {
-  min-width: 22px;
-  padding: 1px 7px;
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-bg);
-  border: var(--cam-border-width) solid var(--cam-border);
-  font-size: var(--cam-font-size-2xs);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  border: none;
+  font-size: 11px;
   font-weight: 700;
   text-align: center;
-  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  color: #4b5563;
+}
+
+.cam-admin-tab[aria-selected="true"] .cam-admin-tab-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .cam-admin-tab-count.is-alert {
-  background: var(--cam-error-bg);
-  border-color: var(--cam-error-border);
-  color: var(--cam-error);
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 /* ── Notices ── */
@@ -1862,22 +1878,25 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--cam-space-3);
-  padding: var(--cam-space-5);
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-left: 4px solid var(--cam-kpi-tone, var(--cam-border-strong));
-  border-radius: var(--cam-radius-md);
-  color: var(--cam-text);
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid var(--cam-kpi-tone, #e5e7eb);
+  border-radius: 8px;
+  color: #111827;
   text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.cam-kpi-tile--warning { --cam-kpi-tone: var(--cam-flag-yellow); }
-.cam-kpi-tile--info    { --cam-kpi-tone: var(--cam-info); }
-.cam-kpi-tile--error   { --cam-kpi-tone: var(--cam-flag-red); }
+.cam-kpi-tile--warning { --cam-kpi-tone: #f59e0b; }
+.cam-kpi-tile--info    { --cam-kpi-tone: #2563eb; }
+.cam-kpi-tile--error   { --cam-kpi-tone: #dc2626; }
 
 a.cam-kpi-tile:hover {
-  border-color: var(--cam-border-strong);
+  border-color: #d1d5db;
   border-left-color: var(--cam-kpi-tone);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 a.cam-kpi-tile:focus-visible {
@@ -1888,59 +1907,67 @@ a.cam-kpi-tile:focus-visible {
 .cam-kpi-tile-text {
   display: flex;
   flex-direction: column;
-  gap: var(--cam-space-1);
+  gap: 4px;
   min-width: 0;
 }
 
 .cam-kpi-tile-value {
-  font-size: var(--cam-font-size-2xl);
+  font-size: 32px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1;
+  color: #111827;
   font-variant-numeric: tabular-nums;
 }
 
 .cam-kpi-tile-label {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
 }
 
 .cam-kpi-tile-arrow {
-  font-size: var(--cam-font-size-lg);
-  color: var(--cam-text-muted);
+  font-size: 20px;
+  color: #9ca3af;
   flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
+  transform: translateX(3px);
+  color: #4b5563;
 }
 
 .cam-kpi-tile.is-unavailable .cam-kpi-tile-value {
-  color: var(--cam-text-muted);
+  color: #9ca3af;
 }
 
 /* ── Dashboard (admin/pilotage) ── */
 .cam-dash-section-label {
-  margin: 0 0 var(--cam-space-4);
-  padding-left: var(--cam-space-3);
-  border-left: 3px solid var(--cam-flag-yellow);
-  font-size: var(--cam-font-size-sm);
+  margin: 0 0 14px;
+  padding-left: 10px;
+  border-left: 3px solid #1e6b3a;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--cam-text);
+  color: #111827;
   line-height: 1.2;
 }
 
 .cam-dash-section-label--green {
-  border-left-color: var(--cam-green);
+  border-left-color: #1e6b3a;
 }
 
 .cam-dash-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--cam-space-4);
+  gap: 16px;
 }
 
 .cam-dash-pipeline {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--cam-space-5);
+  gap: 20px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1951,30 +1978,36 @@ a.cam-kpi-tile:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--cam-space-1);
-  padding: var(--cam-space-4) var(--cam-space-3);
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-md);
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   text-align: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .cam-dash-pipeline li.is-highlighted {
-  border: 1.5px solid #d97706;
-  background: #fffdf5;
-  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.12);
+  border: 1.5px solid #f59e0b;
+  background: #fefcf3;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.15);
+}
+
+.cam-dash-pipeline li.is-highlighted .cam-dash-pipeline-value {
+  color: #1e6b3a;
 }
 
 /* Chevron between stages */
 .cam-dash-pipeline li + li::before {
   content: "›";
   position: absolute;
-  left: calc(var(--cam-space-5) / -2);
+  left: -14px;
   top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: var(--cam-font-size-lg);
-  color: var(--cam-text-muted);
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #9ca3af;
+  font-weight: 300;
 }
 
 .cam-dash-pipeline-value {

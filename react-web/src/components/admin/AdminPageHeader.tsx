@@ -249,11 +249,11 @@ export function AdminPageHeader({
           <h1
             style={{
               margin: 0,
-              fontSize: "var(--cam-font-size-2xl, 1.5rem)",
+              fontSize: "1.5rem",
               fontWeight: 700,
               letterSpacing: "-0.02em",
               lineHeight: 1.15,
-              color: "var(--cam-green-dark)",
+              color: "#111827",
             }}
           >
             {title}

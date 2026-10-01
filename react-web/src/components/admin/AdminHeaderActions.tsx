@@ -38,20 +38,48 @@ export function AdminHeaderActions() {
       ? `Région ${user.region}`
       : "National";
 
+  const campaignName = activeCampaign?.name || "Campagne 2026-T1";
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
-      {activeCampaign && (
-        <span className="cam-admin-campaign-pill" title="Campagne de collecte active">
-          <span aria-hidden="true" />
-          {activeCampaign.name}
-        </span>
-      )}
+      {/* Campaign pill */}
+      <span
+        className="cam-admin-campaign-pill"
+        title="Campagne de collecte active"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "4px 12px",
+          borderRadius: 9999,
+          border: "1px solid #d1d5db",
+          background: "#ffffff",
+          color: "#374151",
+          fontSize: 12,
+          fontWeight: 500,
+        }}
+      >
+        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+        {campaignName}
+      </span>
 
       {/* Territory selector */}
       <div
         className="cam-admin-scope"
         title="Ressort territorial"
-        style={{ cursor: "pointer", background: "var(--cam-surface)" }}
+        style={{
+          cursor: "pointer",
+          background: "#ffffff",
+          border: "1px solid #111827",
+          color: "#111827",
+          padding: "4px 12px",
+          borderRadius: 9999,
+          fontSize: 12,
+          fontWeight: 600,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+        }}
       >
         <span>Ressort : {scope}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -74,7 +102,7 @@ export function AdminHeaderActions() {
           borderRadius: "50%",
           background: "none",
           border: "none",
-          color: "var(--cam-text-muted)",
+          color: "#6b7280",
           cursor: "pointer",
         }}
       >
@@ -91,16 +119,57 @@ export function AdminHeaderActions() {
             width: 7,
             height: 7,
             borderRadius: "50%",
-            background: "var(--cam-error)",
+            background: "#dc2626",
           }}
         />
       </button>
 
+      {/* Search icon */}
+      <button
+        type="button"
+        aria-label="Recherche"
+        title="Rechercher"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          background: "none",
+          border: "none",
+          color: "#6b7280",
+          cursor: "pointer",
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </button>
+
       {/* Cameroon flag circle */}
-      <span className="cam-admin-flag-circle" role="img" aria-label="Cameroun" title="République du Cameroun">
-        <span style={{ background: "var(--cam-flag-green)" }} />
-        <span style={{ background: "var(--cam-flag-red)" }} />
-        <span style={{ background: "var(--cam-flag-yellow)" }} />
+      <span
+        className="cam-admin-flag-circle"
+        role="img"
+        aria-label="Cameroun"
+        title="République du Cameroun"
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: "50%",
+          overflow: "hidden",
+          display: "flex",
+          position: "relative",
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.1)",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ flex: 1, background: "#007a5e" }} />
+        <span style={{ flex: 1, background: "#b3261e", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ color: "#f0b429", fontSize: 9, lineHeight: 1, position: "absolute" }}>★</span>
+        </span>
+        <span style={{ flex: 1, background: "#f0b429" }} />
       </span>
     </div>
   );
