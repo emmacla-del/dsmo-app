@@ -133,6 +133,7 @@ Widget errorRow(String m) => Padding(
 InputDecoration inputDecoration({
   required bool focused,
   required bool hasError,
+  bool readOnly = false,
   String? hint,
   String? helperText,
 }) {
@@ -140,7 +141,9 @@ InputDecoration inputDecoration({
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     filled: true,
-    fillColor: hasError ? kDangerSoft : kFieldFill,
+    fillColor: hasError
+        ? kDangerSoft
+        : (readOnly ? const Color(0xFFF8FAFC) : kFieldFill),
     hintText: hint,
     hintStyle: const TextStyle(fontSize: 14, color: kFigmaSimpleMuted),
     helperText: helperText,
@@ -219,6 +222,7 @@ class SimpleField extends StatelessWidget {
             TextFormField(
               controller: c,
               focusNode: fn,
+              readOnly: field.readOnly,
               keyboardType: keyboardType(field.type),
               textInputAction: TextInputAction.next,
               inputFormatters: [
@@ -231,11 +235,16 @@ class SimpleField extends StatelessWidget {
                   LengthLimitingTextInputFormatter(9),
                 ],
               ],
-                style: const TextStyle(
-                  fontSize: 14, color: kFigmaSimpleInk, height: 1.2),
+              style: TextStyle(
+                  fontSize: 14,
+                  color: field.readOnly
+                      ? const Color(0xFF64748B)
+                      : kFigmaSimpleInk,
+                  height: 1.2),
               decoration: inputDecoration(
                   focused: fn.hasFocus,
                   hasError: e,
+                  readOnly: field.readOnly,
                   hint: field.type == 'number' ? '0' : null,
                   helperText: fieldHelperText(field, l10n)),
               onTapOutside: (_) => ctrl.onBlur(field.id),

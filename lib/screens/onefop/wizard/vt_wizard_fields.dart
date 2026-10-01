@@ -237,7 +237,7 @@ class _VtWizardInfoBadge extends StatelessWidget {
 BoxDecoration _vtWizardInputBox(
         {required bool muted, bool focused = false, bool error = false}) =>
     BoxDecoration(
-      color: Colors.white,
+      color: muted ? const Color(0xFFF8FAFC) : Colors.white,
       border: Border.all(
         color: error ? kVtWizardRed : (focused ? kAccent : _kBorderMuted),
         width: focused || error ? 1.5 : 1,
@@ -368,8 +368,8 @@ class VtWizardTextField extends StatelessWidget {
             animation: Listenable.merge([fn, ctrl, c]),
             builder: (context, _) => Container(
               decoration: _vtWizardInputBox(
-                  muted: false,
-                  focused: fn.hasFocus,
+                  muted: field.readOnly,
+                  focused: fn.hasFocus && !field.readOnly,
                   error: ctrl.hasError(field)),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               alignment: field.type == 'textarea'
@@ -397,6 +397,7 @@ class VtWizardTextField extends StatelessWidget {
                     child: TextField(
                       controller: c,
                       focusNode: fn,
+                      readOnly: field.readOnly,
                       maxLines: field.type == 'textarea' ? 4 : 1,
                       keyboardType: field.type == 'number'
                           ? TextInputType.number
@@ -415,11 +416,13 @@ class VtWizardTextField extends StatelessWidget {
                           LengthLimitingTextInputFormatter(9),
                         ],
                       ],
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontFamily: kVtWizardFontFamily,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: kVtWizardInk),
+                          color: field.readOnly
+                              ? kVtWizardInkSoft
+                              : kVtWizardInk),
                       decoration: InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
@@ -482,7 +485,7 @@ class VtWizardTextField extends StatelessWidget {
             return const SizedBox.shrink();
           },
         ),
-        if (suggestions.isNotEmpty) ...[
+        if (suggestions.isNotEmpty && !field.readOnly) ...[
           const SizedBox(height: 6),
           AnimatedBuilder(
             animation: Listenable.merge([c, ctrl]),

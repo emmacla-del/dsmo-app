@@ -227,6 +227,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
     order: 4,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "enterprise.region",
   ),
   FormQuestionAst(
@@ -237,6 +238,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
     order: 5,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "enterprise.department",
   ),
   FormQuestionAst(
@@ -247,6 +249,7 @@ const section1EnterpriseQuestions = <FormQuestionAst>[
     order: 6,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "enterprise.subdivision",
   ),
   FormQuestionAst(
@@ -476,6 +479,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
     order: 5,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "cooperative.region",
   ),
   FormQuestionAst(
@@ -486,6 +490,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
     order: 6,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "cooperative.department",
   ),
   FormQuestionAst(
@@ -496,6 +501,7 @@ const section1CooperativeQuestions = <FormQuestionAst>[
     order: 7,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "cooperative.subdivision",
   ),
   FormQuestionAst(
@@ -752,6 +758,7 @@ const section1CtdQuestions = <FormQuestionAst>[
     order: 5,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "ctd.region",
   ),
   FormQuestionAst(
@@ -762,6 +769,7 @@ const section1CtdQuestions = <FormQuestionAst>[
     order: 6,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "ctd.department",
   ),
   FormQuestionAst(
@@ -772,6 +780,7 @@ const section1CtdQuestions = <FormQuestionAst>[
     order: 7,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "ctd.subdivision",
   ),
   FormQuestionAst(
@@ -957,6 +966,7 @@ const section1OngQuestions = <FormQuestionAst>[
     order: 5,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "ong.region",
   ),
   FormQuestionAst(
@@ -967,6 +977,7 @@ const section1OngQuestions = <FormQuestionAst>[
     order: 6,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "ong.department",
   ),
   FormQuestionAst(
@@ -977,6 +988,7 @@ const section1OngQuestions = <FormQuestionAst>[
     order: 7,
     type: AstFieldType.text,
     requiredField: true, // FIX-7: Added required
+    readOnly: true,
     path: "ong.subdivision",
   ),
   FormQuestionAst(
@@ -1172,6 +1184,7 @@ const section1AdministrationQuestions = <FormQuestionAst>[
     order: 4,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "administration.region",
   ),
   FormQuestionAst(
@@ -1182,6 +1195,7 @@ const section1AdministrationQuestions = <FormQuestionAst>[
     order: 5,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "administration.department",
   ),
   FormQuestionAst(
@@ -1192,6 +1206,7 @@ const section1AdministrationQuestions = <FormQuestionAst>[
     order: 6,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "administration.subdivision",
   ),
   FormQuestionAst(
@@ -2398,6 +2413,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     order: 6,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "projectProgram.region",
   ),
   FormQuestionAst(
@@ -2408,6 +2424,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     order: 7,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "projectProgram.department",
   ),
   FormQuestionAst(
@@ -2418,6 +2435,7 @@ const section1ProjectProgramQuestions = <FormQuestionAst>[
     order: 8,
     type: AstFieldType.text,
     requiredField: true,
+    readOnly: true,
     path: "projectProgram.subdivision",
   ),
   FormQuestionAst(
@@ -2967,6 +2985,7 @@ const section1VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section1_vocationalTraining",
     order: 4,
     type: AstFieldType.text,
+    readOnly: true,
     path: "vocationalTraining.region",
   ),
   FormQuestionAst(
@@ -2976,6 +2995,7 @@ const section1VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section1_vocationalTraining",
     order: 5,
     type: AstFieldType.text,
+    readOnly: true,
     path: "vocationalTraining.department",
   ),
   FormQuestionAst(
@@ -2985,6 +3005,7 @@ const section1VocationalTrainingQuestions = <FormQuestionAst>[
     sectionId: "section1_vocationalTraining",
     order: 6,
     type: AstFieldType.text,
+    readOnly: true,
     path: "vocationalTraining.subdivision",
   ),
   FormQuestionAst(
