@@ -599,7 +599,7 @@ export class EligibilityEngineService {
     });
 
     for (const target of campaignTargets) {
-      await syncCampaignSubmissionOnReview(this.prisma, this.logger, target, 'PENDING');
+      await syncCampaignSubmissionOnReview(this.prisma, this.logger, target, 'NOT_STARTED');
     }
     return result;
   }

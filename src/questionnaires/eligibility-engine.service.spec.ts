@@ -640,14 +640,14 @@ describe('EligibilityEngineService — campaign progress on bulk review (B4)', (
     expect(prisma.campaignSubmission.updateMany.mock.calls[0][0].where).toEqual({ campaignId: 'camp-1', companyId: 'co-1' });
   });
 
-  it('bulk reject: each rejected dossier CampaignSubmission -> PENDING, submittedAt = null', async () => {
+  it('bulk reject: each rejected dossier CampaignSubmission -> NOT_STARTED, submittedAt = null', async () => {
     build([dossier('s1', 'camp-1', 'co-1'), dossier('s2', 'camp-2', 'co-2', OnefopStatus.CORRECTION_REQUESTED)]);
     const result = await engine.executeBulkReject(actor, rejectDto(['s1', 's2']));
 
     expect(result.rejectedIds).toEqual(['s1', 's2']);
     expect(prisma.campaignSubmission.updateMany.mock.calls).toEqual([
-      [{ where: { campaignId: 'camp-1', companyId: 'co-1' }, data: { status: 'PENDING', submittedAt: null } }],
-      [{ where: { campaignId: 'camp-2', companyId: 'co-2' }, data: { status: 'PENDING', submittedAt: null } }],
+      [{ where: { campaignId: 'camp-1', companyId: 'co-1' }, data: { status: 'NOT_STARTED', submittedAt: null } }],
+      [{ where: { campaignId: 'camp-2', companyId: 'co-2' }, data: { status: 'NOT_STARTED', submittedAt: null } }],
     ]);
     expect(tx.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
