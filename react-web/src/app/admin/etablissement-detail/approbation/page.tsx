@@ -32,7 +32,6 @@ const DEFAULT_GIC: Partial<Company> = {
     email: "amadou.bello@gic-espoir.cm",
     isActive: true,
     status: "PENDING_APPROVAL",
-    createdAt: "2026-02-29T10:00:00Z",
   },
 };
 
