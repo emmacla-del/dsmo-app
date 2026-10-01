@@ -1,9 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   assertEntryCount,
+  assertNoMixedClear,
+  assertNoMixedMode,
   parseTargetBody,
   parseYear,
   summarizeRegion,
+  TargetEntry,
   TARGET_MAX,
 } from './pilotage-validation';
 
@@ -40,6 +43,7 @@ describe('parseTargetBody', () => {
       { regionId: 'r1', departmentId: null, target: 0 },
       { regionId: 'r2', departmentId: null, target: TARGET_MAX },
     ]);
+    expect(parsed.clearedRegionIds).toEqual([]);
     expect(parsed.central).toBeUndefined();
   });
 
@@ -65,9 +69,18 @@ describe('parseTargetBody', () => {
     }, 'inscriptionTarget')).toThrow('La ligne 2 répète un territoire déjà présent dans la requête.');
   });
 
+  const targetRow = (regionId: string, departmentId: string | null, target = 1): TargetEntry => ({
+    regionId,
+    departmentId,
+    target,
+  });
+
   it('rejects a region that mixes a regional row with department rows', () => {
-    expect(() => parseTargetBody({ entries: [row('r1', null, 5), row('r1', 'd1', 1)] }, 'inscriptionTarget'))
+    expect(() => assertNoMixedMode([targetRow('r1', null, 5), targetRow('r1', 'd1', 1)]))
       .toThrow('La région « r1 » mélange un objectif régional et des objectifs départementaux.');
+    const names = new Map([['r1', 'Centre']]);
+    expect(() => assertNoMixedMode([targetRow('r1', null, 5), targetRow('r1', 'd1', 1)], names))
+      .toThrow('La région « Centre » mélange un objectif régional et des objectifs départementaux.');
   });
 
   it('parses central as omitted, cleared, or set', () => {
@@ -78,6 +91,44 @@ describe('parseTargetBody', () => {
       .toThrow('« central.inscriptionTarget » doit être un entier positif ou nul.');
     expect(() => parseTargetBody({ entries: [], central: [] }, 'inscriptionTarget'))
       .toThrow('« central » doit être un objet ou null.');
+  });
+
+  it('parses a region clear entry and rejects malformed clear entries', () => {
+    const parsed = parseTargetBody({ entries: [{ regionId: 'r1', clear: true }] }, 'inscriptionTarget');
+    expect(parsed.entries).toEqual([]);
+    expect(parsed.clearedRegionIds).toEqual(['r1']);
+
+    expect(() => parseTargetBody({ entries: [{ regionId: 'r1', clear: false }] }, 'inscriptionTarget'))
+      .toThrow('La ligne 1 : le champ « clear » doit valoir true.');
+    expect(() => parseTargetBody({ entries: [{ regionId: 'r1', departmentId: 'd1', clear: true }] }, 'inscriptionTarget'))
+      .toThrow("La ligne 1 : l'option « clear » s'applique uniquement à une région entière.");
+    expect(() => parseTargetBody({ entries: [{ regionId: 'r1', clear: true, inscriptionTarget: 5 }] }, 'inscriptionTarget'))
+      .toThrow('La ligne 1 : « clear » ne peut pas être combiné avec une valeur cible.');
+    expect(() => parseTargetBody({ entries: [{ regionId: 'r1', clear: true }, { regionId: 'r1', clear: true }] }, 'inscriptionTarget'))
+      .toThrow('La ligne 2 répète un territoire déjà présent dans la requête.');
+
+    const combined = parseTargetBody({
+      entries: [
+        { regionId: 'r1', clear: true },
+        { regionId: 'r1', departmentId: 'd1', inscriptionTarget: 5 },
+      ],
+    }, 'inscriptionTarget');
+    expect(combined.clearedRegionIds).toEqual(['r1']);
+    expect(combined.entries).toEqual([{ regionId: 'r1', departmentId: 'd1', target: 5 }]);
+
+    const split = parseTargetBody({
+      entries: [
+        { regionId: 'r1', clear: true },
+        { regionId: 'r2', inscriptionTarget: 8 },
+      ],
+    }, 'inscriptionTarget');
+    expect(split.clearedRegionIds).toEqual(['r1']);
+    expect(split.entries).toEqual([{ regionId: 'r2', departmentId: null, target: 8 }]);
+
+    expect(() => assertNoMixedClear([targetRow('r1', 'd1', 5)], ['r1']))
+      .toThrow('La région « r1 » ne peut pas combiner « clear » avec d\'autres lignes.');
+    expect(() => assertNoMixedClear([targetRow('r1', 'd1', 5)], ['r1'], new Map([['r1', 'Centre']])))
+      .toThrow('La région « Centre » ne peut pas combiner « clear » avec d\'autres lignes.');
   });
 
   it('rejects a body that is not an object with an entries array', () => {

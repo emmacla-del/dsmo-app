@@ -68,9 +68,10 @@ export interface CampaignQuotasResponse {
 
 export interface TargetPutEntry {
   regionId: string;
-  departmentId: string | null;
+  departmentId?: string | null;
   inscriptionTarget?: number;
   submissionTarget?: number;
+  clear?: boolean;
 }
 
 export interface TargetPutBody {

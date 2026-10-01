@@ -253,6 +253,9 @@ describe('PilotageService writes', () => {
     await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
       entries: [{ regionId: 'missing', departmentId: null, inscriptionTarget: 1 }],
     })).rejects.toThrow("Région introuvable (ID: 'missing').");
+    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
+      entries: [{ regionId: 'missing', clear: true }],
+    })).rejects.toThrow("Région introuvable (ID: 'missing').");
     (harness.prisma.region as { count: jest.Mock }).count.mockResolvedValue(1);
     (harness.prisma.department as { count: jest.Mock }).count.mockResolvedValue(1);
     await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
@@ -308,6 +311,79 @@ describe('PilotageService writes', () => {
       .rejects.toThrow('Les objectifs de campagne concernent uniquement les campagnes ONEFOP.');
     await expect(harness.service.getCampaignQuotas(national, 'missing')).rejects.toBeInstanceOf(NotFoundException);
     expect(harness.campaignQuotas).toHaveLength(1);
+  });
+
+  it("clears a region's inscription targets back to UNSET, auditing each deleted row", async () => {
+    const harness = createHarness();
+    harness.territoryTargets.push(
+      { id: 't-mf', year: 2026, regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 10, createdBy: 'old', updatedBy: 'old' },
+      { id: 't-lek', year: 2026, regionId: 'r-centre', departmentId: 'd-lekie', inscriptionTarget: 20, createdBy: 'old', updatedBy: 'old' },
+      { id: 't-wouri', year: 2026, regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 7, createdBy: 'old', updatedBy: 'old' },
+    );
+    const result = await harness.service.putInscriptionTargets('actor-1', national, '2026', {
+      entries: [{ regionId: 'r-centre', clear: true }],
+    });
+    expect(harness.territoryTargets.map((row) => row.id)).toEqual(['t-wouri']);
+    expect(harness.audits.map((row) => row.action).sort()).toEqual([
+      'INSCRIPTION_TARGET_DELETE',
+      'INSCRIPTION_TARGET_DELETE',
+    ]);
+    expect(harness.audits).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: 't-mf', previousValue: '10', newValue: null, userId: 'actor-1' }),
+      expect.objectContaining({ resourceId: 't-lek', previousValue: '20', newValue: null, userId: 'actor-1' }),
+    ]));
+    const centre = asRegions(result.regions).find((r) => r.name === 'Centre');
+    expect(centre).toMatchObject({ mode: 'UNSET', inscriptionTarget: null });
+    const littoral = asRegions(result.regions).find((r) => r.name === 'Littoral');
+    expect(littoral).toMatchObject({ inscriptionTarget: 7 });
+  });
+
+  it("clears a region's campaign quotas and is a safe no-op when already UNSET", async () => {
+    const harness = createHarness();
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    harness.campaignQuotas.push(
+      { id: 'q-centre', campaignId: 'camp-1', regionId: 'r-centre', departmentId: null, submissionTarget: 50, createdBy: 'old', updatedBy: 'old' },
+    );
+    const result = await harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'r-centre', clear: true }],
+    });
+    expect(harness.campaignQuotas).toHaveLength(0);
+    expect(harness.audits).toEqual([
+      expect.objectContaining({ action: 'CAMPAIGN_QUOTA_DELETE', resourceId: 'q-centre', previousValue: '50', newValue: null }),
+    ]);
+    const centre = asRegions(result.regions).find((r) => r.name === 'Centre');
+    expect(centre).toMatchObject({ mode: 'UNSET', submissionTarget: null });
+
+    // Clearing an already UNSET region causes 0 audits
+    await harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [{ regionId: 'r-centre', clear: true }],
+    });
+    expect(harness.audits).toHaveLength(1);
+  });
+
+  it('rejects clear combined with a value for the same region before opening a transaction', async () => {
+    const harness = createHarness();
+    await expect(harness.service.putInscriptionTargets('actor-1', national, '2026', {
+      entries: [
+        { regionId: 'r-centre', clear: true },
+        { regionId: 'r-centre', departmentId: 'd-mfoundi', inscriptionTarget: 5 },
+      ],
+    })).rejects.toThrow('La région « Centre » ne peut pas combiner « clear » avec d\'autres lignes.');
+    expect(harness.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not write or audit when clearing an already UNSET region', async () => {
+    const harness = createHarness();
+    harness.territoryTargets.push(
+      { id: 'other', year: 2026, regionId: 'r-littoral', departmentId: 'd-wouri', inscriptionTarget: 7 },
+    );
+    const result = await harness.service.putInscriptionTargets('actor-1', national, '2026', {
+      entries: [{ regionId: 'r-centre', clear: true }],
+    });
+    expect(harness.territoryTargets.map((row) => row.id)).toEqual(['other']);
+    expect(harness.audits).toEqual([]);
+    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
+    expect(centre).toMatchObject({ mode: 'UNSET', inscriptionTarget: null });
   });
 });
 

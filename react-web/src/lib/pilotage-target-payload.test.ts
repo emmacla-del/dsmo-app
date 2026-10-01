@@ -4,6 +4,7 @@ import { TARGET_MAX } from "./pilotage-targets";
 import {
   applyEditMode,
   buildTargetPayload,
+  clearRegionDraft,
   initDrafts,
   normalizeRegions,
   parseTargetInput,
@@ -149,7 +150,7 @@ test("blank department is omitted so the API deletes that row", () => {
   ]);
 });
 
-test("clearing every department in DEPARTMENT mode is rejected (cannot UNSET)", () => {
+test("clearing every department in DEPARTMENT mode emits a region clear", () => {
   const centre = region({
     regionId: "r1",
     name: "Centre",
@@ -169,8 +170,10 @@ test("clearing every department in DEPARTMENT mode is rejected (cannot UNSET)", 
     originalCentral: null,
     centralInput: "",
   });
-  assert.equal(result.ok, false);
-  if (!result.ok) assert.match(result.errors[0], /ne peut pas revenir/);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.body.entries, [{ regionId: "r1", clear: true }]);
+  assert.equal(result.changes[0].to, "Non défini");
 });
 
 test("REGION mode sends a single departmentId: null entry", () => {
@@ -363,4 +366,106 @@ test("quota field name is used on entries and central", () => {
     { regionId: "r2", departmentId: null, submissionTarget: 3 },
   ]);
   assert.deepEqual(result.body.central, { submissionTarget: 1 });
+});
+
+test("clearRegionDraft emits a region clear and skips UNSET", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "REGION",
+    target: 50,
+  });
+  const result = buildTargetPayload({
+    field,
+    regions: [centre],
+    drafts: { r1: clearRegionDraft(centre) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.body.entries, [{ regionId: "r1", clear: true }]);
+  assert.equal(result.changes[0].from, "Région seule · 50");
+  assert.equal(result.changes[0].to, "Non défini");
+
+  const unset = region({ regionId: "r2", name: "Littoral", mode: "UNSET" });
+  const skipped = buildTargetPayload({
+    field,
+    regions: [unset],
+    drafts: { r2: clearRegionDraft(unset) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(skipped.ok, false);
+  if (!skipped.ok) assert.match(skipped.errors[0], /Aucune modification/);
+});
+
+test("empty REGION input on a stored region emits a clear", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "REGION",
+    target: 80,
+  });
+  const drafts = initDrafts([centre]);
+  drafts.r1.regionInput = "";
+  const result = buildTargetPayload({
+    field,
+    regions: [centre],
+    drafts,
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.body.entries, [{ regionId: "r1", clear: true }]);
+});
+
+test("clearing one region leaves a sibling valued entry", () => {
+  const centre = region({
+    regionId: "r1",
+    name: "Centre",
+    mode: "DEPARTMENT",
+    target: 10,
+    departments: [
+      { departmentId: "d1", name: "Mfoundi", target: 10 },
+      { departmentId: "d2", name: "Lekie", target: null },
+    ],
+  });
+  const littoral = region({ regionId: "r2", name: "Littoral", mode: "UNSET" });
+  const result = buildTargetPayload({
+    field,
+    regions: [centre, littoral],
+    drafts: {
+      r1: clearRegionDraft(centre),
+      r2: draft("r2", { mode: "REGION", regionInput: "12" }),
+    },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.body.entries, [
+    { regionId: "r1", clear: true },
+    { regionId: "r2", departmentId: null, inscriptionTarget: 12 },
+  ]);
+});
+
+test("quota clear entry has no submissionTarget field", () => {
+  const littoral = region({
+    regionId: "r2",
+    name: "Littoral",
+    mode: "REGION",
+    target: 3,
+  });
+  const result = buildTargetPayload({
+    field: "submissionTarget",
+    regions: [littoral],
+    drafts: { r2: clearRegionDraft(littoral) },
+    originalCentral: null,
+    centralInput: "",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.body.entries, [{ regionId: "r2", clear: true }]);
 });
