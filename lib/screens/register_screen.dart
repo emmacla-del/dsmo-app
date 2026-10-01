@@ -330,6 +330,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           _showSnack(context.l10n.registerSelectDepartment, error: true);
           return;
         }
+        if (_isCompany && _selectedSubdivision == null) {
+          _showSnack(context.l10n.registerSelectSubdivision, error: true);
+          return;
+        }
         _next();
         break;
 
@@ -502,6 +506,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           region: _selectedRegion?['name'] as String?,
           department: _selectedDepartment?['name'] as String?,
           subdivision: _selectedSubdivision?['name'] as String?,
+          regionId: _selectedRegion?['id'] as String?,
+          departmentId: _selectedDepartment?['id'] as String?,
+          subdivisionId: _selectedSubdivision?['id'] as String?,
           area: _selectedArea,
           entityType: _selectedEntityType?.apiValue,
           companyName: companyName,

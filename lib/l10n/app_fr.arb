@@ -189,6 +189,7 @@
   "registerEmailAlreadyUsed": "Cet email est déjà utilisé.",
   "registerSelectRegion": "Veuillez sélectionner une région",
   "registerSelectDepartment": "Veuillez sélectionner un département",
+  "registerSelectSubdivision": "Veuillez sélectionner un arrondissement",
   "registerLoadRegionsError": "Impossible de charger les régions. Réessayez.",
   "registerLoadDepartmentsError": "Impossible de charger les départements. Réessayez.",
   "registerLoadSubdivisionsError": "Impossible de charger les arrondissements. Réessayez.",

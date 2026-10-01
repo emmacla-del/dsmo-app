@@ -492,6 +492,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get registerSelectDepartment => 'Veuillez sélectionner un département';
 
   @override
+  String get registerSelectSubdivision =>
+      'Veuillez sélectionner un arrondissement';
+
+  @override
   String get registerLoadRegionsError =>
       'Impossible de charger les régions. Réessayez.';
 

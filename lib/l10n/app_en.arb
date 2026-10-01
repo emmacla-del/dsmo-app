@@ -154,6 +154,7 @@
   "registerEmailAlreadyUsed": "This email is already in use.",
   "registerSelectRegion": "Please select a region",
   "registerSelectDepartment": "Please select a department",
+  "registerSelectSubdivision": "Please select a subdivision",
   "registerLoadRegionsError": "Unable to load regions. Please try again.",
   "registerLoadDepartmentsError": "Unable to load departments. Please try again.",
   "registerLoadSubdivisionsError": "Unable to load subdivisions. Please try again.",
