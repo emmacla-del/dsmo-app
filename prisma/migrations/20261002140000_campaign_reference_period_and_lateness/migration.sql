@@ -9,9 +9,12 @@ SET "referenceYear" = 2026, "referenceQuarter" = 2
 WHERE "code" = 'QUARTERLY_2026_T2_003';
 
 -- All T3 campaigns -> 2026/3
+-- Setting period on DSMO campaigns (e.g. QUARTERLY_2026_T3_002) is harmless,
+-- but scoping strictly to ONEFOP ensures only ONEFOP campaigns have reference periods.
 UPDATE "data_campaigns"
 SET "referenceYear" = 2026, "referenceQuarter" = 3
-WHERE "code" LIKE '%T3%';
+WHERE "code" LIKE '%T3%' AND "collectionType" = 'ONEFOP';
+
 
 -- Check constraint: ONEFOP campaigns must have referenceYear and referenceQuarter
 ALTER TABLE "data_campaigns" DROP CONSTRAINT IF EXISTS "data_campaigns_onefop_reference_period_check";
