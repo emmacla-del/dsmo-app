@@ -176,7 +176,7 @@ export default function CampagnesPage() {
         breadcrumb={[{ label: "Collecte" }, { label: "Campagnes" }]}
         title="Campagnes de Collecte"
         subtitle="Gestion des campagnes de collecte et workflow de validation"
-        actions={<AdminHeaderActions />}
+        actions={<AdminHeaderActions showCampaignPill={false} showBell={false} showSearchInput={true} />}
       />
 
       {!canMutate && (
@@ -321,7 +321,7 @@ export default function CampagnesPage() {
                       {row.periode}
                     </td>
                     <td style={{ padding: "14px 12px", fontSize: 13, fontWeight: 600, color: "#111827" }}>
-                      {row.soumissions.toLocaleString("fr-FR")}
+                      {row.soumissions.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
                     </td>
                     <td style={{ padding: "14px 12px", fontSize: 13, fontWeight: 600, color: "#111827" }}>
                       {row.taux}
@@ -395,7 +395,9 @@ export default function CampagnesPage() {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ color: "#1e6b3a", fontWeight: 700, fontSize: 16 }}>✓</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e6b3a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
                     <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{q.name}</span>
                   </div>
                   <span style={{ fontSize: 13, color: "#6b7280" }}>{q.sections}</span>
@@ -424,9 +426,14 @@ export default function CampagnesPage() {
                 <li key={m.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     {m.isDone ? (
-                      <span style={{ color: "#1e6b3a", fontWeight: 700, fontSize: 16 }}>✓</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e6b3a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
                     ) : (
-                      <span style={{ color: "#d97706", fontSize: 16 }}>🕒</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
                     )}
                     <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{m.label}</span>
                   </div>
@@ -507,7 +514,15 @@ export default function CampagnesPage() {
         </p>
       </AdminDialog>
 
-      {dialog?.type === "details" && <DetailsDialog campaign={dialog.campaign} onClose={() => setDialog(null)} />}
+      {dialog?.type === "details" && (
+        <DetailsDialog
+          campaign={dialog.campaign}
+          onClose={() => setDialog(null)}
+          onRemind={() => openRemind(dialog.campaign)}
+          onPause={() => pauseMutation.mutate(dialog.campaign.id)}
+          canMutate={canMutate}
+        />
+      )}
     </div>
   );
 }
@@ -531,6 +546,7 @@ function ActiveCampaignHeroCard({
   onPause: () => void;
   onClose: () => void;
 }) {
+  const [showMoreActions, setShowMoreActions] = useState(false);
   const days = 47;
   const submitted = c.progress?.submitted ?? 10128;
   const target = c.progress?.total ?? 12847;
@@ -611,10 +627,10 @@ function ActiveCampaignHeroCard({
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, lineHeight: 1 }}>
             <span style={{ fontSize: 32, fontWeight: 800, color: "#111827" }}>
-              {submitted.toLocaleString("fr-FR")}
+              {submitted.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
             </span>
             <span style={{ fontSize: 14, fontWeight: 500, color: "#6b7280" }}>
-              / {target.toLocaleString("fr-FR")} attendus
+              / {target.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} attendus
             </span>
           </div>
         </div>
@@ -642,13 +658,13 @@ function ActiveCampaignHeroCard({
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {/* Action buttons (Figma: Voir les détails + Clôturer la Campagne + options) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", position: "relative" }}>
           <button
             type="button"
             onClick={onDetails}
             style={{
-              padding: "9px 18px",
+              padding: "9px 20px",
               background: "#ffffff",
               border: "1px solid #d1d5db",
               borderRadius: 6,
@@ -665,57 +681,13 @@ function ActiveCampaignHeroCard({
             {(disabled) => (
               <button
                 type="button"
-                onClick={onRemind}
-                disabled={disabled}
-                style={{
-                  padding: "9px 14px",
-                  background: "#ffffff",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  cursor: disabled ? "not-allowed" : "pointer",
-                }}
-              >
-                Envoyer un rappel
-              </button>
-            )}
-          </Gated>
-
-          <Gated allowed={canMutate}>
-            {(disabled) => (
-              <button
-                type="button"
-                onClick={onPause}
-                disabled={disabled || pausePending}
-                style={{
-                  padding: "9px 14px",
-                  background: "#ffffff",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  cursor: disabled ? "not-allowed" : "pointer",
-                }}
-              >
-                Mettre en pause
-              </button>
-            )}
-          </Gated>
-
-          <Gated allowed={canMutate}>
-            {(disabled) => (
-              <button
-                type="button"
                 onClick={onClose}
                 disabled={disabled}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 6,
-                  padding: "9px 18px",
+                  gap: 8,
+                  padding: "9px 20px",
                   background: "#ffffff",
                   border: "1.5px solid #dc2626",
                   borderRadius: 6,
@@ -726,13 +698,103 @@ function ActiveCampaignHeroCard({
                 }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
                 </svg>
                 Clôturer la Campagne
               </button>
             )}
           </Gated>
+
+          {/* Secondary management actions popover */}
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setShowMoreActions(!showMoreActions)}
+              aria-label="Plus d'actions"
+              title="Options de gestion de campagne"
+              style={{
+                width: 36,
+                height: 36,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#ffffff",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#4b5563",
+                cursor: "pointer",
+              }}
+            >
+              ···
+            </button>
+            {showMoreActions && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: "100%",
+                  marginBottom: 8,
+                  background: "#ffffff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  padding: 4,
+                  minWidth: 160,
+                  zIndex: 30,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                <Gated allowed={canMutate}>
+                  {(disabled) => (
+                    <button
+                      type="button"
+                      onClick={() => { setShowMoreActions(false); onRemind(); }}
+                      disabled={disabled}
+                      style={{
+                        padding: "8px 12px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        borderRadius: 4,
+                      }}
+                    >
+                      Envoyer un rappel
+                    </button>
+                  )}
+                </Gated>
+                <Gated allowed={canMutate}>
+                  {(disabled) => (
+                    <button
+                      type="button"
+                      onClick={() => { setShowMoreActions(false); onPause(); }}
+                      disabled={disabled || pausePending}
+                      style={{
+                        padding: "8px 12px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "#374151",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        borderRadius: 4,
+                      }}
+                    >
+                      Mettre en pause
+                    </button>
+                  )}
+                </Gated>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>
@@ -741,7 +803,19 @@ function ActiveCampaignHeroCard({
 
 // ── Details Modal ───────────────────────────────────────────────────────────
 
-function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () => void }) {
+function DetailsDialog({
+  campaign,
+  onClose,
+  onRemind,
+  onPause,
+  canMutate,
+}: {
+  campaign: Campaign;
+  onClose: () => void;
+  onRemind?: () => void;
+  onPause?: () => void;
+  canMutate?: boolean;
+}) {
   const detailQuery = useQuery({
     queryKey: ["campaigns", "detail", campaign.id],
     queryFn: () => getCampaign(campaign.id),
@@ -766,7 +840,41 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
       onClose={onClose}
       eyebrow={campaign.code}
       title={campaign.name}
-      footer={<button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose}>Fermer</button>}
+      footer={
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            {onRemind && (
+              <Gated allowed={!!canMutate}>
+                {(disabled) => (
+                  <button
+                    type="button"
+                    className="cam-button cam-button-secondary cam-button-sm"
+                    disabled={disabled}
+                    onClick={() => { onClose(); onRemind(); }}
+                  >
+                    Envoyer un rappel
+                  </button>
+                )}
+              </Gated>
+            )}
+            {onPause && (
+              <Gated allowed={!!canMutate}>
+                {(disabled) => (
+                  <button
+                    type="button"
+                    className="cam-button cam-button-secondary cam-button-sm"
+                    disabled={disabled}
+                    onClick={() => { onClose(); onPause(); }}
+                  >
+                    Mettre en pause
+                  </button>
+                )}
+              </Gated>
+            )}
+          </div>
+          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onClose}>Fermer</button>
+        </div>
+      }
     >
       <dl className="cam-admin-kv">
         <div><dt>Statut</dt><dd>{CAMPAIGN_STATUS_LABELS[d.status] ?? d.status}</dd></div>

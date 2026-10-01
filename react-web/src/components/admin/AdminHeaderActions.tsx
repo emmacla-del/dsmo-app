@@ -25,10 +25,23 @@ export function useActiveCampaign() {
 }
 
 /**
+ * Configuration options for right-hand header actions.
+ */
+export interface AdminHeaderActionsProps {
+  showCampaignPill?: boolean;
+  showBell?: boolean;
+  showSearchInput?: boolean;
+}
+
+/**
  * Right-hand chips shared by every admin page header: active campaign pill,
  * the account's territorial scope, and the Cameroon flag.
  */
-export function AdminHeaderActions() {
+export function AdminHeaderActions({
+  showCampaignPill = true,
+  showBell = true,
+  showSearchInput = false,
+}: AdminHeaderActionsProps = {}) {
   const user = useAuthStore((s) => s.user);
   const { activeCampaign } = useActiveCampaign();
 
@@ -57,8 +70,9 @@ export function AdminHeaderActions() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
       {/* Campaign pill */}
-      <span
-        className="cam-admin-campaign-pill"
+      {showCampaignPill && (
+        <span
+          className="cam-admin-campaign-pill"
         title={rawCampaignName}
         style={{
           display: "inline-flex",
@@ -83,6 +97,7 @@ export function AdminHeaderActions() {
           {campaignName}
         </span>
       </span>
+      )}
 
       {/* Territory selector */}
       <div
@@ -109,65 +124,90 @@ export function AdminHeaderActions() {
       </div>
 
       {/* Notification bell */}
-      <button
-        type="button"
-        aria-label="Notifications"
-        title="Notifications et alertes de validation"
-        style={{
-          position: "relative",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "none",
-          border: "none",
-          color: "#6b7280",
-          cursor: "pointer",
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        <span
-          aria-hidden="true"
+      {showBell && (
+        <button
+          type="button"
+          aria-label="Notifications"
+          title="Notifications et alertes de validation"
           style={{
-            position: "absolute",
-            top: 5,
-            right: 5,
-            width: 7,
-            height: 7,
+            position: "relative",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
             borderRadius: "50%",
-            background: "#dc2626",
+            background: "none",
+            border: "none",
+            color: "#6b7280",
+            cursor: "pointer",
           }}
-        />
-      </button>
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: 5,
+              right: 5,
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: "#dc2626",
+            }}
+          />
+        </button>
+      )}
 
-      {/* Search icon */}
-      <button
-        type="button"
-        aria-label="Recherche"
-        title="Rechercher"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "none",
-          border: "none",
-          color: "#6b7280",
-          cursor: "pointer",
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      </button>
+      {/* Search element: text input box or compact button */}
+      {showSearchInput ? (
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+          <svg style={{ position: "absolute", left: 12, color: "#9ca3af", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            style={{
+              padding: "6px 14px 6px 34px",
+              borderRadius: 9999,
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              fontSize: 13,
+              color: "#111827",
+              outline: "none",
+              width: 170,
+            }}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          aria-label="Recherche"
+          title="Rechercher"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            background: "none",
+            border: "none",
+            color: "#6b7280",
+            cursor: "pointer",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </button>
+      )}
 
       {/* Cameroon flag circle */}
       <span
