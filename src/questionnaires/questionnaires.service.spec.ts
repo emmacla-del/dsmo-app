@@ -1497,15 +1497,22 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
   const QUARTER = '2026-T3';
 
   function buildMockPrisma(roundCampaignId: string | null): any {
+    const roundData = roundCampaignId ? {
+      id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+      quarterCode: QUARTER, campaignId: roundCampaignId,
+      campaign: { id: roundCampaignId, deadline: new Date(Date.now() + 86400000), extendedDeadline: null },
+    } : {
+      id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+      quarterCode: QUARTER, campaignId: null,
+      campaign: null,
+    };
     return {
       company: {
         findFirst: jest.fn().mockResolvedValue({ id: 'company-1', establishmentId: 'EST-1' }),
       },
       submissionRound: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
-          quarterCode: QUARTER, campaignId: roundCampaignId,
-        }),
+        findMany: jest.fn().mockResolvedValue(roundCampaignId ? [roundData] : []),
+        findFirst: jest.fn().mockResolvedValue(roundData),
       },
       onefopSubmission: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -1564,25 +1571,19 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     const result = await submit(service, 'b2-with-campaign');
 
     expect(result).toMatchObject({ success: true, submissionId: 'b2-with-campaign' });
-    expect(prisma.submissionRound.findFirst).toHaveBeenCalledWith({
-      where: { quarterCode: QUARTER, module: 'ONEFOP' },
-      select: { campaignId: true },
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          campaign: { connect: { id: 'campaign-1' } },
+          isLate: false,
+          effectiveDeadlineSnapshot: expect.any(Date),
+        }),
+      }),
+    );
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
+      where: { campaignId: 'campaign-1', companyId: 'company-1' },
+      data: { status: 'SUBMITTED', submittedAt: expect.any(Date) },
     });
-    expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
-      where: { submissionId: 'b2-with-campaign' },
-      data: { campaignId: 'campaign-1' },
-    });
-    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
-    const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
-    expect(args.where).toEqual({ campaignId: 'campaign-1', companyId: 'company-1' });
-    expect(args.data.status).toBe('SUBMITTED');
-    expect(args.data.submittedAt).toBeInstanceOf(Date);
-    // Both writes are queued into one array-form $transaction call.
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    const ops = prisma.$transaction.mock.calls[0][0];
-    expect(ops).toHaveLength(2);
-    expect(ops[0]).toBe(prisma.onefopSubmission.update.mock.results[0].value);
-    expect(ops[1]).toBe(prisma.campaignSubmission.updateMany.mock.results[0].value);
   });
 
   it('round lookup is scoped to the ONEFOP module', async () => {
@@ -1591,7 +1592,9 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
 
     await submit(service, 'b2-module-filter');
 
-    const lookups = prisma.submissionRound.findFirst.mock.calls
+    const lookups = (prisma.submissionRound.findMany.mock.calls.length
+      ? prisma.submissionRound.findMany.mock.calls
+      : prisma.submissionRound.findFirst.mock.calls)
       .map((c: any[]) => c[0])
       .filter((q: any) => q.where?.quarterCode === QUARTER);
     expect(lookups).toHaveLength(1);
@@ -1621,15 +1624,21 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     await expect(prisma.campaignSubmission.updateMany.mock.results[0].value).resolves.toEqual({ count: 1 });
   });
 
-  it('round with campaignId null: does nothing to CampaignSubmission or OnefopSubmission.campaignId', async () => {
+  it('round with campaignId null: does nothing to CampaignSubmission and keeps OnefopSubmission.campaign undefined', async () => {
     const prisma = buildMockPrisma(null);
     const service = new QuestionnairesService(prisma);
 
     const result = await submit(service, 'b2-no-campaign');
 
     expect(result).toMatchObject({ success: true, submissionId: 'b2-no-campaign' });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          campaign: undefined,
+          isLate: false,
+        }),
+      }),
+    );
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
 
@@ -1649,10 +1658,10 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('a rejected campaign-progress transaction does not fail the submission (logged at error level with the stack)', async () => {
+  it('a failing campaign-progress update does not fail the submission (logged at error level with the stack)', async () => {
     const prisma = buildMockPrisma('campaign-1');
     const boom = new Error('connection reset');
-    prisma.$transaction.mockRejectedValue(boom);
+    prisma.campaignSubmission.updateMany.mockRejectedValue(boom);
     const service = new QuestionnairesService(prisma);
     const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
@@ -1664,22 +1673,79 @@ describe('QuestionnairesService — campaign progress on ONEFOP submit (B2)', ()
       message: 'Formulaire soumis avec succès',
       data: undefined,
     });
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy.mock.calls[0][0]).toContain('b2-update-throws');
     expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
   });
 
-  it('draft: never touches CampaignSubmission', async () => {
+  it('draft: syncs CampaignSubmission to IN_PROGRESS and sets isLate = false', async () => {
     const prisma = buildMockPrisma('campaign-1');
     const service = new QuestionnairesService(prisma);
 
     const result = await submit(service, 'b2-draft', true);
 
     expect(result).toMatchObject({ success: true, submissionId: 'b2-draft' });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
-    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'DRAFT',
+          campaign: { connect: { id: 'campaign-1' } },
+          isLate: false,
+        }),
+      }),
+    );
+    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
+      where: { campaignId: 'campaign-1', companyId: 'company-1' },
+      data: { status: 'IN_PROGRESS' },
+    });
+  });
+
+  it('detects lateness when submitting after the effective deadline', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    const pastDeadline = new Date('2026-09-01T10:00:00.000Z');
+    prisma.submissionRound.findMany.mockResolvedValue([{
+      id: 'round-1', status: 'OPEN', deadline: pastDeadline,
+      quarterCode: QUARTER, campaignId: 'campaign-1',
+      campaign: { id: 'campaign-1', deadline: pastDeadline, extendedDeadline: null },
+    }]);
+    const service = new QuestionnairesService(prisma);
+
+    const result = await submit(service, 'b2-late');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-late' });
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          campaign: { connect: { id: 'campaign-1' } },
+          isLate: true,
+          effectiveDeadlineSnapshot: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('none or ambiguous rounds: sets campaignId = null and logs warning without failing', async () => {
+    const prisma = buildMockPrisma('campaign-1');
+    prisma.submissionRound.findMany.mockResolvedValue([
+      { id: 'r1', quarterCode: QUARTER, campaignId: 'c1' },
+      { id: 'r2', quarterCode: QUARTER, campaignId: 'c2' },
+    ]);
+    const service = new QuestionnairesService(prisma);
+    const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+
+    const result = await submit(service, 'b2-ambiguous');
+
+    expect(result).toMatchObject({ success: true, submissionId: 'b2-ambiguous' });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Ambiguous ONEFOP SubmissionRounds'));
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          campaign: undefined,
+          isLate: false,
+        }),
+      }),
+    );
   });
 });
 
@@ -1722,27 +1788,27 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
 
   });
 
-  it('reject: CampaignSubmission -> PENDING, submittedAt = null', async () => {
+  it('reject: CampaignSubmission -> NOT_STARTED, submittedAt = null', async () => {
     const prisma = buildPrisma(linked);
     const result = await buildService(prisma).reject('sub-1', 'Motif de rejet suffisamment long', 'admin-1');
 
     expect(result.status).toBe('REJECTED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
       where: { campaignId: 'camp-1', companyId: 'co-1' },
-      data: { status: 'PENDING', submittedAt: null },
+      data: { status: 'NOT_STARTED', submittedAt: null },
     });
     expect(prisma.onefopSubmission.update.mock.invocationCallOrder[0])
       .toBeLessThan(prisma.campaignSubmission.updateMany.mock.invocationCallOrder[0]);
   });
 
-  it('request-correction: CampaignSubmission -> PENDING, submittedAt = null', async () => {
+  it('request-correction: CampaignSubmission -> IN_PROGRESS, submittedAt = null', async () => {
     const prisma = buildPrisma(linked);
     const result = await buildService(prisma).requestCorrection('sub-1', 'Veuillez préciser le secteur.', true, 'admin-1');
 
     expect(result.status).toBe('CORRECTION_REQUESTED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
       where: { campaignId: 'camp-1', companyId: 'co-1' },
-      data: { status: 'PENDING', submittedAt: null },
+      data: { status: 'IN_PROGRESS', submittedAt: null },
     });
   });
 

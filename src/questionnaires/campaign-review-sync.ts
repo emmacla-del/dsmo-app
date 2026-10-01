@@ -7,7 +7,10 @@ import { Logger } from '@nestjs/common';
  * OnefopSubmission status, the matching CampaignSubmission row
  * (same campaignId, companyId) follows:
  *   approve / bulk visa                    -> VALIDATED (submittedAt unchanged)
- *   reject / bulk reject / request-correction -> PENDING  (submittedAt = null)
+ *   reject / bulk reject                   -> NOT_STARTED (submittedAt = null)
+ *   request-correction                     -> IN_PROGRESS (submittedAt = null)
+ *   submit                                 -> SUBMITTED (submittedAt = now)
+ *   draft                                  -> IN_PROGRESS (submittedAt = null)
  *
  * No campaignId (submitted before B2, or no campaign round) or no companyId:
  * nothing to do. companyId is required because updateMany with
@@ -16,7 +19,7 @@ import { Logger } from '@nestjs/common';
  * Best-effort, like B2: the review is already written, so a failure is
  * logged at error level and never rethrown.
  */
-export type CampaignReviewStatus = 'VALIDATED' | 'PENDING';
+export type CampaignReviewStatus = 'VALIDATED' | 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED';
 
 export async function syncCampaignSubmissionOnReview(
   prisma: any,
@@ -28,7 +31,11 @@ export async function syncCampaignSubmissionOnReview(
   try {
     await prisma.campaignSubmission.updateMany({
       where: { campaignId: submission.campaignId, companyId: submission.companyId },
-      data: status === 'VALIDATED' ? { status } : { status, submittedAt: null },
+      data: status === 'VALIDATED'
+        ? { status }
+        : status === 'SUBMITTED'
+          ? { status, submittedAt: new Date() }
+          : { status, submittedAt: null },
     });
   } catch (err: any) {
     logger.error(

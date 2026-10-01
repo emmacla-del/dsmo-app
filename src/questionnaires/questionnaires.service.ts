@@ -27,6 +27,7 @@ import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-sc
 import { Territory, territoryWhere } from '../auth/territory';
 import { AdminListFilters, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
+import { computeDoualaEndOfDay } from './douala-deadline';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 
@@ -1241,6 +1242,72 @@ export class QuestionnairesService {
     // which would drift wrong for anything filed after its period ends.
     const resolvedQuarterCode = dto.quarterCode ?? this.getCurrentQuarter();
 
+    // Campaign resolution and effective deadline calculation:
+    // SubmissionRound(quarterCode, module ONEFOP) -> campaignId;
+    // null + logger.warn when none or ambiguous; never fail submission for this.
+    let resolvedCampaignId: string | null = null;
+    let resolvedEffectiveDeadline: Date | null = null;
+    let resolvedIsLate = false;
+
+    try {
+      const rounds = this.prisma.submissionRound.findMany
+        ? await this.prisma.submissionRound.findMany({
+            where: { quarterCode: resolvedQuarterCode, module: 'ONEFOP' },
+            include: {
+              campaign: {
+                select: {
+                  id: true,
+                  deadline: true,
+                  extendedDeadline: true,
+                },
+              },
+            },
+          })
+        : [await this.prisma.submissionRound.findFirst({
+            where: { quarterCode: resolvedQuarterCode, module: 'ONEFOP' },
+            include: {
+              campaign: {
+                select: {
+                  id: true,
+                  deadline: true,
+                  extendedDeadline: true,
+                },
+              },
+            },
+          })].filter(Boolean);
+
+      if (!rounds || rounds.length === 0) {
+        this.logger.warn(
+          `No ONEFOP SubmissionRound found for quarterCode "${resolvedQuarterCode}". Campaign resolution set to null.`,
+        );
+      } else if (rounds.length > 1) {
+        this.logger.warn(
+          `Ambiguous ONEFOP SubmissionRounds (${rounds.length}) found for quarterCode "${resolvedQuarterCode}". Campaign resolution set to null.`,
+        );
+      } else {
+        const round = rounds[0];
+        if (round.campaignId) {
+          resolvedCampaignId = round.campaignId;
+        } else {
+          this.logger.warn(
+            `ONEFOP SubmissionRound "${resolvedQuarterCode}" has no linked campaign. Campaign resolution set to null.`,
+          );
+        }
+
+        const rawDeadline = round.campaign?.extendedDeadline ?? round.campaign?.deadline ?? round.deadline;
+        if (rawDeadline) {
+          resolvedEffectiveDeadline = computeDoualaEndOfDay(new Date(rawDeadline));
+          if (!isDraft) {
+            resolvedIsLate = new Date().getTime() > resolvedEffectiveDeadline.getTime();
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to resolve campaign or deadline for quarterCode "${resolvedQuarterCode}": ${err?.message}`,
+      );
+    }
+
     // Finding #3: a company can't have two live (non-draft) submissions
     // for the same quarter. "Live" = PENDING_REVIEW or APPROVED — DRAFT
     // rows are excluded (this whole block is skipped for isDraft below),
@@ -1283,6 +1350,9 @@ export class QuestionnairesService {
           submissionDate: new Date(),
           establishmentId: resolvedEstablishmentId,
           quarterCode: resolvedQuarterCode,
+          campaign: resolvedCampaignId ? { connect: { id: resolvedCampaignId } } : undefined,
+          isLate: resolvedIsLate,
+          effectiveDeadlineSnapshot: resolvedEffectiveDeadline,
           region: geoRegion,
           department: geoDept,
           subdivision: geoSubdiv,
@@ -1385,44 +1455,21 @@ export class QuestionnairesService {
       throw err;
     }
 
-    // Campaign progress, phase B2 (docs/deferred.md, "CampaignSubmission is
-    // never updated"). A final submission is attributed to the campaign whose
-    // SubmissionRound carries this quarterCode, and that campaign's
-    // CampaignSubmission row for the company moves to SUBMITTED. Drafts are
-    // never counted. No round, a round without a campaign, or no
-    // CampaignSubmission row for this company (not targeted at activation)
-    // is skipped silently — a row is never created here. Best-effort: the
-    // OnefopSubmission is already saved, so a failure is logged, not thrown.
-    if (!isDraft) {
+    // Campaign progress sync:
+    // DRAFT -> IN_PROGRESS, PENDING_REVIEW -> SUBMITTED (with submittedAt).
+    // Best-effort: the OnefopSubmission is already saved, so a failure is logged, not thrown.
+    if (resolvedCampaignId && resolvedCompanyId) {
       try {
-        const round = await this.prisma.submissionRound.findFirst({
-          // module filter: a ONEFOP submit must never mark progress on a DSMO campaign's round.
-          where: { quarterCode: resolvedQuarterCode, module: 'ONEFOP' },
-          select: { campaignId: true },
+        await this.prisma.campaignSubmission.updateMany({
+          where: { campaignId: resolvedCampaignId, companyId: resolvedCompanyId },
+          data: isDraft
+            ? { status: 'IN_PROGRESS' }
+            : { status: 'SUBMITTED', submittedAt: new Date() },
         });
-        if (round?.campaignId) {
-          // One transaction: both writes apply or neither does. updateMany
-          // (not update) so a missing CampaignSubmission row updates nothing
-          // and the transaction still commits.
-          await this.prisma.$transaction([
-            this.prisma.onefopSubmission.update({
-              where: { submissionId: result.submissionId },
-              data: { campaignId: round.campaignId },
-            }),
-            // No status condition, deliberately: EXEMPT becomes SUBMITTED too.
-            // Exemption reflects whether the establishment was required to
-            // submit, not whether a submission counts. Nothing in src/
-            // creates EXEMPT rows today.
-            this.prisma.campaignSubmission.updateMany({
-              where: { campaignId: round.campaignId, companyId: resolvedCompanyId },
-              data: { status: 'SUBMITTED', submittedAt: new Date() },
-            }),
-          ]);
-        }
       } catch (err: any) {
         this.logger.error(
           `Campaign progress update failed for ONEFOP submission ${result.submissionId} ` +
-          `(company ${resolvedCompanyId}, quarter ${resolvedQuarterCode})`,
+          `(company ${resolvedCompanyId}, campaign ${resolvedCampaignId})`,
           err?.stack,
         );
       }
@@ -3116,7 +3163,7 @@ export class QuestionnairesService {
     }
     const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the rejection.
-    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'PENDING');
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'NOT_STARTED');
     return updated;
   }
 
@@ -3144,7 +3191,7 @@ export class QuestionnairesService {
     }
     const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'CORRECTION_REQUESTED', rejectionReason: comments, reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the correction request.
-    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'PENDING');
+    await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
     return updated;
   }
 
