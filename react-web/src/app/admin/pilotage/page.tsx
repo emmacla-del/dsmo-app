@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
 import type { Campaign } from "@/lib/campaigns";
-import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
 
@@ -51,6 +50,13 @@ function fmtStamp(dateStr: string) {
   return new Intl.DateTimeFormat("fr-FR", sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" }).format(d);
 }
 
+function computeDaysLeft(deadlineStr?: string | null): number | null {
+  if (!deadlineStr) return null;
+  const targetTime = new Date(deadlineStr).getTime();
+  if (Number.isNaN(targetTime)) return null;
+  return Math.max(0, Math.ceil((targetTime - Date.now()) / (1000 * 60 * 60 * 24)));
+}
+
 // ── Sections ────────────────────────────────────────────────────────────────
 
 function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "green"; children: string }) {
@@ -62,10 +68,45 @@ function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "gree
 }
 
 function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; totalSubmissions: number }) {
-  const daysLeft = 47;
-  const target = 12500;
-  const currentCount = 9842;
-  const completionPct = 78.3;
+  const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
+  const daysLeft = computeDaysLeft(deadlineStr);
+
+  if (!campaign) {
+    return (
+      <section className="cam-dash-card" aria-labelledby="dash-campaign-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
+        <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div className="cam-dash-card-title-row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h3 id="dash-campaign-title" style={{ fontSize: 16, fontWeight: 700, color: "#374151", margin: 0 }}>
+                Campagne de Collecte
+              </h3>
+              <span style={{ fontSize: 11, fontWeight: 600, background: "#f3f4f6", color: "#6b7280", padding: "2px 8px", borderRadius: 9999 }}>
+                Inactive
+              </span>
+            </div>
+            <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
+              Aucune campagne de collecte active actuellement.
+            </p>
+          </div>
+          <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
+            Gérer les campagnes →
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  const target = campaign.progress?.total ?? null;
+  const submittedCount = campaign.progress?.submitted ?? totalSubmissions;
+  const completionPct = target && target > 0
+    ? Math.round((submittedCount / target) * 100)
+    : null;
+
+  const dateRange = campaign.startDate && deadlineStr
+    ? `${fmtDate(campaign.startDate)} — ${fmtDate(deadlineStr)}`
+    : campaign.startDate
+      ? `Depuis le ${fmtDate(campaign.startDate)}`
+      : "—";
 
   return (
     <section className="cam-dash-card" aria-labelledby="dash-campaign-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
@@ -73,14 +114,14 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
         <div>
           <div className="cam-dash-card-title-row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <h3 id="dash-campaign-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>
-              {campaign?.name || "Campagne de Collecte 2026-T1"}
+              {campaign.name || campaign.code}
             </h3>
             <span style={{ fontSize: 11, fontWeight: 600, background: "#ecfdf5", color: "#059669", padding: "2px 8px", borderRadius: 9999 }}>
-              Actif
+              {campaign.status === "ACTIVE" ? "Actif" : campaign.status}
             </span>
           </div>
           <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>
-            01 Septembre — 31 Décembre 2026
+            {dateRange}
           </p>
         </div>
         <Link href="/admin/campagnes" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
@@ -90,26 +131,32 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
 
       <div style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Taux d&apos;achèvement de la cible nationale</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#1e6b3a" }}>{completionPct}%</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Taux de couverture des entreprises ciblées</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#1e6b3a" }}>
+            {completionPct !== null ? `${completionPct}%` : "—"}
+          </span>
         </div>
         <div style={{ height: 8, borderRadius: 4, background: "#e5e7eb", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${completionPct}%`, background: "#1e6b3a", borderRadius: 4 }} />
+          <div style={{ height: "100%", width: `${completionPct ?? 0}%`, background: "#1e6b3a", borderRadius: 4 }} />
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 20, paddingTop: 16, borderTop: "1px solid #f3f4f6" }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Temps restant</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>{daysLeft} jours restants</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>
+            {daysLeft !== null ? `${daysLeft} jours restants` : "—"}
+          </div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Soumissions cibles</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>{fmt(currentCount)} / {fmt(target)} déclarations</div>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Entreprises ciblées</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>
+            {target !== null ? `${fmt(target)} entreprises` : "—"}
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Agents de collecte</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>342 agents actifs</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>—</div>
         </div>
       </div>
     </section>
@@ -117,15 +164,6 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
 }
 
 function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] }) {
-  const figmaRows = [
-    { name: "Littoral", count: 2746, completion: "86%", qc: "94%", anomalies: "3.1%", compColor: "#1e6b3a", anomColor: "#1e6b3a" },
-    { name: "Centre", count: 2184, completion: "82%", qc: "91%", anomalies: "4.2%", compColor: "#1e6b3a", anomColor: "#1e6b3a" },
-    { name: "Ouest", count: 1834, completion: "79%", qc: "89%", anomalies: "5.3%", compColor: "#f59e0b", anomColor: "#1e6b3a" },
-    { name: "Sud-Ouest", count: 1482, completion: "71%", qc: "88%", anomalies: "7.4%", compColor: "#f59e0b", anomColor: "#1e6b3a" },
-    { name: "Nord", count: 1214, completion: "68%", qc: "84%", anomalies: "8.1%", compColor: "#f59e0b", anomColor: "#dc2626" },
-    { name: "Extrême-Nord", count: 1087, completion: "63%", qc: "81%", anomalies: "9.2%", compColor: "#f59e0b", anomColor: "#dc2626" },
-  ];
-
   return (
     <section className="cam-dash-card" aria-labelledby="dash-regions-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -144,13 +182,13 @@ function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] })
             </tr>
           </thead>
           <tbody>
-            {figmaRows.map((r) => (
+            {rows.map((r) => (
               <tr key={r.name} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
                 <th scope="row" style={{ padding: "10px 12px", fontWeight: 600, color: "#111827", textAlign: "left" }}>{r.name}</th>
                 <td className="is-num" style={{ padding: "10px 12px", textAlign: "right", color: "#111827" }}>{fmt(r.count)}</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: r.compColor }}>{r.completion}</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", color: "#4b5563" }}>{r.qc}</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: r.anomColor }}>{r.anomalies}</td>
+                <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>—</td>
+                <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>—</td>
+                <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>—</td>
               </tr>
             ))}
           </tbody>
@@ -160,64 +198,68 @@ function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] })
   );
 }
 
-const FIGMA_RECENT_ACTIVITY = [
-  { time: "09:42", dot: "#1e6b3a", title: "SABC S.A.", action: "Déclaration soumise", region: "Littoral", id: "ENT-2026-04521" },
-  { time: "09:37", dot: "#dc2626", title: "Agent Ndongo", action: "Déclaration retournée pour correction", region: "Centre", id: "ADM-2026-01042" },
-  { time: "09:31", dot: "#1e6b3a", title: "Coop. Cacaoyère du Sud", action: "Inscription vérifiée", region: "Sud", id: "COP-2026-00214" },
-  { time: "09:15", dot: "#2563eb", title: "M. Ewane", action: "Visa en lot (3 dossiers)", region: "National", id: "bulk-visa" },
-  { time: "08:58", dot: "#f59e0b", title: "GIC Espoir", action: "Documents complémentaires soumis", region: "Nord-Ouest", id: "PRJ-2026-00895" },
-  { time: "08:42", dot: "#2563eb", title: "Export SPSS", action: "Campagne 2025-T4 téléchargé", region: "National", id: "export-spss" },
-  { time: "08:30", dot: "#1e6b3a", title: "Nexttel Cameroun", action: "Déclaration validée", region: "Centre", id: "ENT-2026-04522" },
-];
+interface ActivitySubmissionItem {
+  id?: string;
+  adminStatus?: string;
+  status?: string;
+  region?: string;
+  companyName?: string;
+  submittedAt?: string;
+  createdAt?: string;
+  rawData?: { enterprise?: { region?: string; companyName?: string } };
+}
 
-function RecentActivity({ items, isLoading }: { items: any[]; isLoading: boolean }) {
-  const displayItems = items.length > 0 ? items.map((s) => {
-    const meta = STATUS_META[s.adminStatus || s.status || "PENDING_REVIEW"] ?? STATUS_META.PENDING_REVIEW;
-    const region = s.region || s.rawData?.enterprise?.region || "National";
-    const name = s.companyName || s.rawData?.enterprise?.companyName || `Fiche #${s.id?.slice(0, 8)}`;
-    return {
-      time: fmtStamp(s.submittedAt || s.createdAt || new Date().toISOString()),
-      dot: meta.color,
-      title: name,
-      action: meta.label,
-      region,
-      id: s.id,
-    };
-  }) : FIGMA_RECENT_ACTIVITY;
-
+function RecentActivity({ items, isLoading }: { items: ActivitySubmissionItem[]; isLoading: boolean }) {
   return (
     <section className="cam-dash-card" id="activity" aria-labelledby="dash-activity-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h3 id="dash-activity-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Activité Récente</h3>
         <Link href="/admin/journal-audit" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir tout le journal →</Link>
       </div>
-      <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-        {displayItems.map((item, idx) => (
-          <li key={idx} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-            <span style={{ color: "#6b7280", fontSize: 12, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>{item.time}</span>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.dot, flexShrink: 0 }} aria-hidden="true" />
-            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#111827" }}>
-              <strong>{item.title}</strong> — <span style={{ color: "#4b5563" }}>{item.action}</span>
-            </span>
-            {item.region && (
-              <span style={{ fontSize: 11, background: "#f3f4f6", padding: "2px 8px", borderRadius: 4, color: "#4b5563", flexShrink: 0, fontWeight: 500 }}>
-                {item.region}
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
+      {isLoading ? (
+        <div style={{ padding: "24px 0", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
+          Chargement de l&apos;activité...
+        </div>
+      ) : items.length === 0 ? (
+        <div style={{ padding: "24px 0", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
+          Aucune activité récente enregistrée.
+        </div>
+      ) : (
+        <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          {items.map((s, idx) => {
+            const meta = STATUS_META[s.adminStatus || s.status || "PENDING_REVIEW"] ?? STATUS_META.PENDING_REVIEW;
+            const region = s.region || s.rawData?.enterprise?.region || null;
+            const name = s.companyName || s.rawData?.enterprise?.companyName || `Fiche #${s.id?.slice(0, 8)}`;
+            return (
+              <li key={s.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                <span style={{ color: "#6b7280", fontSize: 12, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
+                  {fmtStamp(s.submittedAt || s.createdAt || new Date().toISOString())}
+                </span>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} aria-hidden="true" />
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#111827" }}>
+                  <strong>{name}</strong> — <span style={{ color: "#4b5563" }}>{meta.label}</span>
+                </span>
+                {region && (
+                  <span style={{ fontSize: 11, background: "#f3f4f6", padding: "2px 8px", borderRadius: 4, color: "#4b5563", flexShrink: 0, fontWeight: 500 }}>
+                    {region}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
   );
 }
 
-function DataQuality({ eligibilityPct, hasData }: { eligibilityPct: number; hasData: boolean }) {
+function DataQuality({ eligibilityPct }: { eligibilityPct: number | null }) {
   const metrics = [
-    { label: "Complétude", value: 94.2, color: "#1e6b3a" },
-    { label: "Cohérence", value: 91.7, color: "#1e6b3a" },
-    { label: "Anomalies", value: 4.8, color: "#f59e0b" },
-    { label: "Avertissements", value: 8.2, color: "#f59e0b" },
-    { label: "Éligibilité statistique", value: hasData ? eligibilityPct : 87.5, color: "#1e6b3a" },
+    { label: "Complétude", value: null },
+    { label: "Cohérence", value: null },
+    { label: "Anomalies", value: null },
+    { label: "Avertissements", value: null },
+    { label: "Éligibilité statistique", value: eligibilityPct },
   ];
 
   return (
@@ -231,10 +273,12 @@ function DataQuality({ eligibilityPct, hasData }: { eligibilityPct: number; hasD
           <div key={m.label}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
               <span style={{ color: "#374151", fontWeight: 500 }}>{m.label}</span>
-              <strong style={{ color: m.color, fontWeight: 700 }}>{m.value}%</strong>
+              <strong style={{ color: m.value !== null ? "#1e6b3a" : "#6b7280", fontWeight: 700 }}>
+                {m.value !== null ? `${m.value}%` : "—"}
+              </strong>
             </div>
             <div style={{ height: 6, borderRadius: 3, background: "#f3f4f6", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${m.value}%`, background: m.color, borderRadius: 3 }} />
+              <div style={{ height: "100%", width: `${m.value ?? 0}%`, background: "#1e6b3a", borderRadius: 3 }} />
             </div>
           </div>
         ))}
@@ -264,7 +308,7 @@ export default function PilotagePage() {
     refetchInterval: 30000,
   });
 
-  const { canReadCampaigns, activeCampaign, isLoading: campaignLoading } = useActiveCampaign();
+  const { activeCampaign } = useActiveCampaign();
 
   const queues = queuesQuery.data ?? {
     totalSubmissionsCount: 0,
@@ -283,37 +327,36 @@ export default function PilotagePage() {
 
   const totalSubmissions = queues.totalSubmissionsCount > 0
     ? queues.totalSubmissionsCount
-    : (stats ? (stats.totalOnefopSubmissions + stats.totalDeclarations) || 12847 : 12847);
+    : (stats ? (stats.totalOnefopSubmissions ?? 0) + (stats.totalDeclarations ?? 0) : 0);
 
   const eligibilityPct = queues.totalSubmissionsCount > 0
     ? Math.round((queues.statisticallyReadyCount / queues.totalSubmissionsCount) * 100)
-    : 87.5;
+    : null;
 
-  const defaultRegional = [
-    { name: "Littoral", count: 2746 },
-    { name: "Centre", count: 2184 },
-    { name: "Ouest", count: 1834 },
-    { name: "Sud-Ouest", count: 1482 },
-    { name: "Nord", count: 1214 },
-    { name: "Extrême-Nord", count: 1087 },
-  ];
-
-  const regionalData = defaultRegional;
+  const regionalData = CAMEROON_REGIONS.map((regionName) => {
+    const match = queues.regionCounts.find(
+      (rc) => rc.region?.trim().toLowerCase() === regionName.toLowerCase()
+    );
+    return {
+      name: regionName,
+      count: match?.count ?? 0,
+    };
+  });
 
   const statusCounts = {
-    approved: queues.approvedCount || 6983,
-    pending: queues.statusCounts.PENDING_REVIEW || 2156,
-    correction: queues.statusCounts.CORRECTION_REQUESTED || 7,
-    rejected: queues.statusCounts.REJECTED || 12,
+    approved: queues.approvedCount ?? 0,
+    pending: queues.statusCounts?.PENDING_REVIEW ?? 0,
+    correction: queues.statusCounts?.CORRECTION_REQUESTED ?? 0,
+    rejected: queues.statusCounts?.REJECTED ?? 0,
   };
 
   const recentActivity = recentQuery.data?.items ?? [];
 
-  // 6-stage pipeline exactly matching Figma dashboard.png
-  const totalInscriptions = stats?.totalCompanies ?? 1847;
-  const regionalCount = queues.pendingRegionalVisasCount > 0 ? queues.pendingRegionalVisasCount : 2156;
-  const nationalCount = queues.pendingNationalVisasCount > 0 ? queues.pendingNationalVisasCount : 517;
-  const readyCount = queues.statisticallyReadyCount > 0 ? queues.statisticallyReadyCount : 6812;
+  // 6-stage pipeline: real values from DB stats & queues
+  const totalInscriptions = stats?.totalCompanies ?? 0;
+  const regionalCount = queues.pendingRegionalVisasCount ?? 0;
+  const nationalCount = queues.pendingNationalVisasCount ?? 0;
+  const readyCount = queues.statisticallyReadyCount ?? 0;
 
   const pipeline = [
     { label: "Inscriptions", value: totalInscriptions, highlighted: false },
@@ -324,11 +367,11 @@ export default function PilotagePage() {
     { label: "Exportables", value: readyCount, highlighted: false },
   ];
 
-  // 4 "À TRAITER" tiles matching Figma
-  const inscriptionsPending = stats?.totalCompanies ? Math.max(1, Math.round(stats.totalCompanies * 0.04)) : 12;
-  const declarationsReview = (queues.pendingNationalVisasCount + queues.pendingRegionalVisasCount) || 38;
-  const correctionsCount = queues.correctionsUnderReviewCount || 7;
-  const anomaliesCount = queues.blockingAnomaliesCount || 4;
+  // 4 "À TRAITER" tiles: null renders "—" when no dedicated metric exists yet
+  const inscriptionsPending = null;
+  const declarationsReview = queuesQuery.data ? queues.pendingNationalVisasCount + queues.pendingRegionalVisasCount : null;
+  const correctionsCount = queuesQuery.data ? queues.correctionsUnderReviewCount : null;
+  const anomaliesCount = queuesQuery.data ? queues.blockingAnomaliesCount : null;
 
   return (
     <div className="cam-admin-page">
@@ -447,7 +490,7 @@ export default function PilotagePage() {
 
         <div className="cam-dash-column">
           <RecentActivity items={recentActivity} isLoading={recentQuery.isLoading} />
-          <DataQuality eligibilityPct={eligibilityPct} hasData={totalSubmissions > 0} />
+          <DataQuality eligibilityPct={eligibilityPct} />
         </div>
       </div>
     </div>
