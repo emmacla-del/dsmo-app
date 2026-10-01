@@ -37,6 +37,15 @@ const fs = require('fs');
     await page.waitForTimeout(1000);
     await page.screenshot({ path: 'docs/screenshots/dossiers.png', fullPage: true });
     console.log('Saved docs/screenshots/dossiers.png');
+
+    // Click Viser la sélection to open Bulk Visa confirmation modal matching Figma
+    const bulkVisaBtn = page.getByRole('button', { name: /Viser la sélection/i });
+    if (await bulkVisaBtn.count() > 0) {
+      await bulkVisaBtn.first().click();
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: 'docs/screenshots/bulk_visa_modal.png' });
+      console.log('Saved docs/screenshots/bulk_visa_modal.png');
+    }
   } catch (err) {
     console.error('Dossiers error:', err.message);
   }

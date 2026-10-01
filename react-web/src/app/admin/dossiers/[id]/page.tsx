@@ -462,6 +462,7 @@ function SubmissionDetailContent() {
           padding: "18px 24px",
           background: "#ffffff",
           border: "1px solid #e5e7eb",
+          borderLeft: "4px solid #f59e0b",
           borderRadius: 8,
           marginBottom: 20,
         }}

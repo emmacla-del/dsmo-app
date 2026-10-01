@@ -78,7 +78,7 @@ export function AdminHeaderActions() {
           flexShrink: 0,
         }}
       >
-        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+        <span className="cam-admin-campaign-pill-dot" aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {campaignName}
         </span>

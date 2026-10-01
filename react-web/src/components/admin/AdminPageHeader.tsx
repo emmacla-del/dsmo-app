@@ -178,6 +178,8 @@ export interface AdminPageHeaderProps {
   statusBadge?: { label: string; variant: StatusVariant };
   /** Back-navigation href (detail pages — renders ← arrow left of title) */
   backHref?: string;
+  /** Optional content placed between breadcrumb and title (e.g. subnav pills matching Figma) */
+  beforeTitle?: ReactNode;
   /** Right-hand actions (buttons, chips, etc.) */
   actions?: ReactNode;
   /** Explicit tabs to render. If omitted and hideTabs is false, active hub sub-routes are used */
@@ -195,6 +197,7 @@ export interface AdminPageHeaderProps {
  */
 export function AdminPageHeader({
   breadcrumb,
+  beforeTitle,
   title,
   subtitle,
   statusBadge,
@@ -221,6 +224,7 @@ export function AdminPageHeader({
       {/* ── Left: breadcrumb + title row + subtitle ── */}
       <div style={{ minWidth: 0, flex: 1 }}>
         {breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
+        {beforeTitle && <div style={{ marginBottom: 12, marginTop: 4 }}>{beforeTitle}</div>}
 
         <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)", flexWrap: "wrap" }}>
           {backHref && (

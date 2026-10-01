@@ -443,11 +443,13 @@
   white-space: nowrap;
 }
 
-.cam-admin-campaign-pill > span {
+.cam-admin-campaign-pill > .cam-admin-campaign-pill-dot,
+.cam-admin-campaign-pill > span:first-child:empty {
   width: 6px;
   height: 6px;
   border-radius: var(--cam-radius-full);
   background: var(--cam-flag-yellow);
+  flex-shrink: 0;
 }
 
 .cam-admin-scope {
@@ -2000,7 +2002,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
 
 /* Chevron between stages */
 .cam-dash-pipeline li + li::before {
-  content: "›";
+  content: ">";
   position: absolute;
   left: -14px;
   top: 50%;
