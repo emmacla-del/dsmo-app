@@ -14,22 +14,26 @@ export function TargetGrid({
   regions,
   drafts,
   onDraftChange,
+  onClearRegion,
   centralInput,
   onCentralChange,
   showCentral,
   canWrite,
   expanded,
   onToggle,
+  hasUnsavedChanges,
 }: {
   regions: NormalizedRegion[];
   drafts: Record<string, RegionDraft>;
   onDraftChange: (regionId: string, draft: RegionDraft) => void;
+  onClearRegion: (regionId: string) => void;
   centralInput: string;
   onCentralChange: (value: string) => void;
   showCentral: boolean;
   canWrite: boolean;
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
+  hasUnsavedChanges?: boolean;
 }) {
   if (regions.length === 0) {
     return (
@@ -51,7 +55,7 @@ export function TargetGrid({
           {regions.map((region) => {
             const draft = drafts[region.regionId];
             const open = expanded.has(region.regionId);
-            const mixedLocked = canWrite && region.mode === "MIXED" && draft?.mode == null;
+            const mixedLocked = canWrite && region.mode === "MIXED" && draft?.mode == null && !draft?.clear;
             return (
               <RegionBlock
                 key={region.regionId}
@@ -62,6 +66,8 @@ export function TargetGrid({
                 mixedLocked={mixedLocked}
                 onToggle={() => onToggle(region.regionId)}
                 onDraftChange={(next) => onDraftChange(region.regionId, next)}
+                onClear={() => onClearRegion(region.regionId)}
+                hasUnsavedChanges={hasUnsavedChanges}
               />
             );
           })}
@@ -98,6 +104,8 @@ function RegionBlock({
   mixedLocked,
   onToggle,
   onDraftChange,
+  onClear,
+  hasUnsavedChanges,
 }: {
   region: NormalizedRegion;
   draft: RegionDraft | undefined;
@@ -106,19 +114,23 @@ function RegionBlock({
   mixedLocked: boolean;
   onToggle: () => void;
   onDraftChange: (draft: RegionDraft) => void;
+  onClear: () => void;
+  hasUnsavedChanges?: boolean;
 }) {
   const mode = draft?.mode ?? null;
   const liveSum = draft ? sumFilled(draft.departmentInputs) : null;
   const regionDisplay =
-    mode === "DEPARTMENT"
-      ? liveSum == null
-        ? "—"
-        : liveSum.toLocaleString("fr-FR")
-      : mode === "REGION"
-        ? null
-        : region.target == null
+    draft?.clear
+      ? "Non défini"
+      : mode === "DEPARTMENT"
+        ? liveSum == null
           ? "—"
-          : region.target.toLocaleString("fr-FR");
+          : liveSum.toLocaleString("fr-FR")
+        : mode === "REGION"
+          ? null
+          : region.target == null
+            ? "—"
+            : region.target.toLocaleString("fr-FR");
 
   return (
     <>
@@ -140,6 +152,7 @@ function RegionBlock({
                   const sum = sumFilled(draft.departmentInputs);
                   onDraftChange({
                     ...draft,
+                    clear: false,
                     mode: "REGION",
                     regionInput: sum != null ? String(sum) : draft.regionInput,
                     departmentInputs: Object.fromEntries(
@@ -160,7 +173,7 @@ function RegionBlock({
             <TargetInput
               ariaLabel={`Objectif régional ${region.name}`}
               value={draft?.regionInput ?? ""}
-              onChange={(value) => draft && onDraftChange({ ...draft, regionInput: value })}
+              onChange={(value) => draft && onDraftChange({ ...draft, clear: false, regionInput: value })}
             />
           ) : (
             <span>{regionDisplay}</span>
@@ -173,6 +186,28 @@ function RegionBlock({
             <div className="cam-admin-notice cam-admin-notice--warn">
               Cette région mélange un objectif régional et des objectifs départementaux. Choisissez un mode avant d&apos;enregistrer.
             </div>
+          </td>
+        </tr>
+      )}
+      {canWrite && region.mode !== "UNSET" && (
+        <tr className="cam-target-note">
+          <td colSpan={3}>
+            <span
+              title={
+                hasUnsavedChanges
+                  ? "Enregistrez ou annulez vos modifications avant d'effacer une région"
+                  : undefined
+              }
+            >
+              <button
+                type="button"
+                className="cam-button cam-button-danger cam-button-sm"
+                disabled={hasUnsavedChanges}
+                onClick={onClear}
+              >
+                Effacer les cibles de la région
+              </button>
+            </span>
           </td>
         </tr>
       )}
@@ -193,6 +228,7 @@ function RegionBlock({
                       if (!draft) return;
                       onDraftChange({
                         ...draft,
+                        clear: false,
                         departmentInputs: { ...draft.departmentInputs, [department.departmentId]: value },
                       });
                     }}

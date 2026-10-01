@@ -61,4 +61,15 @@ describe('PilotageController roles', () => {
       }
     }
   });
+
+  it('blocks REGIONAL and DIVISIONAL with 403 on a PUT with clear', async () => {
+    for (const role of [UserRole.REGIONAL, UserRole.DIVISIONAL]) {
+      await expect(
+        guard.canActivate(contextFor(PilotageController.prototype.putInscriptionTargets, role)),
+      ).resolves.toBe(false);
+      await expect(
+        guard.canActivate(contextFor(PilotageController.prototype.putCampaignQuotas, role)),
+      ).resolves.toBe(false);
+    }
+  });
 });
