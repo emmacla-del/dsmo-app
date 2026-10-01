@@ -380,7 +380,7 @@ export default function PilotagePage() {
             Dossiers en instance
           </Link>
           <Link
-            href="/admin/pilotage#activity"
+            href="/admin/activite"
             style={{
               display: "inline-flex",
               alignItems: "center",
