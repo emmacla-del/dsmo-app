@@ -657,11 +657,23 @@ export class QuestionnairesService {
     // and FINAL_REQUIRED_FIELDS.vocationalTraining now carries VT's own
     // required identification fields (see that map's comment for how the
     // list was derived), so the bypass is no longer needed for any entity.
+    // Commit 0.1b: Force Section 1 territory from Company record, ignoring payload territory.
+    const companyRegion = submittingCompany.region;
+    const companyDept = submittingCompany.department;
+    const companySubdiv = submittingCompany.subdivision;
+    const entityLower = toLowerEntityType(normalizedEntityType);
+    const entityPayload = (questionnaireData as any)[entityLower];
+    if (entityPayload && companyRegion && companyDept && companySubdiv) {
+      entityPayload.region = companyRegion;
+      entityPayload.department = companyDept;
+      entityPayload.subdivision = companySubdiv;
+    }
+
     if (!isDraft) {
       this.enforceFinalRequiredFields(
         questionnaireData,
         normalized as Record<string, unknown>,
-        toLowerEntityType(normalizedEntityType),
+        entityLower,
       );
     }
 
@@ -669,8 +681,19 @@ export class QuestionnairesService {
 
     // Resolve geo + sector IDs before transaction
     const entityForGeo = (questionnaireData as any);
-    const { region: geoRegion, department: geoDept, subdivision: geoSubdiv, sector: geoSector } =
-      this.resolveGeoFields(entityForGeo);
+    const { sector: payloadSector } = this.resolveGeoFields(entityForGeo);
+    const geoSector = payloadSector ?? submittingCompany.sectorId ?? null;
+
+    // 0.1b: OnefopSubmission territory strictly originates from Company record
+    const geoRegion = submittingCompany.region ?? this.resolveGeoFields(entityForGeo).region;
+    const geoDept = submittingCompany.department ?? this.resolveGeoFields(entityForGeo).department;
+    const geoSubdiv = submittingCompany.subdivision ?? this.resolveGeoFields(entityForGeo).subdivision;
+
+    let regionId = submittingCompany.regionId ?? null;
+    let departmentId = submittingCompany.departmentId ?? null;
+    let subdivisionId = submittingCompany.subdivisionId ?? null;
+    let sectorId = submittingCompany.sectorId ?? null;
+
     // Administration has no permanentWorkers/vacancies equivalent (its S1
     // asks about projects/supervised structures instead) — headline
     // worker/vacancy figures are correctly null for this entity type.
@@ -694,14 +717,19 @@ export class QuestionnairesService {
         ? this.checkVtCoherence(flat)
         : this.checkCoherence(flat, normalizedEntityType, headlineWorkers, headlineVacancies);
 
-    const { regionId, departmentId, subdivisionId, sectorId } =
-      await this.resolveGeoAndSector(
+    if (!regionId || !departmentId || !subdivisionId || !sectorId) {
+      const resolvedGeo = await this.resolveGeoAndSector(
         this.prisma,
         geoRegion,
         geoDept,
         geoSubdiv,
         geoSector,
       );
+      regionId = regionId ?? resolvedGeo.regionId;
+      departmentId = departmentId ?? resolvedGeo.departmentId;
+      subdivisionId = subdivisionId ?? resolvedGeo.subdivisionId;
+      sectorId = sectorId ?? resolvedGeo.sectorId;
+    }
 
     // Every child table below is written via a single nested Prisma `create`
     // call (one round trip to the query engine) instead of ~19 sequential

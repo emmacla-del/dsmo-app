@@ -1794,3 +1794,78 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     expect(errorSpy.mock.calls[0][1]).toBe(boom.stack);
   });
 });
+
+describe('QuestionnairesService — Section 1 territory sourcing (Commit 0.1b)', () => {
+  it('OnefopSubmission territory strictly takes values and FK references from the Company record, ignoring differing payload territory', async () => {
+    const prisma: any = {
+      company: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'company-lit-1',
+          establishmentId: 'EN26000100',
+          region: 'Littoral',
+          department: 'Wouri',
+          subdivision: 'Douala 1er',
+          regionId: 'reg-lit-id',
+          departmentId: 'dept-wou-id',
+          subdivisionId: 'sub-dla1-id',
+          sectorId: 'sec-ind-id',
+        }),
+      },
+      submissionRound: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'round-1',
+          status: 'OPEN',
+          deadline: new Date(Date.now() + 86400000),
+          quarterCode: '2026-T1',
+        }),
+      },
+      onefopSubmission: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({ submissionId: data.submissionId })),
+      },
+      subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
+      department: { findFirst: jest.fn().mockResolvedValue(null) },
+      region: { findFirst: jest.fn().mockResolvedValue(null) },
+      sector: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'form-geo-test-1',
+      userId: 'user-geo-1',
+      entityType: 'ENTERPRISE',
+      isDraft: true,
+      data: {
+        S0Q01: 'Directeur',
+        S0Q02: 'DG',
+        S0Q03_TEL1: '699000000',
+        S1Q01: 1,
+        S1Q02: 'Entreprise Test',
+        S1Q03: 1,
+        // Deliberately conflicting payload territory (e.g. user manually tampered or sent Centre)
+        S1Q04_REGION: 'Centre',
+        S1Q04_DEPT: 'Mfoundi',
+        S1Q04_SUBDIV: 'Yaoundé 1er',
+        S1Q04_LOCALITY: 'Centre Ville',
+        S1Q05_TEL1: '699000000',
+      },
+    } as any);
+
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledTimes(1);
+    const createData = prisma.onefopSubmission.create.mock.calls[0][0].data;
+
+    // Must match company canonical names, NOT the payload's Centre/Mfoundi/Yaoundé
+    expect(createData.region).toBe('Littoral');
+    expect(createData.department).toBe('Wouri');
+    expect(createData.subdivision).toBe('Douala 1er');
+
+    // Must connect to the company's foreign keys
+    expect(createData.regionRef).toEqual({ connect: { id: 'reg-lit-id' } });
+    expect(createData.departmentRef).toEqual({ connect: { id: 'dept-wou-id' } });
+    expect(createData.subdivisionRef).toEqual({ connect: { id: 'sub-dla1-id' } });
+  });
+});
+

@@ -12,6 +12,7 @@ class FieldSchema {
       label; // Human-readable label (e.g., "Combien de demandes d'emplois...")
   final List<LocalizedOption>? optionsI18n; // For radio/select
   final bool required; // Is field required?
+  final bool readOnly; // Is field read-only in UI?
   final LocalizedText? hint; // Helper text
   final String? paperCode; // Official PDF code
   final Map<String, dynamic>? tableSpec; // For table fields
@@ -37,6 +38,7 @@ class FieldSchema {
     this.label,
     this.optionsI18n,
     this.required = false,
+    this.readOnly = false,
     this.hint,
     this.paperCode,
     this.tableSpec,

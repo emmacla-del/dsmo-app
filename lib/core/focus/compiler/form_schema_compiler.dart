@@ -86,6 +86,7 @@ class FormSchemaCompiler {
               label: q.label,
               optionsI18n: q.options,
               required: q.requiredField,
+              readOnly: q.readOnly,
               hint: q.hint,
               paperCode: q.paperCode,
               tableSpec: q.tableSpec,

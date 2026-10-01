@@ -104,6 +104,9 @@ class FormQuestionAst {
   /// Is this field required?
   final bool requiredField;
 
+  /// Is this field read-only in the form (e.g. S1Q04 territory pre-filled from company profile)?
+  final bool readOnly;
+
   /// Stable storage path (e.g. "section1.enterprise.name")
   final String? path;
 
@@ -130,6 +133,7 @@ class FormQuestionAst {
     this.dependsValue,
     this.dependsOperator,
     this.requiredField = false,
+    this.readOnly = false,
     this.path,
     this.hint,
     this.instruction,
