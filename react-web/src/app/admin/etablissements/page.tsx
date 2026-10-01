@@ -237,7 +237,7 @@ export default function EtablissementsPage() {
       if (selectedStatus === "ACTIVE" && item.status !== "ACTIF") return false;
       if (selectedStatus === "PENDING" && item.status !== "EN_ATTENTE") return false;
       if (selectedStatus === "INCOMPLETE" && item.status !== "INCOMPLET") return false;
-      if (selectedStatus === "SUSPENDED" && item.status !== "SUSPENDED") return false;
+      if (selectedStatus === "SUSPENDED" && item.status !== "SUSPENDU") return false;
     }
     if (search && !item.name.toLowerCase().includes(search.toLowerCase()) && !item.rccm.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
