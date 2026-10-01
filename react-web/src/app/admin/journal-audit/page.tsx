@@ -17,6 +17,8 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import type { UserRole } from "@/lib/user-types";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 // Mirrors @Roles on GET /audit/reports (src/report/audit.controller.ts).
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
@@ -98,6 +100,11 @@ export default function JournalAuditPage() {
   // TODO(backend, M): Figma "Exporter le journal" needs a server-side export that audits itself (see deferred.md)
   return (
     <div className="cam-admin-page">
+      <AdminPageHeader
+        breadcrumb={[{ label: "Administration" }, { label: "Journal d'audit" }]}
+        title="Journal d'Audit Système"
+        actions={<AdminHeaderActions />}
+      />
       <section className="cam-admin-section" aria-label="Filtres">
         <div className="cam-admin-section-body" style={{ padding: "var(--cam-space-4) var(--cam-space-5)" }}>
           <div className="cam-admin-filters" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>

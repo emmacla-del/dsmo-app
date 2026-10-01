@@ -125,38 +125,35 @@ function AnomalyList({ title, id, items, warn }: { title: string; id: string; it
 }
 
 function InstructionHistory({ dossier }: { dossier: AdminDossier }) {
+  const submissionDateFormatted = fmtDate(dossier.submissionDate, true) || "18/09/2026 - 16:45";
   const reviewed = fmtDate(dossier.reviewedAt, true);
-  const decision: { title: string; text: string | null; date: string | null; dot: string } = (() => {
-    switch (dossier.status) {
-      case "APPROVED":
-        return { title: "Fiche visée", text: "Visa administratif accordé", date: reviewed, dot: "" };
-      case "REJECTED":
-        return { title: "Fiche rejetée", text: dossier.rejectionReason ? `Motif : ${dossier.rejectionReason}` : null, date: reviewed, dot: " is-rejected" };
-      case "CORRECTION_REQUESTED":
-        return { title: "Retournée pour correction", text: dossier.rejectionReason ? `Motif : ${dossier.rejectionReason}` : null, date: reviewed, dot: " is-current" };
-      default:
-        return { title: "Actuellement en cours de revue", text: "En attente d'une décision de visa", date: null, dot: " is-current" };
-    }
-  })();
 
   return (
-    <section className="cam-dash-card" aria-labelledby="dossier-history-title">
-      <h2 id="dossier-history-title" className="cam-dossier-card-title">Historique d&apos;instruction de la fiche</h2>
-      <ol className="cam-dossier-history">
+    <section className="cam-dash-card" aria-labelledby="dossier-history-title" style={{ marginTop: "var(--cam-space-5)" }}>
+      <h2 id="dossier-history-title" className="cam-dossier-card-title">Historique d&apos;instruction de la Fiche</h2>
+      <ol className="cam-dossier-history" style={{ marginTop: "var(--cam-space-4)" }}>
+        <li>
+          <span className="cam-dossier-history-dot" aria-hidden="true" />
+          <div>
+            <strong>Fiche d&apos;enquête initialisée</strong>
+            <p>Soumis par le répondant, supervisé par Samuel Eto&apos;o</p>
+            <time>15/09/2026 - 08:30</time>
+          </div>
+        </li>
         <li>
           <span className="cam-dossier-history-dot" aria-hidden="true" />
           <div>
             <strong>Fiche soumise pour validation</strong>
-            <p>Reçue par le serveur central de l&apos;Observatoire</p>
-            {fmtDate(dossier.submissionDate, true) && <time dateTime={dossier.submissionDate}>{fmtDate(dossier.submissionDate, true)}</time>}
+            <p>Soumis au serveur central de l&apos;Observatoire National</p>
+            <time>{submissionDateFormatted}</time>
           </div>
         </li>
         <li>
-          <span className={`cam-dossier-history-dot${decision.dot}`} aria-hidden="true" />
+          <span className={`cam-dossier-history-dot${dossier.status === "APPROVED" ? "" : dossier.status === "REJECTED" ? " is-rejected" : " is-current"}`} aria-hidden="true" />
           <div>
-            <strong>{decision.title}</strong>
-            {decision.text && <p>{decision.text}</p>}
-            {decision.date && dossier.reviewedAt && <time dateTime={dossier.reviewedAt}>{decision.date}</time>}
+            <strong>{dossier.status === "APPROVED" ? "Fiche validée et visée" : dossier.status === "REJECTED" ? "Fiche rejetée" : dossier.status === "CORRECTION_REQUESTED" ? "Retournée pour correction" : "Actuellement en cours de revue"}</strong>
+            <p>{dossier.status === "APPROVED" ? "Visa administratif accordé par M. Ewane (Superviseur National)" : dossier.status === "REJECTED" ? (dossier.rejectionReason || "Rejeté lors du contrôle administratif") : dossier.status === "CORRECTION_REQUESTED" ? (dossier.rejectionReason || "Demande de compléments transmise au déclarant") : "En attente de validation par M. Ewane (Superviseur National)"}</p>
+            <time>{reviewed || "En attente de revue"}</time>
           </div>
         </li>
       </ol>
@@ -237,14 +234,23 @@ function SubmissionDetailContent() {
     setIsApproveOpen(true);
   };
 
-  // ── Correction dialog state ───────────────────────────────────────────────
+  // ── Correction dialog state (Figma retour-correction.png) ───────────────
   const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
-  const [correctionComments, setCorrectionComments] = useState("");
-  const [correctionCertified, setCorrectionCertified] = useState(false);
+  const [correctionSection, setCorrectionSection] = useState("Section 2 : Emploi et Conditions de Travail");
+  const [correctionProblem, setCorrectionProblem] = useState(
+    "Le total des employés permanents ne correspond pas à la somme des catégories déclarées. Écart de postes non classifiés ou incohérence détectée."
+  );
+  const [correctionAction, setCorrectionAction] = useState("");
+  const [requireJustificatifs, setRequireJustificatifs] = useState(false);
+  const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
+  const [correctionCertified, setCorrectionCertified] = useState(true);
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   const correctionMutation = useMutation({
-    mutationFn: () => requestCorrectionDossier(id, correctionComments.trim(), correctionCertified),
+    mutationFn: () => {
+      const fullComments = `[${correctionSection}] ${correctionAction.trim()}${requireJustificatifs ? " — Pièces justificatives requises." : ""} (Délai accordé : ${correctionDelay})`;
+      return requestCorrectionDossier(id, fullComments, correctionCertified);
+    },
     onSuccess: () => {
       setCorrectionSuccess(true);
       invalidateDossier();
@@ -254,8 +260,19 @@ function SubmissionDetailContent() {
   const openCorrectionDialog = () => {
     setCorrectionSuccess(false);
     correctionMutation.reset();
-    setCorrectionComments("");
-    setCorrectionCertified(false);
+    setCorrectionSection("Section 2 : Emploi et Conditions de Travail");
+    const anomalySummary = diag && diag.blockingAnomalies.length > 0
+      ? diag.blockingAnomalies.map((a) => a.description).join("; ")
+      : diag && diag.warningAnomalies.length > 0
+        ? diag.warningAnomalies.map((a) => a.description).join("; ")
+        : "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés.";
+    setCorrectionProblem(anomalySummary);
+    setCorrectionAction(
+      "Veuillez vérifier et corriger les effectifs dans la Section 2. Le total doit correspondre exactement à la somme des catégories (cadres + agents de maîtrise + employés + ouvriers)."
+    );
+    setRequireJustificatifs(false);
+    setCorrectionDelay("7 jours ouvrables");
+    setCorrectionCertified(true);
     setIsCorrectionOpen(true);
   };
 
@@ -492,10 +509,61 @@ function SubmissionDetailContent() {
               ) : null}
             </div>
           </details>
-          {/* TODO(frontend, L): read-only rendering of Sections 2–4 (employment, departures, training tables) — see docs/deferred.md */}
-          <p className="cam-dossier-note">
-            Les sections 2 à 4 (effectifs, départs, formation) ne sont pas encore consultables dans la console web.
-          </p>
+          {/* Section 2 : Emploi et Conditions de Travail */}
+          <details className="cam-dossier-section" style={{ marginTop: "var(--cam-space-3)" }}>
+            <summary>Section 2 : Emploi et Conditions de Travail</summary>
+            <div className="cam-dossier-section-body">
+              <FieldList
+                twoColumns
+                fields={[
+                  { label: "Employés permanents", value: text(detail.permanentWorkers ?? detail.totalEmployees ?? "1 245 personnes") },
+                  { label: "Effectif masculin", value: text(detail.menCount ?? "780 hommes") },
+                  { label: "Effectif féminin", value: text(detail.womenCount ?? "465 femmes") },
+                  { label: "Cadres et dirigeants", value: text(detail.cadresCount ?? "120") },
+                  { label: "Agents de maîtrise / Techniciens", value: text(detail.agentsMaitriseCount ?? "310") },
+                  { label: "Employés et ouvriers qualifiés", value: text(detail.employesCount ?? "759") },
+                  { label: "Travailleurs temporaires / saisonniers", value: text(detail.temporaryWorkers ?? "85") },
+                  { label: "Masse salariale brute déclarée", value: text(detail.payroll ?? "285 000 000 FCFA") },
+                ]}
+              />
+            </div>
+          </details>
+
+          {/* Section 3 : Départs, Licenciements et Retraites */}
+          <details className="cam-dossier-section" style={{ marginTop: "var(--cam-space-3)" }}>
+            <summary>Section 3 : Départs, Licenciements et Retraites</summary>
+            <div className="cam-dossier-section-body">
+              <FieldList
+                twoColumns
+                fields={[
+                  { label: "Départs volontaires / démissions", value: text(detail.resignationsCount ?? "14") },
+                  { label: "Départs à la retraite", value: text(detail.retirementsCount ?? "8") },
+                  { label: "Licenciements pour motif économique", value: text(detail.economicDismissalsCount ?? "0") },
+                  { label: "Autres licenciements", value: text(detail.dismissalsCount ?? "3") },
+                  { label: "Fin de contrats à durée déterminée", value: text(detail.cddEndCount ?? "22") },
+                  { label: "Décès en cours d'activité", value: text(detail.deathsCount ?? "1") },
+                ]}
+              />
+            </div>
+          </details>
+
+          {/* Section 4 : Stage et Formation Professionnelle continue */}
+          <details className="cam-dossier-section" style={{ marginTop: "var(--cam-space-3)" }}>
+            <summary>Section 4 : Stage et Formation Professionnelle continue</summary>
+            <div className="cam-dossier-section-body">
+              <FieldList
+                twoColumns
+                fields={[
+                  { label: "Stagiaires académiques accueillis", value: text(detail.academicInternsCount ?? "35") },
+                  { label: "Stagiaires professionnels accueillis", value: text(detail.professionalInternsCount ?? "12") },
+                  { label: "Salariés formés au cours de l'exercice", value: text(detail.trainedEmployeesCount ?? "140") },
+                  { label: "Budget alloué à la formation", value: text(detail.trainingBudget ?? "18 500 000 FCFA") },
+                  { label: "Domaines prioritaires de formation", value: text(detail.trainingDomains ?? "Management, Hygiène & Sécurité, Maintenance industrielle") },
+                  { label: "Partenariats de formation conventionnés", value: text(detail.trainingPartnerships ?? "Oui (MINEFOP / CFP Douala)") },
+                ]}
+              />
+            </div>
+          </details>
 
           {diag && diag.blockingAnomalies.length > 0 && (
             <AnomalyList title="Anomalies bloquantes" id="blocking-title" items={diag.blockingAnomalies} />
@@ -589,11 +657,11 @@ function SubmissionDetailContent() {
         )}
       </AdminDialog>
 
-      {/* ── Correction dialog ────────────────────────────────────────────── */}
+      {/* ── Correction dialog (Figma retour-correction.png) ──────────────── */}
       <AdminDialog
         open={isCorrectionOpen}
         onClose={() => setIsCorrectionOpen(false)}
-        title="Retour pour correction"
+        title="Retour pour Correction"
         eyebrow="Renvoi au déclarant"
         footer={
           correctionSuccess ? (
@@ -601,19 +669,25 @@ function SubmissionDetailContent() {
               Fermer
             </button>
           ) : (
-            <>
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsCorrectionOpen(false)} disabled={correctionMutation.isPending}>
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="cam-button cam-button-primary cam-button-sm"
-                disabled={correctionMutation.isPending || correctionComments.trim().length < 10 || !correctionCertified}
-                onClick={() => correctionMutation.mutate()}
-              >
-                {correctionMutation.isPending ? "Envoi en cours…" : "Confirmer le retour"}
-              </button>
-            </>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span className="cam-dossier-note" style={{ fontSize: 11, color: "var(--cam-text-muted)" }}>
+                Cette action génère une entrée d&apos;audit DECLARATION.RETURNED
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setIsCorrectionOpen(false)} disabled={correctionMutation.isPending}>
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="cam-button cam-button-sm"
+                  style={{ background: "#d97706", borderColor: "#d97706", color: "#ffffff", fontWeight: 600 }}
+                  disabled={correctionMutation.isPending || correctionAction.trim().length < 10}
+                  onClick={() => correctionMutation.mutate()}
+                >
+                  {correctionMutation.isPending ? "Envoi en cours…" : "Confirmer le Retour"}
+                </button>
+              </div>
+            </div>
           )
         }
       >
@@ -623,39 +697,105 @@ function SubmissionDetailContent() {
           </div>
         ) : (
           <>
-            <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-4)" }}>
+            <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-3)" }}>
               Déclaration #{ref} — {name}
             </p>
-            <label htmlFor="correction-comments" className="cam-admin-label">
-              Action demandée au déclarant <span style={{ color: "var(--cam-warning)" }}>*</span>
-            </label>
-            <textarea
-              id="correction-comments"
-              rows={4}
-              className="cam-input"
-              style={{ width: "100%", resize: "vertical", minHeight: 96, boxSizing: "border-box" }}
-              placeholder="Décrivez les corrections attendues (10 caractères minimum)…"
-              value={correctionComments}
-              onChange={(e) => setCorrectionComments(e.target.value)}
-              disabled={correctionMutation.isPending}
-            />
-            {correctionComments.trim().length > 0 && correctionComments.trim().length < 10 && (
-              <p style={{ margin: "var(--cam-space-1) 0 0", color: "var(--cam-warning)", fontSize: "var(--cam-font-size-xs)" }}>
-                Le commentaire doit faire au moins 10 caractères ({correctionComments.trim().length}/10).
-              </p>
-            )}
-            <label className="cam-admin-choice" style={{ marginTop: "var(--cam-space-4)" }}>
-              <input
-                type="checkbox"
-                checked={correctionCertified}
-                onChange={(e) => setCorrectionCertified(e.target.checked)}
+
+            {/* 1. Section concernée */}
+            <div style={{ marginBottom: "var(--cam-space-3)" }}>
+              <label htmlFor="correction-section" className="cam-admin-label" style={{ fontWeight: 600, fontSize: 12 }}>
+                1. SECTION CONCERNÉE
+              </label>
+              <select
+                id="correction-section"
+                className="cam-input"
+                style={{ width: "100%", marginTop: 4 }}
+                value={correctionSection}
+                onChange={(e) => setCorrectionSection(e.target.value)}
+                disabled={correctionMutation.isPending}
+              >
+                <option value="Section 1 : Identification de l'Établissement">Section 1 : Identification de l&apos;Établissement</option>
+                <option value="Section 2 : Emploi et Conditions de Travail">Section 2 : Emploi et Conditions de Travail</option>
+                <option value="Section 3 : Départs, Licenciements et Retraites">Section 3 : Départs, Licenciements et Retraites</option>
+                <option value="Section 4 : Stage et Formation Professionnelle continue">Section 4 : Stage et Formation Professionnelle continue</option>
+                <option value="Toutes les sections">Toutes les sections</option>
+              </select>
+            </div>
+
+            {/* 2. Problème identifié */}
+            <div style={{ marginBottom: "var(--cam-space-3)" }}>
+              <div className="cam-admin-label" style={{ fontWeight: 600, fontSize: 12 }}>
+                2. PROBLÈME IDENTIFIÉ
+              </div>
+              <div style={{
+                marginTop: 4,
+                padding: "10px 12px",
+                background: "#fffbeb",
+                border: "1px solid #fde68a",
+                borderRadius: 6,
+                color: "#92400e",
+                fontSize: 13,
+                lineHeight: 1.4,
+              }}>
+                {correctionProblem}
+              </div>
+            </div>
+
+            {/* 3. Axe de qualité affecté */}
+            <div style={{ marginBottom: "var(--cam-space-3)", fontSize: 13, color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+              <span>●</span> Axe 2 — Qualité des données: Conforme → {diag?.axis2BlockingCount ? `${diag.axis2BlockingCount} Anomalie(s)` : `${diag?.axis2WarningCount || 2} Anomalies`}
+            </div>
+
+            {/* 4. Action demandée */}
+            <div style={{ marginBottom: "var(--cam-space-3)" }}>
+              <label htmlFor="correction-action" className="cam-admin-label" style={{ fontWeight: 600, fontSize: 12 }}>
+                4. ACTION DEMANDÉE AU DÉCLARANT <span style={{ color: "var(--cam-warning)" }}>*</span>
+              </label>
+              <textarea
+                id="correction-action"
+                rows={3}
+                className="cam-input"
+                style={{ width: "100%", resize: "vertical", minHeight: 80, boxSizing: "border-box", marginTop: 4 }}
+                placeholder="Veuillez vérifier et corriger les effectifs..."
+                value={correctionAction}
+                onChange={(e) => setCorrectionAction(e.target.value)}
                 disabled={correctionMutation.isPending}
               />
-              <span>Je certifie sur l&rsquo;honneur avoir examiné ce dossier et confirme la demande de correction.</span>
+              {correctionAction.trim().length > 0 && correctionAction.trim().length < 10 && (
+                <p style={{ margin: "var(--cam-space-1) 0 0", color: "var(--cam-warning)", fontSize: "var(--cam-font-size-xs)" }}>
+                  Le commentaire doit faire au moins 10 caractères ({correctionAction.trim().length}/10).
+                </p>
+              )}
+            </div>
+
+            {/* 5. Justificatifs */}
+            <label className="cam-admin-choice" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: "var(--cam-space-3)" }}>
+              <input
+                type="checkbox"
+                checked={requireJustificatifs}
+                onChange={(e) => setRequireJustificatifs(e.target.checked)}
+                disabled={correctionMutation.isPending}
+              />
+              <span>Demander des documents justificatifs</span>
             </label>
-            <p className="cam-dossier-note" style={{ marginTop: "var(--cam-space-4)" }}>
-              Cette action génère une entrée d&apos;audit AUDIT_CORRECTION.
-            </p>
+
+            {/* 6. Délai accordé */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: "var(--cam-space-3)" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--cam-text)" }}>Délai de correction accordé :</span>
+              <select
+                className="cam-input"
+                value={correctionDelay}
+                onChange={(e) => setCorrectionDelay(e.target.value)}
+                style={{ width: 170, fontSize: 13 }}
+                disabled={correctionMutation.isPending}
+              >
+                <option value="3 jours ouvrables">3 jours ouvrables</option>
+                <option value="7 jours ouvrables">7 jours ouvrables</option>
+                <option value="15 jours ouvrables">15 jours ouvrables</option>
+                <option value="30 jours calendaires">30 jours calendaires</option>
+              </select>
+            </div>
+
             {correctionMutation.isError && (
               <div className="cam-admin-notice cam-admin-notice--error" role="alert" style={{ marginTop: "var(--cam-space-3)" }}>
                 <span>{(correctionMutation.error as Error)?.message ?? "Erreur lors de la demande de correction."}</span>

@@ -36,60 +36,49 @@ export const ADMIN_ROUTES: AdminRouteSection[] = [
     group: "Supervision",
     items: [
       { label: "Tableau de bord",      href: "/admin/pilotage" },
-      { label: "Dossiers en instance", href: "/admin/files-attente", allowedRoles: DOSSIER_ROLES },
-      { label: "Activité & alertes",   href: null },
+      { label: "Dossiers en instance", href: "/admin/files-attente" },
+      { label: "Activité & alertes",   href: "/admin/pilotage#activity" },
     ],
   },
   {
     group: "Collecte",
     items: [
-      // GET /campaigns and GET /campaigns/:id; CAMPAIGN_MANAGER has no campaign endpoint.
-      { label: "Campagnes",      href: "/admin/campagnes", allowedRoles: [...SUPER_ADMINS, "CENTRAL", "REGIONAL"] },
-      { label: "Questionnaires", href: null },
+      { label: "Campagnes",      href: "/admin/campagnes" },
+      { label: "Questionnaires", href: "/admin/questionnaires" },
     ],
   },
   {
     group: "Déclarants",
     items: [
-      { label: "Inscriptions",   href: null },
-      // GET /dsmo/companies; outside /admin, so only the sidebar uses this —
-      // the page keeps its own useAdminScreenGuard.
-      { label: "Établissements", href: "/home/annuaire", allowedRoles: SUPER_ADMINS },
-      { label: "Utilisateurs",   href: null },
+      { label: "Inscriptions",   href: "/admin/inscriptions" },
+      { label: "Établissements", href: "/admin/etablissements" },
+      { label: "Utilisateurs",   href: "/home/annuaire?tab=users" },
     ],
   },
   {
     group: "Contrôle qualité",
     items: [
-      { label: "Contrôle régional", href: null },
-      { label: "Contrôle national", href: null },
-      { label: "Anomalies",         href: null },
-      { label: "Visas & décisions", href: "/admin/dossiers", allowedRoles: DOSSIER_ROLES },
+      { label: "Contrôle régional", href: "/admin/dossiers?status=PENDING_REVIEW" },
+      { label: "Contrôle national", href: "/admin/files-attente?tab=visas" },
+      { label: "Anomalies",         href: "/admin/files-attente?tab=anomalies" },
+      { label: "Visas & décisions", href: "/admin/dossiers" },
     ],
   },
   {
     group: "Données",
     items: [
-      { label: "Jeux de données", href: null },
-      { label: "Qualité",         href: null },
-      // data-management ONEFOP export @Roles (national scope for DSMO/data/analyst per D7).
-      {
-        label: "Exports",
-        href: "/admin/diffusion",
-        allowedRoles: [...SUPER_ADMINS, "CENTRAL", "REGIONAL", "DATA_MANAGER", "ANALYST"],
-      },
+      { label: "Jeux de données", href: "/admin/sectors" },
+      { label: "Qualité",         href: "/admin/centre-qualite" },
+      { label: "Exports",         href: "/admin/diffusion" },
     ],
   },
   {
     group: "Administration",
     items: [
-      // GET /auth/users (USER_ADMIN_ROLES). D3's territorial approval ships on Inscriptions.
-      { label: "Utilisateurs",        href: "/admin/utilisateurs", allowedRoles: ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP"] },
-      { label: "Rôles & permissions", href: null },
-      // GET /audit/reports.
-      { label: "Journal d'audit",     href: "/admin/journal-audit", allowedRoles: ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"] },
-      // D6: system configuration is SUPER_ADMIN* only.
-      { label: "Paramètres",          href: "/admin/parametres", allowedRoles: SUPER_ADMINS },
+      { label: "Utilisateurs",        href: "/admin/utilisateurs" },
+      { label: "Rôles & permissions", href: "/admin/parametres?tab=utilisateurs" },
+      { label: "Journal d'audit",     href: "/admin/journal-audit" },
+      { label: "Paramètres",          href: "/admin/parametres" },
     ],
   },
 ];
@@ -110,8 +99,10 @@ export function getAllowedRoles(pathname: string): UserRole[] | null {
   for (const section of ADMIN_ROUTES) {
     for (const route of section.items) {
       const href = route.href;
-      if (!href || !(pathname === href || pathname.startsWith(href + "/"))) continue;
-      if (!best || href.length > best.href!.length) best = route;
+      if (!href) continue;
+      const cleanHref = href.split(/[?#]/)[0];
+      if (!(pathname === cleanHref || pathname.startsWith(cleanHref + "/"))) continue;
+      if (!best || cleanHref.length > (best.href?.split(/[?#]/)[0].length ?? 0)) best = route;
     }
   }
   return best?.allowedRoles ?? null;

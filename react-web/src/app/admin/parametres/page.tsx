@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { apiFetch } from "@/lib/api-client";
@@ -17,6 +18,8 @@ import {
   type ObservatoryIdentityUpdate,
   type SystemSettings,
 } from "@/lib/system-settings";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "SUPER_ADMIN_DSMO"];
 
@@ -256,8 +259,26 @@ function SelectField({ id, label, value, options, onChange }: {
 }
 
 export default function ParametresPage() {
+  return (
+    <Suspense fallback={null}>
+      <ParametresContent />
+    </Suspense>
+  );
+}
+
+function ParametresContent() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(ALLOWED_ROLES);
-  const [activeTab, setActiveTab] = useState<Tab>("general");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab") as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    requestedTab && TABS.some((t) => t.key === requestedTab) ? requestedTab : "general"
+  );
+
+  useEffect(() => {
+    if (requestedTab && TABS.some((t) => t.key === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   if (isLoading) return null;
 
@@ -276,6 +297,11 @@ export default function ParametresPage() {
 
   return (
     <div className="cam-admin-page">
+      <AdminPageHeader
+        breadcrumb={[{ label: "Administration" }, { label: "Paramètres" }]}
+        title="Paramètres de la Plateforme ONEFOP"
+        actions={<AdminHeaderActions />}
+      />
       <div className="cam-param-layout">
         <div role="tablist" aria-label="Sections des paramètres" aria-orientation="vertical" className="cam-param-nav">
           {TABS.map((tab) => (
@@ -287,7 +313,12 @@ export default function ParametresPage() {
               aria-selected={activeTab === tab.key}
               aria-controls={`param-panel-${tab.key}`}
               className="cam-param-nav-item"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                setActiveTab(tab.key);
+                if (typeof window !== "undefined") {
+                  window.history.replaceState(null, "", `/admin/parametres?tab=${tab.key}`);
+                }
+              }}
             >
               {tab.label}
             </button>

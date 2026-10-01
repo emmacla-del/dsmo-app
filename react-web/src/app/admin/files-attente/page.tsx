@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -32,6 +32,13 @@ function FilesAttenteContent() {
   const [activeTab, setActiveTab] = useState<QueueTab>(
     requestedTab && QUEUE_TABS.includes(requestedTab) ? requestedTab : "anomalies",
   );
+
+  useEffect(() => {
+    if (requestedTab && QUEUE_TABS.includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
+
   const [selectedAnomaly, setSelectedAnomaly] = useState<any | null>(null);
 
   // Form state for anomaly resolution

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -25,12 +25,12 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; nav?: string; detail?: string }> = {
   "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
   "/admin/dossiers":      { title: "Instruction et visas", sub: "Contrôle de conformité et octroi des visas administratifs", group: "Contrôle qualité", nav: "Visas & décisions" },
-  "/admin/diffusion":     { title: "Données et exports", sub: "Homologation et diffusion des données statistiques certifiées", group: "Données", nav: "Exports" },
-  "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité" },
-  "/admin/utilisateurs":  { title: "Utilisateurs ONEFOP", sub: "Répertoire des comptes accrédités des agents MINEFOP", group: "Administration", nav: "Utilisateurs" },
-  "/admin/campagnes":     { title: "Gestion des campagnes", sub: "Pilotage des campagnes de collecte statistique nationale", group: "Collecte", nav: "Campagnes" },
-  "/admin/journal-audit": { title: "Journal d'audit systémique", sub: "Traçabilité des actions et décisions enregistrées sur la plateforme", group: "Administration", nav: "Journal d'audit" },
-  "/admin/parametres":    { title: "Paramètres du système", sub: "Configuration générale, utilisateurs et sécurité", group: "Administration", nav: "Paramètres" },
+  "/admin/diffusion":     { title: "Gestion des Données et Exports", sub: "Gérer, filtrer et exporter les données collectées", group: "Données", nav: "Exports" },
+  "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité", group: "Données", nav: "Jeux de données" },
+  "/admin/utilisateurs":  { title: "Utilisateurs ONEFOP", sub: "Réseau national d'enquêteurs de l'Observatoire National", group: "Administration", nav: "Utilisateurs" },
+  "/admin/campagnes":     { title: "Campagnes de Collecte", sub: "Gestion des campagnes de collecte et workflow de validation", group: "Collecte", nav: "Campagnes" },
+  "/admin/journal-audit": { title: "Journal d'Audit Systémique", sub: "Traçabilité des actions et décisions enregistrées sur la plateforme", group: "Administration", nav: "Journal d'audit" },
+  "/admin/parametres":    { title: "Paramètres du Système", sub: "Configuration générale, gestion des utilisateurs et sécurité", group: "Administration", nav: "Paramètres" },
 };
 
 const ADMIN_ROLES: UserRole[] = [
@@ -65,6 +65,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     (queuesQuery.data?.pendingNationalVisasCount ?? 0);
 
   // The drawer (tablet/phone) closes on Escape as well as on navigation.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -117,15 +121,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className={`cam-admin${menuOpen ? " is-menu-open" : ""}`}>
-      <AdminSidebar
-        user={{
-          displayName,
-          initials,
-          roleLabel: user?.role ? directoryRoleLabel(user.role) : "Agent",
-        }}
-        role={user?.role}
-        pendingCount={pendingCount}
-      />
+      <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
+        <AdminSidebar
+          user={{
+            displayName,
+            initials,
+            roleLabel: user?.role ? directoryRoleLabel(user.role) : "Agent",
+          }}
+          role={user?.role}
+          pendingCount={pendingCount}
+          anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
+        />
+      </Suspense>
 
       <div className="cam-admin-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
 

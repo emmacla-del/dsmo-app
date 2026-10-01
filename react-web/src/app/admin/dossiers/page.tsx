@@ -69,9 +69,19 @@ function DossiersContent() {
   const [typeFilter, setTypeFilter] = useState("");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  // The queue page deep-links here with ?status=PENDING_REVIEW|CORRECTION_REQUESTED.
   const requestedStatus = useSearchParams().get("status") ?? "";
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
+
+  useEffect(() => {
+    if (requestedStatus && STATUS_VALUES.includes(requestedStatus)) {
+      setStatusFilter(requestedStatus);
+      setOffset(0);
+    } else if (!requestedStatus) {
+      setStatusFilter("");
+      setOffset(0);
+    }
+  }, [requestedStatus]);
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Modal / Drawer state — bulk visa

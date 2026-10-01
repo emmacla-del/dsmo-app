@@ -15,6 +15,8 @@ import {
 import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
 import { UsersDirectory, type RoleScope } from "@/components/admin/UsersDirectory";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
 // /auth/users* accept SUPER_ADMIN and SUPER_ADMIN_ONEFOP; the server limits
 // the latter to ONEFOP personnel (src/auth/staff-scope.ts).
@@ -135,6 +137,11 @@ export default function OnefopUsersPage() {
 
   return (
     <div className="cam-admin-page">
+      <AdminPageHeader
+        breadcrumb={[{ label: "Administration" }, { label: "Utilisateurs ONEFOP" }]}
+        title="Gestion des Utilisateurs ONEFOP"
+        actions={<AdminHeaderActions />}
+      />
 
       <div className="cam-admin-page-toolbar">
         <span />
