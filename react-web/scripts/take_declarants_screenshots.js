@@ -22,11 +22,12 @@ const fs = require('fs');
   const page = await context.newPage();
 
   const pages = [
-    { url: 'http://localhost:3000/admin/inscriptions', name: 'before_inscriptions.png' },
-    { url: 'http://localhost:3000/admin/etablissements', name: 'before_etablissements.png' },
-    { url: 'http://localhost:3000/admin/etablissement-detail', name: 'before_etablissement_detail.png' },
-    { url: 'http://localhost:3000/admin/etablissement-detail/approbation', name: 'before_approbation.png' },
-    { url: 'http://localhost:3000/admin/utilisateurs', name: 'before_utilisateurs.png' },
+    { url: 'http://localhost:3000/admin/inscriptions', name: 'inscriptions.png' },
+    { url: 'http://localhost:3000/admin/etablissements', name: 'etablissements.png' },
+    { url: 'http://localhost:3000/admin/etablissement-detail', name: 'etablissement_detail.png' },
+    { url: 'http://localhost:3000/admin/etablissement-detail?id=RC%2FDLA%2F1921%2FB%2F004&manage=true', name: 'etablissement_detail_modal.png' },
+    { url: 'http://localhost:3000/admin/etablissement-detail/approbation', name: 'approbation.png' },
+    { url: 'http://localhost:3000/admin/utilisateurs', name: 'utilisateurs.png' },
   ];
 
   for (const item of pages) {
