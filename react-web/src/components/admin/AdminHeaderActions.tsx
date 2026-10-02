@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
@@ -42,6 +44,7 @@ export function AdminHeaderActions({
   showBell = true,
   showSearchInput = false,
 }: AdminHeaderActionsProps = {}) {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { activeCampaign } = useActiveCampaign();
 
@@ -71,36 +74,40 @@ export function AdminHeaderActions({
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
       {/* Campaign pill */}
       {showCampaignPill && (
-        <span
+        <Link
+          href="/admin/campagnes"
           className="cam-admin-campaign-pill"
-        title={rawCampaignName}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "4px 12px",
-          borderRadius: 9999,
-          border: "1px solid #d1d5db",
-          background: "#ffffff",
-          color: "#374151",
-          fontSize: 12,
-          fontWeight: 500,
-          maxWidth: 200,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          flexShrink: 0,
-        }}
-      >
-        <span className="cam-admin-campaign-pill-dot" aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {campaignName}
-        </span>
-      </span>
+          title={rawCampaignName}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 12px",
+            borderRadius: 9999,
+            border: "1px solid #d1d5db",
+            background: "#ffffff",
+            color: "#374151",
+            fontSize: 12,
+            fontWeight: 500,
+            maxWidth: 200,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            flexShrink: 0,
+            textDecoration: "none",
+            cursor: "pointer",
+          }}
+        >
+          <span className="cam-admin-campaign-pill-dot" aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {campaignName}
+          </span>
+        </Link>
       )}
 
       {/* Territory selector */}
-      <div
+      <Link
+        href="/admin/cibles"
         className="cam-admin-scope"
         title="Ressort territorial"
         style={{
@@ -115,18 +122,19 @@ export function AdminHeaderActions({
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
+          textDecoration: "none",
         }}
       >
         <span>Ressort : {scope}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
         </svg>
-      </div>
+      </Link>
 
       {/* Notification bell */}
       {showBell && (
-        <button
-          type="button"
+        <Link
+          href="/admin/activite"
           aria-label="Notifications"
           title="Notifications et alertes de validation"
           style={{
@@ -141,6 +149,7 @@ export function AdminHeaderActions({
             border: "none",
             color: "#6b7280",
             cursor: "pointer",
+            textDecoration: "none",
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -159,7 +168,7 @@ export function AdminHeaderActions({
               background: "#dc2626",
             }}
           />
-        </button>
+        </Link>
       )}
 
       {/* Search element: text input box or compact button */}
@@ -172,6 +181,12 @@ export function AdminHeaderActions({
           <input
             type="text"
             placeholder="Rechercher..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const query = e.currentTarget.value.trim();
+                router.push(query ? `/admin/dossiers?q=${encodeURIComponent(query)}` : "/admin/dossiers");
+              }
+            }}
             style={{
               padding: "6px 14px 6px 34px",
               borderRadius: 9999,
@@ -185,8 +200,8 @@ export function AdminHeaderActions({
           />
         </div>
       ) : (
-        <button
-          type="button"
+        <Link
+          href="/admin/dossiers"
           aria-label="Recherche"
           title="Rechercher"
           style={{
@@ -200,13 +215,14 @@ export function AdminHeaderActions({
             border: "none",
             color: "#6b7280",
             cursor: "pointer",
+            textDecoration: "none",
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-        </button>
+        </Link>
       )}
 
       {/* Cameroon flag circle */}
