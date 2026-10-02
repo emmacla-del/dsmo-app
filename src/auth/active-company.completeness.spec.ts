@@ -98,12 +98,7 @@ describe('ActiveCompanyGuard completeness', () => {
       );
     }
 
-    // Excluding known pending minefop-services mutating routes until commit 2 is applied
-    const offendingExcludingMinefop = result.offendingRoutes.filter(
-      (r) => !r.startsWith('MinefopServicesController.'),
-    );
-
-    expect(offendingExcludingMinefop).toEqual([]);
+    expect(result.offendingRoutes).toEqual([]);
   });
 
   it('verifies that @AllowInactiveCompany is only applied to GET /auth/me', () => {
