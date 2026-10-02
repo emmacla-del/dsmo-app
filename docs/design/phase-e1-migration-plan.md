@@ -1,8 +1,10 @@
 # Phase E.1 — Schema, Migration & Backfill Inventory Plan
 
+> **Ordering Constraint**: Phase E.1 is not standalone. After E.1, `OnefopSubmission.establishmentId` is `NOT NULL` and FK-constrained to `Establishment.id`. Any company approved between E.1 landing and E.2a landing will have no `Establishment` row — submitting a return would violate the foreign key constraint. Therefore, E.1 must ship together with the `AuthService.approveUser` change that mints the `-01` `Establishment` at approval time, or hold E.1 until E.2a is ready.
+
 ## Phase E.1 Execution Checklist
 
-1. **Pre-backfill Active IDs**: Run `npx ts-node scripts/backfill-company-establishment-ids.ts --actor-email=<email> --apply` against dev DB; confirm all active companies receive an establishment ID.
+1. **Pre-backfill Active IDs**: Run `scripts/backfill-company-establishment-ids.ts` with `--actor-email=<an active SUPER_ADMIN, SUPER_ADMIN_ONEFOP, or CENTRAL user> --apply` against dev DB; the script attributes an audit row. Confirm all active companies receive an establishment ID.
 2. **Territory Null-Audit**: Run territory null-audit query; inspect and fix broken records by hand if needed.
 3. **Write Migration**: Write and commit `prisma/migrations/<timestamp>_phase_e1_establishments/migration.sql` with DDL and backfill statements.
 4. **Staging Deploy & Verification**: Test on `dsmo-test` with `npx prisma migrate deploy` followed by `npx prisma migrate diff` to verify schema parity.
