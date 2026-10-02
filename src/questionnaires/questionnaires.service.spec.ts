@@ -1844,7 +1844,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     return new QuestionnairesService(prisma, undefined, new EligibilityEngineService(prisma));
   }
 
-  const linked = { id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, campaignId: 'camp-1', companyId: 'co-1' };
+  const linked = { id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, campaignId: 'camp-1', companyId: 'co-1', establishmentId: 'est-1' };
 
   it('approve: CampaignSubmission -> VALIDATED, submittedAt untouched', async () => {
     const prisma = buildPrisma(linked);
@@ -1853,7 +1853,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     expect(result.status).toBe('APPROVED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledTimes(1);
     const args = prisma.campaignSubmission.updateMany.mock.calls[0][0];
-    expect(args.where).toEqual({ campaignId: 'camp-1', companyId: 'co-1' });
+    expect(args.where).toEqual({ campaignId: 'camp-1', establishmentId: 'est-1' });
     expect(args.data).toEqual({ status: 'VALIDATED' });
     expect(args.data).not.toHaveProperty('submittedAt');
     // Runs after the OnefopSubmission status is written.
@@ -1868,7 +1868,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
 
     expect(result.status).toBe('REJECTED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
-      where: { campaignId: 'camp-1', companyId: 'co-1' },
+      where: { campaignId: 'camp-1', establishmentId: 'est-1' },
       data: { status: 'NOT_STARTED', submittedAt: null },
     });
     expect(prisma.onefopSubmission.update.mock.invocationCallOrder[0])
@@ -1881,7 +1881,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
 
     expect(result.status).toBe('CORRECTION_REQUESTED');
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
-      where: { campaignId: 'camp-1', companyId: 'co-1' },
+      where: { campaignId: 'camp-1', establishmentId: 'est-1' },
       data: { status: 'IN_PROGRESS', submittedAt: null },
     });
   });
@@ -1899,8 +1899,8 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('companyId null: no CampaignSubmission update (would match establishment rows)', async () => {
-    const prisma = buildPrisma({ ...linked, companyId: null });
+  it('establishmentId and companyId null: no CampaignSubmission update', async () => {
+    const prisma = buildPrisma({ ...linked, establishmentId: null, companyId: null });
     await buildService(prisma).approve('sub-1', 'admin-1');
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
@@ -2006,6 +2006,126 @@ describe('QuestionnairesService — Section 1 territory sourcing (Commit 0.1b)',
     expect(createData.regionRef).toEqual({ connect: { id: 'reg-lit-id' } });
     expect(createData.departmentRef).toEqual({ connect: { id: 'dept-wou-id' } });
     expect(createData.subdivisionRef).toEqual({ connect: { id: 'sub-dla1-id' } });
+  });
+});
+
+describe('QuestionnairesService — Phase E.1 Establishment Resolution', () => {
+  function buildMockPrismaWithEstablishment(): any {
+    const establishments = [
+      { id: 'uuid-est-principal', code: 'EN26000100-01', companyId: 'company-1', isPrincipal: true, status: 'ACTIVE' },
+      { id: 'uuid-est-secondary', code: 'EN26000100-02', companyId: 'company-1', isPrincipal: false, status: 'ACTIVE' },
+    ];
+    return {
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'company-1', establishmentId: 'EN26000100' }),
+      },
+      establishment: {
+        findMany: jest.fn().mockImplementation(({ where }: any) => {
+          return establishments.filter((e) => e.companyId === where.companyId && (!where.status || e.status === where.status));
+        }),
+        findFirst: jest.fn().mockImplementation(({ where }: any) => {
+          if (where.OR) {
+            for (const orCond of where.OR) {
+              const found = establishments.find((e) =>
+                e.companyId === where.companyId &&
+                ((orCond.code && e.code === orCond.code) || (orCond.id && e.id === orCond.id))
+              );
+              if (found) return found;
+            }
+            return null;
+          }
+          return establishments.find((e) => e.companyId === where.companyId && (!where.isPrincipal || e.isPrincipal)) || null;
+        }),
+      },
+      submissionRound: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'round-1', status: 'OPEN', deadline: new Date(Date.now() + 86400000),
+        }),
+      },
+      onefopSubmission: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({ submissionId: data.submissionId })),
+      },
+      subdivision: { findFirst: jest.fn().mockResolvedValue(null) },
+      department: { findFirst: jest.fn().mockResolvedValue(null) },
+      region: { findFirst: jest.fn().mockResolvedValue(null) },
+      sector: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+  }
+
+  it('resolves 13-char site code to Establishment.id UUID on submit', async () => {
+    const prisma = buildMockPrismaWithEstablishment();
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'form-est-uuid',
+      userId: 'user-1',
+      establishmentId: 'EN26000100-02',
+      entityType: 'ENTERPRISE',
+      isDraft: true,
+      data: {
+        S0Q01: 'Directeur',
+        S0Q02: 'DG',
+        S0Q03_TEL1: '699000000',
+        S1Q01: 1,
+        S1Q02: 'Entreprise Test',
+        S1Q03: 1,
+      },
+    } as any);
+
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          establishment: { connect: { id: 'uuid-est-secondary' } },
+        }),
+      }),
+    );
+  });
+
+  it('defaults to principal establishment when client establishmentId is omitted and company is single-site', async () => {
+    const prisma = buildMockPrismaWithEstablishment();
+    prisma.establishment.findMany.mockResolvedValue([
+      { id: 'uuid-est-principal', code: 'EN26000100-01', companyId: 'company-1', isPrincipal: true, status: 'ACTIVE' },
+    ]);
+    const service = new QuestionnairesService(prisma);
+
+    await service.submitQuestionnaire({
+      formId: 'form-est-default',
+      userId: 'user-1',
+      entityType: 'ENTERPRISE',
+      isDraft: true,
+      data: {
+        S0Q01: 'Directeur',
+        S0Q02: 'DG',
+        S0Q03_TEL1: '699000000',
+        S1Q01: 1,
+        S1Q02: 'Entreprise Test',
+        S1Q03: 1,
+      },
+    } as any);
+
+    expect(prisma.onefopSubmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          establishment: { connect: { id: 'uuid-est-principal' } },
+        }),
+      }),
+    );
+  });
+
+  it('rejects with 400 when multi-site company submits without establishmentId', async () => {
+    const prisma = buildMockPrismaWithEstablishment();
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.submitQuestionnaire({
+      formId: 'form-est-multi-err',
+      userId: 'user-1',
+      entityType: 'ENTERPRISE',
+      isDraft: true,
+      data: {},
+    } as any)).rejects.toThrow(BadRequestException);
   });
 });
 

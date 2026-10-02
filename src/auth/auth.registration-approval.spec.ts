@@ -75,6 +75,9 @@ describe('AuthService company registration approval', () => {
       subdivision: {
         findUnique: jest.fn(async () => ({ ...subdivision })),
       },
+      establishment: {
+        create: jest.fn(async ({ data }: any) => ({ id: 'est-1', ...data })),
+      },
       auditLog: { create: jest.fn(async () => ({})) },
       $executeRaw: jest.fn(async () => 1),
       $transaction: jest.fn(async (work: any) => work(prisma)),
@@ -104,6 +107,26 @@ describe('AuthService company registration approval', () => {
     expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ establishmentId: expect.stringMatching(/^EN\d{6}12$/) }),
     }));
+  });
+
+  it('approveUser mints -01 Establishment with isPrincipal: true, status: ACTIVE', async () => {
+    await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN');
+    expect(prisma.establishment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        code: expect.stringMatching(/^EN\d{6}12-01$/),
+        name: 'Menuiserie',
+        isPrincipal: true,
+        status: 'ACTIVE',
+        companyId: 'c1',
+        regionId: 'r-lt',
+        departmentId: 'd-wouri',
+        subdivisionId: 's-dla1',
+        region: 'Littoral',
+        department: 'Wouri',
+        subdivision: 'Douala I',
+        email: 'co@example.cm',
+      }),
+    });
   });
 
   it('refuses approval when entityType is null', async () => {
@@ -329,6 +352,7 @@ describe('AuthService registration review — approver role boundaries', () => {
         findFirst: jest.fn(async () => null),
       },
       subdivision: { findUnique: jest.fn(async () => ({ id: 's-dla1', code: '12' })) },
+      establishment: { create: jest.fn(async ({ data }: any) => ({ id: 'est-1', ...data })) },
       auditLog: { create: jest.fn(async () => ({})) },
       $executeRaw: jest.fn(async () => 1),
       $transaction: jest.fn(async (work: any) => work(prisma)),
