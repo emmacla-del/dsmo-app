@@ -120,7 +120,15 @@ class _LoginPortalScreenState extends ConsumerState<LoginPortalScreen>
     ref.listen<AsyncValue<dynamic>>(authProvider, (_, next) {
       if (next is AsyncData && next.value is User) {
         final user = next.value as User;
-        router.go(user.mustChangePassword ? '/change-password' : '/home');
+        if (user.mustChangePassword) {
+          router.go('/change-password');
+        } else if (isCompanyAwaitingApproval(user)) {
+          // A company whose registration is still under review authenticates
+          // normally but has no operational screens yet (R.1).
+          router.go('/inscription-en-attente');
+        } else {
+          router.go('/home');
+        }
       }
     });
 

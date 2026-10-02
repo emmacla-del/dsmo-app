@@ -434,6 +434,20 @@ class ApiClient {
     }
   }
 
+  /// Sends a company whose registration came back with COMPLEMENTS_REQUESTED
+  /// back into the review queue (status -> PENDING_APPROVAL). The account
+  /// itself is the actor: the backend reads it from the token.
+  Future<void> resubmitRegistration() async {
+    try {
+      await dio.post('/auth/resubmit-registration');
+    } on DioException catch (e) {
+      throw ApiException(
+        statusCode: e.response?.statusCode,
+        message: _handleError(e),
+      );
+    }
+  }
+
   Future<void> logout() async {
     await _clearToken();
     // Prevent the next login on this device (possibly a different user)

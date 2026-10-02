@@ -8763,6 +8763,90 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Rattaché'**
   String get serviceCategoryAffiliatedShort;
+
+  /// No description provided for @registrationStatusTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier d\'inscription'**
+  String get registrationStatusTitle;
+
+  /// No description provided for @registrationPendingHeadline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre inscription a été enregistrée'**
+  String get registrationPendingHeadline;
+
+  /// No description provided for @registrationPendingBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un agent doit valider votre dossier avant que vous puissiez déclarer. Vous recevrez un e-mail dès que votre compte sera activé.'**
+  String get registrationPendingBody;
+
+  /// No description provided for @registrationPendingFollowButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suivre mon dossier'**
+  String get registrationPendingFollowButton;
+
+  /// No description provided for @registrationAwaitingReviewMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre compte est en attente de validation par un agent. Vous pourrez déclarer dès qu\'il sera activé.'**
+  String get registrationAwaitingReviewMessage;
+
+  /// No description provided for @registrationComplementsHeadline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compléments demandés'**
+  String get registrationComplementsHeadline;
+
+  /// No description provided for @registrationComplementsIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un agent demande des compléments pour votre dossier :'**
+  String get registrationComplementsIntro;
+
+  /// No description provided for @registrationComplementsFallback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Merci de compléter votre dossier.'**
+  String get registrationComplementsFallback;
+
+  /// No description provided for @registrationResubmitButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renvoyer le dossier'**
+  String get registrationResubmitButton;
+
+  /// No description provided for @registrationResubmitDoneMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier renvoyé pour validation.'**
+  String get registrationResubmitDoneMessage;
+
+  /// No description provided for @registrationRejectedHeadline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Inscription rejetée'**
+  String get registrationRejectedHeadline;
+
+  /// No description provided for @registrationRejectedNoReason.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun motif n\'a été précisé.'**
+  String get registrationRejectedNoReason;
+
+  /// No description provided for @registrationStatusRefreshButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualiser'**
+  String get registrationStatusRefreshButton;
+
+  /// No description provided for @registrationStatusLogoutButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se déconnecter'**
+  String get registrationStatusLogoutButton;
 }
 
 class _AppLocalizationsDelegate
