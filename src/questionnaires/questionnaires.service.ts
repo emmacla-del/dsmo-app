@@ -3130,12 +3130,86 @@ export class QuestionnairesService {
     return submission;
   }
 
+  private isViaCentralFallback(territory: Territory | undefined, submission: any): boolean {
+  const role = territory?.role;
+  const isCentralOrSuperAdmin =
+    typeof role === 'string' &&
+    (role === 'CENTRAL' ||
+      role === 'SUPER_ADMIN' ||
+      role === 'SUPER_ADMIN_ONEFOP' ||
+      role === 'SUPER_ADMIN_DSMO' ||
+      role.startsWith('SUPER_ADMIN'));
+
+  if (!isCentralOrSuperAdmin) {
+    return false;
+  }
+
+  const submissionHasTerritory = Boolean(
+    submission.regionId || submission.region || submission.departmentId || submission.department,
+  );
+  if (!submissionHasTerritory) {
+    return false;
+  }
+
+  const actorRegionId = territory?.regionId;
+  const actorRegion = territory?.region ? territory.region.trim().toLowerCase() : null;
+  const actorDeptId = territory?.departmentId;
+  const actorDept = territory?.department ? territory.department.trim().toLowerCase() : null;
+
+  const subRegionId = submission.regionId;
+  const subRegion = submission.region ? submission.region.trim().toLowerCase() : null;
+  const subDeptId = submission.departmentId;
+  const subDept = submission.department ? submission.department.trim().toLowerCase() : null;
+
+  const matchesRegion =
+    (actorRegionId && subRegionId && actorRegionId === subRegionId) ||
+    (actorRegion && subRegion && actorRegion === subRegion);
+
+  const matchesDept =
+    (actorDeptId && subDeptId && actorDeptId === subDeptId) ||
+    (actorDept && subDept && actorDept === subDept);
+
+  if (actorDeptId || actorDept) {
+    if (matchesDept && (!actorRegion || matchesRegion)) {
+      return false;
+    }
+    return true;
+  }
+
+  if (actorRegionId || actorRegion) {
+    if (matchesRegion) {
+      return false;
+    }
+    return true;
+  }
+
+  return true;
+}
+
   async approve(id: string, reviewedBy?: string, territory?: Territory) {
     const submission = await this.getById(id, territory);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
     }
     await this.eligibilityEngine!.assertCanApprove(id);
+    if (reviewedBy) {
+      const viaCentralFallback = this.isViaCentralFallback(territory, submission);
+      await (this.prisma as any).auditLog.create({
+        data: {
+          userId: reviewedBy,
+          action: 'AUDIT_APPROVE',
+          resourceType: 'OnefopSubmission',
+          resourceId: id,
+          details: {
+            campaignId: submission.campaignId ?? null,
+            establishmentId: submission.establishmentId ?? null,
+            previousStatus: submission.status,
+            newStatus: 'APPROVED',
+            viaCentralFallback,
+          },
+        },
+      });
+    }
     const updated = await (this.prisma as any).onefopSubmission.update({ where: { id }, data: { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() } });
     // Campaign progress B4: best-effort, never fails the approval.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'VALIDATED');
