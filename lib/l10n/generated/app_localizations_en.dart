@@ -4858,4 +4858,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get serviceCategoryAffiliatedShort => 'Affiliated';
+
+  @override
+  String get registrationStatusTitle => 'Registration file';
+
+  @override
+  String get registrationPendingHeadline =>
+      'Your registration has been recorded';
+
+  @override
+  String get registrationPendingBody =>
+      'An officer must validate your file before you can file declarations. You will receive an e-mail as soon as your account is activated.';
+
+  @override
+  String get registrationPendingFollowButton => 'Track my file';
+
+  @override
+  String get registrationAwaitingReviewMessage =>
+      'Your account is awaiting validation by an officer. You will be able to file declarations as soon as it is activated.';
+
+  @override
+  String get registrationComplementsHeadline =>
+      'Additional information requested';
+
+  @override
+  String get registrationComplementsIntro =>
+      'An officer has requested additional information for your file:';
+
+  @override
+  String get registrationComplementsFallback => 'Please complete your file.';
+
+  @override
+  String get registrationResubmitButton => 'Resubmit the file';
+
+  @override
+  String get registrationResubmitDoneMessage =>
+      'File resubmitted for validation.';
+
+  @override
+  String get registrationRejectedHeadline => 'Registration rejected';
+
+  @override
+  String get registrationRejectedNoReason => 'No reason was given.';
+
+  @override
+  String get registrationStatusRefreshButton => 'Refresh';
+
+  @override
+  String get registrationStatusLogoutButton => 'Sign out';
 }

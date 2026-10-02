@@ -443,24 +443,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       );
       // Receipt handles navigation internally
     } else {
-      // Fallback simple dialog
+      // R.1: no establishment ID is issued at self-registration any more, so
+      // this is the live path for every company. The file is recorded and now
+      // waits for a reviewer — say so, and send them to the status screen
+      // rather than to /home, which has nothing for them yet.
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.check_circle, size: 64, color: PublicColors.green),
               const SizedBox(height: 16),
-              Text(context.l10n.registerSuccessTitle),
+              Text(
+                context.l10n.registrationPendingHeadline,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: PublicColors.gray900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.registrationPendingBody,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: PublicColors.gray700,
+                ),
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  if (mounted) context.go('/home');
+                  if (mounted) context.go('/inscription-en-attente');
                 },
-                child: Text(context.l10n.registerAccessButton),
+                child: Text(context.l10n.registrationPendingFollowButton),
               ),
             ],
           ),
@@ -558,6 +578,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final attestationUrl = response['company']?['attestationUrl'] as String?;
 
     await _clearDraft();
+
+    // registerCompany() stores the access token but never populates
+    // authProvider, which the status screen reads. Pull /auth/me in before
+    // navigating so it opens with a user instead of an empty state.
+    await ref.read(authProvider.notifier).refreshUser();
 
     if (mounted) {
       await _showRegistrationSuccess(
