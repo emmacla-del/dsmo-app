@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { CampaignService } from './campaign.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../dsmo/notification.service';
@@ -11,6 +11,7 @@ describe('CampaignService - reference period and lateness gating', () => {
             findUnique: jest.Mock;
             create: jest.Mock;
             update: jest.Mock;
+            delete: jest.Mock;
         };
         submissionRound: {
             findUnique: jest.Mock;
@@ -27,12 +28,13 @@ describe('CampaignService - reference period and lateness gating', () => {
                 findUnique: jest.fn(),
                 create: jest.fn(),
                 update: jest.fn(),
+                delete: jest.fn(),
             },
             submissionRound: {
                 findUnique: jest.fn(),
                 updateMany: jest.fn(),
             },
-            $transaction: jest.fn(),
+            $transaction: jest.fn((cb: any) => typeof cb === 'function' ? cb(prisma) : Promise.all(cb)),
         };
         notificationService = {};
         service = new CampaignService(prisma as unknown as PrismaService, notificationService as NotificationService);
@@ -224,4 +226,330 @@ describe('CampaignService - reference period and lateness gating', () => {
             });
         });
     });
+
+    describe('CampaignService.deleteCampaign - 409 Conflict gating and atomic deletion', () => {
+        it('throws 404 NotFoundException when campaign does not exist', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(null);
+
+            await expect(service.deleteCampaign('non-existent')).rejects.toThrow(
+                new NotFoundException('Campagne introuvable'),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign status is ACTIVE', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-active',
+                name: 'Campagne Active',
+                status: 'ACTIVE',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-active')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Campagne Active" : son statut est "ACTIVE". Seules les campagnes à l\'état DRAFT peuvent être supprimées. Veuillez l\'archiver.',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign status is PAUSED', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-paused',
+                name: 'Campagne En Pause',
+                status: 'PAUSED',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-paused')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Campagne En Pause" : son statut est "PAUSED". Seules les campagnes à l\'état DRAFT peuvent être supprimées. Veuillez l\'archiver.',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign status is CLOSED', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-closed',
+                name: 'Campagne Clôturée',
+                status: 'CLOSED',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-closed')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Campagne Clôturée" : son statut est "CLOSED". Seules les campagnes à l\'état DRAFT peuvent être supprimées. Veuillez l\'archiver.',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign status is ARCHIVED', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-archived',
+                name: 'Campagne Archivée',
+                status: 'ARCHIVED',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-archived')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Campagne Archivée" : son statut est "ARCHIVED". Seules les campagnes à l\'état DRAFT peuvent être supprimées. Veuillez l\'archiver.',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign has linked CampaignSubmission rows', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-1',
+                name: 'Brouillon avec soumissions',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 5,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-draft-1')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon avec soumissions" : des données liées existent (5 soumission(s) de campagne).',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign has linked OnefopSubmission rows', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-2',
+                name: 'Brouillon avec retours ONEFOP',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 3,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-draft-2')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon avec retours ONEFOP" : des données liées existent (3 soumission(s) ONEFOP).',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign has linked Declaration rows', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-3',
+                name: 'Brouillon avec DSMO',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 2,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-draft-3')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon avec DSMO" : des données liées existent (2 déclaration(s) DSMO).',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign has linked CampaignQuota rows', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-4',
+                name: 'Brouillon avec quotas territoriaux',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 4,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-draft-4')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon avec quotas territoriaux" : des données liées existent (4 quota(s) territorial(aux)).',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign has a linked CentralCampaignQuota', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-5',
+                name: 'Brouillon avec quota central',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: { id: 'cq-1' },
+            });
+
+            await expect(service.deleteCampaign('c-draft-5')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon avec quota central" : des données liées existent (1 quota central).',
+                ),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign has linked CampaignFreeze rows', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-6',
+                name: 'Brouillon avec gels',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 1,
+                },
+                centralQuota: null,
+            });
+
+            await expect(service.deleteCampaign('c-draft-6')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon avec gels" : des données liées existent (1 gel(s) statistique(s)).',
+                ),
+            );
+        });
+
+        it('multi-blocker test: collects ALL blockers into a single 409 ConflictException message', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-draft-multi',
+                name: 'Brouillon Multi-Bloqué',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 10,
+                    onefopSubmissions: 4,
+                    declarations: 2,
+                    quotas: 6,
+                    freezes: 1,
+                },
+                centralQuota: { id: 'cq-central' },
+            });
+
+            await expect(service.deleteCampaign('c-draft-multi')).rejects.toThrow(
+                new ConflictException(
+                    'Impossible de supprimer la campagne "Brouillon Multi-Bloqué" : des données liées existent (10 soumission(s) de campagne, 4 soumission(s) ONEFOP, 2 déclaration(s) DSMO, 6 quota(s) territorial(aux), 1 quota central, 1 gel(s) statistique(s)).',
+                ),
+            );
+        });
+
+        it('successfully deletes a clean DRAFT campaign with no linked data and closes round in transaction', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-clean-draft',
+                name: 'Brouillon Propre',
+                status: 'DRAFT',
+                _count: {
+                    submissions: 0,
+                    onefopSubmissions: 0,
+                    declarations: 0,
+                    quotas: 0,
+                    freezes: 0,
+                },
+                centralQuota: null,
+            });
+            prisma.submissionRound.updateMany.mockResolvedValue({ count: 1 });
+            prisma.dataCampaign.delete.mockResolvedValue({ id: 'c-clean-draft', name: 'Brouillon Propre' });
+
+            const result = await service.deleteCampaign('c-clean-draft');
+
+            expect(result).toEqual({ id: 'c-clean-draft', name: 'Brouillon Propre' });
+            expect(prisma.submissionRound.updateMany).toHaveBeenCalledWith({
+                where: { campaignId: 'c-clean-draft', status: { in: ['OPEN', 'EXTENDED'] } },
+                data: expect.objectContaining({ status: 'CLOSED' }),
+            });
+            expect(prisma.dataCampaign.delete).toHaveBeenCalledWith({ where: { id: 'c-clean-draft' } });
+        });
+    });
+
+    describe('CampaignService.archiveCampaign', () => {
+        it('throws 404 NotFoundException when campaign does not exist', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue(null);
+
+            await expect(service.archiveCampaign('non-existent')).rejects.toThrow(
+                new NotFoundException('Campagne introuvable'),
+            );
+        });
+
+        it('throws 409 ConflictException when campaign is already ARCHIVED', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-archived',
+                status: 'ARCHIVED',
+            });
+
+            await expect(service.archiveCampaign('c-archived')).rejects.toThrow(
+                new ConflictException('La campagne est déjà archivée'),
+            );
+        });
+
+        it('successfully archives campaign and closes open rounds', async () => {
+            prisma.dataCampaign.findUnique.mockResolvedValue({
+                id: 'c-to-archive',
+                status: 'CLOSED',
+                createdBy: 'admin-1',
+            });
+            prisma.dataCampaign.update.mockResolvedValue({
+                id: 'c-to-archive',
+                status: 'ARCHIVED',
+            });
+            prisma.submissionRound.updateMany.mockResolvedValue({ count: 1 });
+
+            const result = await service.archiveCampaign('c-to-archive', 'user-actor');
+
+            expect(result).toEqual({ id: 'c-to-archive', status: 'ARCHIVED' });
+            expect(prisma.dataCampaign.update).toHaveBeenCalledWith({
+                where: { id: 'c-to-archive' },
+                data: { status: 'ARCHIVED' },
+            });
+            expect(prisma.submissionRound.updateMany).toHaveBeenCalledWith({
+                where: { campaignId: 'c-to-archive', status: { in: ['OPEN', 'EXTENDED'] } },
+                data: expect.objectContaining({ status: 'CLOSED', closedBy: 'user-actor' }),
+            });
+        });
+    });
 });
+
