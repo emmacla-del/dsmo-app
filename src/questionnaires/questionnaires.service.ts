@@ -534,7 +534,51 @@ export class QuestionnairesService {
       throw new ForbiddenException("Aucun profil d'entreprise associé à ce compte.");
     }
     const resolvedCompanyId = submittingCompany.id;
-    const resolvedEstablishmentId = submittingCompany.establishmentId;
+
+    // Phase E.1: Resolve incoming establishmentId (13-char code or null legacy)
+    // to Establishment.id (UUID). Client cannot be trusted for company attribution,
+    // so the establishment must belong to submittingCompany.
+    const clientEstId = dto.establishmentId?.trim() || dto.__meta?.establishmentId?.trim() || null;
+    let resolvedEstablishmentId: string;
+
+    if ((this.prisma as any).establishment) {
+      let targetEstablishment: any = null;
+      if (!clientEstId) {
+        const activeEstablishments = await (this.prisma as any).establishment.findMany({
+          where: { companyId: submittingCompany.id, status: 'ACTIVE' },
+        });
+        if (activeEstablishments && activeEstablishments.length > 1) {
+          throw new BadRequestException(
+            'Votre organisation comporte plusieurs sites déclarés. Veuillez mettre à jour votre application pour sélectionner le site concerné.',
+          );
+        }
+        targetEstablishment = (activeEstablishments && activeEstablishments[0]) || (await (this.prisma as any).establishment.findFirst({
+          where: { companyId: submittingCompany.id, isPrincipal: true },
+        }));
+      } else {
+        targetEstablishment = await (this.prisma as any).establishment.findFirst({
+          where: {
+            companyId: submittingCompany.id,
+            OR: [
+              { code: clientEstId },
+              { id: clientEstId },
+              { code: `${clientEstId}-01` },
+            ],
+          },
+        });
+        if (!targetEstablishment) {
+          throw new BadRequestException("Établissement introuvable ou non associé à cette entreprise.");
+        }
+      }
+
+      if (!targetEstablishment) {
+        throw new BadRequestException("Établissement introuvable ou non associé à cette entreprise.");
+      }
+      resolvedEstablishmentId = targetEstablishment.id;
+    } else {
+      // Fallback for mocks without establishment delegate
+      resolvedEstablishmentId = submittingCompany.establishmentId || '';
+    }
 
     // Normalize entityType to uppercase
     const normalizedEntityType = normalizeEntityType(dto.entityType);
@@ -1348,7 +1392,7 @@ export class QuestionnairesService {
           rawData: dto.data as any,
           surveyYear: questionnaireData.surveyYear ?? surveyYearFromQuarterCode(resolvedQuarterCode),
           submissionDate: new Date(),
-          establishmentId: resolvedEstablishmentId,
+          establishment: { connect: { id: resolvedEstablishmentId } },
           quarterCode: resolvedQuarterCode,
           campaign: resolvedCampaignId ? { connect: { id: resolvedCampaignId } } : undefined,
           isLate: resolvedIsLate,

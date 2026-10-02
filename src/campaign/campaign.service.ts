@@ -761,34 +761,26 @@ export class CampaignService {
         const campaign = await db.dataCampaign.findUnique({ where: { id: campaignId } });
         if (!campaign) return;
 
-        const where: any = { establishmentId: { not: null } };
+        const where: any = {
+            isPrincipal: true,
+            status: 'ACTIVE',
+        };
         if (campaign.targetRegions?.length) where.region = { in: campaign.targetRegions };
         if (campaign.targetDepartments?.length) where.department = { in: campaign.targetDepartments };
-        // FIX: targetEntityTypes was selected in the create-campaign UI and
-        // stored on the campaign, but never actually used to filter who gets
-        // a submission record — every company in the targeted region(s)
-        // was initialized regardless of entity type.
-        if (campaign.targetEntityTypes?.length) where.entityType = { in: campaign.targetEntityTypes };
+        if (campaign.targetEntityTypes?.length) where.company = { entityType: { in: campaign.targetEntityTypes } };
 
-        const establishments = await db.company.findMany({
+        const establishments = await db.establishment.findMany({
             where,
-            select: { id: true, establishmentId: true },
+            select: { id: true, companyId: true },
         });
 
-        // FIX: one upsert per establishment (N sequential round-trips inside
-        // the activation transaction) made creating a broadly-targeted —
-        // especially "all" — campaign take a very long time. A single bulk
-        // insert does the same job (skipDuplicates mirrors the old upsert's
-        // update: {} no-op on conflict) in one round-trip.
         await db.campaignSubmission.createMany({
-            data: establishments
-                .filter((est) => est.establishmentId)
-                .map((est) => ({
-                    campaignId,
-                    companyId: est.id,
-                    establishmentId: est.establishmentId!,
-                    status: 'NOT_STARTED' as const,
-                })),
+            data: establishments.map((est) => ({
+                campaignId,
+                companyId: est.companyId,
+                establishmentId: est.id,
+                status: 'NOT_STARTED' as const,
+            })),
             skipDuplicates: true,
         });
     }
