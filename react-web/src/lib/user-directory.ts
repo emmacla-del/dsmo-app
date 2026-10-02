@@ -58,8 +58,14 @@ export function listUsers(params: ListUsersParams) {
   return apiFetch<ListUsersResult>(`/auth/users${qs ? `?${qs}` : ""}`);
 }
 
-export function approveUser(id: string) {
-  return apiFetch(`/auth/approve-user/${id}`, { method: "PATCH" });
+// centralStructureConfirmed backs the "structure centrale" checkbox, which
+// the server requires before approving an ADMINISTRATION file. Sent only when
+// the reviewer actually ticked it: the server demands strictly `true`.
+export function approveUser(id: string, options: { centralStructureConfirmed?: boolean } = {}) {
+  return apiFetch(`/auth/approve-user/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ centralStructureConfirmed: options.centralStructureConfirmed === true }),
+  });
 }
 
 export function rejectUser(id: string, reason?: string) {
@@ -93,6 +99,13 @@ export interface CompanyRegistrationItem {
   rejectionReason: string | null;
   duplicateHints: string[];
   requiresCentralStructureCheck: boolean;
+  // The corrections the company last sent, when that resubmission is newer
+  // than the last complements request on the same file. null when the company
+  // has not corrected anything since the reviewer last wrote to it.
+  lastResubmission: {
+    at: string;
+    changes: Record<string, { before: unknown; after: unknown }>;
+  } | null;
 }
 
 export interface CompanyRegistrationsResult {
@@ -126,8 +139,37 @@ export function listCompanyRegistrations(params: {
   return apiFetch<CompanyRegistrationsResult>(`/auth/company-registrations${qs ? `?${qs}` : ""}`);
 }
 
-export function resubmitRegistration() {
-  return apiFetch(`/auth/resubmit-registration`, { method: "POST" });
+/**
+ * The corrections a company may send with a resubmission.
+ *
+ * Mirrors ResubmitRegistrationDto field for field. The route validates with
+ * forbidNonWhitelisted, so an extra key is a 400 — which is why callers must
+ * build this object explicitly and never spread a CompanyProfile into it:
+ * CompanyProfile has an index signature and would carry unknown keys along.
+ */
+export interface RegistrationCorrections {
+  name?: string;
+  taxNumber?: string;
+  mainActivity?: string;
+  secondaryActivity?: string;
+  parentCompany?: string;
+  address?: string;
+  cnpsNumber?: string;
+  fax?: string;
+  socialCapital?: number;
+  entityType?: string;
+  region?: string;
+  department?: string;
+  subdivision?: string;
+}
+
+// No argument, or an empty object, is a resubmission with no corrections:
+// the status flip alone, which stays allowed.
+export function resubmitRegistration(data?: RegistrationCorrections) {
+  return apiFetch(`/auth/resubmit-registration`, {
+    method: "POST",
+    body: JSON.stringify(data ?? {}),
+  });
 }
 
 export function updateUserRole(id: string, role: string) {
