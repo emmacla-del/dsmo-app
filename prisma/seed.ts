@@ -702,13 +702,18 @@ async function seed() {
         // 5. Create locations (regions, departments, subdivisions)
         console.log('🗺️  Creating locations...');
         const regionMap = new Map<string, string>();
-        for (const r of regionsData) {
+        for (let rIdx = 0; rIdx < regionsData.length; rIdx++) {
+            const r = regionsData[rIdx];
+            const regionCode = String(rIdx + 1).padStart(2, '0');
             const region = await withRetry(async () => {
                 let region = await prisma.region.findUnique({ where: { name: r.name } });
                 if (!region) {
-                    region = await prisma.region.create({ data: { name: r.name } });
-                    console.log(`   ✅ Created region: ${r.name}`);
+                    region = await prisma.region.create({ data: { name: r.name, code: regionCode } });
+                    console.log(`   ✅ Created region: ${r.name} (${regionCode})`);
                 } else {
+                    if (!region.code) {
+                        region = await prisma.region.update({ where: { id: region.id }, data: { code: regionCode } });
+                    }
                     console.log(`   ⏭️  Region already exists: ${r.name}`);
                 }
                 return region;
@@ -718,35 +723,48 @@ async function seed() {
 
         let deptCreated = 0;
         let subdivCreated = 0;
+        let deptGlobalIndex = 0;
         for (const r of regionsData) {
             const regionId = regionMap.get(r.name);
             if (!regionId) continue;
             for (const d of r.departments) {
+                deptGlobalIndex++;
+                const deptCode = String(deptGlobalIndex).padStart(2, '0');
                 const dept = await withRetry(async () => {
                     let dept = await prisma.department.findUnique({
                         where: { regionId_name: { regionId, name: d.name } }
                     });
                     if (!dept) {
                         dept = await prisma.department.create({
-                            data: { name: d.name, regionId }
+                            data: { name: d.name, regionId, code: deptCode }
                         });
                         deptCreated++;
-                        console.log(`   ✅ Created department: ${r.name} → ${d.name}`);
+                        console.log(`   ✅ Created department: ${r.name} → ${d.name} (${deptCode})`);
                     } else {
+                        if (!dept.code) {
+                            dept = await prisma.department.update({ where: { id: dept.id }, data: { code: deptCode } });
+                        }
                         console.log(`   ⏭️  Department already exists: ${r.name} → ${d.name}`);
                     }
                     return dept;
                 });
-                for (const sub of d.subdivisions) {
+                for (let sIdx = 0; sIdx < d.subdivisions.length; sIdx++) {
+                    const sub = d.subdivisions[sIdx];
+                    const subdivCode = `${deptCode}${String(sIdx + 1).padStart(2, '0')}`;
                     await withRetry(async () => {
                         const exists = await prisma.subdivision.findUnique({
                             where: { departmentId_name: { departmentId: dept.id, name: sub } }
                         });
                         if (!exists) {
                             await prisma.subdivision.create({
-                                data: { name: sub, departmentId: dept.id }
+                                data: { name: sub, departmentId: dept.id, code: subdivCode }
                             });
                             subdivCreated++;
+                        } else if (!exists.code) {
+                            await prisma.subdivision.update({
+                                where: { id: exists.id },
+                                data: { code: subdivCode }
+                            });
                         }
                     });
                 }
