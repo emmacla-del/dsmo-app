@@ -9,11 +9,15 @@ import {
   activateCampaign,
   pauseCampaign,
   closeCampaign,
+  archiveCampaign,
+  deleteCampaign,
   sendCampaignReminder,
   CAMPAIGN_STATUS_LABELS,
   REMINDER_TYPES,
   formatCampaignDate,
   canActivate,
+  canArchive,
+  canDelete,
   type Campaign,
   type CampaignDetail,
 } from "@/lib/campaigns";
@@ -96,6 +100,8 @@ function Gated({ allowed, children }: { allowed: boolean; children: (disabled: b
 type DialogState =
   | { type: "remind"; campaign: Campaign }
   | { type: "close"; campaign: Campaign }
+  | { type: "archive"; campaign: Campaign }
+  | { type: "delete"; campaign: Campaign }
   | { type: "details"; campaign: Campaign }
   | null;
 
@@ -123,11 +129,16 @@ export default function CampagnesPage() {
     setDialog(null);
     setCreateOpen(false);
   };
-  const failed = (e: Error) => setActionError(e.message);
+  const failed = (e: Error) => {
+    setActionError(e.message);
+    setDialog(null);
+  };
 
   const activateMutation = useMutation({ mutationFn: activateCampaign, onSuccess: () => done("Campagne activée avec succès."), onError: failed });
   const pauseMutation = useMutation({ mutationFn: pauseCampaign, onSuccess: () => done("Campagne mise en pause."), onError: failed });
   const closeMutation = useMutation({ mutationFn: closeCampaign, onSuccess: () => done("Campagne clôturée."), onError: failed });
+  const archiveMutation = useMutation({ mutationFn: archiveCampaign, onSuccess: () => done("Campagne archivée."), onError: failed });
+  const deleteMutation = useMutation({ mutationFn: deleteCampaign, onSuccess: () => done("Campagne supprimée avec succès."), onError: failed });
   const reminderMutation = useMutation({
     mutationFn: ({ id, type }: { id: string; type: string }) => sendCampaignReminder(id, type),
     onSuccess: () => done("Rappel envoyé."),
@@ -217,6 +228,7 @@ export default function CampagnesPage() {
             onRemind={() => openRemind(c)}
             onPause={() => pauseMutation.mutate(c.id)}
             onClose={() => setDialog({ type: "close", campaign: c })}
+            onArchive={() => setDialog({ type: "archive", campaign: c })}
           />
         ))
       )}
@@ -295,7 +307,7 @@ export default function CampagnesPage() {
                         </td>
                         <td style={{ padding: "10px 14px", verticalAlign: "middle" }}><StatusBadge status={c.status} /></td>
                         <td style={{ textAlign: "right", whiteSpace: "nowrap", padding: "10px 14px", verticalAlign: "middle" }}>
-                          <div style={{ display: "inline-flex", gap: "var(--cam-space-3)", alignItems: "center", justifyContent: "flex-end" }}>
+                          <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center", justifyContent: "flex-end" }}>
                             {canActivate(c.status) && (
                               <Gated allowed={canMutate}>
                                 {(disabled) => (
@@ -307,6 +319,36 @@ export default function CampagnesPage() {
                                     style={disabled ? GATED_OFF : undefined}
                                   >
                                     Activer
+                                  </button>
+                                )}
+                              </Gated>
+                            )}
+                            {c.status === "DRAFT" && (
+                              <Gated allowed={canMutate}>
+                                {(disabled) => (
+                                  <button
+                                    type="button"
+                                    className="cam-button cam-button-danger cam-button-sm"
+                                    onClick={() => setDialog({ type: "delete", campaign: c })}
+                                    disabled={disabled || deleteMutation.isPending}
+                                    style={disabled ? GATED_OFF : undefined}
+                                  >
+                                    Supprimer
+                                  </button>
+                                )}
+                              </Gated>
+                            )}
+                            {c.status !== "DRAFT" && c.status !== "ARCHIVED" && (
+                              <Gated allowed={canMutate}>
+                                {(disabled) => (
+                                  <button
+                                    type="button"
+                                    className="cam-button cam-button-secondary cam-button-sm"
+                                    onClick={() => setDialog({ type: "archive", campaign: c })}
+                                    disabled={disabled || archiveMutation.isPending}
+                                    style={disabled ? GATED_OFF : undefined}
+                                  >
+                                    Archiver
                                   </button>
                                 )}
                               </Gated>
@@ -397,6 +439,54 @@ export default function CampagnesPage() {
         </p>
       </AdminDialog>
 
+      <AdminDialog
+        open={dialog?.type === "delete"}
+        onClose={() => setDialog(null)}
+        eyebrow="Suppression"
+        title={dialog?.type === "delete" ? `Supprimer « ${dialog.campaign.name} » ?` : "Supprimer la campagne"}
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button
+              type="button"
+              className="cam-button cam-button-danger cam-button-sm"
+              disabled={deleteMutation.isPending}
+              onClick={() => dialog?.type === "delete" && deleteMutation.mutate(dialog.campaign.id)}
+            >
+              {deleteMutation.isPending ? "Suppression…" : "Supprimer définitivement"}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>
+          Cette action est irréversible. Seules les campagnes en brouillon sans aucune donnée liée (soumissions, quotas, gels) peuvent être supprimées.
+        </p>
+      </AdminDialog>
+
+      <AdminDialog
+        open={dialog?.type === "archive"}
+        onClose={() => setDialog(null)}
+        eyebrow="Archivage"
+        title={dialog?.type === "archive" ? `Archiver « ${dialog.campaign.name} » ?` : "Archiver la campagne"}
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>Annuler</button>
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              disabled={archiveMutation.isPending}
+              onClick={() => dialog?.type === "archive" && archiveMutation.mutate(dialog.campaign.id)}
+            >
+              {archiveMutation.isPending ? "Archivage…" : "Archiver la campagne"}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>
+          La campagne sera archivée. Les données historiques seront conservées, mais aucune nouvelle saisie ne sera possible.
+        </p>
+      </AdminDialog>
+
       {dialog?.type === "details" && <DetailsDialog campaign={dialog.campaign} onClose={() => setDialog(null)} />}
       <CreateCampaignDialog
         open={createOpen}
@@ -409,9 +499,9 @@ export default function CampagnesPage() {
 
 // ── Active campaign card ────────────────────────────────────────────────────
 
-function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, onRemind, onPause, onClose }: {
+function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, onRemind, onPause, onClose, onArchive }: {
   campaign: Campaign; canMutate: boolean; pausePending: boolean;
-  onDetails: () => void; onRemind: () => void; onPause: () => void; onClose: () => void;
+  onDetails: () => void; onRemind: () => void; onPause: () => void; onClose: () => void; onArchive: () => void;
 }) {
   const remaining = daysLeft(c);
   const expected = c.progress?.total;
@@ -470,6 +560,13 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
             {(disabled) => (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled || pausePending} style={disabled ? GATED_OFF : undefined} onClick={onPause}>
                 Mettre en pause
+              </button>
+            )}
+          </Gated>
+          <Gated allowed={canMutate}>
+            {(disabled) => (
+              <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled} style={disabled ? GATED_OFF : undefined} onClick={onArchive}>
+                Archiver
               </button>
             )}
           </Gated>
