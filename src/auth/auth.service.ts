@@ -15,11 +15,13 @@ import { NotificationService } from '../dsmo/notification.service';
 import { PdfService } from '../dsmo/pdf.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { computeOnefopFeatures } from '../common/onefop-features.util';
+import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
 import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
-import type { Territory } from './territory';
+import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
 import { toPublicUser } from './public-user';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
+import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -40,6 +42,19 @@ const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
   registrationDate:
     "Quel est le mois et l'année d'inscription de votre compte (format MM/AAAA) ?",
 };
+
+/**
+ * Extra confirmations a reviewer must supply alongside an approval.
+ *
+ * `centralStructureConfirmed` backs the "structure centrale" checkbox the
+ * review dialog shows for an ADMINISTRATION file. It is re-checked
+ * server-side because the checkbox alone is client-side: a request can be
+ * sent without it, and the queue's `requiresCentralStructureCheck` is a hint
+ * for the UI, not an enforcement point.
+ */
+export interface ApproveRegistrationOptions {
+  centralStructureConfirmed?: boolean;
+}
 
 @Injectable()
 export class AuthService {
@@ -112,11 +127,22 @@ export class AuthService {
       });
     }
     if (user.status === 'PENDING_APPROVAL') {
-      throw new UnauthorizedException(
-        "Votre compte est en attente d'approbation par un administrateur.",
-      );
+      if (user.role !== 'COMPANY') {
+        throw new UnauthorizedException(
+          "Votre compte est en attente d'approbation par un administrateur.",
+        );
+      }
     }
-    if (user.status === 'REJECTED' || !user.isActive) {
+    // A rejected registration gets a fixed message that carries no reviewer
+    // reason: the reason is reviewer-facing and reaches the company only in
+    // the decision email, so login cannot be used to read it back. Both
+    // checks sit after the password check, so neither reveals anything to
+    // someone who does not already hold the credentials.
+    if (user.status === 'REJECTED') {
+      throw new UnauthorizedException(REGISTRATION_REJECTED_LOGIN_MESSAGE);
+    }
+    // A suspension (isActive=false without REJECTED) keeps its own message.
+    if (!user.isActive) {
       throw new UnauthorizedException(
         'Votre compte a été désactivé. Contactez un administrateur.',
       );
@@ -180,6 +206,8 @@ export class AuthService {
         weeklyDigestEnabled: user.weeklyDigestEnabled,
         smsNotificationsEnabled: user.smsNotificationsEnabled,
         twoFactorEnabled: user.twoFactorEnabled,
+        status: user.status,
+        approvalComment: user.approvalComment,
         features,
       },
     };
@@ -201,7 +229,11 @@ export class AuthService {
     // without `features` here it silently overwrote the correct login-time
     // value with UserFeatures' all-false default.
     const features = await this.buildFeatures(user.id, user.role);
-    return { ...toPublicUser(user), features };
+    // approvalComment stays out of PUBLIC_USER_SELECT (it is a reviewer note,
+    // and toPublicUser also feeds the staff user lists). /auth/me is the
+    // account's own row, and a COMPANY in COMPLEMENTS_REQUESTED has to read
+    // the message to act on it — so it is added here only, for self.
+    return { ...toPublicUser(user), approvalComment: user.approvalComment, features };
   }
 
   /**
@@ -571,29 +603,10 @@ export class AuthService {
       { requireSubdivision: true },
     );
 
-    // ✅ GENERATE ESTABLISHMENT ID
-    let establishmentId: string | undefined;
-    if (companyData.entityType && resolvedTerritory.subdivisionId) {
-      const subdivision = await this.prisma.subdivision.findUnique({
-        where: { id: resolvedTerritory.subdivisionId },
-      });
-      const subdivisionCode = subdivision?.code?.slice(-2) || '00';
-
-      establishmentId = await EstablishmentIdGenerator.generate(
-        this.prisma,
-        companyData.entityType,
-        subdivisionCode,
-      );
-    }
-
-    // Entity types with no real NIU still need a unique, non-empty value
-    // to satisfy Company.taxNumber's unique constraint. Derive it from the
-    // just-generated establishmentId (already guaranteed unique) rather
-    // than storing '' — falls back to a random id on the rare path where
-    // establishmentId itself couldn't be generated.
+    // Establishment IDs are issued at staff approval, not at self-registration.
     const resolvedTaxNumber =
       companyData.taxNumber ||
-      `NA-${establishmentId ?? crypto.randomUUID()}`;
+      `NA-${crypto.randomUUID()}`;
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -607,7 +620,7 @@ export class AuthService {
           lastName: companyData.respondentLastName ?? '',
           region: resolvedTerritory.region,
           department: resolvedTerritory.department,
-          status: 'ACTIVE',
+          status: 'PENDING_APPROVAL',
           isActive: true,
           emailVerified: false,
         },
@@ -666,41 +679,8 @@ export class AuthService {
           promoterSex: companyData.promoterSex,
           promoterPhone1: companyData.promoterPhone1,
           promoterPhone2: companyData.promoterPhone2,
-          establishmentId: establishmentId,
-          establishmentIdGeneratedAt: establishmentId ? new Date() : undefined,
         },
       });
-
-      // Attestation generation must never block registration — the account
-      // and establishmentId already exist at this point regardless.
-      let attestationUrl: string | undefined;
-      if (establishmentId) {
-        try {
-          const attestation = await this.pdfService.generateRegistrationAttestation({
-            establishmentId,
-            companyName: company.name,
-            entityType: company.entityType ?? 'N/A',
-            taxNumber: company.taxNumber,
-            region: company.region,
-            department: company.department,
-            subdivision: company.subdivision,
-            registrationDate: company.createdAt,
-            email: user.email,
-          });
-          attestationUrl = attestation.signedUrl;
-          await this.prisma.company.update({
-            where: { id: company.id },
-            data: {
-              attestationUrl: attestation.storagePath,
-              attestationGeneratedAt: new Date(),
-            },
-          });
-        } catch (error) {
-          this.logger.error(
-            `Failed to generate registration attestation for company ${company.id}: ${(error as Error).message}`,
-          );
-        }
-      }
 
       const rawToken = await this.issueEmailVerificationToken(user.id);
       const verifyLink = `${process.env.APP_URL || 'https://dsmo.ministry.cm'}/verify-email?token=${rawToken}`;
@@ -712,7 +692,6 @@ export class AuthService {
         );
       });
 
-      // ✅ Return the login response WITH company data including establishmentId
       const loginResult = await this.login(user);
 
       return {
@@ -720,10 +699,10 @@ export class AuthService {
         company: {
           id: company.id,
           name: company.name,
-          establishmentId: company.establishmentId,
+          establishmentId: null,
           taxNumber: company.taxNumber,
           entityType: company.entityType,
-          attestationUrl: attestationUrl ?? null,
+          attestationUrl: null,
         },
       };
     } catch (error: any) {
@@ -811,38 +790,638 @@ export class AuthService {
   // actorTerritory: the acting user's region/department (territoryFromUser
   // of req.user). Only REGIONAL/DIVISIONAL actors need it (D3); without it
   // they fail closed.
-  async approveUser(id: string, actorRole: string, actorTerritory?: Territory) {
+  async approveUser(
+    id: string,
+    actorId: string,
+    actorRole: string,
+    actorTerritory?: Territory,
+    options?: ApproveRegistrationOptions,
+  ) {
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
-    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     if (user.role === 'COMPANY') {
-      throw new BadRequestException('Les entreprises sont automatiquement approuvées');
+      return this.approveCompanyRegistration(user, actorId, actorRole, actorTerritory, options);
     }
+    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     if (user.status !== 'PENDING_APPROVAL') {
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
     }
     return toPublicUser(await this.prisma.user.update({
       where: { id },
-      data: { status: 'ACTIVE', isActive: true },
+      data: { status: 'ACTIVE', isActive: true, approvedAt: new Date() },
     }));
   }
 
-  async rejectUser(id: string, actorRole: string, actorTerritory?: Territory) {
+  async rejectUser(
+    id: string,
+    actorId: string,
+    actorRole: string,
+    actorTerritory: Territory | undefined,
+    reason: string,
+  ) {
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    const trimmed = typeof reason === 'string' ? reason.trim() : '';
+    if (!trimmed) throw new BadRequestException('Le motif de rejet est obligatoire.');
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
-    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     if (user.role === 'COMPANY') {
-      throw new BadRequestException('Les entreprises ne peuvent pas être rejetées');
+      const company = await this.requireCompanyForReview(user.id);
+      assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
+      if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
+        throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+      }
+      const updated = await this.prisma.user.update({
+        where: { id },
+        data: {
+          status: 'REJECTED',
+          isActive: false,
+          rejectionReason: trimmed,
+          rejectedAt: new Date(),
+        },
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'COMPANY_REGISTRATION_REJECTED',
+          resourceType: 'User',
+          resourceId: id,
+          details: { companyId: company.id, reason: trimmed },
+        },
+      });
+      // Fire-and-forget: SMTP is unreliable from the host, and a rejection
+      // that is already committed must not surface as a 500.
+      this.notificationService
+        .sendRegistrationRejectedEmail(updated.email, company.name, trimmed)
+        .catch((error) => this.logger.error(`Failed to send rejection email: ${(error as Error).message}`));
+      return toPublicUser(updated);
     }
+    assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     // D3 grants REGIONAL/DIVISIONAL registration review only: without this,
     // "reject" on an ACTIVE colleague would deactivate the account.
     if ((TERRITORIAL_APPROVER_ROLES as readonly string[]).includes(actorRole) && user.status !== 'PENDING_APPROVAL') {
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
     }
-    return toPublicUser(await this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
-      data: { status: 'REJECTED', isActive: false },
+      data: {
+        status: 'REJECTED',
+        isActive: false,
+        rejectionReason: trimmed,
+        rejectedAt: new Date(),
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId,
+        action: 'STAFF_REGISTRATION_REJECTED',
+        resourceType: 'User',
+        resourceId: id,
+        details: { reason: trimmed },
+      },
+    });
+    return toPublicUser(updated);
+  }
+
+  async requestComplements(
+    id: string,
+    actorId: string,
+    actorRole: string,
+    actorTerritory: Territory | undefined,
+    message: string,
+  ) {
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    const trimmed = typeof message === 'string' ? message.trim() : '';
+    if (!trimmed) throw new BadRequestException('Le message de demande de compléments est obligatoire.');
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    if (user.role !== 'COMPANY') {
+      throw new BadRequestException('Les demandes de compléments concernent uniquement les comptes entreprise.');
+    }
+    const company = await this.requireCompanyForReview(user.id);
+    assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
+    if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
+      throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+    }
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { status: 'COMPLEMENTS_REQUESTED', isActive: true, approvalComment: trimmed },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId,
+        action: 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED',
+        resourceType: 'User',
+        resourceId: id,
+        details: { companyId: company.id, message: trimmed },
+      },
+    });
+    this.notificationService
+      .sendRegistrationComplementsEmail(updated.email, company.name, trimmed)
+      .catch((error) => this.logger.error(`Failed to send complements email: ${(error as Error).message}`));
+    return toPublicUser(updated);
+  }
+
+  /**
+   * The company fields a company may correct itself when complements were
+   * requested. An explicit allowlist, copied field by field below rather than
+   * spread from the body, so establishmentId stays unreachable: it is issued
+   * by a reviewer at approval. Territory is handled separately because it has
+   * to be resolved against the canonical records first.
+   */
+  private static readonly CORRECTABLE_COMPANY_FIELDS = [
+    'name',
+    'taxNumber',
+    'mainActivity',
+    'secondaryActivity',
+    'parentCompany',
+    'address',
+    'cnpsNumber',
+    'fax',
+    'socialCapital',
+    'entityType',
+  ] as const;
+
+  async resubmitRegistration(actorId: string, data?: ResubmitRegistrationDto) {
+    if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+    const user = await this.prisma.user.findUnique({ where: { id: actorId } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+    if (user.role !== 'COMPANY') {
+      throw new BadRequestException('Seul un compte entreprise peut renvoyer son dossier.');
+    }
+    if (user.status !== 'COMPLEMENTS_REQUESTED') {
+      throw new BadRequestException("Aucun complément n'a été demandé pour ce compte.");
+    }
+    const company = await this.requireCompanyForReview(user.id);
+    const payload = (data ?? {}) as Record<string, unknown>;
+
+    return this.prisma.$transaction(async (tx) => {
+      // The status flip goes first and is conditional on the status still being
+      // COMPLEMENTS_REQUESTED, so two concurrent resubmissions — or a reviewer
+      // deciding in between — cannot both get through. count === 0 means
+      // someone else moved the file: bail out before touching Company, so a
+      // losing request never half-writes its corrections.
+      const flipped = await tx.user.updateMany({
+        where: { id: actorId, status: 'COMPLEMENTS_REQUESTED' },
+        data: { status: 'PENDING_APPROVAL' },
+      });
+      if (flipped.count === 0) {
+        throw new ConflictException(
+          'Ce dossier a déjà été renvoyé ou traité entre-temps. Rechargez la page.',
+        );
+      }
+
+      const updates: Record<string, unknown> = {};
+      // A type alias, not an interface: that is what gives the diff an implicit
+      // index signature, so it is assignable to Prisma's Json input type.
+      type FieldDiff = { before: string | number | boolean | null; after: string | number | boolean | null };
+      const changes: Record<string, FieldDiff> = {};
+      const record = (field: string, before: unknown, after: unknown) => {
+        if (before === after) return;
+        updates[field] = after;
+        changes[field] = { before: before as FieldDiff['before'], after: after as FieldDiff['after'] };
+      };
+
+      for (const field of AuthService.CORRECTABLE_COMPANY_FIELDS) {
+        if (!(field in payload)) continue;
+        const after = payload[field];
+        if (after === undefined) continue;
+        record(field, (company as Record<string, unknown>)[field], after);
+      }
+
+      // Territory moves only when the body carries part of the chain, and then
+      // the whole chain is resolved against the canonical records; only the
+      // resolved names and ids are persisted, never what the client sent.
+      // Nothing else moves with it, so the file simply sits in the territorial
+      // queue its (new) department belongs to.
+      const territoryKeys = ['region', 'department', 'subdivision', 'regionId', 'departmentId', 'subdivisionId'];
+      if (territoryKeys.some((key) => key in payload && payload[key] !== undefined)) {
+        const resolved = await resolveAndValidateTerritory(
+          tx,
+          {
+            regionId: payload.regionId as string | undefined,
+            departmentId: payload.departmentId as string | undefined,
+            subdivisionId: payload.subdivisionId as string | undefined,
+            region: payload.region as string | undefined,
+            department: payload.department as string | undefined,
+            subdivision: payload.subdivision as string | undefined,
+          },
+          { requireSubdivision: true },
+        );
+        record('region', company.region, resolved.region);
+        record('department', company.department, resolved.department);
+        record('subdivision', company.subdivision, resolved.subdivision);
+        record('regionId', company.regionId, resolved.regionId);
+        record('departmentId', company.departmentId, resolved.departmentId);
+        record('subdivisionId', company.subdivisionId, resolved.subdivisionId);
+      }
+
+      // taxNumber is unique. Pre-checked for a readable 409, excluding this
+      // company's own row, with the P2002 catch below as the race backstop.
+      if (typeof updates.taxNumber === 'string') {
+        const clash = await tx.company.findFirst({
+          where: { taxNumber: updates.taxNumber, id: { not: company.id } },
+          select: { id: true },
+        });
+        if (clash) {
+          throw new ConflictException('Une entreprise avec ce numéro contribuable existe déjà');
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        try {
+          await tx.company.update({ where: { id: company.id }, data: updates });
+        } catch (error) {
+          if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+            throw new ConflictException('Une entreprise avec ce numéro contribuable existe déjà');
+          }
+          throw error;
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'COMPANY_REGISTRATION_RESUBMITTED',
+          resourceType: 'User',
+          resourceId: actorId,
+          details: { companyId: company.id, previousStatus: 'COMPLEMENTS_REQUESTED', changes },
+        },
+      });
+
+      // Re-read rather than trusting the in-memory copies, so the response
+      // carries exactly what was persisted. approvalComment is deliberately
+      // left in place: the reviewer's message stays readable until the file is
+      // decided.
+      const [freshUser, freshCompany] = await Promise.all([
+        tx.user.findUnique({ where: { id: actorId } }),
+        tx.company.findUnique({ where: { id: company.id } }),
+      ]);
+      return { ...toPublicUser(freshUser!), company: freshCompany };
+    });
+  }
+
+  async listCompanyRegistrations(
+    actor: Territory,
+    params: {
+      entityType?: string;
+      region?: string;
+      from?: string;
+      to?: string;
+      search?: string;
+      status?: string;
+      page?: number;
+      pageSize?: number;
+    },
+  ) {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const pageSize = params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
+    const scope = territoryWhere(actor);
+
+    // Narrowing the queue to one region is a filter, not a widening: the
+    // requested region is checked against the actor's own jurisdiction with
+    // assertTerritorialAuthority, so a REGIONAL/DIVISIONAL reviewer asking
+    // for someone else's region is refused rather than silently served their
+    // own. The actor's own department is carried into the target so the
+    // DIVISIONAL branch (region AND department) can match; national roles
+    // return early inside the helper.
+    const regionFilter = params.region?.trim();
+    const regionScope: Record<string, unknown> = { ...scope };
+    if (regionFilter) {
+      assertTerritorialAuthority(actor, {
+        region: regionFilter,
+        department: actor.department,
+        departmentId: actor.departmentId,
+      });
+      regionScope.AND = [{ region: { equals: regionFilter, mode: 'insensitive' } }];
+    }
+
+    const createdAt: Record<string, Date> = {};
+    if (params.from) {
+      const from = new Date(params.from);
+      if (Number.isNaN(from.getTime())) throw new BadRequestException('Date de début invalide.');
+      createdAt.gte = from;
+    }
+    if (params.to) {
+      const to = new Date(params.to);
+      if (Number.isNaN(to.getTime())) throw new BadRequestException('Date de fin invalide.');
+      createdAt.lte = to;
+    }
+
+    const userWhere: Record<string, unknown> = { role: 'COMPANY' };
+    if (params.status) userWhere.status = params.status;
+    else userWhere.status = { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] };
+
+    const where: Record<string, unknown> = {
+      ...regionScope,
+      user: userWhere,
+    };
+    if (params.entityType) where.entityType = params.entityType;
+    if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
+    const term = params.search?.trim();
+    if (term) {
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { taxNumber: { contains: term, mode: 'insensitive' } },
+        { cnpsNumber: { contains: term, mode: 'insensitive' } },
+        { user: { is: { email: { contains: term, mode: 'insensitive' } } } },
+      ];
+    }
+
+    const [total, companies] = await Promise.all([
+      this.prisma.company.count({ where }),
+      this.prisma.company.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              status: true,
+              createdAt: true,
+              approvalComment: true,
+              rejectionReason: true,
+              registrationNumber: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const items = await this.withDuplicateHints(companies);
+    const resubmissions = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
+    const itemsWithResubmission = items.map((item) => ({
+      ...item,
+      lastResubmission: resubmissions.get(item.id) ?? null,
     }));
+    // Counts drive the status tabs: they follow the territory selection so
+    // the tab numbers match the rows, but not search/type/date.
+    const counts = await this.companyRegistrationCounts(regionScope);
+    return { items: itemsWithResubmission, total, page, pageSize, counts };
+  }
+
+  /**
+   * The corrections a company last sent, for the review queue — but only when
+   * that resubmission is newer than the last complements request on the same
+   * file. Otherwise a reviewer opening a freshly re-requested dossier would see
+   * the diff from the previous round sitting next to their own new request.
+   */
+  private async lastResubmissionByUser(userIds: string[]) {
+    const out = new Map<
+      string,
+      { at: Date; changes: Record<string, { before: unknown; after: unknown }> } | null
+    >();
+    if (userIds.length === 0) return out;
+
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        resourceType: 'User',
+        resourceId: { in: userIds },
+        action: {
+          in: ['COMPANY_REGISTRATION_RESUBMITTED', 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED'],
+        },
+      },
+      select: { action: true, resourceId: true, details: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Newest first, so the first row seen for a (file, action) pair is its latest.
+    const lastResubmitted = new Map<string, { at: Date; details: unknown }>();
+    const lastRequested = new Map<string, Date>();
+    for (const row of rows) {
+      if (row.action === 'COMPANY_REGISTRATION_RESUBMITTED') {
+        if (!lastResubmitted.has(row.resourceId)) {
+          lastResubmitted.set(row.resourceId, { at: row.createdAt, details: row.details });
+        }
+      } else if (!lastRequested.has(row.resourceId)) {
+        lastRequested.set(row.resourceId, row.createdAt);
+      }
+    }
+
+    for (const id of userIds) {
+      const resubmitted = lastResubmitted.get(id);
+      const requested = lastRequested.get(id);
+      if (!resubmitted || (requested && requested >= resubmitted.at)) {
+        out.set(id, null);
+        continue;
+      }
+      const details = (resubmitted.details ?? {}) as {
+        changes?: Record<string, { before: unknown; after: unknown }>;
+      };
+      out.set(id, { at: resubmitted.at, changes: details.changes ?? {} });
+    }
+    return out;
+  }
+
+  private async approveCompanyRegistration(
+    user: { id: string; email: string; status: string },
+    actorId: string,
+    actorRole: string,
+    actorTerritory?: Territory,
+    options?: ApproveRegistrationOptions,
+  ) {
+    const company = await this.requireCompanyForReview(user.id);
+    assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
+    if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
+      throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+    }
+    if (!company.entityType) {
+      throw new BadRequestException("Le type d'entité est obligatoire pour générer l'identifiant d'établissement.");
+    }
+    // An ADMINISTRATION file may only be approved once the reviewer has
+    // confirmed the applicant really is a central structure. Strictly `true`:
+    // a missing, null or merely truthy flag is refused, so the confirmation
+    // has to be deliberate rather than a side effect of how a client
+    // serialises its form. Checked before the transaction, so a refusal
+    // issues no establishment ID and writes no audit row.
+    if (company.entityType === 'ADMINISTRATION' && options?.centralStructureConfirmed !== true) {
+      throw new BadRequestException(
+        "La confirmation « structure centrale » est obligatoire pour approuver une administration.",
+      );
+    }
+    if (!company.subdivisionId) {
+      throw new BadRequestException("L'arrondissement est obligatoire pour générer l'identifiant d'établissement.");
+    }
+
+    const attempts = 2;
+    let establishmentId = company.establishmentId;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          const subdivision = await tx.subdivision.findUnique({
+            where: { id: company.subdivisionId as string },
+            select: { id: true, code: true },
+          });
+          if (!subdivision?.code?.trim()) {
+            throw new BadRequestException("Code d'arrondissement introuvable pour cet établissement.");
+          }
+          const subdivisionCode = subdivision.code.slice(-2);
+          let issued = company.establishmentId;
+          if (!issued) {
+            issued = await EstablishmentIdGenerator.generate(tx, company.entityType as string, subdivisionCode);
+            await tx.company.update({
+              where: { id: company.id },
+              data: { establishmentId: issued, establishmentIdGeneratedAt: new Date() },
+            });
+          }
+          const updated = await tx.user.update({
+            where: { id: user.id },
+            data: { status: 'ACTIVE', isActive: true, approvedAt: new Date() },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: actorId,
+              action: 'COMPANY_REGISTRATION_APPROVED',
+              resourceType: 'User',
+              resourceId: user.id,
+              details: { companyId: company.id, establishmentId: issued },
+            },
+          });
+          return { updated, establishmentId: issued };
+        });
+        establishmentId = result.establishmentId;
+        // Both of these run after COMMIT and swallow their own failures: the
+        // approval and the establishment ID are already durable, and neither
+        // the mail server nor the PDF pipeline may undo them.
+        this.notificationService
+          .sendRegistrationApprovedEmail(user.email, company.name, result.establishmentId)
+          .catch((error) => this.logger.error(`Failed to send approval email: ${(error as Error).message}`));
+        this.issueAttestation(company.id, result.establishmentId, company, user.email).catch((error) =>
+          this.logger.error(`Failed to generate attestation: ${(error as Error).message}`),
+        );
+        return toPublicUser(result.updated);
+      } catch (error) {
+        if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002' && attempt < attempts) {
+          continue;
+        }
+        if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictException("Un identifiant d'établissement existe déjà pour ce territoire.");
+        }
+        throw error;
+      }
+    }
+    throw new ConflictException("Un identifiant d'établissement existe déjà pour ce territoire.");
+  }
+
+  private async requireCompanyForReview(userId: string) {
+    const company = await this.prisma.company.findUnique({ where: { userId } });
+    if (!company) throw new BadRequestException('Entreprise introuvable pour ce compte.');
+    return company;
+  }
+
+  private async issueAttestation(
+    companyId: string,
+    establishmentId: string,
+    company: { name: string; entityType: string | null; taxNumber: string; region: string; department: string; subdivision: string; createdAt: Date },
+    email: string,
+  ) {
+    const attestation = await this.pdfService.generateRegistrationAttestation({
+      establishmentId,
+      companyName: company.name,
+      entityType: company.entityType ?? 'N/A',
+      taxNumber: company.taxNumber,
+      region: company.region,
+      department: company.department,
+      subdivision: company.subdivision,
+      registrationDate: company.createdAt,
+      email,
+    });
+    await this.prisma.company.update({
+      where: { id: companyId },
+      data: { attestationUrl: attestation.storagePath, attestationGeneratedAt: new Date() },
+    });
+  }
+
+  private async companyRegistrationCounts(scope: Record<string, unknown>) {
+    const [pending, complements, approved, rejected] = await Promise.all([
+      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'PENDING_APPROVAL' } } }),
+      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'COMPLEMENTS_REQUESTED' } } }),
+      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'ACTIVE' } } }),
+      this.prisma.company.count({ where: { ...scope, user: { role: 'COMPANY', status: 'REJECTED' } } }),
+    ]);
+    return { pending, complements, approved, rejected };
+  }
+
+  private async withDuplicateHints(
+    companies: Array<{
+      id: string;
+      name: string;
+      taxNumber: string;
+      cnpsNumber: string | null;
+      subdivisionId: string | null;
+      entityType: string | null;
+      region: string;
+      department: string;
+      createdAt: Date;
+      user: {
+        id: string;
+        email: string;
+        status: string;
+        createdAt: Date;
+        approvalComment: string | null;
+        rejectionReason: string | null;
+        registrationNumber: string | null;
+      };
+    }>,
+  ) {
+    if (companies.length === 0) return [];
+    const ids = companies.map((row) => row.id);
+    const taxNumbers = companies.map((row) => row.taxNumber).filter((value) => value && !value.startsWith('NA-'));
+    const cnpsNumbers = companies.map((row) => row.cnpsNumber).filter((value): value is string => !!value);
+    const or: Record<string, unknown>[] = [];
+    if (taxNumbers.length) or.push({ taxNumber: { in: taxNumbers } });
+    if (cnpsNumbers.length) or.push({ cnpsNumber: { in: cnpsNumbers } });
+    for (const row of companies) {
+      if (row.subdivisionId) {
+        or.push({ name: { equals: row.name, mode: 'insensitive' }, subdivisionId: row.subdivisionId });
+      }
+    }
+    const others = or.length
+      ? await this.prisma.company.findMany({
+          where: { id: { notIn: ids }, OR: or },
+          select: { id: true, name: true, taxNumber: true, cnpsNumber: true, subdivisionId: true },
+        })
+      : [];
+
+    return companies.map((row) => {
+      const hints: string[] = [];
+      for (const other of others) {
+        if (row.taxNumber && !row.taxNumber.startsWith('NA-') && other.taxNumber === row.taxNumber) {
+          hints.push(`Même NIU que « ${other.name} »`);
+        }
+        if (row.cnpsNumber && other.cnpsNumber === row.cnpsNumber) {
+          hints.push(`Même numéro CNPS que « ${other.name} »`);
+        }
+        if (
+          row.subdivisionId &&
+          other.subdivisionId === row.subdivisionId &&
+          other.name.localeCompare(row.name, 'fr', { sensitivity: 'accent' }) === 0
+        ) {
+          hints.push(`Nom similaire dans le même arrondissement : « ${other.name} »`);
+        }
+      }
+      return {
+        id: row.user.id,
+        companyId: row.id,
+        organisation: row.name,
+        email: row.user.email,
+        entityType: row.entityType,
+        region: row.region,
+        department: row.department,
+        status: row.user.status,
+        taxNumber: row.taxNumber,
+        cnpsNumber: row.cnpsNumber,
+        submittedAt: row.createdAt,
+        registrationNumber: row.user.registrationNumber,
+        approvalComment: row.user.approvalComment,
+        rejectionReason: row.user.rejectionReason,
+        duplicateHints: [...new Set(hints)],
+        requiresCentralStructureCheck: row.entityType === 'ADMINISTRATION',
+      };
+    });
   }
 
   private static readonly ASSIGNABLE_ROLES = [

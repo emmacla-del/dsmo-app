@@ -62,12 +62,13 @@ describe('AuthService user management enforces the scope server-side', () => {
         count: jest.fn(async () => 0),
         findMany: jest.fn(async () => []),
       },
+      auditLog: { create: jest.fn(async () => ({})) },
     };
     service = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
   });
 
   it('lets the ONEFOP administrator manage an ONEFOP staff account', async () => {
-    await expect(service.approveUser('regional', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ status: 'ACTIVE' });
+    await expect(service.approveUser('regional', 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ status: 'ACTIVE' });
     await expect(service.setUserActive('regional', false, 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ isActive: false });
     await expect(service.updateUserRole('regional', 'DIVISIONAL', 'me', 'SUPER_ADMIN_ONEFOP')).resolves.toMatchObject({ role: 'DIVISIONAL' });
   });
@@ -96,8 +97,8 @@ describe('AuthService user management enforces the scope server-side', () => {
 
   it('never returns password or token hashes from admin user mutations', async () => {
     const results = [
-      await service.approveUser('regional', 'SUPER_ADMIN'),
-      await service.rejectUser('regional', 'SUPER_ADMIN'),
+      await service.approveUser('regional', 'me', 'SUPER_ADMIN'),
+      await service.rejectUser('regional', 'me', 'SUPER_ADMIN', undefined, 'motif'),
       await service.updateUserRole('regional', 'DIVISIONAL', 'me', 'SUPER_ADMIN'),
       await service.setUserActive('regional', false, 'me', 'SUPER_ADMIN'),
     ];
@@ -109,8 +110,8 @@ describe('AuthService user management enforces the scope server-side', () => {
   });
 
   it('refuses every action on an out-of-scope account, before any write', async () => {
-    await expect(service.approveUser('dsmoAdmin', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
-    await expect(service.rejectUser('dsmoAdmin', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
+    await expect(service.approveUser('dsmoAdmin', 'me', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
+    await expect(service.rejectUser('dsmoAdmin', 'me', 'SUPER_ADMIN_ONEFOP', undefined, 'motif')).rejects.toThrow(ForbiddenException);
     await expect(service.setUserActive('dsmoAdmin', false, 'me', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
     await expect(service.deleteUser('dsmoAdmin', 'me', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
     await expect(service.updateUserRole('dsmoAdmin', 'REGIONAL', 'me', 'SUPER_ADMIN_ONEFOP')).rejects.toThrow(ForbiddenException);
@@ -292,24 +293,24 @@ describe('AuthService — D3 registration review by DR roles', () => {
   });
 
   it('REGIONAL approves a pending registration in its region', async () => {
-    await expect(service.approveUser('pendingWouri', 'REGIONAL', { region: 'Littoral' })).resolves.toMatchObject({ status: 'ACTIVE' });
+    await expect(service.approveUser('pendingWouri', 'me', 'REGIONAL', { region: 'Littoral' })).resolves.toMatchObject({ status: 'ACTIVE' });
   });
 
   it('REGIONAL cannot approve or reject outside its region, before any write', async () => {
-    await expect(service.approveUser('pendingCentre', 'REGIONAL', { region: 'Littoral' })).rejects.toThrow(ForbiddenException);
-    await expect(service.rejectUser('pendingCentre', 'REGIONAL', { region: 'Littoral' })).rejects.toThrow(ForbiddenException);
+    await expect(service.approveUser('pendingCentre', 'me', 'REGIONAL', { region: 'Littoral' })).rejects.toThrow(ForbiddenException);
+    await expect(service.rejectUser('pendingCentre', 'me', 'REGIONAL', { region: 'Littoral' }, 'motif')).rejects.toThrow(ForbiddenException);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('REGIONAL/DIVISIONAL without a territory on the request fail closed', async () => {
-    await expect(service.approveUser('pendingWouri', 'REGIONAL')).rejects.toThrow(ForbiddenException);
-    await expect(service.approveUser('pendingWouri', 'DIVISIONAL')).rejects.toThrow(ForbiddenException);
+    await expect(service.approveUser('pendingWouri', 'me', 'REGIONAL')).rejects.toThrow(ForbiddenException);
+    await expect(service.approveUser('pendingWouri', 'me', 'DIVISIONAL')).rejects.toThrow(ForbiddenException);
   });
 
   it('DIVISIONAL can reject a pending registration but not deactivate an active colleague', async () => {
     const actor = { region: 'Littoral', department: 'Wouri' };
-    await expect(service.rejectUser('pendingWouri', 'DIVISIONAL', actor)).resolves.toMatchObject({ status: 'REJECTED' });
-    await expect(service.rejectUser('activeWouri', 'DIVISIONAL', actor)).rejects.toThrow("Cet utilisateur n'est pas en attente d'approbation");
+    await expect(service.rejectUser('pendingWouri', 'me', 'DIVISIONAL', actor, 'motif')).resolves.toMatchObject({ status: 'REJECTED' });
+    await expect(service.rejectUser('activeWouri', 'me', 'DIVISIONAL', actor, 'motif')).rejects.toThrow("Cet utilisateur n'est pas en attente d'approbation");
     expect(prisma.user.update).toHaveBeenCalledTimes(1);
   });
 });

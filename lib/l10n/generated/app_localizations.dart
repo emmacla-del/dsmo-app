@@ -8763,6 +8763,180 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Rattaché'**
   String get serviceCategoryAffiliatedShort;
+
+  /// No description provided for @registrationStatusTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier d\'inscription'**
+  String get registrationStatusTitle;
+
+  /// No description provided for @registrationPendingHeadline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre inscription a été enregistrée'**
+  String get registrationPendingHeadline;
+
+  /// No description provided for @registrationPendingBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un agent doit valider votre dossier avant que vous puissiez déclarer. Vous recevrez un e-mail dès que votre compte sera activé.'**
+  String get registrationPendingBody;
+
+  /// No description provided for @registrationPendingFollowButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suivre mon dossier'**
+  String get registrationPendingFollowButton;
+
+  /// No description provided for @registrationAwaitingReviewMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre compte est en attente de validation par un agent. Vous pourrez déclarer dès qu\'il sera activé.'**
+  String get registrationAwaitingReviewMessage;
+
+  /// No description provided for @registrationComplementsHeadline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compléments demandés'**
+  String get registrationComplementsHeadline;
+
+  /// No description provided for @registrationComplementsIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un agent demande des compléments pour votre dossier :'**
+  String get registrationComplementsIntro;
+
+  /// No description provided for @registrationComplementsFallback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Merci de compléter votre dossier.'**
+  String get registrationComplementsFallback;
+
+  /// No description provided for @registrationResubmitButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Renvoyer le dossier'**
+  String get registrationResubmitButton;
+
+  /// No description provided for @registrationResubmitDoneMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossier renvoyé pour validation.'**
+  String get registrationResubmitDoneMessage;
+
+  /// No description provided for @registrationCorrectionIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Corrigez ce qui doit l\'être, puis renvoyez le dossier. Les champs inchangés sont laissés tels quels.'**
+  String get registrationCorrectionIntro;
+
+  /// No description provided for @registrationCorrectionLoadError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre dossier n\'a pas pu être chargé. Vous pouvez tout de même le renvoyer tel quel.'**
+  String get registrationCorrectionLoadError;
+
+  /// No description provided for @registrationCorrectionNameLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raison sociale'**
+  String get registrationCorrectionNameLabel;
+
+  /// No description provided for @registrationCorrectionTaxNumberLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro contribuable (NIU)'**
+  String get registrationCorrectionTaxNumberLabel;
+
+  /// No description provided for @registrationCorrectionMainActivityLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activité principale'**
+  String get registrationCorrectionMainActivityLabel;
+
+  /// No description provided for @registrationCorrectionSecondaryActivityLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activité secondaire'**
+  String get registrationCorrectionSecondaryActivityLabel;
+
+  /// No description provided for @registrationCorrectionParentCompanyLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Société mère'**
+  String get registrationCorrectionParentCompanyLabel;
+
+  /// No description provided for @registrationCorrectionAddressLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse'**
+  String get registrationCorrectionAddressLabel;
+
+  /// No description provided for @registrationCorrectionCnpsNumberLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Numéro CNPS'**
+  String get registrationCorrectionCnpsNumberLabel;
+
+  /// No description provided for @registrationCorrectionFaxLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fax'**
+  String get registrationCorrectionFaxLabel;
+
+  /// No description provided for @registrationCorrectionSocialCapitalLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Capital social (FCFA)'**
+  String get registrationCorrectionSocialCapitalLabel;
+
+  /// No description provided for @registrationCorrectionEntityTypeLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Type d\'entité'**
+  String get registrationCorrectionEntityTypeLabel;
+
+  /// No description provided for @registrationCorrectionEntityTypeUnset.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non renseigné'**
+  String get registrationCorrectionEntityTypeUnset;
+
+  /// No description provided for @registrationCorrectionRegionLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Région'**
+  String get registrationCorrectionRegionLabel;
+
+  /// No description provided for @registrationCorrectionDepartmentLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Département'**
+  String get registrationCorrectionDepartmentLabel;
+
+  /// No description provided for @registrationCorrectionSubdivisionLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Arrondissement'**
+  String get registrationCorrectionSubdivisionLabel;
+
+  /// No description provided for @registrationCorrectionSubdivisionRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez l\'arrondissement pour déplacer le dossier.'**
+  String get registrationCorrectionSubdivisionRequired;
+
+  /// No description provided for @registrationStatusRefreshButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualiser'**
+  String get registrationStatusRefreshButton;
+
+  /// No description provided for @registrationStatusLogoutButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se déconnecter'**
+  String get registrationStatusLogoutButton;
 }
 
 class _AppLocalizationsDelegate

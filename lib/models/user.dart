@@ -52,6 +52,12 @@ class User {
   final bool weeklyDigestEnabled;
   final bool smsNotificationsEnabled;
   final bool twoFactorEnabled;
+  final String? status;
+  final String? approvalComment;
+  // No rejectionReason. A rejected registration gets a fixed login message
+  // carrying no reviewer reason, so nothing company-facing shows it any more
+  // and /auth/me no longer returns it. The column and the staff-side review
+  // queue keep it.
   final UserFeatures features;
 
   User({
@@ -76,6 +82,8 @@ class User {
     this.weeklyDigestEnabled = false,
     this.smsNotificationsEnabled = false,
     this.twoFactorEnabled = false,
+    this.status,
+    this.approvalComment,
     required this.features,
   });
 
@@ -101,6 +109,8 @@ class User {
         weeklyDigestEnabled: json['weeklyDigestEnabled'] as bool? ?? false,
         smsNotificationsEnabled: json['smsNotificationsEnabled'] as bool? ?? false,
         twoFactorEnabled: json['twoFactorEnabled'] as bool? ?? false,
+        status: json['status'] as String?,
+        approvalComment: json['approvalComment'] as String?,
         features: UserFeatures.fromJson(json['features'] ?? {}),
       );
 
@@ -126,6 +136,14 @@ class User {
         weeklyDigestEnabled: weeklyDigestEnabled,
         smsNotificationsEnabled: smsNotificationsEnabled,
         twoFactorEnabled: twoFactorEnabled,
+        status: status,
+        approvalComment: approvalComment,
         features: features,
       );
+}
+
+bool isCompanyAwaitingApproval(User user) {
+  return user.role == 'COMPANY' &&
+      (user.status == 'PENDING_APPROVAL' ||
+          user.status == 'COMPLEMENTS_REQUESTED');
 }

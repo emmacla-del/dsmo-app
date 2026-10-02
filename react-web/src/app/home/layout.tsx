@@ -38,10 +38,19 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     enabled: authState === "authed",
     initialData: authUser ?? getCachedUser() ?? undefined,
   });
+  const user = meQuery.data ?? authUser ?? getCachedUser();
+  const awaitingApproval =
+    user?.role === "COMPANY" &&
+    (user.status === "PENDING_APPROVAL" || user.status === "COMPLEMENTS_REQUESTED");
+  // The active-quarter route is guarded, and a company still under review is
+  // denied it. Left enabled, every mount fires a request that comes back 403
+  // and sends the browser to the status page this layout is already
+  // redirecting to — a loop. Disabled rather than exempted server-side: a
+  // company that cannot declare yet has no active quarter to speak of.
   const quarterQuery = useQuery({
     queryKey: ["onefop", "active-quarter"],
     queryFn: getActiveQuarter,
-    enabled: authState === "authed",
+    enabled: authState === "authed" && !awaitingApproval,
   });
   const [isNewDeclarationOpen, setIsNewDeclarationOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -49,6 +58,17 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // A company whose registration is still under review holds a valid
+  // session but has no operational screens yet, so it belongs on its status
+  // page. This runs in an effect rather than in render: router.replace() in
+  // a render body is a side effect in render and re-fires under StrictMode.
+  useEffect(() => {
+    if (!mounted || authState !== "authed") return;
+    if (awaitingApproval && pathname !== "/home/inscription-en-attente") {
+      router.replace("/home/inscription-en-attente");
+    }
+  }, [mounted, authState, awaitingApproval, pathname, router]);
 
   if (!mounted || authState !== "authed") {
     return (
@@ -58,7 +78,6 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const user = meQuery.data ?? authUser ?? getCachedUser();
   const effectiveRole = user ? resolveEffectiveRole(user) : null;
   const navItems = (effectiveRole ? navItemsForRole(effectiveRole) : []).filter(
     (item) => !item.rawRoles || (!!user && item.rawRoles.includes(user.role)),

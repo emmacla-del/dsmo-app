@@ -21,7 +21,6 @@ export const PUBLIC_USER_SELECT = {
   positionType: true,
   positionTitle: true,
   isActive: true,
-  rejectionReason: true,
   rejectedAt: true,
   failedLoginAttempts: true,
   lockedUntil: true,
@@ -59,6 +58,12 @@ export const SECRET_USER_FIELDS = [
   'lastReminderAt',
   'approvalComment',
   'perAgentTarget',
+  // R.1: the registration rejection reason is reviewer-facing. The company
+  // is told of the decision by email and sees a fixed message at login, so
+  // nothing client-facing reads it any more. The staff review queue selects
+  // it explicitly (AuthService.listCompanyRegistrations) rather than through
+  // this allowlist.
+  'rejectionReason',
 ] as const;
 
 /** A user row as clients may see it. Reading a secret column is a type error. */

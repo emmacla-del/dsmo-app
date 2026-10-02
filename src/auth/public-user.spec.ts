@@ -19,6 +19,7 @@ const SECRETS: Record<(typeof SECRET_USER_FIELDS)[number], unknown> = {
   lastReminderAt: new Date(),
   approvalComment: 'reviewer note',
   perAgentTarget: 25,
+  rejectionReason: 'Documents illisibles',
 };
 
 function fullUser(): User {
