@@ -135,6 +135,32 @@ describe('AuthService company registration approval', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it('approves with a 4-digit subdivision code and extracts the 2-digit suffix', async () => {
+    prisma.subdivision.findUnique.mockResolvedValue({ id: 's-dla1', code: '5801' });
+    const result = await service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN');
+    expect(result).toMatchObject({ status: 'ACTIVE', isActive: true });
+    expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ establishmentId: expect.stringMatching(/^EN\d{6}01$/) }),
+    }));
+    expect(prisma.establishment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        code: expect.stringMatching(/^EN\d{6}01-01$/),
+      }),
+    });
+  });
+
+  it('refuses approval when subdivision code is missing or empty', async () => {
+    prisma.subdivision.findUnique.mockResolvedValue({ id: 's-dla1', code: null });
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+      "Code d'arrondissement introuvable pour cet établissement.",
+    );
+
+    prisma.subdivision.findUnique.mockResolvedValue({ id: 's-dla1', code: '   ' });
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+      "Code d'arrondissement introuvable pour cet établissement.",
+    );
+  });
+
   // The "structure centrale" confirmation. The queue's
   // requiresCentralStructureCheck tells the dialog to show the checkbox; these
   // pin that the server refuses the approval on its own when it is not sent,
