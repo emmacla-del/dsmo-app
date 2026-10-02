@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { getVisibleHubs, getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
+import { useAuthStore } from "@/lib/auth-store";
 
 export interface AdminSidebarProps {
   user?: {
@@ -23,6 +24,7 @@ export interface AdminSidebarProps {
   /** Current locale for the FR | EN switcher */
   locale?: "fr" | "en";
   onLocaleChange?: (locale: "fr" | "en") => void;
+  onLogout?: () => void;
 }
 
 // ── Hub Icons ────────────────────────────────────────────────────────────────
@@ -121,9 +123,21 @@ export function AdminSidebar({
   anomaliesCount = 0,
   locale = "fr",
   onLocaleChange,
+  onLogout,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const authLogout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    } else {
+      authLogout();
+      router.push("/login");
+    }
+  };
 
   // Filter hubs by user role and tailor landing URL to first allowed sub-route
   const visibleHubs = getVisibleHubs(role);
@@ -268,32 +282,82 @@ export function AdminSidebar({
 
         {/* User card */}
         {user && (
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <div
-              aria-hidden="true"
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.15)",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#fff",
+                  flexShrink: 0,
+                }}
+              >
+                {user.initials}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {user.displayName}
+                </div>
+                <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {user.roleLabel}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="cam-admin-logout-button"
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.15)",
-                display: "grid",
-                placeItems: "center",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 6,
+                padding: "6px 10px",
                 fontSize: 11,
-                fontWeight: 700,
-                color: "#fff",
-                flexShrink: 0,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.8)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.15s, color 0.15s",
+                width: "100%",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+                e.currentTarget.style.color = "#fff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                e.currentTarget.style.color = "rgba(255,255,255,0.8)";
               }}
             >
-              {user.initials}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {user.displayName}
-              </div>
-              <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {user.roleLabel}
-              </div>
-            </div>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Se déconnecter</span>
+            </button>
           </div>
         )}
       </div>
