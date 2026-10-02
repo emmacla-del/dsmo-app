@@ -789,6 +789,9 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
           findFirst: jest.fn(),
           update: jest.fn(),
         },
+        auditLog: {
+          create: jest.fn().mockResolvedValue({}),
+        },
       };
       eligibilityEngine = new EligibilityEngineService(prisma);
       service = new QuestionnairesService(prisma, undefined, eligibilityEngine);
@@ -798,6 +801,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue(null);
       await expect(service.approve('non-existent', 'admin-1')).rejects.toThrow(NotFoundException);
       expect(prisma.onefopSubmission.update).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
     it('attempting to approve a submission with an OPEN BLOCKING anomaly must fail with BadRequestException and not update DB', async () => {
@@ -843,6 +847,76 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         }),
       });
       expect(result.status).toBe(OnefopStatus.APPROVED);
+    });
+
+    it('writes AUDIT_APPROVE audit row with viaCentralFallback false for standard approval within territory', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.PENDING_REVIEW,
+        campaignId: 'camp-123',
+        establishmentId: 'est-456',
+        region: 'Centre',
+        anomalies: [],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.APPROVED,
+        reviewedBy: 'reg-admin-1',
+        reviewedAt: new Date(),
+      });
+
+      await service.approve('sub-clean', 'reg-admin-1', { role: 'REGIONAL', region: 'Centre' });
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'reg-admin-1',
+          action: 'AUDIT_APPROVE',
+          resourceType: 'OnefopSubmission',
+          resourceId: 'sub-clean',
+          details: {
+            campaignId: 'camp-123',
+            establishmentId: 'est-456',
+            previousStatus: OnefopStatus.PENDING_REVIEW,
+            newStatus: 'APPROVED',
+            viaCentralFallback: false,
+          },
+        },
+      });
+    });
+
+    it('writes AUDIT_APPROVE audit row with viaCentralFallback true for central fallback intervention', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.PENDING_REVIEW,
+        campaignId: 'camp-789',
+        establishmentId: 'est-012',
+        region: 'Littoral',
+        anomalies: [],
+      });
+      prisma.onefopSubmission.update.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.APPROVED,
+        reviewedBy: 'central-admin-1',
+        reviewedAt: new Date(),
+      });
+
+      await service.approve('sub-clean', 'central-admin-1', { role: 'CENTRAL' });
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'central-admin-1',
+          action: 'AUDIT_APPROVE',
+          resourceType: 'OnefopSubmission',
+          resourceId: 'sub-clean',
+          details: {
+            campaignId: 'camp-789',
+            establishmentId: 'est-012',
+            previousStatus: OnefopStatus.PENDING_REVIEW,
+            newStatus: 'APPROVED',
+            viaCentralFallback: true,
+          },
+        },
+      });
     });
 
     it('approval of a submission with only non-blocking warning anomalies succeeds', async () => {
