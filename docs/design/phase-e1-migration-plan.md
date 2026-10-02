@@ -1,10 +1,11 @@
 # Phase E.1 — Schema, Migration & Backfill Inventory Plan
 
-> **Ordering Constraint**: Phase E.1 is not standalone. After E.1, `OnefopSubmission.establishmentId` is `NOT NULL` and FK-constrained to `Establishment.id`. Any company approved between E.1 landing and E.2a landing will have no `Establishment` row — submitting a return would violate the foreign key constraint. Therefore, E.1 must ship together with the `AuthService.approveUser` change that mints the `-01` `Establishment` at approval time, or hold E.1 until E.2a is ready.
+> **Ordering Constraint**: Phase E.1 is not standalone. After E.1, `OnefopSubmission.establishmentId` is NOT NULL and FK-constrained. Any company approved between E.1 landing and E.2a landing has no Establishment row, so submitting a return would violate the FK. E.1 must ship together with the `AuthService.approveUser` change that mints the `-01` Establishment at approval time, or E.1 must wait until E.2a is ready.
 
 ## Phase E.1 Execution Checklist
 
-1. **Pre-backfill Active IDs**: Run `scripts/backfill-company-establishment-ids.ts` with `--actor-email=<an active SUPER_ADMIN, SUPER_ADMIN_ONEFOP, or CENTRAL user> --apply` against dev DB; the script attributes an audit row. Confirm all active companies receive an establishment ID.
+0. **Step 0 — Confirm Approval Readiness**: Confirm `AuthService.approveUser` is ready to mint the `-01` Establishment on approval. If not, hold E.1 until it is.
+1. **Pre-backfill Active IDs**: Run `scripts/backfill-company-establishment-ids.ts --actor-email=<an active SUPER_ADMIN, SUPER_ADMIN_ONEFOP, or CENTRAL user> --apply` against dev DB. The script writes an audit row attributed to that user, so the account must exist and be active.
 2. **Territory Null-Audit**: Run territory null-audit query; inspect and fix broken records by hand if needed.
 3. **Write Migration**: Write and commit `prisma/migrations/<timestamp>_phase_e1_establishments/migration.sql` with DDL and backfill statements.
 4. **Staging Deploy & Verification**: Test on `dsmo-test` with `npx prisma migrate deploy` followed by `npx prisma migrate diff` to verify schema parity.
