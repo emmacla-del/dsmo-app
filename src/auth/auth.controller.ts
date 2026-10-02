@@ -8,6 +8,7 @@ import { Roles } from './roles.decorator';
 import { USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
+import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
 import { UserStatus } from '../types/prisma.types';
@@ -250,8 +251,11 @@ export class AuthController {
   @Post('resubmit-registration')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   @AllowInactiveCompany({ statuses: [UserStatus.COMPLEMENTS_REQUESTED] })
-  async resubmitRegistration(@Request() req: any) {
-    return this.authService.resubmitRegistration(req.user.id);
+  // forbidNonWhitelisted, so an unknown key is a 400 rather than being quietly
+  // dropped — that is what keeps establishmentId unreachable from this route.
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, skipMissingProperties: false }))
+  async resubmitRegistration(@Request() req: any, @Body() body?: ResubmitRegistrationDto) {
+    return this.authService.resubmitRegistration(req.user.id, body);
   }
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====

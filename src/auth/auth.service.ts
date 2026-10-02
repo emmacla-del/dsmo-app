@@ -21,6 +21,7 @@ import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanMana
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
 import { toPublicUser } from './public-user';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
+import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -902,7 +903,27 @@ export class AuthService {
     return toPublicUser(updated);
   }
 
-  async resubmitRegistration(actorId: string) {
+  /**
+   * The company fields a company may correct itself when complements were
+   * requested. An explicit allowlist, copied field by field below rather than
+   * spread from the body, so establishmentId stays unreachable: it is issued
+   * by a reviewer at approval. Territory is handled separately because it has
+   * to be resolved against the canonical records first.
+   */
+  private static readonly CORRECTABLE_COMPANY_FIELDS = [
+    'name',
+    'taxNumber',
+    'mainActivity',
+    'secondaryActivity',
+    'parentCompany',
+    'address',
+    'cnpsNumber',
+    'fax',
+    'socialCapital',
+    'entityType',
+  ] as const;
+
+  async resubmitRegistration(actorId: string, data?: ResubmitRegistrationDto) {
     if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
     const user = await this.prisma.user.findUnique({ where: { id: actorId } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
@@ -912,20 +933,113 @@ export class AuthService {
     if (user.status !== 'COMPLEMENTS_REQUESTED') {
       throw new BadRequestException("Aucun complément n'a été demandé pour ce compte.");
     }
-    const updated = await this.prisma.user.update({
-      where: { id: actorId },
-      data: { status: 'PENDING_APPROVAL' },
+    const company = await this.requireCompanyForReview(user.id);
+    const payload = (data ?? {}) as Record<string, unknown>;
+
+    return this.prisma.$transaction(async (tx) => {
+      // The status flip goes first and is conditional on the status still being
+      // COMPLEMENTS_REQUESTED, so two concurrent resubmissions — or a reviewer
+      // deciding in between — cannot both get through. count === 0 means
+      // someone else moved the file: bail out before touching Company, so a
+      // losing request never half-writes its corrections.
+      const flipped = await tx.user.updateMany({
+        where: { id: actorId, status: 'COMPLEMENTS_REQUESTED' },
+        data: { status: 'PENDING_APPROVAL' },
+      });
+      if (flipped.count === 0) {
+        throw new ConflictException(
+          'Ce dossier a déjà été renvoyé ou traité entre-temps. Rechargez la page.',
+        );
+      }
+
+      const updates: Record<string, unknown> = {};
+      // A type alias, not an interface: that is what gives the diff an implicit
+      // index signature, so it is assignable to Prisma's Json input type.
+      type FieldDiff = { before: string | number | boolean | null; after: string | number | boolean | null };
+      const changes: Record<string, FieldDiff> = {};
+      const record = (field: string, before: unknown, after: unknown) => {
+        if (before === after) return;
+        updates[field] = after;
+        changes[field] = { before: before as FieldDiff['before'], after: after as FieldDiff['after'] };
+      };
+
+      for (const field of AuthService.CORRECTABLE_COMPANY_FIELDS) {
+        if (!(field in payload)) continue;
+        const after = payload[field];
+        if (after === undefined) continue;
+        record(field, (company as Record<string, unknown>)[field], after);
+      }
+
+      // Territory moves only when the body carries part of the chain, and then
+      // the whole chain is resolved against the canonical records; only the
+      // resolved names and ids are persisted, never what the client sent.
+      // Nothing else moves with it, so the file simply sits in the territorial
+      // queue its (new) department belongs to.
+      const territoryKeys = ['region', 'department', 'subdivision', 'regionId', 'departmentId', 'subdivisionId'];
+      if (territoryKeys.some((key) => key in payload && payload[key] !== undefined)) {
+        const resolved = await resolveAndValidateTerritory(
+          tx,
+          {
+            regionId: payload.regionId as string | undefined,
+            departmentId: payload.departmentId as string | undefined,
+            subdivisionId: payload.subdivisionId as string | undefined,
+            region: payload.region as string | undefined,
+            department: payload.department as string | undefined,
+            subdivision: payload.subdivision as string | undefined,
+          },
+          { requireSubdivision: true },
+        );
+        record('region', company.region, resolved.region);
+        record('department', company.department, resolved.department);
+        record('subdivision', company.subdivision, resolved.subdivision);
+        record('regionId', company.regionId, resolved.regionId);
+        record('departmentId', company.departmentId, resolved.departmentId);
+        record('subdivisionId', company.subdivisionId, resolved.subdivisionId);
+      }
+
+      // taxNumber is unique. Pre-checked for a readable 409, excluding this
+      // company's own row, with the P2002 catch below as the race backstop.
+      if (typeof updates.taxNumber === 'string') {
+        const clash = await tx.company.findFirst({
+          where: { taxNumber: updates.taxNumber, id: { not: company.id } },
+          select: { id: true },
+        });
+        if (clash) {
+          throw new ConflictException('Une entreprise avec ce numéro contribuable existe déjà');
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        try {
+          await tx.company.update({ where: { id: company.id }, data: updates });
+        } catch (error) {
+          if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+            throw new ConflictException('Une entreprise avec ce numéro contribuable existe déjà');
+          }
+          throw error;
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'COMPANY_REGISTRATION_RESUBMITTED',
+          resourceType: 'User',
+          resourceId: actorId,
+          details: { companyId: company.id, previousStatus: 'COMPLEMENTS_REQUESTED', changes },
+        },
+      });
+
+      // Re-read rather than trusting the in-memory copies, so the response
+      // carries exactly what was persisted. approvalComment is deliberately
+      // left in place: the reviewer's message stays readable until the file is
+      // decided.
+      const [freshUser, freshCompany] = await Promise.all([
+        tx.user.findUnique({ where: { id: actorId } }),
+        tx.company.findUnique({ where: { id: company.id } }),
+      ]);
+      return { ...toPublicUser(freshUser!), company: freshCompany };
     });
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actorId,
-        action: 'COMPANY_REGISTRATION_RESUBMITTED',
-        resourceType: 'User',
-        resourceId: actorId,
-        details: { previousStatus: 'COMPLEMENTS_REQUESTED' },
-      },
-    });
-    return toPublicUser(updated);
   }
 
   async listCompanyRegistrations(
@@ -1019,10 +1133,68 @@ export class AuthService {
     ]);
 
     const items = await this.withDuplicateHints(companies);
+    const resubmissions = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
+    const itemsWithResubmission = items.map((item) => ({
+      ...item,
+      lastResubmission: resubmissions.get(item.id) ?? null,
+    }));
     // Counts drive the status tabs: they follow the territory selection so
     // the tab numbers match the rows, but not search/type/date.
     const counts = await this.companyRegistrationCounts(regionScope);
-    return { items, total, page, pageSize, counts };
+    return { items: itemsWithResubmission, total, page, pageSize, counts };
+  }
+
+  /**
+   * The corrections a company last sent, for the review queue — but only when
+   * that resubmission is newer than the last complements request on the same
+   * file. Otherwise a reviewer opening a freshly re-requested dossier would see
+   * the diff from the previous round sitting next to their own new request.
+   */
+  private async lastResubmissionByUser(userIds: string[]) {
+    const out = new Map<
+      string,
+      { at: Date; changes: Record<string, { before: unknown; after: unknown }> } | null
+    >();
+    if (userIds.length === 0) return out;
+
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        resourceType: 'User',
+        resourceId: { in: userIds },
+        action: {
+          in: ['COMPANY_REGISTRATION_RESUBMITTED', 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED'],
+        },
+      },
+      select: { action: true, resourceId: true, details: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Newest first, so the first row seen for a (file, action) pair is its latest.
+    const lastResubmitted = new Map<string, { at: Date; details: unknown }>();
+    const lastRequested = new Map<string, Date>();
+    for (const row of rows) {
+      if (row.action === 'COMPANY_REGISTRATION_RESUBMITTED') {
+        if (!lastResubmitted.has(row.resourceId)) {
+          lastResubmitted.set(row.resourceId, { at: row.createdAt, details: row.details });
+        }
+      } else if (!lastRequested.has(row.resourceId)) {
+        lastRequested.set(row.resourceId, row.createdAt);
+      }
+    }
+
+    for (const id of userIds) {
+      const resubmitted = lastResubmitted.get(id);
+      const requested = lastRequested.get(id);
+      if (!resubmitted || (requested && requested >= resubmitted.at)) {
+        out.set(id, null);
+        continue;
+      }
+      const details = (resubmitted.details ?? {}) as {
+        changes?: Record<string, { before: unknown; after: unknown }>;
+      };
+      out.set(id, { at: resubmitted.at, changes: details.changes ?? {} });
+    }
+    return out;
   }
 
   private async approveCompanyRegistration(
