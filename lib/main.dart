@@ -17,6 +17,7 @@ import 'widgets/offline_banner.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/login_portal_screen.dart';
+import 'screens/registration_status_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verify_email_screen.dart';
@@ -73,6 +74,11 @@ final GoRouter router = GoRouter(
       builder: (context, state) => VerifyEmailScreen(
         token: state.uri.queryParameters['token'],
       ),
+    ),
+    GoRoute(
+      path: '/inscription-en-attente',
+      name: 'registration-status',
+      builder: (context, state) => const RegistrationStatusScreen(),
     ),
     GoRoute(
       path: '/home',
