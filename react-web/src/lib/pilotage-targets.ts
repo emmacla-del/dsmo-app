@@ -66,6 +66,51 @@ export interface CampaignQuotasResponse {
   regions: TargetRegionRow[];
 }
 
+export interface CampaignReturnsSummary {
+  id: string;
+  name: string;
+  code: string;
+  collectionType: string;
+  status: string;
+  startDate: string | null;
+  endDate: string | null;
+  referenceYear: number | null;
+  referenceQuarter: number | null;
+}
+
+export interface ReturnMetrics {
+  quota: number | null;
+  received: number;
+  approved: number;
+  onTime: number;
+  late: number;
+  gap: number | null;
+  quotaRate: number | null;
+  onTimeRate: number | null;
+  registeredStock: number;
+  responseRate: number | null;
+}
+
+export interface DepartmentReturnRow extends ReturnMetrics {
+  departmentId: string;
+  name: string;
+}
+
+export interface RegionReturnRow extends ReturnMetrics {
+  regionId: string;
+  name: string;
+  mode: TargetMode;
+  departments: DepartmentReturnRow[];
+}
+
+export interface CampaignReturnsResponse {
+  campaign: CampaignReturnsSummary;
+  central: ReturnMetrics | null;
+  unassigned: ReturnMetrics | null;
+  regions: RegionReturnRow[];
+  totals: ReturnMetrics;
+}
+
 export interface TargetPutEntry {
   regionId: string;
   departmentId?: string | null;
@@ -185,5 +230,11 @@ export function putCampaignQuotas(campaignId: string, body: TargetPutBody) {
   return apiFetch<CampaignQuotasResponse>(
     `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/quotas`,
     { method: "PUT", body: JSON.stringify(body) },
+  );
+}
+
+export function getCampaignReturns(campaignId: string) {
+  return apiFetch<CampaignReturnsResponse>(
+    `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/returns`,
   );
 }
