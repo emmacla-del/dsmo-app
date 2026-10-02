@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { PilotageService } from './pilotage.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -30,6 +30,7 @@ function createHarness() {
   const centralInscriptions: Array<Record<string, unknown>> = [];
   const centralQuotas: Array<Record<string, unknown>> = [];
   const companies: Array<Record<string, unknown>> = [];
+  const onefopSubmissions: Array<Record<string, unknown>> = [];
   const audits: Array<Record<string, unknown>> = [];
   const campaigns: Array<Record<string, unknown>> = [];
   let seq = 1;
@@ -117,6 +118,16 @@ function createHarness() {
         }),
       ),
     },
+    onefopSubmission: {
+      findMany: jest.fn(async (args?: { where?: Record<string, unknown> }) =>
+        onefopSubmissions.filter((sub) => {
+          if (args?.where?.campaignId && sub.campaignId !== args.where.campaignId) return false;
+          if (args?.where?.regionId && sub.regionId !== args.where.regionId) return false;
+          if (args?.where?.departmentId && sub.departmentId !== args.where.departmentId) return false;
+          return true;
+        }),
+      ),
+    },
     auditLog: {
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
         audits.push(data);
@@ -138,6 +149,7 @@ function createHarness() {
     centralInscriptions,
     centralQuotas,
     companies,
+    onefopSubmissions,
     audits,
     campaigns,
     transactionOptions,
@@ -624,5 +636,269 @@ describe('PilotageService coverage', () => {
       regions: [],
     });
     expect((harness.prisma.company as { findMany: jest.Mock }).findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('PilotageService.getCampaignReturns', () => {
+  function campaign(id = 'c1', overrides?: Record<string, unknown>) {
+    return {
+      id,
+      name: 'Campagne Pilote ONEFOP 2026',
+      code: 'ONEFOP-2026-T1',
+      collectionType: SubmissionModule.ONEFOP,
+      status: 'ACTIVE',
+      startDate: new Date('2026-01-01T00:00:00Z'),
+      endDate: new Date('2026-03-31T23:59:59Z'),
+      referenceYear: 2026,
+      referenceQuarter: 1,
+      ...overrides,
+    };
+  }
+
+  function registeredCompany(
+    id: string,
+    regionId: string,
+    departmentId: string,
+    entityType: OnefopEntityType = OnefopEntityType.ENTREPRISE,
+  ) {
+    return {
+      id,
+      entityType,
+      regionId,
+      departmentId,
+      establishmentId: `EST-${id}`,
+      establishmentIdGeneratedAt: new Date('2026-01-15'),
+      createdAt: new Date('2026-01-15'),
+      departmentRef: { regionId },
+      user: { status: 'ACTIVE', isActive: true },
+    };
+  }
+
+  it('rejects an unknown campaign with 404', async () => {
+    const harness = createHarness();
+    await expect(harness.service.getCampaignReturns(national, 'unknown')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('rejects a non-ONEFOP campaign with 400', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('dsmo-1', { collectionType: SubmissionModule.DSMO }));
+    await expect(harness.service.getCampaignReturns(national, 'dsmo-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('aggregates returns: status filter, deduplication of resubmissions, lateness, and territory attribution', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    // Quotas: Mfoundi = 10, Lékié = 5 -> Centre quota = 15
+    harness.campaignQuotas.push(
+      { id: 'q1', campaignId: 'c1', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
+      { id: 'q2', campaignId: 'c1', regionId: 'r-centre', departmentId: 'd-lekie', submissionTarget: 5 },
+    );
+    // Active registered companies in Mfoundi (2) and Lékié (1)
+    harness.companies.push(
+      registeredCompany('comp-1', 'r-centre', 'd-mfoundi'),
+      registeredCompany('comp-2', 'r-centre', 'd-mfoundi'),
+      registeredCompany('comp-3', 'r-centre', 'd-lekie'),
+    );
+
+    // Submissions for c1:
+    // Company 1: First submitted, REJECTED; then resubmitted, APPROVED on-time in Mfoundi. (counts as 1 received, 1 approved, 1 onTime)
+    harness.onefopSubmissions.push(
+      {
+        id: 's1-old',
+        campaignId: 'c1',
+        companyId: 'comp-1',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.REJECTED,
+        isLate: false,
+        regionId: 'r-centre',
+        departmentId: 'd-mfoundi',
+        createdAt: new Date('2026-02-01'),
+      },
+      {
+        id: 's1-new',
+        campaignId: 'c1',
+        companyId: 'comp-1',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.APPROVED,
+        isLate: false,
+        regionId: 'r-centre',
+        departmentId: 'd-mfoundi',
+        createdAt: new Date('2026-02-10'),
+      },
+    );
+
+    // Company 2: PENDING_REVIEW and LATE in Mfoundi (counts as 1 received, 0 approved, 1 late)
+    harness.onefopSubmissions.push({
+      id: 's2',
+      campaignId: 'c1',
+      companyId: 'comp-2',
+      formType: OnefopEntityType.ENTREPRISE,
+      status: OnefopStatus.PENDING_REVIEW,
+      isLate: true,
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      createdAt: new Date('2026-04-05'),
+    });
+
+    // Company 3: Only DRAFT (does not count in received)
+    harness.onefopSubmissions.push({
+      id: 's3',
+      campaignId: 'c1',
+      companyId: 'comp-3',
+      formType: OnefopEntityType.ENTREPRISE,
+      status: OnefopStatus.DRAFT,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-lekie',
+      createdAt: new Date('2026-02-05'),
+    });
+
+    // Company 4: R.1 relocation test!
+    // Company is registered in Littoral / Wouri, but submission was filed with Centre / Lékié.
+    // Must count in Centre / Lékié!
+    harness.companies.push(registeredCompany('comp-4', 'r-littoral', 'd-wouri'));
+    harness.onefopSubmissions.push({
+      id: 's4',
+      campaignId: 'c1',
+      companyId: 'comp-4',
+      formType: OnefopEntityType.ENTREPRISE,
+      status: OnefopStatus.CORRECTION_REQUESTED,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-lekie',
+      createdAt: new Date('2026-02-15'),
+    });
+
+    const res = await harness.service.getCampaignReturns(national, 'c1');
+    expect(res.campaign.code).toBe('ONEFOP-2026-T1');
+
+    const centre = res.regions.find((r) => r.regionId === 'r-centre')!;
+    expect(centre).toBeDefined();
+
+    // Mfoundi: 2 received (comp-1, comp-2), 1 approved (comp-1), 1 onTime, 1 late, quota 10, stock 2
+    const mfoundi = centre.departments.find((d) => d.departmentId === 'd-mfoundi')!;
+    expect(mfoundi.quota).toBe(10);
+    expect(mfoundi.received).toBe(2);
+    expect(mfoundi.approved).toBe(1);
+    expect(mfoundi.onTime).toBe(1);
+    expect(mfoundi.late).toBe(1);
+    expect(mfoundi.gap).toBe(8); // 10 - 2
+    expect(mfoundi.quotaRate).toBe(0.2); // 2 / 10
+    expect(mfoundi.registeredStock).toBe(2);
+    expect(mfoundi.responseRate).toBe(1); // 2 / 2 = 1.0
+
+    // Lékié: 1 received (comp-4 relocated return), 0 approved, 1 onTime, 0 late, quota 5, stock 1
+    const lekie = centre.departments.find((d) => d.departmentId === 'd-lekie')!;
+    expect(lekie.quota).toBe(5);
+    expect(lekie.received).toBe(1);
+    expect(lekie.approved).toBe(0);
+    expect(lekie.onTime).toBe(1);
+    expect(lekie.late).toBe(0);
+    expect(lekie.gap).toBe(4);
+    expect(lekie.registeredStock).toBe(1);
+    expect(lekie.responseRate).toBe(1); // 1 / 1
+
+    // Centre Region Rollup: sum of departments
+    expect(centre.quota).toBe(15); // 10 + 5
+    expect(centre.received).toBe(3); // 2 + 1
+    expect(centre.approved).toBe(1); // 1 + 0
+    expect(centre.onTime).toBe(2); // 1 + 1
+    expect(centre.late).toBe(1); // 1 + 0
+    expect(centre.gap).toBe(12); // 15 - 3
+    expect(centre.registeredStock).toBe(3); // 2 + 1
+    expect(centre.responseRate).toBe(1); // 3 / 3
+  });
+
+  it('routes formType === ADMINISTRATION to central bucket and excludes from territorial quotas', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.centralQuotas.push({ id: 'cq1', campaignId: 'c1', submissionTarget: 50 });
+    // Registered central administration in stock
+    harness.companies.push(
+      registeredCompany('admin-comp-1', 'r-centre', 'd-mfoundi', OnefopEntityType.ADMINISTRATION),
+    );
+    // Administration submission located geographically in Mfoundi
+    harness.onefopSubmissions.push({
+      id: 'sub-admin-1',
+      campaignId: 'c1',
+      companyId: 'admin-comp-1',
+      formType: OnefopEntityType.ADMINISTRATION,
+      status: OnefopStatus.APPROVED,
+      isLate: false,
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      createdAt: new Date('2026-02-20'),
+    });
+
+    const res = await harness.service.getCampaignReturns(national, 'c1');
+    expect(res.central).toMatchObject({
+      quota: 50,
+      received: 1,
+      approved: 1,
+      onTime: 1,
+      late: 0,
+      gap: 49,
+      registeredStock: 1,
+      responseRate: 1,
+    });
+
+    // Mfoundi must NOT contain this administration return
+    const centre = res.regions.find((r) => r.regionId === 'r-centre')!;
+    const mfoundi = centre.departments.find((d) => d.departmentId === 'd-mfoundi')!;
+    expect(mfoundi.received).toBe(0);
+    expect(centre.received).toBe(0);
+  });
+
+  it('scopes properly for REGIONAL and DIVISIONAL accounts', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.campaignQuotas.push(
+      { id: 'q1', campaignId: 'c1', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
+      { id: 'q3', campaignId: 'c1', regionId: 'r-littoral', departmentId: 'd-wouri', submissionTarget: 20 },
+    );
+    harness.onefopSubmissions.push(
+      {
+        id: 's1',
+        campaignId: 'c1',
+        companyId: 'comp-1',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.APPROVED,
+        isLate: false,
+        regionId: 'r-centre',
+        departmentId: 'd-mfoundi',
+        createdAt: new Date('2026-02-10'),
+      },
+      {
+        id: 's2',
+        campaignId: 'c1',
+        companyId: 'comp-2',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.APPROVED,
+        isLate: false,
+        regionId: 'r-littoral',
+        departmentId: 'd-wouri',
+        createdAt: new Date('2026-02-10'),
+      },
+    );
+
+    // Regional (Centre) sees only Centre, central is null, totals = Centre
+    const regRes = await harness.service.getCampaignReturns(regional, 'c1');
+    expect(regRes.central).toBeNull();
+    expect(regRes.unassigned).toBeNull();
+    expect(regRes.regions).toHaveLength(1);
+    expect(regRes.regions[0].regionId).toBe('r-centre');
+    expect(regRes.totals.received).toBe(1);
+
+    // Divisional (Mfoundi) sees only Mfoundi
+    const divRes = await harness.service.getCampaignReturns(divisional, 'c1');
+    expect(divRes.central).toBeNull();
+    expect(divRes.regions).toHaveLength(1);
+    expect(divRes.regions[0].departments).toHaveLength(1);
+    expect(divRes.regions[0].departments[0].departmentId).toBe('d-mfoundi');
+    expect(divRes.totals.received).toBe(1);
   });
 });
