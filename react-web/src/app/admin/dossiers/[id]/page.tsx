@@ -11,79 +11,29 @@ import {
   rejectDossier,
   requestCorrectionDossier,
   type AdminDossier,
-  type DossierDiagnostic,
 } from "@/lib/api-client";
 import { entityTypeLabel } from "@/lib/companies-directory";
+import { formatApiError } from "@/lib/pilotage-targets";
 
-// Default Figma mock for ENT-2026-04521
-const FIGMA_DOSSIER_MOCK: AdminDossier = {
-  id: "ENT-2026-04521",
-  submissionId: "ENT-2026-04521",
-  formType: "ENTERPRISE",
-  status: "PENDING_REVIEW",
-  region: "Littoral",
-  department: "Wouri",
-  subdivision: "Douala Ier",
-  submissionDate: "2026-09-18T16:45:00.000Z",
-  reviewedAt: null,
-  rejectionReason: null,
-  quarterCode: "2026-T1",
-  taxNumber: "M018400012542T",
-  cnpsNumber: "1234567890",
-  registrationNumber: "RC/DLA/2026/B/842",
-  respondent: {
-    respondentName: "Jean-Paul Mbarga",
-    respondentFunction: "Directeur des Ressources Humaines",
-    phone1: "+237 699 887 766",
-    phone2: null,
-    email: "jp.mbarga@example.cm",
-  },
-  enterpriseDetail: {
-    companyName: "SABC S.A. (Brasseries du Cameroun)",
-    headOffice: "Douala, Cameroun",
-    sector: "Secteur Secondaire",
-    branch: "Industrie Agro-alimentaire",
-    enterpriseSize: "Grande Entreprise",
-    permanentWorkers: "1 245 personnes",
-    taxNumber: "M018400012542T",
-    registrationNumber: "RC/DLA/2026/B/842",
-    region: "Littoral",
-    department: "Wouri",
-    commune: "Douala Ier",
-    address: "Rue des Écoles, Koumassi",
-    creationDate: "12 Décembre 1948",
-    taxRegime: "Réel",
-  },
-  cooperativeDetail: null,
-  ctdDetail: null,
-  ongDetail: null,
-  administrationDetail: null,
-  projectProgramDetail: null,
-  vocationalTrainingDetail: null,
-};
-
-const FIGMA_DIAGNOSTIC_MOCK: DossierDiagnostic = {
-  submissionId: "ENT-2026-04521",
-  axis1Status: "PENDING_REVIEW",
-  axis2BlockingCount: 0,
-  axis2WarningCount: 2,
-  axis3Eligibility: "READY",
-  blockingAnomalies: [],
-  warningAnomalies: [
-    {
-      ruleCode: "SEC2_SUM_MISMATCH",
-      description: "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés.",
-      observedValue: "1 245 vs 1 189",
-      expectedValue: "Total cohérent",
-    },
-    {
-      ruleCode: "SEC2_PAYROLL_RATIO",
-      description: "Ratio masse salariale / effectif légèrement supérieur à la médiane sectorielle (+12%).",
-      observedValue: "285 000 000 FCFA",
-      expectedValue: "Médiane secteur",
-    },
-  ],
-};
+// Loading / not-found / error state for the dossier drill-down. The screen
+// shows one of these instead of the dossier; it never renders placeholder
+// dossier content.
+function DossierNotice({ title, detail }: { title: string; detail?: string }) {
+  return (
+    <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 0 32px 0" }}>
+      <Link
+        href="/admin/dossiers"
+        style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
+      >
+        ← Retour aux dossiers
+      </Link>
+      <div className="cam-admin-notice" role="status" style={{ marginTop: 16 }}>
+        <strong>{title}</strong>
+        {detail ? <p style={{ margin: "6px 0 0" }}>{detail}</p> : null}
+      </div>
+    </div>
+  );
+}
 
 function fmtDate(iso: string | null | undefined, withTime = false) {
   if (!iso) return null;
@@ -95,6 +45,127 @@ function fmtDate(iso: string | null | undefined, withTime = false) {
     year: "numeric",
     ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
   }).format(d);
+}
+
+// Instruction history for the dossier drill-down.
+//
+// Built only from fields the API actually returns for this submission:
+// submissionDate, status, reviewedAt and rejectionReason. This panel used to
+// be three hardcoded steps naming invented reviewers at invented times, which
+// is the one thing a supervision audit trail must never do.
+//
+// Known limitation: the acting reviewer cannot be named. The decision is
+// recorded in OnefopSubmission.reviewedBy as a bare user id with no Prisma
+// relation, and GET /admin/questionnaires/:id does not resolve it. The full
+// actor-level trail lives in AuditLog, which CENTRAL cannot currently read.
+// See W-3 and Z-1 in docs/audit/territorial-supervision-2026-10-02.md.
+function InstructionHistory({ dossier }: { dossier: AdminDossier }) {
+  const steps: { label: string; detail: string; stamp: string; tone: string }[] = [
+    {
+      label: "Fiche soumise",
+      detail: "Déposée par le répondant pour instruction.",
+      stamp: fmtDate(dossier.submissionDate, true) ?? "—",
+      tone: "#0d9488",
+    },
+  ];
+
+  const decisionStamp = fmtDate(dossier.reviewedAt, true);
+
+  if (dossier.status === "APPROVED") {
+    steps.push({
+      label: "Fiche validée",
+      detail: "Visa administratif accordé.",
+      stamp: decisionStamp ?? "—",
+      tone: "#22c55e",
+    });
+  } else if (dossier.status === "REJECTED") {
+    steps.push({
+      label: "Fiche rejetée",
+      detail: dossier.rejectionReason?.trim()
+        ? `Motif : ${dossier.rejectionReason}`
+        : "Aucun motif enregistré.",
+      stamp: decisionStamp ?? "—",
+      tone: "#dc2626",
+    });
+  } else if (dossier.status === "CORRECTION_REQUESTED") {
+    steps.push({
+      label: "Retournée pour correction",
+      detail: dossier.rejectionReason?.trim()
+        ? `Motif : ${dossier.rejectionReason}`
+        : "Aucun motif enregistré.",
+      stamp: decisionStamp ?? "—",
+      tone: "#f59e0b",
+    });
+  } else {
+    steps.push({
+      label: "En cours de revue",
+      detail: "En attente d'une décision d'instruction.",
+      stamp: "—",
+      tone: "#f59e0b",
+    });
+  }
+
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 8,
+        padding: "20px 24px",
+        marginTop: 24,
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: "#111827",
+          margin: 0,
+          paddingBottom: 14,
+          borderBottom: "1px solid #e5e7eb",
+        }}
+      >
+        Historique d&apos;instruction de la Fiche
+      </h2>
+      <ol
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+          gap: 24,
+          marginTop: 20,
+          padding: 0,
+          listStyle: "none",
+        }}
+      >
+        {steps.map((step) => (
+          <li key={step.label} style={{ display: "flex", gap: 12 }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: step.tone,
+                marginTop: 3,
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{step.label}</div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{step.detail}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: step.tone, marginTop: 4 }}>
+                {step.stamp}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p style={{ fontSize: 12, color: "#6b7280", margin: "16px 0 0" }}>
+        Cet historique reprend les étapes enregistrées sur la fiche. L&apos;agent auteur de la
+        décision n&apos;est pas encore restitué par l&apos;API.
+      </p>
+    </div>
+  );
 }
 
 type Detail = Record<string, unknown>;
@@ -120,7 +191,7 @@ function entityName(detail: Detail): string | null {
 function SubmissionDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const id = (params.id as string) || "ENT-2026-04521";
+  const id = (params.id as string) ?? "";
 
   const queryClient = useQueryClient();
 
@@ -128,23 +199,22 @@ function SubmissionDetailContent() {
     queryKey: ["admin", "dossier", id],
     queryFn: () => getAdminDossier(id),
     retry: false,
+    enabled: id !== "",
   });
 
   const diagnosticQuery = useQuery({
     queryKey: ["admin", "diagnostic", id],
     queryFn: () => getDossierDiagnostic(id),
     retry: false,
+    enabled: id !== "",
   });
 
-  // Use live data if present, otherwise fallback to Figma mock
-  const dossier: AdminDossier = dossierQuery.data || FIGMA_DOSSIER_MOCK;
-  const diag: DossierDiagnostic = diagnosticQuery.data || FIGMA_DIAGNOSTIC_MOCK;
-  const detail = entityDetail(dossier);
-
-  const name = entityName(detail) ?? searchParams.get("name") ?? "SABC S.A. (Brasseries du Cameroun)";
-  const ref = dossier.submissionId || id;
-  const date = fmtDate(dossier.submissionDate) || "18/09/2026";
-  const region = dossier.region || "Littoral";
+  // This screen is the last step of the supervision drill-down, so it must
+  // only ever show what the API returned for this dossier. It previously fell
+  // back to a hardcoded sample dossier whenever either query failed, which
+  // turned a 404 or an out-of-territory 403 into a convincing fake record.
+  const dossier = dossierQuery.data;
+  const diag = diagnosticQuery.data;
 
   const invalidateDossier = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -155,12 +225,12 @@ function SubmissionDetailContent() {
   // ── Modals State ────────────────────────────────────────────────────────
   const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
   const [correctionSection, setCorrectionSection] = useState("Section 2 : Emploi et Conditions de Travail");
-  const [correctionProblem, setCorrectionProblem] = useState(
-    "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés."
-  );
-  const [correctionAction, setCorrectionAction] = useState(
-    "Veuillez vérifier et corriger les effectifs dans la Section 2. Le total doit correspondre exactement à la somme des catégories (cadres + agents de maîtrise + employés + ouvriers)."
-  );
+  // The instruction sent to the declarant starts empty on purpose: it used to
+  // be pre-filled with a sample headcount finding, so every correction request
+  // left unedited told the employer to fix a discrepancy that was never
+  // detected on their dossier. The submit button stays disabled until the
+  // reviewer writes one.
+  const [correctionAction, setCorrectionAction] = useState("");
   const [requireJustificatifs, setRequireJustificatifs] = useState(false);
   const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
@@ -225,6 +295,48 @@ function SubmissionDetailContent() {
 
   // Section accordion toggle
   const [expandedSection, setExpandedSection] = useState<number | null>(1);
+
+  // Every hook above runs unconditionally; the states below are rendered
+  // instead of the dossier, never alongside a placeholder for it.
+  if (dossierQuery.isLoading) {
+    return <DossierNotice title="Chargement du dossier…" />;
+  }
+
+  if (!dossier) {
+    const status = (dossierQuery.error as { status?: number } | null)?.status;
+    return (
+      <DossierNotice
+        title={status === 404 ? "Dossier introuvable" : "Dossier indisponible"}
+        detail={
+          status === 404
+            ? "Ce dossier n'existe pas, ou ne relève pas de votre ressort territorial."
+            : status === 403
+              ? "Vous n'êtes pas autorisé à consulter ce dossier."
+              : formatApiError(dossierQuery.error)
+        }
+      />
+    );
+  }
+
+  // The "problème identifié" shown in the correction modal is the dossier's
+  // own detected anomalies, blocking first, never a sample finding.
+  const diagnosedAnomalies = [
+    ...(diag?.blockingAnomalies ?? []),
+    ...(diag?.warningAnomalies ?? []),
+  ];
+  const correctionProblem = diagnosedAnomalies.length > 0
+    ? diagnosedAnomalies
+        .map((ano) => `${ano.ruleCode} — ${ano.description}`)
+        .join("\n")
+    : "Aucune anomalie n'a été détectée automatiquement sur ce dossier. Précisez ci-dessous le problème constaté.";
+
+  const detail = entityDetail(dossier);
+  const ref = dossier.submissionId || id;
+  // No invented employer name: fall back to the list page's hint, then to the
+  // dossier reference itself.
+  const name = entityName(detail) ?? searchParams.get("name") ?? ref;
+  const date = fmtDate(dossier.submissionDate) ?? "—";
+  const region = dossier.region ?? "—";
 
   return (
     <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 0 32px 0" }}>
@@ -1259,113 +1371,8 @@ function SubmissionDetailContent() {
         </div>
       </div>
 
-      {/* ── Bottom Timeline Card matching Figma _id.png ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-          padding: "20px 24px",
-          marginTop: 24,
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 16,
-            fontWeight: 700,
-            color: "#111827",
-            margin: 0,
-            paddingBottom: 14,
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          Historique d&apos;instruction de la Fiche
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 24,
-            marginTop: 20,
-          }}
-        >
-          {/* Step 1 */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#22c55e",
-                border: "3px solid #bbf7d0",
-                marginTop: 3,
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                Fiche d&apos;enquête initialisée
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                Soumis par le répondant, supervisé par Samuel Eto&apos;o
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#15803d", marginTop: 4 }}>
-                15/09/2026 - 08:30
-              </div>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#0d9488",
-                marginTop: 3,
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                Fiche soumise pour validation
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                Soumis au serveur central de l&apos;Observatoire National
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#0f766e", marginTop: 4 }}>
-                18/09/2026 - 16:45
-              </div>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#f59e0b",
-                marginTop: 3,
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                Actuellement en cours de revue
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                En attente de validation par M. Ewane (Superviseur National)
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 4 }}>
-                En attente de revue
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── Instruction history, derived from the dossier itself ── */}
+      <InstructionHistory dossier={dossier} />
 
       {/* ── Modal: Retour pour Correction matching Figma retour-correction.png ── */}
       {isCorrectionOpen && (
@@ -1518,6 +1525,8 @@ function SubmissionDetailContent() {
                     >
                       {correctionProblem}
                     </div>
+                    {/* correctionProblem is derived from the dossier's real
+                        diagnostic; see its definition below the guard. */}
                   </div>
 
                   {/* 3. Axe de qualité affecté */}
