@@ -5,11 +5,23 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma, SubmissionModule } from '@prisma/client';
+import { OnefopEntityType, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { resolveTargetScope, TargetScope } from './pilotage-scope';
+import {
+  CampaignReturnsResponse,
+  CampaignReturnsSummary,
+  DepartmentReturnRow,
+  RegionReturnRow,
+  ReturnMetrics,
+  addMetrics,
+  buildMetrics,
+  emptyMetrics,
+  isApprovedStatus,
+  isReceivedStatus,
+} from './pilotage-returns';
 import {
   addCounts,
   applyRow,
@@ -18,6 +30,7 @@ import {
   CompanyStockRow,
   coverageRate,
   emptyCounts,
+  isRegistered,
   StockCounts,
 } from './pilotage-coverage';
 import {
@@ -216,6 +229,238 @@ export class PilotageService {
       campaign: campaignSummary(campaign),
       central: central ? { submissionTarget: central.submissionTarget } : null,
       regions: labelTargets(regions, 'submissionTarget'),
+    };
+  }
+
+  async getCampaignReturns(
+    territory: Territory | null | undefined,
+    campaignId: string,
+  ): Promise<CampaignReturnsResponse> {
+    const campaign = await this.requireOnefopCampaign(campaignId);
+    const { scope, regions } = await this.loadGrid(territory, (current) =>
+      this.prisma.campaignQuota
+        .findMany({ where: { campaignId, ...regionFilter(current) } })
+        .then((rows) =>
+          rows.map((row) => ({
+            regionId: row.regionId,
+            departmentId: row.departmentId,
+            target: row.submissionTarget,
+          })),
+        ),
+    );
+
+    const summary: CampaignReturnsSummary = {
+      id: campaign.id,
+      name: campaign.name,
+      code: campaign.code,
+      collectionType: campaign.collectionType,
+      status: campaign.status,
+      startDate: campaign.startDate ? campaign.startDate.toISOString() : null,
+      endDate: campaign.endDate ? campaign.endDate.toISOString() : null,
+      referenceYear: campaign.referenceYear,
+      referenceQuarter: campaign.referenceQuarter,
+    };
+
+    if (scope.kind === 'none') {
+      return {
+        campaign: summary,
+        central: null,
+        unassigned: null,
+        regions: [],
+        totals: emptyMetrics(),
+      };
+    }
+
+    const national = scope.kind === 'national';
+    const [centralQuota, companies, submissions] = await Promise.all([
+      national
+        ? this.prisma.centralCampaignQuota.findUnique({ where: { campaignId } })
+        : Promise.resolve(null),
+      this.prisma.company.findMany({
+        where: companyWhere(scope),
+        select: {
+          entityType: true,
+          regionId: true,
+          departmentId: true,
+          establishmentId: true,
+          establishmentIdGeneratedAt: true,
+          createdAt: true,
+          departmentRef: { select: { regionId: true } },
+          user: { select: { status: true, isActive: true } },
+        },
+      }),
+      this.prisma.onefopSubmission.findMany({
+        where: {
+          campaignId,
+          ...submissionWhere(scope),
+        },
+        select: {
+          id: true,
+          companyId: true,
+          formType: true,
+          status: true,
+          isLate: true,
+          regionId: true,
+          departmentId: true,
+          submissionDate: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    // Active registered stock by bucket (requires isRegistered)
+    const registeredStockByBucket = new Map<string, number>();
+    for (const company of companies) {
+      const row = toStockRow(company);
+      if (isRegistered(row)) {
+        const key = bucketKey(classifyBucket(row));
+        registeredStockByBucket.set(key, (registeredStockByBucket.get(key) ?? 0) + 1);
+      }
+    }
+
+    // Deduplicate submissions by companyId (resubmissions count once)
+    const byCompany = new Map<string, typeof submissions>();
+    for (const sub of submissions) {
+      const key = sub.companyId ?? `sub-${sub.id}`;
+      const list = byCompany.get(key) ?? [];
+      list.push(sub);
+      byCompany.set(key, list);
+    }
+
+    interface BucketCounts {
+      received: number;
+      approved: number;
+      onTime: number;
+      late: number;
+    }
+    const countsByBucket = new Map<string, BucketCounts>();
+
+    function increment(bucket: string, approved: boolean, late: boolean) {
+      const current = countsByBucket.get(bucket) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      current.received += 1;
+      if (approved) current.approved += 1;
+      if (late) current.late += 1;
+      else current.onTime += 1;
+      countsByBucket.set(bucket, current);
+    }
+
+    for (const [, companySubs] of byCompany) {
+      // Exclude DRAFT submissions
+      const nonDrafts = companySubs.filter((s) => s.status !== OnefopStatus.DRAFT);
+      if (nonDrafts.length === 0) continue;
+
+      // Find the latest received submission (PENDING_REVIEW, APPROVED, CORRECTION_REQUESTED)
+      const receivedSub = nonDrafts.find((s) => isReceivedStatus(s.status));
+      if (!receivedSub) {
+        // All non-drafts are REJECTED -> not counted in received
+        continue;
+      }
+
+      const approved = isApprovedStatus(receivedSub.status);
+      const late = receivedSub.isLate;
+
+      // Bucketing
+      if (receivedSub.formType === OnefopEntityType.ADMINISTRATION) {
+        increment('central', approved, late);
+      } else if (!receivedSub.regionId || !receivedSub.departmentId) {
+        increment('unassigned', approved, late);
+      } else {
+        increment(
+          bucketKey({
+            kind: 'department',
+            regionId: receivedSub.regionId,
+            departmentId: receivedSub.departmentId,
+          }),
+          approved,
+          late,
+        );
+      }
+    }
+
+    // Build department and region rows
+    const regionRows: RegionReturnRow[] = regions.map((region) => {
+      const departments: DepartmentReturnRow[] = region.departments.map((department) => {
+        const key = bucketKey({
+          kind: 'department',
+          regionId: region.regionId,
+          departmentId: department.departmentId,
+        });
+        const counts = countsByBucket.get(key) ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+        const registeredStock = registeredStockByBucket.get(key) ?? 0;
+        const metrics = buildMetrics(department.target, counts, registeredStock);
+        return {
+          departmentId: department.departmentId,
+          name: department.name,
+          ...metrics,
+        };
+      });
+
+      // Sum actuals across departments
+      const summedCounts = departments.reduce(
+        (acc, d) => ({
+          received: acc.received + d.received,
+          approved: acc.approved + d.approved,
+          onTime: acc.onTime + d.onTime,
+          late: acc.late + d.late,
+        }),
+        { received: 0, approved: 0, onTime: 0, late: 0 },
+      );
+      const summedStock = departments.reduce((acc, d) => acc + d.registeredStock, 0);
+
+      // Region quota is region.target (sum of depts or explicit region target)
+      const regionMetrics = buildMetrics(region.target, summedCounts, summedStock);
+      return {
+        regionId: region.regionId,
+        name: region.name,
+        mode: region.mode,
+        ...regionMetrics,
+        departments,
+      };
+    });
+
+    // Central bucket (National only)
+    let central: ReturnMetrics | null = null;
+    if (national) {
+      const centralCounts = countsByBucket.get('central') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      const centralStock = registeredStockByBucket.get('central') ?? 0;
+      central = buildMetrics(centralQuota?.submissionTarget ?? null, centralCounts, centralStock);
+    }
+
+    // Unassigned bucket (National only)
+    let unassigned: ReturnMetrics | null = null;
+    if (national) {
+      const unassignedCounts = countsByBucket.get('unassigned') ?? { received: 0, approved: 0, onTime: 0, late: 0 };
+      const unassignedStock = registeredStockByBucket.get('unassigned') ?? 0;
+      unassigned = buildMetrics(null, unassignedCounts, unassignedStock);
+    }
+
+    // Totals rollup scoped to jurisdiction
+    let totals: ReturnMetrics;
+    if (national) {
+      const allMetrics = [...regionRows];
+      if (central) allMetrics.push(central as any);
+      if (unassigned && unassigned.received > 0) allMetrics.push(unassigned as any);
+
+      totals = allMetrics.reduce(
+        (acc, m) => addMetrics(acc, m),
+        emptyMetrics(),
+      );
+    } else if (scope.kind === 'region') {
+      totals = regionRows.length > 0 ? regionRows[0] : emptyMetrics();
+    } else {
+      totals =
+        regionRows.length > 0 && regionRows[0].departments.length > 0
+          ? regionRows[0].departments[0]
+          : emptyMetrics();
+    }
+
+    return {
+      campaign: summary,
+      central,
+      unassigned,
+      regions: regionRows,
+      totals,
     };
   }
 
@@ -442,7 +687,17 @@ export class PilotageService {
   private async requireOnefopCampaign(id: string) {
     const campaign = await this.prisma.dataCampaign.findUnique({
       where: { id },
-      select: { id: true, name: true, code: true, collectionType: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        collectionType: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        referenceYear: true,
+        referenceQuarter: true,
+      },
     });
     if (!campaign) throw new NotFoundException('Campagne introuvable.');
     if (campaign.collectionType !== SubmissionModule.ONEFOP) {
@@ -486,6 +741,12 @@ function regionFilter(scope: TargetScope): { regionId?: string } {
 }
 
 function companyWhere(scope: TargetScope): Record<string, unknown> {
+  if (scope.kind === 'region') return { regionId: scope.regionId };
+  if (scope.kind === 'department') return { departmentId: scope.departmentId };
+  return {};
+}
+
+function submissionWhere(scope: TargetScope): Record<string, unknown> {
   if (scope.kind === 'region') return { regionId: scope.regionId };
   if (scope.kind === 'department') return { departmentId: scope.departmentId };
   return {};

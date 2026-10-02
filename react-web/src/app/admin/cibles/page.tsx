@@ -8,6 +8,7 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CoverageTable } from "@/components/admin/CoverageTable";
+import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns, type Campaign } from "@/lib/campaigns";
@@ -26,6 +27,7 @@ import {
   doualaCalendarYear,
   formatApiError,
   getCampaignQuotas,
+  getCampaignReturns,
   getCoverage,
   getInscriptionTargets,
   parseYearParam,
@@ -40,11 +42,12 @@ import {
 
 type GridResponse = InscriptionTargetsResponse | CampaignQuotasResponse;
 
-type Vue = "inscriptions" | "couverture" | "quotas";
+type Vue = "inscriptions" | "couverture" | "quotas" | "retours";
 const VUES: { id: Vue; label: string }[] = [
   { id: "inscriptions", label: "Objectifs d'inscription" },
   { id: "couverture", label: "Couverture" },
   { id: "quotas", label: "Quotas de campagne" },
+  { id: "retours", label: "Suivi des retours" },
 ];
 
 export default function CiblesPage() {
@@ -121,7 +124,7 @@ function CiblesContent() {
       </nav>
 
       <div className="cam-target-toolbar">
-        {vue !== "quotas" && (
+        {vue !== "quotas" && vue !== "retours" && (
           <label className="cam-target-year">
             Année
             <input
@@ -158,6 +161,13 @@ function CiblesContent() {
           campagneParam={campagneParam}
           onCampagneChange={(id) => setParams({ campagne: id || null })}
           showCentral={isNational(user?.role)}
+        />
+      )}
+      {vue === "retours" && (
+        <ReturnsPanel
+          canList={canList}
+          campagneParam={campagneParam}
+          onCampagneChange={(id) => setParams({ campagne: id || null })}
         />
       )}
     </div>
@@ -497,6 +507,119 @@ function QuotasPanel({
   );
 }
 
+function ReturnsPanel({
+  canList,
+  campagneParam,
+  onCampagneChange,
+}: {
+  canList: boolean;
+  campagneParam: string;
+  onCampagneChange: (id: string) => void;
+}) {
+  const listQuery = useQuery({
+    queryKey: ["campaigns", "all"],
+    queryFn: () => listCampaigns(),
+    enabled: canList,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const onefop = useMemo(
+    () => (listQuery.data ?? []).filter((campaign) => campaign.collectionType === "ONEFOP"),
+    [listQuery.data],
+  );
+
+  const selected = campagneParam || preferredCampaignId(onefop);
+  const didSelect = useRef(false);
+  useEffect(() => {
+    if (didSelect.current || !canList || campagneParam || !selected) return;
+    didSelect.current = true;
+    onCampagneChange(selected);
+  }, [canList, campagneParam, selected, onCampagneChange]);
+
+  if (!canList && !campagneParam) {
+    return (
+      <p className="cam-admin-lede">
+        La liste des campagnes n&apos;est pas disponible au niveau départemental. Un identifiant de campagne dans l&apos;adresse permet la consultation.
+      </p>
+    );
+  }
+
+  if (canList && listQuery.isLoading) return <p className="cam-admin-lede">Chargement des campagnes…</p>;
+  if (canList && listQuery.isError) {
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(listQuery.error)}</div>;
+  }
+  if (canList && onefop.length === 0) {
+    return <p className="cam-admin-lede">Aucune campagne ONEFOP n&apos;est disponible.</p>;
+  }
+
+  const campaignId = campagneParam || selected;
+
+  return (
+    <>
+      {canList && (
+        <label className="cam-target-year" style={{ marginBottom: "var(--cam-space-4)" }}>
+          Campagne ONEFOP
+          <select
+            className="cam-select"
+            value={campaignId}
+            onChange={(event) => onCampagneChange(event.target.value)}
+          >
+            {onefop.map((campaign) => (
+              <option key={campaign.id} value={campaign.id}>
+                {campaign.code} — {campaign.name} ({campaign.status})
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {campaignId && <ReturnsContent campaignId={campaignId} />}
+    </>
+  );
+}
+
+function ReturnsContent({ campaignId }: { campaignId: string }) {
+  const query = useQuery({
+    queryKey: ["admin", "pilotage", "returns", campaignId],
+    queryFn: () => getCampaignReturns(campaignId),
+    enabled: !!campaignId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!query.data) return;
+    setExpanded(new Set(query.data.regions.map((region) => region.regionId)));
+  }, [query.data]);
+
+  if (query.isLoading) return <p className="cam-admin-lede">Chargement des retours…</p>;
+  if (query.isError) {
+    return <div className="cam-admin-notice cam-admin-notice--error" role="alert">{formatApiError(query.error)}</div>;
+  }
+  if (!query.data) return null;
+
+  return (
+    <>
+      <p className="cam-admin-lede">
+        {query.data.campaign.name} ({query.data.campaign.code}) — {query.data.campaign.status}
+      </p>
+      <CampaignReturnsTable
+        data={query.data}
+        expanded={expanded}
+        onToggle={(regionId) =>
+          setExpanded((current) => {
+            const next = new Set(current);
+            if (next.has(regionId)) next.delete(regionId);
+            else next.add(regionId);
+            return next;
+          })
+        }
+      />
+    </>
+  );
+}
+
 function preferredCampaignId(campaigns: Campaign[]): string {
   const active = campaigns.find((campaign) => campaign.status === "ACTIVE");
   return (active ?? campaigns[0])?.id ?? "";
@@ -508,7 +631,7 @@ function defaultExpanded(regions: { regionId: string; mode: string }[]): Set<str
 }
 
 function parseVue(raw: string | null): Vue {
-  if (raw === "couverture" || raw === "quotas" || raw === "inscriptions") return raw;
+  if (raw === "couverture" || raw === "quotas" || raw === "inscriptions" || raw === "retours") return raw;
   return "inscriptions";
 }
 
