@@ -84,6 +84,12 @@ export class CampaignController {
         return this.campaignService.closeCampaign(id, req.user.id);
     }
 
+    @Post(':id/archive')
+    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL)
+    async archiveCampaign(@Param('id') id: string, @Req() req: any) {
+        return this.campaignService.archiveCampaign(id, req.user?.id);
+    }
+
     @Post(':id/extend')
     @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL)
     async extendDeadline(@Param('id') id: string, @Body('newDeadline') newDeadline: string) {
