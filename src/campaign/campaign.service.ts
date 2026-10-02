@@ -280,11 +280,66 @@ export class CampaignService {
     }
 
     async deleteCampaign(id: string) {
-        // Deleting the campaign sets the round's campaignId to NULL (FK is
-        // ON DELETE SET NULL) rather than deleting it — close it first so an
-        // OPEN round doesn't survive, orphaned, past its campaign's deletion.
-        await this._closeCollectionRound(id);
-        return this.prisma.dataCampaign.delete({ where: { id } });
+        return this.prisma.$transaction(async (tx) => {
+            const campaign = await tx.dataCampaign.findUnique({
+                where: { id },
+                include: {
+                    _count: {
+                        select: {
+                            submissions: true,
+                            onefopSubmissions: true,
+                            declarations: true,
+                            quotas: true,
+                            freezes: true,
+                        },
+                    },
+                    centralQuota: { select: { id: true } },
+                },
+            });
+
+            if (!campaign) {
+                throw new NotFoundException('Campagne introuvable');
+            }
+
+            if (campaign.status !== 'DRAFT') {
+                throw new ConflictException(
+                    `Impossible de supprimer la campagne "${campaign.name}" : son statut est "${campaign.status}". Seules les campagnes à l'état DRAFT peuvent être supprimées. Veuillez l'archiver.`,
+                );
+            }
+
+            const blockers: string[] = [];
+            if (campaign._count.submissions > 0) {
+                blockers.push(`${campaign._count.submissions} soumission(s) de campagne`);
+            }
+            if (campaign._count.onefopSubmissions > 0) {
+                blockers.push(`${campaign._count.onefopSubmissions} soumission(s) ONEFOP`);
+            }
+            if (campaign._count.declarations > 0) {
+                blockers.push(`${campaign._count.declarations} déclaration(s) DSMO`);
+            }
+            if (campaign._count.quotas > 0) {
+                blockers.push(`${campaign._count.quotas} quota(s) territorial(aux)`);
+            }
+            if (campaign.centralQuota) {
+                blockers.push('1 quota central');
+            }
+            if (campaign._count.freezes > 0) {
+                blockers.push(`${campaign._count.freezes} gel(s) statistique(s)`);
+            }
+
+            if (blockers.length > 0) {
+                throw new ConflictException(
+                    `Impossible de supprimer la campagne "${campaign.name}" : des données liées existent (${blockers.join(', ')}).`,
+                );
+            }
+
+            // Deleting the campaign sets the round's campaignId to NULL (FK is
+            // ON DELETE SET NULL) rather than deleting it — close it first inside
+            // this transaction so an OPEN round doesn't survive, orphaned, past its
+            // campaign's deletion.
+            await this._closeCollectionRound(id, undefined, tx);
+            return tx.dataCampaign.delete({ where: { id } });
+        });
     }
 
     async activateCampaign(id: string, actorUserId?: string) {
@@ -344,6 +399,22 @@ export class CampaignService {
         });
         await this._closeCollectionRound(id, actorUserId ?? campaign.createdBy ?? undefined);
         return campaign;
+    }
+
+    async archiveCampaign(id: string, actorUserId?: string) {
+        const campaign = await this.prisma.dataCampaign.findUnique({ where: { id } });
+        if (!campaign) {
+            throw new NotFoundException('Campagne introuvable');
+        }
+        if (campaign.status === 'ARCHIVED') {
+            throw new ConflictException('La campagne est déjà archivée');
+        }
+        const updated = await this.prisma.dataCampaign.update({
+            where: { id },
+            data: { status: 'ARCHIVED' },
+        });
+        await this._closeCollectionRound(id, actorUserId ?? campaign.createdBy ?? undefined);
+        return updated;
     }
 
     // Shared by the nightly deadline scheduler and listCampaigns' eager
@@ -645,8 +716,9 @@ export class CampaignService {
     }
 
     /** Closes the SubmissionRound tied to this campaign, if one is open. */
-    private async _closeCollectionRound(campaignId: string, userId?: string) {
-        await this.prisma.submissionRound.updateMany({
+    private async _closeCollectionRound(campaignId: string, userId?: string, tx?: PrismaTx) {
+        const client = tx ?? this.prisma;
+        await client.submissionRound.updateMany({
             where: { campaignId, status: { in: ['OPEN', 'EXTENDED'] } },
             data: { status: 'CLOSED', closedAt: new Date(), closedBy: userId },
         });
