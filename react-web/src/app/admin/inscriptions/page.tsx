@@ -34,6 +34,39 @@ function entityLabel(value: string | null): string {
   return ENTITY_TYPES.find((item) => item.value === value)?.label ?? value ?? "—";
 }
 
+// Company column names as the correction form presents them, so a reviewer
+// reads the diff in the applicant's own words. An unmapped key falls back to
+// itself rather than being hidden.
+const FIELD_LABELS: Record<string, string> = {
+  name: "Raison sociale",
+  taxNumber: "Numéro contribuable (NIU)",
+  mainActivity: "Activité principale",
+  secondaryActivity: "Activité secondaire",
+  parentCompany: "Société mère",
+  address: "Adresse",
+  cnpsNumber: "Numéro CNPS",
+  fax: "Fax",
+  socialCapital: "Capital social",
+  entityType: "Type d'entité",
+  region: "Région",
+  department: "Département",
+  subdivision: "Arrondissement",
+  regionId: "Région (identifiant)",
+  departmentId: "Département (identifiant)",
+  subdivisionId: "Arrondissement (identifiant)",
+};
+
+function fieldLabel(field: string): string {
+  return FIELD_LABELS[field] ?? field;
+}
+
+// An empty or absent before/after reads as a dash rather than as "null".
+function diffValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "string") return ENTITY_TYPES.find((t) => t.value === value)?.label ?? value;
+  return String(value);
+}
+
 function statusLabel(status: string): { text: string; bg: string; color: string } {
   if (status === "PENDING_APPROVAL") return { text: "EN ATTENTE", bg: "#fef3c7", color: "#b45309" };
   if (status === "COMPLEMENTS_REQUESTED") return { text: "COMPLÉMENTS DEMANDÉS", bg: "#eff6ff", color: "#1d4ed8" };
@@ -107,7 +140,8 @@ export default function InscriptionsPage() {
   const failed = (e: Error) => setNotice({ tone: "error", text: e.message });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => approveUser(id),
+    mutationFn: ({ id, centralStructureConfirmed }: { id: string; centralStructureConfirmed: boolean }) =>
+      approveUser(id, { centralStructureConfirmed }),
     onSuccess: () => done("Inscription validée et compte activé."),
     onError: failed,
   });
@@ -129,7 +163,7 @@ export default function InscriptionsPage() {
         setNotice({ tone: "error", text: "Cochez la confirmation « structure centrale » avant d'approuver." });
         return;
       }
-      approveMutation.mutate(reviewing.id);
+      approveMutation.mutate({ id: reviewing.id, centralStructureConfirmed: centralChecked });
     } else if (decision === "REJECT") {
       if (!comment.trim()) {
         setNotice({ tone: "error", text: "Le motif de rejet est obligatoire." });
@@ -290,6 +324,35 @@ export default function InscriptionsPage() {
             {reviewing.duplicateHints.length > 0 && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
                 {reviewing.duplicateHints.map((hint) => <p key={hint} style={{ margin: 0 }}>{hint}</p>)}
+              </div>
+            )}
+            {reviewing.lastResubmission && (
+              <div>
+                <p style={{ marginBottom: 4 }}>
+                  <strong>Corrections envoyées</strong> le {formatDate(reviewing.lastResubmission.at)}
+                </p>
+                {Object.keys(reviewing.lastResubmission.changes).length === 0 ? (
+                  <p style={{ margin: 0 }}>Dossier renvoyé sans modification.</p>
+                ) : (
+                  <table className="cam-dash-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Champ</th>
+                        <th scope="col">Avant</th>
+                        <th scope="col">Après</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(reviewing.lastResubmission.changes).map(([field, diff]) => (
+                        <tr key={field}>
+                          <th scope="row">{fieldLabel(field)}</th>
+                          <td>{diffValue(diff.before)}</td>
+                          <td>{diffValue(diff.after)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             )}
             {reviewing.requiresCentralStructureCheck && (
