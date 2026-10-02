@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuthService } from './auth.service';
+import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 
 describe('AuthService company registration approval', () => {
   const companyUser = {
@@ -160,6 +161,64 @@ describe('AuthService.validateUser company pending login', () => {
     const service = new AuthService(prisma as any, {} as any, {} as any, {} as any, {} as any);
     const user = await service.validateUser('co@example.cm', 'secret');
     expect(user).toMatchObject({ id: 'u-co', status: 'PENDING_APPROVAL', role: 'COMPANY' });
+  });
+
+  // Mirrors the mock above; each case below differs only in the account row.
+  const serviceFor = async (overrides: Record<string, unknown>) => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: 'u-co',
+          email: 'co@example.cm',
+          role: 'COMPANY',
+          status: 'ACTIVE',
+          isActive: true,
+          rejectionReason: null,
+          passwordHash: await require('bcrypt').hash('secret', 4),
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          ...overrides,
+        })),
+        update: jest.fn(),
+      },
+      company: { findFirst: jest.fn() },
+    };
+    return new AuthService(prisma as any, {} as any, {} as any, {} as any, {} as any);
+  };
+
+  it('returns null on a wrong password, without saying why', async () => {
+    const service = await serviceFor({});
+    await expect(service.validateUser('co@example.cm', 'wrong')).resolves.toBeNull();
+  });
+
+  it('refuses a REJECTED registration with a fixed message carrying no reviewer reason', async () => {
+    const service = await serviceFor({
+      status: 'REJECTED',
+      isActive: false,
+      rejectionReason: 'Documents illisibles',
+    });
+    const error = await service.validateUser('co@example.cm', 'secret').catch((e) => e);
+    expect(error).toBeInstanceOf(UnauthorizedException);
+    expect(error.message).toBe(REGISTRATION_REJECTED_LOGIN_MESSAGE);
+    expect(error.message).not.toContain('Documents illisibles');
+  });
+
+  // The rejection message sits after the password check, so it cannot be
+  // probed by someone who does not already hold the credentials.
+  it('checks the password before reporting a rejection', async () => {
+    const service = await serviceFor({
+      status: 'REJECTED',
+      isActive: false,
+      rejectionReason: 'Documents illisibles',
+    });
+    await expect(service.validateUser('co@example.cm', 'wrong')).resolves.toBeNull();
+  });
+
+  it('keeps the existing message for a suspension that is not a rejection', async () => {
+    const service = await serviceFor({ status: 'ACTIVE', isActive: false });
+    const error = await service.validateUser('co@example.cm', 'secret').catch((e) => e);
+    expect(error).toBeInstanceOf(UnauthorizedException);
+    expect(error.message).toBe('Votre compte a été désactivé. Contactez un administrateur.');
   });
 });
 

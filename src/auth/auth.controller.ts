@@ -10,6 +10,7 @@ import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
+import { UserStatus } from '../types/prisma.types';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -21,6 +22,11 @@ const RECOVERY_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
 // (security-question answers are low-entropy and partly public) — tightest
 // limit of the group.
 const SECURITY_ANSWER_THROTTLE = { default: { limit: 5, ttl: 15 * 60_000 } };
+// The statuses a company may still act under while its registration is being
+// reviewed: account self-service and the correction flow stay reachable so a
+// pending company is not locked out of its own account. REJECTED is absent,
+// and isActive=false is denied by ActiveCompanyGuard regardless of this list.
+const UNDER_REVIEW_STATUSES = [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMENTS_REQUESTED];
 
 @Controller('auth')
 export class AuthController {
@@ -203,7 +209,7 @@ export class AuthController {
   }
 
   @Patch('request-complements/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
   async requestComplements(@Param('id') id: string, @Request() req: any, @Body('message') message?: string) {
     return this.authService.requestComplements(
@@ -216,7 +222,7 @@ export class AuthController {
   }
 
   @Get('company-registrations')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
   async listCompanyRegistrations(
     @Request() req: any,
@@ -242,7 +248,8 @@ export class AuthController {
   }
 
   @Post('resubmit-registration')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: [UserStatus.COMPLEMENTS_REQUESTED] })
   async resubmitRegistration(@Request() req: any) {
     return this.authService.resubmitRegistration(req.user.id);
   }
@@ -349,6 +356,7 @@ export class AuthController {
 
   @Patch('change-password')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async changePassword(
     @Request() req: any,
     @Body() body: { currentPassword: string; newPassword: string },
@@ -362,12 +370,14 @@ export class AuthController {
 
   @Delete('me')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async deleteOwnAccount(@Request() req: any) {
     return this.authService.deactivateOwnAccount(req.user.id);
   }
 
   @Patch('preferences')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async updatePreferences(
     @Request() req: any,
     @Body()
@@ -383,6 +393,7 @@ export class AuthController {
 
   @Patch('two-factor')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async setTwoFactor(@Request() req: any, @Body('enabled') enabled: boolean) {
     return this.authService.setTwoFactorEnabled(req.user.id, enabled);
   }
@@ -457,6 +468,7 @@ export class AuthController {
 
   @Post('resend-verification')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async resendVerification(@Request() req: any) {
     return this.authService.resendVerificationEmail(req.user.id);
   }

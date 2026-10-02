@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, DeclarationStatus } from '../types/prisma.types';
 import * as nodemailer from 'nodemailer';
 import { AuditService } from './audit.service';
+import { REGISTRATION_CONTACT_SENTENCE } from '../common/registration-messages';
 
 /**
  * Escapes the five HTML-significant characters, leaving newlines alone:
@@ -549,7 +550,7 @@ ${message}`,
 ` +
             `Motif : ${reason}
 ` +
-            `Pour toute question, contactez votre délégation régionale.`;
+            REGISTRATION_CONTACT_SENTENCE;
         await this.transporter.sendMail({
             from: process.env.SMTP_FROM || 'dsmo@ministry.cm',
             to,
