@@ -29,10 +29,11 @@ import { BilanPdfService } from './bilan-pdf.service';
 // e.g. import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 // We use a placeholder so the file compiles without your guard path.
 // If you don't use a guard decorator (middleware-based auth), just remove
-// the @UseGuards line below.
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 
 @Controller('dsmo/analytics')
+@UseGuards(JwtAuthGuard, ActiveCompanyGuard)
 export class BilanController {
     constructor(
         private readonly bilanService: BilanService,

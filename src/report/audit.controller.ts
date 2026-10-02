@@ -3,6 +3,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../types/prisma.types';
 import {
@@ -13,7 +14,7 @@ import {
 } from './audit-log-filter';
 
 @Controller('audit')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class AuditController {
     constructor(private reportService: ReportService) { }
 

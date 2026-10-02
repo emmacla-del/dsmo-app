@@ -1,4 +1,4 @@
-﻿// src/auth/auth.module.ts
+// src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -9,6 +9,8 @@ import { LocalStrategy } from './local.strategy';
 import { DsmoModule } from '../dsmo/dsmo.module';
 import { getJwtSecret } from './jwt-secret';
 
+import { ActiveCompanyGuard } from './active-company.guard';
+
 @Module({
   imports: [
     PassportModule,
@@ -18,8 +20,8 @@ import { getJwtSecret } from './jwt-secret';
     }),
     DsmoModule,
   ],
-  providers: [AuthService, JwtStrategy, LocalStrategy],
+  providers: [AuthService, JwtStrategy, LocalStrategy, ActiveCompanyGuard],
   controllers: [AuthController],
-  exports: [AuthService], // ✅ Export AuthService so other modules can use it
+  exports: [AuthService, ActiveCompanyGuard], // ✅ Export AuthService and ActiveCompanyGuard
 })
 export class AuthModule { }

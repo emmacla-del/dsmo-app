@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller, Post, Body, UseGuards, Req, Get, Patch, Delete,
   Param, Query, Res, ParseIntPipe, NotFoundException
 } from '@nestjs/common';
@@ -7,13 +7,14 @@ import { DsmoService } from './dsmo.service';
 import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
 import { RegisterCompanyProfileDto } from './dto/register-company-profile.dto';
 import { DeclarationStatus } from '../types/prisma.types';
 
 @Controller('dsmo')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class DsmoController {
   constructor(
     private readonly dsmoService: DsmoService,

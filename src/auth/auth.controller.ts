@@ -8,6 +8,8 @@ import { Roles } from './roles.decorator';
 import { USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
+import { ActiveCompanyGuard } from './active-company.guard';
+import { AllowInactiveCompany } from './allow-inactive-company.decorator';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -49,7 +51,8 @@ export class AuthController {
 
   // ── Session restoration — called by Flutter on app startup ──
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany()
   async getMe(@Request() req: any) {
     return this.authService.getMe(req.user.id);
   }
@@ -158,7 +161,7 @@ export class AuthController {
   // waiting for approve-user below.
   // D1: SUPER_ADMIN_ONEFOP too; the service limits it to ONEFOP staff roles.
   @Post('admin/create-minefop-user')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
   async adminCreateMinefopUser(@Request() req: any, @Body() body: {
     email: string;
@@ -176,7 +179,7 @@ export class AuthController {
   }
 
   @Get('pending-minefop')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN')
   async getPendingMinefopUsers() {
     return this.authService.getPendingMinefopUsers();
@@ -186,14 +189,14 @@ export class AuthController {
   // (assertCanApproveRegistration). Inline, not USER_ADMIN_ROLES, which also
   // guards list / suspend / delete / re-role.
   @Patch('approve-user/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
   async approveUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.approveUser(id, req.user.role, territoryFromUser(req.user));
   }
 
   @Patch('reject-user/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
     return this.authService.rejectUser(id, req.user.role, territoryFromUser(req.user));
@@ -202,7 +205,7 @@ export class AuthController {
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
 
   @Get('users')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)
   async listUsers(
     @Request() req: any,
@@ -228,7 +231,7 @@ export class AuthController {
   }
 
   @Patch('users/:id/role')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)
   async updateUserRole(
     @Param('id') id: string,
@@ -241,7 +244,7 @@ export class AuthController {
   // D1: SUPER_ADMIN_ONEFOP too; updateUserTerritory already calls
   // assertCanManageRole on the target's current role and on the new role.
   @Patch('users/:id/territory')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
   async updateUserTerritory(
     @Param('id') id: string,
@@ -261,21 +264,21 @@ export class AuthController {
   }
 
   @Patch('users/:id/suspend')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)
   async suspendUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.setUserActive(id, false, req.user.id, req.user.role);
   }
 
   @Patch('users/:id/activate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)
   async activateUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.setUserActive(id, true, req.user.id, req.user.role);
   }
 
   @Delete('users/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)
   async deleteUser(@Param('id') id: string, @Request() req: any) {
     return this.authService.deleteUser(id, req.user.id, req.user.role);
@@ -284,7 +287,7 @@ export class AuthController {
   // Break-glass: recovers a user locked out of their account because their
   // 2FA code email never arrived. See AuthService.adminSetTwoFactorEnabled.
   @Patch('users/:id/two-factor')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN')
   async adminSetTwoFactor(@Param('id') id: string, @Body('enabled') enabled: boolean) {
     return this.authService.adminSetTwoFactorEnabled(id, enabled);
@@ -293,14 +296,14 @@ export class AuthController {
   // Admin-mediated reset: SUPER_ADMIN verifies identity out-of-band, then
   // this issues a reset token and emails the link directly to the user.
   @Post('admin/reset-password')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles('SUPER_ADMIN')
   async adminResetPassword(@Body('email') email: string, @Request() req: any) {
     return this.authService.adminResetPassword(email, req.user.id);
   }
 
   @Patch('change-password')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   async changePassword(
     @Request() req: any,
     @Body() body: { currentPassword: string; newPassword: string },
@@ -313,13 +316,13 @@ export class AuthController {
   }
 
   @Delete('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   async deleteOwnAccount(@Request() req: any) {
     return this.authService.deactivateOwnAccount(req.user.id);
   }
 
   @Patch('preferences')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   async updatePreferences(
     @Request() req: any,
     @Body()
@@ -334,7 +337,7 @@ export class AuthController {
   }
 
   @Patch('two-factor')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   async setTwoFactor(@Request() req: any, @Body('enabled') enabled: boolean) {
     return this.authService.setTwoFactorEnabled(req.user.id, enabled);
   }
@@ -402,13 +405,13 @@ export class AuthController {
   }
 
   @Get('attestation')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   async getAttestation(@Request() req: any) {
     return this.authService.getAttestation(req.user.id);
   }
 
   @Post('resend-verification')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   async resendVerification(@Request() req: any) {
     return this.authService.resendVerificationEmail(req.user.id);
   }

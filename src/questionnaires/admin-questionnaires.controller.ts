@@ -15,6 +15,7 @@ import {
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
@@ -44,7 +45,7 @@ function optionalText(raw: unknown): string | undefined {
 }
 
 @Controller('admin/questionnaires')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
 export class AdminQuestionnairesController {
   constructor(

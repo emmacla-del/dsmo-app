@@ -2,6 +2,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { OnefopAnalyticsFacade } from './facade/onefop-analytics.facade';
 
@@ -28,7 +29,7 @@ function toDate(val: any): Date | undefined {
 // `/dsmo/analytics/company-benchmarks` endpoints in AnalyticsController,
 // which do derive companyId from the authenticated user server-side.
 @Controller('onefop-analytics')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
 export class OnefopAnalyticsController {
     constructor(private readonly analytics: OnefopAnalyticsFacade) { }

@@ -2,11 +2,12 @@
 import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SystemSettingsService, SystemSettingsUpdate } from './system-settings.service';
 
 @Controller('system-settings')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 @Roles('SUPER_ADMIN')
 export class SystemSettingsController {
   constructor(private readonly systemSettings: SystemSettingsService) { }
