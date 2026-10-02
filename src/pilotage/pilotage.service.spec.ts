@@ -711,6 +711,7 @@ describe('PilotageService.getCampaignReturns', () => {
         id: 's1-old',
         campaignId: 'c1',
         companyId: 'comp-1',
+        establishmentId: 'est-comp-1',
         formType: OnefopEntityType.ENTREPRISE,
         status: OnefopStatus.REJECTED,
         isLate: false,
@@ -722,6 +723,7 @@ describe('PilotageService.getCampaignReturns', () => {
         id: 's1-new',
         campaignId: 'c1',
         companyId: 'comp-1',
+        establishmentId: 'est-comp-1',
         formType: OnefopEntityType.ENTREPRISE,
         status: OnefopStatus.APPROVED,
         isLate: false,
@@ -736,6 +738,7 @@ describe('PilotageService.getCampaignReturns', () => {
       id: 's2',
       campaignId: 'c1',
       companyId: 'comp-2',
+      establishmentId: 'est-comp-2',
       formType: OnefopEntityType.ENTREPRISE,
       status: OnefopStatus.PENDING_REVIEW,
       isLate: true,
@@ -749,6 +752,7 @@ describe('PilotageService.getCampaignReturns', () => {
       id: 's3',
       campaignId: 'c1',
       companyId: 'comp-3',
+      establishmentId: 'est-comp-3',
       formType: OnefopEntityType.ENTREPRISE,
       status: OnefopStatus.DRAFT,
       isLate: false,
@@ -765,6 +769,7 @@ describe('PilotageService.getCampaignReturns', () => {
       id: 's4',
       campaignId: 'c1',
       companyId: 'comp-4',
+      establishmentId: 'est-comp-4',
       formType: OnefopEntityType.ENTREPRISE,
       status: OnefopStatus.CORRECTION_REQUESTED,
       isLate: false,
@@ -813,6 +818,76 @@ describe('PilotageService.getCampaignReturns', () => {
     expect(centre.responseRate).toBe(1); // 3 / 3
   });
 
+  it('counts each establishment of one company separately, and still counts a resubmission once', async () => {
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.campaignQuotas.push({
+      id: 'q1',
+      campaignId: 'c1',
+      regionId: 'r-centre',
+      departmentId: 'd-mfoundi',
+      submissionTarget: 10,
+    });
+    harness.companies.push(registeredCompany('comp-1', 'r-centre', 'd-mfoundi'));
+
+    // One company, two establishments. The unit of return is the establishment,
+    // so this is two returns — not one. The second establishment also has a
+    // rejected first attempt followed by an approved resubmission, which must
+    // still collapse to a single return for that establishment.
+    harness.onefopSubmissions.push(
+      {
+        id: 's-site1',
+        campaignId: 'c1',
+        companyId: 'comp-1',
+        establishmentId: 'est-comp-1-01',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.PENDING_REVIEW,
+        isLate: false,
+        regionId: 'r-centre',
+        departmentId: 'd-mfoundi',
+        createdAt: new Date('2026-02-10'),
+      },
+      {
+        id: 's-site2-old',
+        campaignId: 'c1',
+        companyId: 'comp-1',
+        establishmentId: 'est-comp-1-02',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.REJECTED,
+        isLate: false,
+        regionId: 'r-centre',
+        departmentId: 'd-mfoundi',
+        createdAt: new Date('2026-02-11'),
+      },
+      {
+        id: 's-site2-new',
+        campaignId: 'c1',
+        companyId: 'comp-1',
+        establishmentId: 'est-comp-1-02',
+        formType: OnefopEntityType.ENTREPRISE,
+        status: OnefopStatus.APPROVED,
+        isLate: true,
+        regionId: 'r-centre',
+        departmentId: 'd-mfoundi',
+        createdAt: new Date('2026-02-20'),
+      },
+    );
+
+    const res = await harness.service.getCampaignReturns(national, 'c1');
+    const mfoundi = res.regions
+      .find((r) => r.regionId === 'r-centre')!
+      .departments.find((d) => d.departmentId === 'd-mfoundi')!;
+
+    expect(mfoundi.received).toBe(2); // one per establishment, resubmission collapsed
+    expect(mfoundi.approved).toBe(1); // only est-comp-1-02's resubmission
+    expect(mfoundi.onTime).toBe(1);
+    expect(mfoundi.late).toBe(1);
+    expect(mfoundi.quotaRate).toBe(0.2); // 2 / 10
+    // registeredStock still counts companies, so one company with two
+    // establishments reads as a stock of 1 (see T-5 in the supervision audit).
+    expect(mfoundi.registeredStock).toBe(1);
+  });
+
   it('routes formType === ADMINISTRATION to central bucket and excludes from territorial quotas', async () => {
     const harness = createHarness();
     harness.campaigns.push(campaign('c1'));
@@ -826,6 +901,7 @@ describe('PilotageService.getCampaignReturns', () => {
       id: 'sub-admin-1',
       campaignId: 'c1',
       companyId: 'admin-comp-1',
+      establishmentId: 'est-admin-comp-1',
       formType: OnefopEntityType.ADMINISTRATION,
       status: OnefopStatus.APPROVED,
       isLate: false,
@@ -865,6 +941,7 @@ describe('PilotageService.getCampaignReturns', () => {
         id: 's1',
         campaignId: 'c1',
         companyId: 'comp-1',
+        establishmentId: 'est-comp-1',
         formType: OnefopEntityType.ENTREPRISE,
         status: OnefopStatus.APPROVED,
         isLate: false,
@@ -876,6 +953,7 @@ describe('PilotageService.getCampaignReturns', () => {
         id: 's2',
         campaignId: 'c1',
         companyId: 'comp-2',
+        establishmentId: 'est-comp-2',
         formType: OnefopEntityType.ENTREPRISE,
         status: OnefopStatus.APPROVED,
         isLate: false,
