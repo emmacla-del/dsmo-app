@@ -16,10 +16,11 @@ import { Response } from 'express';
 import { OnefopService } from './onefop.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('onefop')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class OnefopController {
     constructor(private readonly onefopService: OnefopService) { }
 

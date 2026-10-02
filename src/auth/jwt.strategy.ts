@@ -40,10 +40,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       select: { id: true, email: true, role: true, region: true, department: true, isActive: true, status: true },
     });
-    // Same gate as login (AuthService.validateUser): only active, approved accounts.
-    if (!user || !(user.isActive && user.status === 'ACTIVE')) {
+    if (!user) {
       throw new UnauthorizedException();
     }
-    return { id: user.id, email: user.email, role: user.role, region: user.region, department: user.department };
+
+    // Staff/admin roles keep the strict 401 gate: only active, approved accounts.
+    // Company roles authenticate regardless of status (allowing them to reach /auth/me
+    // and letting ActiveCompanyGuard enforce 403 on company-facing routes).
+    if (user.role !== 'COMPANY' && (!user.isActive || user.status !== 'ACTIVE')) {
+      throw new UnauthorizedException();
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      region: user.region,
+      department: user.department,
+      status: user.status,
+      isActive: user.isActive,
+    };
   }
 }

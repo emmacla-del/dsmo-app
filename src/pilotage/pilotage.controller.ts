@@ -3,6 +3,7 @@ import { UserRole } from '../types/prisma.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { territoryFromUser } from '../auth/territory';
 import { PilotageService } from './pilotage.service';
 
@@ -21,7 +22,7 @@ export const PILOTAGE_READ_ROLES = [
 ] as const;
 
 @Controller('admin/pilotage')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class PilotageController {
   constructor(private readonly pilotage: PilotageService) {}
 

@@ -14,11 +14,12 @@ import { AnalyticsService } from './analytics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { computeOnefopFeatures } from '../common/onefop-features.util';
 
 @Controller('dsmo/analytics')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class AnalyticsController {
     constructor(
         private readonly analyticsService: AnalyticsService,

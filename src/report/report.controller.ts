@@ -3,11 +3,12 @@ import { Controller, Post, Get, Body, Param, UseGuards, Req } from '@nestjs/comm
 import { ReportService } from './report.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../types/prisma.types';
 
 @Controller('reports')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class ReportController {
     constructor(private reportService: ReportService) { }
 

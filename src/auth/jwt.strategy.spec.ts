@@ -27,14 +27,15 @@ describe('JwtStrategy.validate', () => {
     strategy = new JwtStrategy(prisma as any);
   });
 
-  it('accepts an active account and returns exactly the request user shape, from the database', async () => {
-    // toEqual fails on any extra key, so isActive/status cannot leak into req.user.
+  it('accepts an active staff account and returns user with status and isActive', async () => {
     await expect(strategy.validate(accessPayload)).resolves.toEqual({
       id: 'u1',
       email: 'agent@minefop.cm',
       role: 'REGIONAL',
       region: 'Centre', // DB value, not the token's stale 'Littoral'
       department: null,
+      status: 'ACTIVE',
+      isActive: true,
     });
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'u1' },
@@ -47,24 +48,84 @@ describe('JwtStrategy.validate', () => {
     await expect(strategy.validate(accessPayload)).resolves.toMatchObject({ role: 'DIVISIONAL', department: 'Mfoundi' });
   });
 
-  it('rejects a suspended account', async () => {
+  it('rejects a suspended staff account with 401', async () => {
     prisma.user.findUnique.mockResolvedValue({ ...dbUser, isActive: false });
     await expect(strategy.validate(accessPayload)).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects a deleted account', async () => {
+  it('rejects a deleted account with 401', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
     await expect(strategy.validate(accessPayload)).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects an account pending approval', async () => {
+  it('rejects a staff account pending approval with 401', async () => {
     prisma.user.findUnique.mockResolvedValue({ ...dbUser, status: 'PENDING_APPROVAL' });
     await expect(strategy.validate(accessPayload)).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects a rejected account, even if still flagged active', async () => {
+  it('rejects a rejected staff account with 401', async () => {
     prisma.user.findUnique.mockResolvedValue({ ...dbUser, status: 'REJECTED' });
     await expect(strategy.validate(accessPayload)).rejects.toThrow(UnauthorizedException);
+  });
+
+  describe('Company account authentication', () => {
+    const companyPayload = { sub: 'c1', email: 'company@example.com', role: 'COMPANY' };
+    const companyDbUser = {
+      id: 'c1',
+      email: 'company@example.com',
+      role: 'COMPANY',
+      region: 'Littoral',
+      department: 'Wouri',
+      isActive: true,
+      status: 'ACTIVE',
+    };
+
+    it('authenticates active company account', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...companyDbUser });
+      await expect(strategy.validate(companyPayload)).resolves.toEqual({
+        id: 'c1',
+        email: 'company@example.com',
+        role: 'COMPANY',
+        region: 'Littoral',
+        department: 'Wouri',
+        status: 'ACTIVE',
+        isActive: true,
+      });
+    });
+
+    it('authenticates non-ACTIVE company (e.g. PENDING_APPROVAL) so guards can enforce 403', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...companyDbUser, status: 'PENDING_APPROVAL' });
+      await expect(strategy.validate(companyPayload)).resolves.toEqual({
+        id: 'c1',
+        email: 'company@example.com',
+        role: 'COMPANY',
+        region: 'Littoral',
+        department: 'Wouri',
+        status: 'PENDING_APPROVAL',
+        isActive: true,
+      });
+    });
+
+    it('authenticates non-ACTIVE company (e.g. REJECTED)', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...companyDbUser, status: 'REJECTED' });
+      await expect(strategy.validate(companyPayload)).resolves.toMatchObject({
+        role: 'COMPANY',
+        status: 'REJECTED',
+      });
+    });
+
+    it('authenticates inactive company (isActive: false) so ActiveCompanyGuard can deny with 403', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...companyDbUser, isActive: false });
+      await expect(strategy.validate(companyPayload)).resolves.toMatchObject({
+        role: 'COMPANY',
+        isActive: false,
+      });
+    });
+
+    it('rejects missing company account with 401', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(strategy.validate(companyPayload)).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   it('rejects a token without a subject, without querying', async () => {

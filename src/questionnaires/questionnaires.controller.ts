@@ -26,6 +26,7 @@ import {
 import { normalizeFlatKeys } from '../common/normalizers/flat-key-normalizer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 
 // Normalize any casing Flutter or web sends → internal key used for mapping and preview
@@ -54,6 +55,7 @@ function normalizeEntityTypeForPreview(raw: string): string {
 }
 
 @Controller('onefop')
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class QuestionnairesController {
   constructor(
     private readonly service: QuestionnairesService,
@@ -61,7 +63,6 @@ export class QuestionnairesController {
   ) { }
 
   @Post('preview')
-  @UseGuards(JwtAuthGuard)
   @UsePipes(
     new ValidationPipe({
       transform: false,
@@ -194,7 +195,6 @@ export class QuestionnairesController {
   }
 
   @Post('submit')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('COMPANY')
   @UsePipes(
     new ValidationPipe({

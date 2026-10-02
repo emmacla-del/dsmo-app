@@ -3,12 +3,13 @@ import type { Response } from 'express';
 import { DataManagementService } from './data-management.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../types/prisma.types';
 import { territoryFromUser } from '../auth/territory';
 
 @Controller('data-management')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class DataManagementController {
   constructor(private dataManagementService: DataManagementService) { }
 
