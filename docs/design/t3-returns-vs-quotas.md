@@ -9,8 +9,7 @@ This capability enables the Ministry (MINEFOP), central directors, and regional/
 1. Track questionnaire collection progress in real time during active campaigns.
 2. Measure quota achievement rates ($\% \text{ of Quota}$) and identify collection deficits ($\text{Gaps}$).
 3. Monitor timeliness ($\text{On-Time}$ vs. $\text{Late}$) driven by effective campaign deadlines.
-4. Calculate territorial **response rates** ($\text{Received} / \text{Active Registered Directory Stock}$).
-
+4. Calculate territorial **response rate** ($\text{Received} / \text{Registered active companies in territory}$) alongside $\% \text{ of Quota}$.
 ---
 
 ## 2. Data Sources & Architecture
@@ -26,7 +25,7 @@ flowchart TD
     end
 
     subgraph Aggregation Engine
-        AE["Pilotage Returns Engine<br/>- Strict submission-territory mapping<br/>- Deduplication per companyId (today)<br/>- Rollup: Dept -> Region -> National"]
+        AE["Pilotage Returns Engine<br/>- Territory recorded ON THE SUBMISSION<br/>- Received: DISTINCT companyId (resubmission counts once)<br/>- Region quota & actuals = sum of depts<br/>- Response rate alongside % quota"]
     end
 
     subgraph Consumers
@@ -49,14 +48,14 @@ flowchart TD
   - `isLate`: Boolean flag calculated upon submission against `effectiveDeadlineSnapshot`.
   - `status`: Workflow status (`DRAFT`, `SUBMITTED`, `PENDING_REVIEW`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `CORRECTION_REQUESTED`).
   - `submissionDate` & `createdAt`: Timestamps of return filing.
-  - `regionId` & `departmentId`: Territorial jurisdiction recorded **at the time of submission**.
+  - `regionId` & `departmentId`: Territorial jurisdiction recorded **on the submission** (not the company's current territory; R.1 lets companies move region).
   - `companyId` & `establishmentId`: Reporting entity identifiers.
 - **`CampaignQuota`**:
   - Stores `submissionTarget` (Int) keyed by `(campaignId, regionId, departmentId)`.
   - Department rows have both `regionId` and `departmentId`.
-  - Regional quotas are stored either as explicit region rows (`departmentId: null`) or derived from department sums.
+  - Region quota and region actuals = sum of departments (same rule as targets).
 - **`CentralCampaignQuota`**:
-  - Stores `submissionTarget` (Int) for central public administration entities keyed by `campaignId`.
+  - Stores `submissionTarget` (Int) for central public administration entities keyed by `campaignId` (PROPOSED treatment).
 - **`TerritoryTarget`**:
   - Annual target for registered directory stock (`inscriptionTarget`), providing baseline sizing context.
 - **`Company` Directory Stock**:
@@ -75,23 +74,24 @@ The current coverage endpoint (`pilotage.service.ts:109`) provides:
 ## 3. Core Rules & Metric Definitions
 
 ### 3.1 Territory Attribution of a Return
-> **Invariant**: The geographic territory of a return is strictly the territory recorded on the submission (`OnefopSubmission.regionId` and `OnefopSubmission.departmentId`), **not** the company's current territory in `Company`.
+> **Invariant**: Territory of a return = the territory recorded ON THE SUBMISSION (`OnefopSubmission.regionId` and `OnefopSubmission.departmentId`), not the company's current territory.
 
-*Rationale*: Under registration management (R.1), companies can change their physical seat or have their territorial assignment adjusted by administrators (`updateUserTerritory`). A submission represents economic and labour data collected for a specific territory at that point in time. Historical campaign returns must never shift between departments or regions because an enterprise subsequently relocated.
+*Reason*: R.1 lets companies move region; a return must stay in the region it was submitted from. Under registration management (R.1), companies can change their physical seat or have their territorial assignment adjusted by administrators (`updateUserTerritory`). A submission represents economic and labour data collected for a specific territory at that point in time; historical campaign returns must never shift between departments or regions because an enterprise subsequently relocated.
 
 ### 3.2 Unit of Return & Deduplication
-- **Current Unit (Phase B/C)**: One return per `companyId` per campaign period.
-  - Returns are counted as **`COUNT(DISTINCT companyId)`** under the campaign.
-  - If a company submits, receives a `REJECTED` status or requests corrections, and resubmits under the same campaign, it counts as **exactly one return**.
+- **Current Unit (Phase B/C)**: Received counts **`DISTINCT companyId`** per campaign.[^1]
+  - A resubmission after rejection counts once. If a company submits, receives a `REJECTED` status or requests corrections, and resubmits under the same campaign, it counts as exactly one return.
 - **Phase E Evolution (Multi-Site Establishments)**:
   - Phase E introduces secondary sites with unique establishment codes (`CompanyCode-01`, `CompanyCode-02`).
   - In Phase E, the unit of return transitions from `DISTINCT companyId` to **`DISTINCT establishmentId`**, enabling multi-site organizations to report per physical establishment while maintaining territorial accuracy.
 
+[^1]: *Footnote*: Phase E switches this to distinct establishment (`DISTINCT establishmentId`).
+
 ### 3.3 Status Filtering (Definition of "Received")
-- **`Received` (Total Reçus)**: Submissions filed under the campaign that are active in the administrative pipeline:
+- **`Received` (Total Reçus)**: Received = submitted AND not REJECTED:
   $$\text{Received} = \text{DISTINCT companyId WHERE } status \neq \text{'REJECTED'} \land status \neq \text{'DRAFT'}$$
   *(Includes `SUBMITTED`, `PENDING_REVIEW`, `UNDER_REVIEW`, `APPROVED`, `CORRECTION_REQUESTED`).*
-- **`Approved` (Validés)**: Submissions officially validated:
+- **`Approved` (Validés)**: Submissions officially validated, tracked with a separate `APPROVED` column:
   $$\text{Approved} = \text{DISTINCT companyId WHERE } status = \text{'APPROVED'}$$
 
 ### 3.4 Timeliness: On-Time vs. Late
@@ -100,7 +100,7 @@ The current coverage endpoint (`pilotage.service.ts:109`) provides:
 - Consistency: $\text{Received} = \text{On-Time} + \text{Late}$.
 
 ### 3.5 Quota Achievement & Gaps
-- **Quota (`submissionTarget`)**: The target number of questionnaire submissions expected for the territory in that campaign.
+- **Quota (`submissionTarget`)**: The target number of questionnaire submissions expected for the territory in that campaign. Region quota and region actuals = sum of departments (same rule as targets).
 - **Quota Achievement Rate ($\% \text{ Quota}$)**:
   $$\text{Achievement Rate} = \frac{\text{Received}}{\text{submissionTarget}} \times 100\%$$
   *(Null when `submissionTarget` is not set or $\le 0$).*
@@ -110,16 +110,18 @@ The current coverage endpoint (`pilotage.service.ts:109`) provides:
   $$\text{Gap} = \max(0, \text{submissionTarget} - \text{Received})$$
 
 ### 3.6 Territorial Response Rate (Taux de réponse)
-In addition to quota attainment, pilotage requires measuring coverage against the registered directory:
+In addition to quota attainment ($\% \text{ of Quota}$), pilotage requires measuring coverage against the registered directory:
 $$\text{Response Rate} = \frac{\text{Received}}{\text{Registered Active Companies in Territory}} \times 100\%$$
-- Denominator: Active registered companies belonging to that department/region from the directory stock (same denominator as `CoverageResponse.registered`).
+- **Definition**: Response rate = received / registered active companies in the territory (denominator from coverage), alongside $\%$ of quota.
+- **Denominator**: Active registered companies belonging to that department/region from the directory stock (same denominator as `CoverageResponse.registered`).
 - Provides critical context: reveals whether a 100% quota was set too conservatively relative to the actual enterprise density of the division.
 
 ### 3.7 Hierarchical Rollup: Department $\rightarrow$ Region $\rightarrow$ National
 - **Department**: Direct counts of submissions whose `departmentId` matches.
 - **Region**:
-  - **Region Quota**: Equal to the **sum of its department quotas** ($\sum \text{Dept Quotas}$), preserving strict additive consistency. If the region mode is `REGION`, the explicit region quota applies.
-  - **Region Actuals**: Strictly the **sum of its departments**:
+  - **Region Quota**: Region quota = sum of departments (same rule as targets):
+    $$\text{Quota}_{\text{Region}} = \sum_{\text{dept} \in \text{Region}} \text{Quota}_{\text{dept}}$$
+  - **Region Actuals**: Region actuals = sum of departments (same rule as targets):
     $$\text{Received}_{\text{Region}} = \sum_{\text{dept} \in \text{Region}} \text{Received}_{\text{dept}}$$
     $$\text{OnTime}_{\text{Region}} = \sum_{\text{dept} \in \text{Region}} \text{OnTime}_{\text{dept}}$$
     $$\text{Late}_{\text{Region}} = \sum_{\text{dept} \in \text{Region}} \text{Late}_{\text{dept}}$$
@@ -135,12 +137,12 @@ if (row.entityType === 'ADMINISTRATION') return { kind: 'central' };
 ```
 
 ### Proposed Treatment in T.3:
-1. **Central Quota Alignment**:
+1. **Central Quota Alignment (PROPOSED)**:
    - Ministries, central directorates, and national public bodies report at the national level against **`CentralCampaignQuota.submissionTarget`**.
    - They do **not** consume or count towards divisional or regional quotas, preventing large ministerial workforces from distorting departmental targets (e.g. Mfoundi in Centre).
 2. **Exclusion from Territorial Quotas**:
    - Any `OnefopSubmission` with `formType === 'ADMINISTRATION'` is bucketed under `central` rather than the department of its physical seat.
-3. *Status*: This is a proposed rule consistent with Phase E and `pilotage-coverage.ts` (recorded below in Section 8 for confirmation).
+3. *Status*: PROPOSED treatment. Consistent with `pilotage-coverage.ts:63` as it stands today, but has not been ruled on (see Open Questions in Section 8.2).
 
 ---
 
@@ -193,7 +195,7 @@ export interface ReturnMetrics {
   quotaRate: number | null;            // received / quota (0.0 to 1.0+)
   onTimeRate: number | null;           // onTime / quota
   registeredStock: number;             // active registered companies in territory
-  responseRate: number | null;         // received / registeredStock
+  responseRate: number | null;         // received / registeredStock (denominator from coverage)
 }
 
 export interface DepartmentReturnRow extends ReturnMetrics {
@@ -211,7 +213,7 @@ export interface RegionReturnRow extends ReturnMetrics {
 export interface CampaignReturnsResponse {
   campaign: CampaignReturnsSummary;
   central: ReturnMetrics | null;       // Administration returns vs CentralCampaignQuota
-  unassigned: ReturnMetrics | null;    // Defensive bucket (expected 0)
+  unassigned: ReturnMetrics | null;    // Defensive bucket (expected empty / 0)
   regions: RegionReturnRow[];
   totals: ReturnMetrics;               // National rollup (scoped to user's jurisdiction)
 }
@@ -250,7 +252,7 @@ A tree table mirroring `TargetGrid` and `CoverageTable`:
    - `En retard` (Hors délai)
    - `Écart` (Manquants)
    - `Taux de quota` (Progress bar / Badge)
-   - `Taux de réponse` (% du répertoire actif)
+   - `Taux de réponse` (% du répertoire actif, dénominateur issu de la couverture)
 2. **Visual Hierarchy & Indicators**:
    - **Progress Badges**:
      - $\ge 100\%$: Green badge (`cam-badge-success`).
@@ -267,26 +269,34 @@ A tree table mirroring `TargetGrid` and `CoverageTable`:
 
 | Edge Case | Description | System Behavior |
 | :--- | :--- | :--- |
-| **Unassigned Territory** | Submissions lacking valid `regionId` or `departmentId`. | Defensive `unassigned` bucket in response. **Expected count: 0** because territorial jurisdiction is mandatory on submission and backfilled on all existing records. |
+| **Unassigned Territory** | Submissions lacking valid `regionId` or `departmentId`. | Kept as defensive `unassigned` bucket in response; note it should be empty since territory is mandatory on submission and all companies were backfilled. |
 | **ARCHIVED Campaign** | Viewing past campaigns that are closed or archived. | Read-only presentation. Metrics reflect the immutable final historical snapshot. |
-| **Unlinked Legacy Returns** | Submissions created prior to Phase 0.3 where `campaignId IS NULL`. | **Strict matching only**: Submissions with `campaignId IS NULL` are **not** counted toward campaign quotas. |
+| **Unlinked Legacy Returns** | Submissions created prior to Phase 0.3 where `campaignId IS NULL`. | **Strict `campaignId` only, not counted**: Submissions with `campaignId IS NULL` are omitted. |
 | **Quota Not Set (`UNSET`)** | Region or department where no quota has been configured (`submissionTarget: null`). | `quota: null`, `gap: null`, `quotaRate: null`. Returns are still counted and displayed alongside `responseRate`. |
-| **Resubmissions & Corrections** | Company submits, is marked `CORRECTION_REQUESTED` or `REJECTED`, and files an updated submission. | Deduplicated by `companyId`: only the latest valid submission for that campaign counts. |
-| **Company Relocation (R.1)** | Company moves from Douala (Wouri) to Yaoundé (Mfoundi) after submitting. | The return remains counted in **Wouri / Littoral** (using submission's territorial stamp). |
+| **Resubmissions & Corrections** | Company submits, is marked `CORRECTION_REQUESTED` or `REJECTED`, and files an updated submission. | Deduplicated by `companyId`: only the latest valid submission for that campaign counts (a resubmission after rejection counts once). |
+| **Company Relocation (R.1)** | Company moves from Douala (Wouri) to Yaoundé (Mfoundi) after submitting. | The return remains counted in **Wouri / Littoral** (using submission's territorial stamp; R.1 lets companies move region, but a return stays in the region it was submitted from). |
 
 ---
 
-## 8. Summary of Design Decisions & Recommendations
+## 8. Summary of Recommendations & Open Questions
 
+### 8.1 Recommended Defaults
 1. **Territory of a Return**:
-   - *Rule*: Determined strictly by `OnefopSubmission.regionId` and `OnefopSubmission.departmentId`.
-2. **Unit of Return**:
-   - *Phase B/C*: `COUNT(DISTINCT companyId)`.
-   - *Phase E*: Transitions to `COUNT(DISTINCT establishmentId)`.
+   - Territory of a return = the territory recorded ON THE SUBMISSION (`OnefopSubmission.regionId` and `OnefopSubmission.departmentId`), not the company's current territory.
+   - *Reason*: R.1 lets companies move region; a return must stay in the region it was submitted from.
+2. **Unit of Return & Rollup**:
+   - Received counts `DISTINCT companyId` per campaign. A resubmission after rejection counts once.[^1]
+   - Region quota and region actuals = sum of departments (same rule as targets).
 3. **Definition of Received**:
-   - *Rule*: Submissions where `status NOT IN ('REJECTED', 'DRAFT')`, with an explicit `Approved` column (`status = 'APPROVED'`).
-4. **Legacy Returns**:
-   - *Rule*: Strict filter `campaignId = :campaignId`. Unlinked submissions (`campaignId IS NULL`) are omitted.
-5. **ADMINISTRATION Bucketing (Proposed Rule)**:
-   - *Rule*: Submissions with `formType = 'ADMINISTRATION'` are evaluated against `CentralCampaignQuota` and excluded from departmental/regional quotas.
-   - *Status*: Recommended for adoption, consistent with `pilotage-coverage.ts:63` and Phase E Section 1.2.
+   - Received = submitted AND not REJECTED (`status NOT IN ('REJECTED', 'DRAFT')`), with a separate `APPROVED` column (`status = 'APPROVED'`).
+4. **Unlinked Legacy Returns**:
+   - Unlinked legacy returns = strict `campaignId` only, not counted. Submissions where `campaignId IS NULL` are omitted.
+5. **Unassigned Bucket**:
+   - Kept as defensive; note it should be empty since territory is mandatory on submission and all companies were backfilled.
+6. **Response Rate**:
+   - Response rate = received / registered active companies in the territory (denominator from coverage), alongside % of quota.
+
+### 8.2 Open Questions (Pending Decision)
+1. **ADMINISTRATION → Central Quota (PROPOSED)**:
+   - *Proposal*: Submissions with `formType === 'ADMINISTRATION'` (or entityType `ADMINISTRATION`) are evaluated against `CentralCampaignQuota.submissionTarget` and excluded from departmental and regional quotas.
+   - *Status*: PROPOSED. It is consistent with `pilotage-coverage.ts:63` as it stands today (`if (row.entityType === 'ADMINISTRATION') return { kind: 'central' };`), but has not been ruled on.
