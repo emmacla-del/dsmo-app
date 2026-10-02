@@ -198,8 +198,17 @@ export class AuthController {
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
-  async approveUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.approveUser(id, req.user.id, req.user.role, territoryFromUser(req.user));
+  // centralStructureConfirmed is the "structure centrale" confirmation the
+  // review dialog collects for an ADMINISTRATION file. The service refuses the
+  // approval without it; the checkbox is only the prompt, not the check.
+  async approveUser(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body('centralStructureConfirmed') centralStructureConfirmed?: boolean,
+  ) {
+    return this.authService.approveUser(id, req.user.id, req.user.role, territoryFromUser(req.user), {
+      centralStructureConfirmed,
+    });
   }
 
   @Patch('reject-user/:id')

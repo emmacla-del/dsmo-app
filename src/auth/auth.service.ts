@@ -43,6 +43,19 @@ const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
     "Quel est le mois et l'année d'inscription de votre compte (format MM/AAAA) ?",
 };
 
+/**
+ * Extra confirmations a reviewer must supply alongside an approval.
+ *
+ * `centralStructureConfirmed` backs the "structure centrale" checkbox the
+ * review dialog shows for an ADMINISTRATION file. It is re-checked
+ * server-side because the checkbox alone is client-side: a request can be
+ * sent without it, and the queue's `requiresCentralStructureCheck` is a hint
+ * for the UI, not an enforcement point.
+ */
+export interface ApproveRegistrationOptions {
+  centralStructureConfirmed?: boolean;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -777,12 +790,18 @@ export class AuthService {
   // actorTerritory: the acting user's region/department (territoryFromUser
   // of req.user). Only REGIONAL/DIVISIONAL actors need it (D3); without it
   // they fail closed.
-  async approveUser(id: string, actorId: string, actorRole: string, actorTerritory?: Territory) {
+  async approveUser(
+    id: string,
+    actorId: string,
+    actorRole: string,
+    actorTerritory?: Territory,
+    options?: ApproveRegistrationOptions,
+  ) {
     if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     if (user.role === 'COMPANY') {
-      return this.approveCompanyRegistration(user, actorId, actorRole, actorTerritory);
+      return this.approveCompanyRegistration(user, actorId, actorRole, actorTerritory, options);
     }
     assertCanApproveRegistration({ ...actorTerritory, role: actorRole }, user);
     if (user.status !== 'PENDING_APPROVAL') {
@@ -1202,6 +1221,7 @@ export class AuthService {
     actorId: string,
     actorRole: string,
     actorTerritory?: Territory,
+    options?: ApproveRegistrationOptions,
   ) {
     const company = await this.requireCompanyForReview(user.id);
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
@@ -1210,6 +1230,17 @@ export class AuthService {
     }
     if (!company.entityType) {
       throw new BadRequestException("Le type d'entité est obligatoire pour générer l'identifiant d'établissement.");
+    }
+    // An ADMINISTRATION file may only be approved once the reviewer has
+    // confirmed the applicant really is a central structure. Strictly `true`:
+    // a missing, null or merely truthy flag is refused, so the confirmation
+    // has to be deliberate rather than a side effect of how a client
+    // serialises its form. Checked before the transaction, so a refusal
+    // issues no establishment ID and writes no audit row.
+    if (company.entityType === 'ADMINISTRATION' && options?.centralStructureConfirmed !== true) {
+      throw new BadRequestException(
+        "La confirmation « structure centrale » est obligatoire pour approuver une administration.",
+      );
     }
     if (!company.subdivisionId) {
       throw new BadRequestException("L'arrondissement est obligatoire pour générer l'identifiant d'établissement.");

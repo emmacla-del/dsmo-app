@@ -112,6 +112,56 @@ describe('AuthService company registration approval', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  // The "structure centrale" confirmation. The queue's
+  // requiresCentralStructureCheck tells the dialog to show the checkbox; these
+  // pin that the server refuses the approval on its own when it is not sent,
+  // so the checkbox cannot be bypassed by calling the route directly.
+  it('refuses to approve an ADMINISTRATION file without the central-structure confirmation', async () => {
+    prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'ADMINISTRATION' });
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN')).rejects.toThrow(
+      BadRequestException,
+    );
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {})).rejects.toThrow(
+      'La confirmation « structure centrale » est obligatoire pour approuver une administration.',
+    );
+    // Refused before the transaction: no establishment ID, no audit row, and
+    // the account is left in PENDING_APPROVAL.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.company.update).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    expect(userRow.status).toBe('PENDING_APPROVAL');
+  });
+
+  it('approves an ADMINISTRATION file once the confirmation is sent, issuing an AD identifier', async () => {
+    prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'ADMINISTRATION' });
+    await expect(
+      service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, { centralStructureConfirmed: true }),
+    ).resolves.toMatchObject({ status: 'ACTIVE', isActive: true });
+    expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ establishmentId: expect.stringMatching(/^AD\d{6}12$/) }),
+    }));
+  });
+
+  // Strictly `true`, so the confirmation cannot arrive by accident: a client
+  // serialising its form as strings does not get an administration approved.
+  it('does not accept a merely truthy central-structure confirmation', async () => {
+    prisma.company.findUnique.mockResolvedValue({ ...company, entityType: 'ADMINISTRATION' });
+    await expect(
+      service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {
+        centralStructureConfirmed: 'true' as unknown as boolean,
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // The gate is scoped to ADMINISTRATION: every other entity type approves
+  // without the flag, as the first test above already does implicitly.
+  it('does not require the confirmation for a non-ADMINISTRATION file', async () => {
+    await expect(service.approveUser('u-co', 'actor-1', 'SUPER_ADMIN', {}, {})).resolves.toMatchObject({
+      status: 'ACTIVE',
+    });
+  });
+
   it('retries once on a unique violation then succeeds', async () => {
     let attempts = 0;
     prisma.$transaction.mockImplementation(async (work: any) => {
