@@ -156,16 +156,42 @@ export async function apiFetch<T>(
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch (err: unknown) {
+    let host = API_BASE_URL;
+    try {
+      host = new URL(API_BASE_URL).host;
+    } catch {
+      // keep raw
+    }
+    throw new ApiError(
+      0,
+      `Impossible de joindre le serveur (${host}). Vérifiez votre connexion internet ou la disponibilité du service.`,
+      err,
+    );
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    // body is an array for the raw class-validator rejection shape (see
-    // questionnaires.service.ts's `throw new BadRequestException(dataErrors)`)
-    // — arrays have no .message, so that case must not silently collapse to
-    // res.statusText the way body?.message would.
-    const message =
-      (!Array.isArray(body) && body?.message) || res.statusText || `HTTP ${res.status}`;
+    let message: string;
+    if (Array.isArray(body)) {
+      message = body
+        .map((item) => (typeof item === "string" ? item : (item?.message || JSON.stringify(item))))
+        .join("\n");
+    } else if (body && typeof body === "object") {
+      const bMsg = (body as Record<string, unknown>).message;
+      if (Array.isArray(bMsg)) {
+        message = bMsg.join("\n");
+      } else if (typeof bMsg === "string") {
+        message = bMsg;
+      } else {
+        message = res.statusText || `HTTP ${res.status}`;
+      }
+    } else {
+      message = res.statusText || `HTTP ${res.status}`;
+    }
     if (isCompanyNotActive(res.status, body)) {
       handleCompanyNotActive(path);
     }
