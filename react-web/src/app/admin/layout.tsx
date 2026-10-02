@@ -2,7 +2,7 @@
 
 import { ReactNode, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
@@ -43,6 +43,7 @@ const ADMIN_ROLES: UserRole[] = [
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const pathname = usePathname();
+  const router = useRouter();
   const { isLoading, forbidden, user } = useAdminScreenGuard(ADMIN_ROLES);
   const logout = useAuthStore((s) => s.logout);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -125,6 +126,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           role={user?.role}
           pendingCount={pendingCount}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
+          onLogout={() => {
+            logout();
+            router.push("/login");
+          }}
         />
       </Suspense>
 
