@@ -60,6 +60,7 @@ model Region {
   onefopSubmissions OnefopSubmission[]
   territoryTargets  TerritoryTarget[]
   campaignQuotas    CampaignQuota[]
+  establishments    Establishment[]
 
   @@map("regions")
 }
@@ -78,6 +79,7 @@ model Department {
   subdivisions      Subdivision[]
   territoryTargets  TerritoryTarget[]
   campaignQuotas    CampaignQuota[]
+  establishments    Establishment[]
 
   @@unique([regionId, name])
   @@map("departments")
@@ -94,6 +96,7 @@ model Subdivision {
   companies         Company[]
   onefopSubmissions OnefopSubmission[]
   department        Department         @relation(fields: [departmentId], references: [id])
+  establishments    Establishment[]
 
   @@unique([departmentId, name])
   @@map("subdivisions")
@@ -351,6 +354,9 @@ model Establishment {
   regionId        String
   departmentId    String
   subdivisionId   String
+  regionRef       Region               @relation(fields: [regionId], references: [id])
+  departmentRef   Department           @relation(fields: [departmentId], references: [id])
+  subdivisionRef  Subdivision          @relation(fields: [subdivisionId], references: [id])
   region          String
   department      String
   subdivision     String
