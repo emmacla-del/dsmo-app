@@ -15,6 +15,7 @@ import { NotificationService } from '../dsmo/notification.service';
 import { PdfService } from '../dsmo/pdf.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { computeOnefopFeatures } from '../common/onefop-features.util';
+import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
 import { TERRITORIAL_APPROVER_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
@@ -118,7 +119,16 @@ export class AuthService {
         );
       }
     }
-    if (user.status === 'REJECTED' || !user.isActive) {
+    // A rejected registration gets a fixed message that carries no reviewer
+    // reason: the reason is reviewer-facing and reaches the company only in
+    // the decision email, so login cannot be used to read it back. Both
+    // checks sit after the password check, so neither reveals anything to
+    // someone who does not already hold the credentials.
+    if (user.status === 'REJECTED') {
+      throw new UnauthorizedException(REGISTRATION_REJECTED_LOGIN_MESSAGE);
+    }
+    // A suspension (isActive=false without REJECTED) keeps its own message.
+    if (!user.isActive) {
       throw new UnauthorizedException(
         'Votre compte a été désactivé. Contactez un administrateur.',
       );
@@ -184,7 +194,6 @@ export class AuthService {
         twoFactorEnabled: user.twoFactorEnabled,
         status: user.status,
         approvalComment: user.approvalComment,
-        rejectionReason: user.rejectionReason,
         features,
       },
     };

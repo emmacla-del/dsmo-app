@@ -11,7 +11,8 @@ import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
 import { RegisterCompanyProfileDto } from './dto/register-company-profile.dto';
-import { DeclarationStatus } from '../types/prisma.types';
+import { DeclarationStatus, UserStatus } from '../types/prisma.types';
+import { AllowInactiveCompany } from '../auth/allow-inactive-company.decorator';
 
 @Controller('dsmo')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
@@ -25,6 +26,9 @@ export class DsmoController {
 
   @Get('company')
   @Roles('COMPANY')
+  // Prefills the registration-correction form, so a company under review has
+  // to be able to read its own profile back. POST stays fully guarded.
+  @AllowInactiveCompany({ statuses: [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMENTS_REQUESTED] })
   async getMyCompany(@Req() req: any) {
     const company = await this.dsmoService.getMyCompany(req.user.id);
     if (!company) throw new NotFoundException('Aucun profil entreprise trouvé.');
