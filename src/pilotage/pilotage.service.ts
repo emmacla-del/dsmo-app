@@ -297,6 +297,7 @@ export class PilotageService {
         select: {
           id: true,
           companyId: true,
+          establishmentId: true,
           formType: true,
           status: true,
           isLate: true,
@@ -319,13 +320,24 @@ export class PilotageService {
       }
     }
 
-    // Deduplicate submissions by companyId (resubmissions count once)
-    const byCompany = new Map<string, typeof submissions>();
+    // Deduplicate by establishment, not by company: the unit of return is the
+    // establishment (t3-returns-vs-quotas.md §3.2 and footnote 1), now that
+    // Phase E.1 is live and OnefopSubmission.establishmentId is a non-nullable
+    // FK to Establishment. Resubmissions after a rejection still count once.
+    //
+    // While Phase E.1's invariant holds — one principal establishment per
+    // company, secondary sites paused — this is numerically identical to the
+    // previous company-level dedup. It stops being identical the moment
+    // secondary sites ship, at which point note that `registeredStock` (the
+    // responseRate denominator) still counts companies: realigning that
+    // denominator is a statistical-definition change and belongs with
+    // unpausing Phase E, not here.
+    const byEstablishment = new Map<string, typeof submissions>();
     for (const sub of submissions) {
-      const key = sub.companyId ?? `sub-${sub.id}`;
-      const list = byCompany.get(key) ?? [];
+      const key = sub.establishmentId ?? `sub-${sub.id}`;
+      const list = byEstablishment.get(key) ?? [];
       list.push(sub);
-      byCompany.set(key, list);
+      byEstablishment.set(key, list);
     }
 
     interface BucketCounts {
@@ -345,9 +357,9 @@ export class PilotageService {
       countsByBucket.set(bucket, current);
     }
 
-    for (const [, companySubs] of byCompany) {
+    for (const [, establishmentSubs] of byEstablishment) {
       // Exclude DRAFT submissions
-      const nonDrafts = companySubs.filter((s) => s.status !== OnefopStatus.DRAFT);
+      const nonDrafts = establishmentSubs.filter((s) => s.status !== OnefopStatus.DRAFT);
       if (nonDrafts.length === 0) continue;
 
       // Find the latest received submission (PENDING_REVIEW, APPROVED, CORRECTION_REQUESTED)
