@@ -36,12 +36,34 @@ describe('AuthService company registration approval', () => {
   let notifications: any;
   let pdf: any;
   let service: AuthService;
+  // The account row as the database would hold it, mutated by the writes the
+  // service makes. A decision is read back after it is written -- and
+  // resubmitRegistration re-reads the row inside its transaction -- so a fixed
+  // row would keep reporting a status the service had already moved past.
+  // Holding one mutable row lets a test walk the real chain
+  // (PENDING_APPROVAL -> COMPLEMENTS_REQUESTED -> PENDING_APPROVAL) instead of
+  // hardcoding each intermediate status per test.
+  let userRow: Record<string, any>;
 
   beforeEach(() => {
+    userRow = { ...companyUser };
     prisma = {
       user: {
-        findUnique: jest.fn(async () => ({ ...companyUser })),
-        update: jest.fn(async ({ data }: any) => ({ ...companyUser, ...data })),
+        findUnique: jest.fn(async () => ({ ...userRow })),
+        update: jest.fn(async ({ data }: any) => {
+          Object.assign(userRow, data);
+          return { ...userRow };
+        }),
+        // Mirrors the conditional flip the service leans on for concurrency:
+        // the write lands only while the row still matches `where`, and the
+        // count of 0 is what makes a losing resubmission bail out.
+        updateMany: jest.fn(async ({ where, data }: any) => {
+          if (where?.status !== undefined && userRow.status !== where.status) {
+            return { count: 0 };
+          }
+          Object.assign(userRow, data);
+          return { count: 1 };
+        }),
       },
       company: {
         findUnique: jest.fn(async () => ({ ...company })),
@@ -125,7 +147,6 @@ describe('AuthService company registration approval', () => {
     await expect(service.requestComplements('u-co', 'actor-1', 'SUPER_ADMIN', undefined, 'Joindre le NIU')).resolves.toMatchObject({
       status: 'COMPLEMENTS_REQUESTED',
     });
-    prisma.user.findUnique.mockResolvedValue({ ...companyUser, status: 'COMPLEMENTS_REQUESTED' });
     await expect(service.resubmitRegistration('u-co')).resolves.toMatchObject({ status: 'PENDING_APPROVAL' });
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
