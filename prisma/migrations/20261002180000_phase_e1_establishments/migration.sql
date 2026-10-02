@@ -5,12 +5,12 @@
 CREATE TYPE "EstablishmentStatus" AS ENUM ('ACTIVE', 'CLOSED', 'SUSPENDED');
 
 CREATE TABLE "establishments" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
     "code" VARCHAR(20) NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "isPrincipal" BOOLEAN NOT NULL DEFAULT false,
     "status" "EstablishmentStatus" NOT NULL DEFAULT 'ACTIVE',
-    "companyId" UUID NOT NULL,
+    "companyId" TEXT NOT NULL,
     "regionId" VARCHAR(255) NOT NULL,
     "departmentId" VARCHAR(255) NOT NULL,
     "subdivisionId" VARCHAR(255) NOT NULL,
@@ -58,7 +58,7 @@ INSERT INTO "establishments" (
     "updatedAt"
 )
 SELECT
-    gen_random_uuid(),
+    gen_random_uuid()::text,
     c."establishmentId" || '-01',
     COALESCE(NULLIF(TRIM(c.name), ''), 'Siège Principal'),
     true,
