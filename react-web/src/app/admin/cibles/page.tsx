@@ -42,10 +42,16 @@ import {
 
 type GridResponse = InscriptionTargetsResponse | CampaignQuotasResponse;
 
+// The "couverture" id is the URL parameter (?vue=couverture) and the API route
+// name (GET /admin/pilotage/coverage). Both are kept as-is so existing links
+// and the Flutter client keep working; only the labels change. What the view
+// actually reports is attainment of the annual enrolment objective — registered
+// directory stock over an administratively fixed target — which is not
+// statistical coverage of a population frame.
 type Vue = "inscriptions" | "couverture" | "quotas" | "retours";
 const VUES: { id: Vue; label: string }[] = [
   { id: "inscriptions", label: "Objectifs d'inscription" },
-  { id: "couverture", label: "Couverture" },
+  { id: "couverture", label: "Atteinte des objectifs d'inscription" },
   { id: "quotas", label: "Quotas de campagne" },
   { id: "retours", label: "Suivi des retours" },
 ];
@@ -91,9 +97,9 @@ function CiblesContent() {
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
-        breadcrumb={[{ label: "Supervision" }, { label: "Cibles et couverture" }]}
-        title="Cibles et couverture"
-        subtitle="Objectifs d'inscription par année, couverture du répertoire et quotas des campagnes ONEFOP."
+        breadcrumb={[{ label: "Supervision" }, { label: "Objectifs et atteinte" }]}
+        title="Objectifs et atteinte"
+        subtitle="Objectifs d'inscription par année, atteinte des objectifs du répertoire, quotas et retours des campagnes ONEFOP."
         actions={<AdminHeaderActions />}
       />
 

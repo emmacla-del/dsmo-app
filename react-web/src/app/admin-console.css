@@ -2481,7 +2481,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-arrow {
   }
 }
 
-/* ── Cibles et couverture (/admin/cibles) ── */
+/* ── Objectifs et atteinte (/admin/cibles) ── */
 .cam-target-toolbar {
   display: flex;
   flex-wrap: wrap;

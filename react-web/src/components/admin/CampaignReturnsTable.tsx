@@ -29,13 +29,20 @@ export function CampaignReturnsTable({
         <thead>
           <tr>
             <th scope="col">Territoire</th>
-            <th scope="col" className="is-num">Quota</th>
+            <th scope="col" className="is-num">Objectif</th>
             <th scope="col" className="is-num">Reçus</th>
             <th scope="col" className="is-num">Validés</th>
             <th scope="col" className="is-num">À temps</th>
             <th scope="col" className="is-num">En retard</th>
             <th scope="col" className="is-num">Écart</th>
-            <th scope="col" className="is-num">Taux de quota</th>
+            {/*
+              Received / objective is operational target attainment, not
+              statistical coverage: the denominator is an administratively
+              fixed quota, not the statistical universe. Label it as
+              attainment. Taux de réponse, whose denominator is the registered
+              active directory stock, is the closer thing to a coverage rate.
+            */}
+            <th scope="col" className="is-num">Taux d&apos;atteinte de l&apos;objectif</th>
             <th scope="col" className="is-num">Taux de réponse</th>
           </tr>
         </thead>
