@@ -5,12 +5,6 @@ export enum StatisticalExclusionReason {
   /** Blocking arithmetic, logic, or quota anomaly unresolved in Axis 2 */
   EXCL_BLOCKING_ANOMALY_OPEN = 'EXCL_BLOCKING_ANOMALY_OPEN',
 
-  /** Declaration awaiting Divisional review (Délégation Départementale) */
-  EXCL_WAITING_DIV_VISA = 'EXCL_WAITING_DIV_VISA',
-
-  /** Declaration endorsed by Division, awaiting Regional visa (Délégation Régionale) */
-  EXCL_WAITING_REG_VISA = 'EXCL_WAITING_REG_VISA',
-
   /** Declaration endorsed by Region, awaiting National Ministerial visa (ONEFOP Central) */
   EXCL_WAITING_NAT_VISA = 'EXCL_WAITING_NAT_VISA',
 

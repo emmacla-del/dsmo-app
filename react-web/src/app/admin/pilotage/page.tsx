@@ -372,7 +372,7 @@ export default function PilotagePage() {
     { label: "Inscriptions", value: totalInscriptions, highlighted: false },
     { label: "Déclarations", value: totalSubmissions, highlighted: true },
     { label: "Contrôle régional", value: regionalCount, highlighted: true },
-    { label: "Contrôle national", value: nationalCount, highlighted: false },
+    { label: "Supervision nationale", value: nationalCount, highlighted: false },
     { label: "Approuvées", value: statusCounts.approved, highlighted: false },
     { label: "Exportables", value: readyCount, highlighted: false },
   ];
