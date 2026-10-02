@@ -44,8 +44,11 @@ commit — but **not** of the deploy. Both `build.sh` (line 11) and
 3. If it fails, `set -e` aborts the script and **the whole backend deploy
    fails** — not just the migration.
 
-Step 1.5 below is therefore mandatory, not optional. Do not merge until
-it has been run against production and come back clean.
+Step 1.5 below was therefore a hard pre-merge gate. **It was run against
+production on 2026-10-02 and came back clean — 0 duplicates — so the
+migration will build cleanly on the first deploy.** The hazard described
+here is retained because it is what makes step 2.2 worth watching, not
+because the check is still outstanding.
 
 ### 0.2 A REJECTED company never reaches the status screen
 
@@ -114,18 +117,38 @@ screen for a REJECTED company, that is a bug, not a pass.
     use `npm install`. `react-web` typecheck needs `npx next typegen`
     first in a fresh checkout.
 
-- [ ] **1.5 — MANDATORY: pre-flight the unique-index migration against production**
-  - **Action:** run `scripts/sql/find-duplicate-establishment-ids.sql`
-    against the production database. It is read-only and writes nothing.
-  - **Expected:** query 1 (duplicate establishment IDs) returns **zero
-    rows**. Query 2's `duplicate_rows` is **0**. Query 3 lists the ACTIVE
-    companies with no establishment ID — expected to be about 29.
-  - **If it fails (any row from query 1):** **do not merge.** The
-    migration will fail and take the backend deploy down with it. Resolve
-    the duplicates first, then re-run. Decide the ordering against
-    `scripts/backfill-company-establishment-ids.ts` as well: applying the
-    index before the backfill is the safer sequence, since the backfill
-    then cannot introduce a collision it would only discover at COMMIT.
+- [x] **1.5 — Unique-index pre-flight: CLEARED 2026-10-02**
+  - **Status:** cleared 2026-10-02 — **0 duplicate `establishmentId`s; the
+    migration will build cleanly on first deploy.**
+    `scripts/sql/find-duplicate-establishment-ids.sql` was run against
+    production (read-only, writes nothing). Query 1 returned **no rows**.
+
+    | | |
+    |---|---|
+    | `companies_total` | 40 |
+    | `with_establishment_id` | 11 |
+    | `without_establishment_id` | 29 |
+    | `distinct_establishment_ids` | 11 |
+    | `duplicate_rows` | **0** |
+
+    `with_establishment_id` equals `distinct_establishment_ids` (11 = 11),
+    which is the same clean result from the other direction.
+  - **The 29 NULLs are expected and are not a problem for the migration.**
+    The column stays nullable and Postgres permits repeated NULLs under a
+    unique index, so companies awaiting approval — and any row the
+    backfill skips — are unaffected. These 29 are the ACTIVE-companies-with-no-ID
+    workload of `scripts/backfill-company-establishment-ids.ts`, and the
+    same rows step 5.1 draws its test account from.
+  - **Backfill ordering still to decide:** applying the index before
+    running `scripts/backfill-company-establishment-ids.ts` is the safer
+    sequence, since the backfill then cannot introduce a collision it
+    would only discover at COMMIT. Clearing this gate does not settle
+    that; it is a separate call.
+  - **If the merge slips by more than a few days:** re-run the script.
+    The result above is a point-in-time reading, and every approval
+    between then and the merge issues a new establishment ID. The script
+    is read-only and takes seconds, so a re-run is cheap insurance rather
+    than a repeat of the gate.
 
 - [ ] **1.6 — Know what the migration leaves behind**
   - **Action:** read step 7.4 now, before merging, so the rollback story
