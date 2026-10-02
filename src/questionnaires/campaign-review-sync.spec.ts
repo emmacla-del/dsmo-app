@@ -22,7 +22,7 @@ describe('syncCampaignSubmissionOnReview (Phase E.1)', () => {
     await syncCampaignSubmissionOnReview(
       prisma,
       logger,
-      { id: 'sub-1', campaignId: 'camp-1', establishmentId: 'est-uuid-1', companyId: 'comp-1' },
+      { id: 'sub-1', campaignId: 'camp-1', establishmentId: 'est-uuid-1' },
       'VALIDATED',
     );
 
@@ -32,7 +32,7 @@ describe('syncCampaignSubmissionOnReview (Phase E.1)', () => {
     });
   });
 
-  it('falls back to companyId when establishmentId is omitted', async () => {
+  it('does nothing when establishmentId is omitted (no companyId fallback)', async () => {
     await syncCampaignSubmissionOnReview(
       prisma,
       logger,
@@ -40,17 +40,14 @@ describe('syncCampaignSubmissionOnReview (Phase E.1)', () => {
       'SUBMITTED',
     );
 
-    expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
-      where: { campaignId: 'camp-1', companyId: 'comp-1' },
-      data: { status: 'SUBMITTED', submittedAt: expect.any(Date) },
-    });
+    expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
 
-  it('does nothing when neither establishmentId nor companyId is present', async () => {
+  it('does nothing when campaignId is null/missing', async () => {
     await syncCampaignSubmissionOnReview(
       prisma,
       logger,
-      { id: 'sub-1', campaignId: 'camp-1' },
+      { id: 'sub-1', campaignId: null, establishmentId: 'est-uuid-1' },
       'NOT_STARTED',
     );
 

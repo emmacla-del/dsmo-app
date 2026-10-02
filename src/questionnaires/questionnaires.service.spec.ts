@@ -1899,8 +1899,8 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('establishmentId and companyId null: no CampaignSubmission update', async () => {
-    const prisma = buildPrisma({ ...linked, establishmentId: null, companyId: null });
+  it('establishmentId null: no CampaignSubmission update', async () => {
+    const prisma = buildPrisma({ ...linked, establishmentId: null });
     await buildService(prisma).approve('sub-1', 'admin-1');
     expect(prisma.campaignSubmission.updateMany).not.toHaveBeenCalled();
   });
