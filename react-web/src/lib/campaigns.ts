@@ -121,6 +121,10 @@ export function deleteCampaign(id: string) {
   return apiFetch(`/campaigns/${id}`, { method: "DELETE" });
 }
 
+export function archiveCampaign(id: string) {
+  return apiFetch<Campaign>(`/campaigns/${id}/archive`, { method: "POST" });
+}
+
 // Mirrors campaign_constants.dart's campaignStatuses/campaignStatusLabels.
 export const CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "PAUSED", "CLOSED", "ARCHIVED"];
 export const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
@@ -169,4 +173,10 @@ export function canExtend(status: string): boolean {
 }
 export function canRemind(status: string): boolean {
   return status === "ACTIVE";
+}
+export function canArchive(status: string): boolean {
+  return status !== "DRAFT" && status !== "ARCHIVED";
+}
+export function canDelete(status: string): boolean {
+  return status === "DRAFT";
 }
