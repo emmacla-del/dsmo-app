@@ -323,11 +323,52 @@ model Company {
   notificationRecipients     NotificationRecipient[]
   onefopSubmissions          OnefopSubmission[]
   dsmoDeclarationDraft       DsmoDeclarationDraft?
+  establishments             Establishment[]
 
   @@index([establishmentId], map: "idx_companies_establishmentId")
   @@index([regionId])
   @@index([departmentId])
   @@map("companies")
+}
+
+enum EstablishmentStatus {
+  ACTIVE
+  CLOSED
+  SUSPENDED
+}
+
+model Establishment {
+  id              String               @id @default(uuid())
+  code            String               @unique // e.g. EN26000100-01 (13 chars)
+  name            String               // Site label, e.g. "Siège Social" / "Usine de Bonabéri"
+  isPrincipal     Boolean              @default(false)
+  status          EstablishmentStatus  @default(ACTIVE)
+
+  companyId       String
+  company         Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  // Territory hierarchy (canonical FKs + denormalized text)
+  regionId        String
+  departmentId    String
+  subdivisionId   String
+  region          String
+  department      String
+  subdivision     String
+  address         String
+  phone           String?
+  email           String?
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  submissions     OnefopSubmission[]
+  campaignTargets CampaignSubmission[]
+
+  @@index([companyId])
+  @@index([regionId])
+  @@index([departmentId])
+  @@index([subdivisionId])
+  @@map("establishments")
 }
 
 /// In-progress DSMO declaration data, saved client-side (autosave + explicit
@@ -579,12 +620,12 @@ model CampaignSubmission {
   submittedAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  establishmentId String?
+  establishmentId String
   status          SubmissionStatus @default(PENDING)
   campaign        DataCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   company         Company?         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  establishment   Establishment    @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
 
-  @@unique([campaignId, companyId])
   @@unique([campaignId, establishmentId])
   @@index([campaignId])
   @@index([companyId])
@@ -714,7 +755,8 @@ model SubmissionRound {
 }
 
 model SubmissionDraft {
-  id              String           @id @default(uuid())
+  // Holds 13-character site code (e.g. EN26000100-01), unlike OnefopSubmission UUID FK.
+  // Recommended future cleanup: rename column to siteCode.
   establishmentId String
   quarterCode     String
   entityType      OnefopEntityType
@@ -773,7 +815,7 @@ model OnefopSubmission {
   regionId              String?
   departmentId          String?
   subdivisionId         String?
-  establishmentId       String?
+  establishmentId       String
   quarterCode           String?                       @default("2025-T1")
   taxNumber             String?
   cnpsNumber            String?
@@ -820,6 +862,7 @@ model OnefopSubmission {
   respondent            OnefopRespondent?
   skillNeeds            OnefopSkillNeed[]
   company               Company?                      @relation(fields: [companyId], references: [id])
+  establishment         Establishment                 @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
   campaign              DataCampaign?                 @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   departmentRef         Department?                   @relation(fields: [departmentId], references: [id])
   regionRef             Region?                       @relation(fields: [regionId], references: [id])
