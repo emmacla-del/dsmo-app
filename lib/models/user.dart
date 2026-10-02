@@ -54,7 +54,10 @@ class User {
   final bool twoFactorEnabled;
   final String? status;
   final String? approvalComment;
-  final String? rejectionReason;
+  // No rejectionReason. A rejected registration gets a fixed login message
+  // carrying no reviewer reason, so nothing company-facing shows it any more
+  // and /auth/me no longer returns it. The column and the staff-side review
+  // queue keep it.
   final UserFeatures features;
 
   User({
@@ -81,7 +84,6 @@ class User {
     this.twoFactorEnabled = false,
     this.status,
     this.approvalComment,
-    this.rejectionReason,
     required this.features,
   });
 
@@ -109,7 +111,6 @@ class User {
         twoFactorEnabled: json['twoFactorEnabled'] as bool? ?? false,
         status: json['status'] as String?,
         approvalComment: json['approvalComment'] as String?,
-        rejectionReason: json['rejectionReason'] as String?,
         features: UserFeatures.fromJson(json['features'] ?? {}),
       );
 
@@ -137,7 +138,6 @@ class User {
         twoFactorEnabled: twoFactorEnabled,
         status: status,
         approvalComment: approvalComment,
-        rejectionReason: rejectionReason,
         features: features,
       );
 }

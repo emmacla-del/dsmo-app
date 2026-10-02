@@ -4896,10 +4896,59 @@ class AppLocalizationsEn extends AppLocalizations {
       'File resubmitted for validation.';
 
   @override
-  String get registrationRejectedHeadline => 'Registration rejected';
+  String get registrationCorrectionIntro =>
+      'Correct whatever needs correcting, then resubmit the file. Fields you leave alone are kept as they are.';
 
   @override
-  String get registrationRejectedNoReason => 'No reason was given.';
+  String get registrationCorrectionLoadError =>
+      'Your file could not be loaded. You can still resubmit it as it stands.';
+
+  @override
+  String get registrationCorrectionNameLabel => 'Legal name';
+
+  @override
+  String get registrationCorrectionTaxNumberLabel => 'Taxpayer number (NIU)';
+
+  @override
+  String get registrationCorrectionMainActivityLabel => 'Main activity';
+
+  @override
+  String get registrationCorrectionSecondaryActivityLabel =>
+      'Secondary activity';
+
+  @override
+  String get registrationCorrectionParentCompanyLabel => 'Parent company';
+
+  @override
+  String get registrationCorrectionAddressLabel => 'Address';
+
+  @override
+  String get registrationCorrectionCnpsNumberLabel => 'CNPS number';
+
+  @override
+  String get registrationCorrectionFaxLabel => 'Fax';
+
+  @override
+  String get registrationCorrectionSocialCapitalLabel => 'Share capital (FCFA)';
+
+  @override
+  String get registrationCorrectionEntityTypeLabel => 'Entity type';
+
+  @override
+  String get registrationCorrectionEntityTypeUnset => 'Not provided';
+
+  @override
+  String get registrationCorrectionRegionLabel => 'Region';
+
+  @override
+  String get registrationCorrectionDepartmentLabel => 'Division';
+
+  @override
+  String get registrationCorrectionSubdivisionLabel => 'Subdivision';
+
+  @override
+  String get registrationCorrectionSubdivisionRequired =>
+      'Choose the subdivision to move the file.';
 
   @override
   String get registrationStatusRefreshButton => 'Refresh';

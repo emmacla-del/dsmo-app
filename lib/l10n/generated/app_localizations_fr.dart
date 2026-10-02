@@ -4957,10 +4957,61 @@ class AppLocalizationsFr extends AppLocalizations {
       'Dossier renvoyé pour validation.';
 
   @override
-  String get registrationRejectedHeadline => 'Inscription rejetée';
+  String get registrationCorrectionIntro =>
+      'Corrigez ce qui doit l\'être, puis renvoyez le dossier. Les champs inchangés sont laissés tels quels.';
 
   @override
-  String get registrationRejectedNoReason => 'Aucun motif n\'a été précisé.';
+  String get registrationCorrectionLoadError =>
+      'Votre dossier n\'a pas pu être chargé. Vous pouvez tout de même le renvoyer tel quel.';
+
+  @override
+  String get registrationCorrectionNameLabel => 'Raison sociale';
+
+  @override
+  String get registrationCorrectionTaxNumberLabel =>
+      'Numéro contribuable (NIU)';
+
+  @override
+  String get registrationCorrectionMainActivityLabel => 'Activité principale';
+
+  @override
+  String get registrationCorrectionSecondaryActivityLabel =>
+      'Activité secondaire';
+
+  @override
+  String get registrationCorrectionParentCompanyLabel => 'Société mère';
+
+  @override
+  String get registrationCorrectionAddressLabel => 'Adresse';
+
+  @override
+  String get registrationCorrectionCnpsNumberLabel => 'Numéro CNPS';
+
+  @override
+  String get registrationCorrectionFaxLabel => 'Fax';
+
+  @override
+  String get registrationCorrectionSocialCapitalLabel =>
+      'Capital social (FCFA)';
+
+  @override
+  String get registrationCorrectionEntityTypeLabel => 'Type d\'entité';
+
+  @override
+  String get registrationCorrectionEntityTypeUnset => 'Non renseigné';
+
+  @override
+  String get registrationCorrectionRegionLabel => 'Région';
+
+  @override
+  String get registrationCorrectionDepartmentLabel => 'Département';
+
+  @override
+  String get registrationCorrectionSubdivisionLabel => 'Arrondissement';
+
+  @override
+  String get registrationCorrectionSubdivisionRequired =>
+      'Choisissez l\'arrondissement pour déplacer le dossier.';
 
   @override
   String get registrationStatusRefreshButton => 'Actualiser';
