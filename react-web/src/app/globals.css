@@ -630,6 +630,13 @@ body {
   box-shadow: var(--cam-shadow-sm);
 }
 
+/* Single-column responsive field layout */
+.cam-auth-page .form-single-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+}
+
 /* Two-column responsive field grid */
 .cam-auth-page .form-grid-2 {
   display: grid;

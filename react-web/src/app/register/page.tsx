@@ -125,21 +125,6 @@ const ENTITY_SECTIONS: Record<EntityType, { title: string; keys: string[] }[]> =
   ],
 };
 
-const FULL_WIDTH_FIELD_KEYS = new Set([
-  "companyName",
-  "cooperativeName",
-  "cooperativeHeadOffice",
-  "ctdName",
-  "ngoName",
-  "administrationName",
-  "projectProgramName",
-  "centerName",
-  "address",
-  "mainMission",
-  "functionalStatus",
-  "promoterName",
-]);
-
 export default function RegisterPage() {
   const t = useTranslations();
   const [step, setStep] = useState<Step>("entityType");
@@ -297,6 +282,42 @@ export default function RegisterPage() {
     const idx = STEPS.indexOf(step);
     setStep(STEPS[Math.max(idx - 1, 0)]);
   }
+
+  // Intercept Enter key to navigate sequentially between form fields
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== "Enter") return;
+
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const tagName = target.tagName.toLowerCase();
+    // Allow default behavior for buttons and textareas
+    if (tagName === "button" || tagName === "textarea" || (target as HTMLInputElement).type === "submit") {
+      return;
+    }
+
+    const form = e.currentTarget;
+    const selector = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
+    const formFields = Array.from(form.querySelectorAll<HTMLElement>(selector)).filter(
+      (el) => el.offsetParent !== null && !el.hasAttribute("aria-hidden") && el.tabIndex !== -1
+    );
+
+    const currentIndex = formFields.indexOf(target);
+    if (currentIndex === -1) return;
+
+    e.preventDefault();
+
+    if (e.shiftKey) {
+      if (currentIndex > 0) {
+        formFields[currentIndex - 1].focus();
+      }
+    } else {
+      if (currentIndex < formFields.length - 1) {
+        formFields[currentIndex + 1].focus();
+      } else {
+        goNext();
+      }
+    }
+  };
 
   const regionName = regionsQuery.data?.find((r) => r.id === regionId)?.name;
   const departmentName = departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
@@ -767,7 +788,7 @@ export default function RegisterPage() {
 
             {/* STEP 2: RESPONDENT */}
             {step === "respondent" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
+              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
                 <div style={{ marginBottom: "16px" }}>
                   <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
                     {t("registerPage.respondentTitle")} — Habilitation officielle
@@ -777,36 +798,34 @@ export default function RegisterPage() {
                   </p>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div className="field">
-                      <label htmlFor="reg-first-name">
-                        {t("registerPage.firstNameLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                      </label>
-                      <div className="input-row">
-                        <input
-                          id="reg-first-name"
-                          aria-required={true}
-                          value={respondent.firstName}
-                          onChange={(e) => setRespondent((r) => ({ ...r, firstName: e.target.value }))}
-                          placeholder="Ex: Emmanuel"
-                        />
-                      </div>
+                <div className="form-single-column">
+                  <div className="field">
+                    <label htmlFor="reg-first-name">
+                      {t("registerPage.firstNameLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
+                    </label>
+                    <div className="input-row">
+                      <input
+                        id="reg-first-name"
+                        aria-required={true}
+                        value={respondent.firstName}
+                        onChange={(e) => setRespondent((r) => ({ ...r, firstName: e.target.value }))}
+                        placeholder="Ex: Emmanuel"
+                      />
                     </div>
+                  </div>
 
-                    <div className="field">
-                      <label htmlFor="reg-last-name">
-                        {t("registerPage.lastNameLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                      </label>
-                      <div className="input-row">
-                        <input
-                          id="reg-last-name"
-                          aria-required={true}
-                          value={respondent.lastName}
-                          onChange={(e) => setRespondent((r) => ({ ...r, lastName: e.target.value }))}
-                          placeholder="Ex: Biya"
-                        />
-                      </div>
+                  <div className="field">
+                    <label htmlFor="reg-last-name">
+                      {t("registerPage.lastNameLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
+                    </label>
+                    <div className="input-row">
+                      <input
+                        id="reg-last-name"
+                        aria-required={true}
+                        value={respondent.lastName}
+                        onChange={(e) => setRespondent((r) => ({ ...r, lastName: e.target.value }))}
+                        placeholder="Ex: Biya"
+                      />
                     </div>
                   </div>
 
@@ -857,36 +876,34 @@ export default function RegisterPage() {
                     )}
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div className="field">
-                      <label htmlFor="reg-phone1">
-                        {t("registerPage.phone1Label")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                      </label>
-                      <div className="input-row">
-                        <input
-                          id="reg-phone1"
-                          aria-required={true}
-                          type="tel"
-                          value={respondent.phone1}
-                          onChange={(e) => setRespondent((r) => ({ ...r, phone1: e.target.value }))}
-                          placeholder="6XXXXXXXX"
-                        />
-                      </div>
+                  <div className="field">
+                    <label htmlFor="reg-phone1">
+                      {t("registerPage.phone1Label")} <span style={{ color: "var(--cam-error)" }}>*</span>
+                    </label>
+                    <div className="input-row">
+                      <input
+                        id="reg-phone1"
+                        aria-required={true}
+                        type="tel"
+                        value={respondent.phone1}
+                        onChange={(e) => setRespondent((r) => ({ ...r, phone1: e.target.value }))}
+                        placeholder="6XXXXXXXX"
+                      />
                     </div>
+                  </div>
 
-                    <div className="field">
-                      <label htmlFor="reg-phone2">
-                        {t("registerPage.phone2Label")} (optionnel)
-                      </label>
-                      <div className="input-row">
-                        <input
-                          id="reg-phone2"
-                          type="tel"
-                          value={respondent.phone2}
-                          onChange={(e) => setRespondent((r) => ({ ...r, phone2: e.target.value }))}
-                          placeholder="6XXXXXXXX / 2XXXXXXXX"
-                        />
-                      </div>
+                  <div className="field">
+                    <label htmlFor="reg-phone2">
+                      {t("registerPage.phone2Label")} (optionnel)
+                    </label>
+                    <div className="input-row">
+                      <input
+                        id="reg-phone2"
+                        type="tel"
+                        value={respondent.phone2}
+                        onChange={(e) => setRespondent((r) => ({ ...r, phone2: e.target.value }))}
+                        placeholder="6XXXXXXXX / 2XXXXXXXX"
+                      />
                     </div>
                   </div>
                 </div>
@@ -895,7 +912,7 @@ export default function RegisterPage() {
 
             {/* STEP 3: ENTITY INFORMATION */}
             {step === "entityInfo" && config && entityType && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
+              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
                 <div style={{ marginBottom: "14px" }}>
                   <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
                     {config.title}
@@ -927,52 +944,45 @@ export default function RegisterPage() {
                         return (
                           <div key={secIdx}>
                             <div className="admin-section-header">{sec.title}</div>
-                            <div className="form-grid-2">
-                              {secFields.map((field) => {
-                                const isFullWidth = FULL_WIDTH_FIELD_KEYS.has(field.key);
-                                return (
-                                  <div
-                                    key={field.key}
-                                    className="field"
-                                    style={isFullWidth ? { gridColumn: "1 / -1" } : undefined}
-                                  >
-                                    <label htmlFor={`reg-entity-${field.key}`}>
-                                      {field.label}
-                                      {field.required && <span style={{ color: "var(--cam-error)" }}> *</span>}
-                                      {field.hint && (
-                                        <span style={{ fontWeight: 400, color: "var(--cam-text-muted)" }}>
-                                          {" "}({field.hint})
-                                        </span>
-                                      )}
-                                    </label>
-                                    <div className="input-row">
-                                      {field.kind === "select" ? (
-                                        <select
-                                          id={`reg-entity-${field.key}`}
-                                          aria-required={field.required ? true : undefined}
-                                          value={entityData[field.key] ?? ""}
-                                          onChange={(e) => setEntityField(field.key, e.target.value)}
-                                        >
-                                          <option value="">{t("registerPage.selectPlaceholder")}</option>
-                                          {field.options?.map((o) => (
-                                            <option key={o.value} value={o.value}>
-                                              {o.label}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      ) : (
-                                        <input
-                                          id={`reg-entity-${field.key}`}
-                                          aria-required={field.required ? true : undefined}
-                                          type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
-                                          value={entityData[field.key] ?? ""}
-                                          onChange={(e) => setEntityField(field.key, e.target.value)}
-                                        />
-                                      )}
-                                    </div>
+                            <div className="form-single-column">
+                              {secFields.map((field) => (
+                                <div key={field.key} className="field">
+                                  <label htmlFor={`reg-entity-${field.key}`}>
+                                    {field.label}
+                                    {field.required && <span style={{ color: "var(--cam-error)" }}> *</span>}
+                                    {field.hint && (
+                                      <span style={{ fontWeight: 400, color: "var(--cam-text-muted)" }}>
+                                        {" "}({field.hint})
+                                      </span>
+                                    )}
+                                  </label>
+                                  <div className="input-row">
+                                    {field.kind === "select" ? (
+                                      <select
+                                        id={`reg-entity-${field.key}`}
+                                        aria-required={field.required ? true : undefined}
+                                        value={entityData[field.key] ?? ""}
+                                        onChange={(e) => setEntityField(field.key, e.target.value)}
+                                      >
+                                        <option value="">{t("registerPage.selectPlaceholder")}</option>
+                                        {field.options?.map((o) => (
+                                          <option key={o.value} value={o.value}>
+                                            {o.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        id={`reg-entity-${field.key}`}
+                                        aria-required={field.required ? true : undefined}
+                                        type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
+                                        value={entityData[field.key] ?? ""}
+                                        onChange={(e) => setEntityField(field.key, e.target.value)}
+                                      />
+                                    )}
                                   </div>
-                                );
-                              })}
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );
@@ -988,7 +998,7 @@ export default function RegisterPage() {
                         return (
                           <div>
                             <div className="admin-section-header">Informations complémentaires</div>
-                            <div className="form-grid-2">
+                            <div className="form-single-column">
                               {remainingFields.map((field) => (
                                 <div key={field.key} className="field">
                                   <label htmlFor={`reg-entity-${field.key}`}>
@@ -1034,7 +1044,7 @@ export default function RegisterPage() {
 
             {/* STEP 4: LOCATION */}
             {step === "location" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
+              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
                 <div style={{ marginBottom: "16px" }}>
                   <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
                     {t("registerPage.locationTitle")} — Rattachement territorial
@@ -1181,7 +1191,7 @@ export default function RegisterPage() {
 
             {/* STEP 5: SECURITY */}
             {step === "security" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
+              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
                 <div style={{ marginBottom: "16px" }}>
                   <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
                     {t("registerPage.securityTitle")} — Paramètres d&apos;accès
@@ -1191,7 +1201,7 @@ export default function RegisterPage() {
                   </p>
                 </div>
 
-                <div className="form-grid-2">
+                <div className="form-single-column">
                   <div className="field">
                     <label htmlFor="reg-password">
                       {t("registerPage.passwordLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
