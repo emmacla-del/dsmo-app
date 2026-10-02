@@ -59,6 +59,11 @@ export default function LoginPage() {
       ];
       if (user && adminRoles.includes(user.role)) {
         router.replace("/admin/pilotage");
+      } else if (
+        user?.role === "COMPANY" &&
+        (user.status === "PENDING_APPROVAL" || user.status === "COMPLEMENTS_REQUESTED")
+      ) {
+        router.replace("/home/inscription-en-attente");
       } else {
         router.replace("/home");
       }

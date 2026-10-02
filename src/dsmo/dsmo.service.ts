@@ -13,7 +13,6 @@ import { UserRole, DeclarationStatus, MovementType } from '../types/prisma.types
 import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { PdfService, PdfData } from './pdf.service';
-import { EstablishmentIdGenerator } from '../common/utils/establishment-id.generator';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 
 @Injectable()
@@ -195,7 +194,9 @@ export class DsmoService {
     return { companies, total, page, pageSize };
   }
 
-  // ✅ UPDATED: saveCompanyProfile with establishmentId generation and territory validation
+  // Territory is resolved and validated here. Establishment IDs are NOT
+  // issued on this path: they are allocated once, at staff approval of the
+  // registration (AuthService.approveUser).
   async saveCompanyProfile(userId: string, dto: any) {
     const resolvedTerritory = await resolveAndValidateTerritory(
       this.prisma,
@@ -209,27 +210,6 @@ export class DsmoService {
       },
       { requireSubdivision: true },
     );
-
-    // Check if company already exists
-    const existing = await this.prisma.company.findUnique({
-      where: { userId }
-    });
-
-    let establishmentId = dto.establishmentId;
-
-    // Generate establishmentId if not provided and we have entityType
-    if (!establishmentId && dto.entityType && !existing?.establishmentId && resolvedTerritory.subdivisionId) {
-      const subdivision = await this.prisma.subdivision.findUnique({
-        where: { id: resolvedTerritory.subdivisionId },
-      });
-      const subdivisionCode = subdivision?.code?.slice(-2) || '00';
-
-      establishmentId = await EstablishmentIdGenerator.generate(
-        this.prisma,
-        dto.entityType,
-        subdivisionCode,
-      );
-    }
 
     const data = {
       name: dto.name,
@@ -249,10 +229,6 @@ export class DsmoService {
       fax: dto.fax,
       socialCapital: dto.socialCapital,
       ...(dto.entityType ? { entityType: dto.entityType as any } : {}),
-      ...(establishmentId ? {
-        establishmentId,
-        establishmentIdGeneratedAt: new Date()
-      } : {}),
     };
 
     try {
@@ -267,7 +243,6 @@ export class DsmoService {
         where: { userId },
         update: {
           ...data,
-          establishmentId: existing?.establishmentId || establishmentId,
         },
         create: { userId, totalEmployees: 0, ...data },
       });
@@ -281,7 +256,8 @@ export class DsmoService {
     }
   }
 
-  // ✅ UPDATED: createOrUpdateCompany with establishmentId generation and territory validation
+  // Territory is resolved and validated here. Establishment IDs are NOT
+  // issued on this path — see saveCompanyProfile above.
   async createOrUpdateCompany(userId: string, dto: CreateCompanyDto) {
     const resolvedTerritory = await resolveAndValidateTerritory(
       this.prisma,
@@ -295,27 +271,6 @@ export class DsmoService {
       },
       { requireSubdivision: true },
     );
-
-    // Check if company already exists
-    const existing = await this.prisma.company.findUnique({
-      where: { userId }
-    });
-
-    let establishmentId = (dto as any).establishmentId;
-
-    // Generate establishmentId if not provided and we have entityType
-    if (!establishmentId && (dto as any).entityType && !existing?.establishmentId && resolvedTerritory.subdivisionId) {
-      const subdivision = await this.prisma.subdivision.findUnique({
-        where: { id: resolvedTerritory.subdivisionId },
-      });
-      const subdivisionCode = subdivision?.code?.slice(-2) || '00';
-
-      establishmentId = await EstablishmentIdGenerator.generate(
-        this.prisma,
-        (dto as any).entityType,
-        subdivisionCode,
-      );
-    }
 
     const companyData = {
       name: dto.name,
@@ -338,10 +293,6 @@ export class DsmoService {
       lastYearTotal: dto.lastYearTotal,
       lastYearMenCount: dto.lastYearMenCount,
       lastYearWomenCount: dto.lastYearWomenCount,
-      ...(establishmentId ? {
-        establishmentId,
-        establishmentIdGeneratedAt: new Date()
-      } : {}),
     };
 
     try {
@@ -349,7 +300,6 @@ export class DsmoService {
         where: { userId },
         update: {
           ...companyData,
-          establishmentId: existing?.establishmentId || establishmentId,
         },
         create: { userId, ...companyData },
       });

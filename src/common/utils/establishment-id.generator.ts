@@ -1,5 +1,11 @@
 // src/common/utils/establishment-id.generator.ts
-import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+/** PrismaService and a $transaction client both expose these. */
+type IdClient = {
+  company: { findFirst: (args: unknown) => Promise<{ establishmentId: string | null } | null> };
+  $executeRaw: (query: TemplateStringsArray | Prisma.Sql, ...values: unknown[]) => Promise<unknown>;
+};
 
 export class EstablishmentIdGenerator {
     private static readonly ENTITY_PREFIX: Record<string, string> = {
@@ -16,9 +22,14 @@ export class EstablishmentIdGenerator {
      * Generate compact establishment ID
      * Format: {prefix}{yearLast2}{serial}{subdivCode}
      * Example: EN26000112 (Enterprise, 2026, serial 1, subdiv 12)
+     *
+     * Must only be called inside prisma.$transaction(...).
+     * pg_advisory_xact_lock is held until COMMIT/ROLLBACK; outside a
+     * transaction PostgreSQL releases it at the end of the statement and
+     * concurrent serial allocation is not serialised.
      */
     static async generate(
-        prisma: PrismaService,
+        prisma: IdClient,
         entityType: string,
         subdivisionCode: string,
     ): Promise<string> {
@@ -28,6 +39,8 @@ export class EstablishmentIdGenerator {
         }
 
         const yearLast2 = new Date().getFullYear().toString().slice(-2);
+        const lockKey = this.advisoryLockKey(prefix, yearLast2);
+        await prisma.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
 
         // Get next serial number for this entity type and year
         const lastEstablishment = await prisma.company.findFirst({
@@ -91,5 +104,15 @@ export class EstablishmentIdGenerator {
             serial,
             subdivisionCode,
         };
+    }
+
+    /** Stable signed 32-bit key for pg_advisory_xact_lock (prefix + year). */
+    static advisoryLockKey(prefix: string, yearLast2: string): number {
+        const text = `${prefix}${yearLast2}`;
+        let hash = 0;
+        for (let i = 0; i < text.length; i += 1) {
+            hash = (Math.imul(31, hash) + text.charCodeAt(i)) | 0;
+        }
+        return hash;
     }
 }

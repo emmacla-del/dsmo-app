@@ -1,0 +1,270 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/auth-store";
+import { getMyCompany, type CompanyProfile } from "@/lib/api-client";
+import { resubmitRegistration, type RegistrationCorrections } from "@/lib/user-directory";
+import { CameroonGeographySelector } from "@/components/modern-jobs/geography/CameroonGeographySelector";
+
+// The ONEFOP entity types, in the backend's own enum spelling. The same seven
+// OnefopEntityType values the register wizard offers — no DSMO-only category.
+const ENTITY_TYPES = [
+  { value: "ENTREPRISE", label: "Entreprise" },
+  { value: "COOPERATIVE", label: "Coopérative" },
+  { value: "CTD", label: "CTD" },
+  { value: "ONG", label: "ONG" },
+  { value: "ADMINISTRATION", label: "Administration" },
+  { value: "PROJECT_PROGRAM", label: "Projet / programme" },
+  { value: "VOCATIONAL_TRAINING", label: "Centre de formation professionnelle" },
+];
+
+// The free-text corrections, paired with their labels. An explicit list, which
+// is also what the diff below iterates: CompanyProfile has an index signature,
+// so anything derived from spreading it would carry keys the route rejects.
+const TEXT_FIELDS = [
+  { key: "name", label: "Raison sociale" },
+  { key: "taxNumber", label: "Numéro contribuable (NIU)" },
+  { key: "mainActivity", label: "Activité principale" },
+  { key: "secondaryActivity", label: "Activité secondaire" },
+  { key: "parentCompany", label: "Société mère" },
+  { key: "address", label: "Adresse" },
+  { key: "cnpsNumber", label: "Numéro CNPS" },
+  { key: "fax", label: "Fax" },
+] as const;
+
+type TextKey = (typeof TEXT_FIELDS)[number]["key"];
+
+const REGION_KEY = "region";
+const DEPARTMENT_KEY = "department";
+const SUBDIVISION_KEY = "subdivision";
+
+type FormState = Record<string, string>;
+
+/** Everything the form edits, read off the profile as plain strings. */
+function formStateFrom(profile: CompanyProfile | undefined): FormState {
+  const str = (value: unknown) => (value === null || value === undefined ? "" : String(value));
+  const state: FormState = {};
+  for (const field of TEXT_FIELDS) state[field.key] = str(profile?.[field.key]);
+  state.socialCapital = str(profile?.socialCapital);
+  state.entityType = str(profile?.entityType);
+  state[REGION_KEY] = str(profile?.region);
+  state[DEPARTMENT_KEY] = str(profile?.department);
+  state[SUBDIVISION_KEY] = str(profile?.subdivision);
+  return state;
+}
+
+export default function InscriptionEnAttentePage() {
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+  const logout = useAuthStore((s) => s.logout);
+
+  const pending = user?.status === "PENDING_APPROVAL";
+  const complements = user?.status === "COMPLEMENTS_REQUESTED";
+
+  // The correction form belongs to COMPLEMENTS_REQUESTED only, so the profile
+  // is fetched only then. GET /dsmo/company is exempted for exactly this
+  // status (and PENDING_APPROVAL) precisely so it can prefill this form.
+  const companyQuery = useQuery({
+    queryKey: ["dsmo", "company", "registration-correction"],
+    queryFn: getMyCompany,
+    enabled: complements,
+  });
+
+  const initial = useMemo(() => formStateFrom(companyQuery.data), [companyQuery.data]);
+  const [form, setForm] = useState<FormState>({});
+  const [touched, setTouched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Prefill once the profile lands, and leave the reviewer's own edits alone
+  // on any later refetch.
+  useEffect(() => {
+    if (companyQuery.data && !touched) setForm(initial);
+  }, [companyQuery.data, initial, touched]);
+
+  const set = (key: string, value: string) => {
+    setTouched(true);
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const mutation = useMutation({
+    mutationFn: (data: RegistrationCorrections) => resubmitRegistration(data),
+    onSuccess: async () => {
+      setError(null);
+      setTouched(false);
+      await refreshUser();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  // Once a reviewer approves the account, refreshUser() below brings back
+  // status ACTIVE and this page has nothing left to say. Redirect from an
+  // effect, not from the render body.
+  useEffect(() => {
+    if (user?.role === "COMPANY" && user.status === "ACTIVE") {
+      router.replace("/home");
+    }
+  }, [user?.role, user?.status, router]);
+
+  /**
+   * The changed fields, built key by key against the loaded profile.
+   *
+   * Deliberately not a spread of either the profile or the form: the route
+   * validates with forbidNonWhitelisted, and CompanyProfile's index signature
+   * would smuggle in keys that turn the request into a 400. An unchanged field
+   * is left out entirely, so the audit diff records corrections and not noise.
+   */
+  const buildCorrections = (): RegistrationCorrections => {
+    const out: RegistrationCorrections = {};
+    const changed = (key: string) => (form[key] ?? "") !== (initial[key] ?? "");
+
+    for (const field of TEXT_FIELDS) {
+      if (changed(field.key)) out[field.key as TextKey] = form[field.key] ?? "";
+    }
+    if (changed("socialCapital")) {
+      const raw = (form.socialCapital ?? "").trim();
+      // Left out when cleared: the field is optional and @IsInt would refuse
+      // an empty string.
+      if (raw !== "") out.socialCapital = Number(raw);
+    }
+    if (changed("entityType") && (form.entityType ?? "") !== "") {
+      out.entityType = form.entityType;
+    }
+    // Territory resolves as a chain server-side and requires a subdivision,
+    // so the three names travel together or not at all.
+    if (changed(REGION_KEY) || changed(DEPARTMENT_KEY) || changed(SUBDIVISION_KEY)) {
+      out.region = form[REGION_KEY] ?? "";
+      out.department = form[DEPARTMENT_KEY] ?? "";
+      out.subdivision = form[SUBDIVISION_KEY] ?? "";
+    }
+    return out;
+  };
+
+  const submit = () => {
+    const corrections = buildCorrections();
+    const movingTerritory = corrections.region !== undefined;
+    if (movingTerritory && !(corrections.subdivision ?? "").trim()) {
+      setError("Choisissez l'arrondissement pour déplacer le dossier.");
+      return;
+    }
+    setError(null);
+    // An empty object is a resubmission with no corrections — still allowed,
+    // for a company that was asked for a document rather than an edit.
+    mutation.mutate(corrections);
+  };
+
+  return (
+    <div className="cam-admin-page">
+      <h1 style={{ fontFamily: "var(--cam-font-display)", fontSize: "var(--cam-font-size-xl)" }}>
+        Dossier d&apos;inscription
+      </h1>
+      {pending && (
+        <p className="cam-admin-lede">
+          Votre compte est en attente de validation par un agent. Vous pourrez déclarer dès qu&apos;il sera activé.
+        </p>
+      )}
+      {complements && (
+        <>
+          <p className="cam-admin-lede">Des compléments ont été demandés :</p>
+          <div className="cam-admin-notice cam-admin-notice--warn" role="status">
+            {user?.approvalComment || "Merci de compléter votre dossier."}
+          </div>
+
+          {companyQuery.isPending && <p>Chargement de votre dossier…</p>}
+          {companyQuery.isError && (
+            <div className="cam-admin-notice cam-admin-notice--error" role="alert">
+              Votre dossier n&apos;a pas pu être chargé. Vous pouvez tout de même le renvoyer tel quel.
+            </div>
+          )}
+
+          {companyQuery.data && (
+            <>
+              <p>
+                Corrigez ce qui doit l&apos;être, puis renvoyez le dossier. Les champs inchangés
+                sont laissés tels quels.
+              </p>
+
+              {TEXT_FIELDS.map((field) => (
+                <div className="cam-field" key={field.key}>
+                  <label className="cam-label" htmlFor={`correction-${field.key}`}>
+                    {field.label}
+                  </label>
+                  <input
+                    id={`correction-${field.key}`}
+                    className="cam-input"
+                    value={form[field.key] ?? ""}
+                    onChange={(e) => set(field.key, e.target.value)}
+                  />
+                </div>
+              ))}
+
+              <div className="cam-field">
+                <label className="cam-label" htmlFor="correction-socialCapital">
+                  Capital social (FCFA)
+                </label>
+                <input
+                  id="correction-socialCapital"
+                  className="cam-input"
+                  type="number"
+                  min={0}
+                  value={form.socialCapital ?? ""}
+                  onChange={(e) => set("socialCapital", e.target.value)}
+                />
+              </div>
+
+              <div className="cam-field">
+                <label className="cam-label" htmlFor="correction-entityType">
+                  Type d&apos;entité
+                </label>
+                <select
+                  id="correction-entityType"
+                  className="cam-select"
+                  value={form.entityType ?? ""}
+                  onChange={(e) => set("entityType", e.target.value)}
+                >
+                  <option value="">Non renseigné</option>
+                  {ENTITY_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <CameroonGeographySelector
+                regionFieldId={REGION_KEY}
+                departmentFieldId={DEPARTMENT_KEY}
+                subdivisionFieldId={SUBDIVISION_KEY}
+                data={form}
+                onChange={(fieldId, value) => set(fieldId, value === null || value === undefined ? "" : String(value))}
+                required={false}
+              />
+            </>
+          )}
+
+          {error && (
+            <div className="cam-admin-notice cam-admin-notice--error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="cam-button cam-button-primary"
+            disabled={mutation.isPending}
+            onClick={submit}
+          >
+            {mutation.isPending ? "…" : "Renvoyer le dossier"}
+          </button>
+        </>
+      )}
+      <p>
+        <button type="button" className="cam-button cam-button-secondary" onClick={() => logout()}>
+          Se déconnecter
+        </button>
+      </p>
+    </div>
+  );
+}

@@ -5,6 +5,7 @@ import { AppModule } from '../app.module';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany, ALLOW_INACTIVE_COMPANY_KEY } from './allow-inactive-company.decorator';
+import type { UserStatus } from '../types/prisma.types';
 
 function getControllersFromModule(module: any, seen = new Set<any>()): any[] {
   if (!module || seen.has(module)) return [];
@@ -101,11 +102,14 @@ describe('ActiveCompanyGuard completeness', () => {
     expect(result.offendingRoutes).toEqual([]);
   });
 
-  it('verifies that @AllowInactiveCompany is only applied to GET /auth/me', () => {
-    const allowedInactiveRoutes: string[] = [];
+  // Every exemption widens the guard, so this pins the exact set AND the
+  // statuses each one admits. Adding a route here, or widening an existing
+  // one to another status, has to be a deliberate edit to this list.
+  // 'ANY_STATUS' is the bare decorator: any status, provided isActive is true.
+  it('verifies the exact set of @AllowInactiveCompany exemptions and the statuses each admits', () => {
+    const exemptions: Record<string, UserStatus[] | 'ANY_STATUS'> = {};
 
     for (const ctrl of allControllers) {
-      const ctrlPrefix = Reflect.getMetadata('path', ctrl) || '';
       const ctrlAllowInactive = Reflect.getMetadata(ALLOW_INACTIVE_COMPANY_KEY, ctrl);
 
       const methodNames = scanner.getAllMethodNames(ctrl.prototype);
@@ -114,17 +118,35 @@ describe('ActiveCompanyGuard completeness', () => {
         const path = Reflect.getMetadata('path', fn);
         if (path === undefined) continue;
 
-        const hasAllowInactive =
-          Reflect.getMetadata(ALLOW_INACTIVE_COMPANY_KEY, fn) !== undefined ||
-          ctrlAllowInactive !== undefined;
+        // A method-level {} (the bare decorator) must win over a class-level
+        // value, so this tests for undefined rather than falsiness.
+        const options =
+          Reflect.getMetadata(ALLOW_INACTIVE_COMPANY_KEY, fn) ?? ctrlAllowInactive;
+        if (options === undefined) continue;
 
-        if (hasAllowInactive) {
-          allowedInactiveRoutes.push(`${ctrl.name}.${method}`);
-        }
+        exemptions[`${ctrl.name}.${method}`] =
+          options.statuses && options.statuses.length > 0 ? options.statuses : 'ANY_STATUS';
       }
     }
 
-    expect(allowedInactiveRoutes).toEqual(['AuthController.getMe']);
+    const UNDER_REVIEW: UserStatus[] = ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'];
+
+    expect(exemptions).toEqual({
+      // The account's own row, readable at any status so a blocked company can
+      // find out why. isActive=false is still denied by the guard.
+      'AuthController.getMe': 'ANY_STATUS',
+      // The correction flow itself — reachable only from COMPLEMENTS_REQUESTED.
+      'AuthController.resubmitRegistration': ['COMPLEMENTS_REQUESTED'],
+      // Account self-service, so a company under review is not locked out of
+      // its own account while it waits.
+      'AuthController.changePassword': UNDER_REVIEW,
+      'AuthController.deleteOwnAccount': UNDER_REVIEW,
+      'AuthController.updatePreferences': UNDER_REVIEW,
+      'AuthController.setTwoFactor': UNDER_REVIEW,
+      'AuthController.resendVerification': UNDER_REVIEW,
+      // Prefill for the correction form. POST dsmo/company stays fully guarded.
+      'DsmoController.getMyCompany': UNDER_REVIEW,
+    });
   });
 
   describe('negative case & fixture verification', () => {

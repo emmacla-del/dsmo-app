@@ -8,8 +8,10 @@ import { Roles } from './roles.decorator';
 import { USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
+import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
+import { UserStatus } from '../types/prisma.types';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -21,6 +23,11 @@ const RECOVERY_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
 // (security-question answers are low-entropy and partly public) — tightest
 // limit of the group.
 const SECURITY_ANSWER_THROTTLE = { default: { limit: 5, ttl: 15 * 60_000 } };
+// The statuses a company may still act under while its registration is being
+// reviewed: account self-service and the correction flow stay reachable so a
+// pending company is not locked out of its own account. REJECTED is absent,
+// and isActive=false is denied by ActiveCompanyGuard regardless of this list.
+const UNDER_REVIEW_STATUSES = [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMENTS_REQUESTED];
 
 @Controller('auth')
 export class AuthController {
@@ -190,16 +197,74 @@ export class AuthController {
   // guards list / suspend / delete / re-role.
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
-  async approveUser(@Param('id') id: string, @Request() req: any) {
-    return this.authService.approveUser(id, req.user.role, territoryFromUser(req.user));
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  // centralStructureConfirmed is the "structure centrale" confirmation the
+  // review dialog collects for an ADMINISTRATION file. The service refuses the
+  // approval without it; the checkbox is only the prompt, not the check.
+  async approveUser(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body('centralStructureConfirmed') centralStructureConfirmed?: boolean,
+  ) {
+    return this.authService.approveUser(id, req.user.id, req.user.role, territoryFromUser(req.user), {
+      centralStructureConfirmed,
+    });
   }
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL')
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
-    return this.authService.rejectUser(id, req.user.role, territoryFromUser(req.user));
+    return this.authService.rejectUser(id, req.user.id, req.user.role, territoryFromUser(req.user), reason ?? '');
+  }
+
+  @Patch('request-complements/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  async requestComplements(@Param('id') id: string, @Request() req: any, @Body('message') message?: string) {
+    return this.authService.requestComplements(
+      id,
+      req.user.id,
+      req.user.role,
+      territoryFromUser(req.user),
+      message ?? '',
+    );
+  }
+
+  @Get('company-registrations')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  async listCompanyRegistrations(
+    @Request() req: any,
+    @Query('entityType') entityType?: string,
+    @Query('region') region?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.authService.listCompanyRegistrations(territoryFromUser(req.user), {
+      entityType,
+      region,
+      from,
+      to,
+      search,
+      status,
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    });
+  }
+
+  @Post('resubmit-registration')
+  @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: [UserStatus.COMPLEMENTS_REQUESTED] })
+  // forbidNonWhitelisted, so an unknown key is a 400 rather than being quietly
+  // dropped — that is what keeps establishmentId unreachable from this route.
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, skipMissingProperties: false }))
+  async resubmitRegistration(@Request() req: any, @Body() body?: ResubmitRegistrationDto) {
+    return this.authService.resubmitRegistration(req.user.id, body);
   }
 
   // ===== ACTIVE USER MANAGEMENT (excludes pending-approval flow above) =====
@@ -304,6 +369,7 @@ export class AuthController {
 
   @Patch('change-password')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async changePassword(
     @Request() req: any,
     @Body() body: { currentPassword: string; newPassword: string },
@@ -317,12 +383,14 @@ export class AuthController {
 
   @Delete('me')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async deleteOwnAccount(@Request() req: any) {
     return this.authService.deactivateOwnAccount(req.user.id);
   }
 
   @Patch('preferences')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async updatePreferences(
     @Request() req: any,
     @Body()
@@ -338,6 +406,7 @@ export class AuthController {
 
   @Patch('two-factor')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async setTwoFactor(@Request() req: any, @Body('enabled') enabled: boolean) {
     return this.authService.setTwoFactorEnabled(req.user.id, enabled);
   }
@@ -412,6 +481,7 @@ export class AuthController {
 
   @Post('resend-verification')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
+  @AllowInactiveCompany({ statuses: UNDER_REVIEW_STATUSES })
   async resendVerification(@Request() req: any) {
     return this.authService.resendVerificationEmail(req.user.id);
   }

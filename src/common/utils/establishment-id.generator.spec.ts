@@ -21,6 +21,7 @@ function makePrisma(lastEstablishmentId: string | null = null) {
         lastEstablishmentId ? { establishmentId: lastEstablishmentId } : null,
       ),
     },
+    $executeRaw: jest.fn().mockResolvedValue(1),
   } as any;
 }
 
@@ -39,6 +40,7 @@ describe('EstablishmentIdGenerator', () => {
     const prisma = makePrisma();
     const id = await EstablishmentIdGenerator.generate(prisma, entityType, '12');
     expect(id).toBe(`${prefix}${currentYear2}000112`);
+    expect(prisma.$executeRaw).toHaveBeenCalled();
     expect(prisma.company.findFirst).toHaveBeenCalledWith({
       where: { establishmentId: { startsWith: `${prefix}${currentYear2}` } },
       orderBy: { establishmentId: 'desc' },

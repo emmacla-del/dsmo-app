@@ -46,6 +46,15 @@ export interface User {
   weeklyDigestEnabled: boolean;
   smsNotificationsEnabled: boolean;
   twoFactorEnabled: boolean;
+  status?: string | null;
+  approvalComment?: string | null;
+  // No rejectionReason. A rejected registration gets a fixed login message
+  // that carries no reviewer reason (see src/common/registration-messages.ts),
+  // so nothing company-facing shows it any more and /auth/me no longer
+  // returns it. The column and the staff-side review queue keep it — see
+  // CompanyRegistrationItem in user-directory.ts. This is the registration
+  // field; AdminDossier.rejectionReason in api-client.ts is the unrelated
+  // DSMO declaration one and stays.
   features: UserFeatures;
 }
 

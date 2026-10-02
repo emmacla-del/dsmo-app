@@ -58,14 +58,117 @@ export function listUsers(params: ListUsersParams) {
   return apiFetch<ListUsersResult>(`/auth/users${qs ? `?${qs}` : ""}`);
 }
 
-export function approveUser(id: string) {
-  return apiFetch(`/auth/approve-user/${id}`, { method: "PATCH" });
+// centralStructureConfirmed backs the "structure centrale" checkbox, which
+// the server requires before approving an ADMINISTRATION file. Sent only when
+// the reviewer actually ticked it: the server demands strictly `true`.
+export function approveUser(id: string, options: { centralStructureConfirmed?: boolean } = {}) {
+  return apiFetch(`/auth/approve-user/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ centralStructureConfirmed: options.centralStructureConfirmed === true }),
+  });
 }
 
 export function rejectUser(id: string, reason?: string) {
   return apiFetch(`/auth/reject-user/${id}`, {
     method: "PATCH",
     body: reason ? JSON.stringify({ reason }) : undefined,
+  });
+}
+
+export function requestComplements(id: string, message: string) {
+  return apiFetch(`/auth/request-complements/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ message }),
+  });
+}
+
+export interface CompanyRegistrationItem {
+  id: string;
+  companyId: string;
+  organisation: string;
+  email: string;
+  entityType: string | null;
+  region: string;
+  department: string;
+  status: string;
+  taxNumber: string;
+  cnpsNumber: string | null;
+  submittedAt: string;
+  registrationNumber: string | null;
+  approvalComment: string | null;
+  rejectionReason: string | null;
+  duplicateHints: string[];
+  requiresCentralStructureCheck: boolean;
+  // The corrections the company last sent, when that resubmission is newer
+  // than the last complements request on the same file. null when the company
+  // has not corrected anything since the reviewer last wrote to it.
+  lastResubmission: {
+    at: string;
+    changes: Record<string, { before: unknown; after: unknown }>;
+  } | null;
+}
+
+export interface CompanyRegistrationsResult {
+  items: CompanyRegistrationItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: { pending: number; complements: number; approved: number; rejected: number };
+}
+
+export function listCompanyRegistrations(params: {
+  entityType?: string;
+  region?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params.entityType) query.set("entityType", params.entityType);
+  if (params.region) query.set("region", params.region);
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.search) query.set("search", params.search);
+  if (params.status) query.set("status", params.status);
+  if (params.page) query.set("page", String(params.page));
+  if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+  return apiFetch<CompanyRegistrationsResult>(`/auth/company-registrations${qs ? `?${qs}` : ""}`);
+}
+
+/**
+ * The corrections a company may send with a resubmission.
+ *
+ * Mirrors ResubmitRegistrationDto field for field. The route validates with
+ * forbidNonWhitelisted, so an extra key is a 400 — which is why callers must
+ * build this object explicitly and never spread a CompanyProfile into it:
+ * CompanyProfile has an index signature and would carry unknown keys along.
+ */
+export interface RegistrationCorrections {
+  name?: string;
+  taxNumber?: string;
+  mainActivity?: string;
+  secondaryActivity?: string;
+  parentCompany?: string;
+  address?: string;
+  cnpsNumber?: string;
+  fax?: string;
+  socialCapital?: number;
+  entityType?: string;
+  region?: string;
+  department?: string;
+  subdivision?: string;
+}
+
+// No argument, or an empty object, is a resubmission with no corrections:
+// the status flip alone, which stays allowed.
+export function resubmitRegistration(data?: RegistrationCorrections) {
+  return apiFetch(`/auth/resubmit-registration`, {
+    method: "POST",
+    body: JSON.stringify(data ?? {}),
   });
 }
 

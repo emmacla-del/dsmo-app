@@ -4919,4 +4919,103 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get serviceCategoryAffiliatedShort => 'Rattaché';
+
+  @override
+  String get registrationStatusTitle => 'Dossier d\'inscription';
+
+  @override
+  String get registrationPendingHeadline =>
+      'Votre inscription a été enregistrée';
+
+  @override
+  String get registrationPendingBody =>
+      'Un agent doit valider votre dossier avant que vous puissiez déclarer. Vous recevrez un e-mail dès que votre compte sera activé.';
+
+  @override
+  String get registrationPendingFollowButton => 'Suivre mon dossier';
+
+  @override
+  String get registrationAwaitingReviewMessage =>
+      'Votre compte est en attente de validation par un agent. Vous pourrez déclarer dès qu\'il sera activé.';
+
+  @override
+  String get registrationComplementsHeadline => 'Compléments demandés';
+
+  @override
+  String get registrationComplementsIntro =>
+      'Un agent demande des compléments pour votre dossier :';
+
+  @override
+  String get registrationComplementsFallback =>
+      'Merci de compléter votre dossier.';
+
+  @override
+  String get registrationResubmitButton => 'Renvoyer le dossier';
+
+  @override
+  String get registrationResubmitDoneMessage =>
+      'Dossier renvoyé pour validation.';
+
+  @override
+  String get registrationCorrectionIntro =>
+      'Corrigez ce qui doit l\'être, puis renvoyez le dossier. Les champs inchangés sont laissés tels quels.';
+
+  @override
+  String get registrationCorrectionLoadError =>
+      'Votre dossier n\'a pas pu être chargé. Vous pouvez tout de même le renvoyer tel quel.';
+
+  @override
+  String get registrationCorrectionNameLabel => 'Raison sociale';
+
+  @override
+  String get registrationCorrectionTaxNumberLabel =>
+      'Numéro contribuable (NIU)';
+
+  @override
+  String get registrationCorrectionMainActivityLabel => 'Activité principale';
+
+  @override
+  String get registrationCorrectionSecondaryActivityLabel =>
+      'Activité secondaire';
+
+  @override
+  String get registrationCorrectionParentCompanyLabel => 'Société mère';
+
+  @override
+  String get registrationCorrectionAddressLabel => 'Adresse';
+
+  @override
+  String get registrationCorrectionCnpsNumberLabel => 'Numéro CNPS';
+
+  @override
+  String get registrationCorrectionFaxLabel => 'Fax';
+
+  @override
+  String get registrationCorrectionSocialCapitalLabel =>
+      'Capital social (FCFA)';
+
+  @override
+  String get registrationCorrectionEntityTypeLabel => 'Type d\'entité';
+
+  @override
+  String get registrationCorrectionEntityTypeUnset => 'Non renseigné';
+
+  @override
+  String get registrationCorrectionRegionLabel => 'Région';
+
+  @override
+  String get registrationCorrectionDepartmentLabel => 'Département';
+
+  @override
+  String get registrationCorrectionSubdivisionLabel => 'Arrondissement';
+
+  @override
+  String get registrationCorrectionSubdivisionRequired =>
+      'Choisissez l\'arrondissement pour déplacer le dossier.';
+
+  @override
+  String get registrationStatusRefreshButton => 'Actualiser';
+
+  @override
+  String get registrationStatusLogoutButton => 'Se déconnecter';
 }

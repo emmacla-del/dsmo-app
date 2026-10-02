@@ -99,6 +99,52 @@ export class ApiError extends Error {
   }
 }
 
+/** ActiveCompanyGuard's refusal code — see src/auth/active-company.guard.ts. */
+export const COMPANY_NOT_ACTIVE = "COMPANY_NOT_ACTIVE";
+
+const REGISTRATION_STATUS_PATH = "/home/inscription-en-attente";
+const LOGIN_PATH = "/login";
+
+/**
+ * ActiveCompanyGuard throws `new ForbiddenException({ code, status })`, which
+ * Nest serialises as that object at the top level — so the body is
+ * `{ code: "COMPANY_NOT_ACTIVE", status: <UserStatus> }`.
+ */
+function isCompanyNotActive(status: number, body: unknown): boolean {
+  if (status !== 403 || !body || typeof body !== "object" || Array.isArray(body)) return false;
+  return (body as { code?: unknown }).code === COMPANY_NOT_ACTIVE;
+}
+
+/**
+ * A company whose registration is not active has no business on an
+ * operational screen: send it to its status page.
+ *
+ * From `/auth/me` it means something stronger. That route is exempt for
+ * PENDING_APPROVAL and COMPLEMENTS_REQUESTED, so a refusal there can only be
+ * `isActive: false` — a REJECTED (or suspended) account still holding a
+ * token. The spec accepts that such a session can exist; this is where it
+ * ends. Sign out rather than redirect, since the status page has nothing to
+ * tell a rejected company any more.
+ *
+ * A full-page navigation, not router.replace(): apiFetch is called from
+ * plain functions outside the React tree, where no router is in scope. Both
+ * branches are no-ops when the browser is already where it needs to be, so a
+ * burst of guarded requests cannot loop.
+ */
+function handleCompanyNotActive(path: string): void {
+  if (typeof window === "undefined") return;
+  const fromMe = path === "/auth/me" || path.startsWith("/auth/me?");
+  if (fromMe) {
+    clearToken();
+    clearCachedUser();
+    if (window.location.pathname !== LOGIN_PATH) window.location.assign(LOGIN_PATH);
+    return;
+  }
+  if (window.location.pathname !== REGISTRATION_STATUS_PATH) {
+    window.location.assign(REGISTRATION_STATUS_PATH);
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -120,6 +166,9 @@ export async function apiFetch<T>(
     // res.statusText the way body?.message would.
     const message =
       (!Array.isArray(body) && body?.message) || res.statusText || `HTTP ${res.status}`;
+    if (isCompanyNotActive(res.status, body)) {
+      handleCompanyNotActive(path);
+    }
     throw new ApiError(res.status, message, body);
   }
 
