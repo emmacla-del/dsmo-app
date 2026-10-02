@@ -29,8 +29,14 @@ export function CoverageTable({
             <th scope="col">Territoire</th>
             <th scope="col">Mode</th>
             <th scope="col" className="is-num">Inscrits</th>
-            <th scope="col" className="is-num">Cible</th>
-            <th scope="col" className="is-num">Taux</th>
+            <th scope="col" className="is-num">Objectif</th>
+            {/*
+              registered / inscriptionTarget is attainment of an
+              administratively fixed enrolment objective, not statistical
+              coverage of the establishment universe. Keep the label on
+              attainment; the API field stays `rate`.
+            */}
+            <th scope="col" className="is-num">Taux d&apos;atteinte</th>
             <th scope="col" className="is-num">Dans l&apos;année</th>
             <th scope="col" className="is-num">Approbation</th>
             <th scope="col" className="is-num">Instruction</th>

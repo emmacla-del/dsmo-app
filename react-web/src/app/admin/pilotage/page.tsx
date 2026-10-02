@@ -93,7 +93,7 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
               Gérer les campagnes →
             </Link>
             <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-              Cibles et couverture →
+              Objectifs et atteinte →
             </Link>
           </div>
         </div>
@@ -134,14 +134,14 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
             Voir les détails de la campagne →
           </Link>
           <Link href="/admin/cibles" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>
-            Cibles et couverture →
+            Objectifs et atteinte →
           </Link>
         </div>
       </div>
 
       <div style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Taux de couverture des entreprises ciblées</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Taux d'atteinte de l'objectif de campagne</span>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#1e6b3a" }}>
             {completionPct !== null ? `${completionPct}%` : "—"}
           </span>
@@ -177,7 +177,7 @@ function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] })
   return (
     <section className="cam-dash-card" aria-labelledby="dash-regions-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h3 id="dash-regions-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Couverture Régionale</h3>
+        <h3 id="dash-regions-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Activité régionale</h3>
         <Link href="/admin/centre-qualite?tab=regional" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir toutes les régions →</Link>
       </div>
       <div className="cam-dash-table-wrap">
