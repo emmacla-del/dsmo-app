@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
+import 'data/api_client.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'models/employee_adapter.dart';
 import 'providers/connectivity_provider.dart';
@@ -145,9 +146,30 @@ Future<void> _initializeHive() async {
   }
 }
 
+/// Routes a COMPANY_NOT_ACTIVE refusal. main.dart owns the router, so the
+/// hook is wired here rather than reaching into it from the data layer.
+///
+/// [fromAuthMe] means the refusal came from /auth/me, which that route is
+/// exempt from for the two under-review statuses — so it can only be
+/// isActive: false, a rejected or suspended account still holding a token.
+/// ApiClient has already cleared the token by then; this takes it to the
+/// login screen. Every other route goes to the status screen instead.
+///
+/// Both branches are no-ops when the app is already where it needs to be, so
+/// a burst of guarded requests cannot loop.
+void _onCompanyNotActive({required bool fromAuthMe}) {
+  final target = fromAuthMe ? '/login' : '/inscription-en-attente';
+  final context = rootNavigatorKey.currentContext;
+  if (context == null) return;
+  final current = GoRouterState.of(context).uri.path;
+  if (current == target) return;
+  router.go(target);
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initializeHive();
+  ApiClient.onCompanyNotActive = _onCompanyNotActive;
   runApp(const ProviderScope(child: MyApp()));
 }
 

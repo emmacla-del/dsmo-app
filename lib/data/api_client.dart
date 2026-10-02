@@ -16,9 +16,31 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// ActiveCompanyGuard's refusal code — see src/auth/active-company.guard.ts.
+/// The guard throws `ForbiddenException({ code, status })`, so the body is
+/// `{ "code": "COMPANY_NOT_ACTIVE", "status": <UserStatus> }` with no
+/// `message` key at all — which is why it has to be recognised explicitly
+/// rather than through _handleError's generic 403 string.
+const String kCompanyNotActive = 'COMPANY_NOT_ACTIVE';
+
+bool _isCompanyNotActive(Response<dynamic>? response) {
+  if (response?.statusCode != 403) return false;
+  final data = response!.data;
+  return data is Map && data['code'] == kCompanyNotActive;
+}
+
 class ApiClient {
   final Dio dio;
   final _cache = ReferenceCacheService();
+
+  /// Where a COMPANY_NOT_ACTIVE refusal sends the app.
+  ///
+  /// Set once at startup by main.dart, which owns the router; left null in
+  /// tests and in any isolate with no navigator, where the refusal is still
+  /// reported as an ApiException either way. [fromAuthMe] is true when the
+  /// refusal came from /auth/me, which means something stronger — see the
+  /// interceptor below.
+  static void Function({required bool fromAuthMe})? onCompanyNotActive;
 
   // Set on every login regardless of "Rester connecté", so the token is
   // usable for the rest of this app session either way. Only the Hive
@@ -48,6 +70,21 @@ class ApiClient {
       onError: (error, handler) {
         if (error.response?.statusCode == 401) {
           _clearToken();
+        }
+        // A company whose registration is not active has no business on an
+        // operational screen. From /auth/me it means more than that: commit 1
+        // exempted that route for PENDING_APPROVAL and COMPLEMENTS_REQUESTED,
+        // so a refusal there can only be isActive: false — a REJECTED (or
+        // suspended) account still holding a token, the case the spec accepts
+        // can exist. That session ends here rather than being redirected,
+        // since the status screen has nothing left to tell it.
+        if (_isCompanyNotActive(error.response)) {
+          final path = error.requestOptions.path;
+          final fromAuthMe = path == '/auth/me' || path.endsWith('/auth/me');
+          if (fromAuthMe) {
+            _clearToken();
+          }
+          onCompanyNotActive?.call(fromAuthMe: fromAuthMe);
         }
         if (kDebugMode &&
             const bool.fromEnvironment('VERBOSE_API', defaultValue: false) &&
@@ -437,9 +474,13 @@ class ApiClient {
   /// Sends a company whose registration came back with COMPLEMENTS_REQUESTED
   /// back into the review queue (status -> PENDING_APPROVAL). The account
   /// itself is the actor: the backend reads it from the token.
-  Future<void> resubmitRegistration() async {
+  /// [data] carries the corrections, mirroring ResubmitRegistrationDto. The
+  /// route validates with forbidNonWhitelisted, so callers build the map
+  /// explicitly rather than handing over a whole company profile. Omitted or
+  /// empty, the call is the status flip alone, which stays allowed.
+  Future<void> resubmitRegistration({Map<String, dynamic>? data}) async {
     try {
-      await dio.post('/auth/resubmit-registration');
+      await dio.post('/auth/resubmit-registration', data: data ?? const {});
     } on DioException catch (e) {
       throw ApiException(
         statusCode: e.response?.statusCode,
@@ -2105,6 +2146,13 @@ class ApiClient {
           }
           if (statusCode == 401) {
             return 'Session expirée. Veuillez vous reconnecter.';
+          }
+          // Checked before the generic 403 string below: this body carries a
+          // code and no message, so it would otherwise read as a permissions
+          // problem rather than a registration still under review.
+          if (data['code'] == kCompanyNotActive) {
+            return 'Votre inscription n\'est pas encore validée. '
+                'Consultez votre dossier d\'inscription.';
           }
           if (statusCode == 403) {
             return 'Accès non autorisé. Vous ne disposez pas des droits nécessaires.';
