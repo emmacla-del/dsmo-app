@@ -34,7 +34,19 @@ describe('ONEFOP export filters', () => {
   it('filters rows by entity type, place and year', () => {
     expect(
       buildOnefopExportWhere({ entityType: 'COOPERATIVE', region: 'Ouest', department: 'Mifi', year: '2026' }, ELIGIBLE),
-    ).toMatchObject({ formType: 'COOPERATIVE', region: 'Ouest', department: 'Mifi', surveyYear: 2026 });
+    ).toMatchObject({
+      formType: 'COOPERATIVE',
+      region: { equals: 'Ouest', mode: 'insensitive' },
+      department: { equals: 'Mifi', mode: 'insensitive' },
+      surveyYear: 2026,
+    });
+
+    expect(
+      buildOnefopExportWhere({ region: 'ouest', department: 'mifi' }, ELIGIBLE),
+    ).toMatchObject({
+      region: { equals: 'ouest', mode: 'insensitive' },
+      department: { equals: 'mifi', mode: 'insensitive' },
+    });
   });
 
   it('keeps demand and vocational-training rows in separate SPSS files', () => {
