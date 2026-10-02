@@ -157,18 +157,23 @@ export default function RegisterPage() {
 
   const config = entityType ? ENTITY_CONFIGS[entityType] : null;
 
-  const regionsQuery = useQuery({ queryKey: ["locations", "regions"], queryFn: getRegions, enabled: step === "location" });
+  const [regionName, setRegionName] = useState("");
+  const [departmentName, setDepartmentName] = useState("");
+  const [subdivisionName, setSubdivisionName] = useState("");
+  const [sectorName, setSectorName] = useState("");
+
+  const regionsQuery = useQuery({ queryKey: ["locations", "regions"], queryFn: getRegions });
   const departmentsQuery = useQuery({
     queryKey: ["locations", "departments", regionId],
     queryFn: () => getDepartmentsByRegion(regionId),
-    enabled: step === "location" && !!regionId,
+    enabled: !!regionId,
   });
   const subdivisionsQuery = useQuery({
     queryKey: ["locations", "subdivisions", departmentId],
     queryFn: () => getSubdivisionsByDepartment(departmentId),
-    enabled: step === "location" && !!departmentId,
+    enabled: !!departmentId,
   });
-  const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors, enabled: step === "location" });
+  const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
 
   // Debounced email availability check
   useEffect(() => {
@@ -319,13 +324,16 @@ export default function RegisterPage() {
     }
   };
 
-  const regionName = regionsQuery.data?.find((r) => r.id === regionId)?.name;
-  const departmentName = departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
-  const subdivisionName = subdivisionsQuery.data?.find((s) => s.id === subdivisionId)?.name;
-  const sectorName = sectorsQuery.data?.find((s) => s.id === sectorId)?.name;
+  const resolvedRegionName = regionName || regionsQuery.data?.find((r) => r.id === regionId)?.name;
+  const resolvedDepartmentName = departmentName || departmentsQuery.data?.find((d) => d.id === departmentId)?.name;
+  const resolvedSubdivisionName = subdivisionName || subdivisionsQuery.data?.find((s) => s.id === subdivisionId)?.name;
+  const resolvedSectorName = sectorName || sectorsQuery.data?.find((s) => s.id === sectorId)?.name;
 
   async function submit() {
-    if (!entityType || !config) return;
+    if (!entityType || !config) {
+      setSubmitError("Type d'entité non sélectionné. Veuillez reprendre l'enregistrement.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -333,15 +341,25 @@ export default function RegisterPage() {
       const address = resolveAddress(entityData);
       const mainActivity = resolveMainActivity(entityData);
 
+      const rName = resolvedRegionName || "";
+      const dName = resolvedDepartmentName || "";
+      const sName = resolvedSubdivisionName || "";
+
+      if (!rName || !dName || !sName) {
+        setSubmitError("Région, département et arrondissement sont requis pour l'enregistrement officiel.");
+        setSubmitting(false);
+        return;
+      }
+
       const payload: RegisterCompanyPayload = {
         email: respondent.email.trim(),
         password,
         firstName: respondent.firstName.trim(),
         lastName: respondent.lastName.trim(),
         role: "COMPANY",
-        region: regionName,
-        department: departmentName,
-        subdivision: subdivisionName,
+        region: rName,
+        department: dName,
+        subdivision: sName,
         regionId: regionId || undefined,
         departmentId: departmentId || undefined,
         subdivisionId: subdivisionId || undefined,
@@ -388,8 +406,18 @@ export default function RegisterPage() {
         companyName: response.company.name ?? companyName,
         attestationUrl: response.company.attestationUrl,
       });
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     } catch (e) {
-      setSubmitError(e instanceof ApiError ? e.message : String(e));
+      const msg = e instanceof ApiError ? e.message : String(e);
+      setSubmitError(msg);
+      if (typeof window !== "undefined") {
+        setTimeout(() => {
+          const errEl = document.querySelector(".auth-error-box");
+          errEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 50);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1091,9 +1119,13 @@ export default function RegisterPage() {
                           aria-required={true}
                           value={regionId}
                           onChange={(e) => {
-                            setRegionId(e.target.value);
+                            const id = e.target.value;
+                            setRegionId(id);
+                            setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
                             setDepartmentId("");
+                            setDepartmentName("");
                             setSubdivisionId("");
+                            setSubdivisionName("");
                           }}
                         >
                           <option value="">{t("registerPage.selectPlaceholder")}</option>
@@ -1120,8 +1152,11 @@ export default function RegisterPage() {
                             value={departmentId}
                             disabled={!regionId}
                             onChange={(e) => {
-                              setDepartmentId(e.target.value);
+                              const id = e.target.value;
+                              setDepartmentId(id);
+                              setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
                               setSubdivisionId("");
+                              setSubdivisionName("");
                             }}
                           >
                             <option value="">
@@ -1150,7 +1185,11 @@ export default function RegisterPage() {
                             id="reg-subdivision"
                             value={subdivisionId}
                             disabled={!departmentId}
-                            onChange={(e) => setSubdivisionId(e.target.value)}
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              setSubdivisionId(id);
+                              setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
+                            }}
                           >
                             <option value="">
                               {departmentId ? t("registerPage.selectPlaceholder") : t("registerPage.selectDepartmentFirst")}
@@ -1174,7 +1213,11 @@ export default function RegisterPage() {
                       <select
                         id="reg-sector"
                         value={sectorId}
-                        onChange={(e) => setSectorId(e.target.value)}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setSectorId(id);
+                          setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
+                        }}
                       >
                         <option value="">{t("registerPage.selectPlaceholder")}</option>
                         {sectorsQuery.data?.map((s) => (
@@ -1323,20 +1366,20 @@ export default function RegisterPage() {
                   config={config}
                   respondent={respondent}
                   entityData={entityData}
-                  regionName={regionName}
-                  departmentName={departmentName}
-                  subdivisionName={subdivisionName}
+                  regionName={resolvedRegionName}
+                  departmentName={resolvedDepartmentName}
+                  subdivisionName={resolvedSubdivisionName}
                   area={area}
-                  sectorName={sectorName}
+                  sectorName={resolvedSectorName}
                   onEdit={(targetStep) => setStep(targetStep)}
                 />
               </div>
             )}
 
             {/* Step error banner */}
-            {stepError && (
-              <div className="auth-error-box" role="alert" style={{ marginTop: "16px" }}>
-                {stepError}
+            {(stepError || submitError) && (
+              <div className="auth-error-box" role="alert" style={{ marginTop: "16px", whiteSpace: "pre-line" }}>
+                {submitError || stepError}
               </div>
             )}
 
