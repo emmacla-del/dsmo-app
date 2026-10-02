@@ -379,7 +379,7 @@ export class EligibilityEngineService {
     // after commit. On PostgreSQL a failed statement aborts the interactive
     // transaction, so a CampaignSubmission error inside it would undo the
     // visa itself; outside it, the error is only logged.
-    const campaignTargets: Array<{ id: string; campaignId: string | null; companyId: string | null }> = [];
+    const campaignTargets: Array<{ id: string; campaignId: string | null; establishmentId: string | null; companyId: string | null }> = [];
 
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Fetch all requested dossiers with open blocking anomalies and territorial fields
@@ -433,7 +433,12 @@ export class EligibilityEngineService {
         }
 
         approvedIds.push(candidate.id);
-        campaignTargets.push({ id: candidate.id, campaignId: candidate.campaignId, companyId: candidate.companyId });
+        campaignTargets.push({
+          id: candidate.id,
+          campaignId: candidate.campaignId,
+          establishmentId: candidate.establishmentId,
+          companyId: candidate.companyId,
+        });
       }
 
       // 2. Atomically update all verified clean candidates.
@@ -508,12 +513,20 @@ export class EligibilityEngineService {
     }
 
     // Campaign progress B4: same post-commit pattern as executeBulkVisa.
-    const campaignTargets: Array<{ id: string; campaignId: string | null; companyId: string | null }> = [];
+    const campaignTargets: Array<{ id: string; campaignId: string | null; establishmentId: string | null; companyId: string | null }> = [];
 
     const result = await this.prisma.$transaction(async (tx) => {
       const candidates = await tx.onefopSubmission.findMany({
         where: { id: { in: dto.submissionIds } },
-        select: { id: true, status: true, region: true, department: true, campaignId: true, companyId: true },
+        select: {
+          id: true,
+          status: true,
+          region: true,
+          department: true,
+          campaignId: true,
+          establishmentId: true,
+          companyId: true,
+        },
       });
 
       const rejectableIds: string[] = [];
@@ -549,7 +562,12 @@ export class EligibilityEngineService {
         }
 
         rejectableIds.push(candidate.id);
-        campaignTargets.push({ id: candidate.id, campaignId: candidate.campaignId, companyId: candidate.companyId });
+        campaignTargets.push({
+          id: candidate.id,
+          campaignId: candidate.campaignId,
+          establishmentId: candidate.establishmentId,
+          companyId: candidate.companyId,
+        });
       }
 
       if (rejectableIds.length > 0) {

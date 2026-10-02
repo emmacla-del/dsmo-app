@@ -1267,6 +1267,24 @@ export class AuthService {
               data: { establishmentId: issued, establishmentIdGeneratedAt: new Date() },
             });
           }
+          await tx.establishment.create({
+            data: {
+              code: `${issued}-01`,
+              name: company.name || 'Siège Principal',
+              isPrincipal: true,
+              status: 'ACTIVE',
+              companyId: company.id,
+              regionId: company.regionId || '',
+              departmentId: company.departmentId || '',
+              subdivisionId: (company.subdivisionId || '') as string,
+              region: company.region || '',
+              department: company.department || '',
+              subdivision: company.subdivision || '',
+              address: company.address || '',
+              phone: company.phone || null,
+              email: (company as any).email || user.email,
+            },
+          });
           const updated = await tx.user.update({
             where: { id: user.id },
             data: { status: 'ACTIVE', isActive: true, approvedAt: new Date() },
