@@ -346,7 +346,6 @@ export interface RegisterCompanyPayload {
   ctdType?: string;
   mainMission?: string;
   registrationNumber?: string;
-  trainingDomains?: string;
   branch?: string;
   poBox?: string;
   phone?: string;

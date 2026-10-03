@@ -15,6 +15,29 @@ export type EntityType =
   | "projectProgram"
   | "vocationalTraining";
 
+// The wizard's step sequence, owned here because it had two independent
+// copies: STEPS in app/register/page.tsx (navigation order) and
+// REGISTRATION_STEPS in components/auth/RegistrationProgress.tsx (rail
+// labels). They happened to agree, but nothing enforced it, and a drift would
+// have surfaced as a mislabeled or skipped circle rather than a type error.
+//
+// `id` is what page.tsx navigates by; `labelKey` resolves against next-intl's
+// registerPage namespace.
+export const REGISTRATION_STEPS = [
+  { id: "entityType", labelKey: "stepEntityType" },
+  { id: "respondent", labelKey: "stepRespondent" },
+  { id: "entityInfo", labelKey: "stepEntityInfo" },
+  { id: "location", labelKey: "stepLocation" },
+  { id: "security", labelKey: "stepSecurity" },
+  { id: "review", labelKey: "stepReview" },
+] as const;
+
+export type RegistrationStepId = (typeof REGISTRATION_STEPS)[number]["id"];
+
+// Ordered ids alone, for the index arithmetic in goNext/goBack.
+export const REGISTRATION_STEP_IDS: readonly RegistrationStepId[] =
+  REGISTRATION_STEPS.map((step) => step.id);
+
 // Backend wire value (RegisterCompanyDto.entityType / normalizeEntityType()
 // in questionnaires.service.ts) — distinct from the schema-registry spelling
 // used elsewhere (onefop-schema.ts's SchemaEntityType uses 'enterprise'
@@ -335,7 +358,7 @@ export function resolveAddress(data: Record<string, unknown>): string {
 }
 
 export function resolveMainActivity(data: Record<string, unknown>): string {
-  const candidates = [data.mainActivity, data.mainMission, data.trainingDomains];
+  const candidates = [data.mainActivity, data.mainMission];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c;
   }

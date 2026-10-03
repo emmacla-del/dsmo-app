@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ENTITY_CONFIGS,
+  REGISTRATION_STEPS,
+  REGISTRATION_STEP_IDS,
   pruneEntityDataForType,
   resolveCompanyName,
   visibleEntityDataForType,
@@ -151,4 +153,32 @@ test("visibleEntityDataForType never emits a key outside the type's config", () 
       assert.ok(declared.has(key), `${key} is not declared by ${type}`);
     }
   }
+});
+
+test("REGISTRATION_STEP_IDS mirrors REGISTRATION_STEPS in order", () => {
+  // app/register/page.tsx navigates by REGISTRATION_STEP_IDS and
+  // components/auth/RegistrationProgress.tsx renders REGISTRATION_STEPS. Both
+  // now derive from the same array, so this locks the derivation rather than
+  // comparing two hand-written copies as the old duplication would have needed.
+  assert.deepEqual(
+    [...REGISTRATION_STEP_IDS],
+    REGISTRATION_STEPS.map((step) => step.id)
+  );
+});
+
+test("REGISTRATION_STEPS is the six-step wizard, uniquely keyed", () => {
+  assert.equal(REGISTRATION_STEPS.length, 6);
+  assert.deepEqual(
+    REGISTRATION_STEPS.map((step) => step.id),
+    ["entityType", "respondent", "entityInfo", "location", "security", "review"]
+  );
+
+  const ids = new Set(REGISTRATION_STEPS.map((step) => step.id));
+  const labelKeys = new Set(REGISTRATION_STEPS.map((step) => step.labelKey));
+  assert.equal(ids.size, REGISTRATION_STEPS.length, "step ids must be unique");
+  assert.equal(
+    labelKeys.size,
+    REGISTRATION_STEPS.length,
+    "every step needs its own registerPage label key"
+  );
 });

@@ -2,25 +2,9 @@
 
 import { useTranslations } from "next-intl";
 
-interface StepItem {
-  id: string;
-  labelKey:
-    | "stepEntityType"
-    | "stepRespondent"
-    | "stepEntityInfo"
-    | "stepLocation"
-    | "stepSecurity"
-    | "stepReview";
-}
-
-const REGISTRATION_STEPS: StepItem[] = [
-  { id: "entityType", labelKey: "stepEntityType" },
-  { id: "respondent", labelKey: "stepRespondent" },
-  { id: "entityInfo", labelKey: "stepEntityInfo" },
-  { id: "location", labelKey: "stepLocation" },
-  { id: "security", labelKey: "stepSecurity" },
-  { id: "review", labelKey: "stepReview" },
-];
+// Shared with app/register/page.tsx: this rail used to carry its own copy of
+// the step list, which nothing kept in step with the page's navigation order.
+import { REGISTRATION_STEPS } from "@/lib/register-constants";
 
 interface RegistrationProgressProps {
   currentStep: string;

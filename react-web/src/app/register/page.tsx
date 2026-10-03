@@ -16,6 +16,7 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
+  REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
   pruneEntityDataForType,
@@ -24,6 +25,7 @@ import {
   resolveMainActivity,
   visibleEntityDataForType,
   type EntityType,
+  type RegistrationStepId,
 } from "@/lib/register-constants";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
 import { passwordStrength, passwordStrengthLabel, validatePassword } from "@/lib/password-strength";
@@ -37,8 +39,10 @@ import { RegistrationReview } from "@/components/auth/RegistrationReview";
 // 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
 // Visual standard: Serious, structured national administrative interface with emerald administrative frame
 
-const STEPS = ["entityType", "respondent", "entityInfo", "location", "security", "review"] as const;
-type Step = (typeof STEPS)[number];
+// Single source of truth lives in register-constants.ts, shared with
+// RegistrationProgress so the navigation order and the rail labels cannot drift.
+const STEPS = REGISTRATION_STEP_IDS;
+type Step = RegistrationStepId;
 
 interface RespondentState {
   firstName: string;
@@ -332,7 +336,9 @@ export default function RegisterPage() {
         area,
         entityType: entityApiValue(entityType),
         companyName,
-        taxNumber: visibleData.taxNumber ?? "",
+        // Omitted entirely for the two types whose config does not declare it
+        // (administration, projectProgram) rather than sent as "".
+        taxNumber: visibleData.taxNumber,
         mainActivity,
         address,
         parentCompany: visibleData.parentCompany,
@@ -345,7 +351,6 @@ export default function RegisterPage() {
         ctdType: visibleData.ctdType,
         mainMission: visibleData.mainMission,
         registrationNumber: visibleData.registrationNumber,
-        trainingDomains: visibleData.trainingDomains,
         branch: visibleData.branch,
         poBox: visibleData.poBox,
         phone: visibleData.phone,
@@ -1123,7 +1128,6 @@ export default function RegisterPage() {
                   {/* Password guidelines box */}
                   <div
                     style={{
-                      gridColumn: "1 / -1",
                       background: "var(--cam-surface-subtle)",
                       border: "1px solid var(--cam-border)",
                       borderRadius: "var(--cam-radius-sm)",
