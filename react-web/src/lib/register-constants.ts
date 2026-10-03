@@ -15,14 +15,6 @@ export type EntityType =
   | "projectProgram"
   | "vocationalTraining";
 
-// Progressive classification: Public vs Private status filter for Step 1
-export type InstitutionStatus = "public" | "private";
-
-export const ENTITY_TYPES_BY_STATUS: Record<InstitutionStatus, EntityType[]> = {
-  public: ["administration", "ctd", "projectProgram", "vocationalTraining"],
-  private: ["enterprise", "cooperative", "ong", "vocationalTraining"],
-};
-
 // Backend wire value (RegisterCompanyDto.entityType / normalizeEntityType()
 // in questionnaires.service.ts) — distinct from the schema-registry spelling
 // used elsewhere (onefop-schema.ts's SchemaEntityType uses 'enterprise'

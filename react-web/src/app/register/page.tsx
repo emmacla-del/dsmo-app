@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
@@ -16,14 +16,12 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
-  ENTITY_TYPES_BY_STATUS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
   resolveAddress,
   resolveCompanyName,
   resolveMainActivity,
   type EntityType,
-  type InstitutionStatus,
 } from "@/lib/register-constants";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
 import { passwordStrength, passwordStrengthLabel, validatePassword } from "@/lib/password-strength";
@@ -48,46 +46,27 @@ interface RespondentState {
   phone2: string;
 }
 
-const ENTITY_DESCRIPTIONS: Record<EntityType, string> = {
-  enterprise: "Société commerciale (SARL, SA, SAS), établissement privé, entreprise individuelle",
-  cooperative: "Société coopérative avec ou sans conseil d'administration (Loi OHADA)",
-  ctd: "Collectivités Territoriales Décentralisées (Régions, Communes, Communautés urbaines)",
-  ong: "Organisation non gouvernementale, association agréée, fondation",
-  administration: "Ministère, organisme public, établissement public administratif",
-  projectProgram: "Projet ou programme de développement sous tutelle administrative",
-  vocationalTraining: "Centre de formation professionnelle public ou privé (enquête ONEFOP)",
-};
-
-const ENTITY_TYPE_TRANSLATION_KEYS: Record<EntityType, { title: string; desc: string }> = {
-  administration: {
-    title: "registerPage.entityTypeAdministration",
-    desc: "registerPage.entityDescAdministration",
+// Step 1 radio list: one row per structure type, in respondent-facing order.
+// Labels avoid administrative codes (CTD/ONG/CFP); the two types whose plain
+// label is ambiguous carry a short hint. Replaces the former public/private
+// two-state classification flow, which was UI-only and never reached the payload.
+const ENTITY_TYPE_OPTIONS: { type: EntityType; labelKey: string; hintKey?: string }[] = [
+  { type: "enterprise", labelKey: "registerPage.entityOptionEnterprise" },
+  { type: "cooperative", labelKey: "registerPage.entityOptionCooperative" },
+  { type: "ong", labelKey: "registerPage.entityOptionOng" },
+  {
+    type: "administration",
+    labelKey: "registerPage.entityOptionAdministration",
+    hintKey: "registerPage.entityOptionAdministrationHint",
   },
-  ctd: {
-    title: "registerPage.entityTypeCtd",
-    desc: "registerPage.entityDescCtd",
+  {
+    type: "ctd",
+    labelKey: "registerPage.entityOptionCtd",
+    hintKey: "registerPage.entityOptionCtdHint",
   },
-  projectProgram: {
-    title: "registerPage.entityTypeProjectProgram",
-    desc: "registerPage.entityDescProjectProgram",
-  },
-  enterprise: {
-    title: "registerPage.entityTypeEnterprise",
-    desc: "registerPage.entityDescEnterprise",
-  },
-  cooperative: {
-    title: "registerPage.entityTypeCooperative",
-    desc: "registerPage.entityDescCooperative",
-  },
-  ong: {
-    title: "registerPage.entityTypeOng",
-    desc: "registerPage.entityDescOng",
-  },
-  vocationalTraining: {
-    title: "registerPage.entityTypeVocationalTraining",
-    desc: "registerPage.entityDescVocationalTraining",
-  },
-};
+  { type: "projectProgram", labelKey: "registerPage.entityOptionProjectProgram" },
+  { type: "vocationalTraining", labelKey: "registerPage.entityOptionVocationalTraining" },
+];
 
 const ENTITY_SECTIONS: Record<EntityType, { title: string; keys: string[] }[]> = {
   enterprise: [
@@ -128,9 +107,8 @@ const ENTITY_SECTIONS: Record<EntityType, { title: string; keys: string[] }[]> =
 export default function RegisterPage() {
   const t = useTranslations();
   const [step, setStep] = useState<Step>("entityType");
-  const [institutionStatus, setInstitutionStatus] = useState<InstitutionStatus | null>(null);
-  const [isSelectingStatus, setIsSelectingStatus] = useState(true);
   const [entityType, setEntityType] = useState<EntityType | null>(null);
+  const firstEntityRadioRef = useRef<HTMLInputElement>(null);
   const [respondent, setRespondent] = useState<RespondentState>({
     firstName: "",
     lastName: "",
@@ -198,35 +176,14 @@ export default function RegisterPage() {
     return checkFieldVisible(field as import("@/lib/register-constants").EntityField, entityData, config?.fields);
   }
 
-  const showStatusSelection = isSelectingStatus || !institutionStatus;
-
-  function handleSelectStatus(status: InstitutionStatus) {
-    if (status !== institutionStatus) {
-      setInstitutionStatus(status);
-      // Clear the selected entity type if it is no longer valid under the newly selected status
-      if (entityType && !ENTITY_TYPES_BY_STATUS[status].includes(entityType)) {
-        setEntityType(null);
-      }
-    }
-    setIsSelectingStatus(false);
-    setStepError(null);
-  }
-
   function goNext() {
     setStepError(null);
     const idx = STEPS.indexOf(step);
 
     if (step === "entityType") {
-      if (showStatusSelection) {
-        if (!institutionStatus) {
-          setStepError(t("registerPage.errorInstitutionStatusRequired"));
-          return;
-        }
-        setIsSelectingStatus(false);
-        return;
-      }
-      if (!entityType || !ENTITY_TYPES_BY_STATUS[institutionStatus].includes(entityType)) {
+      if (!entityType) {
         setStepError(t("registerPage.errorEntityTypeRequired"));
+        firstEntityRadioRef.current?.focus();
         return;
       }
     }
@@ -543,276 +500,94 @@ export default function RegisterPage() {
             {/* Desktop and mobile progress rails */}
             <RegistrationProgress currentStep={step} />
 
-            {/* STEP 1: ENTITY TYPE (Progressive Two-State Classification Flow) */}
+            {/* STEP 1: ENTITY TYPE — single radio list */}
             {step === "entityType" && (
-              <div>
-                <div style={{ marginBottom: "16px" }}>
-                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
-                    {t("registerPage.entityTypeLegend")}
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "var(--cam-text-muted)", margin: 0 }}>
-                    {t("registerPage.entityTypeSubtitle")}
-                  </p>
-                </div>
+              <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
+                <h2
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: "var(--cam-green-dark)",
+                    margin: "0 0 var(--cam-space-4)",
+                  }}
+                >
+                  {t("registerPage.entityTypeQuestion")}
+                </h2>
 
-                {/* STATE 1: Institution Status (Single Card) */}
-                {showStatusSelection && (
-                  <fieldset
+                <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
+                  <legend
                     style={{
-                      background: "var(--cam-surface)",
-                      border: "1px solid var(--cam-border)",
-                      borderRadius: "var(--cam-radius-card, 8px)",
-                      padding: "18px 20px",
-                      margin: 0,
-                      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)",
+                      position: "absolute",
+                      width: "1px",
+                      height: "1px",
+                      padding: 0,
+                      margin: "-1px",
+                      overflow: "hidden",
+                      clip: "rect(0 0 0 0)",
+                      whiteSpace: "nowrap",
+                      border: 0,
                     }}
                   >
-                    <legend
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: 700,
-                        color: "var(--cam-text)",
-                        margin: "0 0 14px 0",
-                        padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        width: "100%",
-                      }}
-                    >
-                      <span>{t("registerPage.institutionStatusQuestion")}</span>
-                      <span style={{ color: "var(--cam-error)" }} aria-hidden="true">*</span>
-                    </legend>
+                    {t("registerPage.entityTypeQuestion")}
+                  </legend>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: "12px",
-                      }}
-                    >
-                      {/* Option: Public */}
-                      <label
-                        onClick={() => handleSelectStatus("public")}
-                        style={{
-                          border: institutionStatus === "public" ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
-                          borderRadius: "var(--cam-radius-control, 6px)",
-                          padding: "14px 16px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 12,
-                          background: institutionStatus === "public" ? "rgba(30, 107, 58, 0.04)" : "var(--cam-surface)",
-                          boxShadow: institutionStatus === "public" ? "0 1px 3px rgba(30, 107, 58, 0.08)" : "none",
-                          transition: "border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease",
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="institutionStatus"
-                          value="public"
-                          checked={institutionStatus === "public"}
-                          onChange={() => handleSelectStatus("public")}
-                          style={{
-                            accentColor: "var(--cam-green)",
-                            width: 17,
-                            height: 17,
-                            marginTop: 2,
-                            cursor: "pointer",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: "14px", fontWeight: institutionStatus === "public" ? 700 : 600, color: "var(--cam-text)" }}>
-                            {t("registerPage.institutionStatusPublic")}
-                          </div>
-                          <div style={{ fontSize: "12px", color: "var(--cam-text-muted)", marginTop: 2, lineHeight: 1.35 }}>
-                            {t("registerPage.institutionStatusPublicDesc")}
-                          </div>
-                        </div>
-                      </label>
-
-                      {/* Option: Privé */}
-                      <label
-                        onClick={() => handleSelectStatus("private")}
-                        style={{
-                          border: institutionStatus === "private" ? "2px solid var(--cam-green)" : "1px solid var(--cam-border)",
-                          borderRadius: "var(--cam-radius-control, 6px)",
-                          padding: "14px 16px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 12,
-                          background: institutionStatus === "private" ? "rgba(30, 107, 58, 0.04)" : "var(--cam-surface)",
-                          boxShadow: institutionStatus === "private" ? "0 1px 3px rgba(30, 107, 58, 0.08)" : "none",
-                          transition: "border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease",
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="institutionStatus"
-                          value="private"
-                          checked={institutionStatus === "private"}
-                          onChange={() => handleSelectStatus("private")}
-                          style={{
-                            accentColor: "var(--cam-green)",
-                            width: 17,
-                            height: 17,
-                            marginTop: 2,
-                            cursor: "pointer",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: "14px", fontWeight: institutionStatus === "private" ? 700 : 600, color: "var(--cam-text)" }}>
-                            {t("registerPage.institutionStatusPrivate")}
-                          </div>
-                          <div style={{ fontSize: "12px", color: "var(--cam-text-muted)", marginTop: 2, lineHeight: 1.35 }}>
-                            {t("registerPage.institutionStatusPrivateDesc")}
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </fieldset>
-                )}
-
-                {/* STATE 2: Entity Type Selection (Replaces Card 1 completely) */}
-                {!showStatusSelection && institutionStatus && (
-                  <div>
-                    {/* Secondary contextual control to modify status */}
-                    <div
+                  {ENTITY_TYPE_OPTIONS.map((option, idx) => (
+                    <label
+                      key={option.type}
                       style={{
                         display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: "8px",
-                        marginBottom: "12px",
-                        padding: "8px 12px",
-                        background: "var(--cam-surface-subtle, #f5f7f4)",
-                        border: "1px solid var(--cam-border)",
-                        borderRadius: "var(--cam-radius-control, 6px)",
-                        fontSize: "12px",
+                        alignItems: "baseline",
+                        gap: "var(--cam-space-3)",
+                        padding: "var(--cam-space-3) 0",
+                        borderTop: idx === 0 ? "none" : "1px solid var(--cam-border)",
+                        cursor: "pointer",
+                        margin: 0,
                       }}
                     >
-                      <div style={{ color: "var(--cam-text-muted)" }}>
-                        {t("registerPage.selectedStatusLabel")} :{" "}
-                        <strong style={{ color: "var(--cam-text)", fontWeight: 700 }}>
-                          {institutionStatus === "public"
-                            ? t("registerPage.institutionStatusPublic")
-                            : t("registerPage.institutionStatusPrivate")}
-                        </strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSelectingStatus(true);
+                      <input
+                        ref={idx === 0 ? firstEntityRadioRef : undefined}
+                        type="radio"
+                        name="entityType"
+                        value={option.type}
+                        checked={entityType === option.type}
+                        onChange={() => {
+                          setEntityType(option.type);
                           setStepError(null);
                         }}
+                        aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
                         style={{
-                          background: "none",
-                          border: "none",
-                          color: "var(--cam-green)",
-                          fontWeight: 600,
-                          fontSize: "12px",
+                          accentColor: "var(--cam-green)",
+                          width: "17px",
+                          height: "17px",
+                          flex: "0 0 auto",
                           cursor: "pointer",
-                          padding: 0,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          textDecoration: "underline",
+                          alignSelf: "center",
                         }}
-                      >
-                        ← {t("registerPage.changeStatusAction")}
-                      </button>
-                    </div>
-
-                    {/* Compact Filtered Entity Type Card with Dropdown */}
-                    <div
-                      style={{
-                        background: "var(--cam-surface)",
-                        border: "1px solid var(--cam-border)",
-                        borderLeft: "4px solid var(--cam-green)",
-                        borderRadius: "var(--cam-radius-card, 8px)",
-                        padding: "16px 18px",
-                        margin: 0,
-                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)",
-                      }}
-                    >
-                      <label
-                        htmlFor="reg-entity-type-select"
-                        style={{
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          color: "var(--cam-text)",
-                          marginBottom: "10px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <span>{t("registerPage.selectEntityTypeHeading")}</span>
-                        <span style={{ color: "var(--cam-error)" }} aria-hidden="true">*</span>
-                      </label>
-
-                      <div className="input-row">
-                        <select
-                          id="reg-entity-type-select"
-                          aria-required={true}
-                          value={entityType ?? ""}
-                          onChange={(e) => {
-                            setEntityType((e.target.value as EntityType) || null);
-                            setStepError(null);
-                          }}
-                          style={{
-                            height: "44px",
-                            cursor: "pointer",
-                            fontSize: "14px",
-                            fontWeight: entityType ? 600 : 400,
-                          }}
-                        >
-                          <option value="">{t("registerPage.selectEntityTypePlaceholder")}</option>
-                          {ENTITY_TYPES_BY_STATUS[institutionStatus].map((type) => {
-                            const keys = ENTITY_TYPE_TRANSLATION_KEYS[type];
-                            const title = keys?.title ? t(keys.title) : ENTITY_CONFIGS[type]?.title;
-                            return (
-                              <option key={type} value={type}>
-                                {title}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      {/* Display the contextual description of the selected type */}
-                      {entityType && (
-                        <div
-                          style={{
-                            marginTop: "12px",
-                            padding: "9px 12px",
-                            background: "rgba(30, 107, 58, 0.04)",
-                            border: "1px solid rgba(30, 107, 58, 0.15)",
-                            borderRadius: "var(--cam-radius-control, 6px)",
-                            fontSize: "12px",
-                            color: "var(--cam-text-muted)",
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          <span style={{ fontWeight: 600, color: "var(--cam-text)" }}>
-                            {ENTITY_TYPE_TRANSLATION_KEYS[entityType]?.title
-                              ? t(ENTITY_TYPE_TRANSLATION_KEYS[entityType].title)
-                              : ENTITY_CONFIGS[entityType]?.title} :{" "}
+                      />
+                      <span style={{ fontSize: "14px", color: "var(--cam-text)", lineHeight: 1.45 }}>
+                        {t(option.labelKey)}
+                        {option.hintKey && (
+                          <span
+                            id={`reg-entity-hint-${option.type}`}
+                            style={{
+                              fontSize: "12px",
+                              color: "var(--cam-text-muted)",
+                              marginLeft: "var(--cam-space-2)",
+                            }}
+                          >
+                            {t(option.hintKey)}
                           </span>
-                          {ENTITY_TYPE_TRANSLATION_KEYS[entityType]?.desc
-                            ? t(ENTITY_TYPE_TRANSLATION_KEYS[entityType].desc)
-                            : (ENTITY_DESCRIPTIONS[entityType] ?? "")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+
+                {/* Submit target for Enter; the visible primary action lives in the wizard footer */}
+                <button type="submit" style={{ display: "none" }} aria-hidden="true" tabIndex={-1} />
+              </form>
             )}
+
 
             {/* STEP 2: RESPONDENT */}
             {step === "respondent" && (
@@ -1394,14 +1169,19 @@ export default function RegisterPage() {
                 borderTop: "1px solid var(--cam-border)",
               }}
             >
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={goBack}
-                disabled={step === "entityType" || submitting}
-              >
-                ← {t("registerPage.backButton")}
-              </button>
+              {/* Step 1 has no previous step: omit the control rather than showing it disabled */}
+              {step === "entityType" ? (
+                <span />
+              ) : (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={goBack}
+                  disabled={submitting}
+                >
+                  ← {t("registerPage.backButton")}
+                </button>
+              )}
 
               {step === "review" ? (
                 <button
@@ -1422,7 +1202,9 @@ export default function RegisterPage() {
                   style={{ width: "auto", minWidth: "120px", padding: "10px 22px" }}
                   onClick={goNext}
                 >
-                  {t("registerPage.nextButton")} →
+                  {step === "entityType"
+                    ? t("registerPage.continueButton")
+                    : `${t("registerPage.nextButton")} →`}
                 </button>
               )}
             </div>
@@ -1430,7 +1212,11 @@ export default function RegisterPage() {
 
           <div className="card-footer">
             <span className="create-account">
-              <Link href="/login">{t("registerPage.backToSignInLink")}</Link>
+              <Link href="/login">
+                {step === "entityType"
+                  ? t("registerPage.alreadyRegisteredSignIn")
+                  : t("registerPage.backToSignInLink")}
+              </Link>
             </span>
           </div>
         </div>
