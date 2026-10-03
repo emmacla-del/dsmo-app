@@ -1,4 +1,27 @@
-import { CANONICAL_CAMEROON_360 } from './cameroon-hierarchy-360';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface CanonicalSubdivision {
+  name: string;
+  code: string;
+}
+
+interface CanonicalDepartment {
+  name: string;
+  code: string;
+  subdivisions: CanonicalSubdivision[];
+}
+
+interface CanonicalRegion {
+  name: string;
+  code: string;
+  departments: CanonicalDepartment[];
+}
+
+const fixturePath = path.resolve(__dirname, '../../test/fixtures/canonical-360.json');
+const CANONICAL_CAMEROON_360: CanonicalRegion[] = JSON.parse(
+  fs.readFileSync(fixturePath, 'utf8'),
+);
 
 describe('Arrondissements Reference Data (360 canonical list)', () => {
   it('contains exactly 10 official regions', () => {
@@ -25,7 +48,6 @@ describe('Arrondissements Reference Data (360 canonical list)', () => {
     );
     expect(totalDepartments).toBe(58);
 
-    // Verify department codes 01 to 58 are unique and sequential
     const deptCodes = CANONICAL_CAMEROON_360.flatMap((r) =>
       r.departments.map((d) => d.code),
     );
