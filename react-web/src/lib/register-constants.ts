@@ -272,6 +272,40 @@ export function pruneEntityDataForType(
   return next;
 }
 
+// The submission-time counterpart to pruneEntityDataForType: that one drops
+// fields belonging to a *type* the respondent moved away from, this one drops
+// fields whose own dependsOn gate is currently closed.
+//
+// Both are needed because they fail differently. A respondent who sets a CFP's
+// functionalStatus to "Non-fonctionnelle", answers nonFunctionalReason and
+// nonFunctionalReasonOther, then corrects the status back to "Fonctionnelle"
+// leaves two orphaned children in entityData. isFieldVisible() hides them from
+// the form and from RegistrationReview, so the respondent sees a functional
+// centre -- but submit() read entityData raw, so the payload still carried a
+// reason for being non-functional. The review screen and the transmitted
+// record disagreed, silently, and the wrong one was the record.
+//
+// Deliberately general: it gates on isFieldVisible rather than naming the CFP
+// pair, so any dependsOn field added later is covered without a second fix.
+// Keys the type does not declare at all are dropped too, which makes the
+// payload correct even if a prune were ever missed upstream.
+export function visibleEntityDataForType(
+  data: Record<string, string>,
+  type: EntityType
+): Record<string, string> {
+  const fields = ENTITY_CONFIGS[type].fields;
+  const next: Record<string, string> = {};
+  for (const field of fields) {
+    const value = data[field.key];
+    if (value === undefined) continue;
+    // Gate against the raw data: a child's visibility depends on its parent's
+    // current value, not on the filtered copy being built here.
+    if (!isFieldVisible(field, data, fields)) continue;
+    next[field.key] = value;
+  }
+  return next;
+}
+
 // Mirrors EntityConfig.resolveCompanyName/resolveAddress/resolveMainActivity
 // in register_constants.dart: several entity types use a differently-named
 // field for what the backend's RegisterCompanyDto always calls

@@ -22,6 +22,7 @@ import {
   resolveAddress,
   resolveCompanyName,
   resolveMainActivity,
+  visibleEntityDataForType,
   type EntityType,
 } from "@/lib/register-constants";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
@@ -298,9 +299,13 @@ export default function RegisterPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const companyName = resolveCompanyName(entityData, `${respondent.firstName} ${respondent.lastName}`);
-      const address = resolveAddress(entityData);
-      const mainActivity = resolveMainActivity(entityData);
+      // Hidden dependent fields must not reach the payload -- see
+      // visibleEntityDataForType. Every read below goes through this copy.
+      const visibleData = visibleEntityDataForType(entityData, entityType);
+
+      const companyName = resolveCompanyName(visibleData, `${respondent.firstName} ${respondent.lastName}`);
+      const address = resolveAddress(visibleData);
+      const mainActivity = resolveMainActivity(visibleData);
 
       const rName = resolvedRegionName || "";
       const dName = resolvedDepartmentName || "";
@@ -327,34 +332,34 @@ export default function RegisterPage() {
         area,
         entityType: entityApiValue(entityType),
         companyName,
-        taxNumber: entityData.taxNumber ?? "",
+        taxNumber: visibleData.taxNumber ?? "",
         mainActivity,
         address,
-        parentCompany: entityData.parentCompany,
-        secondaryActivity: entityData.secondaryActivity,
-        cnpsNumber: entityData.cnpsNumber,
-        socialCapital: entityData.socialCapital ? Number(entityData.socialCapital) : undefined,
-        legalStatus: entityData.legalStatus,
-        cooperativeType: entityData.cooperativeType,
-        yearOfCreation: entityData.yearOfCreation,
-        ctdType: entityData.ctdType,
-        mainMission: entityData.mainMission,
-        registrationNumber: entityData.registrationNumber,
-        trainingDomains: entityData.trainingDomains,
-        branch: entityData.branch,
-        poBox: entityData.poBox,
-        phone: entityData.phone,
-        phone2: entityData.phone2,
-        sigle: entityData.sigle,
-        cfpType: entityData.cfpType,
-        educationSystem: entityData.educationSystem,
-        functionalStatus: entityData.functionalStatus,
-        nonFunctionalReason: entityData.nonFunctionalReason,
-        nonFunctionalReasonOther: entityData.nonFunctionalReasonOther,
-        promoterName: entityData.promoterName,
-        promoterSex: entityData.promoterSex,
-        promoterPhone1: entityData.promoterPhone1,
-        promoterPhone2: entityData.promoterPhone2,
+        parentCompany: visibleData.parentCompany,
+        secondaryActivity: visibleData.secondaryActivity,
+        cnpsNumber: visibleData.cnpsNumber,
+        socialCapital: visibleData.socialCapital ? Number(visibleData.socialCapital) : undefined,
+        legalStatus: visibleData.legalStatus,
+        cooperativeType: visibleData.cooperativeType,
+        yearOfCreation: visibleData.yearOfCreation,
+        ctdType: visibleData.ctdType,
+        mainMission: visibleData.mainMission,
+        registrationNumber: visibleData.registrationNumber,
+        trainingDomains: visibleData.trainingDomains,
+        branch: visibleData.branch,
+        poBox: visibleData.poBox,
+        phone: visibleData.phone,
+        phone2: visibleData.phone2,
+        sigle: visibleData.sigle,
+        cfpType: visibleData.cfpType,
+        educationSystem: visibleData.educationSystem,
+        functionalStatus: visibleData.functionalStatus,
+        nonFunctionalReason: visibleData.nonFunctionalReason,
+        nonFunctionalReasonOther: visibleData.nonFunctionalReasonOther,
+        promoterName: visibleData.promoterName,
+        promoterSex: visibleData.promoterSex,
+        promoterPhone1: visibleData.promoterPhone1,
+        promoterPhone2: visibleData.promoterPhone2,
         sectorId: sectorId || undefined,
         respondentFunction: respondent.function,
         respondentPhone: respondent.phone1,
@@ -556,8 +561,11 @@ export default function RegisterPage() {
                         checked={entityType === option.type}
                         onChange={() => {
                           // Changing type strands the previous type's answers in
-                          // entityData, and submit() sends every key regardless of
-                          // type — drop the ones the new type does not declare.
+                          // entityData — drop the ones the new type does not
+                          // declare so the respondent's visible answers and the
+                          // stored state agree. submit() filters again via
+                          // visibleEntityDataForType; this keeps state clean at
+                          // the source rather than relying on that alone.
                           setEntityData((prev) => pruneEntityDataForType(prev, option.type));
                           setEntityType(option.type);
                           setStepError(null);

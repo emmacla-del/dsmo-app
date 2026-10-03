@@ -4,6 +4,7 @@ import {
   ENTITY_CONFIGS,
   pruneEntityDataForType,
   resolveCompanyName,
+  visibleEntityDataForType,
   type EntityType,
 } from "./register-constants";
 
@@ -82,4 +83,72 @@ test("pruning prevents a stale companyName from outranking the new type's name f
 
   const pruned = pruneEntityDataForType(stale, "ong");
   assert.equal(resolveCompanyName(pruned, "fallback"), "Fondation Beta");
+});
+
+test("visibleEntityDataForType drops a dependent field whose gate has closed", () => {
+  // A CFP respondent reports the centre as non-functional, gives a reason, then
+  // corrects the status. isFieldVisible hides both children from the form and
+  // from the review screen, so the payload must not carry them either.
+  const entered = {
+    centerName: "CFP Douala",
+    functionalStatus: "Non-fonctionnelle",
+    nonFunctionalReason: "Autres",
+    nonFunctionalReasonOther: "Travaux de réhabilitation",
+    phone: "677000000",
+  };
+
+  const corrected = { ...entered, functionalStatus: "Fonctionnelle" };
+  const visible = visibleEntityDataForType(corrected, "vocationalTraining");
+
+  assert.ok(!("nonFunctionalReason" in visible), "the closed gate's child must not survive");
+  assert.ok(
+    !("nonFunctionalReasonOther" in visible),
+    "the grandchild of a closed gate must not survive either"
+  );
+  assert.equal(visible.functionalStatus, "Fonctionnelle");
+  assert.equal(visible.centerName, "CFP Douala");
+  assert.equal(visible.phone, "677000000");
+});
+
+test("visibleEntityDataForType keeps dependent fields while their gate is open", () => {
+  const entered = {
+    centerName: "CFP Douala",
+    functionalStatus: "Non-fonctionnelle",
+    nonFunctionalReason: "Autres",
+    nonFunctionalReasonOther: "Travaux de réhabilitation",
+  };
+
+  const visible = visibleEntityDataForType(entered, "vocationalTraining");
+
+  assert.equal(visible.nonFunctionalReason, "Autres");
+  assert.equal(visible.nonFunctionalReasonOther, "Travaux de réhabilitation");
+});
+
+test("visibleEntityDataForType closes a grandchild when the grandparent closes", () => {
+  // nonFunctionalReasonOther depends on nonFunctionalReason, which depends on
+  // functionalStatus. Closing the outermost gate must cascade, not just hide
+  // the immediate child.
+  const entered = {
+    functionalStatus: "Fonctionnelle",
+    nonFunctionalReason: "Autres",
+    nonFunctionalReasonOther: "Travaux",
+  };
+
+  assert.deepEqual(visibleEntityDataForType(entered, "vocationalTraining"), {
+    functionalStatus: "Fonctionnelle",
+  });
+});
+
+test("visibleEntityDataForType never emits a key outside the type's config", () => {
+  const everything: Record<string, string> = {};
+  for (const type of Object.keys(ENTITY_CONFIGS) as EntityType[]) {
+    for (const key of keysOf(type)) everything[key] = `value-${key}`;
+  }
+
+  for (const type of Object.keys(ENTITY_CONFIGS) as EntityType[]) {
+    const declared = new Set(keysOf(type));
+    for (const key of Object.keys(visibleEntityDataForType(everything, type))) {
+      assert.ok(declared.has(key), `${key} is not declared by ${type}`);
+    }
+  }
 });
