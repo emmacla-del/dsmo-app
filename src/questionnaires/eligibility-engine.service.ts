@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AnomalyResolutionType,
+  AnomalySeverity,
   AnomalyStatus,
   OnefopStatus,
   UserRole,
@@ -45,6 +46,38 @@ export class EligibilityEngineService {
 
     if (!submission) {
       throw new NotFoundException(`Dossier #${submissionId} introuvable.`);
+    }
+
+    if (
+      submission.anomalies.length === 0 &&
+      Array.isArray((submission as any).flags) &&
+      (submission as any).flags.length > 0
+    ) {
+      try {
+        const flags = (submission as any).flags as Array<{ code: string; message: string }>;
+        await this.prisma.onefopAnomaly.createMany({
+          data: flags.map((flag) => {
+            const isBlocking = flag.code?.includes('BLOCKING') || flag.code?.includes('MISMATCH');
+            return {
+              submissionId: submission.id,
+              ruleCode: flag.code || 'COHERENCE_MISMATCH',
+              ruleFamily: flag.code?.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
+              severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
+              isBlocking: isBlocking ?? true,
+              status: AnomalyStatus.OPEN,
+              description: flag.message || 'Incohérence statistique détectée',
+              observedValue: 'Incohérence détectée',
+              expectedValue: 'Égalité requise',
+            };
+          }),
+        });
+        submission.anomalies = await this.prisma.onefopAnomaly.findMany({
+          where: { submissionId: submission.id },
+          orderBy: { detectedAt: 'desc' },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Could not sync anomalies for submission ${submission.id}: ${err?.message}`);
+      }
     }
 
     const openAnomalies = submission.anomalies.filter((a) => a.status === AnomalyStatus.OPEN);
@@ -637,6 +670,43 @@ export class EligibilityEngineService {
     if (filters.status) where.status = filters.status;
     if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
     where.submission = territoryWhere(territory);
+
+    const totalExisting = await this.prisma.onefopAnomaly.count();
+    if (totalExisting === 0) {
+      try {
+        const unmigrated = await this.prisma.onefopSubmission.findMany({
+          where: {
+            flags: { not: null as any },
+            anomalies: { none: {} },
+          },
+          select: { id: true, flags: true },
+          take: 100,
+        });
+        for (const sub of unmigrated) {
+          if (Array.isArray(sub.flags) && sub.flags.length > 0) {
+            const flags = sub.flags as Array<{ code: string; message: string }>;
+            await this.prisma.onefopAnomaly.createMany({
+              data: flags.map((flag) => {
+                const isBlocking = flag.code?.includes('BLOCKING') || flag.code?.includes('MISMATCH');
+                return {
+                  submissionId: sub.id,
+                  ruleCode: flag.code || 'COHERENCE_MISMATCH',
+                  ruleFamily: flag.code?.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
+                  severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
+                  isBlocking: isBlocking ?? true,
+                  status: AnomalyStatus.OPEN,
+                  description: flag.message || 'Incohérence statistique détectée',
+                  observedValue: 'Incohérence détectée',
+                  expectedValue: 'Égalité requise',
+                };
+              }),
+            });
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Anomaly synchronization failed: ${err?.message}`);
+      }
+    }
 
     const [total, items] = await Promise.all([
       this.prisma.onefopAnomaly.count({ where }),

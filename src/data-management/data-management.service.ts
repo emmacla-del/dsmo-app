@@ -13,7 +13,7 @@ import {
     resolveExportPartition,
     type OnefopExportFilters,
 } from './spss/export-filters';
-import { Territory, territoryWhereForExport } from '../auth/territory';
+import { Territory, territoryWhere, territoryWhereForExport } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -569,7 +569,8 @@ export class DataManagementService {
         return { success: true };
     }
 
-    async getDataStats() {
+    async getDataStats(territory?: Territory) {
+        const where: any = territoryWhere(territory);
         const [
             totalCompanies,
             totalDeclarations,
@@ -579,23 +580,28 @@ export class DataManagementService {
             onefopByStatus,
             companiesByRegion,
         ] = await Promise.all([
-            this.prisma.company.count(),
-            this.prisma.declaration.count(),
-            this.prisma.onefopSubmission.count(),
-            this.prisma.user.count(),
+            this.prisma.company.count({ where }),
+            this.prisma.declaration.count({ where }),
+            this.prisma.onefopSubmission.count({ where }),
+            territory?.region
+                ? this.prisma.user.count({ where: { region: territory.region } })
+                : this.prisma.user.count(),
 
             this.prisma.declaration.groupBy({
                 by: ['status'],
+                where,
                 _count: true,
             }),
 
             this.prisma.onefopSubmission.groupBy({
                 by: ['status'],
+                where,
                 _count: true,
             }),
 
             this.prisma.company.groupBy({
                 by: ['region'],
+                where,
                 _count: true,
                 orderBy: { _count: { region: 'desc' } },
             }),
