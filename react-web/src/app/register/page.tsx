@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
+  REGISTRATION_STEPS,
   REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
@@ -51,7 +52,9 @@ import {
   passwordStrengthLabel,
   validatePassword,
 } from "@/lib/password-strength";
+import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
+import { CollapsedSection } from "@/components/auth/CollapsedSection";
 import { FormRow } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
@@ -72,6 +75,10 @@ const LAST_INDEX = STEPS.length - 1;
 // pause -- otherwise the page scrolls out from under someone who is still
 // filling the field that happened to complete the section.
 const REVEAL_TEXT_DELAY_MS = REGISTER_DRAFT_SAVE_DEBOUNCE_MS;
+
+// How long a reset notice stays on screen. Long enough to read a sentence,
+// short enough not to sit over the form the respondent went back to.
+const SNACKBAR_MS = 6000;
 
 interface RespondentState {
   firstName: string;
@@ -150,7 +157,19 @@ export default function RegisterPage() {
   const [certified, setCertified] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  // The one expanded non-review section. Completed sections other than this
+  // one show their collapsed line. It follows the respondent's focus, so a
+  // section is never pulled shut at the moment it happens to become valid --
+  // which would snatch away the optional fields (second phone, CNPS) they
+  // were about to fill.
+  const [expandedSection, setExpandedSection] = useState(0);
+  const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
+  const [snackbar, setSnackbar] = useState<string | null>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
+  // Where a section sat before a collapse, so the view can be put back.
+  const anchorRef = useRef<{ index: number; top: number } | null>(null);
+  // Set when a change must reach storage now rather than after the debounce.
+  const forceSaveRef = useRef(false);
   // Section to scroll to once the reveal has rendered. A ref, not state: the
   // reveal already re-renders the page, and a second state update just to
   // clear this one would be a cascading render for no visible effect.
@@ -591,6 +610,20 @@ export default function RegisterPage() {
 
   const hasEnteredData = draftHasData(regState);
 
+  // regState plus the administrative names: the snapshot both the review card
+  // and the collapsed lines are built from.
+  const summaryState: SummaryState = {
+    ...regState,
+    regionName: resolvedRegionName || "",
+    departmentName: resolvedDepartmentName || "",
+    subdivisionName: resolvedSubdivisionName || "",
+    sectorName: resolvedSectorName || "",
+  };
+
+  function sectionLabelKey(id: RegistrationStepId): string {
+    return REGISTRATION_STEPS.find((s) => s.id === id)?.labelKey ?? id;
+  }
+
   function scrollToSection(index: number) {
     sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -617,6 +650,82 @@ export default function RegisterPage() {
       }
     }
     section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ── Collapsing ─────────────────────────────────────────────────────────
+  // A section collapses only once the respondent is working somewhere else,
+  // and the review section never collapses: it is the summary, so there is
+  // nothing to summarise it into.
+  function isCollapsed(index: number): boolean {
+    if (STEPS[index] === "review") return false;
+    if (!completed[index]) return false;
+    return index !== expandedSection;
+  }
+
+  // Called when focus or a tap lands inside a section, and by "Modifier".
+  // Records where the section sits first, so the layout effect below can put
+  // the view back after the sections above it fold away.
+  function openSection(index: number) {
+    if (index === expandedSection) return;
+    const el = sectionRefs.current[index];
+    anchorRef.current = el ? { index, top: el.getBoundingClientRect().top } : null;
+    setExpandedSection(index);
+  }
+
+  // Collapsing the sections above the one in hand removes their height, which
+  // would otherwise slide the field under the respondent's cursor up the
+  // screen. Runs before paint, so the correction is never visible.
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    anchorRef.current = null;
+    const el = sectionRefs.current[anchor.index];
+    const scroller = scrollRef.current;
+    if (!el || !scroller) return;
+    const after = el.getBoundingClientRect().top;
+    scroller.scrollTop += after - anchor.top;
+  }, [expandedSection]);
+
+  function editSection(index: number) {
+    openSection(index);
+    // The anchor restore above keeps the view still; an explicit "Modifier"
+    // is a request to go there, so this one scrolls on purpose.
+    requestAnimationFrame(() => scrollToSection(index));
+  }
+
+  // ── Entity-type change ─────────────────────────────────────────────────
+  const entityInfoAnswered = Object.values(entityData).some((v) => v.trim());
+
+  function requestEntityType(next: EntityType) {
+    if (next === entityType) return;
+    // Nothing to lose: switch without asking.
+    if (!entityInfoAnswered) {
+      applyEntityType(next, false);
+      return;
+    }
+    setPendingEntityType(next);
+  }
+
+  function applyEntityType(next: EntityType, clearEntityData: boolean) {
+    lastInputKindRef.current = "choice";
+    if (clearEntityData) {
+      setEntityData({});
+      // Re-gate entity info and everything after it. The respondent's own
+      // details, the location and the password are deliberately untouched:
+      // none of them depend on the entity type.
+      setReached((prev) => Math.min(prev, STEPS.indexOf("respondent")));
+      setSnackbar(t("registerPage.entityChangeSnackbar", { step: t("registerPage.stepEntityInfo") }));
+      forceSaveRef.current = true;
+    } else {
+      // Changing type strands the previous type's answers in entityData —
+      // drop the ones the new type does not declare so the respondent's
+      // visible answers and the stored state agree. submit() filters again
+      // via visibleEntityDataForType; this keeps state clean at the source
+      // rather than relying on that alone.
+      setEntityData((prev) => pruneEntityDataForType(prev, next));
+    }
+    setEntityType(next);
+    setSubmitError(null);
   }
 
   // Reveal the next section once the furthest revealed one is complete.
@@ -719,9 +828,14 @@ export default function RegisterPage() {
     if (!draftLoadedRef.current) return;
     if (result) return;
     if (!hasEnteredData) return;
+    // A destructive change (an entity-type switch that cleared answers) is
+    // written straight away: if the tab closed during the debounce the draft
+    // would otherwise still describe the old type's data.
+    const immediate = forceSaveRef.current;
+    forceSaveRef.current = false;
     const timer = setTimeout(
       () => saveStoredDraftJson(draftJson),
-      REGISTER_DRAFT_SAVE_DEBOUNCE_MS
+      immediate ? 0 : REGISTER_DRAFT_SAVE_DEBOUNCE_MS
     );
     return () => clearTimeout(timer);
   }, [draftJson, hasEnteredData, result]);
@@ -730,6 +844,12 @@ export default function RegisterPage() {
   useEffect(() => {
     if (result) clearStoredDraft();
   }, [result]);
+
+  useEffect(() => {
+    if (!snackbar) return;
+    const timer = setTimeout(() => setSnackbar(null), SNACKBAR_MS);
+    return () => clearTimeout(timer);
+  }, [snackbar]);
 
   // Browser-level leave guard. The wording is the browser's own -- a page
   // cannot supply it -- so the in-page dialog at the bottom of this file
@@ -896,18 +1016,7 @@ export default function RegisterPage() {
                     name="entityType"
                     value={option.type}
                     checked={entityType === option.type}
-                    onChange={() => {
-                      // Changing type strands the previous type's answers in
-                      // entityData — drop the ones the new type does not
-                      // declare so the respondent's visible answers and the
-                      // stored state agree. submit() filters again via
-                      // visibleEntityDataForType; this keeps state clean at
-                      // the source rather than relying on that alone.
-                      lastInputKindRef.current = "choice";
-                      setEntityData((prev) => pruneEntityDataForType(prev, option.type));
-                      setEntityType(option.type);
-                      setSubmitError(null);
-                    }}
+                    onChange={() => requestEntityType(option.type)}
                     aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
                     style={{
                       accentColor: "var(--cam-green)",
@@ -1136,6 +1245,13 @@ export default function RegisterPage() {
                     onChange={(e) => {
                       const id = e.target.value;
                       lastInputKindRef.current = "choice";
+                      // A new region invalidates the two fields below it.
+                      // That already happened silently; now it says so,
+                      // because a respondent who had answered them would
+                      // otherwise find them blank with no explanation.
+                      if (departmentId || subdivisionId) {
+                        setSnackbar(t("registerPage.locationResetSnackbar"));
+                      }
                       setRegionId(id);
                       setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
                       setDepartmentId("");
@@ -1410,16 +1526,8 @@ export default function RegisterPage() {
             )}
 
             <RegistrationReview
-              entityType={entityType}
-              config={config}
-              respondent={respondent}
-              entityData={entityData}
-              regionName={resolvedRegionName}
-              departmentName={resolvedDepartmentName}
-              subdivisionName={resolvedSubdivisionName}
-              area={area}
-              sectorName={resolvedSectorName}
-              onEdit={(targetStep) => scrollToSection(STEPS.indexOf(targetStep))}
+              state={summaryState}
+              onEdit={(targetStep) => editSection(STEPS.indexOf(targetStep))}
             />
 
             {/* The flow's single primary action, gated on an explicit
@@ -1482,18 +1590,43 @@ export default function RegisterPage() {
               onKeyDown={handleFormKeyDown}
             >
               <div className="wizard-sections">
-                {STEPS.slice(0, reached + 1).map((id, idx) => (
-                  <section
-                    key={id}
-                    ref={(el) => {
-                      sectionRefs.current[idx] = el;
-                    }}
-                    className={`wizard-section ${idx === currentIndex ? "is-current" : ""}`}
-                    aria-labelledby={`reg-section-title-${id}`}
-                  >
-                    {renderSection(id)}
-                  </section>
-                ))}
+                {STEPS.slice(0, reached + 1).map((id, idx) => {
+                  const collapsed = isCollapsed(idx);
+                  return (
+                    <section
+                      key={id}
+                      ref={(el) => {
+                        sectionRefs.current[idx] = el;
+                      }}
+                      className={[
+                        "wizard-section",
+                        collapsed ? "is-collapsed" : "",
+                        !collapsed && idx === currentIndex ? "is-current" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      aria-labelledby={collapsed ? undefined : `reg-section-title-${id}`}
+                      // Focus is what says "I am working here", and a tap
+                      // covers reaching a section without focusing a control.
+                      onFocusCapture={() => openSection(idx)}
+                      onPointerDownCapture={() => openSection(idx)}
+                    >
+                      {collapsed ? (
+                        <CollapsedSection
+                          title={t(`registerPage.${sectionLabelKey(id)}`)}
+                          // Derived here, at render time, from the same rows
+                          // the review card uses. Never cached.
+                          summary={sectionSummary(summaryRows(id, summaryState, (k) => t(k)))}
+                          editLabel={t("registerPage.editSectionButton")}
+                          completeLabel={t("registerPage.sectionCompleteLabel")}
+                          onEdit={() => editSection(idx)}
+                        />
+                      ) : (
+                        renderSection(id)
+                      )}
+                    </section>
+                  );
+                })}
               </div>
             </form>
           </div>
@@ -1526,6 +1659,58 @@ export default function RegisterPage() {
         <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
           {t("loginPage.whatsappLink")}
         </a>
+      </div>
+
+      {/* Entity-type change confirmation. Only raised when there is
+          something to lose: with step 3 still empty the type switches
+          silently. */}
+      {pendingEntityType && (
+        <div
+          className="leave-dialog-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingEntityType(null);
+          }}
+        >
+          <div
+            className="leave-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reg-entity-change-title"
+          >
+            <h2 id="reg-entity-change-title">{t("registerPage.entityChangeTitle")}</h2>
+            <p>{t("registerPage.entityChangeBody")}</p>
+            <div className="leave-dialog-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                // Cancel keeps the old type and its data: the radio is
+                // controlled by `entityType`, which nothing has changed yet.
+                onClick={() => setPendingEntityType(null)}
+              >
+                {t("registerPage.entityChangeCancel")}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ width: "auto", padding: "10px 22px" }}
+                onClick={() => {
+                  const next = pendingEntityType;
+                  setPendingEntityType(null);
+                  if (next) applyEntityType(next, true);
+                }}
+              >
+                {t("registerPage.entityChangeConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset notices. Announced, because the change they report happened
+          somewhere the respondent may not be looking. */}
+      <div className="wizard-snackbar-region" role="status" aria-live="polite">
+        {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
       </div>
 
       {/* Leave confirmation. Only reachable with data entered, and only for

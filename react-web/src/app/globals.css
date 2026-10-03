@@ -1164,6 +1164,140 @@ body {
   border-color: var(--cam-green);
 }
 
+/* ── Screen-reader-only text ──
+   Used by the collapsed section card, whose check badge is decorative: the
+   "complete" state has to reach a screen reader as words. */
+.cam-auth-page .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Collapsed section ──
+   A finished section's resting state: one row, the whole of it clickable.
+   The card's own padding is dropped, because the row supplies its own -- a
+   collapsed card with 28px around a single line reads as an empty box. */
+.cam-auth-page--wizard .wizard-section.is-collapsed {
+  padding: 0;
+  border-color: var(--cam-success-border);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-auth-page--wizard .section-collapsed {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  width: 100%;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  background: none;
+  border: none;
+  border-radius: var(--cam-section-radius);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cam-auth-page--wizard .section-collapsed:hover {
+  background: var(--cam-success-bg);
+}
+
+.cam-auth-page--wizard .section-collapsed:focus-visible {
+  outline: 2px solid var(--cam-focus-ring);
+  outline-offset: -2px;
+}
+
+.cam-auth-page--wizard .section-collapsed-badge {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-green);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* min-width: 0 is what lets the summary below actually truncate -- a flex
+   item defaults to min-width: auto and refuses to shrink past its content. */
+.cam-auth-page--wizard .section-collapsed-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cam-auth-page--wizard .section-collapsed-title {
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+}
+
+/* One line, whatever the answers: the collapsed state exists to save height,
+   so it must not grow with the content it summarises. */
+.cam-auth-page--wizard .section-collapsed-summary {
+  font-size: var(--cam-field-hint-size);
+  color: var(--cam-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cam-auth-page--wizard .section-collapsed-edit {
+  flex: 0 0 auto;
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  color: var(--cam-green);
+  text-decoration: underline;
+}
+
+/* ── Reset notices ──
+   Pinned to the shell rather than the scrolling body: these report a change
+   made somewhere the respondent may have scrolled away from, so the notice
+   has to be visible wherever they are. */
+.cam-auth-page--wizard .wizard-snackbar-region {
+  position: fixed;
+  left: 50%;
+  bottom: var(--cam-space-5);
+  transform: translateX(-50%);
+  z-index: var(--cam-z-toast);
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--cam-space-4);
+  pointer-events: none;
+}
+
+.cam-auth-page--wizard .wizard-snackbar {
+  background: var(--cam-text);
+  color: #ffffff;
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.4;
+  padding: var(--cam-space-3) var(--cam-space-4);
+  border-radius: var(--cam-radius-md);
+  box-shadow: var(--cam-card-shadow);
+  max-width: var(--cam-container-form);
+}
+
+/* ── Review honour notice ──
+   Was eight inline declarations on the element itself. */
+.cam-auth-page .review-honour-notice {
+  border-left: 3px solid var(--cam-green);
+  background: var(--cam-success-bg);
+  padding: 10px 14px;
+  font-size: var(--cam-font-size-2xs);
+  line-height: 1.5;
+  color: var(--cam-text);
+  border-radius: 0 var(--cam-radius-sm) var(--cam-radius-sm) 0;
+  margin: var(--cam-space-4) 0;
+}
+
 /* ── Certification and submit ──
    One primary action for the whole flow, inside the review section. */
 .cam-auth-page--wizard .certify-row {

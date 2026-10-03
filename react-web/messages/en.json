@@ -349,7 +349,22 @@
     "leaveCancel": "Stay",
     "leaveConfirm": "Leave",
     "draftRestoredNotice": "Your draft has been restored. Please re-enter your password: it is never saved.",
-    "noSubdivisionHint": "No subdivision is listed for this department, so this field can be left empty."
+    "noSubdivisionHint": "No subdivision is listed for this department, so this field can be left empty.",
+    "summaryEntityTypeLabel": "Entity type",
+    "summaryFullNameLabel": "Full name",
+    "summaryLoginLabel": "Sign-in identifier",
+    "editSectionButton": "Edit",
+    "sectionCompleteLabel": "Section complete",
+    "entityChangeTitle": "Change the entity type?",
+    "entityChangeBody": "Changing the entity type will erase the information entered in step 3. Continue?",
+    "entityChangeCancel": "Cancel",
+    "entityChangeConfirm": "Change",
+    "entityChangeSnackbar": "Step \"{step}\" has been reset.",
+    "locationResetSnackbar": "Department and subdivision reset",
+    "reviewStatusLabel": "Validation status",
+    "reviewStatusReady": "Ready for submission",
+    "honourDeclarationTitle": "Sworn declaration:",
+    "honourDeclarationBody": "By submitting this form you certify the accuracy of the information provided for the registration of your establishment with MINEFOP."
   },
   "resetPasswordPage": {
     "errorPasswordTooShort": "The password must be at least 8 characters long.",

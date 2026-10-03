@@ -349,7 +349,22 @@
     "leaveCancel": "Rester",
     "leaveConfirm": "Quitter",
     "draftRestoredNotice": "Votre brouillon a été restauré. Veuillez ressaisir votre mot de passe : il n'est jamais enregistré.",
-    "noSubdivisionHint": "Aucun arrondissement n'est répertorié pour ce département ; ce champ peut rester vide."
+    "noSubdivisionHint": "Aucun arrondissement n'est répertorié pour ce département ; ce champ peut rester vide.",
+    "summaryEntityTypeLabel": "Type d'organisation",
+    "summaryFullNameLabel": "Nom et prénom",
+    "summaryLoginLabel": "Identifiant de connexion",
+    "editSectionButton": "Modifier",
+    "sectionCompleteLabel": "Section terminée",
+    "entityChangeTitle": "Changer le type d'entité ?",
+    "entityChangeBody": "Changer le type d'entité effacera les informations saisies à l'étape 3. Continuer ?",
+    "entityChangeCancel": "Annuler",
+    "entityChangeConfirm": "Changer",
+    "entityChangeSnackbar": "Étape « {step} » réinitialisée.",
+    "locationResetSnackbar": "Département et arrondissement réinitialisés",
+    "reviewStatusLabel": "Statut de validation",
+    "reviewStatusReady": "Prêt pour soumission",
+    "honourDeclarationTitle": "Déclaration sur l'honneur :",
+    "honourDeclarationBody": "En soumettant ce formulaire, vous certifiez l'exactitude des informations fournies pour l'enregistrement de votre établissement auprès du MINEFOP."
   },
   "resetPasswordPage": {
     "errorPasswordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
