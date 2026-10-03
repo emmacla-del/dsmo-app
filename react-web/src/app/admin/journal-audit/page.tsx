@@ -22,7 +22,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
+const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 const PAGE_SIZE = 12;
 
 /**

@@ -31,7 +31,7 @@ import {
 // fails closed, so a role that has not loaded yet is not treated as authorised.
 const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const ACCOUNT_ROLES = ["SUPER_ADMIN"];
-const AUDIT_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
+const AUDIT_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 
 const CARD: React.CSSProperties = {
   background: "#ffffff",
