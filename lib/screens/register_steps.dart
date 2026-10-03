@@ -26,26 +26,26 @@ class StepRole extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(context.l10n.registerCreateAccountTitle,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Text(context.l10n.registerSelectProfileSubtitle,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-        const SizedBox(height: 32),
-        RoleCard(
-          value: 'COMPANY',
-          selected: _isCompanySelected ? 'COMPANY' : '',
-          icon: Icons.business_outlined,
-          color: PublicColors.green,
-          title: context.l10n.registerRoleCompanyTitle,
-          subtitle: context.l10n.registerRoleCompanySubtitle,
-          onTap: (_) => onSelect('COMPANY'),
-        ),
-        // MINEFOP self-registration removed — Central/Regional/Divisional
-        // staff accounts are now created by a Super Admin, not through this
-        // public wizard.
-      ]),
+      child: SectionCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          StepHeader(
+            title: context.l10n.registerCreateAccountTitle,
+            subtitle: context.l10n.registerSelectProfileSubtitle,
+          ),
+          RoleCard(
+            value: 'COMPANY',
+            selected: _isCompanySelected ? 'COMPANY' : '',
+            icon: Icons.business_outlined,
+            color: PublicColors.green,
+            title: context.l10n.registerRoleCompanyTitle,
+            subtitle: context.l10n.registerRoleCompanySubtitle,
+            onTap: (_) => onSelect('COMPANY'),
+          ),
+          // MINEFOP self-registration removed — Central/Regional/Divisional
+          // staff accounts are now created by a Super Admin, not through this
+          // public wizard.
+        ]),
+      ),
     );
   }
 }
@@ -64,32 +64,32 @@ class StepEntityType extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(context.l10n.registerStepTitleEntityType,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Text(context.l10n.registerEntityTypeSubtitle,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-        const SizedBox(height: 32),
-        ...EntityType.values.map((type) {
-          final config = entityConfigs[type];
-          if (config == null) return const SizedBox.shrink();
-          final isEn = context.loc.languageCode == 'en';
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: RoleCard(
-              value: type.toString(),
-              selected: selected?.toString() ?? '',
-              icon: config.icon,
-              color: config.color,
-              title: config.title.of(context.loc),
-              subtitle:
-                  isEn ? type.formSectionLabelEn : type.formSectionLabel,
-              onTap: (_) => onSelect(type),
-            ),
-          );
-        }),
-      ]),
+      child: SectionCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          StepHeader(
+            title: context.l10n.registerStepTitleEntityType,
+            subtitle: context.l10n.registerEntityTypeSubtitle,
+          ),
+          ...EntityType.values.map((type) {
+            final config = entityConfigs[type];
+            if (config == null) return const SizedBox.shrink();
+            final isEn = context.loc.languageCode == 'en';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: RoleCard(
+                value: type.toString(),
+                selected: selected?.toString() ?? '',
+                icon: config.icon,
+                color: config.color,
+                title: config.title.of(context.loc),
+                subtitle:
+                    isEn ? type.formSectionLabelEn : type.formSectionLabel,
+                onTap: (_) => onSelect(type),
+              ),
+            );
+          }),
+        ]),
+      ),
     );
   }
 }
@@ -185,87 +185,106 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Form(
-        key: widget.formKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            context.l10n.registerStepTitleRespondent,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.l10n.registerRespondentSubtitleStandard,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
-          ),
-          const SizedBox(height: 28),
-          Row(children: [
-            Expanded(
-                child: Field(
-                    controller: _firstNameCtrl,
-                    label: context.l10n.registerFirstNameLabel,
-                    icon: Icons.person_outline,
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? context.l10n.requiredShort
-                        : null)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Field(
-                    controller: _lastNameCtrl,
-                    label: context.l10n.registerLastNameLabel,
-                    icon: Icons.badge_outlined,
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? context.l10n.requiredShort
-                        : null)),
-          ]),
-          const SizedBox(height: 14),
-          FieldLabel(label: context.l10n.registerFunctionLabel),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              initialValue: _function.isNotEmpty ? _function : null,
-              isExpanded: true,
-              decoration: modernDropdown(),
-              hint: Text(context.l10n.registerSelectFunctionHint,
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-              items: kRespondentFunctionOptions
-                  .map((o) => DropdownMenuItem(
-                      value: o.value, child: Text(o.text.of(context.loc))))
-                  .toList(),
-              onChanged: (v) {
-                setState(() => _function = v ?? '');
-                _notify();
-              },
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? context.l10n.requiredShort : null,
+      child: SectionCard(
+        child: Form(
+          key: widget.formKey,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            StepHeader(
+              title: context.l10n.registerStepTitleRespondent,
+              subtitle: context.l10n.registerRespondentSubtitleStandard,
             ),
-          const SizedBox(height: 14),
-          EmailFieldWithAvailability(
-            controller: _emailCtrl,
-            label: context.l10n.registerProfessionalEmailLabel,
-            isRequired: true,
-            onEmailValidated: _notify,
-            onEmailAvailabilityChanged: widget.onEmailAvailabilityChanged,
-          ),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(
-                child: PhoneField(
-                    controller: _phone1Ctrl,
-                    label: context.l10n.registerPhone1Label,
-                    isRequired: true)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: PhoneField(
-                    controller: _phone2Ctrl,
-                    label: context.l10n.registerPhone2Label,
-                    isRequired: false)),
+            FormRow(
+              label: context.l10n.registerFirstNameLabel,
+              required: true,
+              child: TextFormField(
+                controller: _firstNameCtrl,
+                textInputAction: TextInputAction.next,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                decoration: modernInput(
+                  hasError: false,
+                  hintText: context.l10n.registerFirstNameLabel,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.requiredShort
+                    : null,
+              ),
+            ),
+            FormRow(
+              label: context.l10n.registerLastNameLabel,
+              required: true,
+              child: TextFormField(
+                controller: _lastNameCtrl,
+                textInputAction: TextInputAction.next,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                decoration: modernInput(
+                  hasError: false,
+                  hintText: context.l10n.registerLastNameLabel,
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.l10n.requiredShort
+                    : null,
+              ),
+            ),
+            FormRow(
+              label: context.l10n.registerFunctionLabel,
+              required: true,
+              child: DropdownButtonFormField<String>(
+                initialValue: _function.isNotEmpty ? _function : null,
+                isExpanded: true,
+                decoration: modernDropdown(),
+                hint: Text(
+                  context.l10n.registerSelectFunctionHint,
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
+                ),
+                items: kRespondentFunctionOptions
+                    .map((o) => DropdownMenuItem(
+                        value: o.value, child: Text(o.text.of(context.loc))))
+                    .toList(),
+                onChanged: (v) {
+                  setState(() => _function = v ?? '');
+                  _notify();
+                },
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? context.l10n.requiredShort : null,
+              ),
+            ),
+            FormRow(
+              label: context.l10n.registerProfessionalEmailLabel,
+              required: true,
+              child: EmailFieldWithAvailability(
+                controller: _emailCtrl,
+                label: context.l10n.registerProfessionalEmailLabel,
+                isRequired: true,
+                onEmailValidated: _notify,
+                onEmailAvailabilityChanged: widget.onEmailAvailabilityChanged,
+              ),
+            ),
+            FormRow(
+              label: context.l10n.registerPhone1Label,
+              required: true,
+              child: PhoneField(
+                controller: _phone1Ctrl,
+                label: context.l10n.registerPhone1Label,
+                isRequired: true,
+              ),
+            ),
+            FormRow(
+              label: context.l10n.registerPhone2Label,
+              required: false,
+              child: PhoneField(
+                controller: _phone2Ctrl,
+                label: context.l10n.registerPhone2Label,
+                isRequired: false,
+              ),
+            ),
+            const SizedBox(height: 4),
+            InfoBox(
+              icon: Icons.auto_fix_high_outlined,
+              color: Colors.teal,
+              text: context.l10n.registerRespondentInfoBox,
+            ),
           ]),
-          const SizedBox(height: 16),
-          InfoBox(
-            icon: Icons.auto_fix_high_outlined,
-            color: Colors.teal,
-            text: context.l10n.registerRespondentInfoBox,
-          ),
-        ]),
+        ),
       ),
     );
   }
@@ -310,27 +329,25 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
     final isEn = context.loc.languageCode == 'en';
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Form(
-        key: widget.formKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(config.title.of(context.loc),
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text(
-              isEn
+      child: SectionCard(
+        child: Form(
+          key: widget.formKey,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            StepHeader(
+              title: config.title.of(context.loc),
+              subtitle: isEn
                   ? widget.entityType!.formSectionLabelEn
                   : widget.entityType!.formSectionLabel,
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-          const SizedBox(height: 28),
-          ...config.fields.map(_buildField),
-          const SizedBox(height: 16),
-          InfoBox(
-            icon: Icons.auto_fix_high_outlined,
-            color: Colors.teal,
-            text: context.l10n.registerEntityInfoInfoBox,
-          ),
-        ]),
+            ),
+            ...config.fields.map(_buildField),
+            const SizedBox(height: 4),
+            InfoBox(
+              icon: Icons.auto_fix_high_outlined,
+              color: Colors.teal,
+              text: context.l10n.registerEntityInfoInfoBox,
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -350,55 +367,57 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
     final label = field.label.of(context.loc);
     if (field.options != null) {
       final cur = widget.entityData[field.key] as String?;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          FieldLabel(label: '$label${field.required ? ' *' : ''}'),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            initialValue: (cur != null &&
-                    field.options!.any((o) => o.value == cur))
-                ? cur
-                : null,
-            isExpanded: true,
-            decoration: modernDropdown(),
-            hint: Text(context.l10n.selectPlaceholder,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-            items: field.options!
-                .map((o) => DropdownMenuItem(
-                    value: o.value,
-                    child: Text(o.text.of(context.loc),
-                        style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF1E293B)))))
-                .toList(),
-            onChanged: (v) {
-              widget.onDropdownChanged(field.key, v);
-              setState(() {});
-            },
-            validator: field.required
-                ? (v) =>
-                    (v == null || v.isEmpty) ? context.l10n.requiredShort : null
-                : null,
-          ),
-        ]),
+      return FormRow(
+        label: label,
+        required: field.required,
+        hint: field.hint?.of(context.loc),
+        child: DropdownButtonFormField<String>(
+          initialValue: (cur != null &&
+                  field.options!.any((o) => o.value == cur))
+              ? cur
+              : null,
+          isExpanded: true,
+          decoration: modernDropdown(),
+          hint: Text(context.l10n.selectPlaceholder,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+          items: field.options!
+              .map((o) => DropdownMenuItem(
+                  value: o.value,
+                  child: Text(o.text.of(context.loc),
+                      style: const TextStyle(
+                          fontSize: 14, color: Color(0xFF1E293B)))))
+              .toList(),
+          onChanged: (v) {
+            widget.onDropdownChanged(field.key, v);
+            setState(() {});
+          },
+          validator: field.required
+              ? (v) =>
+                  (v == null || v.isEmpty) ? context.l10n.requiredShort : null
+              : null,
+        ),
       );
     }
     if (field.isPhone) {
       final ctrl = widget.controllers[field.key] ??
           TextEditingController(text: widget.entityData[field.key]?.toString());
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 14),
+      return FormRow(
+        label: label,
+        required: field.required,
+        hint: field.hint?.of(context.loc),
         child: PhoneField(
           controller: ctrl,
-          label: '$label${field.required ? ' *' : ''}',
+          label: label,
           isRequired: field.required,
         ),
       );
     }
     final controller = widget.controllers[field.key];
     if (controller == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    return FormRow(
+      label: label,
+      required: field.required,
+      hint: field.hint?.of(context.loc),
       child: TextFormField(
         controller: controller,
         keyboardType: field.keyboardType,
@@ -409,9 +428,7 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
         style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
         decoration: modernInput(
           hasError: false,
-          labelText: '$label${field.required ? ' *' : ''}',
           hintText: field.hint?.of(context.loc),
-          prefixIcon: Icon(_iconForKey(field.key), size: 20),
         ),
         validator: field.required
             ? (v) => (v == null || v.trim().isEmpty)
@@ -535,92 +552,140 @@ class _StepLocationState extends State<StepLocation> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(context.l10n.registerStepTitleLocation,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Text(
-          context.l10n.registerLocationSubtitle,
-          style: const TextStyle(color: Color(0xFF666666), fontSize: 14),
-        ),
-        const SizedBox(height: 28),
-        widget.loadingRegions
-            ? LoadingField(label: context.l10n.registerRegionLabel)
-            : LocationDropdown(
-                label: context.l10n.registerRegionLabel,
-                icon: Icons.map_outlined,
-                hint: context.l10n.registerSelectRegionShort,
-                items: widget.regions,
-                selected: widget.selectedRegion,
-                onChanged: widget.onRegionChanged,
-              ),
-        const SizedBox(height: 16),
-        widget.loadingDepartments
-            ? LoadingField(label: context.l10n.registerDepartmentLabel)
-            : LocationDropdown(
-                label: context.l10n.registerDepartmentLabel,
-                icon: Icons.location_city_outlined,
-                hint: widget.selectedRegion == null
-                    ? context.l10n.registerSelectRegionFirst
-                    : context.l10n.registerSelectDepartmentShort,
-                items: widget.departments,
-                selected: widget.selectedDepartment,
-                onChanged: widget.selectedRegion == null
-                    ? null
-                    : widget.onDepartmentChanged,
-              ),
-        const SizedBox(height: 16),
-        widget.loadingSubdivisions
-            ? LoadingField(label: context.l10n.registerArrondissementLabel)
-            : LocationDropdown(
-                label: context.l10n.registerArrondissementLabel,
-                icon: Icons.place_outlined,
-                hint: widget.selectedDepartment == null
-                    ? context.l10n.registerSelectDepartmentFirst
-                    : widget.subdivisions.isEmpty
-                        ? context.l10n.registerNoSubdivisionAvailable
-                        : context.l10n.registerSelectSubdivisionShort,
-                items: widget.subdivisions,
-                selected: widget.selectedSubdivision,
-                onChanged: widget.selectedDepartment == null
-                    ? null
-                    : widget.onSubdivisionChanged,
-                required: false,
-              ),
-        const SizedBox(height: 16),
-        FieldLabel(label: context.l10n.registerMilieuLabel),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          initialValue: widget.selectedArea,
-          isExpanded: true,
-          decoration: modernDropdown(),
-          hint: Text(context.l10n.registerUrbanOrRuralHint,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-          items: kAreaOptions
-              .map((o) => DropdownMenuItem(
-                  value: o.value,
-                  child: Text(o.text.of(context.loc),
+      child: SectionCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          StepHeader(
+            title: context.l10n.registerStepTitleLocation,
+            subtitle: context.l10n.registerLocationSubtitle,
+          ),
+          FormRow(
+            label: context.l10n.registerRegionLabel,
+            required: true,
+            child: widget.loadingRegions
+                ? const LoadingField()
+                : DropdownButtonFormField<Map<String, dynamic>>(
+                    initialValue: widget.selectedRegion,
+                    isExpanded: true,
+                    decoration: modernDropdown(),
+                    hint: Text(context.l10n.registerSelectRegionShort,
+                        style: const TextStyle(
+                            fontSize: 14, color: Color(0xFF94A3B8))),
+                    items: widget.regions
+                        .map((item) => DropdownMenuItem<Map<String, dynamic>>(
+                              value: item as Map<String, dynamic>,
+                              child: Text(
+                                item['name'] as String? ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 14, color: Color(0xFF1E293B)),
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: widget.onRegionChanged,
+                    validator: (v) =>
+                        v == null ? context.l10n.requiredShort : null,
+                  ),
+          ),
+          FormRow(
+            label: context.l10n.registerDepartmentLabel,
+            required: true,
+            child: widget.loadingDepartments
+                ? const LoadingField()
+                : DropdownButtonFormField<Map<String, dynamic>>(
+                    initialValue: widget.selectedDepartment,
+                    isExpanded: true,
+                    decoration: modernDropdown(),
+                    hint: Text(
+                      widget.selectedRegion == null
+                          ? context.l10n.registerSelectRegionFirst
+                          : context.l10n.registerSelectDepartmentShort,
                       style: const TextStyle(
-                          fontSize: 14, color: Color(0xFF1E293B)))))
-              .toList(),
-          onChanged: widget.onAreaChanged,
-        ),
-        const SizedBox(height: 16),
-        widget.loadingSectors
-            ? LoadingField(label: context.l10n.registerSectorLabel)
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FieldLabel(label: context.l10n.registerSectorLabel),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<Map<String, dynamic>>(
+                          fontSize: 14, color: Color(0xFF94A3B8)),
+                    ),
+                    items: widget.departments
+                        .map((item) => DropdownMenuItem<Map<String, dynamic>>(
+                              value: item as Map<String, dynamic>,
+                              child: Text(
+                                item['name'] as String? ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 14, color: Color(0xFF1E293B)),
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: widget.selectedRegion == null
+                        ? null
+                        : widget.onDepartmentChanged,
+                    validator: (v) =>
+                        v == null ? context.l10n.requiredShort : null,
+                  ),
+          ),
+          FormRow(
+            label: context.l10n.registerArrondissementLabel,
+            required: false,
+            child: widget.loadingSubdivisions
+                ? const LoadingField()
+                : DropdownButtonFormField<Map<String, dynamic>>(
+                    initialValue: widget.selectedSubdivision,
+                    isExpanded: true,
+                    decoration: modernDropdown(),
+                    hint: Text(
+                      widget.selectedDepartment == null
+                          ? context.l10n.registerSelectDepartmentFirst
+                          : widget.subdivisions.isEmpty
+                              ? context.l10n.registerNoSubdivisionAvailable
+                              : context.l10n.registerSelectSubdivisionShort,
+                      style: const TextStyle(
+                          fontSize: 14, color: Color(0xFF94A3B8)),
+                    ),
+                    items: widget.subdivisions
+                        .map((item) => DropdownMenuItem<Map<String, dynamic>>(
+                              value: item as Map<String, dynamic>,
+                              child: Text(
+                                item['name'] as String? ?? '',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 14, color: Color(0xFF1E293B)),
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: widget.selectedDepartment == null
+                        ? null
+                        : widget.onSubdivisionChanged,
+                  ),
+          ),
+          FormRow(
+            label: context.l10n.registerMilieuLabel,
+            required: false,
+            child: DropdownButtonFormField<String>(
+              initialValue: widget.selectedArea,
+              isExpanded: true,
+              decoration: modernDropdown(),
+              hint: Text(context.l10n.registerUrbanOrRuralHint,
+                  style: const TextStyle(
+                      fontSize: 14, color: Color(0xFF94A3B8))),
+              items: kAreaOptions
+                  .map((o) => DropdownMenuItem(
+                      value: o.value,
+                      child: Text(o.text.of(context.loc),
+                          style: const TextStyle(
+                              fontSize: 14, color: Color(0xFF1E293B)))))
+                  .toList(),
+              onChanged: widget.onAreaChanged,
+            ),
+          ),
+          FormRow(
+            label: context.l10n.registerSectorLabel,
+            required: false,
+            child: widget.loadingSectors
+                ? const LoadingField()
+                : DropdownButtonFormField<Map<String, dynamic>>(
                     initialValue: widget.selectedSector,
                     isExpanded: true,
-                    decoration: modernDropdown().copyWith(
-                        prefixIcon: const Icon(Icons.work_outline, size: 20)),
+                    decoration: modernDropdown(),
                     hint: Text(context.l10n.registerSelectSectorHint,
-                        style:
-                            const TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+                        style: const TextStyle(
+                            fontSize: 14, color: Color(0xFF94A3B8))),
                     items: widget.sectors
                         .map((s) => DropdownMenuItem<Map<String, dynamic>>(
                               value: s as Map<String, dynamic>,
@@ -628,21 +693,22 @@ class _StepLocationState extends State<StepLocation> {
                                 s['name'] as String? ?? '',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                    fontSize: 13, color: Color(0xFF1E293B)),
+                                    fontSize: 13,
+                                    color: Color(0xFF1E293B)),
                               ),
                             ))
                         .toList(),
                     onChanged: widget.onSectorChanged,
                   ),
-                ],
-              ),
-        const SizedBox(height: 20),
-        InfoBox(
-          icon: Icons.auto_fix_high_outlined,
-          color: Colors.teal,
-          text: context.l10n.registerLocationInfoBox,
-        ),
-      ]),
+          ),
+          const SizedBox(height: 4),
+          InfoBox(
+            icon: Icons.auto_fix_high_outlined,
+            color: Colors.teal,
+            text: context.l10n.registerLocationInfoBox,
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -655,12 +721,14 @@ class StepSecurity extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final String initialPassword;
   final void Function(String) onChanged;
+  final ValueChanged<bool>? onValidityChanged;
 
   const StepSecurity({
     super.key,
     required this.formKey,
     required this.initialPassword,
     required this.onChanged,
+    this.onValidityChanged,
   });
 
   @override
@@ -674,6 +742,16 @@ class _StepSecurityState extends State<StepSecurity> {
   double _strength = 0;
   bool _confirmDirty = false;
 
+  bool get _isValid =>
+      _pwCtrl.text.length >= 8 &&
+      _calcStrength(_pwCtrl.text) >= 0.35 &&
+      _confirmCtrl.text == _pwCtrl.text &&
+      _confirmCtrl.text.isNotEmpty;
+
+  void _checkValidity() {
+    widget.onValidityChanged?.call(_isValid);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -683,6 +761,7 @@ class _StepSecurityState extends State<StepSecurity> {
     _pwCtrl.addListener(() {
       setState(() => _strength = _calcStrength(_pwCtrl.text));
       widget.onChanged(_pwCtrl.text);
+      _checkValidity();
     });
     // Once the user has started confirming, keep the mismatch check live as
     // either field changes — matches PhoneField's live-validation pattern.
@@ -692,7 +771,9 @@ class _StepSecurityState extends State<StepSecurity> {
       } else if (_confirmDirty) {
         setState(() {});
       }
+      _checkValidity();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkValidity());
   }
 
   @override
@@ -742,95 +823,101 @@ class _StepSecurityState extends State<StepSecurity> {
     final sc = _strengthColor(_strength);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Form(
-        key: widget.formKey,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(context.l10n.registerSecureAccountTitle,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text(context.l10n.registerChooseStrongPassword,
-              style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-          const SizedBox(height: 28),
-          TextFormField(
-            controller: _pwCtrl,
-            obscureText: _obscurePw,
-            textInputAction: TextInputAction.next,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-            decoration: modernInput(
-              hasError: false,
-              labelText: context.l10n.registerPasswordLabel,
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePw
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined),
-                onPressed: () => setState(() => _obscurePw = !_obscurePw),
+      child: SectionCard(
+        child: Form(
+          key: widget.formKey,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            StepHeader(
+              title: context.l10n.registerSecureAccountTitle,
+              subtitle: context.l10n.registerChooseStrongPassword,
+            ),
+            FormRow(
+              label: context.l10n.registerPasswordLabel,
+              required: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _pwCtrl,
+                    obscureText: _obscurePw,
+                    textInputAction: TextInputAction.next,
+                    style:
+                        const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                    decoration: modernInput(
+                      hasError: false,
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePw
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined),
+                        onPressed: () =>
+                            setState(() => _obscurePw = !_obscurePw),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return context.l10n.registerPasswordRequired;
+                      }
+                      if (v.length < 8) {
+                        return context.l10n.registerPasswordMinChars;
+                      }
+                      if (_calcStrength(v) < 0.35) {
+                        return context.l10n.registerPasswordTooWeak;
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _strength,
+                          minHeight: 5,
+                          backgroundColor: Colors.grey.shade200,
+                          color: sc,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _pwCtrl.text.isEmpty ? '' : _strengthLabel(_strength),
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600, color: sc),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  _PasswordTips(password: _pwCtrl.text),
+                ],
               ),
             ),
-            validator: (v) {
-              if (v == null || v.isEmpty) {
-                return context.l10n.registerPasswordRequired;
-              }
-              if (v.length < 8) return context.l10n.registerPasswordMinChars;
-              if (_calcStrength(v) < 0.35) {
-                return context.l10n.registerPasswordTooWeak;
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _strength,
-                  minHeight: 5,
-                  backgroundColor: Colors.grey.shade200,
-                  color: sc,
+            FormRow(
+              label: context.l10n.registerConfirmPasswordLabel,
+              required: true,
+              child: TextFormField(
+                controller: _confirmCtrl,
+                obscureText: _obscureConfirm,
+                textInputAction: TextInputAction.done,
+                autovalidateMode: _confirmDirty
+                    ? AutovalidateMode.always
+                    : AutovalidateMode.disabled,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                decoration: modernInput(
+                  hasError:
+                      _confirmDirty && _confirmError(_confirmCtrl.text) != null,
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirm
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined),
+                    onPressed: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
                 ),
+                validator: _confirmError,
               ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              _pwCtrl.text.isEmpty ? '' : _strengthLabel(_strength),
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: sc),
             ),
           ]),
-          const SizedBox(height: 8),
-          _PasswordTips(password: _pwCtrl.text),
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: _confirmCtrl,
-            obscureText: _obscureConfirm,
-            textInputAction: TextInputAction.done,
-            autovalidateMode: _confirmDirty
-                ? AutovalidateMode.always
-                : AutovalidateMode.disabled,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-            decoration: modernInput(
-              hasError: _confirmDirty && _confirmError(_confirmCtrl.text) != null,
-              labelText: context.l10n.registerConfirmPasswordLabel,
-              prefixIcon: Icon(
-                _confirmDirty && _confirmError(_confirmCtrl.text) == null
-                    ? Icons.check_circle_outline
-                    : Icons.lock_clock_outlined,
-                color: _confirmDirty && _confirmError(_confirmCtrl.text) == null
-                    ? PublicColors.green
-                    : null,
-              ),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureConfirm
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined),
-                onPressed: () =>
-                    setState(() => _obscureConfirm = !_obscureConfirm),
-              ),
-            ),
-            validator: _confirmError,
-          ),
-        ]),
+        ),
       ),
     );
   }
@@ -915,79 +1002,79 @@ class StepReview extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(context.l10n.registerStepTitleReview,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Text(context.l10n.registerReviewSubtitle,
-            style: const TextStyle(color: Color(0xFF666666), fontSize: 14)),
-        const SizedBox(height: 24),
-        _roleBadge(context),
-        const SizedBox(height: 16),
-        ReviewCard(
-          title: context.l10n.registerReviewRespondentTitle,
-          icon: Icons.person_outline,
-          rows: [
-            (context.l10n.registerFullNameLabel,
-                '$respondentFirstName $respondentLastName'),
-            if (respondentFunction.isNotEmpty)
-              (context.l10n.registerFunctionRowLabel, respondentFunction),
-            (context.l10n.registerEmailRowLabel, respondentEmail),
-            (context.l10n.registerPhone1RowLabel, respondentPhone1),
-            if (respondentPhone2.isNotEmpty)
-              (context.l10n.registerPhone2RowLabel, respondentPhone2),
-          ],
-        ),
-        if (_entityConfig != null) ...[
-          const SizedBox(height: 12),
-          ReviewCard(
-            title: context.loc.languageCode == 'en'
-                ? entityType!.formSectionLabelEn
-                : entityType!.formSectionLabel,
-            icon: _entityConfig!.icon,
-            rows: _buildEntityRows(context),
+      child: SectionCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          StepHeader(
+            title: context.l10n.registerStepTitleReview,
+            subtitle: context.l10n.registerReviewSubtitle,
           ),
-        ],
-        if (selectedRegion != null || selectedDepartment != null) ...[
-          const SizedBox(height: 12),
+          _roleBadge(context),
+          const SizedBox(height: 16),
           ReviewCard(
-            title: context.l10n.registerStepTitleLocation,
-            icon: Icons.map_outlined,
+            title: context.l10n.registerReviewRespondentTitle,
+            icon: Icons.person_outline,
             rows: [
-              if (selectedRegion != null)
-                (context.l10n.registerRegionRowLabel,
-                    selectedRegion!['name'] as String? ?? ''),
-              if (selectedDepartment != null)
-                (context.l10n.registerDepartmentRowLabel,
-                    selectedDepartment!['name'] as String? ?? ''),
-              if (selectedSubdivision != null)
-                (
-                  context.l10n.registerArrondissementLabel,
-                  selectedSubdivision!['name'] as String? ?? ''
-                ),
-              if (selectedArea != null)
-                (
-                  context.l10n.registerMilieuLabel,
-                  kAreaOptions
-                      .firstWhere((o) => o.value == selectedArea,
-                          orElse: () => LocalizedOption(
-                              selectedArea!, LocalizedText.same(selectedArea!)))
-                      .text
-                      .of(context.loc)
-                ),
-              if (selectedSector != null)
-                (context.l10n.registerSectorRowLabel,
-                    selectedSector!['name'] as String? ?? ''),
+              (context.l10n.registerFullNameLabel,
+                  '$respondentFirstName $respondentLastName'),
+              if (respondentFunction.isNotEmpty)
+                (context.l10n.registerFunctionRowLabel, respondentFunction),
+              (context.l10n.registerEmailRowLabel, respondentEmail),
+              (context.l10n.registerPhone1RowLabel, respondentPhone1),
+              if (respondentPhone2.isNotEmpty)
+                (context.l10n.registerPhone2RowLabel, respondentPhone2),
             ],
           ),
-        ],
-        const SizedBox(height: 16),
-        InfoBox(
-          icon: Icons.check_circle_outline,
-          color: PublicColors.green,
-          text: context.l10n.registerCompanyPendingInfoBox,
-        ),
-      ]),
+          if (_entityConfig != null) ...[
+            const SizedBox(height: 12),
+            ReviewCard(
+              title: context.loc.languageCode == 'en'
+                  ? entityType!.formSectionLabelEn
+                  : entityType!.formSectionLabel,
+              icon: _entityConfig!.icon,
+              rows: _buildEntityRows(context),
+            ),
+          ],
+          if (selectedRegion != null || selectedDepartment != null) ...[
+            const SizedBox(height: 12),
+            ReviewCard(
+              title: context.l10n.registerStepTitleLocation,
+              icon: Icons.map_outlined,
+              rows: [
+                if (selectedRegion != null)
+                  (context.l10n.registerRegionRowLabel,
+                      selectedRegion!['name'] as String? ?? ''),
+                if (selectedDepartment != null)
+                  (context.l10n.registerDepartmentRowLabel,
+                      selectedDepartment!['name'] as String? ?? ''),
+                if (selectedSubdivision != null)
+                  (
+                    context.l10n.registerArrondissementLabel,
+                    selectedSubdivision!['name'] as String? ?? ''
+                  ),
+                if (selectedArea != null)
+                  (
+                    context.l10n.registerMilieuLabel,
+                    kAreaOptions
+                        .firstWhere((o) => o.value == selectedArea,
+                            orElse: () => LocalizedOption(
+                                selectedArea!, LocalizedText.same(selectedArea!)))
+                        .text
+                        .of(context.loc)
+                  ),
+                if (selectedSector != null)
+                  (context.l10n.registerSectorRowLabel,
+                      selectedSector!['name'] as String? ?? ''),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          InfoBox(
+            icon: Icons.check_circle_outline,
+            color: PublicColors.green,
+            text: context.l10n.registerCompanyPendingInfoBox,
+          ),
+        ]),
+      ),
     );
   }
 

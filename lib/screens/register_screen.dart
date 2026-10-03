@@ -12,6 +12,7 @@ import 'register_constants.dart';
 import 'register_widgets.dart';
 import 'register_receipt.dart';
 import 'register_steps.dart';
+import 'register_state.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -69,9 +70,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _loadingSectors = false;
 
   String _password = '';
+  bool _securityValid = false;
   int _step = kStepEntityType;
   bool _isSubmitting = false;
   Timer? _debounce;
+
+  RegState get _currentState => RegState(
+        entityType: _selectedEntityType,
+        respondentFirstName: _respondentFirstName,
+        respondentLastName: _respondentLastName,
+        respondentFunction: _respondentFunction,
+        respondentEmail: _respondentEmail,
+        respondentPhone1: _respondentPhone1,
+        respondentPhone2: _respondentPhone2,
+        emailIsAvailable: _emailIsAvailable,
+        entityData: _entityData,
+        selectedRegion: _selectedRegion,
+        selectedDepartment: _selectedDepartment,
+        selectedSubdivision: _selectedSubdivision,
+        selectedArea: _selectedArea,
+        selectedSector: _selectedSector,
+        subdivisions: _subdivisions,
+        loadingSubdivisions: _loadingSubdivisions,
+        password: _password,
+        isSecurityValid: _securityValid,
+      );
+
+  bool _isSectionComplete(int step) => isSectionComplete(step, _currentState);
 
   bool get _isCompany => _role == 'COMPANY';
 
@@ -650,16 +675,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             initialPhone1: _respondentPhone1,
             initialPhone2: _respondentPhone2,
             onChanged: (fn, ln, func, email, p1, p2) {
-              // No setState: nothing on screen reads these fields back while
-              // the user is on this step (the text fields already reflect
-              // their own controllers), so rebuilding the whole registration
-              // tree on every keystroke would just be wasted work.
+              final oldComplete = _isSectionComplete(kStepRespondent);
               _respondentFirstName = fn;
               _respondentLastName = ln;
               _respondentFunction = func;
               _respondentEmail = email;
               _respondentPhone1 = p1;
               _respondentPhone2 = p2;
+              final newComplete = _isSectionComplete(kStepRespondent);
+              if (oldComplete != newComplete) {
+                setState(() {});
+              }
               _scheduleDraftSave();
             },
             onEmailAvailabilityChanged: (isAvailable) {
@@ -676,7 +702,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             config: _currentEntityConfig,
             controllers: _entityControllers,
             entityData: _entityData,
-            onChanged: () => _scheduleDraftSave(),
+            onChanged: () {
+              setState(() {});
+              _scheduleDraftSave();
+            },
             onDropdownChanged: (key, value) {
               setState(() => _entityData[key] = value);
               _scheduleDraftSave();
@@ -744,6 +773,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               _password = pw;
               _scheduleDraftSave();
             },
+            onValidityChanged: (valid) {
+              if (_securityValid != valid) {
+                setState(() => _securityValid = valid);
+              }
+            },
           );
 
         case kStepReview:
@@ -770,10 +804,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       // Cap each step to a conventional form width and center it — on
       // mobile the screen is already narrower than the cap so this is a
       // no-op, on desktop/web it stops fields from stretching edge-to-edge.
-      // Matches the 480px convention used by LoginPortalScreen.
+      // 720px width allows the 170px side-label layout on wide displays.
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: 720),
           child: page,
         ),
       );
@@ -794,6 +828,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         body: SafeArea(
           child: Column(
             children: [
+              const TopFlagStripe(),
               RegisterHeader(
                 currentStep: _currentVisibleIdx,
                 totalSteps: _visibleCount,
@@ -829,9 +864,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               ),
               Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
+                  constraints: const BoxConstraints(maxWidth: 720),
                   child: _BottomNav(
                     isBusy: isBusy,
+                    canAdvance: _isSectionComplete(_step),
                     step: _step,
                     onPrevious: _back,
                     onNext: _advance,
@@ -848,12 +884,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
 class _BottomNav extends StatelessWidget {
   final bool isBusy;
+  final bool canAdvance;
   final int step;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
   const _BottomNav({
     required this.isBusy,
+    this.canAdvance = true,
     required this.step,
     required this.onPrevious,
     required this.onNext,
@@ -896,7 +934,7 @@ class _BottomNav extends StatelessWidget {
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: isBusy ? null : onNext,
+                  onPressed: (isBusy || !canAdvance) ? null : onNext,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: PublicColors.green,
                     foregroundColor: Colors.white,

@@ -23,6 +23,242 @@ import '../data/minefop_models.dart' show EntityType;
 import '../widgets/public_chrome.dart';
 
 // ════════════════════════════════════════════════════════════════
+// TopFlagStripe — green / red / gold national banner
+// ════════════════════════════════════════════════════════════════
+
+class TopFlagStripe extends StatelessWidget {
+  final double height;
+  const TopFlagStripe({super.key, this.height = 4});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: const Row(
+        children: [
+          Expanded(child: ColoredBox(color: PublicColors.green)),
+          Expanded(child: ColoredBox(color: PublicColors.flagRed)),
+          Expanded(child: ColoredBox(color: PublicColors.flagYellow)),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// StepHeader — standardized 22px w700 title + 14px muted subtitle
+// ════════════════════════════════════════════════════════════════
+
+class StepHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const StepHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: PublicColors.gray900,
+          ),
+        ),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            subtitle!,
+            style: const TextStyle(
+              fontSize: 14,
+              color: PublicColors.gray500,
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// FormRow — responsive field row with 170px label column on wide
+// ════════════════════════════════════════════════════════════════
+
+class FormRow extends StatelessWidget {
+  final String label;
+  final bool required;
+  final String? hint;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  const FormRow({
+    super.key,
+    required this.label,
+    this.required = false,
+    this.hint,
+    required this.child,
+    this.padding = const EdgeInsets.only(bottom: 22),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 560;
+          if (isWide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 170,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Text.rich(
+                      TextSpan(
+                        text: label,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: PublicColors.gray700,
+                        ),
+                        children: [
+                          if (required)
+                            const TextSpan(
+                              text: ' *',
+                              style: TextStyle(
+                                color: PublicColors.red,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      child,
+                      if (hint != null && hint!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          hint!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: PublicColors.gray500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            );
+          } else {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    text: label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: PublicColors.gray700,
+                    ),
+                    children: [
+                      if (required)
+                        const TextSpan(
+                          text: ' *',
+                          style: TextStyle(
+                            color: PublicColors.red,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                  textAlign: TextAlign.start,
+                ),
+                const SizedBox(height: 6),
+                child,
+                if (hint != null && hint!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    hint!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: PublicColors.gray500,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          }
+        },
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SectionCard — 12px radius, 1px border, 28px/18px padding
+// ════════════════════════════════════════════════════════════════
+
+class SectionCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? margin;
+
+  const SectionCard({
+    super.key,
+    required this.child,
+    this.margin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 560;
+        final padding = isWide
+            ? const EdgeInsets.all(28)
+            : const EdgeInsets.all(18);
+
+        return Container(
+          margin: margin ?? const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: PublicColors.gray200, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(8),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: padding,
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
 // RegisterHeader — progress bar + step title
 // ════════════════════════════════════════════════════════════════
 
@@ -392,13 +628,7 @@ class _PhoneFieldState extends State<PhoneField> {
       ),
       decoration: modernInput(
         hasError: _hasError,
-        labelText: widget.label,
         hintText: widget.isRequired ? context.l10n.phoneHintShort : context.l10n.optional,
-        prefixIcon: Icon(
-          Icons.phone_outlined,
-          size: 20,
-          color: _hasError ? const Color(0xFFE24B4A) : null,
-        ),
         suffixText: _dirty ? '$length / 9' : null,
         suffixStyle: TextStyle(
           fontSize: 12,
@@ -513,28 +743,34 @@ class InfoBox extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 
 class LoadingField extends StatelessWidget {
-  final String label;
-  const LoadingField({super.key, required this.label});
+  final String? label;
+  const LoadingField({super.key, this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      FieldLabel(label: label),
-      const SizedBox(height: 6),
-      Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: const Center(
-            child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2))),
+    final box = Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
       ),
-    ]);
+      child: const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+    if (label != null && label!.isNotEmpty) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        FieldLabel(label: label!),
+        const SizedBox(height: 6),
+        box,
+      ]);
+    }
+    return box;
   }
 }
 
@@ -646,29 +882,70 @@ class ReviewCard extends StatelessWidget {
         const Divider(height: 1),
 
         // Rows
-        ...rows.map((row) {
-          final (label, value) = row;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            child: Row(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 560;
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 140,
-                  child: Text(label,
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF666666))),
-                ),
-                Expanded(
-                    child: Text(
-                  value.isEmpty ? '—' : value,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500),
-                )),
-              ],
-            ),
-          );
-        }),
+              children: rows.map((row) {
+                final (label, value) = row;
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  child: isWide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 170,
+                              child: Text(
+                                label,
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF666666),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                value.isEmpty ? '—' : value,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF666666),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              value.isEmpty ? '—' : value,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                );
+              }).toList(),
+            );
+          },
+        ),
       ]),
     );
   }
