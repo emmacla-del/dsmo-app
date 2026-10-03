@@ -282,6 +282,8 @@ export class AuthController {
     @Query('pageSize') pageSize?: string,
     @Query('roles') roles?: string,
     @Query('region') region?: string,
+    @Query('fromCreatedAt') fromCreatedAt?: string,
+    @Query('toCreatedAt') toCreatedAt?: string,
   ) {
     return this.authService.listUsers({
       search,
@@ -290,6 +292,8 @@ export class AuthController {
       region,
       status,
       isActive,
+      fromCreatedAt,
+      toCreatedAt,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     }, req.user.role);

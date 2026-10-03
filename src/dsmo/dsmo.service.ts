@@ -9,11 +9,12 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
-import { UserRole, DeclarationStatus, MovementType } from '../types/prisma.types';
+import { UserRole, DeclarationStatus, MovementType, UserStatus } from '../types/prisma.types';
 import { ValidationService } from './validation.service';
 import { AuditService } from './audit.service';
 import { PdfService, PdfData } from './pdf.service';
 import { resolveAndValidateTerritory } from '../territory/territory-resolver';
+import { Territory, territoryWhere } from '../auth/territory';
 
 @Injectable()
 export class DsmoService {
@@ -133,20 +134,91 @@ export class DsmoService {
     return company;
   }
 
-  /** Admin-facing company directory — every company, not just the caller's own. */
-  async listCompanies(params: { search?: string; page?: number; pageSize?: number }) {
+  /** Total establishment counts by registration account status, scoped to territory. */
+  async getCompanyStats(territory?: Territory) {
+    const where: any = territoryWhere(territory);
+    const [total, active, pendingApproval, complementsRequested, rejected, suspended] = await Promise.all([
+      this.prisma.company.count({ where }),
+      this.prisma.company.count({
+        where: {
+          ...where,
+          user: { status: UserStatus.ACTIVE, isActive: true },
+        },
+      }),
+      this.prisma.company.count({
+        where: {
+          ...where,
+          user: { status: UserStatus.PENDING_APPROVAL },
+        },
+      }),
+      this.prisma.company.count({
+        where: {
+          ...where,
+          user: { status: UserStatus.COMPLEMENTS_REQUESTED },
+        },
+      }),
+      this.prisma.company.count({
+        where: {
+          ...where,
+          user: { status: UserStatus.REJECTED },
+        },
+      }),
+      this.prisma.company.count({
+        where: {
+          ...where,
+          user: {
+            isActive: false,
+            status: { not: UserStatus.PENDING_APPROVAL },
+          },
+        },
+      }),
+    ]);
+    return {
+      total,
+      active,
+      pendingValidation: pendingApproval + complementsRequested,
+      rejected,
+      suspended,
+    };
+  }
+
+  /** Admin-facing company directory — scoped by territory if provided. */
+  async listCompanies(
+    params: {
+      search?: string;
+      status?: string;
+      region?: string;
+      page?: number;
+      pageSize?: number;
+    },
+    territory?: Territory,
+  ) {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize =
       params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
 
-    const where: any = {};
+    const baseWhere: any = territoryWhere(territory);
+    const where: any = { ...baseWhere };
+
+    if (params.status && params.status !== 'ALL') {
+      where.user = { status: params.status as any };
+    }
+    if (params.region && params.region !== 'Toutes') {
+      where.region = { equals: params.region.trim(), mode: 'insensitive' };
+    }
+
     const term = params.search?.trim();
     if (term) {
-      where.OR = [
-        { name: { contains: term, mode: 'insensitive' } },
-        { taxNumber: { contains: term, mode: 'insensitive' } },
-        { establishmentId: { contains: term, mode: 'insensitive' } },
-        { region: { contains: term, mode: 'insensitive' } },
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { taxNumber: { contains: term, mode: 'insensitive' } },
+            { establishmentId: { contains: term, mode: 'insensitive' } },
+            { region: { contains: term, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 

@@ -186,6 +186,12 @@ export class AuthService {
       lastName: user.lastName,
     };
 
+    // Update lastLoginAt on login
+    this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }).catch(() => {});
+
     const features = await this.buildFeatures(user.id, user.role);
 
     return {
@@ -1494,6 +1500,13 @@ export class AuthService {
           matricule: true,
           serviceCode: true,
           createdAt: true,
+          lastLoginAt: true,
+          perAgentTarget: true,
+          _count: {
+            select: {
+              onefopSubmissions: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
@@ -1501,7 +1514,12 @@ export class AuthService {
       }),
     ]);
 
-    return { users, total, page, pageSize };
+    const mappedUsers = users.map((u: any) => ({
+      ...u,
+      submissionsCount: u._count?.onefopSubmissions ?? 0,
+    }));
+
+    return { users: mappedUsers, total, page, pageSize };
   }
 
   async updateUserRole(id: string, role: string, actingUserId: string, actorRole: string) {

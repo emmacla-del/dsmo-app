@@ -23,6 +23,9 @@ export interface DirectoryUser {
   matricule: string | null;
   serviceCode: string | null;
   createdAt: string;
+  lastLoginAt?: string | null;
+  submissionsCount?: number | null;
+  perAgentTarget?: number | null;
 }
 
 export interface ListUsersParams {
@@ -35,6 +38,8 @@ export interface ListUsersParams {
   isActive?: boolean;
   page?: number;
   pageSize?: number;
+  fromCreatedAt?: string;
+  toCreatedAt?: string;
 }
 
 export interface ListUsersResult {
@@ -54,6 +59,8 @@ export function listUsers(params: ListUsersParams) {
   if (params.isActive !== undefined) query.set("isActive", String(params.isActive));
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  if (params.fromCreatedAt) query.set("fromCreatedAt", params.fromCreatedAt);
+  if (params.toCreatedAt) query.set("toCreatedAt", params.toCreatedAt);
   const qs = query.toString();
   return apiFetch<ListUsersResult>(`/auth/users${qs ? `?${qs}` : ""}`);
 }

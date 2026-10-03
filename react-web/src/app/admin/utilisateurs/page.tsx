@@ -16,7 +16,7 @@ import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerrito
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
-import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
+import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 
 const ALLOWED_ROLES = ["SUPER_ADMIN" as const, "SUPER_ADMIN_ONEFOP" as const];
 
@@ -35,14 +35,9 @@ const FIELD_ROLES = ["REGIONAL", "DIVISIONAL", "CENTRAL"];
 /**
  * One agent row.
  *
- * Mapped from a GET /auth/users record, whose select is exactly:
+ * Mapped from a GET /auth/users record, whose select is:
  * id, email, firstName, lastName, role, status, isActive, region, department,
- * matricule, serviceCode, createdAt (AuthService.listUsers).
- *
- * There are deliberately no workload, completion-rate, last-access or assigned
- * -survey fields: none of them exists anywhere in the backend
- * (docs/admin-data-integrity-inventory.md §7.2), and the previous version
- * manufactured them from the row's array index.
+ * matricule, serviceCode, createdAt, lastLoginAt, submissionsCount (AuthService.listUsers).
  */
 interface AgentItem {
   id: string;
@@ -56,6 +51,8 @@ interface AgentItem {
   isActive: boolean;
   status: string;
   createdAt: string | null;
+  lastLoginAt: string | null;
+  submissionsCount: number | null;
 }
 
 /** Initials from the parts of the name the record actually carries. */
@@ -107,6 +104,15 @@ export default function OnefopUsersPage() {
     queryFn: () => listUsers({ roles: FIELD_ROLES, isActive: false, page: 1, pageSize: 1 }),
   });
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  const newThisMonthQuery = useQuery({
+    queryKey: ["auth", "users", "onefop-agents", "new-this-month", startOfMonth],
+    enabled,
+    queryFn: () => listUsers({ roles: FIELD_ROLES, fromCreatedAt: startOfMonth, page: 1, pageSize: 1 }),
+  });
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
@@ -143,6 +149,8 @@ export default function OnefopUsersPage() {
       isActive: u.isActive,
       status: u.status,
       createdAt: u.createdAt ?? null,
+      lastLoginAt: u.lastLoginAt ? String(u.lastLoginAt) : null,
+      submissionsCount: typeof u.submissionsCount === "number" ? u.submissionsCount : null,
     };
   });
 
@@ -284,22 +292,18 @@ export default function OnefopUsersPage() {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
             NOUVELLES INSCRIPTIONS (MOIS)
           </div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#9ca3af", marginTop: 8, lineHeight: 1 }}>
-            {NOT_PROVIDED}
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {newThisMonthQuery.isLoading ? "…" : count(newThisMonthQuery.data?.total ?? null)}
           </div>
-          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
-            Non calculé par le système
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
+            Inscriptions enregistrées depuis le début du mois
           </div>
         </div>
       </div>
 
       {/* Agent table.
-          Columns are exactly the fields GET /auth/users returns. The Figma
-          frame also shows assigned surveys, submitted forms, a completion rate
-          and a last-access time; none of those exists in the backend
-          (docs/admin-data-integrity-inventory.md §7.2), and they were being
-          manufactured from the row index, so the columns are gone rather than
-          filled. */}
+          Columns are sourced directly from GET /auth/users (AuthService.listUsers),
+          including authoritative lastLoginAt and submissionsCount relations. */}
       <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e5e7eb", gap: 12, flexWrap: "wrap" }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: 0 }}>
@@ -319,6 +323,8 @@ export default function OnefopUsersPage() {
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Rôle</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Ressort assigné</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Matricule</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Formulaires collectés</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Dernière connexion</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Compte créé le</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Statut</th>
                 <th scope="col" style={{ padding: "14px 18px", textAlign: "right", fontWeight: 600 }}>Actions</th>
@@ -326,7 +332,7 @@ export default function OnefopUsersPage() {
             </thead>
             <tbody>
               <DataStateRow
-                colSpan={7}
+                colSpan={9}
                 state={tableState}
                 resource="les agents ONEFOP"
                 error={agentsQuery.error}
@@ -383,6 +389,14 @@ export default function OnefopUsersPage() {
 
                   <td style={{ padding: "12px 18px", color: "#4b5563", fontFamily: "ui-monospace, monospace" }}>
                     {agent.matricule ?? NOT_PROVIDED}
+                  </td>
+
+                  <td style={{ padding: "12px 18px", color: "#111827", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {count(agent.submissionsCount)}
+                  </td>
+
+                  <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
+                    {agent.lastLoginAt ? elapsedSince(agent.lastLoginAt) : NOT_PROVIDED}
                   </td>
 
                   <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
@@ -479,9 +493,14 @@ export default function OnefopUsersPage() {
               <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>COMPTE CRÉÉ LE</div>
               <div style={{ color: "#111827", marginTop: 2 }}>{stamp(profileAgent.createdAt, false)}</div>
             </div>
-            {/* No workload or response-rate block: the backend records
-                neither, and inventing one would attribute a performance
-                figure to a named civil servant. */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>FORMULAIRES COLLECTÉS</div>
+              <div style={{ color: "#111827", marginTop: 2, fontWeight: 600 }}>{count(profileAgent.submissionsCount)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>DERNIÈRE CONNEXION</div>
+              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.lastLoginAt ? stamp(profileAgent.lastLoginAt, true) : NOT_PROVIDED}</div>
+            </div>
           </div>
         </AdminDialog>
       )}
