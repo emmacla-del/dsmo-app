@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
-import { getVisibleHubs, getActiveHub, type AdminHub } from "@/app/admin/_routes";
+import { useMemo } from "react";
+import { getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
 import { useAuthStore } from "@/lib/auth-store";
+import { useNavProfile } from "@/hooks/useNavProfile";
+import { navHubsFor } from "@/lib/nav-profiles";
 
 export interface AdminSidebarProps {
   user?: {
@@ -13,7 +15,14 @@ export interface AdminSidebarProps {
     roleLabel: string;
     initials: string;
   };
-  /** Current user's role key; items outside their allowedRoles are hidden. */
+  /**
+   * Current user's role key. Optional override: when omitted the rail renders
+   * the signed-in account's profile from the auth store (useNavProfile). Pass
+   * it to render another role's rail — the layout does, from the same store.
+   *
+   * The hubs shown are that role's entry in NAV_PROFILES (@/lib/nav-profiles),
+   * not ADMIN_HUBS filtered by allowedRoles; see that file for why.
+   */
   role?: UserRole;
   /** Badge count on "Supervision" (blocking anomalies + pending national visas) */
   pendingCount?: number;
@@ -139,8 +148,11 @@ export function AdminSidebar({
     }
   };
 
-  // Filter hubs by user role and tailor landing URL to first allowed sub-route
-  const visibleHubs = getVisibleHubs(role);
+  // The signed-in account's profile, unless a role was passed explicitly.
+  // Either way the hubs come from NAV_PROFILES, each href already pointing at
+  // the first sub-route that role may open.
+  const { hubs: ownHubs } = useNavProfile();
+  const visibleHubs = useMemo(() => (role ? navHubsFor(role) : ownHubs), [role, ownHubs]);
 
   const activeHub = getActiveHub(pathname, searchParams);
 

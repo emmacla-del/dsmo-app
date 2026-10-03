@@ -106,7 +106,13 @@ export const ADMIN_HUBS: AdminHub[] = [
     subRoutes: [
       { label: "Centre Qualité", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
       { label: "Anomalies", href: "/admin/files-attente?tab=anomalies", badgeKey: "anomalies", allowedRoles: ADMIN_ROLES },
-      { label: "Contrôle régional", href: "/admin/centre-qualite?tab=regional", allowedRoles: APPROVAL_ROLES },
+      // The "Contrôle régional" entry pointed at ?tab=regional, which
+      // /admin/centre-qualite never read — it rendered the same unscoped view.
+      // Removed rather than re-pointed: a real regional view needs a `region`
+      // filter on GET quality/summary and anomalies/registry, which the
+      // backend does not accept yet (both are already territory-scoped by
+      // territoryFromUser, so a REGIONAL_ADMIN cannot widen past its own
+      // ressort). The entry returns with that backend change, as ?region=.
     ],
   },
   {
@@ -137,6 +143,20 @@ export const ADMIN_HUBS: AdminHub[] = [
   },
 ];
 
+/**
+ * Hubs indexed by `key`, the seam @/lib/nav-profiles uses to turn a role's
+ * declared hub list into hubs. `key` is required on AdminHub, so every hub is
+ * always reachable from a profile — there is no second identifier to keep in
+ * step with it.
+ */
+export function hubsByKey(): Map<HubKey, AdminHub> {
+  const byKey = new Map<HubKey, AdminHub>();
+  for (const hub of ADMIN_HUBS) {
+    byKey.set(hub.key, hub);
+  }
+  return byKey;
+}
+
 /** Backward compatible sectioned routes structure */
 export const ADMIN_ROUTES: AdminRouteSection[] = ADMIN_HUBS.map((hub) => ({
   group: hub.label,
@@ -151,30 +171,6 @@ export const ADMIN_ROUTES: AdminRouteSection[] = ADMIN_HUBS.map((hub) => ({
 export function isRoleAllowed(allowedRoles: readonly UserRole[] | undefined, role: UserRole | undefined): boolean {
   if (!allowedRoles) return true;
   return !!role && (allowedRoles as readonly string[]).includes(role);
-}
-
-/**
- * Returns the visible hubs for a given role, tailoring the primary landing href
- * to the first allowed sub-route for that role.
- */
-export function getVisibleHubs(role: UserRole | undefined): AdminHub[] {
-  return ADMIN_HUBS.map((hub) => {
-    // If hub has role gates and role doesn't match, hide
-    if (!isRoleAllowed(hub.allowedRoles, role)) return null;
-
-    // Filter sub-routes allowed for this role
-    const allowedSubRoutes = hub.subRoutes.filter((sub) => isRoleAllowed(sub.allowedRoles, role));
-    if (allowedSubRoutes.length === 0) return null;
-
-    // Set landing URL to the first sub-route the user actually has access to
-    const effectiveHref = allowedSubRoutes[0].href;
-
-    return {
-      ...hub,
-      href: effectiveHref,
-      subRoutes: allowedSubRoutes,
-    };
-  }).filter(Boolean) as AdminHub[];
 }
 
 /**
