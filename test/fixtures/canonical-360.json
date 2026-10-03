@@ -1,31 +1,4 @@
-/**
- * Canonical Cameroon Administrative Hierarchy (360 Subdivisions, 58 Departments, 10 Regions)
- * Scheme:
- *  - Regions: 2-digit code '01' to '10'
- *  - Departments: 2-digit code '01' to '58'
- *  - Subdivisions: 4-digit code 'DDSS' (department code 01-58 + 2-digit subdivision index 01-NN)
- *
- * Sourced from the reviewed canonical 360 mapping (docs/reference/arrondissements-mapping.xlsx).
- */
-
-export interface CanonicalSubdivision {
-  name: string;
-  code: string;
-}
-
-export interface CanonicalDepartment {
-  name: string;
-  code: string;
-  subdivisions: CanonicalSubdivision[];
-}
-
-export interface CanonicalRegion {
-  name: string;
-  code: string;
-  departments: CanonicalDepartment[];
-}
-
-export const CANONICAL_CAMEROON_360: CanonicalRegion[] = [
+[
   {
     "name": "Adamaoua",
     "code": "01",
@@ -1874,4 +1847,4 @@ export const CANONICAL_CAMEROON_360: CanonicalRegion[] = [
       }
     ]
   }
-];
+]

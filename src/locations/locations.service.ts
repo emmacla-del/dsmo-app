@@ -1,4 +1,4 @@
-﻿// src/locations/locations.service.ts
+// src/locations/locations.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -56,7 +56,13 @@ export class LocationsService {
   //   },
   //   ...
   // ]
+  private cachedStructure: any = null;
+
   async getFullStructure() {
+    if (this.cachedStructure) {
+      return this.cachedStructure;
+    }
+
     const regions = await this.prisma.region.findMany({
       orderBy: { name: 'asc' },
       include: {
@@ -71,17 +77,26 @@ export class LocationsService {
       },
     });
 
-    return regions.map(r => ({
+    this.cachedStructure = regions.map(r => ({
       id: r.id,
       name: r.name,
+      code: r.code,
       departments: r.departments.map(d => ({
         id: d.id,
         name: d.name,
+        code: d.code,
         subdivisions: d.subdivisions.map(s => ({
           id: s.id,
           name: s.name,
+          code: s.code,
         })),
       })),
     }));
+
+    return this.cachedStructure;
+  }
+
+  clearStructureCache() {
+    this.cachedStructure = null;
   }
 }
