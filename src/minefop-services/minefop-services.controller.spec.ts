@@ -95,9 +95,9 @@ describe('MinefopServicesController security & guards', () => {
       expect(() => activeCompanyGuard.canActivate(ctx)).toThrow(ForbiddenException);
     });
 
-    it('rejects CENTRAL role with 403 on RolesGuard', async () => {
+    it('rejects AUDITOR role with 403 on RolesGuard', async () => {
       const ctx = createMockExecutionContext(controller.createService, {
-        role: UserRole.ADMIN_ONEFOP,
+        role: UserRole.AUDITOR,
         status: UserStatus.ACTIVE,
         isActive: true,
       });

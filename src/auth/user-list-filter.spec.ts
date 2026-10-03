@@ -11,27 +11,27 @@ describe('buildUserListWhere', () => {
   });
 
   it('accepts a comma-separated role list', () => {
-    expect(buildUserListWhere({ roles: 'REGIONAL, DIVISIONAL' }).role).toEqual({
+    expect(buildUserListWhere({ roles: 'REGIONAL_ADMIN, DIVISIONAL_ADMIN' }).role).toEqual({
       in: ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'],
     });
   });
 
   it('intersects role and roles instead of widening', () => {
-    expect(buildUserListWhere({ roles: 'REGIONAL,DIVISIONAL', role: 'ADMIN_ONEFOP' }).role).toEqual({
+    expect(buildUserListWhere({ roles: 'REGIONAL_ADMIN,DIVISIONAL_ADMIN', role: 'ADMIN_ONEFOP' }).role).toEqual({
       in: [],
     });
-    expect(buildUserListWhere({ roles: 'REGIONAL,DIVISIONAL', role: 'REGIONAL_ADMIN' }).role).toEqual({
+    expect(buildUserListWhere({ roles: 'REGIONAL_ADMIN,DIVISIONAL_ADMIN', role: 'REGIONAL_ADMIN' }).role).toEqual({
       in: ['REGIONAL_ADMIN'],
     });
   });
 
   it('never lists COMPANY accounts even when asked explicitly', () => {
     expect(buildUserListWhere({ role: 'COMPANY' }).role).toEqual({ in: [] });
-    expect(buildUserListWhere({ roles: 'COMPANY,CENTRAL' }).role).toEqual({ in: ['ADMIN_ONEFOP'] });
+    expect(buildUserListWhere({ roles: 'COMPANY,ADMIN_ONEFOP' }).role).toEqual({ in: ['ADMIN_ONEFOP'] });
   });
 
   it('rejects unknown roles with a 400', () => {
-    expect(() => buildUserListWhere({ roles: 'REGIONAL,HACKER' })).toThrow(BadRequestException);
+    expect(() => buildUserListWhere({ roles: 'REGIONAL_ADMIN,HACKER' })).toThrow(BadRequestException);
     expect(() => buildUserListWhere({ role: 'nope' })).toThrow(BadRequestException);
   });
 

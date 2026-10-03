@@ -29,7 +29,7 @@ const departments = [
 describe('resolveTargetScope', () => {
   it('gives national roles the whole country, including a stray region', async () => {
     const prisma = prismaFor(regions, departments);
-    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP']) {
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
       await expect(resolveTargetScope(prisma as any, { role, region: 'Littoral', regionId: 'r-other' }))
         .resolves.toEqual({ kind: 'national' });
     }
@@ -40,7 +40,7 @@ describe('resolveTargetScope', () => {
     const prisma = prismaFor(regions, departments);
     await expect(resolveTargetScope(prisma as any, undefined)).resolves.toEqual({ kind: 'none' });
     await expect(resolveTargetScope(prisma as any, null)).resolves.toEqual({ kind: 'none' });
-    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP', 'AUDITOR', 'COMPANY']) {
+    for (const role of ['AUDITOR', 'COMPANY']) {
       await expect(resolveTargetScope(prisma as any, { role, region: 'Centre' })).resolves.toEqual({ kind: 'none' });
     }
     expect(prisma.region.findMany).not.toHaveBeenCalled();

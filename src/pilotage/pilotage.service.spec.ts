@@ -465,7 +465,7 @@ describe('PilotageService reads', () => {
     expect(littoral).toMatchObject({ mode: 'MIXED', inscriptionTarget: null });
 
     await expect(harness.service.getInscriptionTargets(undefined, '2026')).resolves.toEqual({ year: 2026, central: null, regions: [] });
-    await expect(harness.service.getInscriptionTargets({ role: 'SUPER_ADMIN', region: 'Centre' }, '2026'))
+    await expect(harness.service.getInscriptionTargets({ role: 'AUDITOR', region: 'Centre' }, '2026'))
       .resolves.toEqual({ year: 2026, central: null, regions: [] });
     await expect(harness.service.getInscriptionTargets({ role: 'REGIONAL_ADMIN', region: 'Extreme-Nord' }, '2026'))
       .resolves.toEqual({ year: 2026, central: null, regions: [] });

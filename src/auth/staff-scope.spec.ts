@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ONEFOP_STAFF_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor } from './staff-scope';
 import { buildUserListWhere } from './user-list-filter';
@@ -7,13 +7,12 @@ describe('staff administration scope', () => {
   it('leaves SUPER_ADMIN unrestricted, limits SUPER_ADMIN_ONEFOP, and grants nothing to anyone else', () => {
     expect(manageableRolesFor('SUPER_ADMIN')).toBeNull();
     expect(manageableRolesFor('ADMIN_ONEFOP')).toEqual(ONEFOP_STAFF_ROLES);
-    expect(manageableRolesFor('SUPER_ADMIN')).toEqual([]);
     expect(manageableRolesFor('REGIONAL_ADMIN')).toEqual([]);
     expect(manageableRolesFor(undefined)).toEqual([]);
   });
 
   it('never lets the ONEFOP administrator reach an administrator or company account', () => {
-    for (const target of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'COMPANY']) {
+    for (const target of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'COMPANY']) {
       expect(() => assertCanManageRole('ADMIN_ONEFOP', target)).toThrow(ForbiddenException);
     }
     for (const target of ONEFOP_STAFF_ROLES) {
@@ -30,7 +29,7 @@ describe('staff administration scope', () => {
     });
 
     it('intersects requested roles with the ceiling instead of widening it', () => {
-      expect(buildUserListWhere({ roles: 'REGIONAL,SUPER_ADMIN', allowedRoles: ceiling }).role).toEqual({ in: ['REGIONAL_ADMIN'] });
+      expect(buildUserListWhere({ roles: 'REGIONAL_ADMIN,SUPER_ADMIN', allowedRoles: ceiling }).role).toEqual({ in: ['REGIONAL_ADMIN'] });
       expect(buildUserListWhere({ role: 'SUPER_ADMIN', allowedRoles: ceiling }).role).toEqual({ in: [] });
     });
 
@@ -131,7 +130,7 @@ describe('AuthService user management enforces the scope server-side', () => {
   });
 
   it('lists only in-scope roles for the ONEFOP administrator', async () => {
-    await service.listUsers({ roles: 'REGIONAL,SUPER_ADMIN' }, 'ADMIN_ONEFOP');
+    await service.listUsers({ roles: 'REGIONAL_ADMIN,SUPER_ADMIN' }, 'ADMIN_ONEFOP');
     expect(prisma.user.findMany.mock.calls[0][0].where.role).toEqual({ in: ['REGIONAL_ADMIN'] });
   });
 });
@@ -166,7 +165,7 @@ describe('assertCanApproveRegistration (D3)', () => {
   });
 
   it('never lets REGIONAL/DIVISIONAL reach administrator or company accounts, even in territory', () => {
-    for (const target of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'SUPER_ADMIN', 'COMPANY']) {
+    for (const target of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'COMPANY']) {
       expect(() => assertCanApproveRegistration(regional, { role: target, region: 'Littoral' })).toThrow(ForbiddenException);
       expect(() => assertCanApproveRegistration(divisional, { role: target, region: 'Littoral', department: 'Wouri' })).toThrow(ForbiddenException);
     }
@@ -185,8 +184,12 @@ describe('assertCanApproveRegistration (D3)', () => {
     }
   });
 
-  it('refuses every other role, national ones included', () => {
-    for (const role of ['ADMIN_ONEFOP', 'SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP', 'AUDITOR', 'ADMIN_ONEFOP', 'COMPANY', undefined]) {
+  // The national roles are covered by the two tests above: ADMIN_ONEFOP
+  // approves ONEFOP staff through assertCanManageRole and SUPER_ADMIN
+  // approves anything. What is left are the roles manageableRolesFor gives
+  // an empty scope to — they can approve nobody, anywhere.
+  it('refuses the roles with no management scope at all', () => {
+    for (const role of ['AUDITOR', 'COMPANY', undefined]) {
       expect(() => assertCanApproveRegistration({ role }, { role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' })).toThrow(ForbiddenException);
     }
   });
@@ -232,13 +235,24 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
     service = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
   });
 
-  it('SUPER_ADMIN_ONEFOP creates ONEFOP field staff; other roles are refused before any write', async () => {
-    const dto = { email: 'a@b.cm', firstName: 'A', lastName: 'B', role: 'ADMIN_ONEFOP' };
-    await expect(service.adminCreateMinefopUser(dto, 'ADMIN_ONEFOP')).resolves.toMatchObject({ user: { role: 'ADMIN_ONEFOP' } });
-    await expect(service.adminCreateMinefopUser(dto, 'SUPER_ADMIN')).resolves.toMatchObject({ user: { role: 'ADMIN_ONEFOP' } });
+  it('ADMIN_ONEFOP creates ONEFOP field staff but cannot create its own rank', async () => {
+    const field = { email: 'a@b.cm', firstName: 'A', lastName: 'B', role: 'REGIONAL_ADMIN', region: 'Littoral' };
+    await expect(service.adminCreateMinefopUser(field, 'ADMIN_ONEFOP')).resolves.toMatchObject({ user: { role: 'REGIONAL_ADMIN' } });
+    await expect(service.adminCreateMinefopUser(field, 'SUPER_ADMIN')).resolves.toMatchObject({ user: { role: 'REGIONAL_ADMIN' } });
+
+    // MINEFOP_FIELD_ROLES is the first gate and holds only the two field
+    // roles, so ADMIN_ONEFOP is refused as a *target* whoever the actor is —
+    // the self-escalation the eleven-value model prevented by keeping the
+    // manager outside the managed set. A 400, not a 403: the role is not
+    // creatable through this route at all.
     prisma.user.create.mockClear();
-    for (const actor of ['REGIONAL_ADMIN', 'SUPER_ADMIN', 'ADMIN_ONEFOP']) {
-      await expect(service.adminCreateMinefopUser(dto, actor)).rejects.toThrow(ForbiddenException);
+    const ownRank = { ...field, role: 'ADMIN_ONEFOP' };
+    await expect(service.adminCreateMinefopUser(ownRank, 'ADMIN_ONEFOP')).rejects.toThrow(BadRequestException);
+    await expect(service.adminCreateMinefopUser(ownRank, 'SUPER_ADMIN')).rejects.toThrow(BadRequestException);
+
+    // And the roles with no management scope are refused before any write.
+    for (const actor of ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'AUDITOR', 'COMPANY']) {
+      await expect(service.adminCreateMinefopUser(field, actor)).rejects.toThrow(ForbiddenException);
     }
     expect(prisma.user.create).not.toHaveBeenCalled();
   });

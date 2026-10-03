@@ -5,18 +5,16 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { UserRole } from '../types/prisma.types';
 import { PILOTAGE_READ_ROLES, PILOTAGE_WRITE_ROLES, PilotageController } from './pilotage.controller';
 
+// The six values UserRole actually holds. The role collapse folded five of
+// the old eleven into ADMIN_ONEFOP and two into SUPER_ADMIN, so this list
+// carried duplicates until it was deduped back to the real enum.
 const ENUM_ROLES = [
   'ADMIN_ONEFOP',
   'AUDITOR',
-  'ADMIN_ONEFOP',
-  'ADMIN_ONEFOP',
   'COMPANY',
-  'ADMIN_ONEFOP',
   'DIVISIONAL_ADMIN',
   'REGIONAL_ADMIN',
   'SUPER_ADMIN',
-  'SUPER_ADMIN',
-  'ADMIN_ONEFOP',
 ];
 
 function contextFor(handler: Function, role: string): ExecutionContext {

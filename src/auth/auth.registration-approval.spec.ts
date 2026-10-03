@@ -437,19 +437,19 @@ describe('AuthService registration review — approver role boundaries', () => {
     ).resolves.toMatchObject({ status: 'ACTIVE' });
   });
 
-  it('CENTRAL still cannot approve a STAFF registration, before any write', async () => {
+  it('AUDITOR cannot approve a field-staff registration, before any write', async () => {
     const { service, prisma } = makeService(pendingStaffUser);
-    await expect(service.approveUser('u-staff', 'actor-central', 'ADMIN_ONEFOP', {})).rejects.toThrow(
+    await expect(service.approveUser('u-staff', 'actor-auditor', 'AUDITOR', {})).rejects.toThrow(
       ForbiddenException,
     );
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
-  it('CENTRAL still cannot reject a STAFF registration, before any write', async () => {
+  it('AUDITOR cannot reject a field-staff registration, before any write', async () => {
     const { service, prisma } = makeService(pendingStaffUser);
     await expect(
-      service.rejectUser('u-staff', 'actor-central', 'ADMIN_ONEFOP', {}, 'motif'),
+      service.rejectUser('u-staff', 'actor-auditor', 'AUDITOR', {}, 'motif'),
     ).rejects.toThrow(ForbiddenException);
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();

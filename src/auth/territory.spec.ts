@@ -9,7 +9,7 @@ const CENTRE = { region: 'Centre', regionId: 'reg-ce', department: 'Mfoundi', de
 
 describe('territoryWhere', () => {
   it('applies no restriction to national roles', () => {
-    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP']) {
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
       expect(territoryWhere({ role })).toEqual({});
       // A stray region on a national account must not narrow its scope.
       expect(territoryWhere({ role, region: 'Littoral', regionId: 'reg-lt' })).toEqual({});
@@ -52,7 +52,7 @@ describe('territoryWhere', () => {
   });
 
   it('fails closed for unknown or missing roles', () => {
-    for (const role of ['ADMIN_ONEFOP', 'AUDITOR', 'COMPANY', 'SUPER_ADMIN', 'not-a-role']) {
+    for (const role of ['AUDITOR', 'COMPANY', 'not-a-role']) {
       expect(territoryWhere({ role, region: 'Littoral' })).toEqual(NO_ROWS);
     }
     expect(territoryWhere({})).toEqual(NO_ROWS);
@@ -63,7 +63,7 @@ describe('territoryWhere', () => {
 
 describe('assertTerritorialAuthority', () => {
   it('lets national roles act anywhere', () => {
-    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP']) {
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
       expect(() => assertTerritorialAuthority({ role }, CENTRE)).not.toThrow();
     }
   });
@@ -128,7 +128,7 @@ describe('assertTerritorialAuthority', () => {
   });
 
   it('fails closed for unknown roles', () => {
-    for (const role of ['ADMIN_ONEFOP', 'AUDITOR', 'COMPANY', 'not-a-role']) {
+    for (const role of ['AUDITOR', 'COMPANY', 'not-a-role']) {
       expect(() => assertTerritorialAuthority({ role, region: 'Littoral' }, LITTORAL)).toThrow(
         'Privilèges territoriaux insuffisants.',
       );
@@ -144,35 +144,24 @@ describe('assertTerritorialAuthority', () => {
   });
 });
 
-describe('territoryWhereForExport (D7)', () => {
-  const D7_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP'];
+// D7 gave DATA_MANAGER and ANALYST read-only national scope on exports
+// while territoryWhere kept failing closed for them and
+// assertTerritorialAuthority refused them any write. The role collapse
+// folded both into ADMIN_ONEFOP, which is national everywhere, so
+// EXPORT_NATIONAL_ROLES and NATIONAL_ROLES now hold the same two values and
+// that read-only/no-write distinction has no roles left to apply to. The
+// three tests that asserted it were deleted rather than rewritten. What
+// remains is the behaviour territoryWhereForExport still has of its own:
+// national roles unscoped, territorial roles scoped exactly as
+// territoryWhere scopes them, everything else closed.
+describe('territoryWhereForExport', () => {
+  const EXPORT_NATIONAL_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'];
 
-  it('gives the D7 roles national scope on exports', () => {
-    for (const role of D7_ROLES) {
+  it('gives the national roles unrestricted scope on exports', () => {
+    for (const role of EXPORT_NATIONAL_ROLES) {
       expect(territoryWhereForExport({ role })).toEqual({});
       // A stray region on the account must not narrow its export scope.
       expect(territoryWhereForExport({ role, region: 'Littoral', regionId: 'reg-lt' })).toEqual({});
-    }
-  });
-
-  it('keeps the existing national roles national on exports', () => {
-    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP']) {
-      expect(territoryWhereForExport({ role, region: 'Littoral' })).toEqual({});
-    }
-  });
-
-  it('leaves the general territoryWhere failing closed for the D7 roles', () => {
-    for (const role of D7_ROLES) {
-      expect(territoryWhere({ role })).toEqual(NO_ROWS);
-      expect(territoryWhere({ role, region: 'Littoral', regionId: 'reg-lt' })).toEqual(NO_ROWS);
-    }
-  });
-
-  it('grants the D7 roles no write scope: assertTerritorialAuthority still refuses them', () => {
-    for (const role of D7_ROLES) {
-      expect(() => assertTerritorialAuthority({ role, region: 'Littoral', regionId: 'reg-lt' }, CENTRE)).toThrow(
-        'Privilèges territoriaux insuffisants.',
-      );
     }
   });
 
@@ -197,7 +186,7 @@ describe('territoryWhereForExport (D7)', () => {
   it('still fails closed for unassigned territorial accounts and other roles', () => {
     expect(territoryWhereForExport({ role: 'REGIONAL_ADMIN' })).toEqual(NO_ROWS);
     expect(territoryWhereForExport({ role: 'DIVISIONAL_ADMIN', department: 'Wouri' })).toEqual(NO_ROWS);
-    for (const role of ['AUDITOR', 'ADMIN_ONEFOP', 'COMPANY', 'not-a-role']) {
+    for (const role of ['AUDITOR', 'COMPANY', 'not-a-role']) {
       expect(territoryWhereForExport({ role, region: 'Littoral' })).toEqual(NO_ROWS);
     }
     expect(territoryWhereForExport({})).toEqual(NO_ROWS);
