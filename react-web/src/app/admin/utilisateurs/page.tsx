@@ -10,7 +10,7 @@ import {
   updateUserTerritory,
   type DirectoryUser,
 } from "@/lib/user-directory";
-import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -63,7 +63,7 @@ const DEFAULT_AGENTS: AgentItem[] = [
     initials: "CH",
     name: "Christian Ndongo",
     region: "Centre",
-    department: "Mfoundi",
+    department: "Nyong-et-So'o",
     tags: ["Entreprises", "Administration"],
     fiches: 289,
     taux: 94,
@@ -101,8 +101,8 @@ const DEFAULT_AGENTS: AgentItem[] = [
     id: "ag-6",
     initials: "SA",
     name: "Salomon Bello",
-    region: "Adamaoua",
-    department: "Vina",
+    region: "Est",
+    department: "Lom-et-Djérem",
     tags: ["Coopératives", "ASFOP"],
     fiches: 210,
     taux: 79,
@@ -581,7 +581,8 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
   const set = (key: keyof typeof EMPTY_FORM) => (value: string) =>
     setForm((f) => ({ ...f, [key]: value, ...(key === "region" ? { department: "" } : {}) }));
 
-  const departments = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === form.region)?.departments ?? [];
+  const { regions } = useTerritoryRegions();
+  const { departments } = useTerritoryDepartments(form.region);
 
   return (
     <AdminDialog
@@ -634,14 +635,14 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Région</label>
               <select className="cam-input" value={form.region} onChange={(e) => set("region")(e.target.value)}>
-                {CAMEROON_ADMIN_HIERARCHY.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+                {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Département</label>
               <select className="cam-input" value={form.department} onChange={(e) => set("department")(e.target.value)}>
                 <option value="">Tous les départements</option>
-                {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
           </div>
@@ -665,7 +666,8 @@ function ReassignDialog({ agent, onClose, onSuccess }: { agent: AgentItem; onClo
     },
   });
 
-  const departments = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === region)?.departments ?? [];
+  const { regions } = useTerritoryRegions();
+  const { departments } = useTerritoryDepartments(region);
 
   return (
     <AdminDialog
@@ -692,14 +694,14 @@ function ReassignDialog({ agent, onClose, onSuccess }: { agent: AgentItem; onClo
         <div>
           <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Région d&apos;affectation</label>
           <select className="cam-input" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
-            {CAMEROON_ADMIN_HIERARCHY.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+            {regions.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div>
           <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Département</label>
           <select className="cam-input" value={department} onChange={(e) => setDepartment(e.target.value)}>
             <option value="">Tous les départements de la région</option>
-            {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
       </div>

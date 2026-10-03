@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { listAdminQuestionnaires, getPilotageQueues } from "@/lib/api-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 // Mock activity events matching Figma styling
 const DEFAULT_ACTIVITIES = [
@@ -147,6 +148,7 @@ function ActiviteContent() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState(user?.region || "all");
   const [searchQuery, setSearchQuery] = useState("");
+  const { regions } = useTerritoryRegions();
 
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
@@ -353,16 +355,11 @@ function ActiviteContent() {
               style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff" }}
             >
               <option value="all">Toutes les Régions</option>
-              <option value="Littoral">Littoral</option>
-              <option value="Centre">Centre</option>
-              <option value="Ouest">Ouest</option>
-              <option value="Sud-Ouest">Sud-Ouest</option>
-              <option value="Nord">Nord</option>
-              <option value="Extrême-Nord">Extrême-Nord</option>
-              <option value="Sud">Sud</option>
-              <option value="Adamaoua">Adamaoua</option>
-              <option value="Est">Est</option>
-              <option value="Nord-Ouest">Nord-Ouest</option>
+              {regions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
             </select>
           </div>
 

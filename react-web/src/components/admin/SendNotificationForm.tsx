@@ -5,11 +5,13 @@ import { useTranslations } from "next-intl";
 import { useMutation } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api-client";
 import {
-  NOTIFICATION_DEPARTMENTS,
-  NOTIFICATION_REGIONS,
   NOTIFICATION_STATUSES,
   sendNotification,
 } from "@/lib/notifications";
+import {
+  useTerritoryDepartments,
+  useTerritoryRegions,
+} from "@/hooks/useTerritoryStructure";
 
 const fieldLabelStyle: React.CSSProperties = {
   display: "block",
@@ -57,6 +59,9 @@ export function SendNotificationForm() {
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
   const [touched, setTouched] = useState(false);
+
+  const { regions } = useTerritoryRegions();
+  const { departments } = useTerritoryDepartments(region);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -106,9 +111,17 @@ export function SendNotificationForm() {
           <label style={fieldLabelStyle} htmlFor="notif-region">
             {t("sendNotificationForm.regionLabel")}
           </label>
-          <select id="notif-region" style={inputStyle} value={region} onChange={(e) => setRegion(e.target.value)}>
+          <select
+            id="notif-region"
+            style={inputStyle}
+            value={region}
+            onChange={(e) => {
+              setRegion(e.target.value);
+              setDepartment("");
+            }}
+          >
             <option value="">{t("sendNotificationForm.allRegionsOption")}</option>
-            {NOTIFICATION_REGIONS.map((r) => (
+            {regions.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -126,7 +139,7 @@ export function SendNotificationForm() {
             onChange={(e) => setDepartment(e.target.value)}
           >
             <option value="">{t("sendNotificationForm.allDivisionsOption")}</option>
-            {NOTIFICATION_DEPARTMENTS.map((d) => (
+            {departments.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>

@@ -20,7 +20,7 @@ export const API_BASE_URL =
     ? "http://localhost:3001/api"
     : "https://dsmo-app-2.onrender.com/api");
 
-import type { Department, RegisterCompanyResult, Region, Sector, Subdivision, User } from "./user-types";
+import type { Department, LocationRegion, RegisterCompanyResult, Region, Sector, Subdivision, User } from "./user-types";
 
 const TOKEN_STORAGE_KEY = "camleap.access_token";
 const CACHED_USER_KEY = "camleap.cached_user";
@@ -307,6 +307,10 @@ export function getDepartmentsByRegion(regionId: string) {
 
 export function getSubdivisionsByDepartment(departmentId: string) {
   return apiFetch<Subdivision[]>(`/locations/departments/${encodeURIComponent(departmentId)}/subdivisions`);
+}
+
+export function getLocationStructure() {
+  return apiFetch<LocationRegion[]>("/locations/structure");
 }
 
 // Every field is optional here except the handful RegisterCompanyDto itself

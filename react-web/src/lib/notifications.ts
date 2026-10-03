@@ -32,37 +32,6 @@ export function sendNotification(subject: string, message: string, filters: Noti
   });
 }
 
-// Ported directly from send_notification_screen.dart's static lists.
-export const NOTIFICATION_REGIONS = [
-  "Adamaoua",
-  "Centre",
-  "Est",
-  "Extrême-Nord",
-  "Littoral",
-  "Nord",
-  "Nord-Ouest",
-  "Ouest",
-  "Sud",
-  "Sud-Ouest",
-];
-
-export const NOTIFICATION_DEPARTMENTS = [
-  "Bamboutos",
-  "Djerem",
-  "Fako",
-  "Haut-Nkam",
-  "Haute-Sanaga",
-  "Lékié",
-  "Mbam-et-Inoubou",
-  "Mbam-et-Kim",
-  "Mfoundi",
-  "Mungo",
-  "Nyong-et-Kellé",
-  "Nyong-et-Mfoumou",
-  "Nyong-et-So'o",
-  "Vina",
-  "Wouri",
-];
 
 // DeclarationStatus enum values notification.service.ts accepts as
 // submissionStatus, with the same French labels as _statusLabels in

@@ -16,6 +16,7 @@ import { entityTypeLabel } from "@/lib/companies-directory";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 interface DossierItem {
   id: string;
@@ -71,7 +72,7 @@ const FIGMA_DOSSIERS: DossierItem[] = [
     respondentName: "Dr. Robert Atangana",
     formType: "Administrations",
     region: "Centre",
-    department: "Mfoundi",
+    department: "Nyong-et-So'o",
     adminStatus: "CORRECTION_REQUESTED",
     blockingCount: 0,
     warningCount: 2,
@@ -218,6 +219,7 @@ function DossiersContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const scopeLabel = user?.role === "REGIONAL" ? `Régional (${user.region || ""})` : user?.role === "DIVISIONAL" ? `Départemental (${user.department || ""})` : "National";
+  const { regions: territoryRegions } = useTerritoryRegions();
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
@@ -616,7 +618,7 @@ function DossiersContent() {
               onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
             >
               <option value="">Toutes les Régions</option>
-              {["Adamaoua", "Centre", "Est", "Extrême-Nord", "Littoral", "Nord", "Nord-Ouest", "Ouest", "Sud", "Sud-Ouest"].map((r) => (
+              {territoryRegions.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>

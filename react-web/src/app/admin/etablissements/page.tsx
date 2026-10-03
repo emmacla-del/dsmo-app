@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,23 +14,10 @@ import {
 import { getDataManagementStats } from "@/lib/api-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const PAGE_SIZE = 8;
-
-const CAMEROON_REGIONS = [
-  "Toutes",
-  "Adamaoua",
-  "Centre",
-  "Est",
-  "Extrême-Nord",
-  "Littoral",
-  "Nord",
-  "Nord-Ouest",
-  "Ouest",
-  "Sud",
-  "Sud-Ouest",
-];
 
 const ENTITY_TYPES = [
   { value: "ALL", label: "Tous" },
@@ -165,7 +152,7 @@ const DEFAULT_SAMPLE_ETABLISSEMENTS: EtabItem[] = [
     type: "ASFOP",
     typeBadge: "ASFOP",
     rccm: "PRJ-PIAASI-AD-2026",
-    regionCity: "Adamaoua / Ngaou...",
+    regionCity: "Nord / Garou...",
     responsable: "Marie-Thérèse Abena",
     dateInscription: "14/12/2025",
     creePar: "Admin Central",
@@ -177,6 +164,9 @@ export default function EtablissementsPage() {
   const router = useRouter();
   const role = useAuthStore((s) => s.user?.role);
   const canRead = !role || DIRECTORY_ROLES.includes(role);
+
+  const { regions: territoryRegions } = useTerritoryRegions();
+  const CAMEROON_REGIONS: string[] = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
