@@ -1,0 +1,1877 @@
+/**
+ * Canonical Cameroon Administrative Hierarchy (360 Subdivisions, 58 Departments, 10 Regions)
+ * Scheme:
+ *  - Regions: 2-digit code '01' to '10'
+ *  - Departments: 2-digit code '01' to '58'
+ *  - Subdivisions: 4-digit code 'DDSS' (department code 01-58 + 2-digit subdivision index 01-NN)
+ *
+ * Sourced from the reviewed canonical 360 mapping (docs/reference/arrondissements-mapping.xlsx).
+ */
+
+export interface CanonicalSubdivision {
+  name: string;
+  code: string;
+}
+
+export interface CanonicalDepartment {
+  name: string;
+  code: string;
+  subdivisions: CanonicalSubdivision[];
+}
+
+export interface CanonicalRegion {
+  name: string;
+  code: string;
+  departments: CanonicalDepartment[];
+}
+
+export const CANONICAL_CAMEROON_360: CanonicalRegion[] = [
+  {
+    "name": "Adamaoua",
+    "code": "01",
+    "departments": [
+      {
+        "name": "Djérem",
+        "code": "01",
+        "subdivisions": [
+          {
+            "name": "Ngaoundal",
+            "code": "0101"
+          },
+          {
+            "name": "Tibati",
+            "code": "0102"
+          }
+        ]
+      },
+      {
+        "name": "Faro-et-Déo",
+        "code": "02",
+        "subdivisions": [
+          {
+            "name": "Galim-Tignère",
+            "code": "0201"
+          },
+          {
+            "name": "Kontcha",
+            "code": "0202"
+          },
+          {
+            "name": "Mayo-Baléo",
+            "code": "0203"
+          },
+          {
+            "name": "Tignère",
+            "code": "0204"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Banyo",
+        "code": "03",
+        "subdivisions": [
+          {
+            "name": "Bankim",
+            "code": "0301"
+          },
+          {
+            "name": "Banyo",
+            "code": "0302"
+          },
+          {
+            "name": "Mayo-Darlé",
+            "code": "0303"
+          }
+        ]
+      },
+      {
+        "name": "Mbéré",
+        "code": "04",
+        "subdivisions": [
+          {
+            "name": "Dir",
+            "code": "0401"
+          },
+          {
+            "name": "Djohong",
+            "code": "0402"
+          },
+          {
+            "name": "Meiganga",
+            "code": "0403"
+          },
+          {
+            "name": "Ngaoui",
+            "code": "0404"
+          }
+        ]
+      },
+      {
+        "name": "Vina",
+        "code": "05",
+        "subdivisions": [
+          {
+            "name": "Bélél",
+            "code": "0501"
+          },
+          {
+            "name": "Martap",
+            "code": "0502"
+          },
+          {
+            "name": "Mbé",
+            "code": "0503"
+          },
+          {
+            "name": "Nganha",
+            "code": "0504"
+          },
+          {
+            "name": "Ngaoundéré 1",
+            "code": "0505"
+          },
+          {
+            "name": "Ngaoundéré 2",
+            "code": "0506"
+          },
+          {
+            "name": "Ngaoundéré 3",
+            "code": "0507"
+          },
+          {
+            "name": "Nyambaka",
+            "code": "0508"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Centre",
+    "code": "02",
+    "departments": [
+      {
+        "name": "Haute-Sanaga",
+        "code": "06",
+        "subdivisions": [
+          {
+            "name": "Bibey",
+            "code": "0601"
+          },
+          {
+            "name": "Lembe-Yezoum",
+            "code": "0602"
+          },
+          {
+            "name": "Mbandjock",
+            "code": "0603"
+          },
+          {
+            "name": "Minta",
+            "code": "0604"
+          },
+          {
+            "name": "Nanga-Eboko",
+            "code": "0605"
+          },
+          {
+            "name": "Nkoteng",
+            "code": "0606"
+          },
+          {
+            "name": "Nsem",
+            "code": "0607"
+          }
+        ]
+      },
+      {
+        "name": "Lékié",
+        "code": "07",
+        "subdivisions": [
+          {
+            "name": "Batchenga",
+            "code": "0701"
+          },
+          {
+            "name": "Ebebda",
+            "code": "0702"
+          },
+          {
+            "name": "Elig-Mfomo",
+            "code": "0703"
+          },
+          {
+            "name": "Evodoula",
+            "code": "0704"
+          },
+          {
+            "name": "Lobo",
+            "code": "0705"
+          },
+          {
+            "name": "Monatélé",
+            "code": "0706"
+          },
+          {
+            "name": "Obala",
+            "code": "0707"
+          },
+          {
+            "name": "Okola",
+            "code": "0708"
+          },
+          {
+            "name": "Sa'a",
+            "code": "0709"
+          }
+        ]
+      },
+      {
+        "name": "Mbam-et-Inoubou",
+        "code": "08",
+        "subdivisions": [
+          {
+            "name": "Bafia",
+            "code": "0801"
+          },
+          {
+            "name": "Bokito",
+            "code": "0802"
+          },
+          {
+            "name": "Deuk",
+            "code": "0803"
+          },
+          {
+            "name": "Kiiki",
+            "code": "0804"
+          },
+          {
+            "name": "Kom-Yambetta",
+            "code": "0805"
+          },
+          {
+            "name": "Makenene",
+            "code": "0806"
+          },
+          {
+            "name": "Ndikinimeki",
+            "code": "0807"
+          },
+          {
+            "name": "Nitoukou",
+            "code": "0808"
+          },
+          {
+            "name": "Ombessa",
+            "code": "0809"
+          }
+        ]
+      },
+      {
+        "name": "Mbam-et-Kim",
+        "code": "09",
+        "subdivisions": [
+          {
+            "name": "Mbangassina",
+            "code": "0901"
+          },
+          {
+            "name": "Ngambé-Tikar",
+            "code": "0902"
+          },
+          {
+            "name": "Ngoro",
+            "code": "0903"
+          },
+          {
+            "name": "Ntui",
+            "code": "0904"
+          },
+          {
+            "name": "Yoko",
+            "code": "0905"
+          }
+        ]
+      },
+      {
+        "name": "Mefou-et-Afamba",
+        "code": "10",
+        "subdivisions": [
+          {
+            "name": "Afanloum",
+            "code": "1001"
+          },
+          {
+            "name": "Assamba",
+            "code": "1002"
+          },
+          {
+            "name": "Awaé",
+            "code": "1003"
+          },
+          {
+            "name": "Edzendouan",
+            "code": "1004"
+          },
+          {
+            "name": "Esse",
+            "code": "1005"
+          },
+          {
+            "name": "Mfou",
+            "code": "1006"
+          },
+          {
+            "name": "Nkolafamba",
+            "code": "1007"
+          },
+          {
+            "name": "Soa",
+            "code": "1008"
+          }
+        ]
+      },
+      {
+        "name": "Mefou-et-Akono",
+        "code": "11",
+        "subdivisions": [
+          {
+            "name": "Akono",
+            "code": "1101"
+          },
+          {
+            "name": "Bikok",
+            "code": "1102"
+          },
+          {
+            "name": "Mbankomo",
+            "code": "1103"
+          },
+          {
+            "name": "Ngoumou",
+            "code": "1104"
+          }
+        ]
+      },
+      {
+        "name": "Mfoundi",
+        "code": "12",
+        "subdivisions": [
+          {
+            "name": "Yaoundé 1",
+            "code": "1201"
+          },
+          {
+            "name": "Yaoundé 2",
+            "code": "1202"
+          },
+          {
+            "name": "Yaoundé 3",
+            "code": "1203"
+          },
+          {
+            "name": "Yaoundé 4",
+            "code": "1204"
+          },
+          {
+            "name": "Yaoundé 5",
+            "code": "1205"
+          },
+          {
+            "name": "Yaoundé 6",
+            "code": "1206"
+          },
+          {
+            "name": "Yaoundé 7",
+            "code": "1207"
+          }
+        ]
+      },
+      {
+        "name": "Nyong-et-Kellé",
+        "code": "13",
+        "subdivisions": [
+          {
+            "name": "Biyouha",
+            "code": "1301"
+          },
+          {
+            "name": "Bondjock",
+            "code": "1302"
+          },
+          {
+            "name": "Bot-Makak",
+            "code": "1303"
+          },
+          {
+            "name": "Dibang",
+            "code": "1304"
+          },
+          {
+            "name": "Eséka",
+            "code": "1305"
+          },
+          {
+            "name": "Makak",
+            "code": "1306"
+          },
+          {
+            "name": "Matomb",
+            "code": "1307"
+          },
+          {
+            "name": "Messondo",
+            "code": "1308"
+          },
+          {
+            "name": "Ngog-Mapubi",
+            "code": "1309"
+          },
+          {
+            "name": "Nguibassal",
+            "code": "1310"
+          }
+        ]
+      },
+      {
+        "name": "Nyong-et-Mfoumou",
+        "code": "14",
+        "subdivisions": [
+          {
+            "name": "Akonolinga",
+            "code": "1401"
+          },
+          {
+            "name": "Ayos",
+            "code": "1402"
+          },
+          {
+            "name": "Endom",
+            "code": "1403"
+          },
+          {
+            "name": "Mengang",
+            "code": "1404"
+          },
+          {
+            "name": "Nyakokombo",
+            "code": "1405"
+          }
+        ]
+      },
+      {
+        "name": "Nyong-et-So'o",
+        "code": "15",
+        "subdivisions": [
+          {
+            "name": "Akoeman",
+            "code": "1501"
+          },
+          {
+            "name": "Dzeng",
+            "code": "1502"
+          },
+          {
+            "name": "Mbalmayo",
+            "code": "1503"
+          },
+          {
+            "name": "Mengueme",
+            "code": "1504"
+          },
+          {
+            "name": "Ngomedzap",
+            "code": "1505"
+          },
+          {
+            "name": "Nkolmetet",
+            "code": "1506"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Est",
+    "code": "03",
+    "departments": [
+      {
+        "name": "Boumba-et-Ngoko",
+        "code": "16",
+        "subdivisions": [
+          {
+            "name": "Gari-Gombo",
+            "code": "1601"
+          },
+          {
+            "name": "Moloundou",
+            "code": "1602"
+          },
+          {
+            "name": "Salapoumbé",
+            "code": "1603"
+          },
+          {
+            "name": "Yokadouma",
+            "code": "1604"
+          }
+        ]
+      },
+      {
+        "name": "Haut-Nyong",
+        "code": "17",
+        "subdivisions": [
+          {
+            "name": "Abong-Mbang",
+            "code": "1701"
+          },
+          {
+            "name": "Bebend",
+            "code": "1702"
+          },
+          {
+            "name": "Dja",
+            "code": "1703"
+          },
+          {
+            "name": "Doumaintang",
+            "code": "1704"
+          },
+          {
+            "name": "Doumé",
+            "code": "1705"
+          },
+          {
+            "name": "Lomié",
+            "code": "1706"
+          },
+          {
+            "name": "Mboanz",
+            "code": "1707"
+          },
+          {
+            "name": "Mboma",
+            "code": "1708"
+          },
+          {
+            "name": "Messaména",
+            "code": "1709"
+          },
+          {
+            "name": "Messok",
+            "code": "1710"
+          },
+          {
+            "name": "Mindourou",
+            "code": "1711"
+          },
+          {
+            "name": "Ngoyla",
+            "code": "1712"
+          },
+          {
+            "name": "Nguelemendouka",
+            "code": "1713"
+          },
+          {
+            "name": "Somalomo",
+            "code": "1714"
+          }
+        ]
+      },
+      {
+        "name": "Kadey",
+        "code": "18",
+        "subdivisions": [
+          {
+            "name": "Batouri",
+            "code": "1801"
+          },
+          {
+            "name": "Bombé",
+            "code": "1802"
+          },
+          {
+            "name": "Kétté",
+            "code": "1803"
+          },
+          {
+            "name": "Mbang",
+            "code": "1804"
+          },
+          {
+            "name": "Mbotoro",
+            "code": "1805"
+          },
+          {
+            "name": "Ndélélé",
+            "code": "1806"
+          },
+          {
+            "name": "Ndem-Nam",
+            "code": "1807"
+          }
+        ]
+      },
+      {
+        "name": "Lom-et-Djérem",
+        "code": "19",
+        "subdivisions": [
+          {
+            "name": "Belabo",
+            "code": "1901"
+          },
+          {
+            "name": "Bertoua 1",
+            "code": "1902"
+          },
+          {
+            "name": "Bertoua 2",
+            "code": "1903"
+          },
+          {
+            "name": "Bétaré-Oya",
+            "code": "1904"
+          },
+          {
+            "name": "Diang",
+            "code": "1905"
+          },
+          {
+            "name": "Garoua-Boulaï",
+            "code": "1906"
+          },
+          {
+            "name": "Mandjou",
+            "code": "1907"
+          },
+          {
+            "name": "Ngoura",
+            "code": "1908"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Extrême-Nord",
+    "code": "04",
+    "departments": [
+      {
+        "name": "Diamaré",
+        "code": "20",
+        "subdivisions": [
+          {
+            "name": "Bogo",
+            "code": "2001"
+          },
+          {
+            "name": "Dargala",
+            "code": "2002"
+          },
+          {
+            "name": "Gazawa",
+            "code": "2003"
+          },
+          {
+            "name": "Maroua 1",
+            "code": "2004"
+          },
+          {
+            "name": "Maroua 2",
+            "code": "2005"
+          },
+          {
+            "name": "Maroua 3",
+            "code": "2006"
+          },
+          {
+            "name": "Méri",
+            "code": "2007"
+          },
+          {
+            "name": "Ndoukoula",
+            "code": "2008"
+          },
+          {
+            "name": "Petté",
+            "code": "2009"
+          }
+        ]
+      },
+      {
+        "name": "Logone-et-Chari",
+        "code": "21",
+        "subdivisions": [
+          {
+            "name": "Blangoua",
+            "code": "2101"
+          },
+          {
+            "name": "Darak",
+            "code": "2102"
+          },
+          {
+            "name": "Fotokol",
+            "code": "2103"
+          },
+          {
+            "name": "Goulfey",
+            "code": "2104"
+          },
+          {
+            "name": "Hile-Halifa",
+            "code": "2105"
+          },
+          {
+            "name": "Kousseri",
+            "code": "2106"
+          },
+          {
+            "name": "Logone-Birni",
+            "code": "2107"
+          },
+          {
+            "name": "Makary",
+            "code": "2108"
+          },
+          {
+            "name": "Waza",
+            "code": "2109"
+          },
+          {
+            "name": "Zina",
+            "code": "2110"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Danay",
+        "code": "22",
+        "subdivisions": [
+          {
+            "name": "Datchéka",
+            "code": "2201"
+          },
+          {
+            "name": "Gobo",
+            "code": "2202"
+          },
+          {
+            "name": "Guéré",
+            "code": "2203"
+          },
+          {
+            "name": "Kai-Kai",
+            "code": "2204"
+          },
+          {
+            "name": "Kalfou",
+            "code": "2205"
+          },
+          {
+            "name": "Kar-Hay",
+            "code": "2206"
+          },
+          {
+            "name": "Maga",
+            "code": "2207"
+          },
+          {
+            "name": "Tchatibali",
+            "code": "2208"
+          },
+          {
+            "name": "Vélé",
+            "code": "2209"
+          },
+          {
+            "name": "Wina",
+            "code": "2210"
+          },
+          {
+            "name": "Yagoua",
+            "code": "2211"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Kani",
+        "code": "23",
+        "subdivisions": [
+          {
+            "name": "Guidiguis",
+            "code": "2301"
+          },
+          {
+            "name": "Kaélé",
+            "code": "2302"
+          },
+          {
+            "name": "Mindif",
+            "code": "2303"
+          },
+          {
+            "name": "Moulvoudaye",
+            "code": "2304"
+          },
+          {
+            "name": "Moutourwa",
+            "code": "2305"
+          },
+          {
+            "name": "Porhi",
+            "code": "2306"
+          },
+          {
+            "name": "Taibong",
+            "code": "2307"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Sava",
+        "code": "24",
+        "subdivisions": [
+          {
+            "name": "Kolofata",
+            "code": "2401"
+          },
+          {
+            "name": "Mora",
+            "code": "2402"
+          },
+          {
+            "name": "Tokombéré",
+            "code": "2403"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Tsanaga",
+        "code": "25",
+        "subdivisions": [
+          {
+            "name": "Bourrha",
+            "code": "2501"
+          },
+          {
+            "name": "Hina",
+            "code": "2502"
+          },
+          {
+            "name": "Koza",
+            "code": "2503"
+          },
+          {
+            "name": "Mayo-Moskota",
+            "code": "2504"
+          },
+          {
+            "name": "Mogodé",
+            "code": "2505"
+          },
+          {
+            "name": "Mokolo",
+            "code": "2506"
+          },
+          {
+            "name": "Soulede-Roua",
+            "code": "2507"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Littoral",
+    "code": "05",
+    "departments": [
+      {
+        "name": "Moungo",
+        "code": "26",
+        "subdivisions": [
+          {
+            "name": "Baré-Bakem",
+            "code": "2601"
+          },
+          {
+            "name": "Dibombari",
+            "code": "2602"
+          },
+          {
+            "name": "Fiko",
+            "code": "2603"
+          },
+          {
+            "name": "Loum",
+            "code": "2604"
+          },
+          {
+            "name": "Manjo",
+            "code": "2605"
+          },
+          {
+            "name": "Mbanga",
+            "code": "2606"
+          },
+          {
+            "name": "Melong",
+            "code": "2607"
+          },
+          {
+            "name": "Mombo",
+            "code": "2608"
+          },
+          {
+            "name": "Njombé-Penja",
+            "code": "2609"
+          },
+          {
+            "name": "Nkongsamba 1",
+            "code": "2610"
+          },
+          {
+            "name": "Nkongsamba 2",
+            "code": "2611"
+          },
+          {
+            "name": "Nkongsamba 3",
+            "code": "2612"
+          },
+          {
+            "name": "Nlonako",
+            "code": "2613"
+          }
+        ]
+      },
+      {
+        "name": "Nkam",
+        "code": "27",
+        "subdivisions": [
+          {
+            "name": "Nkondjock",
+            "code": "2701"
+          },
+          {
+            "name": "Nord-Makombe",
+            "code": "2702"
+          },
+          {
+            "name": "Yabassi",
+            "code": "2703"
+          },
+          {
+            "name": "Yingui",
+            "code": "2704"
+          }
+        ]
+      },
+      {
+        "name": "Sanaga-Maritime",
+        "code": "28",
+        "subdivisions": [
+          {
+            "name": "Dibamba",
+            "code": "2801"
+          },
+          {
+            "name": "Dizangué",
+            "code": "2802"
+          },
+          {
+            "name": "Edéa 1",
+            "code": "2803"
+          },
+          {
+            "name": "Edéa 2",
+            "code": "2804"
+          },
+          {
+            "name": "Massock-Songloulou",
+            "code": "2805"
+          },
+          {
+            "name": "Mouanko",
+            "code": "2806"
+          },
+          {
+            "name": "Ndom",
+            "code": "2807"
+          },
+          {
+            "name": "Ngambé",
+            "code": "2808"
+          },
+          {
+            "name": "Ngwei",
+            "code": "2809"
+          },
+          {
+            "name": "Nyanon",
+            "code": "2810"
+          },
+          {
+            "name": "Pouma",
+            "code": "2811"
+          }
+        ]
+      },
+      {
+        "name": "Wouri",
+        "code": "29",
+        "subdivisions": [
+          {
+            "name": "Douala 1",
+            "code": "2901"
+          },
+          {
+            "name": "Douala 2",
+            "code": "2902"
+          },
+          {
+            "name": "Douala 3",
+            "code": "2903"
+          },
+          {
+            "name": "Douala 4",
+            "code": "2904"
+          },
+          {
+            "name": "Douala 5",
+            "code": "2905"
+          },
+          {
+            "name": "Douala 6",
+            "code": "2906"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Nord",
+    "code": "06",
+    "departments": [
+      {
+        "name": "Bénoué",
+        "code": "30",
+        "subdivisions": [
+          {
+            "name": "Baschéo",
+            "code": "3001"
+          },
+          {
+            "name": "Bibemi",
+            "code": "3002"
+          },
+          {
+            "name": "Dembo",
+            "code": "3003"
+          },
+          {
+            "name": "Demsa",
+            "code": "3004"
+          },
+          {
+            "name": "Garoua 1",
+            "code": "3005"
+          },
+          {
+            "name": "Garoua 2",
+            "code": "3006"
+          },
+          {
+            "name": "Garoua 3",
+            "code": "3007"
+          },
+          {
+            "name": "Lagdo",
+            "code": "3008"
+          },
+          {
+            "name": "Mayo-Hourna",
+            "code": "3009"
+          },
+          {
+            "name": "Pitoa",
+            "code": "3010"
+          },
+          {
+            "name": "Tcheboa",
+            "code": "3011"
+          },
+          {
+            "name": "Touroua",
+            "code": "3012"
+          }
+        ]
+      },
+      {
+        "name": "Faro",
+        "code": "31",
+        "subdivisions": [
+          {
+            "name": "Béka",
+            "code": "3101"
+          },
+          {
+            "name": "Poli",
+            "code": "3102"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Louti",
+        "code": "32",
+        "subdivisions": [
+          {
+            "name": "Figuil",
+            "code": "3201"
+          },
+          {
+            "name": "Guider",
+            "code": "3202"
+          },
+          {
+            "name": "Mayo-Oulo",
+            "code": "3203"
+          }
+        ]
+      },
+      {
+        "name": "Mayo-Rey",
+        "code": "33",
+        "subdivisions": [
+          {
+            "name": "Madingring",
+            "code": "3301"
+          },
+          {
+            "name": "Rey-Bouba",
+            "code": "3302"
+          },
+          {
+            "name": "Tcholliré",
+            "code": "3303"
+          },
+          {
+            "name": "Touboro",
+            "code": "3304"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Nord-Ouest",
+    "code": "07",
+    "departments": [
+      {
+        "name": "Boyo",
+        "code": "34",
+        "subdivisions": [
+          {
+            "name": "Belo",
+            "code": "3401"
+          },
+          {
+            "name": "Bum",
+            "code": "3402"
+          },
+          {
+            "name": "Fundong",
+            "code": "3403"
+          },
+          {
+            "name": "Njinikom",
+            "code": "3404"
+          }
+        ]
+      },
+      {
+        "name": "Bui",
+        "code": "35",
+        "subdivisions": [
+          {
+            "name": "Jakiri",
+            "code": "3501"
+          },
+          {
+            "name": "Kumbo",
+            "code": "3502"
+          },
+          {
+            "name": "Mbven",
+            "code": "3503"
+          },
+          {
+            "name": "Nkum",
+            "code": "3504"
+          },
+          {
+            "name": "Noni",
+            "code": "3505"
+          },
+          {
+            "name": "Oku",
+            "code": "3506"
+          }
+        ]
+      },
+      {
+        "name": "Donga-Mantung",
+        "code": "36",
+        "subdivisions": [
+          {
+            "name": "Ako",
+            "code": "3601"
+          },
+          {
+            "name": "Misaje",
+            "code": "3602"
+          },
+          {
+            "name": "Ndu",
+            "code": "3603"
+          },
+          {
+            "name": "Nkambe",
+            "code": "3604"
+          },
+          {
+            "name": "Nwa",
+            "code": "3605"
+          }
+        ]
+      },
+      {
+        "name": "Menchum",
+        "code": "37",
+        "subdivisions": [
+          {
+            "name": "Fungom",
+            "code": "3701"
+          },
+          {
+            "name": "Furu-Awa",
+            "code": "3702"
+          },
+          {
+            "name": "Menchum-Valley",
+            "code": "3703"
+          },
+          {
+            "name": "Wum",
+            "code": "3704"
+          }
+        ]
+      },
+      {
+        "name": "Mezam",
+        "code": "38",
+        "subdivisions": [
+          {
+            "name": "Bafut",
+            "code": "3801"
+          },
+          {
+            "name": "Bali",
+            "code": "3802"
+          },
+          {
+            "name": "Bamenda 1",
+            "code": "3803"
+          },
+          {
+            "name": "Bamenda 2",
+            "code": "3804"
+          },
+          {
+            "name": "Bamenda 3",
+            "code": "3805"
+          },
+          {
+            "name": "Santa",
+            "code": "3806"
+          },
+          {
+            "name": "Tubah",
+            "code": "3807"
+          }
+        ]
+      },
+      {
+        "name": "Momo",
+        "code": "39",
+        "subdivisions": [
+          {
+            "name": "Batibo",
+            "code": "3901"
+          },
+          {
+            "name": "Mbengwi",
+            "code": "3902"
+          },
+          {
+            "name": "Ngie",
+            "code": "3903"
+          },
+          {
+            "name": "Njikwa",
+            "code": "3904"
+          },
+          {
+            "name": "Widikum-Menka",
+            "code": "3905"
+          }
+        ]
+      },
+      {
+        "name": "Ngo-Ketunjia",
+        "code": "40",
+        "subdivisions": [
+          {
+            "name": "Babessi",
+            "code": "4001"
+          },
+          {
+            "name": "Balikumbat",
+            "code": "4002"
+          },
+          {
+            "name": "Ndop",
+            "code": "4003"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Ouest",
+    "code": "08",
+    "departments": [
+      {
+        "name": "Bamboutos",
+        "code": "41",
+        "subdivisions": [
+          {
+            "name": "Babadjou",
+            "code": "4101"
+          },
+          {
+            "name": "Batcham",
+            "code": "4102"
+          },
+          {
+            "name": "Galim",
+            "code": "4103"
+          },
+          {
+            "name": "Mbouda",
+            "code": "4104"
+          }
+        ]
+      },
+      {
+        "name": "Haut-Nkam",
+        "code": "42",
+        "subdivisions": [
+          {
+            "name": "Bafang",
+            "code": "4201"
+          },
+          {
+            "name": "Bakou",
+            "code": "4202"
+          },
+          {
+            "name": "Bana",
+            "code": "4203"
+          },
+          {
+            "name": "Bandja",
+            "code": "4204"
+          },
+          {
+            "name": "Banka",
+            "code": "4205"
+          },
+          {
+            "name": "Banwa",
+            "code": "4206"
+          },
+          {
+            "name": "Kékem",
+            "code": "4207"
+          }
+        ]
+      },
+      {
+        "name": "Hauts-Plateaux",
+        "code": "43",
+        "subdivisions": [
+          {
+            "name": "Baham",
+            "code": "4301"
+          },
+          {
+            "name": "Bamendjou",
+            "code": "4302"
+          },
+          {
+            "name": "Bangou",
+            "code": "4303"
+          },
+          {
+            "name": "Batié",
+            "code": "4304"
+          }
+        ]
+      },
+      {
+        "name": "Koung-Khi",
+        "code": "44",
+        "subdivisions": [
+          {
+            "name": "Bayangam",
+            "code": "4401"
+          },
+          {
+            "name": "Djebem",
+            "code": "4402"
+          },
+          {
+            "name": "Poumougne",
+            "code": "4403"
+          }
+        ]
+      },
+      {
+        "name": "Menoua",
+        "code": "45",
+        "subdivisions": [
+          {
+            "name": "Dschang",
+            "code": "4501"
+          },
+          {
+            "name": "Fokoué",
+            "code": "4502"
+          },
+          {
+            "name": "Fongo-Tongo",
+            "code": "4503"
+          },
+          {
+            "name": "Nkong-Ni",
+            "code": "4504"
+          },
+          {
+            "name": "Penka-Michel",
+            "code": "4505"
+          },
+          {
+            "name": "Santchou",
+            "code": "4506"
+          }
+        ]
+      },
+      {
+        "name": "Mifi",
+        "code": "46",
+        "subdivisions": [
+          {
+            "name": "Bafoussam 1",
+            "code": "4601"
+          },
+          {
+            "name": "Bafoussam 2",
+            "code": "4602"
+          },
+          {
+            "name": "Bafoussam 3",
+            "code": "4603"
+          }
+        ]
+      },
+      {
+        "name": "Ndé",
+        "code": "47",
+        "subdivisions": [
+          {
+            "name": "Bangangté",
+            "code": "4701"
+          },
+          {
+            "name": "Bassamba",
+            "code": "4702"
+          },
+          {
+            "name": "Bazou",
+            "code": "4703"
+          },
+          {
+            "name": "Tonga",
+            "code": "4704"
+          }
+        ]
+      },
+      {
+        "name": "Noun",
+        "code": "48",
+        "subdivisions": [
+          {
+            "name": "Bangourain",
+            "code": "4801"
+          },
+          {
+            "name": "Foumban",
+            "code": "4802"
+          },
+          {
+            "name": "Foumbot",
+            "code": "4803"
+          },
+          {
+            "name": "Kouoptamo",
+            "code": "4804"
+          },
+          {
+            "name": "Koutaba",
+            "code": "4805"
+          },
+          {
+            "name": "Magba",
+            "code": "4806"
+          },
+          {
+            "name": "Malentouen",
+            "code": "4807"
+          },
+          {
+            "name": "Massangam",
+            "code": "4808"
+          },
+          {
+            "name": "Njimom",
+            "code": "4809"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Sud",
+    "code": "09",
+    "departments": [
+      {
+        "name": "Dja-et-Lobo",
+        "code": "49",
+        "subdivisions": [
+          {
+            "name": "Bengbis",
+            "code": "4901"
+          },
+          {
+            "name": "Djoum",
+            "code": "4902"
+          },
+          {
+            "name": "Meyomessala",
+            "code": "4903"
+          },
+          {
+            "name": "Meyomessi",
+            "code": "4904"
+          },
+          {
+            "name": "Mintom",
+            "code": "4905"
+          },
+          {
+            "name": "Oveng",
+            "code": "4906"
+          },
+          {
+            "name": "Sangmelima",
+            "code": "4907"
+          },
+          {
+            "name": "Zoétélé",
+            "code": "4908"
+          }
+        ]
+      },
+      {
+        "name": "Mvila",
+        "code": "50",
+        "subdivisions": [
+          {
+            "name": "Biwong-Bane",
+            "code": "5001"
+          },
+          {
+            "name": "Biwong-Bulu",
+            "code": "5002"
+          },
+          {
+            "name": "Ebolowa 1",
+            "code": "5003"
+          },
+          {
+            "name": "Ebolowa 2",
+            "code": "5004"
+          },
+          {
+            "name": "Efoulan",
+            "code": "5005"
+          },
+          {
+            "name": "Mengong",
+            "code": "5006"
+          },
+          {
+            "name": "Mvangan",
+            "code": "5007"
+          },
+          {
+            "name": "Ngoulemakong",
+            "code": "5008"
+          }
+        ]
+      },
+      {
+        "name": "Océan",
+        "code": "51",
+        "subdivisions": [
+          {
+            "name": "Akom II",
+            "code": "5101"
+          },
+          {
+            "name": "Bipindi",
+            "code": "5102"
+          },
+          {
+            "name": "Campo",
+            "code": "5103"
+          },
+          {
+            "name": "Kribi 1",
+            "code": "5104"
+          },
+          {
+            "name": "Kribi 2",
+            "code": "5105"
+          },
+          {
+            "name": "Lokoundje",
+            "code": "5106"
+          },
+          {
+            "name": "Lolodorf",
+            "code": "5107"
+          },
+          {
+            "name": "Mvengue",
+            "code": "5108"
+          },
+          {
+            "name": "Niété",
+            "code": "5109"
+          }
+        ]
+      },
+      {
+        "name": "Vallée-du-Ntem",
+        "code": "52",
+        "subdivisions": [
+          {
+            "name": "Ambam",
+            "code": "5201"
+          },
+          {
+            "name": "Kyé-Ossi",
+            "code": "5202"
+          },
+          {
+            "name": "Ma'an",
+            "code": "5203"
+          },
+          {
+            "name": "Olamzé",
+            "code": "5204"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Sud-Ouest",
+    "code": "10",
+    "departments": [
+      {
+        "name": "Fako",
+        "code": "53",
+        "subdivisions": [
+          {
+            "name": "Buea",
+            "code": "5301"
+          },
+          {
+            "name": "Limbe 1",
+            "code": "5302"
+          },
+          {
+            "name": "Limbe 2",
+            "code": "5303"
+          },
+          {
+            "name": "Limbe 3",
+            "code": "5304"
+          },
+          {
+            "name": "Muyuka",
+            "code": "5305"
+          },
+          {
+            "name": "Tiko",
+            "code": "5306"
+          },
+          {
+            "name": "West-Coast",
+            "code": "5307"
+          }
+        ]
+      },
+      {
+        "name": "Kupe-Manenguba",
+        "code": "54",
+        "subdivisions": [
+          {
+            "name": "Bangem",
+            "code": "5401"
+          },
+          {
+            "name": "Nguti",
+            "code": "5402"
+          },
+          {
+            "name": "Tombel",
+            "code": "5403"
+          }
+        ]
+      },
+      {
+        "name": "Lebialem",
+        "code": "55",
+        "subdivisions": [
+          {
+            "name": "Alou",
+            "code": "5501"
+          },
+          {
+            "name": "Fontem",
+            "code": "5502"
+          },
+          {
+            "name": "Wabane",
+            "code": "5503"
+          }
+        ]
+      },
+      {
+        "name": "Manyu",
+        "code": "56",
+        "subdivisions": [
+          {
+            "name": "Akwaya",
+            "code": "5601"
+          },
+          {
+            "name": "Eyumodjock",
+            "code": "5602"
+          },
+          {
+            "name": "Mamfe",
+            "code": "5603"
+          },
+          {
+            "name": "Upper-Bayang",
+            "code": "5604"
+          }
+        ]
+      },
+      {
+        "name": "Meme",
+        "code": "57",
+        "subdivisions": [
+          {
+            "name": "Konye",
+            "code": "5701"
+          },
+          {
+            "name": "Kumba 1",
+            "code": "5702"
+          },
+          {
+            "name": "Kumba 2",
+            "code": "5703"
+          },
+          {
+            "name": "Kumba 3",
+            "code": "5704"
+          },
+          {
+            "name": "Mbonge",
+            "code": "5705"
+          }
+        ]
+      },
+      {
+        "name": "Ndian",
+        "code": "58",
+        "subdivisions": [
+          {
+            "name": "Bamusso",
+            "code": "5801"
+          },
+          {
+            "name": "Dikome-Balue",
+            "code": "5802"
+          },
+          {
+            "name": "Ekondo Titi",
+            "code": "5803"
+          },
+          {
+            "name": "Idabato",
+            "code": "5804"
+          },
+          {
+            "name": "Isangele",
+            "code": "5805"
+          },
+          {
+            "name": "Kombo-Abedimo",
+            "code": "5806"
+          },
+          {
+            "name": "Kombo-Itindi",
+            "code": "5807"
+          },
+          {
+            "name": "Mundemba",
+            "code": "5808"
+          },
+          {
+            "name": "Toko",
+            "code": "5809"
+          }
+        ]
+      }
+    ]
+  }
+];

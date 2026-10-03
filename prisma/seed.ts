@@ -339,103 +339,705 @@ const servicePositions: {
 // ============================================================
 const regionsData = [
     {
-        name: 'Adamaoua', departments: [
-            { name: 'Djérem', subdivisions: ['Mbakaou', 'Ngaoundal', 'Tibati'] },
-            { name: 'Faro-et-Déo', subdivisions: ['Galim-Tignère', 'Kontcha', 'Mayo-Baléo', 'Tignère'] },
-            { name: 'Mayo-Banyo', subdivisions: ['Bankim', 'Banyo', 'Mayo-Darle', 'Ngan-Ha'] },
-            { name: 'Mbéré', subdivisions: ['Djohong', 'Gonmé', 'Meiganga', 'Ngaoui'] },
-            { name: 'Vina', subdivisions: ['Belel', 'Martap', 'Meidougou', 'Ngaoundéré I', 'Ngaoundéré II', 'Ngaoundéré III', 'Nyambaka'] },
+        "name": "Adamaoua",
+        "departments": [
+            {
+                "name": "Djérem",
+                "subdivisions": [
+                    "Ngaoundal",
+                    "Tibati"
+                ]
+            },
+            {
+                "name": "Faro-et-Déo",
+                "subdivisions": [
+                    "Galim-Tignère",
+                    "Kontcha",
+                    "Mayo-Baléo",
+                    "Tignère"
+                ]
+            },
+            {
+                "name": "Mayo-Banyo",
+                "subdivisions": [
+                    "Bankim",
+                    "Banyo",
+                    "Mayo-Darlé"
+                ]
+            },
+            {
+                "name": "Mbéré",
+                "subdivisions": [
+                    "Dir",
+                    "Djohong",
+                    "Meiganga",
+                    "Ngaoui"
+                ]
+            },
+            {
+                "name": "Vina",
+                "subdivisions": [
+                    "Bélél",
+                    "Martap",
+                    "Mbé",
+                    "Nganha",
+                    "Ngaoundéré 1",
+                    "Ngaoundéré 2",
+                    "Ngaoundéré 3",
+                    "Nyambaka"
+                ]
+            }
         ]
     },
     {
-        name: 'Centre', departments: [
-            { name: 'Haute-Sanaga', subdivisions: ['Lembe-Yezoum', 'Minta', 'Nanga-Eboko', 'Nkoteng'] },
-            { name: 'Lékié', subdivisions: ['Batchenga', 'Ebebda', 'Elig-Mfomo', 'Evodoula', 'Monatélé', 'Obala', "Sa'a"] },
-            { name: 'Mbam-et-Inoubou', subdivisions: ['Bafia', 'Bokito', 'Deuk', 'Kiiki', 'Koro', 'Makénéné', 'Ndikiniméki', 'Nitoukou', 'Ombessa'] },
-            { name: 'Mbam-et-Kim', subdivisions: ['Mbangassina', 'Ngambe-Tikar', 'Ngoro', 'Ntui', 'Yoko'] },
-            { name: 'Méfou-et-Afamba', subdivisions: ['Awaé', 'Esse', 'Mfou', 'Nkolafamba', 'Soa', 'Yaoundé VII'] },
-            { name: 'Méfou-et-Akono', subdivisions: ['Akono', 'Bikok', 'Dzeng', 'Mengueme', 'Ngog-Mapubi', 'Ngoumou'] },
-            { name: 'Mfoundi', subdivisions: ['Yaoundé I', 'Yaoundé II', 'Yaoundé III', 'Yaoundé IV', 'Yaoundé V', 'Yaoundé VI'] },
-            { name: 'Nyong-et-Kellé', subdivisions: ['Éséka', 'Makak', 'Matomb', 'Messondo', 'Ngog-Mapubi', 'Nyanon', 'Pouma'] },
-            { name: 'Nyong-et-Mfoumou', subdivisions: ['Akonolinga', 'Ayos', 'Endom', 'Kobdombo', 'Menomale', 'Ngomedzap'] },
-            { name: "Nyong-et-So'o", subdivisions: ['Dzeng', 'Mbalmayo', 'Mbankomo', 'Mengueme', 'Mfou', 'Ngomedzap', 'Ngoumou'] },
+        "name": "Centre",
+        "departments": [
+            {
+                "name": "Haute-Sanaga",
+                "subdivisions": [
+                    "Bibey",
+                    "Lembe-Yezoum",
+                    "Mbandjock",
+                    "Minta",
+                    "Nanga-Eboko",
+                    "Nkoteng",
+                    "Nsem"
+                ]
+            },
+            {
+                "name": "Lékié",
+                "subdivisions": [
+                    "Batchenga",
+                    "Ebebda",
+                    "Elig-Mfomo",
+                    "Evodoula",
+                    "Lobo",
+                    "Monatélé",
+                    "Obala",
+                    "Okola",
+                    "Sa'a"
+                ]
+            },
+            {
+                "name": "Mbam-et-Inoubou",
+                "subdivisions": [
+                    "Bafia",
+                    "Bokito",
+                    "Deuk",
+                    "Kiiki",
+                    "Kom-Yambetta",
+                    "Makenene",
+                    "Ndikinimeki",
+                    "Nitoukou",
+                    "Ombessa"
+                ]
+            },
+            {
+                "name": "Mbam-et-Kim",
+                "subdivisions": [
+                    "Mbangassina",
+                    "Ngambé-Tikar",
+                    "Ngoro",
+                    "Ntui",
+                    "Yoko"
+                ]
+            },
+            {
+                "name": "Mefou-et-Afamba",
+                "subdivisions": [
+                    "Afanloum",
+                    "Assamba",
+                    "Awaé",
+                    "Edzendouan",
+                    "Esse",
+                    "Mfou",
+                    "Nkolafamba",
+                    "Soa"
+                ]
+            },
+            {
+                "name": "Mefou-et-Akono",
+                "subdivisions": [
+                    "Akono",
+                    "Bikok",
+                    "Mbankomo",
+                    "Ngoumou"
+                ]
+            },
+            {
+                "name": "Mfoundi",
+                "subdivisions": [
+                    "Yaoundé 1",
+                    "Yaoundé 2",
+                    "Yaoundé 3",
+                    "Yaoundé 4",
+                    "Yaoundé 5",
+                    "Yaoundé 6",
+                    "Yaoundé 7"
+                ]
+            },
+            {
+                "name": "Nyong-et-Kellé",
+                "subdivisions": [
+                    "Biyouha",
+                    "Bondjock",
+                    "Bot-Makak",
+                    "Dibang",
+                    "Eséka",
+                    "Makak",
+                    "Matomb",
+                    "Messondo",
+                    "Ngog-Mapubi",
+                    "Nguibassal"
+                ]
+            },
+            {
+                "name": "Nyong-et-Mfoumou",
+                "subdivisions": [
+                    "Akonolinga",
+                    "Ayos",
+                    "Endom",
+                    "Mengang",
+                    "Nyakokombo"
+                ]
+            },
+            {
+                "name": "Nyong-et-So'o",
+                "subdivisions": [
+                    "Akoeman",
+                    "Dzeng",
+                    "Mbalmayo",
+                    "Mengueme",
+                    "Ngomedzap",
+                    "Nkolmetet"
+                ]
+            }
         ]
     },
     {
-        name: 'Est', departments: [
-            { name: 'Boumba-et-Ngoko', subdivisions: ['Gari-Gombo', 'Moloundou', 'Salapoumbé', 'Yokadouma'] },
-            { name: 'Haut-Nyong', subdivisions: ['Abong-Mbang', 'Angossas', 'Atok', 'Dimako', 'Doumaintang', 'Doume', 'Lomié', 'Mboma', 'Messamena', 'Mindourou', 'Ngoyla', 'Nguelemendouka', 'Somalomo'] },
-            { name: 'Kadey', subdivisions: ['Batouri', 'Kette', 'Mbang', 'Ndelele', 'Nguelebok', 'Ouli'] },
-            { name: 'Lom-et-Djérem', subdivisions: ['Bélabo', 'Bertoua I', 'Bertoua II', 'Betaré-Oya', 'Diang', 'Ngoura'] },
+        "name": "Est",
+        "departments": [
+            {
+                "name": "Boumba-et-Ngoko",
+                "subdivisions": [
+                    "Gari-Gombo",
+                    "Moloundou",
+                    "Salapoumbé",
+                    "Yokadouma"
+                ]
+            },
+            {
+                "name": "Haut-Nyong",
+                "subdivisions": [
+                    "Abong-Mbang",
+                    "Bebend",
+                    "Dja",
+                    "Doumaintang",
+                    "Doumé",
+                    "Lomié",
+                    "Mboanz",
+                    "Mboma",
+                    "Messaména",
+                    "Messok",
+                    "Mindourou",
+                    "Ngoyla",
+                    "Nguelemendouka",
+                    "Somalomo"
+                ]
+            },
+            {
+                "name": "Kadey",
+                "subdivisions": [
+                    "Batouri",
+                    "Bombé",
+                    "Kétté",
+                    "Mbang",
+                    "Mbotoro",
+                    "Ndélélé",
+                    "Ndem-Nam"
+                ]
+            },
+            {
+                "name": "Lom-et-Djérem",
+                "subdivisions": [
+                    "Belabo",
+                    "Bertoua 1",
+                    "Bertoua 2",
+                    "Bétaré-Oya",
+                    "Diang",
+                    "Garoua-Boulaï",
+                    "Mandjou",
+                    "Ngoura"
+                ]
+            }
         ]
     },
     {
-        name: 'Extrême-Nord', departments: [
-            { name: 'Diamaré', subdivisions: ['Gazawa', 'Maroua I', 'Maroua II', 'Maroua III', 'Meri', 'Ndoukoula', 'Pette'] },
-            { name: 'Logone-et-Chari', subdivisions: ['Fotokol', 'Goulfey', 'Hilé-Alifa', 'Kousseri', 'Logone-Birni', 'Makary', 'Waza', 'Zina'] },
-            { name: 'Mayo-Danay', subdivisions: ['Datcheka', 'Gazawa', 'Kaélé', 'Kar-Hay', 'Maga', 'Mindif', 'Moulouvaye', 'Tchatibali', 'Yagoua'] },
-            { name: 'Mayo-Kani', subdivisions: ['Blangoua', 'Guidiguis', 'Kaïkaï', 'Moulvoudaye', 'Tchanaga', 'Toulourou'] },
-            { name: 'Mayo-Sava', subdivisions: ['Kolofata', 'Limani', 'Méri', 'Mora', 'Tokombéré'] },
-            { name: 'Mayo-Tsanaga', subdivisions: ['Bourha', 'Hina', 'Koza', 'Mogodé', 'Mokolo', 'Mozogo', 'Roua', 'Soulédé-Roua'] },
+        "name": "Extrême-Nord",
+        "departments": [
+            {
+                "name": "Diamaré",
+                "subdivisions": [
+                    "Bogo",
+                    "Dargala",
+                    "Gazawa",
+                    "Maroua 1",
+                    "Maroua 2",
+                    "Maroua 3",
+                    "Méri",
+                    "Ndoukoula",
+                    "Petté"
+                ]
+            },
+            {
+                "name": "Logone-et-Chari",
+                "subdivisions": [
+                    "Blangoua",
+                    "Darak",
+                    "Fotokol",
+                    "Goulfey",
+                    "Hile-Halifa",
+                    "Kousseri",
+                    "Logone-Birni",
+                    "Makary",
+                    "Waza",
+                    "Zina"
+                ]
+            },
+            {
+                "name": "Mayo-Danay",
+                "subdivisions": [
+                    "Datchéka",
+                    "Gobo",
+                    "Guéré",
+                    "Kai-Kai",
+                    "Kalfou",
+                    "Kar-Hay",
+                    "Maga",
+                    "Tchatibali",
+                    "Vélé",
+                    "Wina",
+                    "Yagoua"
+                ]
+            },
+            {
+                "name": "Mayo-Kani",
+                "subdivisions": [
+                    "Guidiguis",
+                    "Kaélé",
+                    "Mindif",
+                    "Moulvoudaye",
+                    "Moutourwa",
+                    "Porhi",
+                    "Taibong"
+                ]
+            },
+            {
+                "name": "Mayo-Sava",
+                "subdivisions": [
+                    "Kolofata",
+                    "Mora",
+                    "Tokombéré"
+                ]
+            },
+            {
+                "name": "Mayo-Tsanaga",
+                "subdivisions": [
+                    "Bourrha",
+                    "Hina",
+                    "Koza",
+                    "Mayo-Moskota",
+                    "Mogodé",
+                    "Mokolo",
+                    "Soulede-Roua"
+                ]
+            }
         ]
     },
     {
-        name: 'Littoral', departments: [
-            { name: 'Moungo', subdivisions: ['Bare-Bakem', 'Bonalea', 'Dibombari', 'Ekom', 'Loum', 'Manjo', 'Mbanga', 'Melong', 'Mombo', 'Njombe-Penja', 'Nkongsamba I', 'Nkongsamba II', 'Nkongsamba III'] },
-            { name: 'Nkam', subdivisions: ['Ndom', 'Ngambe', 'Yabassi', 'Yingui'] },
-            { name: 'Sanaga-Maritime', subdivisions: ['Dibamba', 'Dizangue', 'Édéa I', 'Édéa II', 'Mouanko', 'Ndom', 'Ngambe', 'Nyanon', 'Pouma'] },
-            { name: 'Wouri', subdivisions: ['Douala I', 'Douala II', 'Douala III', 'Douala IV', 'Douala V', 'Manoka'] },
+        "name": "Littoral",
+        "departments": [
+            {
+                "name": "Moungo",
+                "subdivisions": [
+                    "Baré-Bakem",
+                    "Dibombari",
+                    "Fiko",
+                    "Loum",
+                    "Manjo",
+                    "Mbanga",
+                    "Melong",
+                    "Mombo",
+                    "Njombé-Penja",
+                    "Nkongsamba 1",
+                    "Nkongsamba 2",
+                    "Nkongsamba 3",
+                    "Nlonako"
+                ]
+            },
+            {
+                "name": "Nkam",
+                "subdivisions": [
+                    "Nkondjock",
+                    "Nord-Makombe",
+                    "Yabassi",
+                    "Yingui"
+                ]
+            },
+            {
+                "name": "Sanaga-Maritime",
+                "subdivisions": [
+                    "Dibamba",
+                    "Dizangué",
+                    "Edéa 1",
+                    "Edéa 2",
+                    "Massock-Songloulou",
+                    "Mouanko",
+                    "Ndom",
+                    "Ngambé",
+                    "Ngwei",
+                    "Nyanon",
+                    "Pouma"
+                ]
+            },
+            {
+                "name": "Wouri",
+                "subdivisions": [
+                    "Douala 1",
+                    "Douala 2",
+                    "Douala 3",
+                    "Douala 4",
+                    "Douala 5",
+                    "Douala 6"
+                ]
+            }
         ]
     },
     {
-        name: 'Nord', departments: [
-            { name: 'Bénoué', subdivisions: ['Bibemi', 'Dembo', 'Garoua I', 'Garoua II', 'Garoua III', 'Lagdo', 'Ngong', 'Pitoa', 'Tchéboa'] },
-            { name: 'Faro', subdivisions: ['Beka', 'Poli'] },
-            { name: 'Mayo-Louti', subdivisions: ['Figuil', 'Guider', 'Mayo-Oulo'] },
-            { name: 'Mayo-Rey', subdivisions: ['Pignde', 'Rey-Bouba', 'Tcholliré', 'Touboro'] },
+        "name": "Nord",
+        "departments": [
+            {
+                "name": "Bénoué",
+                "subdivisions": [
+                    "Baschéo",
+                    "Bibemi",
+                    "Dembo",
+                    "Demsa",
+                    "Garoua 1",
+                    "Garoua 2",
+                    "Garoua 3",
+                    "Lagdo",
+                    "Mayo-Hourna",
+                    "Pitoa",
+                    "Tcheboa",
+                    "Touroua"
+                ]
+            },
+            {
+                "name": "Faro",
+                "subdivisions": [
+                    "Béka",
+                    "Poli"
+                ]
+            },
+            {
+                "name": "Mayo-Louti",
+                "subdivisions": [
+                    "Figuil",
+                    "Guider",
+                    "Mayo-Oulo"
+                ]
+            },
+            {
+                "name": "Mayo-Rey",
+                "subdivisions": [
+                    "Madingring",
+                    "Rey-Bouba",
+                    "Tcholliré",
+                    "Touboro"
+                ]
+            }
         ]
     },
     {
-        name: 'Nord-Ouest', departments: [
-            { name: 'Boyo', subdivisions: ['Belo', 'Fonfuka', 'Fundong'] },
-            { name: 'Bui', subdivisions: ['Jakiri', 'Kumbo', 'Mbven', 'Nkum', 'Noni', 'Oku'] },
-            { name: 'Donga-Mantung', subdivisions: ['Ako', 'Ndu', 'Nkambe', 'Nwa'] },
-            { name: 'Menchum', subdivisions: ['Benakuma', 'Fungom', 'Wum', 'Zhoa'] },
-            { name: 'Mezam', subdivisions: ['Bafut', 'Bali', 'Bamenda I', 'Bamenda II', 'Bamenda III', 'Santa', 'Tubah'] },
-            { name: 'Momo', subdivisions: ['Batibo', 'Mbengwi', 'Njikwa', 'Widikum-Menka'] },
-            { name: 'Ngo-Ketunjia', subdivisions: ['Babessi', 'Balikumbat', 'Ndop'] },
+        "name": "Nord-Ouest",
+        "departments": [
+            {
+                "name": "Boyo",
+                "subdivisions": [
+                    "Belo",
+                    "Bum",
+                    "Fundong",
+                    "Njinikom"
+                ]
+            },
+            {
+                "name": "Bui",
+                "subdivisions": [
+                    "Jakiri",
+                    "Kumbo",
+                    "Mbven",
+                    "Nkum",
+                    "Noni",
+                    "Oku"
+                ]
+            },
+            {
+                "name": "Donga-Mantung",
+                "subdivisions": [
+                    "Ako",
+                    "Misaje",
+                    "Ndu",
+                    "Nkambe",
+                    "Nwa"
+                ]
+            },
+            {
+                "name": "Menchum",
+                "subdivisions": [
+                    "Fungom",
+                    "Furu-Awa",
+                    "Menchum-Valley",
+                    "Wum"
+                ]
+            },
+            {
+                "name": "Mezam",
+                "subdivisions": [
+                    "Bafut",
+                    "Bali",
+                    "Bamenda 1",
+                    "Bamenda 2",
+                    "Bamenda 3",
+                    "Santa",
+                    "Tubah"
+                ]
+            },
+            {
+                "name": "Momo",
+                "subdivisions": [
+                    "Batibo",
+                    "Mbengwi",
+                    "Ngie",
+                    "Njikwa",
+                    "Widikum-Menka"
+                ]
+            },
+            {
+                "name": "Ngo-Ketunjia",
+                "subdivisions": [
+                    "Babessi",
+                    "Balikumbat",
+                    "Ndop"
+                ]
+            }
         ]
     },
     {
-        name: 'Ouest', departments: [
-            { name: 'Bamboutos', subdivisions: ['Babadjou', 'Batcham', 'Galim', 'Mbouda'] },
-            { name: 'Haut-Nkam', subdivisions: ['Bafang', 'Banka', 'Bandja', 'Batcham', 'Kekem'] },
-            { name: 'Hauts-Plateaux', subdivisions: ['Baham', 'Bamendjou', 'Bangou', 'Bansoa'] },
-            { name: 'Koung-Khi', subdivisions: ['Bamendjou', 'Kouoptamo', 'Poumougne'] },
-            { name: 'Menoua', subdivisions: ['Dschang', 'Fongo-Tongo', 'Fokoué', 'Kekem', 'Nkong-Ni', 'Penka-Michel', 'Santchou'] },
-            { name: 'Mifi', subdivisions: ['Bafoussam I', 'Bafoussam II', 'Bafoussam III'] },
-            { name: 'Ndé', subdivisions: ['Bangangté', 'Bassamba', 'Bazou', 'Tonga'] },
-            { name: 'Noun', subdivisions: ['Foumban', 'Foumbot', 'Kouoptamo', 'Koutaba', 'Magba', 'Malantouen', 'Massangam', 'Njimom'] },
+        "name": "Ouest",
+        "departments": [
+            {
+                "name": "Bamboutos",
+                "subdivisions": [
+                    "Babadjou",
+                    "Batcham",
+                    "Galim",
+                    "Mbouda"
+                ]
+            },
+            {
+                "name": "Haut-Nkam",
+                "subdivisions": [
+                    "Bafang",
+                    "Bakou",
+                    "Bana",
+                    "Bandja",
+                    "Banka",
+                    "Banwa",
+                    "Kékem"
+                ]
+            },
+            {
+                "name": "Hauts-Plateaux",
+                "subdivisions": [
+                    "Baham",
+                    "Bamendjou",
+                    "Bangou",
+                    "Batié"
+                ]
+            },
+            {
+                "name": "Koung-Khi",
+                "subdivisions": [
+                    "Bayangam",
+                    "Djebem",
+                    "Poumougne"
+                ]
+            },
+            {
+                "name": "Menoua",
+                "subdivisions": [
+                    "Dschang",
+                    "Fokoué",
+                    "Fongo-Tongo",
+                    "Nkong-Ni",
+                    "Penka-Michel",
+                    "Santchou"
+                ]
+            },
+            {
+                "name": "Mifi",
+                "subdivisions": [
+                    "Bafoussam 1",
+                    "Bafoussam 2",
+                    "Bafoussam 3"
+                ]
+            },
+            {
+                "name": "Ndé",
+                "subdivisions": [
+                    "Bangangté",
+                    "Bassamba",
+                    "Bazou",
+                    "Tonga"
+                ]
+            },
+            {
+                "name": "Noun",
+                "subdivisions": [
+                    "Bangourain",
+                    "Foumban",
+                    "Foumbot",
+                    "Kouoptamo",
+                    "Koutaba",
+                    "Magba",
+                    "Malentouen",
+                    "Massangam",
+                    "Njimom"
+                ]
+            }
         ]
     },
     {
-        name: 'Sud', departments: [
-            { name: 'Dja-et-Lobo', subdivisions: ['Bengbis', 'Djoum', 'Meyomessala', 'Meyomessi', 'Mintom', 'Mvangan', 'Oveng', 'Sangmélima'] },
-            { name: 'Mvila', subdivisions: ['Ambam', 'Bengbis', 'Ebolowa I', 'Ebolowa II', 'Efoulan', "Ma'an", 'Mengong', 'Mvangan', 'Ngoulemakong'] },
-            { name: 'Océan', subdivisions: ['Akom II', 'Campo', 'Grand Batanga', 'Kribi I', 'Kribi II', 'Lolodorf', 'Mvengue'] },
-            { name: 'Vallée-du-Ntem', subdivisions: ['Biwong-Bané', 'Biwong-Bulu', 'Djoum', 'Meyomessala', 'Nkpwa'] },
+        "name": "Sud",
+        "departments": [
+            {
+                "name": "Dja-et-Lobo",
+                "subdivisions": [
+                    "Bengbis",
+                    "Djoum",
+                    "Meyomessala",
+                    "Meyomessi",
+                    "Mintom",
+                    "Oveng",
+                    "Sangmelima",
+                    "Zoétélé"
+                ]
+            },
+            {
+                "name": "Mvila",
+                "subdivisions": [
+                    "Biwong-Bane",
+                    "Biwong-Bulu",
+                    "Ebolowa 1",
+                    "Ebolowa 2",
+                    "Efoulan",
+                    "Mengong",
+                    "Mvangan",
+                    "Ngoulemakong"
+                ]
+            },
+            {
+                "name": "Océan",
+                "subdivisions": [
+                    "Akom II",
+                    "Bipindi",
+                    "Campo",
+                    "Kribi 1",
+                    "Kribi 2",
+                    "Lokoundje",
+                    "Lolodorf",
+                    "Mvengue",
+                    "Niété"
+                ]
+            },
+            {
+                "name": "Vallée-du-Ntem",
+                "subdivisions": [
+                    "Ambam",
+                    "Kyé-Ossi",
+                    "Ma'an",
+                    "Olamzé"
+                ]
+            }
         ]
     },
     {
-        name: 'Sud-Ouest', departments: [
-            { name: 'Fako', subdivisions: ['Buea', 'Limbe I', 'Limbe II', 'Limbe III', 'Muyuka', 'Tiko'] },
-            { name: 'Koupé-Muanenguba', subdivisions: ['Bangem', 'Nguti', 'Tombel'] },
-            { name: 'Lebialem', subdivisions: ['Alou', 'Fontem', 'Wabane'] },
-            { name: 'Manyu', subdivisions: ['Akwaya', 'Eyumojock', 'Mamfe', 'Tinto'] },
-            { name: 'Meme', subdivisions: ['Konye', 'Kumba I', 'Kumba II', 'Kumba III', 'Mbonge'] },
-            { name: 'Ndian', subdivisions: ['Ekondo-Titi', 'Isangele', 'Kombo-Abedimo', 'Kombo-Itindi', 'Mundemba'] },
+        "name": "Sud-Ouest",
+        "departments": [
+            {
+                "name": "Fako",
+                "subdivisions": [
+                    "Buea",
+                    "Limbe 1",
+                    "Limbe 2",
+                    "Limbe 3",
+                    "Muyuka",
+                    "Tiko",
+                    "West-Coast"
+                ]
+            },
+            {
+                "name": "Kupe-Manenguba",
+                "subdivisions": [
+                    "Bangem",
+                    "Nguti",
+                    "Tombel"
+                ]
+            },
+            {
+                "name": "Lebialem",
+                "subdivisions": [
+                    "Alou",
+                    "Fontem",
+                    "Wabane"
+                ]
+            },
+            {
+                "name": "Manyu",
+                "subdivisions": [
+                    "Akwaya",
+                    "Eyumodjock",
+                    "Mamfe",
+                    "Upper-Bayang"
+                ]
+            },
+            {
+                "name": "Meme",
+                "subdivisions": [
+                    "Konye",
+                    "Kumba 1",
+                    "Kumba 2",
+                    "Kumba 3",
+                    "Mbonge"
+                ]
+            },
+            {
+                "name": "Ndian",
+                "subdivisions": [
+                    "Bamusso",
+                    "Dikome-Balue",
+                    "Ekondo Titi",
+                    "Idabato",
+                    "Isangele",
+                    "Kombo-Abedimo",
+                    "Kombo-Itindi",
+                    "Mundemba",
+                    "Toko"
+                ]
+            }
         ]
-    },
+    }
 ];
 
 // ============================================================

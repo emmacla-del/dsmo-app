@@ -48,11 +48,11 @@ void main() {
     test('findCameroonDepartment finds department and its subdivisions', () {
       final mfoundi = findCameroonDepartment('Mfoundi');
       expect(mfoundi, isNotNull);
-      expect(mfoundi!.subdivisions.contains('Yaoundé I'), isTrue);
+      expect(mfoundi!.subdivisions.contains('Yaoundé 1'), isTrue);
 
       final wouri = findCameroonDepartment('wouri');
       expect(wouri, isNotNull);
-      expect(wouri!.subdivisions.contains('Douala I'), isTrue);
+      expect(wouri!.subdivisions.contains('Douala 1'), isTrue);
     });
   });
 
