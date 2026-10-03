@@ -44,6 +44,11 @@ describe('buildAdminListWhere', () => {
   it('adds no period condition for "Toutes les périodes"', () => {
     expect(buildAdminListWhere({}).AND.some((c) => 'createdAt' in c)).toBe(false);
   });
+
+  it('filters by companyId under AND when provided', () => {
+    const where = buildAdminListWhere({ companyId: 'comp-123' });
+    expect(where.AND).toContainEqual({ companyId: 'comp-123' });
+  });
 });
 
 describe('periodStart', () => {

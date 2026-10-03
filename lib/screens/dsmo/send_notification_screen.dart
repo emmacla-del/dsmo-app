@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dsmo_app/core/i18n/l10n_ext.dart';
 import '../../../data/api_client.dart';
+import '../../../providers/locations_provider.dart';
 import '../../../theme/ultra_theme.dart';
 
 class SendNotificationScreen extends ConsumerStatefulWidget {
@@ -25,36 +26,6 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
   String? _selectedStatus;
   bool _isLoading = false;
   int _recipientEstimate = 0; // live preview count
-
-  final List<String> _regions = [
-    'Adamaoua',
-    'Centre',
-    'Est',
-    'Extrême-Nord',
-    'Littoral',
-    'Nord',
-    'Nord-Ouest',
-    'Ouest',
-    'Sud',
-    'Sud-Ouest',
-  ];
-  final List<String> _departments = [
-    'Bamboutos',
-    'Djerem',
-    'Fako',
-    'Haut-Nkam',
-    'Haute-Sanaga',
-    'Lékié',
-    'Mbam-et-Inoubou',
-    'Mbam-et-Kim',
-    'Mfoundi',
-    'Mungo',
-    'Nyong-et-Kellé',
-    'Nyong-et-Mfoumou',
-    "Nyong-et-So'o",
-    'Vina',
-    'Wouri',
-  ];
 
   Map<String, String> _statusLabels(BuildContext context) => {
     'SUBMITTED': context.l10n.statusSubmittedShort,
@@ -297,6 +268,8 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
   // ── Filters card ────────────────────────────────────────────
   Widget _buildFiltersCard() {
     final statusLabels = _statusLabels(context);
+    final regions = ref.watch(locationRegionsProvider);
+    final departments = ref.watch(locationDepartmentsProvider(_selectedRegion));
     return _ModernCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _SectionLabel(
@@ -309,9 +282,12 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
           hint: context.l10n.allRegionsCheckboxLabel,
           value: _selectedRegion,
           icon: Icons.map_outlined,
-          items: _regions,
+          items: regions,
           onChanged: (v) {
-            setState(() => _selectedRegion = v);
+            setState(() {
+              _selectedRegion = v;
+              _selectedDepartment = null;
+            });
             _updateEstimate();
           },
         ),
@@ -319,9 +295,9 @@ class _SendNotificationScreenState extends ConsumerState<SendNotificationScreen>
         _ModernDropdown<String>(
           label: context.l10n.sendNotifDivisionDepartmentLabel,
           hint: context.l10n.sendNotifAllDivisionsHint,
-          value: _selectedDepartment,
+          value: departments.contains(_selectedDepartment) ? _selectedDepartment : null,
           icon: Icons.account_tree_outlined,
-          items: _departments,
+          items: departments,
           onChanged: (v) {
             setState(() => _selectedDepartment = v);
             _updateEstimate();

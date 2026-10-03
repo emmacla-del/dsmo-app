@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AnomalyResolutionType,
+  AnomalySeverity,
   AnomalyStatus,
   OnefopStatus,
   UserRole,
@@ -45,6 +46,38 @@ export class EligibilityEngineService {
 
     if (!submission) {
       throw new NotFoundException(`Dossier #${submissionId} introuvable.`);
+    }
+
+    if (
+      submission.anomalies.length === 0 &&
+      Array.isArray((submission as any).flags) &&
+      (submission as any).flags.length > 0
+    ) {
+      try {
+        const flags = (submission as any).flags as Array<{ code: string; message: string }>;
+        await this.prisma.onefopAnomaly.createMany({
+          data: flags.map((flag) => {
+            const isBlocking = flag.code?.includes('BLOCKING') || flag.code?.includes('MISMATCH');
+            return {
+              submissionId: submission.id,
+              ruleCode: flag.code || 'COHERENCE_MISMATCH',
+              ruleFamily: flag.code?.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
+              severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
+              isBlocking: isBlocking ?? true,
+              status: AnomalyStatus.OPEN,
+              description: flag.message || 'Incohérence statistique détectée',
+              observedValue: 'Incohérence détectée',
+              expectedValue: 'Égalité requise',
+            };
+          }),
+        });
+        submission.anomalies = await this.prisma.onefopAnomaly.findMany({
+          where: { submissionId: submission.id },
+          orderBy: { detectedAt: 'desc' },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Could not sync anomalies for submission ${submission.id}: ${err?.message}`);
+      }
     }
 
     const openAnomalies = submission.anomalies.filter((a) => a.status === AnomalyStatus.OPEN);
@@ -290,6 +323,159 @@ export class EligibilityEngineService {
       statusCounts,
       approvedCount: statusCounts.APPROVED,
       regionCounts,
+    };
+  }
+
+  /**
+   * Authoritative quality summary indicators and anomaly aggregates,
+   * scoped to territory and optional campaign.
+   */
+  async getQualitySummary(territory?: Territory, campaignId?: string) {
+    const baseWhere: any = {
+      AND: [
+        territoryWhere(territory),
+        { status: { not: OnefopStatus.DRAFT } },
+        ...(campaignId ? [{ campaignId }] : []),
+      ],
+    };
+
+    const [
+      totalSubmissions,
+      submissionsInCorrection,
+      submissionsWithBlockingAnomalies,
+      submissionsWithWarnings,
+      submissionsWithCoherenceAnomalies,
+      blockingAnomaliesCount,
+      warningsCount,
+      approvedCandidates,
+      familyGroups,
+      anomalyRegions,
+    ] = await Promise.all([
+      this.prisma.onefopSubmission.count({ where: baseWhere }),
+      this.prisma.onefopSubmission.count({
+        where: { ...baseWhere, status: OnefopStatus.CORRECTION_REQUESTED },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: true } },
+        },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: false } },
+        },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          anomalies: {
+            some: {
+              status: AnomalyStatus.OPEN,
+              ruleFamily: { in: ['COHERENCE', 'VT_COHERENCE', 'ARITHMETIC'] },
+            },
+          },
+        },
+      }),
+      this.prisma.onefopAnomaly.count({
+        where: {
+          status: AnomalyStatus.OPEN,
+          isBlocking: true,
+          submission: baseWhere,
+        },
+      }),
+      this.prisma.onefopAnomaly.count({
+        where: {
+          status: AnomalyStatus.OPEN,
+          isBlocking: false,
+          submission: baseWhere,
+        },
+      }),
+      this.prisma.onefopSubmission.findMany({
+        where: { ...baseWhere, status: OnefopStatus.APPROVED },
+        select: {
+          id: true,
+          _count: {
+            select: {
+              anomalies: {
+                where: { status: AnomalyStatus.OPEN, isBlocking: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.onefopAnomaly.groupBy({
+        by: ['ruleFamily'],
+        where: {
+          status: AnomalyStatus.OPEN,
+          submission: baseWhere,
+        },
+        _count: { _all: true },
+        orderBy: { _count: { ruleFamily: 'desc' } },
+      }),
+      this.prisma.onefopAnomaly.findMany({
+        where: {
+          status: AnomalyStatus.OPEN,
+          submission: baseWhere,
+        },
+        select: {
+          submission: {
+            select: { region: true },
+          },
+        },
+      }),
+    ]);
+
+    const statisticallyReadyCount = approvedCandidates.filter((s) => s._count.anomalies === 0).length;
+
+    // Rates: 0-100% or null if 0 submissions
+    const completenessRate = totalSubmissions > 0
+      ? Math.max(0, Math.round(((totalSubmissions - submissionsInCorrection) / totalSubmissions) * 100))
+      : null;
+
+    const coherenceRate = totalSubmissions > 0
+      ? Math.max(0, Math.round(((totalSubmissions - submissionsWithCoherenceAnomalies) / totalSubmissions) * 100))
+      : null;
+
+    const anomalyRate = totalSubmissions > 0
+      ? Math.min(100, Math.round((submissionsWithBlockingAnomalies / totalSubmissions) * 100))
+      : null;
+
+    const warningRate = totalSubmissions > 0
+      ? Math.min(100, Math.round((submissionsWithWarnings / totalSubmissions) * 100))
+      : null;
+
+    const statisticalEligibilityRate = totalSubmissions > 0
+      ? Math.min(100, Math.round((statisticallyReadyCount / totalSubmissions) * 100))
+      : null;
+
+    const byRuleFamily = familyGroups.map((g) => ({
+      ruleFamily: g.ruleFamily,
+      count: g._count._all,
+    }));
+
+    const regionMap = new Map<string, number>();
+    for (const a of anomalyRegions) {
+      const reg = a.submission?.region?.trim() || 'Non assigné';
+      regionMap.set(reg, (regionMap.get(reg) || 0) + 1);
+    }
+    const byRegion = Array.from(regionMap.entries())
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      completenessRate,
+      coherenceRate,
+      anomalyRate,
+      warningRate,
+      statisticalEligibilityRate,
+      totalSubmissions,
+      blockingAnomaliesCount,
+      warningsCount,
+      statisticallyReadyCount,
+      byRuleFamily,
+      byRegion,
     };
   }
 
@@ -638,6 +824,43 @@ export class EligibilityEngineService {
     if (filters.isBlocking !== undefined) where.isBlocking = filters.isBlocking;
     where.submission = territoryWhere(territory);
 
+    const totalExisting = await this.prisma.onefopAnomaly.count();
+    if (totalExisting === 0) {
+      try {
+        const unmigrated = await this.prisma.onefopSubmission.findMany({
+          where: {
+            flags: { not: null as any },
+            anomalies: { none: {} },
+          },
+          select: { id: true, flags: true },
+          take: 100,
+        });
+        for (const sub of unmigrated) {
+          if (Array.isArray(sub.flags) && sub.flags.length > 0) {
+            const flags = sub.flags as Array<{ code: string; message: string }>;
+            await this.prisma.onefopAnomaly.createMany({
+              data: flags.map((flag) => {
+                const isBlocking = flag.code?.includes('BLOCKING') || flag.code?.includes('MISMATCH');
+                return {
+                  submissionId: sub.id,
+                  ruleCode: flag.code || 'COHERENCE_MISMATCH',
+                  ruleFamily: flag.code?.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
+                  severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
+                  isBlocking: isBlocking ?? true,
+                  status: AnomalyStatus.OPEN,
+                  description: flag.message || 'Incohérence statistique détectée',
+                  observedValue: 'Incohérence détectée',
+                  expectedValue: 'Égalité requise',
+                };
+              }),
+            });
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Anomaly synchronization failed: ${err?.message}`);
+      }
+    }
+
     const [total, items] = await Promise.all([
       this.prisma.onefopAnomaly.count({ where }),
       this.prisma.onefopAnomaly.findMany({
@@ -664,5 +887,77 @@ export class EligibilityEngineService {
     ]);
 
     return { total, items };
+  }
+
+  /**
+   * Authoritative catalog of statistical and administrative validation rules
+   * enforced by the ONEFOP eligibility and validation engines.
+   */
+  getValidationRules() {
+    return [
+      {
+        code: 'COHERENCE_TOTAL',
+        name: 'Cohérence des Effectifs Totaux',
+        family: 'COHERENCE',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Vérifie que la somme des effectifs déclarés (hommes + femmes) égale l’effectif total de l’établissement.',
+        enabled: true,
+      },
+      {
+        code: 'COHERENCE_CSP',
+        name: 'Cohérence Catégories Socio-Professionnelles (CSP)',
+        family: 'COHERENCE',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Vérifie la cohérence arithmétique entre la distribution par CSP et l’effectif global déclaré.',
+        enabled: true,
+      },
+      {
+        code: 'COHERENCE_NATIONALITY',
+        name: 'Cohérence Nationalité Salariés',
+        family: 'COHERENCE',
+        severity: 'WARNING',
+        isBlocking: false,
+        description: 'Vérifie que la somme des effectifs nationaux et expatriés correspond aux totaux saisis.',
+        enabled: true,
+      },
+      {
+        code: 'VT_COHERENCE_LEARNERS',
+        name: 'Flux Apprenants et Formateurs TVET',
+        family: 'VT_COHERENCE',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Contrôle la cohérence des effectifs d’apprenants inscrits, admis et certifiés par spécialité.',
+        enabled: true,
+      },
+      {
+        code: 'VT_INFRASTRUCTURE',
+        name: 'Cohérence Capacités & Ateliers TVET',
+        family: 'VT_COHERENCE',
+        severity: 'WARNING',
+        isBlocking: false,
+        description: 'Vérifie la présence et le statut fonctionnel des ateliers et équipements déclarés.',
+        enabled: true,
+      },
+      {
+        code: 'COMPLETENESS_REQUIRED',
+        name: 'Complétude Administrative Obligatoire',
+        family: 'COMPLETENESS',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Exige la présence des données d’identification, du répondant officiel et du rattachement territorial.',
+        enabled: true,
+      },
+      {
+        code: 'STATISTICAL_ELIGIBILITY',
+        name: 'Éligibilité Statistique Nationale',
+        family: 'ELIGIBILITY',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Condition stricte : visa administratif accordé sans anomalie bloquante ouverte pour admission aux statistiques nationales.',
+        enabled: true,
+      },
+    ];
   }
 }

@@ -1,142 +1,66 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import {
+  TERRITORIAL_ROLES,
   createMinefopUser,
+  directoryRoleLabel,
   listUsers,
   updateUserTerritory,
   type DirectoryUser,
 } from "@/lib/user-directory";
-import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataStateRow } from "@/components/admin/DataState";
+import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 
 const ALLOWED_ROLES = ["SUPER_ADMIN" as const, "SUPER_ADMIN_ONEFOP" as const];
 
+const AGENTS_PAGE_SIZE = 50;
+
+/**
+ * ONEFOP field roles listed on this screen.
+ *
+ * Must be values of the Prisma `UserRole` enum: GET /auth/users rejects any
+ * unknown role with 400 "Rôle inconnu". The screen previously asked for
+ * "INVESTIGATOR", which is not in the enum, so every request failed and the
+ * table could only ever render its sample dataset.
+ */
+const FIELD_ROLES = ["REGIONAL", "DIVISIONAL", "CENTRAL"];
+
+/**
+ * One agent row.
+ *
+ * Mapped from a GET /auth/users record, whose select is:
+ * id, email, firstName, lastName, role, status, isActive, region, department,
+ * matricule, serviceCode, createdAt, lastLoginAt, submissionsCount (AuthService.listUsers).
+ */
 interface AgentItem {
   id: string;
   initials: string;
   name: string;
-  region: string;
-  department?: string;
-  tags: string[];
-  fiches: number;
-  taux: number;
-  lastAccess: string;
-  status: "Actif" | "Brouillon";
   email: string;
+  role: string;
+  region: string | null;
+  department: string | null;
+  matricule: string | null;
+  isActive: boolean;
+  status: string;
+  createdAt: string | null;
+  lastLoginAt: string | null;
+  submissionsCount: number | null;
 }
 
-const DEFAULT_AGENTS: AgentItem[] = [
-  {
-    id: "ag-1",
-    initials: "MA",
-    name: "Marc Ndjock",
-    region: "Littoral",
-    department: "Wouri",
-    tags: ["Entreprises", "Coopératives"],
-    fiches: 412,
-    taux: 91,
-    lastAccess: "Il y a 5 min",
-    status: "Actif",
-    email: "marc.ndjock@minesec.cm",
-  },
-  {
-    id: "ag-2",
-    initials: "FA",
-    name: "Fatima Harouna",
-    region: "Extrême-Nord",
-    department: "Diamaré",
-    tags: ["ASFOP", "Coopératives"],
-    fiches: 320,
-    taux: 86,
-    lastAccess: "Il y a 2 heures",
-    status: "Actif",
-    email: "fatima.harouna@minesec.cm",
-  },
-  {
-    id: "ag-3",
-    initials: "CH",
-    name: "Christian Ndongo",
-    region: "Centre",
-    department: "Mfoundi",
-    tags: ["Entreprises", "Administration"],
-    fiches: 289,
-    taux: 94,
-    lastAccess: "Il y a 10 min",
-    status: "Actif",
-    email: "christian.ndongo@minesec.cm",
-  },
-  {
-    id: "ag-4",
-    initials: "EV",
-    name: "Evelyne Biya",
-    region: "Sud",
-    department: "Mvila",
-    tags: ["ASFOP"],
-    fiches: 180,
-    taux: 72,
-    lastAccess: "Hier, 17:30",
-    status: "Actif",
-    email: "evelyne.biya@minesec.cm",
-  },
-  {
-    id: "ag-5",
-    initials: "JO",
-    name: "John Ngassa",
-    region: "Nord-Ouest",
-    department: "Mezam",
-    tags: ["Projets & Prog."],
-    fiches: 145,
-    taux: 65,
-    lastAccess: "Il y a 1 jour",
-    status: "Actif",
-    email: "john.ngassa@minesec.cm",
-  },
-  {
-    id: "ag-6",
-    initials: "SA",
-    name: "Salomon Bello",
-    region: "Adamaoua",
-    department: "Vina",
-    tags: ["Coopératives", "ASFOP"],
-    fiches: 210,
-    taux: 79,
-    lastAccess: "Il y a 3 heures",
-    status: "Actif",
-    email: "salomon.bello@minesec.cm",
-  },
-  {
-    id: "ag-7",
-    initials: "MA",
-    name: "Marie-Louise Ngo",
-    region: "Est",
-    department: "Lom-et-Djérem",
-    tags: ["Administration"],
-    fiches: 95,
-    taux: 88,
-    lastAccess: "Il y a 4 jours",
-    status: "Brouillon",
-    email: "marie.ngo@minesec.cm",
-  },
-  {
-    id: "ag-8",
-    initials: "AB",
-    name: "Aboubakar Siddiki",
-    region: "Nord",
-    department: "Bénoué",
-    tags: ["Entreprises"],
-    fiches: 254,
-    taux: 83,
-    lastAccess: "Il y a 30 min",
-    status: "Actif",
-    email: "aboubakar.siddiki@minesec.cm",
-  },
-];
+/** Initials from the parts of the name the record actually carries. */
+function initialsOf(first: string, last: string): string {
+  const a = first.trim()[0] ?? "";
+  const b = last.trim()[0] ?? first.trim()[1] ?? "";
+  return (a + b).toUpperCase() || "—";
+}
 
 export default function OnefopUsersPage() {
   const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
@@ -146,13 +70,47 @@ export default function OnefopUsersPage() {
   const [reassignAgent, setReassignAgent] = useState<AgentItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const summaryQuery = useQuery({
-    queryKey: ["auth", "users", "onefop-summary"],
+  /**
+   * Agent list.
+   *
+   * Source: GET /auth/users?roles=REGIONAL,DIVISIONAL,CENTRAL
+   * (AuthService.listUsers). `total` counts the whole filtered query; the
+   * roles the caller may see are additionally capped server-side by
+   * manageableRolesFor(actorRole), so a SUPER_ADMIN_ONEFOP sees ONEFOP staff
+   * only. COMPANY accounts are never returned by this endpoint.
+   */
+  const agentsQuery = useQuery({
+    queryKey: ["auth", "users", "onefop-agents"],
     enabled,
-    queryFn: async () => {
-      const res = await listUsers({ roles: ["REGIONAL", "DIVISIONAL", "INVESTIGATOR"], page: 1, pageSize: 50 });
-      return res;
-    },
+    queryFn: () => listUsers({ roles: FIELD_ROLES, page: 1, pageSize: AGENTS_PAGE_SIZE }),
+  });
+
+  /**
+   * Headcount tiles.
+   *
+   * Each is the server-reported `total` of its own filtered query, not a count
+   * of rows on a page: `isActive=true` and `isActive=false` over the same role
+   * set. `pageSize: 1` because only the total is needed.
+   */
+  const activeCountQuery = useQuery({
+    queryKey: ["auth", "users", "onefop-agents", "active"],
+    enabled,
+    queryFn: () => listUsers({ roles: FIELD_ROLES, isActive: true, page: 1, pageSize: 1 }),
+  });
+
+  const inactiveCountQuery = useQuery({
+    queryKey: ["auth", "users", "onefop-agents", "inactive"],
+    enabled,
+    queryFn: () => listUsers({ roles: FIELD_ROLES, isActive: false, page: 1, pageSize: 1 }),
+  });
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  const newThisMonthQuery = useQuery({
+    queryKey: ["auth", "users", "onefop-agents", "new-this-month", startOfMonth],
+    enabled,
+    queryFn: () => listUsers({ roles: FIELD_ROLES, fromCreatedAt: startOfMonth, page: 1, pageSize: 1 }),
   });
 
   const showToast = (msg: string) => {
@@ -171,27 +129,37 @@ export default function OnefopUsersPage() {
     );
   }
 
-  const agents: AgentItem[] = summaryQuery.data?.users && summaryQuery.data.users.length > 0
-    ? summaryQuery.data.users.map((u: DirectoryUser, idx: number) => {
-        const first = u.firstName || u.email.split("@")[0];
-        const last = u.lastName || "";
-        const name = `${first} ${last}`.trim();
-        const initials = ((first[0] || "") + (last[0] || (first[1] || ""))).toUpperCase() || "AG";
-        return {
-          id: u.id,
-          initials,
-          name,
-          region: u.region || "Centre",
-          department: u.department ?? undefined,
-          tags: ["Entreprises", "Coopératives"],
-          fiches: 200 + (idx * 37) % 250,
-          taux: 65 + (idx * 7) % 32,
-          lastAccess: idx % 2 === 0 ? "Il y a 10 min" : "Hier",
-          status: u.isActive ? "Actif" : "Brouillon",
-          email: u.email,
-        };
-      })
-    : DEFAULT_AGENTS;
+  /**
+   * Real accounts only, mapped field for field. A record with no region or
+   * department keeps `null`: the territory is an authorization-sensitive fact,
+   * and the previous version defaulted a missing region to "Centre".
+   */
+  const agents: AgentItem[] = (agentsQuery.data?.users ?? []).map((u: DirectoryUser) => {
+    const first = u.firstName?.trim() || u.email.split("@")[0];
+    const last = u.lastName?.trim() || "";
+    return {
+      id: u.id,
+      initials: initialsOf(first, last),
+      name: `${first} ${last}`.trim(),
+      email: u.email,
+      role: u.role,
+      region: u.region ?? null,
+      department: u.department ?? null,
+      matricule: u.matricule ?? null,
+      isActive: u.isActive,
+      status: u.status,
+      createdAt: u.createdAt ?? null,
+      lastLoginAt: u.lastLoginAt ? String(u.lastLoginAt) : null,
+      submissionsCount: typeof u.submissionsCount === "number" ? u.submissionsCount : null,
+    };
+  });
+
+  const tableState = resolveDataState({
+    isLoading: agentsQuery.isLoading,
+    isError: agentsQuery.isError,
+    error: agentsQuery.error,
+    rowCount: agentsQuery.data?.users.length ?? null,
+  });
 
   return (
     <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
@@ -290,83 +258,94 @@ export default function OnefopUsersPage() {
         </div>
       )}
 
-      {/* 3 KPI Cards matching Figma declarants/utilisateurs.png */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-        {/* AGENTS ACTIFS EN SERVICE */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              AGENTS ACTIFS EN SERVICE
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              342
-            </div>
-            <div style={{ fontSize: 13, color: "#059669", fontWeight: 500, marginTop: 8 }}>
-              Enquêteurs déployés
-            </div>
+      {/* Headcount. The two figures with a source are the server-reported
+          totals of the active and inactive role-filtered queries. "Nouvelles
+          inscriptions (mois)" has none: /auth/users accepts no createdAt range
+          filter, so a monthly figure cannot be computed server-side and a
+          count over one page would not be a monthly total. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            AGENTS ACTIFS
           </div>
-          <div style={{ width: 44, height: 44, borderRadius: 8, background: "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", color: "#059669" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {activeCountQuery.isLoading ? "…" : count(activeCountQuery.data?.total ?? null)}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
+            Comptes ONEFOP actifs (central, régional, départemental)
           </div>
         </div>
 
-        {/* AGENTS INACTIFS */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              AGENTS INACTIFS
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              28
-            </div>
-            <div style={{ fontSize: 13, color: "#059669", marginTop: 8, fontWeight: 500 }}>
-              En attente d&apos;affectation
-            </div>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            AGENTS INACTIFS
           </div>
-          <div style={{ width: 44, height: 44, borderRadius: 8, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {inactiveCountQuery.isLoading ? "…" : count(inactiveCountQuery.data?.total ?? null)}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
+            Comptes désactivés ou en attente d&apos;activation
           </div>
         </div>
 
-        {/* NOUVELLES INSCRIPTIONS (MOIS) */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              NOUVELLES INSCRIPTIONS (MOIS)
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              12
-            </div>
-            <div style={{ fontSize: 13, color: "#059669", fontWeight: 600, marginTop: 8 }}>
-              ↑ Recrutement actif
-            </div>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            NOUVELLES INSCRIPTIONS (MOIS)
           </div>
-          <div style={{ width: 44, height: 44, borderRadius: 8, background: "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", color: "#059669" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {newThisMonthQuery.isLoading ? "…" : count(newThisMonthQuery.data?.total ?? null)}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
+            Inscriptions enregistrées depuis le début du mois
           </div>
         </div>
       </div>
 
-      {/* Agents Table matching Figma declarants/utilisateurs.png */}
+      {/* Agent table.
+          Columns are sourced directly from GET /auth/users (AuthService.listUsers),
+          including authoritative lastLoginAt and submissionsCount relations. */}
       <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e5e7eb", gap: 12, flexWrap: "wrap" }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: 0 }}>
+            Agents ONEFOP
+          </h2>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>
+            {tableState === "ready"
+              ? `${count(agents.length)} affiché(s) sur ${count(agentsQuery.data?.total ?? null)}`
+              : NOT_PROVIDED}
+          </span>
+        </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
               <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", fontSize: 12, color: "#6b7280" }}>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Nom de l&apos;Agent</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Région Assignée</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Enquêtes/Fiches Assignées</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Fiches Soumises</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600, minWidth: 160 }}>Taux de Complétion</th>
-                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Dernier Accès</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Nom de l&apos;agent</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Rôle</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Ressort assigné</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Matricule</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Formulaires collectés</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Dernière connexion</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Compte créé le</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Statut</th>
                 <th scope="col" style={{ padding: "14px 18px", textAlign: "right", fontWeight: 600 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
+              <DataStateRow
+                colSpan={9}
+                state={tableState}
+                resource="les agents ONEFOP"
+                error={agentsQuery.error}
+                onRetry={() => agentsQuery.refetch()}
+                title={tableState === "empty" ? "Aucun agent enregistré" : undefined}
+                hint={
+                  tableState === "empty"
+                    ? "Aucun compte ONEFOP central, régional ou départemental n'est enregistré dans votre périmètre d'administration."
+                    : undefined
+                }
+              />
               {agents.map((agent) => (
                 <tr key={agent.id} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13, height: 60 }}>
-                  {/* Nom de l'agent with Avatar */}
                   <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div
@@ -386,80 +365,66 @@ export default function OnefopUsersPage() {
                       >
                         {agent.initials}
                       </div>
-                      <span style={{ fontWeight: 600, color: "#111827" }}>{agent.name}</span>
-                    </div>
-                  </td>
-
-                  {/* Région Assignée */}
-                  <td style={{ padding: "12px 18px", color: "#4b5563" }}>
-                    {agent.region}
-                  </td>
-
-                  {/* Enquêtes / Fiches Assignées badges */}
-                  <td style={{ padding: "12px 18px" }}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {agent.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          style={{
-                            fontSize: 11,
-                            background: "#f9fafb",
-                            border: "1px solid #e5e7eb",
-                            color: "#374151",
-                            padding: "3px 8px",
-                            borderRadius: 6,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Fiches Soumises */}
-                  <td style={{ padding: "12px 18px", fontWeight: 700, color: "#111827" }}>
-                    {agent.fiches}
-                  </td>
-
-                  {/* Taux de Complétion */}
-                  <td style={{ padding: "12px 18px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#004d3d", minWidth: 32 }}>
-                        {agent.taux}%
-                      </span>
-                      <div style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
-                        <div
-                          style={{
-                            width: `${agent.taux}%`,
-                            height: "100%",
-                            background: "#004d3d",
-                            borderRadius: 9999,
-                          }}
-                        />
+                      <div>
+                        <div style={{ fontWeight: 600, color: "#111827" }}>{agent.name}</div>
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>{agent.email}</div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Dernier Accès */}
-                  <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12 }}>
-                    {agent.lastAccess}
+                  {/* Role label from the stored role value. */}
+                  <td style={{ padding: "12px 18px", color: "#4b5563", whiteSpace: "nowrap" }}>
+                    {directoryRoleLabel(agent.role)}
                   </td>
 
-                  {/* Statut */}
+                  {/* Territory exactly as stored. An account whose role is
+                      territorial but whose territory is unset is reported as
+                      unassigned — the backend fails that scope closed. */}
+                  <td style={{ padding: "12px 18px", color: "#4b5563" }}>
+                    {agent.region ?? (TERRITORIAL_ROLES.includes(agent.role) ? "Ressort non affecté" : NOT_PROVIDED)}
+                    {agent.department && (
+                      <span style={{ display: "block", fontSize: 11, color: "#6b7280" }}>{agent.department}</span>
+                    )}
+                  </td>
+
+                  <td style={{ padding: "12px 18px", color: "#4b5563", fontFamily: "ui-monospace, monospace" }}>
+                    {agent.matricule ?? NOT_PROVIDED}
+                  </td>
+
+                  <td style={{ padding: "12px 18px", color: "#111827", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {count(agent.submissionsCount)}
+                  </td>
+
+                  <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
+                    {agent.lastLoginAt ? elapsedSince(agent.lastLoginAt) : NOT_PROVIDED}
+                  </td>
+
+                  <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
+                    {stamp(agent.createdAt, false)}
+                  </td>
+
                   <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
-                    {agent.status === "Actif" ? (
-                      <span style={{ fontSize: 11, background: "#064e3b", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600 }}>
-                        Actif
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, background: "#374151", color: "#ffffff", padding: "4px 12px", borderRadius: 9999, fontWeight: 600 }}>
-                        Brouillon
+                    <span
+                      style={{
+                        fontSize: 11,
+                        background: agent.isActive ? "#064e3b" : "#6b7280",
+                        color: "#ffffff",
+                        padding: "4px 12px",
+                        borderRadius: 9999,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {agent.isActive ? "Actif" : "Inactif"}
+                    </span>
+                    {/* Registration state as stored, when it is not simply
+                        ACTIVE — e.g. PENDING_APPROVAL, REJECTED. */}
+                    {agent.status && agent.status !== "ACTIVE" && (
+                      <span style={{ display: "block", fontSize: 11, color: "#6b7280", marginTop: 3 }}>
+                        {agent.status}
                       </span>
                     )}
                   </td>
 
-                  {/* Actions */}
                   <td style={{ padding: "12px 18px", textAlign: "right", whiteSpace: "nowrap" }}>
                     <button
                       type="button"
@@ -493,7 +458,7 @@ export default function OnefopUsersPage() {
           open={!!profileAgent}
           onClose={() => setProfileAgent(null)}
           title={`Profil — ${profileAgent.name}`}
-          eyebrow={`Enquêteur de terrain • ${profileAgent.region}`}
+          eyebrow={`${directoryRoleLabel(profileAgent.role)}${profileAgent.region ? ` • ${profileAgent.region}` : ""}`}
           footer={
             <button
               type="button"
@@ -510,20 +475,31 @@ export default function OnefopUsersPage() {
               <div style={{ fontWeight: 600, color: "#111827", marginTop: 2 }}>{profileAgent.email}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>RÉGION & DÉPARTEMENT</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.region} {profileAgent.department ? `(${profileAgent.department})` : ""}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>RÔLE</div>
+              <div style={{ color: "#111827", marginTop: 2 }}>{directoryRoleLabel(profileAgent.role)}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>VOLUMÉTRIE SOUMISE</div>
-              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.fiches} questionnaires complétés ({profileAgent.taux}% de taux de réponse)</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>ENQUÊTES ATTRIBUÉES</div>
-              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                {profileAgent.tags.map((t) => (
-                  <span key={t} style={{ background: "#f3f4f6", padding: "2px 8px", borderRadius: 4, fontSize: 11 }}>{t}</span>
-                ))}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>RESSORT ASSIGNÉ</div>
+              <div style={{ color: "#111827", marginTop: 2 }}>
+                {profileAgent.region ?? (TERRITORIAL_ROLES.includes(profileAgent.role) ? "Ressort non affecté" : NOT_PROVIDED)}
+                {profileAgent.department ? ` (${profileAgent.department})` : ""}
               </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>MATRICULE</div>
+              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.matricule ?? NOT_PROVIDED}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>COMPTE CRÉÉ LE</div>
+              <div style={{ color: "#111827", marginTop: 2 }}>{stamp(profileAgent.createdAt, false)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>FORMULAIRES COLLECTÉS</div>
+              <div style={{ color: "#111827", marginTop: 2, fontWeight: 600 }}>{count(profileAgent.submissionsCount)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>DERNIÈRE CONNEXION</div>
+              <div style={{ color: "#111827", marginTop: 2 }}>{profileAgent.lastLoginAt ? stamp(profileAgent.lastLoginAt, true) : NOT_PROVIDED}</div>
             </div>
           </div>
         </AdminDialog>
@@ -581,7 +557,8 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
   const set = (key: keyof typeof EMPTY_FORM) => (value: string) =>
     setForm((f) => ({ ...f, [key]: value, ...(key === "region" ? { department: "" } : {}) }));
 
-  const departments = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === form.region)?.departments ?? [];
+  const { regions } = useTerritoryRegions();
+  const { departments } = useTerritoryDepartments(form.region);
 
   return (
     <AdminDialog
@@ -634,14 +611,14 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Région</label>
               <select className="cam-input" value={form.region} onChange={(e) => set("region")(e.target.value)}>
-                {CAMEROON_ADMIN_HIERARCHY.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+                {regions.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Département</label>
               <select className="cam-input" value={form.department} onChange={(e) => set("department")(e.target.value)}>
                 <option value="">Tous les départements</option>
-                {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
           </div>
@@ -653,19 +630,29 @@ function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClos
 
 // ── Réassigner Dialog ──────────────────────────────────────────────────────────
 function ReassignDialog({ agent, onClose, onSuccess }: { agent: AgentItem; onClose: () => void; onSuccess: () => void }) {
-  const [region, setRegion] = useState(agent.region);
-  const [department, setDepartment] = useState(agent.department || "");
+  // Starts from the account's stored territory. An unassigned account starts
+  // empty rather than pre-selecting a region the record does not hold.
+  const [region, setRegion] = useState(agent.region ?? "");
+  const [department, setDepartment] = useState(agent.department ?? "");
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: () => updateUserTerritory(agent.id, { role: "REGIONAL", region, department: department || undefined }),
+    // The account keeps its own role: this dialog reassigns a territory, and
+    // writing "REGIONAL" would silently re-role a DIVISIONAL or CENTRAL agent.
+    mutationFn: () =>
+      updateUserTerritory(agent.id, {
+        role: agent.role,
+        region: region || undefined,
+        department: department || undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["auth", "users"] });
       onSuccess();
     },
   });
 
-  const departments = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === region)?.departments ?? [];
+  const { regions } = useTerritoryRegions();
+  const { departments } = useTerritoryDepartments(region);
 
   return (
     <AdminDialog
@@ -692,14 +679,15 @@ function ReassignDialog({ agent, onClose, onSuccess }: { agent: AgentItem; onClo
         <div>
           <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Région d&apos;affectation</label>
           <select className="cam-input" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
-            {CAMEROON_ADMIN_HIERARCHY.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+            <option value="">Aucune région affectée</option>
+            {regions.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div>
           <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 4 }}>Département</label>
           <select className="cam-input" value={department} onChange={(e) => setDepartment(e.target.value)}>
             <option value="">Tous les départements de la région</option>
-            {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
       </div>

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:tables": "node scripts/table-typography/check-table-typography.mjs",
+    "check:admin-integrity": "node scripts/check-admin-data-integrity.mjs",
     "test": "node scripts/run-unit-tests.mjs",
     "todo:report": "node scripts/todo-report.mjs"
   },

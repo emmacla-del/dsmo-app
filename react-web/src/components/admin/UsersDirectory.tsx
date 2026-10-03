@@ -21,7 +21,7 @@ import {
   updateUserRole,
   updateUserTerritory,
 } from "@/lib/user-directory";
-import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 const PAGE_SIZE = 20;
 
@@ -78,6 +78,7 @@ interface UsersDirectoryProps {
 
 export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ASSIGNABLE_ROLES, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
   const t = useTranslations();
+  const { regions: directoryRegions } = useTerritoryRegions();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilterKey>(defaultStatus);
@@ -205,8 +206,8 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
               onChange={(e) => { setRegionFilter(e.target.value); setPage(1); }}
             >
               <option value="">Toutes les régions</option>
-              {CAMEROON_ADMIN_HIERARCHY.map((r) => (
-                <option key={r.name} value={r.name}>{r.name}</option>
+              {directoryRegions.map((r) => (
+                <option key={r} value={r}>{r}</option>
               ))}
             </select>
           </div>
@@ -618,14 +619,11 @@ function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
   onConfirm: (v: { role: string; region: string; department: string }) => void;
 }) {
   const t = useTranslations();
-  const initialRegion = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name.toLowerCase() === (user.region ?? "").toLowerCase())?.name ?? "";
+  const { regions: directoryRegions } = useTerritoryRegions();
   const [role, setRole] = useState(roles.includes(user.role) ? user.role : roles[0]);
-  const [region, setRegion] = useState(initialRegion);
-  const [department, setDepartment] = useState(
-    CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === initialRegion)?.departments
-      .find((d) => d.name.toLowerCase() === (user.department ?? "").toLowerCase())?.name ?? "",
-  );
-  const departments = CAMEROON_ADMIN_HIERARCHY.find((r) => r.name === region)?.departments ?? [];
+  const [region, setRegion] = useState(user.region ?? "");
+  const [department, setDepartment] = useState(user.department ?? "");
+  const { departments } = useTerritoryDepartments(region);
   const missing =
     (role === "REGIONAL" || role === "DIVISIONAL") && !region
       ? t("usersDirectory.reassignRegionRequired")
@@ -647,14 +645,14 @@ function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
         <label className="cam-label" htmlFor="reassign-region">{t("usersDirectory.reassignRegionLabel")}</label>
         <select id="reassign-region" className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setDepartment(""); }}>
           <option value="">{t("usersDirectory.reassignNone")}</option>
-          {CAMEROON_ADMIN_HIERARCHY.map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+          {directoryRegions.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
       <div style={fieldStyle}>
         <label className="cam-label" htmlFor="reassign-department">{t("usersDirectory.reassignDepartmentLabel")}</label>
         <select id="reassign-department" className="cam-select" value={department} disabled={!region} onChange={(e) => setDepartment(e.target.value)}>
           <option value="">{t("usersDirectory.reassignNone")}</option>
-          {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+          {departments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       {missing && <p role="alert" style={{ color: "var(--cam-warning)", fontSize: "var(--cam-font-size-sm)", marginTop: "var(--cam-space-3)" }}>{missing}</p>}

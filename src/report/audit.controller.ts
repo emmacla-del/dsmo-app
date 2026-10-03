@@ -24,7 +24,7 @@ export class AuditController {
     // { items, total, limit, offset } for admin/journal-audit. Filters apply
     // to both shapes and default to "none".
     @Get('reports')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.AUDITOR)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.AUDITOR)
     async getAuditLog(
         @Query('limit') limit?: string,
         @Query('offset') offset?: string,

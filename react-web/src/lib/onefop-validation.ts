@@ -9,7 +9,7 @@
 //    and required table cell checks across active rows.
 
 import { bilingual, isFieldVisible, localized, type FormData, type OnefopEntity, type OnefopField, type OnefopSection } from "./onefop-schema";
-import { validateCameroonGeography } from "@/components/onefop/vt-cameroon-admin-data";
+import { validateCameroonGeography, type LocationRegion } from "./territory";
 import { isCompanionHiddenByGateway } from "@/components/modern-jobs/conditional/gateway-catalog";
 import {
   getModernJobsTableDefinition,
@@ -101,7 +101,12 @@ function fieldLabel(field: OnefopField, locale?: ValidationLocale): string {
 }
 
 /** One field's format/required error, or null if it passes */
-function validateField(field: OnefopField, data: FormData, locale?: ValidationLocale): ValidationIssue | null {
+function validateField(
+  field: OnefopField,
+  data: FormData,
+  locale?: ValidationLocale,
+  territoryTree?: LocationRegion[],
+): ValidationIssue | null {
   if (!field.required || OPTIONAL_OVERRIDES.has(field.id)) return null;
   if (!isFieldVisible(field, data)) return null;
 
@@ -160,8 +165,8 @@ function validateField(field: OnefopField, data: FormData, locale?: ValidationLo
     const prefix = field.id.replace(/_DEPT$/, "");
     const regionKey = `${prefix}_REGION`;
     const regionVal = data[regionKey] ? String(data[regionKey]).trim() : "";
-    if (regionVal && v) {
-      const geoCheck = validateCameroonGeography(regionVal, v);
+    if (regionVal && v && territoryTree) {
+      const geoCheck = validateCameroonGeography(territoryTree, regionVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "department" && geoCheck.errorMessage) {
         return fieldIssue(
           field,
@@ -177,8 +182,8 @@ function validateField(field: OnefopField, data: FormData, locale?: ValidationLo
     const deptKey = `${prefix}_DEPT`;
     const regionVal = data[regionKey] ? String(data[regionKey]).trim() : "";
     const deptVal = data[deptKey] ? String(data[deptKey]).trim() : "";
-    if (deptVal && v) {
-      const geoCheck = validateCameroonGeography(regionVal || undefined, deptVal, v);
+    if (deptVal && v && territoryTree) {
+      const geoCheck = validateCameroonGeography(territoryTree, regionVal || undefined, deptVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "subdivision" && geoCheck.errorMessage) {
         return fieldIssue(
           field,
@@ -191,8 +196,8 @@ function validateField(field: OnefopField, data: FormData, locale?: ValidationLo
   // Legacy VT geography fields
   if (field.id === "VT1_5") {
     const regionVal = data.VT1_4 ? String(data.VT1_4).trim() : "";
-    if (regionVal && v) {
-      const geoCheck = validateCameroonGeography(regionVal, v);
+    if (regionVal && v && territoryTree) {
+      const geoCheck = validateCameroonGeography(territoryTree, regionVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "department" && geoCheck.errorMessage) {
         return fieldIssue(
           field,
@@ -205,8 +210,8 @@ function validateField(field: OnefopField, data: FormData, locale?: ValidationLo
   if (field.id === "VT1_6") {
     const regionVal = data.VT1_4 ? String(data.VT1_4).trim() : "";
     const deptVal = data.VT1_5 ? String(data.VT1_5).trim() : "";
-    if (deptVal && v) {
-      const geoCheck = validateCameroonGeography(regionVal || undefined, deptVal, v);
+    if (deptVal && v && territoryTree) {
+      const geoCheck = validateCameroonGeography(territoryTree, regionVal || undefined, deptVal, v);
       if (!geoCheck.valid && geoCheck.errorField === "subdivision" && geoCheck.errorMessage) {
         return fieldIssue(
           field,
@@ -334,14 +339,19 @@ function validateTableField(field: OnefopField, data: FormData, locale?: Validat
   return issues;
 }
 
-function validateFields(fields: OnefopField[], data: FormData, locale?: ValidationLocale): ValidationIssue[] {
+function validateFields(
+  fields: OnefopField[],
+  data: FormData,
+  locale?: ValidationLocale,
+  territoryTree?: LocationRegion[],
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const field of fields) {
     if (isCompanionHiddenByGateway(field, data, fields)) continue;
     if (field.table) {
       issues.push(...validateTableField(field, data, locale));
     } else {
-      const issue = validateField(field, data, locale);
+      const issue = validateField(field, data, locale, territoryTree);
       if (issue) issues.push(issue);
     }
   }
@@ -385,7 +395,12 @@ function validateQuiz(entity: OnefopEntity, data: FormData, locale?: ValidationL
 /**
  * Validates all fields in an entity questionnaire.
  */
-export function validateEntityData(entity: OnefopEntity, data: FormData, locale?: ValidationLocale): ValidationIssue[] {
+export function validateEntityData(
+  entity: OnefopEntity,
+  data: FormData,
+  locale?: ValidationLocale,
+  territoryTree?: LocationRegion[],
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [...validateQuiz(entity, data, locale)];
 
   // PP quiz completeness: the ProjectProgram scope quiz must be completed
@@ -410,7 +425,7 @@ export function validateEntityData(entity: OnefopEntity, data: FormData, locale?
   }
 
   for (const section of entity.sections) {
-    issues.push(...validateFields(section.fields, data, locale));
+    issues.push(...validateFields(section.fields, data, locale, territoryTree));
   }
 
   // V1: S3Q02 reason rows 2 and 3 — text field required when any count in
@@ -452,6 +467,11 @@ export function validateEntityData(entity: OnefopEntity, data: FormData, locale?
 /**
  * Scoped validation for a single section.
  */
-export function validateSectionData(section: OnefopSection, data: FormData, locale?: ValidationLocale): ValidationIssue[] {
-  return validateFields(section.fields, data, locale);
+export function validateSectionData(
+  section: OnefopSection,
+  data: FormData,
+  locale?: ValidationLocale,
+  territoryTree?: LocationRegion[],
+): ValidationIssue[] {
+  return validateFields(section.fields, data, locale, territoryTree);
 }

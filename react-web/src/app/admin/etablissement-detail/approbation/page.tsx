@@ -5,34 +5,25 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { approveUser, rejectUser } from "@/lib/user-directory";
-import { listCompanies, type Company } from "@/lib/companies-directory";
+import { approveUser, rejectUser, requestComplements, getUserDocuments, verifyUserDocument } from "@/lib/user-directory";
+import { entityTypeLabel, listCompanies, type Company } from "@/lib/companies-directory";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState } from "@/components/admin/DataState";
+import { NOT_PROVIDED, fact, resolveDataState, stamp } from "@/lib/admin-data-state";
 
+// Fails closed: a role that has not loaded is not authorised.
 const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const DECISION_ROLES = ["SUPER_ADMIN"];
 
 type Decision = "approve" | "reject" | "complements";
 
-const DEFAULT_GIC: Partial<Company> = {
-  id: "ASF-2026-N0-041",
-  establishmentId: "ASF-2026-N0-041",
-  name: "GIC Espoir des Jeunes",
-  registrationNumber: "ASF-2026-N0-041",
-  entityType: "ASFOP",
-  enterpriseSize: "PME",
-  yearOfCreation: "2021",
-  region: "Nord-Ouest",
-  department: "Mezam",
-  subdivision: "Bamenda",
-  createdAt: "2026-02-29T10:00:00Z",
-  user: {
-    id: "usr-gic-1",
-    email: "amadou.bello@gic-espoir.cm",
-    isActive: true,
-    status: "PENDING_APPROVAL",
-  },
+const KEY: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: "#6b7280",
 };
 
 export default function ApprobationPage() {
@@ -46,46 +37,90 @@ export default function ApprobationPage() {
 function Approbation() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const id = searchParams.get("id")?.trim() || "ASF-2026-N0-041";
+  // No default identifier: a hardcoded one would open the approval screen for
+  // an unrelated real establishment.
+  const id = searchParams.get("id")?.trim() ?? "";
+
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = !role || DIRECTORY_ROLES.includes(role);
-  const canDecide = !role || DECISION_ROLES.includes(role);
+  const canRead = !!role && DIRECTORY_ROLES.includes(role);
+  const canDecide = !!role && DECISION_ROLES.includes(role);
   const queryClient = useQueryClient();
 
   const [decision, setDecision] = useState<Decision>("complements");
-  const [comment, setComment] = useState(
-    "Le certificat d'imposition officiel est requis pour la validation finale du statut ASFOP. Veuillez le téléverser sur la plateforme."
-  );
+  // Not pre-filled: this text is persisted as the official motive and sent to
+  // the applicant, so a prepared sentence about documents this file may not be
+  // missing would become a real administrative finding.
+  const [comment, setComment] = useState("");
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
+  /**
+   * Source: GET /dsmo/companies?search=<id>, matched exactly on
+   * establishmentId or registrationNumber. `null` means no such establishment;
+   * there is no template record, so nothing is inherited from another company.
+   */
   const companyQuery = useQuery({
     queryKey: ["dsmo", "companies", "by-establishment-id", id],
     queryFn: async () => {
       const res = await listCompanies({ search: id, pageSize: 20 });
-      return res.companies.find((c) => c.establishmentId === id || c.registrationNumber === id) ?? null;
+      return (
+        res.companies.find((c) => c.establishmentId === id || c.registrationNumber === id) ?? null
+      );
     },
     enabled: canRead && !!id,
   });
 
-  const company: Partial<Company> = companyQuery.data || {
-    ...DEFAULT_GIC,
-    registrationNumber: id,
-    name: id.includes("SABC") ? "SABC S.A." : DEFAULT_GIC.name,
-  };
+  const company: Company | null = companyQuery.data ?? null;
+  const account = company?.user ?? null;
+  const detailHref = id ? `/admin/etablissement-detail?id=${encodeURIComponent(id)}` : "/admin/etablissements";
 
-  const detailHref = `/admin/etablissement-detail?id=${encodeURIComponent(id)}`;
+  const pageState = resolveDataState({
+    roleAllowed: canRead,
+    isLoading: companyQuery.isLoading,
+    isError: companyQuery.isError,
+    error: companyQuery.error,
+  });
 
+  const documentsQuery = useQuery({
+    queryKey: ["auth", "users", account?.id, "documents"],
+    queryFn: () => (account?.id ? getUserDocuments(account.id) : null),
+    enabled: canRead && !!account?.id,
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: ({ kind, state }: { kind: string; state: "VERIFIED" | "PENDING" | "REJECTED" }) => {
+      if (!account?.id) throw new Error("Aucun compte rattaché.");
+      return verifyUserDocument(account.id, kind, state);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth", "users", account?.id, "documents"] });
+    },
+  });
+
+  /**
+   * Every decision targets the establishment's real linked account id. The
+   * previous version fell back to an invented id, which would have approved or
+   * rejected whatever account happened to carry it.
+   *
+   * "Demander des compléments" calls PATCH /auth/request-complements/:id — it
+   * used to report success without contacting the server at all.
+   */
   const mutation = useMutation({
     mutationFn: async (d: Decision) => {
-      const userId = company.user?.id || "usr-gic-1";
-      if (d === "approve") return approveUser(userId);
-      return rejectUser(userId, comment.trim() || undefined);
+      if (!account) throw new Error("Cet établissement n'a pas de compte utilisateur à valider.");
+      if (d === "approve") return approveUser(account.id);
+      if (d === "reject") return rejectUser(account.id, comment.trim() || undefined);
+      return requestComplements(account.id, comment.trim());
     },
     onSuccess: (_r, d) => {
       queryClient.invalidateQueries({ queryKey: ["dsmo", "companies"] });
       setResult({
         tone: "success",
-        text: d === "approve" ? "Compte approuvé avec succès." : d === "reject" ? "Compte rejeté." : "Demande de compléments transmise.",
+        text:
+          d === "approve"
+            ? "Compte approuvé."
+            : d === "reject"
+              ? "Compte rejeté."
+              : "Demande de compléments transmise.",
       });
       setTimeout(() => router.push(detailHref), 1500);
     },
@@ -94,242 +129,296 @@ function Approbation() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (decision === "complements") {
-      setResult({ tone: "success", text: "Demande de compléments transmise à l'établissement." });
-      setTimeout(() => router.push(detailHref), 1500);
+    if (decision !== "approve" && !comment.trim()) {
+      setResult({ tone: "error", text: "Un motif est requis pour un rejet ou une demande de compléments." });
       return;
     }
+    setResult(null);
     mutation.mutate(decision);
   };
 
-  return (
-    <div className="cam-admin-page" style={{ position: "relative", minHeight: "100vh", background: "#f8fafc", padding: "24px 32px" }}>
-      {/* Background Page Content matching Figma declarants/etablissements/_id/approbation.png */}
-      <div style={{ opacity: 0.65, pointerEvents: "none" }}>
-        <AdminPageHeader
-          backHref={detailHref}
-          breadcrumb={[{ label: "Déclarants" }, { label: "Établissements" }, { label: "GIC Espoir" }]}
-          title="Établissements > GIC Espoir"
-          subtitle="Registre officiel et détails de l'établissement agréé"
-          hideTabs={true}
-          actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
-        />
-
-        <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
-          <span style={{ padding: "8px 18px", background: "#ffffff", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}>Inscriptions</span>
-          <span style={{ padding: "8px 18px", background: "#004d3d", color: "#ffffff", borderRadius: 8, fontSize: 14 }}>Établissements</span>
-          <span style={{ padding: "8px 18px", background: "#ffffff", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14 }}>Annuaire</span>
-        </div>
-
-        <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "24px 28px", marginBottom: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>GIC Espoir des Jeunes</h1>
-                <span style={{ fontSize: 11, background: "#fef3c7", color: "#b45309", padding: "3px 10px", borderRadius: 6, fontWeight: 600 }}>ASFOP</span>
-                <span style={{ fontSize: 11, background: "#d97706", color: "#ffffff", padding: "3px 10px", borderRadius: 9999, fontWeight: 600 }}>● EN ATTENTE</span>
-              </div>
-              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-                N° RCCM: ASF-2026-N0-041 | Statut: En attente d&apos;approbation
-              </p>
-            </div>
-            <button type="button" style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, color: "#374151" }}>Modifier</button>
-          </div>
-        </section>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24 }}>
-          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24, height: 160 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>Informations Générales</h3>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>RAISON SOCIALE: GIC Espoir des Jeunes</div>
-          </div>
-          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24, height: 160 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>Informations du Compte</h3>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>DATE D&apos;INSCRIPTION: 29/02/2026</div>
-          </div>
+  if (!company) {
+    return (
+      <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
+        <Link href="/admin/etablissements" style={{ fontSize: 13, fontWeight: 600, color: "#004d3d", textDecoration: "none" }}>
+          ← Retour aux établissements
+        </Link>
+        <div style={{ marginTop: 20, maxWidth: 820 }}>
+          <DataState
+            state={!id || pageState === "ready" ? "notFound" : pageState}
+            resource="ce dossier d'inscription"
+            error={companyQuery.error}
+            onRetry={() => companyQuery.refetch()}
+            title={
+              !id
+                ? "Aucun dossier demandé"
+                : pageState === "forbidden"
+                  ? "Accès non autorisé"
+                  : pageState === "error"
+                    ? undefined
+                    : "Dossier introuvable"
+            }
+            hint={
+              !id
+                ? "Ouvrez une fiche depuis le répertoire des établissements."
+                : pageState === "error"
+                  ? undefined
+                  : "Aucun établissement enregistré ne porte cet identifiant."
+            }
+          />
         </div>
       </div>
+    );
+  }
 
-      {/* Backdrop overlay */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0, 0, 0, 0.45)",
-          zIndex: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 20,
-        }}
-      >
-        {/* Modal Window matching Figma declarants/etablissements/_id/approbation.png */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: 12,
-            width: "100%",
-            maxWidth: 580,
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {/* Modal Header */}
+  const territory = [company.region, company.department, company.subdivision].filter(Boolean).join(" / ");
+
+  return (
+    <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
+      <AdminPageHeader
+        backHref={detailHref}
+        breadcrumb={[
+          { label: "Déclarants" },
+          { label: "Établissements", href: "/admin/etablissements" },
+          { label: "Validation du compte" },
+        ]}
+        title="Validation du compte déclarant"
+        subtitle="Décision administrative sur un dossier d'inscription"
+        hideTabs={true}
+        actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
+      />
+
+      <div style={{ maxWidth: 720, marginTop: 24 }}>
+        <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ padding: "24px 28px 16px", borderBottom: "1px solid #f3f4f6" }}>
             <h2 style={{ fontSize: 19, fontWeight: 700, color: "#004d3d", margin: 0 }}>
-              Validation du Compte — {company.name || "GIC Espoir des Jeunes"}
+              {fact(company.name)}
             </h2>
             <p style={{ fontSize: 13, color: "#6b7280", margin: "4px 0 0" }}>
-              Dossier d&apos;auto-inscription en attente d&apos;approbation
+              {/* The applicant's own account status, or an explicit absence. */}
+              {account
+                ? `Compte ${fact(account.email)} — statut ${fact(account.status)}`
+                : "Aucun compte utilisateur rattaché à cet établissement"}
             </p>
           </div>
 
           {result && (
-            <div style={{ margin: "16px 28px 0", padding: "10px 14px", borderRadius: 6, background: result.tone === "error" ? "#fef2f2" : "#ecfdf5", color: result.tone === "error" ? "#dc2626" : "#059669", fontSize: 13 }}>
+            <div
+              role={result.tone === "error" ? "alert" : "status"}
+              style={{
+                margin: "16px 28px 0",
+                padding: "10px 14px",
+                borderRadius: 6,
+                background: result.tone === "error" ? "#fef2f2" : "#ecfdf5",
+                color: result.tone === "error" ? "#b91c1c" : "#059669",
+                fontSize: 13,
+              }}
+            >
               {result.text}
             </div>
           )}
 
-          {/* Modal Body */}
           <form onSubmit={submit} style={{ padding: "20px 28px 24px" }}>
-            {/* Gray Metadata Box */}
-            <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 8, padding: "14px 18px", marginBottom: 20, fontSize: 13 }}>
+            {/* Identification, from the establishment's own stored fields. */}
+            <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 8, padding: "14px 18px", marginBottom: 20, fontSize: 13, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
               <div>
-                Type : <strong style={{ color: "#111827" }}>{company.entityType || "ASFOP"}</strong> &nbsp;|&nbsp; Région : <strong style={{ color: "#111827" }}>Nord-Ouest / Bamenda</strong>
+                <div style={KEY}>Type d&apos;entité</div>
+                <div style={{ color: "#111827", marginTop: 2 }}>
+                  {company.entityType ? entityTypeLabel(company.entityType) : NOT_PROVIDED}
+                </div>
               </div>
-              <div style={{ marginTop: 6, color: "#6b7280" }}>
-                Inscrit le : <strong style={{ color: "#111827" }}>29/02/2026</strong> • Créé par : <strong style={{ color: "#111827" }}>Auto-inscription</strong>
+              <div>
+                <div style={KEY}>Ressort</div>
+                <div style={{ color: "#111827", marginTop: 2 }}>{territory || NOT_PROVIDED}</div>
+              </div>
+              <div>
+                <div style={KEY}>N° RCCM</div>
+                <div style={{ color: "#111827", marginTop: 2, fontFamily: "ui-monospace, monospace" }}>
+                  {fact(company.registrationNumber)}
+                </div>
+              </div>
+              <div>
+                <div style={KEY}>Enregistré le</div>
+                <div style={{ color: "#111827", marginTop: 2 }}>{stamp(company.createdAt, false)}</div>
               </div>
             </div>
 
-            {/* DOCUMENTS FOURNIS */}
+            {/* Document checklist backed by RegistrationDocument model. */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 10 }}>
-                DOCUMENTS FOURNIS
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#059669", fontWeight: 500 }}>
-                  <span style={{ fontWeight: 700 }}>✓</span> Attestation d&apos;enregistrement (Vérifié)
+              <div style={{ ...KEY, marginBottom: 10 }}>PIÈCES JUSTIFICATIVES</div>
+              {documentsQuery.isLoading ? (
+                <p style={{ fontSize: 13, color: "#64748b" }}>Chargement des pièces justificatives…</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {(documentsQuery.data?.items ?? []).map((doc) => {
+                    const isVerified = doc.state === "VERIFIED";
+                    return (
+                      <div
+                        key={doc.kind}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          border: isVerified ? "1px solid #a7f3d0" : "1px solid #e5e7eb",
+                          background: isVerified ? "#f0fdf4" : "#ffffff",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                            {doc.label}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                            {isVerified && doc.verifiedBy
+                              ? `Vérifié par ${doc.verifiedBy} le ${stamp(doc.verifiedAt, false)}`
+                              : "En attente de vérification formelle"}
+                          </div>
+                        </div>
+
+                        {canDecide && (
+                          <button
+                            type="button"
+                            disabled={verifyMutation.isPending}
+                            onClick={() =>
+                              verifyMutation.mutate({
+                                kind: doc.kind,
+                                state: isVerified ? "PENDING" : "VERIFIED",
+                              })
+                            }
+                            style={{
+                              padding: "4px 12px",
+                              borderRadius: 6,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              border: isVerified ? "1px solid #059669" : "1px solid #d1d5db",
+                              background: isVerified ? "#059669" : "#ffffff",
+                              color: isVerified ? "#ffffff" : "#374151",
+                            }}
+                          >
+                            {isVerified ? "✓ Vérifié" : "Marquer vérifié"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#059669", fontWeight: 500 }}>
-                  <span style={{ fontWeight: 700 }}>✓</span> Pièce d&apos;identité du responsable (Vérifié)
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", fontWeight: 500 }}>
-                  <span style={{ fontWeight: 700 }}>✕</span> Certificat d&apos;imposition (Manquant)
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* DÉCISION */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 10 }}>
-                DÉCISION
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="decision"
-                    value="approve"
-                    checked={decision === "approve"}
-                    onChange={() => setDecision("approve")}
-                    style={{ accentColor: "#004d3d" }}
-                  />
-                  <span>Approuver le compte</span>
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="decision"
-                    value="reject"
-                    checked={decision === "reject"}
-                    onChange={() => setDecision("reject")}
-                    style={{ accentColor: "#004d3d" }}
-                  />
-                  <span>Rejeter le compte</span>
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
-                  <input
-                    type="radio"
-                    name="decision"
-                    value="complements"
-                    checked={decision === "complements"}
-                    onChange={() => setDecision("complements")}
-                    style={{ accentColor: "#004d3d" }}
-                  />
-                  <span style={{ fontWeight: 600, color: "#004d3d" }}>Demander des compléments</span>
-                </label>
-              </div>
-            </div>
-
-            {/* MOTIF OU COMMENTAIRE */}
-            <div style={{ marginBottom: 18 }}>
-              <label htmlFor="approb-comment" style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-                MOTIF OU COMMENTAIRE…
-              </label>
-              <textarea
-                id="approb-comment"
-                rows={3}
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                style={{
-                  width: "100%",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  padding: "10px 12px",
-                  fontSize: 13,
-                  color: "#111827",
-                  resize: "vertical",
-                  minHeight: 80,
-                  boxSizing: "border-box",
-                }}
+            {!canDecide ? (
+              <DataState
+                state="forbidden"
+                resource="la décision de validation"
+                title="Décision réservée au super-administrateur plateforme"
+                hint="Vous pouvez consulter ce dossier, mais la décision d'approbation ou de rejet relève du super-administrateur."
               />
-            </div>
+            ) : !account ? (
+              <DataState
+                state="empty"
+                resource="le compte à valider"
+                title="Aucun compte à valider"
+                hint="Cet établissement n'a pas de compte utilisateur rattaché : il n'y a pas de dossier d'inscription à instruire."
+              />
+            ) : (
+              <>
+                <fieldset style={{ border: "none", margin: "0 0 20px", padding: 0 }}>
+                  <legend style={{ ...KEY, marginBottom: 10, padding: 0 }}>DÉCISION</legend>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(
+                      [
+                        { value: "approve", label: "Approuver le compte" },
+                        { value: "reject", label: "Rejeter le compte" },
+                        { value: "complements", label: "Demander des compléments" },
+                      ] as Array<{ value: Decision; label: string }>
+                    ).map((opt) => (
+                      <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="decision"
+                          value={opt.value}
+                          checked={decision === opt.value}
+                          onChange={() => setDecision(opt.value)}
+                          style={{ accentColor: "#004d3d" }}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
 
-            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 20 }}>
-              Cette action génère une entrée d&apos;audit ACCOUNT_VALIDATION
-            </div>
+                <div style={{ marginBottom: 18 }}>
+                  <label htmlFor="approb-comment" style={{ ...KEY, display: "block", marginBottom: 6 }}>
+                    MOTIF OU COMMENTAIRE
+                    {decision !== "approve" && <span style={{ color: "#dc2626" }}> *</span>}
+                  </label>
+                  <textarea
+                    id="approb-comment"
+                    rows={3}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder={
+                      decision === "reject"
+                        ? "Motif du rejet, transmis au déclarant."
+                        : decision === "complements"
+                          ? "Pièces ou informations à fournir, transmises au déclarant."
+                          : "Observation facultative."
+                    }
+                    style={{
+                      width: "100%",
+                      borderRadius: 6,
+                      border: "1px solid #d1d5db",
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      color: "#111827",
+                      resize: "vertical",
+                      minHeight: 80,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
 
-            {/* Modal Actions */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-              <Link
-                href={detailHref}
-                style={{
-                  padding: "9px 20px",
-                  background: "#ffffff",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                Annuler
-              </Link>
-              <button
-                type="submit"
-                disabled={mutation.isPending}
-                style={{
-                  padding: "9px 22px",
-                  background: "#004d3d",
-                  border: "none",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#ffffff",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                }}
-              >
-                {mutation.isPending ? "Enregistrement…" : "Confirmer la Décision"}
-              </button>
-            </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+                  <Link
+                    href={detailHref}
+                    style={{
+                      padding: "9px 20px",
+                      background: "#ffffff",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#374151",
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    Annuler
+                  </Link>
+                  <button
+                    type="submit"
+                    disabled={mutation.isPending}
+                    style={{
+                      padding: "9px 22px",
+                      background: "#004d3d",
+                      border: "none",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#ffffff",
+                      cursor: mutation.isPending ? "not-allowed" : "pointer",
+                      opacity: mutation.isPending ? 0.6 : 1,
+                    }}
+                  >
+                    {mutation.isPending ? "Enregistrement…" : "Confirmer la décision"}
+                  </button>
+                </div>
+              </>
+            )}
           </form>
-        </div>
+        </section>
       </div>
     </div>
   );

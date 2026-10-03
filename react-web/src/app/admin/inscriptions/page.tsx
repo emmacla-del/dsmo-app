@@ -12,7 +12,7 @@ import {
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
 import { formatDate } from "@/lib/companies-directory";
-import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
+import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -85,6 +85,7 @@ export default function InscriptionsPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canReadQueue = !!role && QUEUE_ROLES.includes(role);
   const queryClient = useQueryClient();
+  const { regions: territoryRegions } = useTerritoryRegions();
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -227,7 +228,7 @@ export default function InscriptionsPage() {
           <Filter label="Région d'origine">
             <select className="cam-select" value={region} onChange={(e) => { setRegion(e.target.value); setPage(1); }}>
               <option value="">Toutes les régions</option>
-              {CAMEROON_ADMIN_HIERARCHY.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+              {territoryRegions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </Filter>
           <Filter label="Statut">

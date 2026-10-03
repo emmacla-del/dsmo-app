@@ -39,6 +39,7 @@ import '../theme/ultra_theme.dart';
 import '../services/draft_service.dart';
 import '../services/reference_cache_service.dart';
 import '../providers/connectivity_provider.dart';
+import '../providers/locations_provider.dart';
 import '../providers/sync_queue_provider.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/responsive_helpers.dart';
@@ -339,35 +340,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     String? tempDept = _filterDepartment;
     String? tempStatus = _filterStatus;
 
-    const regions = [
-      'Adamaoua',
-      'Centre',
-      'Est',
-      'Extrême-Nord',
-      'Littoral',
-      'Nord',
-      'Nord-Ouest',
-      'Ouest',
-      'Sud',
-      'Sud-Ouest',
-    ];
-    const departments = [
-      'Bamboutos',
-      'Djerem',
-      'Fako',
-      'Haut-Nkam',
-      'Haute-Sanaga',
-      'Lékié',
-      'Mbam-et-Inoubou',
-      'Mbam-et-Kim',
-      'Mfoundi',
-      'Mungo',
-      'Nyong-et-Kellé',
-      'Nyong-et-Mfoumou',
-      "Nyong-et-So'o",
-      'Vina',
-      'Wouri',
-    ];
+    final regions = ref.read(locationRegionsProvider);
     final allLabel = context.l10n.allMasculine;
     final statuses = [
       allLabel,
@@ -381,7 +354,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => Padding(
+        builder: (ctx, setSheet) {
+          final departments = ref.read(locationDepartmentsProvider(tempRegion));
+          return Padding(
           padding:
               EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Container(
@@ -456,7 +431,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   hint: context.l10n.allRegionsCheckboxLabel,
                   value: tempRegion,
                   items: regions,
-                  onChanged: (v) => setSheet(() => tempRegion = v),
+                  onChanged: (v) => setSheet(() {
+                    tempRegion = v;
+                    tempDept = null;
+                  }),
                 ),
                 const SizedBox(height: 16),
                 // Department
@@ -469,7 +447,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 8),
                 _FilterDropdown(
                   hint: context.l10n.allDepartmentsHint,
-                  value: tempDept,
+                  value: departments.contains(tempDept) ? tempDept : null,
                   items: departments,
                   onChanged: (v) => setSheet(() => tempDept = v),
                 ),
@@ -540,10 +518,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
+}
 
   // ═══════════════════════════════════════════════════════════
   // SECTION 5 — ENTITY TYPE HELPERS

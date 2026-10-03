@@ -11,6 +11,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
+import { count, NOT_PROVIDED, METRIC_UNAVAILABLE } from "@/lib/admin-data-state";
+
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
 // The questionnaire structure is owned by the canonical AST
 // (lib/core/focus/compiler/onefop_ast.dart); this page reads the
@@ -27,13 +29,6 @@ const QUESTIONNAIRES: { schemaKey: string; formType: string }[] = [
   { schemaKey: "ctd", formType: "CTD" },
   { schemaKey: "ong", formType: "ONG" },
   { schemaKey: "vocationalTraining", formType: "VOCATIONAL_TRAINING" },
-];
-
-const CANONICAL_SECTIONS = [
-  { code: "SEC-1", title: "Identification & Caractéristiques Générales", questions: "14 questions" },
-  { code: "SEC-2", title: "Structure des Effectifs & Mouvements de Main d'Œuvre", questions: "28 questions / matrices" },
-  { code: "SEC-3", title: "Recrutements & Anticipation des Besoins en Compétences", questions: "22 questions" },
-  { code: "SEC-4", title: "Actions de Formation Professionnelle & Développement", questions: "18 questions" },
 ];
 
 function FileIcon() {
@@ -83,8 +78,8 @@ export default function QuestionnairesPage() {
           const entity = schemaQuery.data?.entities[q.schemaKey];
           const totalQuery = totals[i];
           const total = !canReadSubmissions || totalQuery.isError
-            ? "—"
-            : totalQuery.data ? totalQuery.data.total.toLocaleString("fr-FR") : "…";
+            ? NOT_PROVIDED
+            : totalQuery.data ? count(totalQuery.data.total) : "…";
           return (
             <section key={q.formType} className="cam-dash-card" aria-labelledby={`q-${q.formType}`} style={{ display: "flex", flexDirection: "column" }}>
               <div className="cam-pilot-kpi-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -102,7 +97,7 @@ export default function QuestionnairesPage() {
               </h3>
               
               <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 var(--cam-space-4)" }}>
-                {entity ? `${entity.sectionCount} sections d'enquête homologuées` : schemaQuery.isLoading ? "Chargement des sections…" : "4 sections réglementaires"}
+                {entity ? `${count(entity.sectionCount)} sections d'enquête homologuées` : schemaQuery.isLoading ? "Chargement des sections…" : METRIC_UNAVAILABLE}
               </p>
 
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
@@ -208,36 +203,46 @@ export default function QuestionnairesPage() {
 
             <div>
               <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>
-                Sections d&apos;enquête obligatoires
+                Sections d&apos;enquête homologuées {schemaQuery.data?.entities[selectedPreview.schemaKey] ? `(${schemaQuery.data.entities[selectedPreview.schemaKey].sections.length})` : ""}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-                {CANONICAL_SECTIONS.map((sec) => (
-                  <div
-                    key={sec.code}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "0.75rem",
-                      borderRadius: "6px",
-                      background: "var(--cam-surface-card)",
-                      border: "1px solid var(--cam-border)",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--cam-text)" }}>
-                        {sec.code} : {sec.title}
+              {schemaQuery.data?.entities[selectedPreview.schemaKey]?.sections &&
+              schemaQuery.data.entities[selectedPreview.schemaKey].sections.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
+                  {schemaQuery.data.entities[selectedPreview.schemaKey].sections.map((sec) => (
+                    <div
+                      key={sec.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "0.75rem",
+                        borderRadius: "6px",
+                        background: "var(--cam-surface-card)",
+                        border: "1px solid var(--cam-border)",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--cam-text)" }}>
+                          {sec.title?.fr || sec.id}
+                        </div>
+                        <div className="cam-admin-meta" style={{ fontSize: "0.75rem" }}>
+                          Identifiant : <code>{sec.id}</code>
+                          {sec.order !== null ? ` · Ordre : ${sec.order}` : ""}
+                        </div>
                       </div>
-                      <div className="cam-admin-meta" style={{ fontSize: "0.75rem" }}>
-                        Conforme à la nomenclature ONEFOP / DSMO
-                      </div>
+                      <span className="cam-admin-meta" style={{ fontWeight: 600 }}>
+                        {sec.fields.length} {sec.fields.length > 1 ? "questions / champs" : "question / champ"}
+                      </span>
                     </div>
-                    <span className="cam-admin-meta" style={{ fontWeight: 600 }}>
-                      {sec.questions}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="cam-admin-meta">
+                  {schemaQuery.isLoading
+                    ? "Chargement de la structure réglementaire…"
+                    : "Structure de sections non disponible pour ce questionnaire."}
+                </p>
+              )}
             </div>
           </div>
         </AdminDialog>

@@ -20,7 +20,7 @@ export const API_BASE_URL =
     ? "http://localhost:3001/api"
     : "https://dsmo-app-2.onrender.com/api");
 
-import type { Department, RegisterCompanyResult, Region, Sector, Subdivision, User } from "./user-types";
+import type { Department, LocationRegion, RegisterCompanyResult, Region, Sector, Subdivision, User } from "./user-types";
 
 const TOKEN_STORAGE_KEY = "camleap.access_token";
 const CACHED_USER_KEY = "camleap.cached_user";
@@ -307,6 +307,10 @@ export function getDepartmentsByRegion(regionId: string) {
 
 export function getSubdivisionsByDepartment(departmentId: string) {
   return apiFetch<Subdivision[]>(`/locations/departments/${encodeURIComponent(departmentId)}/subdivisions`);
+}
+
+export function getLocationStructure() {
+  return apiFetch<LocationRegion[]>("/locations/structure");
 }
 
 // Every field is optional here except the handful RegisterCompanyDto itself
@@ -598,6 +602,7 @@ export interface AdminQuestionnairesPage {
 export function listAdminQuestionnaires(
   params: {
     status?: string; formType?: string; period?: string; region?: string; search?: string;
+    companyId?: string;
     limit?: number; offset?: number;
   } = {},
 ) {
@@ -607,6 +612,7 @@ export function listAdminQuestionnaires(
   if (params.period) query.set("period", params.period);
   if (params.region) query.set("region", params.region);
   if (params.search) query.set("search", params.search);
+  if (params.companyId) query.set("companyId", params.companyId);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   const qs = query.toString();
@@ -808,4 +814,21 @@ export interface DataManagementStats {
 
 export function getDataManagementStats(): Promise<DataManagementStats> {
   return apiFetch<DataManagementStats>("/data-management/stats");
+}
+
+export interface ExportHistoryItem {
+  id: string;
+  timestamp: string;
+  format: string;
+  filters: Record<string, unknown>;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  } | null;
+}
+
+export function getExportHistory(limit = 20): Promise<ExportHistoryItem[]> {
+  return apiFetch<ExportHistoryItem[]>(`/data-management/export/history?limit=${limit}`);
 }

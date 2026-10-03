@@ -13,6 +13,7 @@ import { SubmitDeclarationDto } from './dto/submit-declaration.dto';
 import { RegisterCompanyProfileDto } from './dto/register-company-profile.dto';
 import { DeclarationStatus, UserStatus } from '../types/prisma.types';
 import { AllowInactiveCompany } from '../auth/allow-inactive-company.decorator';
+import { territoryFromUser } from '../auth/territory';
 
 @Controller('dsmo')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
@@ -41,18 +42,31 @@ export class DsmoController {
     return this.dsmoService.saveCompanyProfile(req.user.id, dto);
   }
 
+  @Get('companies/stats')
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP', 'CENTRAL', 'REGIONAL', 'DIVISIONAL')
+  async getCompanyStats(@Req() req: any) {
+    const territory = territoryFromUser(req?.user);
+    return this.dsmoService.getCompanyStats(territory);
+  }
+
   @Get('companies')
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_DSMO', 'SUPER_ADMIN_ONEFOP', 'CENTRAL', 'REGIONAL', 'DIVISIONAL')
   async listCompanies(
     @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('region') region?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Req() req?: any,
   ) {
+    const territory = territoryFromUser(req?.user);
     return this.dsmoService.listCompanies({
       search,
+      status,
+      region,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
-    });
+    }, territory);
   }
 
   // ===== CORE DECLARATION ENDPOINTS =====
