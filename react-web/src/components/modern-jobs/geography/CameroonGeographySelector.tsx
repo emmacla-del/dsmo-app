@@ -1,15 +1,13 @@
 "use client";
 
-import React, { useEffect, useState, useId } from "react";
+import React, { useEffect, useMemo, useState, useId } from "react";
 import { useTranslations } from "next-intl";
 import type { FormData } from "@/lib/onefop-schema";
-import {
-  getRegions,
-  getDepartmentsByRegion,
-  getSubdivisionsByDepartment,
-} from "@/lib/api-client";
 import type { Department, Region, Subdivision } from "@/lib/user-types";
-import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
+import {
+  REGION_NAME_EN,
+  useTerritoryStructure,
+} from "@/hooks/useTerritoryStructure";
 
 export interface CameroonGeographySelectorProps {
   /** The field ID for Region, e.g. "S1Q04_REGION" or "COOP_S1Q05_REGION" */
@@ -34,20 +32,6 @@ export interface CameroonGeographySelectorProps {
   errors?: Record<string, string>;
 }
 
-/** Official English names of Cameroon's regions, for the offline (static) fallback list. */
-const REGION_NAME_EN: Record<string, string> = {
-  Adamaoua: "Adamawa",
-  Centre: "Centre",
-  Est: "East",
-  "Extrême-Nord": "Far North",
-  Littoral: "Littoral",
-  Nord: "North",
-  "Nord-Ouest": "North-West",
-  Ouest: "West",
-  Sud: "South",
-  "Sud-Ouest": "South-West",
-};
-
 export function CameroonGeographySelector({
   regionFieldId,
   departmentFieldId,
@@ -61,6 +45,8 @@ export function CameroonGeographySelector({
   errors = {},
 }: CameroonGeographySelectorProps) {
   const t = useTranslations("modernJobs.geography");
+  const { data: tree, isLoading: loadingRegions } = useTerritoryStructure();
+
   // Stored values stay the canonical (French) names; only the label shown follows the locale.
   const displayName = (item: { name: string; nameEn?: string | null }) =>
     locale === "en" && item.nameEn ? item.nameEn : item.name;
@@ -72,63 +58,27 @@ export function CameroonGeographySelector({
   const storedSubdiv = String(data[subdivisionFieldId] ?? "").trim();
   const storedLocality = localityFieldId ? String(data[localityFieldId] ?? "") : "";
 
-  // Lists & Loading states
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [subdivisions, setSubdivisions] = useState<Subdivision[]>([]);
-
-  const [loadingRegions, setLoadingRegions] = useState(false);
-  const [loadingDepts, setLoadingDepts] = useState(false);
-  const [loadingSubdivs, setLoadingSubdivs] = useState(false);
-
-  // Selected IDs internally mapped for API cascading
+  // Selected IDs internally mapped for cascading UI
   const [selectedRegionId, setSelectedRegionId] = useState<string>("");
   const [selectedDeptId, setSelectedDeptId] = useState<string>("");
 
-  // ── 1. Load Regions (API with static fallback) ───────────────────────────
-  useEffect(() => {
-    let active = true;
-    setLoadingRegions(true);
-
-    getRegions()
-      .then((res) => {
-        if (!active) return;
-        if (Array.isArray(res) && res.length > 0) {
-          setRegions(res);
-        } else {
-          fallbackToStaticRegions();
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-        fallbackToStaticRegions();
-      })
-      .finally(() => {
-        if (active) setLoadingRegions(false);
-      });
-
-    function fallbackToStaticRegions() {
-      const staticList: Region[] = CAMEROON_ADMIN_HIERARCHY.map((r, idx) => ({
-        id: `static-reg-${idx}-${r.name.toLowerCase()}`,
+  // ── 1. Regions from territory structure query ─────────────────────────────
+  const regions: Region[] = useMemo(() => {
+    return (
+      tree?.map((r) => ({
+        id: r.id,
         name: r.name,
         nameEn: REGION_NAME_EN[r.name] ?? null,
-      }));
-      setRegions(staticList);
-    }
-
-    return () => {
-      active = false;
-    };
-  }, []);
+      })) ?? []
+    );
+  }, [tree]);
 
   // ── 2. Sync / Hydrate Region ID from stored name ────────────────────────
   useEffect(() => {
     if (!storedRegion || regions.length === 0) {
       if (!storedRegion) {
         setSelectedRegionId("");
-        setDepartments([]);
         setSelectedDeptId("");
-        setSubdivisions([]);
       }
       return;
     }
@@ -137,7 +87,7 @@ export function CameroonGeographySelector({
       (r) =>
         r.id === storedRegion ||
         r.name.toLowerCase() === storedRegion.toLowerCase() ||
-        (r.nameEn && r.nameEn.toLowerCase() === storedRegion.toLowerCase())
+        (r.nameEn && r.nameEn.toLowerCase() === storedRegion.toLowerCase()),
     );
 
     if (matched && matched.id !== selectedRegionId) {
@@ -145,61 +95,23 @@ export function CameroonGeographySelector({
     }
   }, [storedRegion, regions, selectedRegionId]);
 
-  // ── 3. Load Departments when Region ID changes ──────────────────────────
-  useEffect(() => {
-    if (!selectedRegionId) {
-      setDepartments([]);
-      return;
-    }
-
-    let active = true;
-    setLoadingDepts(true);
-
-    getDepartmentsByRegion(selectedRegionId)
-      .then((res) => {
-        if (!active) return;
-        if (Array.isArray(res) && res.length > 0) {
-          setDepartments(res);
-        } else {
-          fallbackDepartments(selectedRegionId);
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-        fallbackDepartments(selectedRegionId);
-      })
-      .finally(() => {
-        if (active) setLoadingDepts(false);
-      });
-
-    function fallbackDepartments(rId: string) {
-      const regionObj = regions.find((r) => r.id === rId);
-      const staticReg = CAMEROON_ADMIN_HIERARCHY.find(
-        (sr) => sr.name.toLowerCase() === regionObj?.name?.toLowerCase()
-      );
-      if (staticReg) {
-        const dList: Department[] = staticReg.departments.map((d, idx) => ({
-          id: `static-dept-${idx}-${d.name.toLowerCase()}`,
-          name: d.name,
-          regionId: rId,
-        }));
-        setDepartments(dList);
-      } else {
-        setDepartments([]);
-      }
-    }
-
-    return () => {
-      active = false;
-    };
-  }, [selectedRegionId, regions]);
+  // ── 3. Departments from selected region ──────────────────────────────────
+  const departments: Department[] = useMemo(() => {
+    if (!selectedRegionId || !tree) return [];
+    const reg = tree.find((r) => r.id === selectedRegionId);
+    if (!reg) return [];
+    return reg.departments.map((d) => ({
+      id: d.id,
+      name: d.name,
+      regionId: reg.id,
+    }));
+  }, [selectedRegionId, tree]);
 
   // ── 4. Sync / Hydrate Department ID from stored name ────────────────────
   useEffect(() => {
     if (!storedDept || departments.length === 0) {
       if (!storedDept) {
         setSelectedDeptId("");
-        setSubdivisions([]);
       }
       return;
     }
@@ -208,7 +120,7 @@ export function CameroonGeographySelector({
       (d) =>
         d.id === storedDept ||
         d.name.toLowerCase() === storedDept.toLowerCase() ||
-        (d.nameEn && d.nameEn.toLowerCase() === storedDept.toLowerCase())
+        (d.nameEn && d.nameEn.toLowerCase() === storedDept.toLowerCase()),
     );
 
     if (matched && matched.id !== selectedDeptId) {
@@ -216,56 +128,22 @@ export function CameroonGeographySelector({
     }
   }, [storedDept, departments, selectedDeptId]);
 
-  // ── 5. Load Subdivisions when Department ID changes ─────────────────────
-  useEffect(() => {
-    if (!selectedDeptId) {
-      setSubdivisions([]);
-      return;
-    }
-
-    let active = true;
-    setLoadingSubdivs(true);
-
-    getSubdivisionsByDepartment(selectedDeptId)
-      .then((res) => {
-        if (!active) return;
-        if (Array.isArray(res) && res.length > 0) {
-          setSubdivisions(res);
-        } else {
-          fallbackSubdivisions(selectedDeptId);
-        }
-      })
-      .catch(() => {
-        if (!active) return;
-        fallbackSubdivisions(selectedDeptId);
-      })
-      .finally(() => {
-        if (active) setLoadingSubdivs(false);
-      });
-
-    function fallbackSubdivisions(dId: string) {
-      const deptObj = departments.find((d) => d.id === dId);
-      for (const reg of CAMEROON_ADMIN_HIERARCHY) {
-        const foundDept = reg.departments.find(
-          (d) => d.name.toLowerCase() === deptObj?.name?.toLowerCase()
-        );
-        if (foundDept) {
-          const sList: Subdivision[] = foundDept.subdivisions.map((sName, idx) => ({
-            id: `static-subdiv-${idx}-${sName.toLowerCase()}`,
-            name: sName,
-            departmentId: dId,
-          }));
-          setSubdivisions(sList);
-          return;
-        }
+  // ── 5. Subdivisions from selected department ────────────────────────────
+  const subdivisions: Subdivision[] = useMemo(() => {
+    if (!selectedDeptId || !tree) return [];
+    for (const reg of tree) {
+      const dept = reg.departments.find((d) => d.id === selectedDeptId);
+      if (dept) {
+        return dept.subdivisions.map((s) => ({
+          id: s.id,
+          name: s.name,
+          code: s.code,
+          departmentId: dept.id,
+        }));
       }
-      setSubdivisions([]);
     }
-
-    return () => {
-      active = false;
-    };
-  }, [selectedDeptId, departments]);
+    return [];
+  }, [selectedDeptId, tree]);
 
   // ── Event Handlers with Cascading Resets ─────────────────────────────────
 
@@ -273,7 +151,6 @@ export function CameroonGeographySelector({
     const rId = e.target.value;
     setSelectedRegionId(rId);
     setSelectedDeptId("");
-    setSubdivisions([]);
 
     const rObj = regions.find((r) => r.id === rId);
     const standardName = rObj ? rObj.name : "";
@@ -419,7 +296,7 @@ export function CameroonGeographySelector({
               id={`${baseId}-department`}
               name={departmentFieldId}
               value={selectedDeptId}
-              disabled={disabled || !selectedRegionId || loadingDepts}
+              disabled={disabled || !selectedRegionId}
               onChange={handleDeptChange}
               aria-required={required}
               aria-invalid={!!errors[departmentFieldId]}
@@ -438,9 +315,7 @@ export function CameroonGeographySelector({
               <option value="">
                 {!selectedRegionId
                   ? t("chooseRegionFirst")
-                  : loadingDepts
-                    ? t("loadingDepartments")
-                    : t("selectDepartment")}
+                  : t("selectDepartment")}
               </option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -490,7 +365,7 @@ export function CameroonGeographySelector({
               value={
                 subdivisions.find((s) => s.name.toLowerCase() === storedSubdiv.toLowerCase())?.id ?? ""
               }
-              disabled={disabled || !selectedDeptId || loadingSubdivs}
+              disabled={disabled || !selectedDeptId}
               onChange={handleSubdivChange}
               aria-required={required}
               aria-invalid={!!errors[subdivisionFieldId]}
@@ -509,9 +384,7 @@ export function CameroonGeographySelector({
               <option value="">
                 {!selectedDeptId
                   ? t("chooseDepartmentFirst")
-                  : loadingSubdivs
-                    ? t("loadingSubdivisions")
-                    : t("selectSubdivision")}
+                  : t("selectSubdivision")}
               </option>
               {subdivisions.map((s) => (
                 <option key={s.id} value={s.id}>

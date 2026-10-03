@@ -137,7 +137,7 @@ const CANONICAL_FALLBACK_ANOMALIES: AnomalyItem[] = [
     status: "OPEN",
     isBlocking: false,
     detectedAt: "2026-09-28T13:30:00Z",
-    submission: { id: "sub-03", submissionId: "PRJ-2026-00885", region: "Adamaoua", companyName: "Programme PIAASI" },
+    submission: { id: "sub-03", submissionId: "PRJ-2026-00885", region: "Est", companyName: "Programme PIAASI" },
   },
   {
     id: "anom-04",
@@ -158,7 +158,7 @@ const FIGMA_RECENT_CONTROLS = [
   { time: "14:15", dot: "#16a34a", text: "Anomalie résolue — COP-2026-00214", location: "Littoral" },
   { time: "13:58", dot: "#f59e0b", text: "Doublon potentiel signalé — ADM-2026-01043", location: "Nord" },
   { time: "13:42", dot: "#2563eb", text: "Contrôle automatique terminé — Lot #847 (24 fiches)", location: "National" },
-  { time: "13:30", dot: "#f59e0b", text: "Champ manquant — PRJ-2026-00885", location: "Adamaoua" },
+  { time: "13:30", dot: "#f59e0b", text: "Champ manquant — PRJ-2026-00885", location: "Est" },
 ];
 
 const FIGMA_ACTIVE_RULES = [

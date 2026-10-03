@@ -11,7 +11,7 @@ import {
   getDataManagementStats,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
-import { CAMEROON_ADMIN_HIERARCHY } from "@/components/onefop/vt-cameroon-admin-data";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
@@ -60,20 +60,6 @@ const CAMPAIGN_OPTIONS = [
   { value: "2025-T3", label: "2025-T3" },
   { value: "2025-T2", label: "2025-T2" },
   { value: "2025-T1", label: "2025-T1" },
-];
-
-const CAMEROON_REGIONS = [
-  "Toutes",
-  "Centre",
-  "Littoral",
-  "Ouest",
-  "Sud-Ouest",
-  "Nord-Ouest",
-  "Nord",
-  "Extrême-Nord",
-  "Adamaoua",
-  "Est",
-  "Sud",
 ];
 
 const SECTIONS_LIST = [
@@ -272,14 +258,15 @@ export default function DiffusionPage() {
   const pendingRate = totalSubmissions > 0 ? ((pendingCount / totalSubmissions) * 100).toFixed(1) : "16.7";
   const rejectedRate = totalSubmissions > 0 ? ((rejectedCount / totalSubmissions) * 100).toFixed(1) : "4.3";
 
+  const { regions: territoryRegions } = useTerritoryRegions();
+  const CAMEROON_REGIONS = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
+  const { departments: deptList } = useTerritoryDepartments(selectedRegion === "Toutes" ? null : selectedRegion);
+
   // Cascading departments for selected region
   const availableDepartments = useMemo(() => {
     if (!selectedRegion || selectedRegion === "Toutes") return [];
-    const regionObj = CAMEROON_ADMIN_HIERARCHY.find(
-      (r) => r.name.toLowerCase() === selectedRegion.toLowerCase(),
-    );
-    return regionObj?.departments ?? [];
-  }, [selectedRegion]);
+    return deptList.map((d) => ({ name: d }));
+  }, [selectedRegion, deptList]);
 
   const toggleSection = (id: string) => {
     setSelectedSections((prev) =>

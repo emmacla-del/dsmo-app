@@ -7,19 +7,7 @@ import type { Campaign } from "@/lib/campaigns";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
-
-const CAMEROON_REGIONS = [
-  "Centre",
-  "Littoral",
-  "Ouest",
-  "Nord-Ouest",
-  "Sud-Ouest",
-  "Extrême-Nord",
-  "Nord",
-  "Adamaoua",
-  "Est",
-  "Sud",
-];
+import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
@@ -300,6 +288,7 @@ function DataQuality({ eligibilityPct }: { eligibilityPct: number | null }) {
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function PilotagePage() {
+  const { regions: CAMEROON_REGIONS } = useTerritoryRegions();
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
