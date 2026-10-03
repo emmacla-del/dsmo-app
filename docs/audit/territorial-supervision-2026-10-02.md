@@ -69,13 +69,19 @@ Verified state at `8105a4de`:
 - `prisma validate` — **PASS**
 - backend `tsc --noEmit` — **PASS** (exit 0)
 - backend `jest src/pilotage` — **PASS**, 6 suites / 67 tests
-- backend `jest` (full) — **829 passed, 1 failed**, 51 suites. The failure is
-  `src/auth/staff-scope.spec.ts:235` ("SUPER_ADMIN_ONEFOP creates ONEFOP field staff…"). It **passes in
-  isolation** (33/33), so this is a pre-existing order-dependent flake in the full run, not a regression
-  and not caused by this work. Reported, not fixed — see §T-9.
+- backend `jest` (full, default parallel) — **829 passed, 1 failed**, 51 suites. The failure is
+  `src/auth/staff-scope.spec.ts:235` ("SUPER_ADMIN_ONEFOP creates ONEFOP field staff…").
 - `react-web` `npm test` — **PASS**, 39/39
+- `react-web` `next build` — **PASS**
 - `react-web` `eslint src/app/admin src/components/admin` — **27 errors / 37 warnings, all pre-existing**
   (incl. 4 errors in `cibles/page.tsx`, 6 in `dossiers/page.tsx`). Not introduced here and not fixed here.
+
+**The parallel `jest` failures are concurrency artifacts, not regressions — see §T-9.** After the changes
+in §AB the parallel run reported 4 failures (827 passed, 831 total: `staff-scope` plus three
+`data-management` export tests), yet `jest --runInBand` on the same tree passes **831/831**, and each
+failing suite passes in isolation (`src/data-management` 188/188, `staff-scope` 33/33). The failing set
+varies between parallel runs and includes suites untouched by this work. Treat `--runInBand` as the
+authoritative signal for this repository until §T-9 is fixed.
 
 ---
 
@@ -544,8 +550,12 @@ affirmative.
   `GET /locations` existing (e.g. `admin/pilotage/page.tsx:11`, `admin/activite/page.tsx`,
   `admin/dossiers/page.tsx`, `admin/etablissements/page.tsx`). Carried over from the prior audit; still
   true.
-- **T-9 Order-dependent test failure.** `src/auth/staff-scope.spec.ts:235` fails in the full `jest` run
-  and passes in isolation — shared mock state or parallel-load timing. Pre-existing.
+- **T-9 The backend test suite is not reliable under parallelism.** `jest --runInBand` passes 831/831,
+  but the default parallel run fails a varying subset — observed: `src/auth/staff-scope.spec.ts:235`, and
+  three `src/data-management` streaming-export tests. Every one of them passes in isolation. The cause is
+  shared mock state or worker timing, not any individual assertion. This matters beyond tidiness: it
+  makes the suite unable to tell a real regression from noise, so a genuine break in supervision
+  aggregation could land unnoticed. Pre-existing; worth fixing before CI gates on it.
 - **T-10 Lint debt.** 27 eslint errors in `src/app/admin` + `src/components/admin`, pre-existing.
 
 ## U. Duplication risks
@@ -705,7 +715,20 @@ Branch `feat/territorial-supervision`, cut from `origin/master` (`8105a4de`), sm
 4. **Drill-down made honest** (`/admin/dossiers/[id]`): fabricated dossier and diagnostic fallbacks
    removed; real loading / not-found / error states; hardcoded instruction history replaced with a
    timeline derived from real submission fields; stored rejection reason surfaced (brief items K/M).
-5. **This report.**
+   Also fixed the correction modal, which showed a fixed sample finding for every dossier and pre-filled
+   the instruction actually sent to the declarant to match it — an unedited correction request told an
+   employer to fix a discrepancy never detected on their return.
+5. **Drill-down hop completed** (brief item O, counts → list → dossier): `/admin/dossiers` now accepts
+   `?region=` on the same contract as its existing `?status=`, and each region row's "Reçus" figure in
+   the returns table links to the dossiers behind it. Region level only, because the dossier list filters
+   by region and not by department. The filter is server-applied either way, so the link grants no extra
+   visibility.
+6. **This report.**
+
+Verification of the delivered work: backend `jest --runInBand` 831/831 (including one new test pinning
+the per-establishment unit), backend `tsc` clean, `prisma validate` clean, `react-web` `tsc` clean,
+`next build` passing, `react-web` 39/39, and admin lint counts unchanged from baseline (one pre-existing
+warning removed). No migration, no schema change, no role change, no API signature change.
 
 ### Deliberately out of scope for this run
 
