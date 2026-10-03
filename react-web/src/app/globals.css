@@ -237,6 +237,16 @@ body {
   box-sizing: border-box;
 }
 
+/* Registration wizard only. Steps 3 and 6 are taller than the viewport, and a
+   centred flex item that overflows its container pushes its own top edge above
+   the scroll origin, where no scrollbar can reach it -- the first fields of
+   those steps become unreachable. The short auth cards (login, forgot-password,
+   verify-email) never overflow, so they keep the vertical centring above; only
+   the wizard opts out. */
+.cam-auth-page--wizard {
+  align-items: flex-start;
+}
+
 .cam-auth-page * {
   box-sizing: border-box;
 }
@@ -375,7 +385,7 @@ body {
   width: 100%;
   padding: 10px var(--cam-space-3);
   font-size: var(--cam-font-size-base);
-  border: 1px solid #1B4332;
+  border: 1px solid var(--cam-green);
   border-radius: var(--cam-radius-control);
   outline: none;
   background: var(--cam-surface);
@@ -405,14 +415,14 @@ body {
 
 .cam-auth-page input:focus,
 .cam-auth-page textarea:focus {
-  border: 2px solid #1B4332;
-  box-shadow: 0 0 0 3px rgba(27, 67, 50, 0.15);
+  border: 2px solid var(--cam-green);
+  box-shadow: var(--cam-focus-shadow);
   outline: none;
 }
 
 .cam-auth-page select:focus {
-  border-color: #1B4332;
-  box-shadow: 0 0 0 3px rgba(27, 67, 50, 0.15);
+  border-color: var(--cam-green);
+  box-shadow: var(--cam-focus-shadow);
   outline: none;
 }
 

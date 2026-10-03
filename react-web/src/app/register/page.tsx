@@ -26,6 +26,7 @@ import {
 } from "@/lib/register-constants";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
 import { passwordStrength, passwordStrengthLabel, validatePassword } from "@/lib/password-strength";
+import { resetScroll } from "@/lib/reset-scroll";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
@@ -237,12 +238,14 @@ export default function RegisterPage() {
       }
     }
 
+    resetScroll(0);
     setStep(STEPS[Math.min(idx + 1, STEPS.length - 1)]);
   }
 
   function goBack() {
     setStepError(null);
     const idx = STEPS.indexOf(step);
+    resetScroll(0);
     setStep(STEPS[Math.max(idx - 1, 0)]);
   }
 
@@ -491,7 +494,7 @@ export default function RegisterPage() {
 
   // Registration wizard steps
   return (
-    <main className="cam-auth-page">
+    <main className="cam-auth-page cam-auth-page--wizard">
       <div className="wrap-wide">
         <AuthHeader />
 
