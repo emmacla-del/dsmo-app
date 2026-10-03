@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import Link from "next/link";
 import type {
   CampaignReturnsResponse,
   ReturnMetrics,
@@ -63,7 +64,7 @@ export function CampaignReturnsTable({
                       {region.name}
                     </button>
                   </th>
-                  <MetricCells metrics={region} />
+                  <MetricCells metrics={region} drillRegion={region.name} />
                 </tr>
                 {open &&
                   region.departments.map((department) => (
@@ -103,11 +104,25 @@ export function CampaignReturnsTable({
   );
 }
 
-function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
+function MetricCells({ metrics, drillRegion }: { metrics: ReturnMetrics; drillRegion?: string }) {
   return (
     <>
       <td className="is-num">{fmt(metrics.quota)}</td>
-      <td className="is-num">{fmt(metrics.received)}</td>
+      <td className="is-num">
+        {/*
+          Drill-down hop: a territorial count opens the dossiers it is made
+          of. Region-level only — the dossier list filters by region, not by
+          department. The link pre-selects a filter the server applies anyway,
+          so it grants no visibility the reader does not already have.
+        */}
+        {drillRegion && metrics.received > 0 ? (
+          <Link href={`/admin/dossiers?region=${encodeURIComponent(drillRegion)}`}>
+            {fmt(metrics.received)}
+          </Link>
+        ) : (
+          fmt(metrics.received)
+        )}
+      </td>
       <td className="is-num">{fmt(metrics.approved)}</td>
       <td className="is-num">{fmt(metrics.onTime)}</td>
       <td className="is-num">
