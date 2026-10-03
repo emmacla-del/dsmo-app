@@ -9,13 +9,19 @@
 export function StepHeader({
   title,
   subtitle,
+  titleId,
 }: {
   title: string;
   subtitle?: string;
+  // Lets the surrounding section card point aria-labelledby at this heading,
+  // so a screen reader announces which section it has entered.
+  titleId?: string;
 }) {
   return (
     <div className="step-header">
-      <h2 className="step-header-title">{title}</h2>
+      <h2 className="step-header-title" id={titleId}>
+        {title}
+      </h2>
       {subtitle && <p className="step-header-subtitle">{subtitle}</p>}
     </div>
   );

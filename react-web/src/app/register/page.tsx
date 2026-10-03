@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -33,6 +34,15 @@ import {
   type RegState,
   type SubdivisionsStatus,
 } from "@/lib/register-completeness";
+import {
+  REGISTER_DRAFT_SAVE_DEBOUNCE_MS,
+  clearStoredDraft,
+  draftHasData,
+  loadStoredDraft,
+  restoredReached,
+  saveStoredDraftJson,
+  toDraft,
+} from "@/lib/register-draft";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
 import {
   PASSWORD_RULE_IDS,
@@ -41,7 +51,6 @@ import {
   passwordStrengthLabel,
   validatePassword,
 } from "@/lib/password-strength";
-import { resetScroll } from "@/lib/reset-scroll";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { FormRow } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
@@ -56,7 +65,13 @@ import { StepHeader } from "@/components/auth/StepHeader";
 // Single source of truth lives in register-constants.ts, shared with
 // RegistrationProgress so the navigation order and the rail labels cannot drift.
 const STEPS = REGISTRATION_STEP_IDS;
-type Step = RegistrationStepId;
+const LAST_INDEX = STEPS.length - 1;
+
+// How long after the last keystroke the next section opens. A dropdown choice
+// is a finished decision and reveals at once; typing is not, so it waits for a
+// pause -- otherwise the page scrolls out from under someone who is still
+// filling the field that happened to complete the section.
+const REVEAL_TEXT_DELAY_MS = REGISTER_DRAFT_SAVE_DEBOUNCE_MS;
 
 interface RespondentState {
   firstName: string;
@@ -127,7 +142,23 @@ const ENTITY_SECTIONS: Record<EntityType, { title: string; keys: string[] }[]> =
 
 export default function RegisterPage() {
   const t = useTranslations();
-  const [step, setStep] = useState<Step>("entityType");
+  const router = useRouter();
+  // `reached` is the highest revealed section index and replaces the old
+  // `step` cursor: sections 0..reached are all on the page at once, and a
+  // revealed section is never unmounted again.
+  const [reached, setReached] = useState(0);
+  const [certified, setCertified] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
+  // Section to scroll to once the reveal has rendered. A ref, not state: the
+  // reveal already re-renders the page, and a second state update just to
+  // clear this one would be a cascading render for no visible effect.
+  const pendingScrollRef = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // What last changed, so the reveal can be immediate for a choice and
+  // debounced for typing.
+  const lastInputKindRef = useRef<"choice" | "text">("choice");
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const firstEntityRadioRef = useRef<HTMLInputElement>(null);
   const [respondent, setRespondent] = useState<RespondentState>({
@@ -149,7 +180,6 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [obscurePassword, setObscurePassword] = useState(true);
   const [obscureConfirm, setObscureConfirm] = useState(true);
-  const [stepError, setStepError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<{ establishmentId?: string | null; companyName: string; attestationUrl?: string | null } | null>(null);
@@ -206,8 +236,6 @@ export default function RegisterPage() {
     confirmPassword,
   };
 
-  const currentSectionComplete = isSectionComplete(step, regState);
-
   // Debounced email availability check
   useEffect(() => {
     const email = respondent.email.trim();
@@ -223,8 +251,18 @@ export default function RegisterPage() {
     return () => clearTimeout(handle);
   }, [respondent.email]);
 
-  function setEntityField(key: string, value: string) {
+  function setEntityField(key: string, value: string, kind: "choice" | "text" = "text") {
+    lastInputKindRef.current = kind;
     setEntityData((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setRespondentField(
+    key: keyof RespondentState,
+    value: string,
+    kind: "choice" | "text" = "text"
+  ) {
+    lastInputKindRef.current = kind;
+    setRespondent((r) => ({ ...r, [key]: value }));
   }
 
   function isFieldVisible(field: { key?: string; dependsOn?: string; dependsValue?: string }): boolean {
@@ -257,7 +295,7 @@ export default function RegisterPage() {
       "aria-required": field.required ? true : undefined,
       value: entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-        setEntityField(field.key, e.target.value),
+        setEntityField(field.key, e.target.value, field.kind === "select" ? "choice" : "text"),
     };
 
     return (
@@ -289,75 +327,106 @@ export default function RegisterPage() {
     );
   }
 
-  function goNext() {
-    setStepError(null);
-    const idx = STEPS.indexOf(step);
+  // The one validation pass, run when the respondent submits.
+  //
+  // It replaces the per-step switch the old Suivant button ran. Every message
+  // is the one that step already produced, so the wording the respondent sees
+  // on a failure has not changed -- only when they see it. isSectionComplete
+  // decides when a section *opens*; this decides whether the form may be
+  // *sent*, which is why the two are separate and why this one may surface
+  // errors.
+  function firstFailure(): { index: number; message: string; focusId?: string } | null {
+    if (!entityType) {
+      return {
+        index: STEPS.indexOf("entityType"),
+        message: t("registerPage.errorEntityTypeRequired"),
+      };
+    }
 
-    if (step === "entityType") {
-      if (!entityType) {
-        setStepError(t("registerPage.errorEntityTypeRequired"));
-        firstEntityRadioRef.current?.focus();
-        return;
+    const respondentIndex = STEPS.indexOf("respondent");
+    const respondentFields: [string, string][] = [
+      ["reg-first-name", respondent.firstName],
+      ["reg-last-name", respondent.lastName],
+      ["reg-function", respondent.function],
+      ["reg-email", respondent.email],
+      ["reg-phone1", respondent.phone1],
+    ];
+    for (const [focusId, value] of respondentFields) {
+      if (!value.trim()) {
+        return { index: respondentIndex, message: t("registerPage.errorRequiredFields"), focusId };
       }
     }
-    if (step === "respondent") {
-      const { firstName, lastName, function: fn, email, phone1 } = respondent;
-      if (!firstName.trim() || !lastName.trim() || !fn || !email.trim() || !phone1.trim()) {
-        setStepError(t("registerPage.errorRequiredFields"));
-        return;
-      }
-      if (emailAvailable === false) {
-        setStepError(t("registerPage.errorEmailInUse"));
-        return;
-      }
+    if (emailAvailable === false) {
+      return { index: respondentIndex, message: t("registerPage.errorEmailInUse"), focusId: "reg-email" };
     }
-    if (step === "entityInfo" && config) {
+
+    if (config) {
       for (const field of config.fields) {
         if (field.required && isFieldVisible(field) && !entityData[field.key]?.trim()) {
-          setStepError(t("registerPage.errorRequiredFields"));
-          return;
+          return {
+            index: STEPS.indexOf("entityInfo"),
+            message: t("registerPage.errorRequiredFields"),
+            focusId: `reg-entity-${field.key}`,
+          };
         }
       }
     }
-    if (step === "location") {
-      if (!regionId) {
-        setStepError(t("registerPage.errorSelectRegion"));
-        return;
-      }
-      if (!departmentId) {
-        setStepError(t("registerPage.errorSelectDepartment"));
-        return;
-      }
-      if (!subdivisionId) {
-        setStepError(t("registerPage.errorSelectSubdivision"));
-        return;
-      }
-      if (!area) {
-        setStepError(t("registerPage.errorSelectArea"));
-        return;
-      }
+
+    const locationIndex = STEPS.indexOf("location");
+    if (!regionId) {
+      return { index: locationIndex, message: t("registerPage.errorSelectRegion"), focusId: "reg-region" };
     }
-    if (step === "security") {
-      const pwError = validatePassword(password);
-      if (pwError) {
-        setStepError(pwError);
-        return;
-      }
-      if (password !== confirmPassword) {
-        setStepError(t("registerPage.errorPasswordMismatch"));
-        return;
-      }
+    if (!departmentId) {
+      return { index: locationIndex, message: t("registerPage.errorSelectDepartment"), focusId: "reg-department" };
+    }
+    // An arrondissement is still required, except where the department has
+    // none to offer -- see SubdivisionsStatus.
+    if (!subdivisionId && subdivisionsStatus !== "empty") {
+      return { index: locationIndex, message: t("registerPage.errorSelectSubdivision"), focusId: "reg-subdivision" };
+    }
+    if (!area) {
+      return { index: locationIndex, message: t("registerPage.errorSelectArea"), focusId: "reg-area" };
     }
 
-    resetScroll(0);
-    setStep(STEPS[Math.min(idx + 1, STEPS.length - 1)]);
+    const securityIndex = STEPS.indexOf("security");
+    const pwError = validatePassword(password);
+    if (pwError) {
+      return { index: securityIndex, message: pwError, focusId: "reg-password" };
+    }
+    if (password !== confirmPassword) {
+      return {
+        index: securityIndex,
+        message: t("registerPage.errorPasswordMismatch"),
+        focusId: "reg-confirm-password",
+      };
+    }
+
+    return null;
   }
 
-  function goBack() {
-    setStepError(null);
-    const idx = STEPS.indexOf(step);
-    resetScroll(0);
-    setStep(STEPS[Math.max(idx - 1, 0)]);
+  async function handleSubmitPress() {
+    setSubmitError(null);
+    const failure = firstFailure();
+    if (!failure) {
+      await submit();
+      return;
+    }
+
+    setSubmitError(failure.message);
+    // The failing section may not be revealed yet (a restored draft can reach
+    // review with an earlier gap), so open it before scrolling to it.
+    setReached((prev) => Math.max(prev, failure.index));
+    requestAnimationFrame(() => {
+      const control = failure.focusId ? document.getElementById(failure.focusId) : null;
+      scrollToFailure(failure.index, control);
+      // preventScroll: scrollToFailure has already chosen where the page
+      // should land; focusing would otherwise fight it mid-animation.
+      if (control) {
+        control.focus({ preventScroll: true });
+      } else {
+        firstEntityRadioRef.current?.focus({ preventScroll: true });
+      }
+    });
   }
 
   // Intercept Enter key to navigate sequentially between form fields
@@ -378,22 +447,23 @@ export default function RegisterPage() {
       (el) => el.offsetParent !== null && !el.hasAttribute("aria-hidden") && el.tabIndex !== -1
     );
 
-    const currentIndex = formFields.indexOf(target);
-    if (currentIndex === -1) return;
+    // Renamed from currentIndex: that name now belongs to the revealed-section
+    // cursor below, and shadowing it here read as a bug.
+    const fieldIndex = formFields.indexOf(target);
+    if (fieldIndex === -1) return;
 
     e.preventDefault();
 
     if (e.shiftKey) {
-      if (currentIndex > 0) {
-        formFields[currentIndex - 1].focus();
+      if (fieldIndex > 0) {
+        formFields[fieldIndex - 1].focus();
       }
-    } else {
-      if (currentIndex < formFields.length - 1) {
-        formFields[currentIndex + 1].focus();
-      } else {
-        goNext();
-      }
+    } else if (fieldIndex < formFields.length - 1) {
+      formFields[fieldIndex + 1].focus();
     }
+    // On the last field, Enter does nothing. There is no next step to
+    // advance to, and the single submit button is deliberately reached
+    // on purpose rather than by pressing Enter in a text field.
   };
 
   const resolvedRegionName = regionName || regionsQuery.data?.find((r) => r.id === regionId)?.name;
@@ -506,6 +576,173 @@ export default function RegisterPage() {
   // Which of the four requirements are met, for the tips under the input.
   const pwRules = passwordRuleChecks(password);
 
+  // ── Progressive disclosure ─────────────────────────────────────────────
+  const completed = STEPS.map((id) => isSectionComplete(id, regState));
+
+  // The section the respondent is working in: the first revealed one that is
+  // not finished, falling back to the furthest revealed. This is what the
+  // sticky header reports.
+  const currentIndex = (() => {
+    for (let i = 0; i <= reached; i++) {
+      if (!completed[i]) return i;
+    }
+    return reached;
+  })();
+
+  const hasEnteredData = draftHasData(regState);
+
+  function scrollToSection(index: number) {
+    sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Brings a failed section into view, and the control that failed with it.
+  //
+  // One scroll, not two: a second smooth scroll on the same container
+  // cancels the first, so this chooses the target instead. The section's top
+  // is preferred, because seeing which section failed is the point -- but a
+  // required field can sit further down a section than one screen (entity
+  // info runs to thirteen rows), and in that case the control wins, since an
+  // error message about a field the respondent cannot see is useless.
+  function scrollToFailure(index: number, control: HTMLElement | null) {
+    const scroller = scrollRef.current;
+    const section = sectionRefs.current[index];
+    if (!section) return;
+    if (control && scroller) {
+      const reachableFromSectionTop =
+        control.getBoundingClientRect().bottom - section.getBoundingClientRect().top <=
+        scroller.clientHeight;
+      if (!reachableFromSectionTop) {
+        control.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Reveal the next section once the furthest revealed one is complete.
+  const readyToReveal = reached < LAST_INDEX && completed[reached];
+
+  useEffect(() => {
+    if (!readyToReveal) return;
+    const delay = lastInputKindRef.current === "text" ? REVEAL_TEXT_DELAY_MS : 0;
+    const timer = setTimeout(() => {
+      pendingScrollRef.current = reached + 1;
+      setReached((prev) => (prev < LAST_INDEX ? prev + 1 : prev));
+    }, delay);
+    // Cancelled if the section stops being complete during the delay, which
+    // is what makes the debounce a debounce.
+    return () => clearTimeout(timer);
+  }, [readyToReveal, reached]);
+
+  useEffect(() => {
+    const index = pendingScrollRef.current;
+    if (index === null) return;
+    pendingScrollRef.current = null;
+    const el = sectionRefs.current[index];
+    const scroller = scrollRef.current;
+    if (!el || !scroller) return;
+    // Only chase the new section if it opened below the middle of the form
+    // area. If it is already on screen, moving the page is the only thing the
+    // respondent would notice.
+    const midpoint = scroller.getBoundingClientRect().top + scroller.clientHeight / 2;
+    if (el.getBoundingClientRect().top > midpoint) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [reached]);
+
+  // ── Draft ──────────────────────────────────────────────────────────────
+  const draftLoadedRef = useRef(false);
+
+  // Restores persisted answers after mount. This cannot be a lazy useState
+  // initializer: sessionStorage does not exist during the server render, so
+  // seeding state from it would make the server and client markup disagree
+  // and break hydration. The ref guard makes it run exactly once, so the
+  // cascading-render the rule warns about happens at most one time, on a
+  // returning respondent.
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    const draft = loadStoredDraft();
+    if (!draft) return;
+
+    /* eslint-disable react-hooks/set-state-in-effect -- see above */
+    setEntityType(draft.entityType);
+    setRespondent(draft.respondent);
+    setEntityData(draft.entityData);
+    setRegionId(draft.regionId);
+    setRegionName(draft.regionName);
+    setDepartmentId(draft.departmentId);
+    setDepartmentName(draft.departmentName);
+    setSubdivisionId(draft.subdivisionId);
+    setSubdivisionName(draft.subdivisionName);
+    setArea(draft.area);
+    setSectorId(draft.sectorId);
+    setSectorName(draft.sectorName);
+
+    // Recomputed from the restored answers rather than taken from the draft
+    // alone: the password is never stored, so security comes back incomplete
+    // whatever position was saved.
+    setReached(
+      restoredReached(draft.step, {
+        entityType: draft.entityType,
+        respondent: draft.respondent,
+        emailAvailable: null,
+        entityData: draft.entityData,
+        regionId: draft.regionId,
+        departmentId: draft.departmentId,
+        subdivisionId: draft.subdivisionId,
+        subdivisionsStatus: "idle",
+        area: draft.area,
+        sectorId: draft.sectorId,
+        password: "",
+        confirmPassword: "",
+      })
+    );
+    setDraftRestored(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Serialized once per render and used both as the effect's dependency and
+  // as what gets written: an unrelated re-render produces the same string and
+  // so does not reschedule the save, and nothing has to hold the draft object
+  // in a ref across renders.
+  const draftJson = JSON.stringify(
+    toDraft(regState, reached, {
+      regionName: resolvedRegionName || "",
+      departmentName: resolvedDepartmentName || "",
+      subdivisionName: resolvedSubdivisionName || "",
+      sectorName: resolvedSectorName || "",
+    })
+  );
+
+  useEffect(() => {
+    if (!draftLoadedRef.current) return;
+    if (result) return;
+    if (!hasEnteredData) return;
+    const timer = setTimeout(
+      () => saveStoredDraftJson(draftJson),
+      REGISTER_DRAFT_SAVE_DEBOUNCE_MS
+    );
+    return () => clearTimeout(timer);
+  }, [draftJson, hasEnteredData, result]);
+
+  // The draft's only job is to survive an interruption before submission.
+  useEffect(() => {
+    if (result) clearStoredDraft();
+  }, [result]);
+
+  // Browser-level leave guard. The wording is the browser's own -- a page
+  // cannot supply it -- so the in-page dialog at the bottom of this file
+  // covers navigation that happens inside the app, where it can.
+  useEffect(() => {
+    if (!hasEnteredData || result) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasEnteredData, result]);
+
   // Render receipt screen on success
   if (result) {
     return (
@@ -610,7 +847,611 @@ export default function RegisterPage() {
     );
   }
 
-  // Registration wizard steps
+  // One section body per step id. Sections are rendered by the column below
+  // for every index up to `reached` and are never unmounted once revealed, so
+  // each keeps its own state and its in-flight requests while scrolled away.
+  function renderSection(id: RegistrationStepId) {
+    switch (id) {
+      case "entityType":
+        return (
+          <>
+            <StepHeader
+              titleId="reg-section-title-entityType"
+              title={t("registerPage.entityTypeQuestion")}
+            />
+
+            <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
+              <legend
+                style={{
+                  position: "absolute",
+                  width: "1px",
+                  height: "1px",
+                  padding: 0,
+                  margin: "-1px",
+                  overflow: "hidden",
+                  clip: "rect(0 0 0 0)",
+                  whiteSpace: "nowrap",
+                  border: 0,
+                }}
+              >
+                {t("registerPage.entityTypeQuestion")}
+              </legend>
+
+              {ENTITY_TYPE_OPTIONS.map((option, idx) => (
+                <label
+                  key={option.type}
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: "var(--cam-space-3)",
+                    padding: "var(--cam-space-3) 0",
+                    borderTop: idx === 0 ? "none" : "1px solid var(--cam-border)",
+                    cursor: "pointer",
+                    margin: 0,
+                  }}
+                >
+                  <input
+                    ref={idx === 0 ? firstEntityRadioRef : undefined}
+                    type="radio"
+                    name="entityType"
+                    value={option.type}
+                    checked={entityType === option.type}
+                    onChange={() => {
+                      // Changing type strands the previous type's answers in
+                      // entityData — drop the ones the new type does not
+                      // declare so the respondent's visible answers and the
+                      // stored state agree. submit() filters again via
+                      // visibleEntityDataForType; this keeps state clean at
+                      // the source rather than relying on that alone.
+                      lastInputKindRef.current = "choice";
+                      setEntityData((prev) => pruneEntityDataForType(prev, option.type));
+                      setEntityType(option.type);
+                      setSubmitError(null);
+                    }}
+                    aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
+                    style={{
+                      accentColor: "var(--cam-green)",
+                      width: "17px",
+                      height: "17px",
+                      flex: "0 0 auto",
+                      cursor: "pointer",
+                      alignSelf: "center",
+                    }}
+                  />
+                  <span style={{ fontSize: "14px", color: "var(--cam-text)", lineHeight: 1.45 }}>
+                    {t(option.labelKey)}
+                    {option.hintKey && (
+                      <span
+                        id={`reg-entity-hint-${option.type}`}
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--cam-text-muted)",
+                          marginLeft: "var(--cam-space-2)",
+                        }}
+                      >
+                        {t(option.hintKey)}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          </>
+        );
+
+      case "respondent":
+        return (
+          <>
+            <StepHeader
+              titleId="reg-section-title-respondent"
+              title={t("registerPage.respondentTitle")}
+              subtitle={t("registerPage.respondentSubtitle")}
+            />
+
+            <div className="form-single-column">
+              <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
+                <div className="input-row">
+                  <input
+                    id="reg-first-name"
+                    aria-required={true}
+                    value={respondent.firstName}
+                    onChange={(e) => setRespondentField("firstName", e.target.value)}
+                    placeholder="Ex: Emmanuel"
+                  />
+                </div>
+              </FormRow>
+
+              <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required>
+                <div className="input-row">
+                  <input
+                    id="reg-last-name"
+                    aria-required={true}
+                    value={respondent.lastName}
+                    onChange={(e) => setRespondentField("lastName", e.target.value)}
+                    placeholder="Ex: Biya"
+                  />
+                </div>
+              </FormRow>
+
+              <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required>
+                <div className="input-row">
+                  <select
+                    id="reg-function"
+                    aria-required={true}
+                    value={respondent.function}
+                    onChange={(e) => setRespondentField("function", e.target.value, "choice")}
+                  >
+                    <option value="">{t("registerPage.selectPlaceholder")}</option>
+                    {RESPONDENT_FUNCTION_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </FormRow>
+
+              <FormRow
+                htmlFor="reg-email"
+                label={t("registerPage.professionalEmailLabel")}
+                required
+              >
+                <div className="input-row">
+                  <input
+                    id="reg-email"
+                    aria-required={true}
+                    type="email"
+                    value={respondent.email}
+                    onChange={(e) => setRespondentField("email", e.target.value)}
+                    placeholder="contact@organisation.cm"
+                  />
+                </div>
+                <div aria-live="polite" aria-atomic="true">
+                  {emailAvailable === false && (
+                    <span className="field-status is-error">
+                      ⚠ {t("registerPage.emailUnavailable")}
+                    </span>
+                  )}
+                  {emailAvailable === true && (
+                    <span className="field-status is-ok">
+                      ✓ {t("registerPage.emailAvailable")}
+                    </span>
+                  )}
+                </div>
+              </FormRow>
+
+              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required>
+                <div className="input-row">
+                  <input
+                    id="reg-phone1"
+                    aria-required={true}
+                    type="tel"
+                    value={respondent.phone1}
+                    onChange={(e) => setRespondentField("phone1", e.target.value)}
+                    placeholder="6XXXXXXXX"
+                  />
+                </div>
+              </FormRow>
+
+              <FormRow
+                htmlFor="reg-phone2"
+                label={t("registerPage.phone2Label")}
+                optionalLabel={t("registerPage.optionalMarker")}
+              >
+                <div className="input-row">
+                  <input
+                    id="reg-phone2"
+                    type="tel"
+                    value={respondent.phone2}
+                    onChange={(e) => setRespondentField("phone2", e.target.value)}
+                    placeholder="6XXXXXXXX / 2XXXXXXXX"
+                  />
+                </div>
+              </FormRow>
+            </div>
+          </>
+        );
+
+      case "entityInfo":
+        if (!config || !entityType) return null;
+        return (
+          <>
+            <StepHeader
+              titleId="reg-section-title-entityInfo"
+              title={config.title}
+              subtitle={t("registerPage.entityInfoSubtitle")}
+            />
+
+            {/* Subsections per entity type */}
+            {(() => {
+              const sections = ENTITY_SECTIONS[entityType] ?? [
+                { title: "Informations générales / General Information", keys: config.fields.map((f) => f.key) },
+              ];
+
+              // Track rendered field keys to ensure all config fields are rendered
+              const renderedKeys = new Set<string>();
+
+              return (
+                <>
+                  {sections.map((sec, secIdx) => {
+                    const secFields = config.fields.filter(
+                      (f) => sec.keys.includes(f.key) && isFieldVisible(f)
+                    );
+                    if (secFields.length === 0) return null;
+
+                    secFields.forEach((f) => renderedKeys.add(f.key));
+
+                    return (
+                      <div key={secIdx}>
+                        <div className="admin-section-header">{sec.title}</div>
+                        <div className="form-single-column">
+                          {secFields.map(renderEntityField)}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Fallback for any field not explicitly mapped to a section */}
+                  {(() => {
+                    const remainingFields = config.fields.filter(
+                      (f) => !renderedKeys.has(f.key) && isFieldVisible(f)
+                    );
+                    if (remainingFields.length === 0) return null;
+
+                    return (
+                      <div>
+                        <div className="admin-section-header">Informations complémentaires</div>
+                        <div className="form-single-column">
+                          {remainingFields.map(renderEntityField)}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              );
+            })()}
+          </>
+        );
+
+      case "location":
+        return (
+          <>
+            <StepHeader
+              titleId="reg-section-title-location"
+              title={t("registerPage.locationTitle")}
+              subtitle={t("registerPage.locationSubtitle")}
+            />
+
+            {/* The cascade affordance: the ↳ markers and the gated
+                placeholders say it per field, this says it once up front. */}
+            <p className="cascade-note">{t("registerPage.cascadeNote")}</p>
+
+            <div className="form-single-column">
+              <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
+                <div className="input-row">
+                  <select
+                    id="reg-region"
+                    aria-required={true}
+                    value={regionId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      lastInputKindRef.current = "choice";
+                      setRegionId(id);
+                      setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
+                      setDepartmentId("");
+                      setDepartmentName("");
+                      setSubdivisionId("");
+                      setSubdivisionName("");
+                    }}
+                  >
+                    <option value="">{selectStatusLabel(regionsQuery)}</option>
+                    {regionsQuery.data?.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </FormRow>
+
+              <FormRow
+                htmlFor="reg-department"
+                label={t("registerPage.departmentLabel")}
+                labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
+                gated={!regionId}
+                required
+              >
+                <div className="input-row">
+                  <select
+                    id="reg-department"
+                    aria-required={true}
+                    value={departmentId}
+                    disabled={!regionId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      lastInputKindRef.current = "choice";
+                      setDepartmentId(id);
+                      setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
+                      setSubdivisionId("");
+                      setSubdivisionName("");
+                    }}
+                  >
+                    <option value="">
+                      {selectStatusLabel(
+                        departmentsQuery,
+                        regionId ? undefined : t("registerPage.selectRegionFirst")
+                      )}
+                    </option>
+                    {departmentsQuery.data?.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </FormRow>
+
+              <FormRow
+                htmlFor="reg-subdivision"
+                label={t("registerPage.subdivisionLabel")}
+                labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
+                gated={!departmentId}
+                required
+                // An arrondissement cannot be required of a department the
+                // server has none for; the row says so instead of looking
+                // like an empty dropdown the respondent failed to use.
+                hint={subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined}
+              >
+                <div className="input-row">
+                  <select
+                    id="reg-subdivision"
+                    aria-required={true}
+                    value={subdivisionId}
+                    disabled={!departmentId || subdivisionsStatus === "empty"}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      lastInputKindRef.current = "choice";
+                      setSubdivisionId(id);
+                      setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
+                    }}
+                  >
+                    <option value="">
+                      {selectStatusLabel(
+                        subdivisionsQuery,
+                        departmentId ? undefined : t("registerPage.selectDepartmentFirst")
+                      )}
+                    </option>
+                    {subdivisionsQuery.data?.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </FormRow>
+
+              <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required>
+                <div className="input-row">
+                  <select
+                    id="reg-area"
+                    aria-required={true}
+                    value={area}
+                    onChange={(e) => {
+                      lastInputKindRef.current = "choice";
+                      setArea(e.target.value);
+                    }}
+                  >
+                    <option value="">{t("registerPage.urbanRuralPlaceholder")}</option>
+                    {AREA_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </FormRow>
+
+              <FormRow
+                htmlFor="reg-sector"
+                label={t("registerPage.sectorLabel")}
+                optionalLabel={t("registerPage.optionalMarker")}
+              >
+                <div className="input-row">
+                  <select
+                    id="reg-sector"
+                    value={sectorId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      lastInputKindRef.current = "choice";
+                      setSectorId(id);
+                      setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
+                    }}
+                  >
+                    <option value="">{selectStatusLabel(sectorsQuery)}</option>
+                    {sectorsQuery.data?.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </FormRow>
+            </div>
+          </>
+        );
+
+      case "security":
+        return (
+          <>
+            <StepHeader
+              titleId="reg-section-title-security"
+              title={t("registerPage.securityTitle")}
+              subtitle={t("registerPage.securitySubtitle")}
+            />
+
+            <div className="form-single-column">
+              <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
+                <div className="input-row">
+                  <input
+                    id="reg-password"
+                    aria-required={true}
+                    type={obscurePassword ? "password" : "text"}
+                    value={password}
+                    onChange={(e) => {
+                      lastInputKindRef.current = "text";
+                      setPassword(e.target.value);
+                    }}
+                    placeholder="••••••••••••"
+                  />
+                  <PasswordVisibilityToggle
+                    obscured={obscurePassword}
+                    onToggle={() => setObscurePassword((v) => !v)}
+                    showLabel={t("registerPage.showPasswordButton")}
+                    hideLabel={t("registerPage.hidePasswordButton")}
+                  />
+                </div>
+
+                {/* Segmented strength meter. Sits in the input column
+                    because it belongs to the value, not to the label. */}
+                {password && (
+                  <div className="password-strength-block">
+                    <div className="password-strength-meter">
+                      {[1, 2, 3, 4].map((seg) => (
+                        <div
+                          key={seg}
+                          className={`password-strength-seg ${seg <= pwSegments ? `active-${pwSegments}` : ""}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="password-strength-label">
+                      {t("registerPage.passwordStrengthPrefix")} :{" "}
+                      <strong>{passwordStrengthLabel(pwScore)}</strong>
+                    </span>
+                  </div>
+                )}
+
+                {/* The four requirements the score is built from, each
+                    ticking off as it is met, instead of one static
+                    sentence listing them all. */}
+                <div className="password-rules">
+                  <span className="password-rules-title">
+                    {t("registerPage.passwordRulesTitle")}
+                  </span>
+                  <ul className="password-rules-list">
+                    {PASSWORD_RULE_IDS.map((ruleId) => {
+                      const met = pwRules[ruleId];
+                      return (
+                        <li key={ruleId} className={`password-rule ${met ? "is-met" : ""}`}>
+                          <span className="password-rule-mark" aria-hidden="true">
+                            {met ? "✓" : "•"}
+                          </span>
+                          {t(`registerPage.passwordRule${ruleId.charAt(0).toUpperCase()}${ruleId.slice(1)}`)}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </FormRow>
+
+              <FormRow
+                htmlFor="reg-confirm-password"
+                label={t("registerPage.confirmPasswordLabel")}
+                required
+              >
+                <div className="input-row">
+                  <input
+                    id="reg-confirm-password"
+                    aria-required={true}
+                    type={obscureConfirm ? "password" : "text"}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      lastInputKindRef.current = "text";
+                      setConfirmPassword(e.target.value);
+                    }}
+                    placeholder="••••••••••••"
+                  />
+                  <PasswordVisibilityToggle
+                    obscured={obscureConfirm}
+                    onToggle={() => setObscureConfirm((v) => !v)}
+                    showLabel={t("registerPage.showPasswordButton")}
+                    hideLabel={t("registerPage.hidePasswordButton")}
+                  />
+                </div>
+                <div aria-live="polite" aria-atomic="true">
+                  {confirmPassword && (
+                    <span
+                      className={`field-status ${password === confirmPassword ? "is-ok" : "is-error"}`}
+                    >
+                      {password === confirmPassword
+                        ? `✓ ${t("registerPage.passwordsMatch")}`
+                        : `⚠ ${t("registerPage.passwordsDoNotMatch")}`}
+                    </span>
+                  )}
+                </div>
+              </FormRow>
+            </div>
+          </>
+        );
+
+      case "review":
+        if (!config || !entityType) return null;
+        return (
+          <>
+            <StepHeader
+              titleId="reg-section-title-review"
+              title={t("registerPage.reviewTitle")}
+              subtitle={t("registerPage.reviewSubtitle")}
+            />
+
+            {submitError && (
+              <div className="auth-error-box" role="alert" style={{ marginBottom: "14px" }}>
+                {submitError}
+              </div>
+            )}
+
+            <RegistrationReview
+              entityType={entityType}
+              config={config}
+              respondent={respondent}
+              entityData={entityData}
+              regionName={resolvedRegionName}
+              departmentName={resolvedDepartmentName}
+              subdivisionName={resolvedSubdivisionName}
+              area={area}
+              sectorName={resolvedSectorName}
+              onEdit={(targetStep) => scrollToSection(STEPS.indexOf(targetStep))}
+            />
+
+            {/* The flow's single primary action, gated on an explicit
+                certification rather than on having scrolled this far. */}
+            <label className="certify-row">
+              <input
+                type="checkbox"
+                checked={certified}
+                onChange={(e) => setCertified(e.target.checked)}
+              />
+              <span>{t("registerPage.certifyLabel")}</span>
+            </label>
+
+            <div className="submit-row">
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ width: "auto", minWidth: "160px", padding: "10px 22px" }}
+                onClick={handleSubmitPress}
+                disabled={!certified || submitting}
+              >
+                {submitting
+                  ? t("registerPage.submittingLabel")
+                  : t("registerPage.submitButton")}
+              </button>
+            </div>
+          </>
+        );
+    }
+  }
+
+  // One scrolling page of sections, revealed as each is completed.
   return (
     <main className="cam-auth-page cam-auth-page--wizard">
       <div className="wrap-wide">
@@ -618,641 +1459,61 @@ export default function RegisterPage() {
 
         <div className="card card--admin">
           <div className="stripe" aria-hidden="true" />
-          {/* Rigid header: stays put while the form body scrolls under it */}
+          {/* Sticky header: the rail stays put while the sections scroll under
+              it, so "which section am I in" survives a two-viewport form. */}
           <div className="card-header">
-            {/* Desktop and mobile progress rails */}
-            <RegistrationProgress currentStep={step} />
+            <RegistrationProgress currentIndex={currentIndex} completed={completed} />
           </div>
 
           {/* The only scroll region in the flow, and the query container the
               field layout measures (see globals.css) */}
-          <div className="card-body-scroll">
-            {/* STEP 1: ENTITY TYPE — single radio list */}
-            {step === "entityType" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
-                <StepHeader title={t("registerPage.entityTypeQuestion")} />
-
-                <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
-                  <legend
-                    style={{
-                      position: "absolute",
-                      width: "1px",
-                      height: "1px",
-                      padding: 0,
-                      margin: "-1px",
-                      overflow: "hidden",
-                      clip: "rect(0 0 0 0)",
-                      whiteSpace: "nowrap",
-                      border: 0,
-                    }}
-                  >
-                    {t("registerPage.entityTypeQuestion")}
-                  </legend>
-
-                  {ENTITY_TYPE_OPTIONS.map((option, idx) => (
-                    <label
-                      key={option.type}
-                      style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: "var(--cam-space-3)",
-                        padding: "var(--cam-space-3) 0",
-                        borderTop: idx === 0 ? "none" : "1px solid var(--cam-border)",
-                        cursor: "pointer",
-                        margin: 0,
-                      }}
-                    >
-                      <input
-                        ref={idx === 0 ? firstEntityRadioRef : undefined}
-                        type="radio"
-                        name="entityType"
-                        value={option.type}
-                        checked={entityType === option.type}
-                        onChange={() => {
-                          // Changing type strands the previous type's answers in
-                          // entityData — drop the ones the new type does not
-                          // declare so the respondent's visible answers and the
-                          // stored state agree. submit() filters again via
-                          // visibleEntityDataForType; this keeps state clean at
-                          // the source rather than relying on that alone.
-                          setEntityData((prev) => pruneEntityDataForType(prev, option.type));
-                          setEntityType(option.type);
-                          setStepError(null);
-                        }}
-                        aria-describedby={option.hintKey ? `reg-entity-hint-${option.type}` : undefined}
-                        style={{
-                          accentColor: "var(--cam-green)",
-                          width: "17px",
-                          height: "17px",
-                          flex: "0 0 auto",
-                          cursor: "pointer",
-                          alignSelf: "center",
-                        }}
-                      />
-                      <span style={{ fontSize: "14px", color: "var(--cam-text)", lineHeight: 1.45 }}>
-                        {t(option.labelKey)}
-                        {option.hintKey && (
-                          <span
-                            id={`reg-entity-hint-${option.type}`}
-                            style={{
-                              fontSize: "12px",
-                              color: "var(--cam-text-muted)",
-                              marginLeft: "var(--cam-space-2)",
-                            }}
-                          >
-                            {t(option.hintKey)}
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  ))}
-                </fieldset>
-
-                {/* Submit target for Enter; the visible primary action lives in the wizard footer */}
-                <button type="submit" style={{ display: "none" }} aria-hidden="true" tabIndex={-1} />
-              </form>
-            )}
-
-
-            {/* STEP 2: RESPONDENT */}
-            {step === "respondent" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <StepHeader
-                  title={t("registerPage.respondentTitle")}
-                  subtitle={t("registerPage.respondentSubtitle")}
-                />
-
-                <div className="form-single-column">
-                  <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
-                    <div className="input-row">
-                      <input
-                        id="reg-first-name"
-                        aria-required={true}
-                        value={respondent.firstName}
-                        onChange={(e) => setRespondent((r) => ({ ...r, firstName: e.target.value }))}
-                        placeholder="Ex: Emmanuel"
-                      />
-                    </div>
-                  </FormRow>
-
-                  <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required>
-                    <div className="input-row">
-                      <input
-                        id="reg-last-name"
-                        aria-required={true}
-                        value={respondent.lastName}
-                        onChange={(e) => setRespondent((r) => ({ ...r, lastName: e.target.value }))}
-                        placeholder="Ex: Biya"
-                      />
-                    </div>
-                  </FormRow>
-
-                  <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required>
-                    <div className="input-row">
-                      <select
-                        id="reg-function"
-                        aria-required={true}
-                        value={respondent.function}
-                        onChange={(e) => setRespondent((r) => ({ ...r, function: e.target.value }))}
-                      >
-                        <option value="">{t("registerPage.selectPlaceholder")}</option>
-                        {RESPONDENT_FUNCTION_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </FormRow>
-
-                  <FormRow
-                    htmlFor="reg-email"
-                    label={t("registerPage.professionalEmailLabel")}
-                    required
-                  >
-                    <div className="input-row">
-                      <input
-                        id="reg-email"
-                        aria-required={true}
-                        type="email"
-                        value={respondent.email}
-                        onChange={(e) => setRespondent((r) => ({ ...r, email: e.target.value }))}
-                        placeholder="contact@organisation.cm"
-                      />
-                    </div>
-                    <div aria-live="polite" aria-atomic="true">
-                      {emailAvailable === false && (
-                        <span className="field-status is-error">
-                          ⚠ {t("registerPage.emailUnavailable")}
-                        </span>
-                      )}
-                      {emailAvailable === true && (
-                        <span className="field-status is-ok">
-                          ✓ {t("registerPage.emailAvailable")}
-                        </span>
-                      )}
-                    </div>
-                  </FormRow>
-
-                  <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required>
-                    <div className="input-row">
-                      <input
-                        id="reg-phone1"
-                        aria-required={true}
-                        type="tel"
-                        value={respondent.phone1}
-                        onChange={(e) => setRespondent((r) => ({ ...r, phone1: e.target.value }))}
-                        placeholder="6XXXXXXXX"
-                      />
-                    </div>
-                  </FormRow>
-
-                  <FormRow
-                    htmlFor="reg-phone2"
-                    label={t("registerPage.phone2Label")}
-                    optionalLabel={t("registerPage.optionalMarker")}
-                  >
-                    <div className="input-row">
-                      <input
-                        id="reg-phone2"
-                        type="tel"
-                        value={respondent.phone2}
-                        onChange={(e) => setRespondent((r) => ({ ...r, phone2: e.target.value }))}
-                        placeholder="6XXXXXXXX / 2XXXXXXXX"
-                      />
-                    </div>
-                  </FormRow>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 3: ENTITY INFORMATION */}
-            {step === "entityInfo" && config && entityType && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <StepHeader
-                  title={config.title}
-                  subtitle={t("registerPage.entityInfoSubtitle")}
-                />
-
-                {/* Subsections per entity type */}
-                {(() => {
-                  const sections = ENTITY_SECTIONS[entityType] ?? [
-                    { title: "Informations générales / General Information", keys: config.fields.map((f) => f.key) },
-                  ];
-
-                  // Track rendered field keys to ensure all config fields are rendered
-                  const renderedKeys = new Set<string>();
-
-                  return (
-                    <>
-                      {sections.map((sec, secIdx) => {
-                        const secFields = config.fields.filter(
-                          (f) => sec.keys.includes(f.key) && isFieldVisible(f)
-                        );
-                        if (secFields.length === 0) return null;
-
-                        secFields.forEach((f) => renderedKeys.add(f.key));
-
-                        return (
-                          <div key={secIdx}>
-                            <div className="admin-section-header">{sec.title}</div>
-                            <div className="form-single-column">
-                              {secFields.map(renderEntityField)}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Fallback for any field not explicitly mapped to a section */}
-                      {(() => {
-                        const remainingFields = config.fields.filter(
-                          (f) => !renderedKeys.has(f.key) && isFieldVisible(f)
-                        );
-                        if (remainingFields.length === 0) return null;
-
-                        return (
-                          <div>
-                            <div className="admin-section-header">Informations complémentaires</div>
-                            <div className="form-single-column">
-                              {remainingFields.map(renderEntityField)}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  );
-                })()}
-              </form>
-            )}
-
-            {/* STEP 4: LOCATION */}
-            {step === "location" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <StepHeader
-                  title={t("registerPage.locationTitle")}
-                  subtitle={t("registerPage.locationSubtitle")}
-                />
-
-                {/* The cascade affordance: the ↳ markers and the gated
-                    placeholders say it per field, this says it once up front. */}
-                <p className="cascade-note">{t("registerPage.cascadeNote")}</p>
-
-                <div className="form-single-column">
-                  <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
-                    <div className="input-row">
-                      <select
-                        id="reg-region"
-                        aria-required={true}
-                        value={regionId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setRegionId(id);
-                          setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
-                          setDepartmentId("");
-                          setDepartmentName("");
-                          setSubdivisionId("");
-                          setSubdivisionName("");
-                        }}
-                      >
-                        <option value="">{selectStatusLabel(regionsQuery)}</option>
-                        {regionsQuery.data?.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </FormRow>
-
-                  <FormRow
-                    htmlFor="reg-department"
-                    label={t("registerPage.departmentLabel")}
-                    labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
-                    gated={!regionId}
-                    required
-                  >
-                    <div className="input-row">
-                      <select
-                        id="reg-department"
-                        aria-required={true}
-                        value={departmentId}
-                        disabled={!regionId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setDepartmentId(id);
-                          setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
-                          setSubdivisionId("");
-                          setSubdivisionName("");
-                        }}
-                      >
-                        <option value="">
-                          {selectStatusLabel(
-                            departmentsQuery,
-                            regionId ? undefined : t("registerPage.selectRegionFirst")
-                          )}
-                        </option>
-                        {departmentsQuery.data?.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </FormRow>
-
-                  <FormRow
-                    htmlFor="reg-subdivision"
-                    label={t("registerPage.subdivisionLabel")}
-                    labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
-                    gated={!departmentId}
-                    required
-                  >
-                    <div className="input-row">
-                      <select
-                        id="reg-subdivision"
-                        aria-required={true}
-                        value={subdivisionId}
-                        disabled={!departmentId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setSubdivisionId(id);
-                          setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
-                        }}
-                      >
-                        <option value="">
-                          {selectStatusLabel(
-                            subdivisionsQuery,
-                            departmentId ? undefined : t("registerPage.selectDepartmentFirst")
-                          )}
-                        </option>
-                        {subdivisionsQuery.data?.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </FormRow>
-
-                  <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required>
-                    <div className="input-row">
-                      <select
-                        id="reg-area"
-                        aria-required={true}
-                        value={area}
-                        onChange={(e) => setArea(e.target.value)}
-                      >
-                        <option value="">{t("registerPage.urbanRuralPlaceholder")}</option>
-                        {AREA_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </FormRow>
-
-                  <FormRow
-                    htmlFor="reg-sector"
-                    label={t("registerPage.sectorLabel")}
-                    optionalLabel={t("registerPage.optionalMarker")}
-                  >
-                    <div className="input-row">
-                      <select
-                        id="reg-sector"
-                        value={sectorId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setSectorId(id);
-                          setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
-                        }}
-                      >
-                        <option value="">{selectStatusLabel(sectorsQuery)}</option>
-                        {sectorsQuery.data?.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </FormRow>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 5: SECURITY */}
-            {step === "security" && (
-              <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <StepHeader
-                  title={t("registerPage.securityTitle")}
-                  subtitle={t("registerPage.securitySubtitle")}
-                />
-
-                <div className="form-single-column">
-                  <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
-                    <div className="input-row">
-                      <input
-                        id="reg-password"
-                        aria-required={true}
-                        type={obscurePassword ? "password" : "text"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••••••"
-                      />
-                      <PasswordVisibilityToggle
-                        obscured={obscurePassword}
-                        onToggle={() => setObscurePassword((v) => !v)}
-                        showLabel={t("registerPage.showPasswordButton")}
-                        hideLabel={t("registerPage.hidePasswordButton")}
-                      />
-                    </div>
-
-                    {/* Segmented strength meter. Sits in the input column
-                        because it belongs to the value, not to the label. */}
-                    {password && (
-                      <div className="password-strength-block">
-                        <div className="password-strength-meter">
-                          {[1, 2, 3, 4].map((seg) => (
-                            <div
-                              key={seg}
-                              className={`password-strength-seg ${seg <= pwSegments ? `active-${pwSegments}` : ""}`}
-                            />
-                          ))}
-                        </div>
-                        <span className="password-strength-label">
-                          {t("registerPage.passwordStrengthPrefix")} :{" "}
-                          <strong>{passwordStrengthLabel(pwScore)}</strong>
-                        </span>
-                      </div>
-                    )}
-
-                    {/* The four requirements the score is built from, each
-                        ticking off as it is met, instead of one static
-                        sentence listing them all. */}
-                    <div className="password-rules">
-                      <span className="password-rules-title">
-                        {t("registerPage.passwordRulesTitle")}
-                      </span>
-                      <ul className="password-rules-list">
-                        {PASSWORD_RULE_IDS.map((id) => {
-                          const met = pwRules[id];
-                          return (
-                            <li
-                              key={id}
-                              className={`password-rule ${met ? "is-met" : ""}`}
-                            >
-                              <span className="password-rule-mark" aria-hidden="true">
-                                {met ? "✓" : "•"}
-                              </span>
-                              {t(`registerPage.passwordRule${id.charAt(0).toUpperCase()}${id.slice(1)}`)}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  </FormRow>
-
-                  <FormRow
-                    htmlFor="reg-confirm-password"
-                    label={t("registerPage.confirmPasswordLabel")}
-                    required
-                  >
-                    <div className="input-row">
-                      <input
-                        id="reg-confirm-password"
-                        aria-required={true}
-                        type={obscureConfirm ? "password" : "text"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="••••••••••••"
-                      />
-                      <PasswordVisibilityToggle
-                        obscured={obscureConfirm}
-                        onToggle={() => setObscureConfirm((v) => !v)}
-                        showLabel={t("registerPage.showPasswordButton")}
-                        hideLabel={t("registerPage.hidePasswordButton")}
-                      />
-                    </div>
-                    <div aria-live="polite" aria-atomic="true">
-                      {confirmPassword && (
-                        <span
-                          className={`field-status ${password === confirmPassword ? "is-ok" : "is-error"}`}
-                        >
-                          {password === confirmPassword
-                            ? `✓ ${t("registerPage.passwordsMatch")}`
-                            : `⚠ ${t("registerPage.passwordsDoNotMatch")}`}
-                        </span>
-                      )}
-                    </div>
-                  </FormRow>
-                </div>
-              </form>
-            )}
-
-            {/* STEP 6: REVIEW */}
-            {step === "review" && config && entityType && (
-              <div>
-                <StepHeader
-                  title={t("registerPage.reviewTitle")}
-                  subtitle={t("registerPage.reviewSubtitle")}
-                />
-
-                {submitError && (
-                  <div className="auth-error-box" role="alert" style={{ marginBottom: "14px" }}>
-                    {submitError}
-                  </div>
-                )}
-
-                <RegistrationReview
-                  entityType={entityType}
-                  config={config}
-                  respondent={respondent}
-                  entityData={entityData}
-                  regionName={resolvedRegionName}
-                  departmentName={resolvedDepartmentName}
-                  subdivisionName={resolvedSubdivisionName}
-                  area={area}
-                  sectorName={resolvedSectorName}
-                  onEdit={(targetStep) => setStep(targetStep)}
-                />
+          <div className="card-body-scroll" ref={scrollRef}>
+            {draftRestored && (
+              <div className="draft-restored-notice" role="status">
+                {t("registerPage.draftRestoredNotice")}
               </div>
             )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmitPress();
+              }}
+              onKeyDown={handleFormKeyDown}
+            >
+              <div className="wizard-sections">
+                {STEPS.slice(0, reached + 1).map((id, idx) => (
+                  <section
+                    key={id}
+                    ref={(el) => {
+                      sectionRefs.current[idx] = el;
+                    }}
+                    className={`wizard-section ${idx === currentIndex ? "is-current" : ""}`}
+                    aria-labelledby={`reg-section-title-${id}`}
+                  >
+                    {renderSection(id)}
+                  </section>
+                ))}
+              </div>
+            </form>
           </div>
 
           <div className="card-footer">
-            {/* Step-validation errors only. submitError has its own banner in
-                the review block; rendering it here as well printed every
-                submission failure twice. */}
-            {stepError && (
-              <div
-                className="auth-error-box"
-                role="alert"
-                style={{ marginBottom: "var(--cam-space-3)", whiteSpace: "pre-line" }}
+            <span className="create-account" style={{ display: "block" }}>
+              <a
+                href="/login"
+                onClick={(e) => {
+                  // An in-app navigation away from a part-filled form is
+                  // confirmable; see the dialog below.
+                  if (!hasEnteredData) return;
+                  e.preventDefault();
+                  setLeaveTo("/login");
+                }}
               >
-                {stepError}
-              </div>
-            )}
-
-            {/* Wizard action buttons. The footer supplies the rule and the
-                padding that this row used to carry itself. */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              {/* Step 1 has no previous step: omit the control rather than showing it disabled */}
-              {step === "entityType" ? (
-                <span />
-              ) : (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={goBack}
-                  disabled={submitting}
-                >
-                  ← {t("registerPage.backButton")}
-                </button>
-              )}
-
-              {step === "review" ? (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  style={{ width: "auto", minWidth: "160px", padding: "10px 22px" }}
-                  onClick={submit}
-                  disabled={submitting}
-                >
-                  {submitting
-                    ? t("registerPage.submittingLabel")
-                    : t("registerPage.submitButton")}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  style={{ width: "auto", minWidth: "120px", padding: "10px 22px" }}
-                  onClick={goNext}
-                  // Enabled exactly while the current section is complete, and
-                  // disabled again the moment it stops being. isSectionComplete
-                  // reads state only, so this never surfaces an error message
-                  // for a field the respondent has not finished typing.
-                  disabled={!currentSectionComplete}
-                >
-                  {step === "entityType"
-                    ? t("registerPage.continueButton")
-                    : `${t("registerPage.nextButton")} →`}
-                </button>
-              )}
-            </div>
-
-            <span className="create-account" style={{ display: "block", marginTop: "var(--cam-space-3)" }}>
-              <Link href="/login">
-                {step === "entityType"
+                {reached === 0
                   ? t("registerPage.alreadyRegisteredSignIn")
                   : t("registerPage.backToSignInLink")}
-              </Link>
+              </a>
             </span>
           </div>
         </div>
@@ -1266,6 +1527,47 @@ export default function RegisterPage() {
           {t("loginPage.whatsappLink")}
         </a>
       </div>
+
+      {/* Leave confirmation. Only reachable with data entered, and only for
+          navigation that happens inside the app -- a real browser unload
+          cannot carry custom wording, so beforeunload shows the browser's own
+          dialog instead (see the effect above). */}
+      {leaveTo && (
+        <div
+          className="leave-dialog-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLeaveTo(null);
+          }}
+        >
+          <div
+            className="leave-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reg-leave-title"
+          >
+            <h2 id="reg-leave-title">{t("registerPage.leaveTitle")}</h2>
+            <p>{t("registerPage.leaveBody")}</p>
+            <div className="leave-dialog-actions">
+              <button type="button" className="btn-secondary" onClick={() => setLeaveTo(null)}>
+                {t("registerPage.leaveCancel")}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ width: "auto", padding: "10px 22px" }}
+                onClick={() => {
+                  const href = leaveTo;
+                  setLeaveTo(null);
+                  if (href) router.push(href);
+                }}
+              >
+                {t("registerPage.leaveConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

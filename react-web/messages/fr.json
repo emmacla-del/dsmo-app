@@ -342,7 +342,14 @@
     "passwordRuleLength": "Au moins 8 caractères",
     "passwordRuleUppercase": "Une lettre majuscule",
     "passwordRuleDigit": "Un chiffre",
-    "passwordRuleSpecial": "Un caractère spécial (!@#$%^&*)"
+    "passwordRuleSpecial": "Un caractère spécial (!@#$%^&*)",
+    "certifyLabel": "Je certifie que les informations fournies sont exactes et que je suis habilité à enregistrer cet établissement.",
+    "leaveTitle": "Quitter l'inscription ?",
+    "leaveBody": "Votre brouillon est enregistré et vous le retrouverez à votre retour, à l'exception du mot de passe, qui n'est jamais conservé.",
+    "leaveCancel": "Rester",
+    "leaveConfirm": "Quitter",
+    "draftRestoredNotice": "Votre brouillon a été restauré. Veuillez ressaisir votre mot de passe : il n'est jamais enregistré.",
+    "noSubdivisionHint": "Aucun arrondissement n'est répertorié pour ce département ; ce champ peut rester vide."
   },
   "resetPasswordPage": {
     "errorPasswordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",

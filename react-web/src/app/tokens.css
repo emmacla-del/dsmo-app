@@ -182,6 +182,14 @@
      placeholder, so this carries explanation only. */
   --cam-field-hint-size: var(--cam-font-size-xs);
 
+  /* ── Progressive-flow section cards ──
+     Each revealed section of the wizard is a card in one scrolling column.
+     The padding steps down on a narrow container; the step-down is a media
+     query because a container cannot restyle itself from its own query. */
+  --cam-section-radius: 12px;
+  --cam-section-pad: 28px;
+  --cam-section-gap: 20px;
+
   /* ── Section heading (StepHeader) ──
      One step of visual hierarchy above the form itself: the step title is the
      largest thing in the card body, the description sits under it in muted
@@ -285,6 +293,7 @@
    from the page behind it. */
 @media (max-width: 640px) {
   :root {
+    --cam-section-pad: 18px;
     --cam-card-pad-x: 16px;
     --cam-card-head-pad-top: 14px;
     --cam-card-head-pad-bottom: 10px;

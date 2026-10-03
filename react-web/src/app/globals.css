@@ -1127,27 +1127,168 @@ body {
   word-break: break-word;
 }
 
+/* The one-off notice shown when a saved draft is put back on screen. Says
+   what came back and, more importantly, that the password did not. */
+.cam-auth-page--wizard .draft-restored-notice {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-info);
+  background: var(--cam-info-bg);
+  border: var(--cam-border-width) solid var(--cam-info-border);
+  border-radius: var(--cam-radius-md);
+  padding: var(--cam-space-3) var(--cam-space-4);
+  margin-bottom: var(--cam-section-gap);
+  line-height: 1.45;
+}
+
+/* ── Progressive single-page flow ──
+   Every revealed section is a card in one column inside .card-body-scroll,
+   which stays the only scroll region in the flow. A revealed section is never
+   unmounted, so a section scrolled out of view keeps its state and its
+   pending network requests. */
+.cam-auth-page--wizard .wizard-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-section-gap);
+}
+
+.cam-auth-page--wizard .wizard-section {
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-section-radius);
+  padding: var(--cam-section-pad);
+  background: var(--cam-surface);
+}
+
+/* The section in hand is the only one with a coloured edge: on a page of six
+   cards, "where am I" has to be readable without counting. */
+.cam-auth-page--wizard .wizard-section.is-current {
+  border-color: var(--cam-green);
+}
+
+/* ── Certification and submit ──
+   One primary action for the whole flow, inside the review section. */
+.cam-auth-page--wizard .certify-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+  margin: var(--cam-space-5) 0 var(--cam-space-4);
+  cursor: pointer;
+}
+
+.cam-auth-page--wizard .certify-row input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  accent-color: var(--cam-green);
+  cursor: pointer;
+}
+
+.cam-auth-page--wizard .certify-row span {
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.45;
+  color: var(--cam-text);
+}
+
+.cam-auth-page--wizard .submit-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Leave confirmation ──
+   An in-app navigation away from a part-filled form is confirmable; a real
+   browser unload is not (browsers show their own wording), so beforeunload
+   gets the native dialog and this covers the links inside the page. */
+.cam-auth-page .leave-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 31, 20, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cam-space-4);
+  z-index: var(--cam-z-dialog);
+}
+
+.cam-auth-page .leave-dialog {
+  background: var(--cam-surface);
+  border-radius: var(--cam-radius-lg);
+  border: var(--cam-border-width) solid var(--cam-border);
+  box-shadow: var(--cam-card-shadow);
+  padding: var(--cam-space-5);
+  max-width: var(--cam-container-compact);
+  width: 100%;
+}
+
+.cam-auth-page .leave-dialog h2 {
+  font-size: var(--cam-font-size-lg);
+  font-weight: 700;
+  color: var(--cam-text);
+  margin: 0 0 var(--cam-space-2);
+}
+
+.cam-auth-page .leave-dialog p {
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+  margin: 0 0 var(--cam-space-5);
+  line-height: 1.45;
+}
+
+.cam-auth-page .leave-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cam-space-3);
+}
+
 /* Progress Rail (Desktop Segmented & Mobile Compact) */
 .cam-auth-page .progress-rail-desktop {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: var(--cam-space-5);
   padding: 0 var(--cam-space-2);
   position: relative;
 }
 
-.cam-auth-page .progress-rail-mobile {
+/* The caption is the one element present at every width: on a single
+   scrolling page it is what reports which section the respondent is in. */
+.cam-auth-page .progress-caption {
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+  margin: 0 0 var(--cam-space-2);
+  letter-spacing: 0.01em;
+}
+
+/* Narrow-width form of the rail: six discrete segments carrying the same
+   three states as the badges, in place of one continuously filled bar. */
+.cam-auth-page .progress-segments {
   display: none;
-  margin-bottom: var(--cam-space-4);
+  gap: var(--cam-space-1);
+}
+
+.cam-auth-page .progress-segment {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border);
+  transition: background 0.15s ease;
+}
+
+.cam-auth-page .progress-segment.is-completed {
+  background: var(--cam-green);
+}
+
+/* Gold for the section in hand: the brand's second institutional colour, so
+   "where I am" is not the same signal as "this one is done". */
+.cam-auth-page .progress-segment.is-current {
+  background: var(--cam-gold);
 }
 
 @media (max-width: 640px) {
   .cam-auth-page .progress-rail-desktop {
     display: none;
   }
-  .cam-auth-page .progress-rail-mobile {
-    display: block;
+  .cam-auth-page .progress-segments {
+    display: flex;
   }
 }
 
@@ -1197,11 +1338,22 @@ body {
   color: #ffffff;
 }
 
+/* Gold, not green: green means "this section is answered", and the section
+   being worked in is precisely the one that is not answered yet. */
 .cam-auth-page .progress-step-item.is-current .progress-step-circle {
   background: var(--cam-surface);
-  border: 2px solid var(--cam-green);
-  color: var(--cam-green);
-  box-shadow: var(--cam-focus-shadow);
+  border: 2px solid var(--cam-gold);
+  color: var(--cam-gold-dark);
+  box-shadow: 0 0 0 3px rgba(232, 160, 32, 0.18);
+}
+
+.cam-auth-page .progress-step-item.is-current .progress-step-label {
+  color: var(--cam-gold-dark);
+  font-weight: 700;
+}
+
+.cam-auth-page .progress-step-item.is-completed .progress-step-label {
+  color: var(--cam-green-dark);
 }
 
 .cam-auth-page .progress-step-label {

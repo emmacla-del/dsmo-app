@@ -342,7 +342,14 @@
     "passwordRuleLength": "At least 8 characters",
     "passwordRuleUppercase": "One capital letter",
     "passwordRuleDigit": "One digit",
-    "passwordRuleSpecial": "One special character (!@#$%^&*)"
+    "passwordRuleSpecial": "One special character (!@#$%^&*)",
+    "certifyLabel": "I certify that the information provided is accurate and that I am authorised to register this establishment.",
+    "leaveTitle": "Leave registration?",
+    "leaveBody": "Your draft is saved and will be here when you come back, except for the password, which is never stored.",
+    "leaveCancel": "Stay",
+    "leaveConfirm": "Leave",
+    "draftRestoredNotice": "Your draft has been restored. Please re-enter your password: it is never saved.",
+    "noSubdivisionHint": "No subdivision is listed for this department, so this field can be left empty."
   },
   "resetPasswordPage": {
     "errorPasswordTooShort": "The password must be at least 8 characters long.",
