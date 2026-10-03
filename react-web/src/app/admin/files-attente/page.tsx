@@ -4,13 +4,28 @@ import { Suspense, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { getPilotageQueues } from "@/lib/api-client";
 import {
-  getPilotageQueues,
-  listAnomaliesRegistry,
-  resolveAnomaly,
-} from "@/lib/api-client";
+  anomalyCompanyName,
+  anomalyDossierRef,
+  listAnomalyRegistry,
+  resolveAnomalyRecord,
+  type AnomalyRecord,
+  type AnomalyResolutionType,
+} from "@/lib/anomaly-registry";
 import { useAuthStore } from "@/lib/auth-store";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataStateRow } from "@/components/admin/DataState";
+import { NOT_PROVIDED, count, resolveDataState } from "@/lib/admin-data-state";
+
+// Roles whose authorised scope genuinely is national (src/common territory
+// helpers: territoryWhere returns an unfiltered query for these only).
+const NATIONAL_SCOPE_ROLES = [
+  "SUPER_ADMIN",
+  "SUPER_ADMIN_DSMO",
+  "SUPER_ADMIN_ONEFOP",
+  "CENTRAL",
+];
 
 type QueueTab = "anomalies" | "visas" | "corrections";
 const QUEUE_TABS: QueueTab[] = ["anomalies", "visas", "corrections"];
@@ -39,10 +54,10 @@ function FilesAttenteContent() {
     }
   }, [requestedTab]);
 
-  const [selectedAnomaly, setSelectedAnomaly] = useState<any | null>(null);
+  const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRecord | null>(null);
 
   // Form state for anomaly resolution
-  const [resType, setResType] = useState<"FIELD_INSPECTION" | "DECLARANT_CORRECTION" | "LEGAL_DEROGATION">("FIELD_INSPECTION");
+  const [resType, setResType] = useState<AnomalyResolutionType>("FIELD_INSPECTION");
   const [resNote, setResNote] = useState("");
   const [resEvidence, setResEvidence] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -52,14 +67,18 @@ function FilesAttenteContent() {
     queryFn: getPilotageQueues,
   });
 
+  /**
+   * Source: GET /admin/questionnaires/anomalies/registry
+   * ?status=OPEN&isBlocking=true — territory-scoped server-side.
+   */
   const anomaliesQuery = useQuery({
     queryKey: ["admin", "anomalies", "open"],
-    queryFn: () => listAnomaliesRegistry({ status: "OPEN", isBlocking: true }),
+    queryFn: () => listAnomalyRegistry({ status: "OPEN", isBlocking: true, limit: 50 }),
   });
 
   const resolveMutation = useMutation({
-    mutationFn: (payload: { id: string; type: string; note: string; evidenceUrl?: string }) =>
-      resolveAnomaly(payload.id, {
+    mutationFn: (payload: { id: string; type: AnomalyResolutionType; note: string; evidenceUrl?: string }) =>
+      resolveAnomalyRecord(payload.id, {
         resolutionType: payload.type,
         resolutionNote: payload.note,
         evidenceUrl: payload.evidenceUrl,
@@ -72,42 +91,29 @@ function FilesAttenteContent() {
       setResEvidence("");
       setActionError(null);
     },
-    onError: (err: any) => {
-      setActionError(err.message || "Erreur lors de la résolution de l'anomalie");
+    onError: (err: unknown) => {
+      setActionError(err instanceof Error ? err.message : "Erreur lors de la résolution de l'anomalie");
     },
   });
 
-  const rawAnomalies = anomaliesQuery.data?.items ?? [];
-  const anomalies = rawAnomalies.length > 0 ? rawAnomalies : [
-    {
-      id: "anom-01",
-      ruleCode: "R1-EFFECTIFS",
-      companyName: "Menuiserie Bois Massif",
-      submissionId: "ENT-2026-04521",
-      description: "Incohérence effectifs : Total hommes (45) + femmes (32) = 77 ≠ total déclaré (82)",
-      observedValue: "77",
-      expectedValue: "82",
-      isBlocking: true,
-      submission: { id: "sub-01", submissionId: "ENT-2026-04521", region: "Centre", companyName: "Menuiserie Bois Massif" },
-    },
-    {
-      id: "anom-02",
-      ruleCode: "R2-IDENTIFIANT",
-      companyName: "Nexttel Cameroun",
-      submissionId: "ADM-2026-01043",
-      description: "Doublon potentiel : Le numéro RCCM est déjà enregistré pour un autre déclarant",
-      observedValue: "RC/DLA/2012/B/4122",
-      expectedValue: "Unique",
-      isBlocking: true,
-      submission: { id: "sub-02", submissionId: "ADM-2026-01043", region: "Nord", companyName: "Nexttel Cameroun" },
-    },
-  ];
+  // Real rows only. An empty registry renders an empty state; there is no
+  // sample dataset to fall back to.
+  const anomalies = anomaliesQuery.data?.items ?? [];
 
-  const queues = queuesQuery.data ?? {
-    blockingAnomaliesCount: anomalies.length,
-    pendingNationalVisasCount: 38,
-    correctionsUnderReviewCount: 7,
-  };
+  const anomaliesState = resolveDataState({
+    isLoading: anomaliesQuery.isLoading,
+    isError: anomaliesQuery.isError,
+    error: anomaliesQuery.error,
+    rowCount: anomaliesQuery.data?.items.length ?? null,
+  });
+
+  /**
+   * Queue counters. Source: GET /admin/questionnaires/pilotage/queues,
+   * territory-scoped. `null` until the server answers — an unreachable queue
+   * is not an empty queue, so the tab badges show an em dash rather than a
+   * number the server never gave.
+   */
+  const queues = queuesQuery.data ?? null;
 
   const handleResolveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,11 +130,19 @@ function FilesAttenteContent() {
     });
   };
 
-  const tabs: { key: QueueTab; label: string; count: number }[] = [
-    { key: "anomalies", label: "Anomalies bloquantes", count: queues.blockingAnomaliesCount },
-    { key: "visas", label: "Visas en instance", count: queues.pendingNationalVisasCount },
-    { key: "corrections", label: "Corrections demandées", count: queues.correctionsUnderReviewCount },
+  const tabs: { key: QueueTab; label: string; count: number | null }[] = [
+    { key: "anomalies", label: "Anomalies bloquantes", count: queues?.blockingAnomaliesCount ?? null },
+    { key: "visas", label: "Visas en instance", count: queues?.pendingNationalVisasCount ?? null },
+    { key: "corrections", label: "Corrections demandées", count: queues?.correctionsUnderReviewCount ?? null },
   ];
+
+  const scopeLabel = user?.department
+    ? `Département ${user.department}`
+    : user?.region
+      ? `Délégation ${user.region}`
+      : user?.role && NATIONAL_SCOPE_ROLES.includes(user.role)
+        ? "Territoire national"
+        : "Ressort non affecté";
 
   const closeResolution = () => {
     setSelectedAnomaly(null);
@@ -139,7 +153,10 @@ function FilesAttenteContent() {
     <div className="cam-admin-page">
       <div className="cam-admin-page-toolbar">
         <span className="cam-admin-meta">
-          Ressort : <strong className="cam-admin-strong">{user?.region ? `Délégation ${user.region}` : "Territoire national"}</strong>
+          {/* Scope comes from the actor's own stored territory and role. An
+              account with no assignment is reported as unassigned, never as
+              national: the backend fails such a scope closed. */}
+          Ressort : <strong className="cam-admin-strong">{scopeLabel}</strong>
         </span>
       </div>
 
@@ -156,8 +173,8 @@ function FilesAttenteContent() {
             onClick={() => setActiveTab(tab.key)}
           >
             {tab.label}
-            <span className={`cam-admin-tab-count${tab.key === "anomalies" && tab.count > 0 ? " is-alert" : ""}`}>
-              {tab.count}
+            <span className={`cam-admin-tab-count${tab.key === "anomalies" && (tab.count ?? 0) > 0 ? " is-alert" : ""}`}>
+              {count(tab.count)}
             </span>
           </button>
         ))}
@@ -173,7 +190,8 @@ function FilesAttenteContent() {
               </p>
             </div>
             <span className="cam-admin-meta">
-              {anomalies.length} anomalie{anomalies.length > 1 ? "s" : ""}
+              {/* Server-reported total for the same filtered query. */}
+              {count(anomaliesQuery.data?.total ?? null)} anomalie(s)
             </span>
           </div>
           <div className="cam-table-wrapper">
@@ -188,47 +206,50 @@ function FilesAttenteContent() {
                 </tr>
               </thead>
               <tbody>
-                {anomaliesQuery.isLoading && !anomalies.length ? (
-                  <tr>
-                    <td colSpan={5} className="cam-admin-empty">Chargement des anomalies…</td>
-                  </tr>
-                ) : anomalies.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="cam-admin-empty">
-                      <strong>Aucune anomalie bloquante</strong>
-                      Aucune anomalie ouverte dans votre ressort territorial.
+                <DataStateRow
+                  colSpan={5}
+                  state={anomaliesState}
+                  resource="les anomalies bloquantes"
+                  error={anomaliesQuery.error}
+                  onRetry={() => anomaliesQuery.refetch()}
+                  title={anomaliesState === "empty" ? "Aucune anomalie bloquante" : undefined}
+                  hint={
+                    anomaliesState === "empty"
+                      ? "Aucune anomalie ouverte dans votre ressort territorial."
+                      : undefined
+                  }
+                />
+                {anomalies.map((a) => (
+                  <tr key={a.id}>
+                    <td style={{ verticalAlign: "top" }}>
+                      <span className="cam-badge cam-badge-error cam-admin-code">{a.ruleCode}</span>
+                      <div className="cam-admin-meta" style={{ marginTop: 4 }}>{a.ruleFamily}</div>
+                    </td>
+                    <td style={{ verticalAlign: "top" }}>
+                      {/* Establishment name as stored, or the neutral marker.
+                          Never a generic stand-in like "Établissement". */}
+                      <div className="cam-admin-strong">{anomalyCompanyName(a) ?? NOT_PROVIDED}</div>
+                      <div className="cam-admin-meta">
+                        {a.submission?.region ?? NOT_PROVIDED} ·{" "}
+                        <span className="cam-admin-code">{anomalyDossierRef(a)}</span>
+                      </div>
+                    </td>
+                    <td style={{ verticalAlign: "top", maxWidth: 360 }}>{a.description}</td>
+                    <td style={{ verticalAlign: "top", fontVariantNumeric: "tabular-nums" }}>
+                      <div>
+                        <span className="cam-admin-muted">Obs. </span>
+                        <strong style={{ color: "var(--cam-error)" }}>{a.observedValue}</strong>
+                      </div>
+                      <div className="cam-admin-muted">Att. {a.expectedValue}</div>
+                      {a.deltaValue && <div className="cam-admin-meta">Écart {a.deltaValue}</div>}
+                    </td>
+                    <td style={{ verticalAlign: "top" }} className="text-right">
+                      <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setSelectedAnomaly(a)}>
+                        Résoudre
+                      </button>
                     </td>
                   </tr>
-                ) : (
-                  anomalies.map((a: any) => (
-                    <tr key={a.id}>
-                      <td style={{ verticalAlign: "top" }}>
-                        <span className="cam-badge cam-badge-error cam-admin-code">{a.ruleCode}</span>
-                        <div className="cam-admin-meta" style={{ marginTop: 4 }}>{a.ruleFamily || "Cohérence"}</div>
-                      </td>
-                      <td style={{ verticalAlign: "top" }}>
-                        <div className="cam-admin-strong">{a.submission?.company?.name || a.companyName || "Établissement"}</div>
-                        <div className="cam-admin-meta">
-                          {a.submission?.region || "National"} · <span className="cam-admin-code">{a.submission?.submissionId || a.submissionId}</span>
-                        </div>
-                      </td>
-                      <td style={{ verticalAlign: "top", maxWidth: 360 }}>{a.description}</td>
-                      <td style={{ verticalAlign: "top", fontVariantNumeric: "tabular-nums" }}>
-                        <div>
-                          <span className="cam-admin-muted">Obs. </span>
-                          <strong style={{ color: "var(--cam-error)" }}>{a.observedValue}</strong>
-                        </div>
-                        <div className="cam-admin-muted">Att. {a.expectedValue}</div>
-                        {a.deltaValue && <div className="cam-admin-meta">Écart {a.deltaValue}</div>}
-                      </td>
-                      <td style={{ verticalAlign: "top" }} className="text-right">
-                        <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setSelectedAnomaly(a)}>
-                          Résoudre
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
@@ -239,7 +260,7 @@ function FilesAttenteContent() {
         <section className="cam-admin-section" role="tabpanel" id="panel-visas" aria-labelledby="tab-visas">
           <div className="cam-admin-section-head">
             <h2 className="cam-admin-h2">File des visas administratifs</h2>
-            <span className="cam-admin-meta">{queues.pendingNationalVisasCount} en attente</span>
+            <span className="cam-admin-meta">{count(queues?.pendingNationalVisasCount ?? null)} en attente</span>
           </div>
           <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)", alignItems: "flex-start" }}>
             <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", lineHeight: "var(--cam-line-height-base)" }}>
@@ -257,7 +278,7 @@ function FilesAttenteContent() {
         <section className="cam-admin-section" role="tabpanel" id="panel-corrections" aria-labelledby="tab-corrections">
           <div className="cam-admin-section-head">
             <h2 className="cam-admin-h2">Corrections demandées</h2>
-            <span className="cam-admin-meta">{queues.correctionsUnderReviewCount} dossier{queues.correctionsUnderReviewCount > 1 ? "s" : ""}</span>
+            <span className="cam-admin-meta">{count(queues?.correctionsUnderReviewCount ?? null)} dossier(s)</span>
           </div>
           <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)", alignItems: "flex-start" }}>
             <p style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", lineHeight: "var(--cam-line-height-base)" }}>

@@ -7,6 +7,8 @@ import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
 import type { UserRole } from "@/lib/user-types";
 
+import { computeUserScopeLabel } from "@/lib/admin-data-state";
+
 // Mirrors @Roles on GET /campaigns (campaign.controller.ts).
 const CAMPAIGN_READER_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL"];
 
@@ -46,16 +48,13 @@ export function AdminHeaderActions({
 }: AdminHeaderActionsProps = {}) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { activeCampaign } = useActiveCampaign();
+  const { activeCampaign, isLoading: campaignLoading, canReadCampaigns } = useActiveCampaign();
 
-  const scope = user?.department
-    ? `Département ${user.department}`
-    : user?.region
-      ? `Région ${user.region}`
-      : "National";
+  const scope = computeUserScopeLabel(user);
 
-  const rawCampaignName = activeCampaign?.name || activeCampaign?.code || "Campagne 2026-T1";
+  const rawCampaignName = activeCampaign?.name || activeCampaign?.code || null;
   const campaignName = (() => {
+    if (!rawCampaignName) return null;
     if (activeCampaign?.code) {
       return activeCampaign.code.toLowerCase().includes("campagne") ? activeCampaign.code : `Campagne ${activeCampaign.code}`;
     }
@@ -73,11 +72,11 @@ export function AdminHeaderActions({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
       {/* Campaign pill */}
-      {showCampaignPill && (
+      {showCampaignPill && canReadCampaigns && (
         <Link
           href="/admin/campagnes"
           className="cam-admin-campaign-pill"
-          title={rawCampaignName}
+          title={rawCampaignName ?? "Aucune campagne active"}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -86,7 +85,7 @@ export function AdminHeaderActions({
             borderRadius: 9999,
             border: "1px solid #d1d5db",
             background: "#ffffff",
-            color: "#374151",
+            color: activeCampaign ? "#374151" : "#6b7280",
             fontSize: 12,
             fontWeight: 500,
             maxWidth: 200,
@@ -98,9 +97,19 @@ export function AdminHeaderActions({
             cursor: "pointer",
           }}
         >
-          <span className="cam-admin-campaign-pill-dot" aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+          <span
+            className="cam-admin-campaign-pill-dot"
+            aria-hidden="true"
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: activeCampaign ? "#f59e0b" : "#9ca3af",
+              flexShrink: 0,
+            }}
+          />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {campaignName}
+            {campaignLoading ? "Chargement…" : activeCampaign ? campaignName : "Aucune campagne active"}
           </span>
         </Link>
       )}

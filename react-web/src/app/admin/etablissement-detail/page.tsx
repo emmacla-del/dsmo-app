@@ -1,47 +1,63 @@
 "use client";
 
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { activateUser, deleteUser, suspendUser } from "@/lib/user-directory";
-import { dash, entityTypeLabel, formatDate, listCompanies, type Company } from "@/lib/companies-directory";
-import { listAuditLog } from "@/lib/audit-log";
+import { entityTypeLabel, listCompanies, type Company } from "@/lib/companies-directory";
+import {
+  auditActionLabel,
+  auditActorName,
+  auditDetailsSummary,
+  auditTransition,
+  listAuditLog,
+} from "@/lib/audit-log";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataState } from "@/components/admin/DataState";
+import {
+  NOT_PROVIDED,
+  count,
+  fact,
+  resolveDataState,
+  stamp,
+} from "@/lib/admin-data-state";
 
+// GET /dsmo/companies is restricted to these roles server-side; the check here
+// fails closed, so a role that has not loaded yet is not treated as authorised.
 const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const ACCOUNT_ROLES = ["SUPER_ADMIN"];
 const AUDIT_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 
-const SABC_DEFAULT_COMPANY: Partial<Company> = {
-  id: "RC/DLA/1921/B/004",
-  establishmentId: "RC/DLA/1921/B/004",
-  name: "SABC — Société Anonyme des Brasseries du Cameroun",
-  registrationNumber: "RC/DLA/1921/B/004",
-  taxNumber: "M012100000001A",
-  entityType: "ENTREPRISE",
-  enterpriseSize: "Grande entreprise",
-  yearOfCreation: "1948",
-  phone: "+237 233 42 50 50",
-  address: "Rue des Écoles, Koumassi, Douala",
-  region: "Littoral",
-  department: "Wouri",
-  subdivision: "Douala 1er",
-  mainActivity: "Industrie Agro-alimentaire",
-  respondentFirstName: "Emmanuel",
-  respondentLastName: "de Tailly",
-  respondentFunction: "Directeur Général",
-  createdAt: "2026-01-12T08:00:00Z",
-  user: {
-    id: "usr-sabc-1",
-    email: "jp.mbarga@sabc-cm.com",
-    isActive: true,
-    status: "ACTIVE",
-  },
+const CARD: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: 24,
 };
+
+const KEY: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  color: "#6b7280",
+  letterSpacing: "0.04em",
+};
+
+const VAL: React.CSSProperties = { fontSize: 14, color: "#111827", marginTop: 2 };
+
+/** One label/value pair; absent values print the neutral marker. */
+function Field({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <div style={KEY}>{label}</div>
+      <div style={VAL}>{fact(value)}</div>
+    </div>
+  );
+}
 
 export default function EtablissementDetailPage() {
   return (
@@ -54,120 +70,176 @@ export default function EtablissementDetailPage() {
 function EtablissementDetail() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const id = searchParams.get("id")?.trim() || "RC/DLA/1921/B/004";
+  // No default identifier: without one there is no establishment to show, and
+  // substituting a known RCCM would load an unrelated real company.
+  const id = searchParams.get("id")?.trim() ?? "";
+
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = !role || DIRECTORY_ROLES.includes(role);
-  const canManageAccount = !role || ACCOUNT_ROLES.includes(role);
-  const canReadAudit = !role || AUDIT_ROLES.includes(role);
+  const canRead = !!role && DIRECTORY_ROLES.includes(role);
+  const canManageAccount = !!role && ACCOUNT_ROLES.includes(role);
+  const canReadAudit = !!role && AUDIT_ROLES.includes(role);
 
+  const queryClient = useQueryClient();
   const [accountOpen, setAccountOpen] = useState(searchParams.get("manage") === "true");
-  const [selectedUser, setSelectedUser] = useState<{
-    name: string;
-    role: string;
-    email: string;
-    status: string;
-    createdAt: string;
-  }>({
-    name: "Jean-Paul Mbarga",
-    role: "Directeur des Ressources Humaines",
-    email: "jp.mbarga@example.cm",
-    status: "ACTIF",
-    createdAt: "12/01/2026",
-  });
-
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setActionError(null);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  /**
+   * Source: GET /dsmo/companies?search=<id> (DsmoService.listCompanies), then
+   * the row whose establishmentId or registrationNumber matches exactly.
+   *
+   * `null` means the search returned no matching establishment. There is no
+   * template record: a company is rendered from its own fields or not at all,
+   * so a missing field can never inherit another company's value.
+   */
   const companyQuery = useQuery({
     queryKey: ["dsmo", "companies", "by-establishment-id", id],
     queryFn: async () => {
       const res = await listCompanies({ search: id, pageSize: 20 });
-      return res.companies.find((c) => c.establishmentId === id || c.registrationNumber === id) ?? null;
+      return (
+        res.companies.find((c) => c.establishmentId === id || c.registrationNumber === id) ?? null
+      );
     },
     enabled: canRead && !!id,
   });
 
-  const queryCompany = companyQuery.data;
-  const company: Partial<Company> = queryCompany || {
-    ...SABC_DEFAULT_COMPANY,
-    name: id.startsWith("RC/DLA/1968")
-      ? "SOCAPALM S.A."
-      : id.includes("ASF-2026")
-      ? "GIC Espoir des Jeunes"
-      : SABC_DEFAULT_COMPANY.name,
-    registrationNumber: id || SABC_DEFAULT_COMPANY.registrationNumber,
-  };
+  const company: Company | null = companyQuery.data ?? null;
+  const linkedAccount = company?.user ?? null;
 
-  const auditQuery = useQuery({
-    queryKey: ["audit", "by-resource", company?.user?.id],
-    queryFn: () => listAuditLog({ resourceId: company!.user!.id, limit: 4, offset: 0 }),
-    enabled: canReadAudit && !!company?.user?.id,
+  const pageState = resolveDataState({
+    roleAllowed: canRead,
+    isLoading: companyQuery.isLoading,
+    isError: companyQuery.isError,
+    error: companyQuery.error,
   });
 
-  const respondent = [company.respondentFirstName, company.respondentLastName].filter(Boolean).join(" ");
-  const isSuspended = !!company.user && !company.user.isActive;
+  /**
+   * Audit trail for this establishment's linked account.
+   *
+   * Source: GET /audit/reports?resourceId=<User.id>. Only events the system
+   * actually recorded for that account; there is no reconstructed history.
+   */
+  const auditQuery = useQuery({
+    queryKey: ["audit", "by-resource", linkedAccount?.id],
+    queryFn: () => listAuditLog({ resourceId: linkedAccount!.id, limit: 8, offset: 0 }),
+    enabled: canReadAudit && !!linkedAccount?.id,
+  });
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+  const auditState = resolveDataState({
+    roleAllowed: canReadAudit,
+    isLoading: auditQuery.isLoading,
+    isError: auditQuery.isError,
+    error: auditQuery.error,
+    rowCount: auditQuery.data?.items.length ?? null,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["dsmo", "companies"] });
+    queryClient.invalidateQueries({ queryKey: ["audit", "by-resource"] });
   };
+
+  const suspendMutation = useMutation({
+    mutationFn: () => suspendUser(linkedAccount!.id),
+    onSuccess: () => {
+      invalidate();
+      showToast("Compte suspendu.");
+    },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: () => activateUser(linkedAccount!.id),
+    onSuccess: () => {
+      invalidate();
+      showToast("Compte réactivé.");
+    },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteUser(linkedAccount!.id),
+    onSuccess: () => {
+      invalidate();
+      setAccountOpen(false);
+      showToast("Compte supprimé.");
+      router.push("/admin/etablissements");
+    },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  // ── Nothing renders without an authoritative record ─────────────────────
+  if (!company) {
+    return (
+      <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
+        <Link href="/admin/etablissements" style={{ fontSize: 13, fontWeight: 600, color: "#004d3d", textDecoration: "none" }}>
+          ← Retour aux établissements
+        </Link>
+        <div style={{ marginTop: 20, maxWidth: 820 }}>
+          <DataState
+            state={!id ? "notFound" : pageState === "ready" ? "notFound" : pageState}
+            resource="cet établissement"
+            error={companyQuery.error}
+            onRetry={() => companyQuery.refetch()}
+            title={
+              !id
+                ? "Aucun établissement demandé"
+                : pageState === "forbidden"
+                  ? "Accès non autorisé"
+                  : pageState === "error"
+                    ? undefined
+                    : "Établissement introuvable"
+            }
+            hint={
+              !id
+                ? "Ouvrez une fiche depuis le répertoire des établissements."
+                : pageState === "forbidden"
+                  ? "Le répertoire des établissements est réservé aux administrateurs plateforme."
+                  : pageState === "error"
+                    ? undefined
+                    : "Aucun établissement enregistré ne porte cet identifiant."
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const respondent = [company.respondentFirstName, company.respondentLastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const isSuspended = !!linkedAccount && !linkedAccount.isActive;
+  const shortName = company.name?.split("—")[0].trim() || null;
 
   return (
     <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
-      {/* Header matching Figma declarants/etablissements/_id.png */}
       <AdminPageHeader
         backHref="/admin/etablissements"
-        breadcrumb={[{ label: "Déclarants" }, { label: "Établissements", href: "/admin/etablissements" }, { label: company.name?.split("—")[0].trim() || "SABC S.A." }]}
-        title={`Établissements > ${company.name?.split("—")[0].trim() || "SABC S.A."}`}
-        subtitle="Registre officiel et détails de l'établissement agréé"
+        breadcrumb={[
+          { label: "Déclarants" },
+          { label: "Établissements", href: "/admin/etablissements" },
+          { label: shortName ?? NOT_PROVIDED },
+        ]}
+        title={shortName ?? "Établissement"}
+        subtitle="Registre officiel et détails de l'établissement"
         hideTabs={true}
         actions={<AdminHeaderActions showCampaignPill={false} showBell={false} />}
       />
 
-      {/* Subnav Pills matching Figma declarants */}
       <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
-        <Link
-          href="/admin/inscriptions"
-          style={{
-            padding: "8px 18px",
-            background: "#ffffff",
-            color: "#374151",
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
-            fontWeight: 500,
-            fontSize: 14,
-            textDecoration: "none",
-          }}
-        >
+        <Link href="/admin/inscriptions" style={{ padding: "8px 18px", background: "#ffffff", color: "#374151", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14, textDecoration: "none" }}>
           Inscriptions
         </Link>
-        <Link
-          href="/admin/etablissements"
-          style={{
-            padding: "8px 18px",
-            background: "#004d3d",
-            color: "#ffffff",
-            borderRadius: 8,
-            fontWeight: 600,
-            fontSize: 14,
-            textDecoration: "none",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-          }}
-        >
+        <Link href="/admin/etablissements" style={{ padding: "8px 18px", background: "#004d3d", color: "#ffffff", borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
           Établissements
         </Link>
-        <Link
-          href="/home/annuaire"
-          style={{
-            padding: "8px 18px",
-            background: "#ffffff",
-            color: "#374151",
-            borderRadius: 8,
-            border: "1px solid #e5e7eb",
-            fontWeight: 500,
-            fontSize: 14,
-            textDecoration: "none",
-          }}
-        >
+        <Link href="/home/annuaire" style={{ padding: "8px 18px", background: "#ffffff", color: "#374151", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14, textDecoration: "none" }}>
           Annuaire
         </Link>
       </div>
@@ -179,608 +251,393 @@ function EtablissementDetail() {
         </div>
       )}
 
-      {/* Hero Establishment Card matching Figma declarants/etablissements/_id.png */}
-      <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "24px 28px", marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+      {actionError && (
+        <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
+          {actionError}
+        </div>
+      )}
+
+      {/* ── Hero: every value is this establishment's own stored field ── */}
+      <section style={{ ...CARD, padding: "24px 28px", marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: 0 }}>
-                {company.name || "SABC — Société Anonyme des Brasseries du Cameroun"}
+                {fact(company.name)}
               </h1>
-              <span style={{ fontSize: 11, background: "rgba(0, 122, 94, 0.08)", color: "#004d3d", padding: "3px 10px", borderRadius: 6, fontWeight: 600 }}>
-                {entityTypeLabel(company.entityType ?? null) || "Entreprise"}
-              </span>
-              <span style={{ fontSize: 11, background: isSuspended ? "#fee2e2" : "#dcfce7", color: isSuspended ? "#b91c1c" : "#15803d", padding: "3px 10px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                ● {isSuspended ? "SUSPENDU" : "ACTIF"}
+              {company.entityType && (
+                <span style={{ fontSize: 11, background: "rgba(0, 122, 94, 0.08)", color: "#004d3d", padding: "3px 10px", borderRadius: 6, fontWeight: 600 }}>
+                  {entityTypeLabel(company.entityType)}
+                </span>
+              )}
+              {/* Account state, or an explicit "no linked account". */}
+              <span
+                style={{
+                  fontSize: 11,
+                  background: !linkedAccount ? "#f3f4f6" : isSuspended ? "#fee2e2" : "#dcfce7",
+                  color: !linkedAccount ? "#6b7280" : isSuspended ? "#b91c1c" : "#15803d",
+                  padding: "3px 10px",
+                  borderRadius: 9999,
+                  fontWeight: 600,
+                }}
+              >
+                {!linkedAccount ? "AUCUN COMPTE LIÉ" : isSuspended ? "COMPTE SUSPENDU" : "COMPTE ACTIF"}
               </span>
             </div>
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-              N° RCCM: <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{company.registrationNumber || "RC/DLA/1921/B/004"}</strong> &nbsp;|&nbsp; Branche: <strong style={{ color: "#111827" }}>{company.mainActivity || "Industrie Agro-alimentaire"}</strong> &nbsp;|&nbsp; Statut: <strong style={{ color: "#111827" }}>Agréé</strong>
+              N° RCCM : <strong style={{ color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fact(company.registrationNumber)}</strong>
+              {" | "}
+              Activité principale : <strong style={{ color: "#111827" }}>{fact(company.mainActivity)}</strong>
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => showToast("Mode édition d'établissement activé.")}
-              style={{
-                padding: "8px 18px",
-                background: "#ffffff",
-                border: "1px solid #d1d5db",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#374151",
-                cursor: "pointer",
-              }}
-            >
-              Modifier
-            </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <Link
               href={`/admin/etablissement-detail/approbation?id=${encodeURIComponent(id)}`}
-              style={{
-                padding: "8px 18px",
-                background: "#ffffff",
-                border: "1px solid #d1d5db",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#004d3d",
-                textDecoration: "none",
-              }}
+              style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#004d3d", textDecoration: "none" }}
             >
               Validation du compte
             </Link>
-            <button
-              type="button"
-              onClick={() => showToast(isSuspended ? "Compte réactivé avec succès." : "Compte suspendu pour vérification.")}
-              style={{
-                padding: "8px 18px",
-                background: "#ffffff",
-                border: "1px solid #fca5a5",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#b91c1c",
-                cursor: "pointer",
-              }}
-            >
-              {isSuspended ? "Réactiver le compte" : "Suspendre le compte"}
-            </button>
+            {/* Shown only when there is a real account to act on and the role
+                may act on it. The button performs the real call. */}
+            {linkedAccount && canManageAccount && (
+              <button
+                type="button"
+                disabled={suspendMutation.isPending || activateMutation.isPending}
+                onClick={() => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate())}
+                style={{ padding: "8px 18px", background: "#ffffff", border: "1px solid #fca5a5", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#b91c1c", cursor: "pointer" }}
+              >
+                {isSuspended ? "Réactiver le compte" : "Suspendre le compte"}
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Two Column Grid Layout matching Figma */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "flex-start" }}>
-        {/* Left Column (60%) */}
+        {/* ── Left column ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {/* Card 1: Informations Générales */}
-          <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+          {/* Identification: Company model fields only. */}
+          <section style={CARD}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               Informations Générales
-            </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+              <Field label="Raison sociale" value={company.name} />
+              <Field label="Type d'entité" value={company.entityType ? entityTypeLabel(company.entityType) : null} />
+              <Field label="N° RCCM" value={company.registrationNumber} />
+              <Field label="Numéro fiscal (NIU)" value={company.taxNumber} />
+              <Field label="Numéro CNPS" value={company.cnpsNumber} />
+              <Field label="Identifiant établissement" value={company.establishmentId} />
+              <Field label="Année de création" value={company.yearOfCreation} />
+              <Field label="Forme juridique" value={company.legalStatus} />
+              <Field label="Taille" value={company.enterpriseSize} />
+              <Field label="Activité principale" value={company.mainActivity} />
+              <Field label="Secteur" value={company.sector?.name} />
+              <Field label="Téléphone" value={company.phone} />
+              <Field label="Adresse" value={company.address} />
+              <Field label="Région" value={company.region} />
+              <Field label="Département" value={company.department} />
+              <Field label="Arrondissement" value={company.subdivision} />
+              <Field
+                label="Responsable désigné"
+                value={respondent ? `${respondent}${company.respondentFunction ? ` — ${company.respondentFunction}` : ""}` : null}
+              />
+              <Field label="Téléphone du responsable" value={company.respondentPhone} />
+            </div>
+          </section>
+
+          {/* Workforce as last declared on the Company record. */}
+          <section style={CARD}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+              Effectifs déclarés
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em" }}>RAISON SOCIALE</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginTop: 2 }}>{company.name || "SABC S.A."}</div>
+                <div style={KEY}>Effectif total</div>
+                <div style={VAL}>{count(company.totalEmployees)}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em" }}>DATE DE CRÉATION</div>
-                <div style={{ fontSize: 14, color: "#111827", marginTop: 2 }}>12 Décembre 1948</div>
+                <div style={KEY}>Hommes</div>
+                <div style={VAL}>{count(company.menCount)}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em" }}>BRANCHE D&apos;ACTIVITÉ</div>
-                <div style={{ fontSize: 14, color: "#111827", marginTop: 2 }}>Industrie Agro-alimentaire</div>
+                <div style={KEY}>Femmes</div>
+                <div style={VAL}>{count(company.womenCount)}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em" }}>TÉLÉPHONE</div>
-                <div style={{ fontSize: 14, color: "#111827", marginTop: 2 }}>+237 233 42 50 50</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em" }}>ADRESSE</div>
-                <div style={{ fontSize: 14, color: "#111827", marginTop: 2 }}>Rue des Écoles, Koumassi, Douala</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em" }}>RESPONSABLE DÉSIGNÉ</div>
-                <div style={{ fontSize: 14, color: "#111827", marginTop: 2 }}>{respondent || "Emmanuel de Tailly"} — {company.respondentFunction || "Directeur Général"}</div>
+                <div style={KEY}>Effectif exercice précédent</div>
+                <div style={VAL}>{count(company.lastYearTotal)}</div>
               </div>
             </div>
           </section>
 
-          {/* Card 2: Historique des Soumissions */}
-          <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+          {/* Submission history has no endpoint: /admin/questionnaires cannot
+              be filtered by company (docs/admin-data-integrity-inventory.md
+              §7.7), so the dossier list is linked instead of reconstructed. */}
+          <section style={CARD}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               Historique des Soumissions
-            </h3>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", color: "#6b7280", fontSize: 11, textTransform: "uppercase" }}>
-                  <th style={{ padding: "8px 12px" }}>Campagne</th>
-                  <th style={{ padding: "8px 12px" }}>Période</th>
-                  <th style={{ padding: "8px 12px" }}>Soumission</th>
-                  <th style={{ padding: "8px 12px" }}>Statut</th>
-                  <th style={{ padding: "8px 12px", textAlign: "right" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#004d3d" }}>2026-T1</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>Trimestre 1 2026</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>15/03/2026</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 9999, fontWeight: 600 }}>
-                      ● Validé
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                    <Link href="/admin/dossiers" style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}>Voir fiche →</Link>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#004d3d" }}>2025-T4</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>Trimestre 4 2025</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>14/12/2025</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 9999, fontWeight: 600 }}>
-                      ● Validé
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                    <Link href="/admin/dossiers" style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}>Voir fiche →</Link>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#004d3d" }}>2025-T3</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>Trimestre 3 2025</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>20/09/2025</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 9999, fontWeight: 600 }}>
-                      ● Validé
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                    <Link href="/admin/dossiers" style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}>Voir fiche →</Link>
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#004d3d" }}>2025-T2</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>Trimestre 2 2025</td>
-                  <td style={{ padding: "10px 12px", color: "#4b5563" }}>18/06/2025</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 9999, fontWeight: 600 }}>
-                      ● Validé
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                    <Link href="/admin/dossiers" style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}>Voir fiche →</Link>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            </h2>
+            <DataState
+              state="unavailable"
+              resource="l'historique des soumissions"
+              title="Historique par établissement non disponible"
+              hint={
+                <>
+                  Le système ne permet pas encore de filtrer les dossiers par
+                  établissement. Recherchez cet établissement dans{" "}
+                  <Link href="/admin/dossiers" style={{ color: "#004d3d", fontWeight: 600 }}>
+                    l&apos;instruction des dossiers
+                  </Link>
+                  .
+                </>
+              }
+            />
           </section>
         </div>
 
-        {/* Right Column (40%) */}
+        {/* ── Right column ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {/* Card 3: Comptes Utilisateurs Rattachés */}
-          <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Comptes Utilisateurs Rattachés
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {/* User 1: Jean-Paul Mbarga */}
-              <div
-                onClick={() => {
-                  setSelectedUser({
-                    name: "Jean-Paul Mbarga",
-                    role: "Directeur des Ressources Humaines",
-                    email: "jp.mbarga@example.cm",
-                    status: "ACTIF",
-                    createdAt: "12/01/2026",
-                  });
-                  setAccountOpen(true);
-                }}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  transition: "background 0.15s ease",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>Jean-Paul Mbarga</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Directeur RH • Créateur du compte</div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Dernière connexion : il y a 2h</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 9999, fontWeight: 700 }}>
-                    ACTIF
-                  </span>
-                </div>
-              </div>
-
-              {/* User 2: Samuel Eto'o */}
-              <div
-                onClick={() => {
-                  setSelectedUser({
-                    name: "Samuel Eto'o",
-                    role: "Comptable",
-                    email: "s.etoo@example.cm",
-                    status: "ACTIF",
-                    createdAt: "15/01/2026",
-                  });
-                  setAccountOpen(true);
-                }}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>Samuel Eto&apos;o</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Comptable</div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Dernière connexion : il y a 1 jour</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 9999, fontWeight: 700 }}>
-                    ACTIF
-                  </span>
-                </div>
-              </div>
-
-              {/* User 3: Marie Ndongo */}
-              <div
-                onClick={() => {
-                  setSelectedUser({
-                    name: "Marie Ndongo",
-                    role: "Assistante",
-                    email: "m.ndongo@example.cm",
-                    status: "INACTIF",
-                    createdAt: "20/01/2026",
-                  });
-                  setAccountOpen(true);
-                }}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>Marie Ndongo</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>Assistante</div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Dernière connexion : il y a 45 jours</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ fontSize: 10, background: "#f3f4f6", color: "#6b7280", padding: "2px 8px", borderRadius: 9999, fontWeight: 700 }}>
-                    INACTIF
-                  </span>
-                </div>
-              </div>
-
+          {/* Exactly one account can be linked: Company.user is singular. */}
+          <section style={CARD}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+              Compte Utilisateur Rattaché
+            </h2>
+            {!linkedAccount ? (
+              <DataState
+                dense
+                state="empty"
+                resource="le compte rattaché"
+                title="Aucun compte rattaché"
+                hint="Cet établissement n'a pas de compte utilisateur enregistré."
+              />
+            ) : (
               <button
                 type="button"
-                onClick={() => showToast("Formulaire de rattachement utilisateur ouvert.")}
+                onClick={() => setAccountOpen(true)}
                 style={{
                   width: "100%",
-                  padding: "10px",
-                  marginTop: 6,
-                  background: "#f9fafb",
-                  border: "1px dashed #d1d5db",
+                  textAlign: "left",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
                   borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
+                  background: "#ffffff",
                   cursor: "pointer",
                 }}
               >
-                + Ajouter un utilisateur
+                <div>
+                  {/* The account's own email. No display name is invented:
+                      /dsmo/companies returns only id, email, status and
+                      isActive for the linked user. */}
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{fact(linkedAccount.email)}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>Statut : {fact(linkedAccount.status)}</div>
+                </div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    background: linkedAccount.isActive ? "#dcfce7" : "#f3f4f6",
+                    color: linkedAccount.isActive ? "#15803d" : "#6b7280",
+                    padding: "2px 8px",
+                    borderRadius: 9999,
+                    fontWeight: 700,
+                  }}
+                >
+                  {linkedAccount.isActive ? "ACTIF" : "INACTIF"}
+                </span>
               </button>
-            </div>
+            )}
           </section>
 
-          {/* Card 4: Informations du Compte */}
-          <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+          {/* Registration metadata.
+              `createdAt` is the only field the Company model records here. The
+              Figma frame also shows the creating agent, the registration mode,
+              the registration IP, a geolocation, a last-modified stamp and a
+              document-verification status; none of those is stored anywhere,
+              so none is shown. */}
+          <section style={CARD}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               Informations du Compte
-            </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, fontSize: 13 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>DATE D&apos;INSCRIPTION</div>
-                <div style={{ fontWeight: 600, color: "#111827", marginTop: 2 }}>12/01/2026</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>CRÉÉ PAR</div>
-                <div style={{ fontWeight: 600, color: "#111827", marginTop: 2 }}>Admin Central (M. Ewane)</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>MODE</div>
-                <div style={{ color: "#111827", marginTop: 2 }}>Inscription manuelle</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>IP INSCRIPTION</div>
-                <div style={{ fontFamily: "ui-monospace, monospace", color: "#111827", marginTop: 2 }}>192.168.1.1</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>GÉOLOCALISATION</div>
-                <div style={{ color: "#111827", marginTop: 2 }}>Douala, Littoral</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>DERNIÈRE MODIFICATION</div>
-                <div style={{ color: "#111827", marginTop: 2 }}>15/03/2026 par DR Littoral</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280" }}>STATUT DE VÉRIFICATION</div>
-                <div style={{ color: "#059669", fontWeight: 600, marginTop: 2 }}>Documents vérifiés ✓</div>
-              </div>
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+              <Field label="Date d'enregistrement" value={stamp(company.createdAt, false)} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <DataState
+                dense
+                state="unavailable"
+                resource="les métadonnées d'inscription"
+                title="Métadonnées d'inscription non conservées"
+                hint="Le système n'enregistre ni l'agent créateur, ni le mode d'inscription, ni l'adresse IP, ni la géolocalisation, ni l'état de vérification documentaire de cet établissement."
+              />
             </div>
           </section>
 
-          {/* Card 5: Journal d'Audit */}
-          <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+          {/* Real audit entries for the linked account. */}
+          <section style={CARD}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               Journal d&apos;Audit
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
-              <div>
-                <div style={{ color: "#6b7280" }}>15/03/2026 14:22</div>
-                <div style={{ fontWeight: 600, color: "#111827" }}>DR Littoral</div>
-                <div style={{ color: "#4b5563" }}>Mise à jour des coordonnées</div>
+            </h2>
+            {!linkedAccount ? (
+              <DataState
+                dense
+                state="empty"
+                resource="le journal d'audit"
+                title="Aucun compte rattaché"
+                hint="Les événements d'audit sont rattachés au compte utilisateur de l'établissement."
+              />
+            ) : auditState !== "ready" ? (
+              <DataState
+                dense
+                state={auditState}
+                resource="le journal d'audit"
+                error={auditQuery.error}
+                onRetry={() => auditQuery.refetch()}
+                title={
+                  auditState === "empty"
+                    ? "Aucun historique d'audit disponible"
+                    : auditState === "forbidden"
+                      ? "Journal d'audit non accessible à votre rôle"
+                      : undefined
+                }
+                hint={auditState === "empty" ? "Les événements enregistrés apparaîtront ici." : undefined}
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
+                {(auditQuery.data?.items ?? []).map((e) => (
+                  <div key={e.id}>
+                    <div style={{ color: "#6b7280" }}>{stamp(e.timestamp)}</div>
+                    <div style={{ fontWeight: 600, color: "#111827" }}>{auditActorName(e)}</div>
+                    <div style={{ color: "#4b5563" }}>{auditActionLabel(e.action)}</div>
+                    <div style={{ color: "#6b7280" }}>{auditDetailsSummary(e)}</div>
+                    {auditTransition(e) && (
+                      <div style={{ color: "#6b7280", fontStyle: "italic" }}>{auditTransition(e)}</div>
+                    )}
+                  </div>
+                ))}
+                <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
+                  <Link
+                    href={`/admin/journal-audit?resourceId=${encodeURIComponent(linkedAccount.id)}`}
+                    style={{ fontSize: 13, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    Voir le journal complet →
+                  </Link>
+                </div>
               </div>
-              <div>
-                <div style={{ color: "#6b7280" }}>12/01/2026 09:15</div>
-                <div style={{ fontWeight: 600, color: "#111827" }}>M. Ewane (Admin)</div>
-                <div style={{ color: "#4b5563" }}>Compte créé et validé</div>
-              </div>
-              <div>
-                <div style={{ color: "#6b7280" }}>12/01/2026 09:10</div>
-                <div style={{ fontWeight: 600, color: "#111827" }}>Système</div>
-                <div style={{ color: "#4b5563" }}>Vérification RCCM automatique réussie</div>
-              </div>
-              <div>
-                <div style={{ color: "#6b7280" }}>12/01/2026 09:00</div>
-                <div style={{ fontWeight: 600, color: "#111827" }}>M. Ewane (Admin)</div>
-                <div style={{ color: "#4b5563" }}>Inscription initiée</div>
-              </div>
-            </div>
-            <div style={{ marginTop: 18, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
-              <Link href="/admin/journal-audit" style={{ fontSize: 13, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}>
-                Voir le journal complet →
-              </Link>
-            </div>
+            )}
           </section>
         </div>
       </div>
 
-      {/* Modal "Gestion du Compte Utilisateur" matching Figma declarants/etablissements/_id.png */}
+      {/* ── Account management.
+          Only actions with a real endpoint are offered. The Figma frame also
+          shows "unlock account", "resend verification email", "reset session",
+          a role selector and a recent-login table; none of those has a backend
+          operation or a stored source, and the previous version reported each
+          as done after merely showing a toast. ── */}
       <AdminDialog
-        open={accountOpen}
+        open={accountOpen && !!linkedAccount}
         onClose={() => setAccountOpen(false)}
         wide
         title="Gestion du Compte Utilisateur"
         eyebrow={
           <div style={{ color: "#4b5563", textTransform: "none", fontWeight: 500, fontSize: 13, marginBottom: 4, letterSpacing: "normal" }}>
-            <span style={{ fontWeight: 600, color: "#111827" }}>{selectedUser.name}</span> — {selectedUser.role}
-            <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{company.name?.split("—")[0].trim() || "SABC S.A."} — Compte créé le {selectedUser.createdAt}</div>
+            <span style={{ fontWeight: 600, color: "#111827" }}>{fact(linkedAccount?.email)}</span>
+            <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
+              {fact(shortName)} — enregistré le {stamp(company.createdAt, false)}
+            </div>
           </div>
         }
         footer={
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
             <span style={{ fontSize: 12, color: "#6b7280" }}>
-              Toutes les actions sont enregistrées dans le journal d&apos;audit
+              Les actions effectuées sont consignées au journal d&apos;audit.
             </span>
-            <button
-              type="button"
-              className="cam-button cam-button-secondary"
-              onClick={() => setAccountOpen(false)}
-              style={{ padding: "8px 18px", borderRadius: 6 }}
-            >
+            <button type="button" className="cam-button cam-button-secondary" onClick={() => setAccountOpen(false)} style={{ padding: "8px 18px", borderRadius: 6 }}>
               Fermer
             </button>
           </div>
         }
       >
-        <div>
-          {/* ACTIONS SUR LE COMPTE */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 12 }}>
-              ACTIONS SUR LE COMPTE
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {actionError && (
+            <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", borderRadius: 6, fontSize: 13 }}>
+              {actionError}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {/* Row 1 */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>🔑</span>
+          )}
+
+          {!canManageAccount ? (
+            <DataState
+              dense
+              state="forbidden"
+              resource="la gestion du compte"
+              title="Gestion du compte réservée au super-administrateur plateforme"
+            />
+          ) : (
+            <>
+              <div>
+                <div style={{ ...KEY, marginBottom: 12 }}>ACTIONS SUR LE COMPTE</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6, gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Réinitialiser le mot de passe</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Un email de réinitialisation sera envoyé à {selectedUser.email}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                      {isSuspended ? "Réactiver le compte" : "Suspendre le compte"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                      {isSuspended
+                        ? "Le titulaire pourra à nouveau se connecter et déclarer."
+                        : "Le titulaire ne pourra plus se connecter. Les données sont conservées."}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    disabled={suspendMutation.isPending || activateMutation.isPending}
+                    onClick={() => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate())}
+                    style={{ padding: "6px 14px", background: isSuspended ? "#004d3d" : "#d97706", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {suspendMutation.isPending || activateMutation.isPending
+                      ? "Enregistrement…"
+                      : isSuspended
+                        ? "Réactiver"
+                        : "Suspendre"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => showToast(`Lien de réinitialisation envoyé à ${selectedUser.email}`)}
-                  style={{ padding: "6px 14px", background: "#004d3d", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Envoyer le lien
-                </button>
               </div>
 
-              {/* Row 2 */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>🔒</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Déverrouiller le compte</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Le compte est actuellement déverrouillé (0 tentative échouée)</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => showToast("Compte déverrouillé.")}
-                  style={{ padding: "6px 14px", background: "#d97706", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Déverrouiller
-                </button>
+              <div>
+                <div style={{ ...KEY, marginBottom: 8 }}>HISTORIQUE DES CONNEXIONS</div>
+                <DataState
+                  dense
+                  state="unavailable"
+                  resource="l'historique des connexions"
+                  title="Connexions non journalisées"
+                  hint="Le système n'enregistre ni les connexions réussies, ni les tentatives échouées, ni les appareils utilisés pour ce compte."
+                />
               </div>
 
-              {/* Row 3 */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>✉️</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Renvoyer l&apos;email de vérification</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Renvoyer le lien de confirmation à l&apos;adresse email enregistrée</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => showToast(`Email de confirmation renvoyé à ${selectedUser.email}`)}
-                  style={{ padding: "6px 14px", background: "#004d3d", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Renvoyer
-                </button>
-              </div>
-
-              {/* Row 4 */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>🔄</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Réinitialiser la session</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Déconnecter l&apos;utilisateur de tous les appareils actifs</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => showToast("Sessions actives déconnectées.")}
-                  style={{ padding: "6px 14px", background: "#004d3d", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Réinitialiser
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* MODIFIER LE RÔLE */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 6 }}>
-              MODIFIER LE RÔLE
-            </div>
-            <select
-              defaultValue="responsable"
-              style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827" }}
-            >
-              <option value="responsable">Responsable d&apos;établissement</option>
-              <option value="admin">Administrateur</option>
-              <option value="comptable">Comptable</option>
-              <option value="lecteur">Lecteur</option>
-            </select>
-            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-              Options disponibles : Administrateur, Responsable d&apos;établissement, Comptable, Lecteur.
-            </div>
-          </div>
-
-          {/* HISTORIQUE DES CONNEXIONS RÉCENTES */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280", marginBottom: 8 }}>
-              HISTORIQUE DES CONNEXIONS RÉCENTES
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
-              <thead>
-                <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
-                  <th style={{ padding: "6px 10px" }}>Date</th>
-                  <th style={{ padding: "6px 10px" }}>Localisation</th>
-                  <th style={{ padding: "6px 10px" }}>Appareil</th>
-                  <th style={{ padding: "6px 10px" }}>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "6px 10px" }}>28/09/2026 14:32</td>
-                  <td style={{ padding: "6px 10px" }}>Yaoundé</td>
-                  <td style={{ padding: "6px 10px" }}>Chrome / Windows</td>
-                  <td style={{ padding: "6px 10px" }}><span style={{ color: "#059669", fontWeight: 600 }}>● Succès</span></td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "6px 10px" }}>28/09/2026 14:30</td>
-                  <td style={{ padding: "6px 10px" }}>Yaoundé</td>
-                  <td style={{ padding: "6px 10px" }}>Chrome / Windows</td>
-                  <td style={{ padding: "6px 10px" }}><span style={{ color: "#dc2626", fontWeight: 600 }}>● Échec</span></td>
-                </tr>
-                <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "6px 10px" }}>28/09/2026 14:28</td>
-                  <td style={{ padding: "6px 10px" }}>Yaoundé</td>
-                  <td style={{ padding: "6px 10px" }}>Chrome / Windows</td>
-                  <td style={{ padding: "6px 10px" }}><span style={{ color: "#dc2626", fontWeight: 600 }}>● Échec</span></td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "6px 10px" }}>27/09/2026 09:15</td>
-                  <td style={{ padding: "6px 10px" }}>Douala</td>
-                  <td style={{ padding: "6px 10px" }}>Mobile Safari / iOS</td>
-                  <td style={{ padding: "6px 10px" }}><span style={{ color: "#059669", fontWeight: 600 }}>● Succès</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* ZONE DANGEREUSE */}
-          <div style={{ border: "1px solid #fecaca", borderRadius: 8, padding: 14, background: "#fff5f5" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#dc2626", marginBottom: 10 }}>
-              ZONE DANGEREUSE
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#dc2626", fontWeight: 700 }}>✕</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Désactiver le compte</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>L&apos;utilisateur ne pourra plus se connecter. Les données seront conservées.</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => showToast("Compte utilisateur désactivé.")}
-                  style={{ padding: "6px 14px", background: "#b91c1c", color: "#ffffff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Désactiver
-                </button>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #fee2e2", paddingTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#dc2626", fontWeight: 700 }}>✕</span>
+              <div style={{ border: "1px solid #fecaca", borderRadius: 8, padding: 14, background: "#fff5f5" }}>
+                <div style={{ ...KEY, color: "#dc2626", marginBottom: 10 }}>ZONE DANGEREUSE</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Supprimer le compte</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>Suppression définitive. Cette action est irréversible.</div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                      Suppression définitive du compte utilisateur. Cette action est irréversible.
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => deleteMutation.mutate()}
+                    style={{ padding: "6px 14px", background: "#ffffff", color: "#b91c1c", border: "1px solid #ef4444", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {deleteMutation.isPending ? "Suppression…" : "Supprimer"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAccountOpen(false);
-                    showToast("Demande de suppression enregistrée.");
-                  }}
-                  style={{ padding: "6px 14px", background: "#ffffff", color: "#b91c1c", border: "1px solid #ef4444", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Supprimer
-                </button>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </AdminDialog>
     </div>

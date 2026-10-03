@@ -4,255 +4,134 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { listAnomaliesRegistry, resolveAnomaly } from "@/lib/api-client";
+import {
+  ANOMALY_DEROGATION_ROLES,
+  ANOMALY_REGISTRY_ROLES,
+  ANOMALY_STATUS_LABELS,
+  anomalyCompanyName,
+  anomalyDossierRef,
+  listAnomalyRegistry,
+  resolveAnomalyRecord,
+  type AnomalyRecord,
+  type AnomalyResolutionType,
+  type AnomalyStatus,
+} from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
+import {
+  NOT_PROVIDED,
+  count,
+  elapsedSince,
+  resolveDataState,
+  stamp,
+} from "@/lib/admin-data-state";
 
-const REGISTRY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "DIVISIONAL"];
-const DEROGATION_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL"];
+const REGISTRY_PAGE_SIZE = 50;
 
-interface AnomalyItem {
-  id: string;
-  ruleCode: string;
-  ruleFamily?: string;
-  description: string;
-  observedValue?: string;
-  expectedValue?: string;
-  status: "OPEN" | "RESOLVED" | "WAIVED";
-  isBlocking: boolean;
-  detectedAt: string;
-  submission: { id: string; submissionId: string | null; region: string | null; companyName?: string } | null;
-}
-
-// Canonical ONEFOP Quality Rules Reference
-const VALIDATION_RULES = [
-  {
-    code: "R1-EFFECTIFS",
-    name: "Égalité Effectif Total = Hommes + Femmes",
-    family: "Cohérence interne",
-    severity: "CRITICAL",
-    isBlocking: true,
-    section: "Section 2 (Effectifs)",
-    status: "ACTIVE",
-  },
-  {
-    code: "R2-IDENTIFIANT",
-    name: "Validité Identifiant Fiscal / RCCM",
-    family: "Identification légale",
-    severity: "CRITICAL",
-    isBlocking: true,
-    section: "Section 1 (Entreprise)",
-    status: "ACTIVE",
-  },
-  {
-    code: "R3-DEPARTS",
-    name: "Départs Annuels Déclarés ≤ Effectif Global",
-    family: "Plausibilité des flux",
-    severity: "CRITICAL",
-    isBlocking: true,
-    section: "Section 2 (Mouvements)",
-    status: "ACTIVE",
-  },
-  {
-    code: "R4-CNAE",
-    name: "Secteur d'activité CNAE valide et renseigné",
-    family: "Nomenclature",
-    severity: "CRITICAL",
-    isBlocking: true,
-    section: "Section 1 (Activité)",
-    status: "ACTIVE",
-  },
-  {
-    code: "R5-SALAIRES",
-    name: "Masse salariale proportionnée aux effectifs",
-    family: "Vraisemblance économique",
-    severity: "WARNING",
-    isBlocking: false,
-    section: "Section 2 (Salaires)",
-    status: "ACTIVE",
-  },
-  {
-    code: "R6-COMPETENCES",
-    name: "Besoins futurs en compétences qualifiés",
-    family: "Complétude prospective",
-    severity: "WARNING",
-    isBlocking: false,
-    section: "Section 3 (Besoins)",
-    status: "ACTIVE",
-  },
+/**
+ * Quality indicators the Figma frame shows for this screen.
+ *
+ * None of them has a backend source: no endpoint computes completeness,
+ * coherence, warning or statistical-eligibility rates over a scope
+ * (docs/admin-data-integrity-inventory.md §7.4). They are listed here so the
+ * screen can name precisely what is missing instead of printing a number.
+ *
+ * The one rate the system *can* compute —
+ * statisticallyReadyCount / totalSubmissionsCount from pilotage/queues — is
+ * surfaced on /admin/pilotage, which owns that figure.
+ */
+const UNSOURCED_QUALITY_KPIS = [
+  "Complétude",
+  "Cohérence",
+  "Taux d'anomalies",
+  "Avertissements",
+  "Éligibilité statistique",
 ];
-
-// Figma reference baseline data for Module 4 (qualite/centre.png)
-const FIGMA_ANOMALIES_BY_TYPE = [
-  { type: "Incohérence effectifs", count: 142, pct: "28.4%", trend: "up", trendColor: "#dc2626" },
-  { type: "Champ obligatoire manquant", count: 98, pct: "19.6%", trend: "down", trendColor: "#16a34a" },
-  { type: "Valeur hors limites", count: 87, pct: "17.4%", trend: "right", trendColor: "#64748b" },
-  { type: "Doublon potentiel", count: 64, pct: "12.8%", trend: "up", trendColor: "#dc2626" },
-  { type: "Incohérence sectorielle", count: 52, pct: "10.4%", trend: "right", trendColor: "#64748b" },
-  { type: "Format invalide", count: 34, pct: "6.8%", trend: "down", trendColor: "#16a34a" },
-  { type: "Autre", count: 23, pct: "4.6%", trend: "right", trendColor: "#64748b" },
-];
-
-const FIGMA_ANOMALIES_BY_REGION = [
-  { region: "Extrême-Nord", submissions: "1,087", count: 100, rate: "9.2%", rateColor: "#dc2626", status: "CRITIQUE", badgeBg: "#fdecea", badgeColor: "#b3202c", dotColor: "#dc2626" },
-  { region: "Nord", submissions: "1,214", count: 98, rate: "8.1%", rateColor: "#d97706", status: "ÉLEVÉ", badgeBg: "#fef9e7", badgeColor: "#b8860b", dotColor: "#d97706" },
-  { region: "Sud-Ouest", submissions: "1,482", count: 110, rate: "7.4%", rateColor: "#d97706", status: "ÉLEVÉ", badgeBg: "#fef9e7", badgeColor: "#b8860b", dotColor: "#d97706" },
-  { region: "Ouest", submissions: "1,834", count: 97, rate: "5.3%", rateColor: "#d97706", status: "MODÉRÉ", badgeBg: "#fef9e7", badgeColor: "#b8860b", dotColor: "#d97706" },
-  { region: "Centre", submissions: "2,184", count: 92, rate: "4.2%", rateColor: "#007a5e", status: "ACCEPTABLE", badgeBg: "#e8f7f3", badgeColor: "#007a5e", dotColor: "#007a5e" },
-  { region: "Littoral", submissions: "2,746", count: 85, rate: "3.1%", rateColor: "#007a5e", status: "BON", badgeBg: "#e8f7f3", badgeColor: "#007a5e", dotColor: "#007a5e" },
-];
-
-const CANONICAL_FALLBACK_ANOMALIES: AnomalyItem[] = [
-  {
-    id: "anom-01",
-    ruleCode: "R1-EFFECTIFS",
-    ruleFamily: "Cohérence interne",
-    description: "Incohérence effectifs : Total hommes (45) + femmes (32) = 77 ≠ total déclaré (82)",
-    observedValue: "77",
-    expectedValue: "82",
-    status: "OPEN",
-    isBlocking: true,
-    detectedAt: "2026-09-28T14:22:00Z",
-    submission: { id: "sub-01", submissionId: "ENT-2026-04521", region: "Centre", companyName: "Menuiserie Bois Massif" },
-  },
-  {
-    id: "anom-02",
-    ruleCode: "R2-IDENTIFIANT",
-    ruleFamily: "Identification légale",
-    description: "Doublon potentiel : Le numéro RCCM est déjà enregistré pour un autre déclarant",
-    observedValue: "RC/DLA/2012/B/4122",
-    expectedValue: "Unique",
-    status: "OPEN",
-    isBlocking: true,
-    detectedAt: "2026-09-28T13:58:00Z",
-    submission: { id: "sub-02", submissionId: "ADM-2026-01043", region: "Nord", companyName: "Nexttel Cameroun" },
-  },
-  {
-    id: "anom-03",
-    ruleCode: "R4-CNAE",
-    ruleFamily: "Nomenclature",
-    description: "Champ obligatoire manquant : Code sectoriel CNAE non renseigné en section 1",
-    observedValue: "null",
-    expectedValue: "Code CNAE Rev. 2",
-    status: "OPEN",
-    isBlocking: false,
-    detectedAt: "2026-09-28T13:30:00Z",
-    submission: { id: "sub-03", submissionId: "PRJ-2026-00885", region: "Est", companyName: "Programme PIAASI" },
-  },
-  {
-    id: "anom-04",
-    ruleCode: "R3-DEPARTS",
-    ruleFamily: "Plausibilité des flux",
-    description: "Anomalie résolue : Justificatif de départs volontaires validé par l'inspecteur",
-    observedValue: "12",
-    expectedValue: "≤ 10",
-    status: "RESOLVED",
-    isBlocking: true,
-    detectedAt: "2026-09-28T14:15:00Z",
-    submission: { id: "sub-04", submissionId: "COP-2026-00214", region: "Littoral", companyName: "Coopérative Cacao Sud" },
-  },
-];
-
-const FIGMA_RECENT_CONTROLS = [
-  { time: "14:22", dot: "#dc2626", text: "Incohérence effectifs détectée — ENT-2026-04521", location: "Centre" },
-  { time: "14:15", dot: "#16a34a", text: "Anomalie résolue — COP-2026-00214", location: "Littoral" },
-  { time: "13:58", dot: "#f59e0b", text: "Doublon potentiel signalé — ADM-2026-01043", location: "Nord" },
-  { time: "13:42", dot: "#2563eb", text: "Contrôle automatique terminé — Lot #847 (24 fiches)", location: "National" },
-  { time: "13:30", dot: "#f59e0b", text: "Champ manquant — PRJ-2026-00885", location: "Est" },
-];
-
-const FIGMA_ACTIVE_RULES = [
-  { name: "Contrôle de complétude des champs obligatoires", active: true },
-  { name: "Vérification cohérence effectifs/catégories", active: true },
-  { name: "Détection des doublons (RCCM)", active: true },
-  { name: "Validation des plages de valeurs", active: true },
-  { name: "Contrôle inter-déclarations", active: false },
-  { name: "Vérification format identifiants", active: true },
-];
-
-function stamp(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
-}
 
 export default function CentreQualitePage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
-  const canReadRegistry = !!role && REGISTRY_ROLES.includes(role);
-  const canGrantDerogation = !!role && DEROGATION_ROLES.includes(role);
+  const canReadRegistry = !!role && ANOMALY_REGISTRY_ROLES.includes(role);
+  const canGrantDerogation = !!role && ANOMALY_DEROGATION_ROLES.includes(role);
 
-  // Filters for registry
-  const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [filterSeverity, setFilterSeverity] = useState<string>("ALL");
+  // Both filters are sent to the server, so `total` always describes the same
+  // query as the rows on screen and there is no client-side re-filtering that
+  // could make the two disagree.
+  const [filterStatus, setFilterStatus] = useState<"ALL" | AnomalyStatus>("ALL");
+  const [filterSeverity, setFilterSeverity] = useState<"ALL" | "BLOCKING" | "WARNING">("ALL");
 
-  // Selected anomaly for resolution modal
-  const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyItem | null>(null);
-  const [resolutionType, setResolutionType] = useState<"DECLARANT_CORRECTION" | "FIELD_INSPECTION" | "LEGAL_DEROGATION">("DECLARANT_CORRECTION");
+  const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRecord | null>(null);
+  const [resolutionType, setResolutionType] = useState<AnomalyResolutionType>("DECLARANT_CORRECTION");
   const [resolutionNote, setResolutionNote] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Modal for managing validation rules
-  const [showRulesModal, setShowRulesModal] = useState(false);
-
-  // Query registry
+  /**
+   * Anomaly registry.
+   *
+   * Source: GET /admin/questionnaires/anomalies/registry
+   * (EligibilityEngineService.listAnomalies). Rows are scoped server-side to
+   * the caller's territory; `total` counts the filtered query.
+   *
+   * There is no fallback dataset. If the registry is empty the screen says so
+   * — which today is the truthful answer for every caller, because nothing in
+   * the backend writes to `onefop_anomalies` yet (see
+   * docs/admin-data-integrity-inventory.md §7.1).
+   */
   const anomaliesQuery = useQuery({
     queryKey: ["admin", "anomalies", "registry", filterStatus, filterSeverity],
-    queryFn: () => {
-      const params: Record<string, any> = { limit: 100 };
-      if (filterStatus !== "ALL") params.status = filterStatus;
-      if (filterSeverity === "BLOCKING") params.isBlocking = true;
-      if (filterSeverity === "WARNING") params.isBlocking = false;
-      return listAnomaliesRegistry(params);
-    },
+    queryFn: () =>
+      listAnomalyRegistry({
+        limit: REGISTRY_PAGE_SIZE,
+        status: filterStatus === "ALL" ? undefined : filterStatus,
+        isBlocking:
+          filterSeverity === "BLOCKING" ? true : filterSeverity === "WARNING" ? false : undefined,
+      }),
     enabled: canReadRegistry,
   });
 
-  const rawItems = (anomaliesQuery.data?.items ?? []) as AnomalyItem[];
-  const items = useMemo(() => {
-    let list = rawItems.length > 0 ? rawItems : CANONICAL_FALLBACK_ANOMALIES;
-    if (filterStatus !== "ALL") {
-      list = list.filter((a) => a.status === filterStatus);
-    }
-    if (filterSeverity === "BLOCKING") {
-      list = list.filter((a) => a.isBlocking);
-    } else if (filterSeverity === "WARNING") {
-      list = list.filter((a) => !a.isBlocking);
-    }
-    return list;
-  }, [rawItems, filterStatus, filterSeverity]);
+  const items = useMemo(() => anomaliesQuery.data?.items ?? [], [anomaliesQuery.data]);
+  const totalCount = anomaliesQuery.data?.total ?? null;
 
-  const totalCount = anomaliesQuery.data?.total ?? items.length;
+  const registryState = resolveDataState({
+    roleAllowed: canReadRegistry,
+    isLoading: anomaliesQuery.isLoading,
+    isError: anomaliesQuery.isError,
+    error: anomaliesQuery.error,
+    rowCount: anomaliesQuery.data?.items.length ?? null,
+  });
 
-  // Mutation to resolve anomaly
+  /**
+   * "Contrôles récents" panel: the five most recently detected rows of the
+   * same real registry, by `detectedAt`. Not a separate event log — the system
+   * keeps none — so the panel is labelled as a view of the registry.
+   */
+  const recentDetections = useMemo(() => items.slice(0, 5), [items]);
+
   const resolveMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: { resolutionType: string; resolutionNote: string; evidenceUrl?: string } }) => {
-      return resolveAnomaly(id, payload);
-    },
+    mutationFn: ({ id, payload }: { id: string; payload: { resolutionType: AnomalyResolutionType; resolutionNote: string; evidenceUrl?: string } }) =>
+      resolveAnomalyRecord(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "anomalies"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       setSelectedAnomaly(null);
       setResolutionNote("");
       setEvidenceUrl("");
       setActionError(null);
-      setSuccessToast("L'anomalie a été résolue avec succès et consignée au journal d'audit.");
+      setSuccessToast("L'anomalie a été résolue et l'opération consignée au journal d'audit.");
       setTimeout(() => setSuccessToast(null), 4000);
     },
-    onError: (err: any) => {
-      setActionError(err.message || "Erreur lors de la résolution de l'anomalie.");
+    onError: (err: unknown) => {
+      setActionError(
+        err instanceof Error ? err.message : "Erreur lors de la résolution de l'anomalie.",
+      );
     },
   });
 
-  const handleOpenResolveModal = (a: AnomalyItem) => {
+  const handleOpenResolveModal = (a: AnomalyRecord) => {
     setSelectedAnomaly(a);
     setResolutionType("DECLARANT_CORRECTION");
     setResolutionNote("");
@@ -367,130 +246,68 @@ export default function CentreQualitePage() {
         </div>
       )}
 
-      {/* ── 5 Scorecard KPI Cards — Exact Figma qualite/centre.png ── */}
-      <div
+      {/* Quality indicators.
+          No endpoint computes completeness, coherence, anomaly or warning
+          rates over a scope, so no figure is printed. The one rate the system
+          can compute (statistically-ready dossiers / total dossiers) belongs
+          to /admin/pilotage, which owns it, and is linked rather than
+          duplicated here. */}
+      <section
+        aria-labelledby="quality-kpis-title"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gap: 16,
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: 12,
+          padding: "20px 24px",
           marginBottom: 24,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
         }}
       >
-        {/* KPI 1: COMPLÉTUDE */}
+        <h2
+          id="quality-kpis-title"
+          style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 14px" }}
+        >
+          INDICATEURS DE QUALITÉ
+        </h2>
+
         <div
           style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: "18px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            display: "flex",
-            flexDirection: "column",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 12,
+            marginBottom: 16,
           }}
         >
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-            COMPLÉTUDE
-          </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
-            94.2%
-          </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "94.2%", height: "100%", background: "#007a5e", borderRadius: 9999 }} />
-          </div>
+          {UNSOURCED_QUALITY_KPIS.map((label) => (
+            <div key={label} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+                {label}
+              </span>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#94a3b8", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+                {NOT_PROVIDED}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* KPI 2: COHÉRENCE */}
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: "18px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-            COHÉRENCE
-          </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
-            91.7%
-          </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "91.7%", height: "100%", background: "#007a5e", borderRadius: 9999 }} />
-          </div>
-        </div>
-
-        {/* KPI 3: TAUX D'ANOMALIES */}
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: "18px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-            TAUX D&apos;ANOMALIES
-          </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
-            4.8%
-          </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "16%", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
-          </div>
-        </div>
-
-        {/* KPI 4: AVERTISSEMENTS */}
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: "18px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-            AVERTISSEMENTS
-          </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
-            8.2%
-          </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "24%", height: "100%", background: "#f59e0b", borderRadius: 9999 }} />
-          </div>
-        </div>
-
-        {/* KPI 5: ÉLIGIBILITÉ STATISTIQUE */}
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: "18px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-            ÉLIGIBILITÉ STATISTIQUE
-          </span>
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#007a5e", letterSpacing: "-0.02em", margin: "6px 0 12px 0", lineHeight: 1 }}>
-            87.5%
-          </div>
-          <div style={{ width: "70%", height: 5, background: "#e2e8f0", borderRadius: 9999, overflow: "hidden" }}>
-            <div style={{ width: "87.5%", height: "100%", background: "#007a5e", borderRadius: 9999 }} />
-          </div>
-        </div>
-      </div>
+        <DataState
+          dense
+          state="unavailable"
+          resource="les indicateurs de qualité"
+          title="Indicateurs non calculés par le système"
+          hint={
+            <>
+              Aucun service ne calcule aujourd&apos;hui ces taux sur un périmètre
+              territorial. Le seul indicateur disponible — la part des dossiers
+              éligibles au traitement statistique — est publié sur le{" "}
+              <Link href="/admin/pilotage" style={{ color: "#007a5e", fontWeight: 600 }}>
+                tableau de bord de supervision
+              </Link>
+              .
+            </>
+          }
+        />
+      </section>
 
       {/* ── Main Content Grid matching Figma qualite/centre.png ── */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.62fr) minmax(0, 1fr)", gap: 24, alignItems: "start", marginBottom: 32 }}>
@@ -498,8 +315,13 @@ export default function CentreQualitePage() {
         {/* ── Left Column: ANOMALIES PAR TYPE & ANOMALIES PAR RÉGION ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           
-          {/* Card A: ANOMALIES PAR TYPE */}
+          {/* Aggregates by anomaly type and by region.
+              Nothing serves anomalies grouped by rule family or by region
+              (docs/admin-data-integrity-inventory.md §7.3). Deriving either
+              from the capped registry page below would state a share of a
+              total the page does not contain, so neither table is rendered. */}
           <section
+            aria-labelledby="anomalies-aggregates-title"
             style={{
               background: "#ffffff",
               border: "1px solid #e2e8f0",
@@ -507,116 +329,29 @@ export default function CentreQualitePage() {
               padding: "20px 24px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
             }}
-            aria-labelledby="anomalies-par-type-title"
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 id="anomalies-par-type-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                ANOMALIES PAR TYPE
-              </h2>
-              {/* Pulse / Activity Waveform Icon */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-            </div>
-
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #f1f5f9", textAlign: "left" }}>
-                  <th scope="col" style={{ padding: "8px 0", fontSize: 12, fontWeight: 500, color: "#64748b" }}>Type d&apos;anomalie</th>
-                  <th scope="col" style={{ padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>Occurrences</th>
-                  <th scope="col" style={{ padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>% du total</th>
-                  <th scope="col" style={{ padding: "8px 0 8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>Tendance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FIGMA_ANOMALIES_BY_TYPE.map((row) => (
-                  <tr key={row.type} style={{ borderBottom: "1px solid #f8fafc" }}>
-                    <td style={{ padding: "11px 0", fontSize: 13, fontWeight: 500, color: "#0f172a" }}>{row.type}</td>
-                    <td style={{ padding: "11px 12px", fontSize: 13, fontWeight: 500, color: "#0f172a", textAlign: "right" }}>{row.count}</td>
-                    <td style={{ padding: "11px 12px", fontSize: 13, fontWeight: 600, color: "#0f172a", textAlign: "right" }}>{row.pct}</td>
-                    <td style={{ padding: "11px 0 11px 12px", textAlign: "right" }}>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: row.trendColor, lineHeight: 1 }}>
-                        {row.trend === "up" && "↑"}
-                        {row.trend === "down" && "↓"}
-                        {row.trend === "right" && "→"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          {/* Card B: ANOMALIES PAR RÉGION */}
-          <section
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 12,
-              padding: "20px 24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-            aria-labelledby="anomalies-par-region-title"
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 id="anomalies-par-region-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                ANOMALIES PAR RÉGION
-              </h2>
-              {/* Location Pin Icon */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-            </div>
-
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #f1f5f9", textAlign: "left" }}>
-                  <th scope="col" style={{ padding: "8px 0", fontSize: 12, fontWeight: 500, color: "#64748b" }}>Région</th>
-                  <th scope="col" style={{ padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>Déclarations</th>
-                  <th scope="col" style={{ padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>Anomalies</th>
-                  <th scope="col" style={{ padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>Taux</th>
-                  <th scope="col" style={{ padding: "8px 0 8px 12px", fontSize: 12, fontWeight: 500, color: "#64748b", textAlign: "right" }}>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FIGMA_ANOMALIES_BY_REGION.map((row) => (
-                  <tr key={row.region} style={{ borderBottom: "1px solid #f8fafc" }}>
-                    <td style={{ padding: "11px 0", fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{row.region}</td>
-                    <td style={{ padding: "11px 12px", fontSize: 13, fontWeight: 500, color: "#0f172a", textAlign: "right" }}>{row.submissions}</td>
-                    <td style={{ padding: "11px 12px", fontSize: 13, fontWeight: 500, color: "#0f172a", textAlign: "right" }}>{row.count}</td>
-                    <td style={{ padding: "11px 12px", fontSize: 13, fontWeight: 700, color: row.rateColor, textAlign: "right" }}>{row.rate}</td>
-                    <td style={{ padding: "11px 0 11px 12px", textAlign: "right" }}>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "3px 10px",
-                          borderRadius: 9999,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          letterSpacing: "0.02em",
-                          background: row.badgeBg,
-                          color: row.badgeColor,
-                        }}
-                      >
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.dotColor }} />
-                        {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <h2
+              id="anomalies-aggregates-title"
+              style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 16px" }}
+            >
+              ANOMALIES PAR TYPE ET PAR RÉGION
+            </h2>
+            <DataState
+              state="unavailable"
+              resource="les agrégats d'anomalies"
+              title="Répartition agrégée non disponible"
+              hint="Le système ne publie pas d'agrégat d'anomalies par famille de règle ni par région. Le registre détaillé ci-dessous reste consultable et reflète votre ressort."
+            />
           </section>
 
         </div>
 
-        {/* ── Right Column: CONTRÔLES RÉCENTS & RÈGLES DE VALIDATION ── */}
+        {/* ── Right Column: détections récentes & référentiel des règles ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           
-          {/* Card C: CONTRÔLES RÉCENTS */}
+          {/* Card C: the five most recently detected rows of the same real
+              registry. The system keeps no separate "controls performed" log,
+              so this is presented as a view of the registry, not as one. */}
           <section
             style={{
               background: "#ffffff",
@@ -627,77 +362,90 @@ export default function CentreQualitePage() {
             }}
             aria-labelledby="controles-recents-title"
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10 }}>
               <h2 id="controles-recents-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                CONTRÔLES RÉCENTS
+                DÉTECTIONS RÉCENTES
               </h2>
               <button
                 type="button"
                 onClick={scrollToRegistry}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#007a5e",
-                  cursor: "pointer",
-                }}
+                style={{ background: "none", border: "none", padding: 0, fontSize: 13, fontWeight: 600, color: "#007a5e", cursor: "pointer" }}
               >
-                Voir tout →
+                Voir le registre →
               </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {FIGMA_RECENT_CONTROLS.map((ctrl, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    padding: "10px 0",
-                    borderBottom: idx < FIGMA_RECENT_CONTROLS.length - 1 ? "1px solid #f8fafc" : "none",
-                  }}
-                >
-                  <span style={{ fontSize: 12, color: "#64748b", width: 38, flexShrink: 0, marginTop: 1 }}>
-                    {ctrl.time}
-                  </span>
-                  <span
+            {registryState !== "ready" ? (
+              <DataState
+                dense
+                state={registryState}
+                resource="les détections récentes"
+                error={anomaliesQuery.error}
+                onRetry={() => anomaliesQuery.refetch()}
+                title={registryState === "empty" ? "Aucune détection enregistrée" : undefined}
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {recentDetections.map((a, idx) => (
+                  <div
+                    key={a.id}
                     style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: ctrl.dot,
-                      flexShrink: 0,
-                      marginTop: 6,
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      padding: "10px 0",
+                      borderBottom: idx < recentDetections.length - 1 ? "1px solid #f8fafc" : "none",
                     }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "#0f172a", lineHeight: 1.35 }}>
-                      {ctrl.text}
-                    </div>
+                  >
                     <span
                       style={{
-                        display: "inline-block",
-                        marginTop: 4,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        color: "#475569",
-                        background: "#f1f5f9",
-                        padding: "1px 7px",
-                        borderRadius: 4,
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: a.isBlocking ? "#dc2626" : "#f59e0b",
+                        flexShrink: 0,
+                        marginTop: 6,
                       }}
-                    >
-                      {ctrl.location}
-                    </span>
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#0f172a", lineHeight: 1.35 }}>
+                        {a.ruleFamily} — {anomalyDossierRef(a)}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }} title={stamp(a.detectedAt)}>
+                        {elapsedSince(a.detectedAt)}
+                        {" · "}
+                        {ANOMALY_STATUS_LABELS[a.status]}
+                      </div>
+                      {/* Region badge only when the submission carries one. */}
+                      {a.submission?.region && (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            marginTop: 4,
+                            fontSize: 11,
+                            fontWeight: 500,
+                            color: "#475569",
+                            background: "#f1f5f9",
+                            padding: "1px 7px",
+                            borderRadius: 4,
+                          }}
+                        >
+                          {a.submission.region}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Card D: RÈGLES DE VALIDATION */}
+          {/* Card D: validation rules.
+              Rule definitions and their enabled state are not persisted
+              anywhere (docs/admin-data-integrity-inventory.md §7.6), so no
+              rule list and no on/off state is shown. The rule codes that do
+              appear in the registry below come from the stored anomalies
+              themselves. */}
           <section
             style={{
               background: "#ffffff",
@@ -708,75 +456,16 @@ export default function CentreQualitePage() {
             }}
             aria-labelledby="regles-validation-title"
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 id="regles-validation-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
-                RÈGLES DE VALIDATION
-              </h2>
-              {/* Shield Checkmark Icon */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {FIGMA_ACTIVE_RULES.map((rule, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "9px 0",
-                    borderBottom: idx < FIGMA_ACTIVE_RULES.length - 1 ? "1px solid #f8fafc" : "none",
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: rule.active ? "#007a5e" : "#94a3b8", flexShrink: 0 }}>
-                      {rule.active ? "✓" : "○"}
-                    </span>
-                    <span style={{ fontSize: 13, color: rule.active ? "#0f172a" : "#64748b", fontWeight: 400 }}>
-                      {rule.name}
-                    </span>
-                  </div>
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      padding: "2px 8px",
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      background: rule.active ? "#e8f7f3" : "#f1f5f9",
-                      color: rule.active ? "#007a5e" : "#64748b",
-                    }}
-                  >
-                    {rule.active ? "Actif" : "Désactivé"}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>
-              <button
-                type="button"
-                onClick={() => setShowRulesModal(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#007a5e",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                Gérer les règles de validation →
-              </button>
-            </div>
+            <h2 id="regles-validation-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 16px" }}>
+              RÈGLES DE VALIDATION
+            </h2>
+            <DataState
+              dense
+              state="unavailable"
+              resource="le référentiel des règles"
+              title="Référentiel des règles non publié"
+              hint="Le système ne conserve pas de référentiel de règles de contrôle ni leur état d'activation. Les codes de règle visibles dans le registre proviennent des anomalies effectivement enregistrées."
+            />
           </section>
 
         </div>
@@ -799,7 +488,7 @@ export default function CentreQualitePage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 18 }}>
           <div>
             <h2 id="anomalies-registry-title" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-              Registre des Contrôles &amp; Anomalies ({totalCount})
+              Registre des Contrôles &amp; Anomalies{totalCount === null ? "" : ` (${count(totalCount)})`}
             </h2>
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
               Tableau d&apos;instruction détaillé des anomalies détectées sur les déclarations soumises.
@@ -811,7 +500,7 @@ export default function CentreQualitePage() {
               className="cam-select"
               style={{ width: "auto", minWidth: 140, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => setFilterStatus(e.target.value as "ALL" | AnomalyStatus)}
             >
               <option value="ALL">Tous statuts</option>
               <option value="OPEN">Ouvertes</option>
@@ -822,7 +511,7 @@ export default function CentreQualitePage() {
               className="cam-select"
               style={{ width: "auto", minWidth: 160, height: 34, fontSize: 13, borderRadius: 6, borderColor: "#cbd5e1" }}
               value={filterSeverity}
-              onChange={(e) => setFilterSeverity(e.target.value)}
+              onChange={(e) => setFilterSeverity(e.target.value as "ALL" | "BLOCKING" | "WARNING")}
             >
               <option value="ALL">Toutes sévérités</option>
               <option value="BLOCKING">Bloquantes uniquement</option>
@@ -853,103 +542,123 @@ export default function CentreQualitePage() {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "36px 16px", color: "#64748b", fontSize: 13 }}>
-                    {anomaliesQuery.isLoading ? "Chargement des anomalies…" : "Aucune anomalie ne correspond aux filtres appliqués."}
+              {/* Loading, error, authorization refusal and "no records" are
+                  reported separately. No branch substitutes sample rows. */}
+              <DataStateRow
+                colSpan={7}
+                state={registryState}
+                resource="le registre des anomalies"
+                error={anomaliesQuery.error}
+                onRetry={() => anomaliesQuery.refetch()}
+                title={registryState === "empty" ? "Aucune anomalie enregistrée" : undefined}
+                hint={
+                  registryState === "empty"
+                    ? "Aucune anomalie correspondant à ce périmètre n'est actuellement enregistrée."
+                    : undefined
+                }
+              />
+              {items.map((a) => (
+                <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ fontSize: 13 }}>
+                    {a.submission ? (
+                      <div>
+                        <Link
+                          href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
+                          style={{ fontWeight: 600, color: "#007a5e", textDecoration: "none" }}
+                        >
+                          {anomalyDossierRef(a)}
+                        </Link>
+                        {/* Establishment name as stored on the submission's
+                            company record, or nothing at all. */}
+                        {anomalyCompanyName(a) && (
+                          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}>
+                            {anomalyCompanyName(a)}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                          {a.submission.region ?? NOT_PROVIDED}
+                          {a.submission.department ? ` · ${a.submission.department}` : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ color: "#94a3b8" }}>{NOT_PROVIDED}</span>
+                    )}
+                  </td>
+                  <td style={{ fontSize: 13 }}>
+                    <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                      {a.ruleCode}
+                    </span>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                      {a.ruleFamily}
+                    </div>
+                  </td>
+                  <td style={{ fontSize: 13 }}>
+                    <div style={{ maxWidth: 360, wordBreak: "break-word", color: "#0f172a" }}>{a.description}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                      Observé : <strong>{a.observedValue}</strong> &middot; Attendu : <strong>{a.expectedValue}</strong>
+                      {a.deltaValue ? <> &middot; Écart : <strong>{a.deltaValue}</strong></> : null}
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "3px 8px",
+                        borderRadius: 9999,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: a.isBlocking ? "#fdecea" : "#fef9e7",
+                        color: a.isBlocking ? "#b3202c" : "#b8860b",
+                      }}
+                    >
+                      {a.isBlocking ? "Bloquante" : "Avertissement"}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: 12, color: "#64748b" }} title={stamp(a.detectedAt)}>
+                    {stamp(a.detectedAt)}
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "3px 8px",
+                        borderRadius: 9999,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: a.status === "OPEN" ? (a.isBlocking ? "#fdecea" : "#fef9e7") : "#e8f7f3",
+                        color: a.status === "OPEN" ? (a.isBlocking ? "#b3202c" : "#b8860b") : "#007a5e",
+                      }}
+                    >
+                      {ANOMALY_STATUS_LABELS[a.status]}
+                    </span>
+                    {/* Resolution metadata only when the record carries it. */}
+                    {a.resolvedAt && (
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                        {stamp(a.resolvedAt)}
+                        {a.resolvedBy
+                          ? ` · ${[a.resolvedBy.firstName, a.resolvedBy.lastName].filter(Boolean).join(" ").trim() || a.resolvedBy.email}`
+                          : ""}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {a.status === "OPEN" ? (
+                      <button
+                        type="button"
+                        className="cam-button cam-button-sm cam-button-primary"
+                        onClick={() => handleOpenResolveModal(a)}
+                        style={{ padding: "3px 10px", fontSize: 12, background: "#007a5e", borderColor: "#007a5e" }}
+                      >
+                        Résoudre
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>Traitée</span>
+                    )}
                   </td>
                 </tr>
-              ) : (
-                items.map((a) => (
-                  <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ fontSize: 13 }}>
-                      {a.submission ? (
-                        <div>
-                          <Link href={`/admin/dossiers/${a.submission.id}`} style={{ fontWeight: 600, color: "#007a5e", textDecoration: "none" }}>
-                            {a.submission.submissionId || "Dossier #" + a.submission.id.slice(0, 8)}
-                          </Link>
-                          {a.submission.region && (
-                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                              {a.submission.region}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ color: "#94a3b8" }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 13 }}>
-                      <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                        {a.ruleCode}
-                      </span>
-                      {a.ruleFamily && (
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                          {a.ruleFamily}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ fontSize: 13 }}>
-                      <div style={{ maxWidth: 360, wordBreak: "break-word", color: "#0f172a" }}>{a.description}</div>
-                      {(a.observedValue || a.expectedValue) && (
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                          Observé : <strong>{a.observedValue ?? "—"}</strong> &middot; Attendu : <strong>{a.expectedValue ?? "—"}</strong>
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: "3px 8px",
-                          borderRadius: 9999,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: a.isBlocking ? "#fdecea" : "#fef9e7",
-                          color: a.isBlocking ? "#b3202c" : "#b8860b",
-                        }}
-                      >
-                        {a.isBlocking ? "Bloquante" : "Avertissement"}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12, color: "#64748b" }}>
-                      {stamp(a.detectedAt)}
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: "3px 8px",
-                          borderRadius: 9999,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: a.status === "OPEN" ? (a.isBlocking ? "#fdecea" : "#fef9e7") : "#e8f7f3",
-                          color: a.status === "OPEN" ? (a.isBlocking ? "#b3202c" : "#b8860b") : "#007a5e",
-                        }}
-                      >
-                        {a.status === "OPEN" ? "Ouverte" : a.status === "RESOLVED" ? "Résolue" : "Dispensée"}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      {a.status === "OPEN" ? (
-                        <button
-                          type="button"
-                          className="cam-button cam-button-sm cam-button-primary"
-                          onClick={() => handleOpenResolveModal(a)}
-                          style={{ padding: "3px 10px", fontSize: 12, background: "#007a5e", borderColor: "#007a5e" }}
-                        >
-                          Résoudre
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "#007a5e" }}>
-                          ✓ Traitée
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
@@ -995,7 +704,10 @@ export default function CentreQualitePage() {
             <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
               <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 14 }}>{selectedAnomaly.description}</div>
               <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                Déclaration : <strong>{selectedAnomaly.submission?.submissionId || selectedAnomaly.submission?.id}</strong> &middot; Région : <strong>{selectedAnomaly.submission?.region || "National"}</strong>
+                {/* A submission with no stored region is reported as such.
+                    Printing "National" here would invent a territorial fact on
+                    an authorization-sensitive field. */}
+                Déclaration : <strong>{anomalyDossierRef(selectedAnomaly)}</strong> &middot; Région : <strong>{selectedAnomaly.submission?.region ?? NOT_PROVIDED}</strong>
               </div>
             </div>
 
@@ -1084,69 +796,6 @@ export default function CentreQualitePage() {
         </AdminDialog>
       )}
 
-      {/* ── Modal: Gestion du Référentiel des Règles ONEFOP ── */}
-      {showRulesModal && (
-        <AdminDialog
-          open={showRulesModal}
-          onClose={() => setShowRulesModal(false)}
-          eyebrow="Cadre Réglementaire &middot; ONEFOP"
-          title="Référentiel des Règles de Contrôle Qualité"
-          wide
-          footer={
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                className="cam-button cam-button-primary"
-                onClick={() => setShowRulesModal(false)}
-                style={{ background: "#007a5e", borderColor: "#007a5e" }}
-              >
-                Fermer
-              </button>
-            </div>
-          }
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
-              Règles de validation actives et opposables conformément aux protocoles méthodologiques et statistiques du DSMO/ONEFOP.
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {VALIDATION_RULES.map((rule) => (
-                <div
-                  key={rule.code}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 8,
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderLeft: `4px solid ${rule.isBlocking ? "#dc2626" : "#d97706"}`,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                      {rule.code}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: rule.isBlocking ? "#dc2626" : "#d97706",
-                      }}
-                    >
-                      {rule.isBlocking ? "BLOQUANTE" : "AVERTISSEMENT"}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: "#0f172a" }}>
-                    {rule.name}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                    {rule.section} &middot; {rule.family}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </AdminDialog>
-      )}
     </div>
   );
 }

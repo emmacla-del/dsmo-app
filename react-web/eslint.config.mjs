@@ -36,6 +36,25 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // ── Administrative data-integrity guard ─────────────────────────────
+  // Administrative code must never import or declare fabricated mock datasets
+  // or fallbacks.
+  {
+    files: [
+      "src/app/admin/**/*.{ts,tsx}",
+      "src/components/admin/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Identifier[name=/^(FIGMA_|CANONICAL_FALLBACK|DEFAULT_SAMPLE_|DEFAULT_AGENTS|DEFAULT_ACTIVITIES|SABC_DEFAULT_|DEFAULT_GIC|INITIAL_RECENT_AUDIT|CANONICAL_SECTIONS)/]",
+          message:
+            "Fabricated administrative mock datasets and fallbacks are strictly forbidden in production administrative code.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

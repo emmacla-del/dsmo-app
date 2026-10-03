@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   getSpssManifest,
   downloadSpssSavBlob,
@@ -16,6 +15,39 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { DATA_ROLES } from "@/app/admin/_routes";
+import { DataState } from "@/components/admin/DataState";
+import { useOnefopSchema } from "@/lib/use-onefop-schema";
+import { entityTypeLabel } from "@/lib/companies-directory";
+import { listAdminQuestionnaires } from "@/lib/api-client";
+import { listCampaigns } from "@/lib/campaigns";
+import {
+  NOT_PROVIDED,
+  count,
+  meterWidth,
+  percent,
+  rate,
+  resolveDataState,
+  stamp,
+} from "@/lib/admin-data-state";
+
+// Mirrors ADMIN_LIST_FORM_TYPES on the backend (src/questionnaires/
+// admin-list-filter.ts); each one is counted with its own scoped query.
+const BREAKDOWN_FORM_TYPES = [
+  "ENTREPRISE",
+  "COOPERATIVE",
+  "ADMINISTRATION",
+  "PROJECT_PROGRAM",
+  "CTD",
+  "ONG",
+  "VOCATIONAL_TRAINING",
+] as const;
+
+/** Byte length of a blob the server actually returned, as a readable size. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
 
 function getStatusCount(
   source: Record<string, number> | { status: string; _count: number }[] | undefined | null,
@@ -52,14 +84,6 @@ const STATUS_OPTIONS = [
   { value: "ALL", label: "Tous les statuts" },
   { value: "PENDING_REVIEW", label: "En attente uniquement" },
   { value: "REJECTED", label: "Rejeté uniquement" },
-];
-
-const CAMPAIGN_OPTIONS = [
-  { value: "2026-T1", label: "2026-T1" },
-  { value: "2025-T4", label: "2025-T4" },
-  { value: "2025-T3", label: "2025-T3" },
-  { value: "2025-T2", label: "2025-T2" },
-  { value: "2025-T1", label: "2025-T1" },
 ];
 
 const SECTIONS_LIST = [
@@ -117,14 +141,6 @@ const IconPlayLaunch = () => (
   </svg>
 );
 
-const IconRefresh = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polyline points="23 4 23 10 17 10" />
-    <polyline points="1 20 1 14 7 14" />
-    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-  </svg>
-);
-
 const IconSpinner = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-spin" aria-hidden="true">
     <line x1="12" y1="2" x2="12" y2="6" />
@@ -138,16 +154,29 @@ const IconSpinner = () => (
   </svg>
 );
 
+/**
+ * One export this browser session actually performed.
+ *
+ * Provenance: created only inside `recordExport`, after a real export blob has
+ * come back from the API and been handed to the browser. `user` is the
+ * signed-in actor from the auth store, `iso` is this client's clock at the
+ * moment of the download, `sizeBytes` is the byte length of the blob the
+ * server returned.
+ *
+ * This is NOT an export journal: the backend does not record repository
+ * exports as resources (docs/admin-data-integrity-inventory.md section 7.5),
+ * so the list covers the current session only and the UI says so. It is never
+ * seeded.
+ */
 interface ExportHistoryItem {
   id: string;
-  dateDisplay: string;
+  iso: string;
   user: string;
   format: string;
   scope: string;
-  size: string;
-  status: "COMPLETED" | "RUNNING" | "FAILED";
-  blob?: Blob;
-  filename?: string;
+  sizeBytes: number;
+  filename: string;
+  blob: Blob;
 }
 
 export default function DiffusionPage() {
@@ -161,6 +190,13 @@ export default function DiffusionPage() {
     enabled: !isLoading && !forbidden,
   });
   const stats = statsQuery.data;
+
+  // Campaigns query
+  const campaignsQuery = useQuery({
+    queryKey: ["campaigns", "all"],
+    queryFn: () => listCampaigns(),
+    enabled: !isLoading && !forbidden,
+  });
 
   // Export formats
   const [selectedFormat, setSelectedFormat] = useState<".sav" | ".csv" | ".xlsx">(".sav");
@@ -177,7 +213,15 @@ export default function DiffusionPage() {
   ]);
 
   // Dropdown states
-  const [selectedCampaign, setSelectedCampaign] = useState("2026-T1");
+  const [selectedCampaign, setSelectedCampaign] = useState("");
+
+  useMemo(() => {
+    if (campaignsQuery.data && campaignsQuery.data.length > 0 && !selectedCampaign) {
+      const active = campaignsQuery.data.find((c) => c.status === "ACTIVE");
+      setSelectedCampaign(active?.code || active?.name || campaignsQuery.data[0].code || campaignsQuery.data[0].name || "");
+    }
+  }, [campaignsQuery.data, selectedCampaign]);
+
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("APPROVED");
 
@@ -191,72 +235,71 @@ export default function DiffusionPage() {
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Initial history strictly matching Figma donnees/exports.png
-  const [history, setHistory] = useState<ExportHistoryItem[]>([
-    {
-      id: "figma-1",
-      dateDisplay: "26/10/2026 14:32",
-      user: "M. Ewane (Superviseur)",
-      format: "SPSS .SAV",
-      scope: "Données filtrées (Littoral)",
-      size: "2.4 MB",
-      status: "COMPLETED",
-    },
-    {
-      id: "figma-2",
-      dateDisplay: "25/10/2026 09:15",
-      user: "Dr. Fonkou Lucas",
-      format: "SPSS .SAV",
-      scope: "Base Complète (12,847)",
-      size: "14.8 MB",
-      status: "COMPLETED",
-    },
-    {
-      id: "figma-3",
-      dateDisplay: "24/10/2026 17:44",
-      user: "Marie-Thérèse Abena",
-      format: "Excel .XLSX",
-      scope: "Données filtrées (Ouest)",
-      size: "1.1 MB",
-      status: "COMPLETED",
-    },
-    {
-      id: "figma-4",
-      dateDisplay: "Juste maintenant",
-      user: "M. Ewane (Superviseur)",
-      format: "SPSS .SAV",
-      scope: "Données filtrées (Extrême-Nord)",
-      size: "--",
-      status: "RUNNING",
-    },
-  ]);
+  // Export list for THIS session only. Never seeded: the backend keeps no
+  // export journal, so a pre-filled list would be invented history.
+  const [history, setHistory] = useState<ExportHistoryItem[]>([]);
 
-  // Derived metrics from real stats
-  const totalSubmissions =
-    stats?.totals?.onefopSubmissions ??
-    stats?.totals?.declarations ??
-    stats?.totalOnefopSubmissions ??
-    stats?.totalDeclarations ??
-    12847;
+  const schemaQuery = useOnefopSchema();
 
-  const approvedCount =
-    getStatusCount(stats?.onefopByStatus, ["APPROVED"]) ??
-    getStatusCount(stats?.declarationsByStatus, ["APPROVED", "CENTRAL_APPROVED"]) ??
-    10128;
+  /**
+   * Repository KPIs.
+   *
+   * Source: GET /data-management/stats (DataManagementService.getDataStats).
+   * Fields: totals.onefopSubmissions, onefopByStatus[APPROVED |
+   * PENDING_REVIEW | REJECTED].
+   *
+   * That endpoint applies no territorial filter. It is only truthful here
+   * because this screen is guarded to DATA_ROLES (super-admins, CENTRAL,
+   * DATA_MANAGER, ANALYST) - all national-scope roles. Do not reuse it on a
+   * screen reachable by REGIONAL or DIVISIONAL.
+   *
+   * `null` means "not retrieved" and renders as an em dash. It is never
+   * replaced by a stand-in, and 0 is reported as 0.
+   */
+  const totalSubmissions: number | null =
+    stats?.totals?.onefopSubmissions ?? stats?.totalOnefopSubmissions ?? null;
 
-  const pendingCount =
-    getStatusCount(stats?.onefopByStatus, ["PENDING_REVIEW"]) ??
-    getStatusCount(stats?.declarationsByStatus, ["PENDING", "SUBMITTED"]) ??
-    2156;
+  const approvedCount = getStatusCount(stats?.onefopByStatus, ["APPROVED"]);
+  const pendingCount = getStatusCount(stats?.onefopByStatus, ["PENDING_REVIEW"]);
+  const rejectedCount = getStatusCount(stats?.onefopByStatus, ["REJECTED"]);
 
-  const rejectedCount =
-    getStatusCount(stats?.onefopByStatus, ["REJECTED"]) ??
-    getStatusCount(stats?.declarationsByStatus, ["REJECTED"]) ??
-    563;
+  // One scoped count per employer type. `total` from each response is the
+  // count of the whole filtered query, so summing them counts real dossiers,
+  // not the rows that happen to be on a page.
+  const typeTotals = useQueries({
+    queries: BREAKDOWN_FORM_TYPES.map((formType) => ({
+      queryKey: ["admin", "questionnaires", "total", formType],
+      queryFn: () => listAdminQuestionnaires({ formType, limit: 1 }),
+      enabled: !isLoading && !forbidden,
+    })),
+  });
 
-  const approvedRate = totalSubmissions > 0 ? ((approvedCount / totalSubmissions) * 100).toFixed(1) : "78.8";
-  const pendingRate = totalSubmissions > 0 ? ((pendingCount / totalSubmissions) * 100).toFixed(1) : "16.7";
-  const rejectedRate = totalSubmissions > 0 ? ((rejectedCount / totalSubmissions) * 100).toFixed(1) : "4.3";
+  const typeBreakdownState = resolveDataState({
+    isLoading: typeTotals.some((q) => q.isLoading),
+    isError: typeTotals.some((q) => q.isError),
+    error: typeTotals.find((q) => q.isError)?.error,
+  });
+
+  const typeTotalsKey = typeTotals.map((q) => q.data?.total ?? "").join("|");
+  const typeBreakdown = useMemo(() => {
+    const rows = BREAKDOWN_FORM_TYPES.map((formType, i) => ({
+      formType,
+      label: entityTypeLabel(formType),
+      total: typeTotals[i].data?.total ?? null,
+    }));
+    const sum = rows.reduce((acc, r) => acc + (r.total ?? 0), 0);
+    return rows
+      .map((r) => ({ ...r, share: rate(r.total, sum) }))
+      .sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeTotalsKey]);
+
+  // Derived exclusively from the two backend values above, over the same
+  // server-side scope. null whenever either operand is missing or the
+  // denominator is 0 - the UI then renders an em dash, never an estimate.
+  const approvedRate = rate(approvedCount, totalSubmissions);
+  const pendingRate = rate(pendingCount, totalSubmissions);
+  const rejectedRate = rate(rejectedCount, totalSubmissions);
 
   const { regions: territoryRegions } = useTerritoryRegions();
   const CAMEROON_REGIONS = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
@@ -316,114 +359,116 @@ export default function DiffusionPage() {
   };
 
   const recordExport = (format: string, blob: Blob, filename: string) => {
-    const sizeMb = (blob.size / (1024 * 1024)).toFixed(1);
-    const now = new Date();
-    const dateFormatted = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    // Describes the filter the actor actually sent to the server, not a row
+    // count: the exported record count is not returned with the blob, so
+    // claiming one here would be invented.
+    const scopeDesc =
+      selectedRegion !== "Toutes"
+        ? `Périmètre filtré — région ${selectedRegion}`
+        : scopeMode === "all"
+          ? "Périmètre complet autorisé"
+          : `Campagne ${selectedCampaign}`;
 
-    const scopeDesc = selectedRegion !== "Toutes"
-      ? `Données filtrées (${selectedRegion})`
-      : scopeMode === "all"
-      ? `Base Complète (${totalSubmissions.toLocaleString("fr-FR")})`
-      : `Campagne ${selectedCampaign}`;
+    const actorName = user
+      ? [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email
+      : NOT_PROVIDED;
 
-    const item: ExportHistoryItem = {
-      id: "hist-" + Date.now(),
-      dateDisplay: dateFormatted,
-      user: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email : "M. Ewane (Superviseur)",
-      format: format === ".sav" ? "SPSS .SAV" : format === ".csv" ? "CSV" : "Excel .XLSX",
-      scope: scopeDesc,
-      size: sizeMb === "0.0" ? `${(blob.size / 1024).toFixed(0)} KB` : `${sizeMb} MB`,
-      status: "COMPLETED",
-      blob,
-      filename,
-    };
-    setHistory((prev) => [item, ...prev]);
+    setHistory((prev) => [
+      {
+        id: `hist-${Date.now()}`,
+        iso: new Date().toISOString(),
+        user: actorName,
+        format: format === ".sav" ? "SPSS .SAV" : format === ".csv" ? "CSV" : "Excel .XLSX",
+        scope: scopeDesc,
+        sizeBytes: blob.size,
+        filename,
+        blob,
+      },
+      ...prev,
+    ]);
   };
 
+  /**
+   * Downloads the SPSS syntax the server generated for the current filters.
+   *
+   * Source: POST /data-management/export/submissions/spss/manifest -> { sps }.
+   * The syntax describes the variable dictionary of the real extract, so it is
+   * never substituted: a hand-written codebook would mislabel the data it
+   * claims to describe.
+   */
+  const downloadCodebook = async (filename: string) => {
+    const manifest = await getSpssManifest(currentFilters);
+    if (!manifest?.sps) {
+      setErrorAlert("Le serveur n'a pas fourni de syntaxe SPSS pour ce périmètre.");
+      return;
+    }
+    triggerFileDownload(new Blob([manifest.sps], { type: "text/plain;charset=utf-8" }), filename);
+  };
+
+  /**
+   * Launches the export the actor configured.
+   *
+   * There is no fallback payload. If the server cannot produce the extract the
+   * real error is surfaced and nothing is downloaded - handing someone a
+   * synthesised file that looks like an official extract is the worst failure
+   * mode available to a statistical register.
+   */
   const handleLaunchExport = async () => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const plan = {
+      ".sav": { download: downloadSpssSavBlob, ext: "sav", label: "Fichier SPSS (.sav)" },
+      ".csv": { download: downloadSpssCsvBlob, ext: "csv", label: "Fichier CSV (.csv)" },
+      ".xlsx": { download: downloadExcelWorkbookBlob, ext: "xlsx", label: "Classeur Excel (.xlsx)" },
+    }[selectedFormat];
+
     try {
       setIsExporting(true);
       setErrorAlert(null);
 
-      const timestamp = new Date().toISOString().slice(0, 10);
-
-      if (selectedFormat === ".sav") {
-        let blob = await downloadSpssSavBlob(currentFilters).catch(() => null);
-        if (!blob || blob.size === 0) {
-          const mockContent = `SPSS SAV BINARY EXPORT — ONEFOP NATIONAL REPOSITORY 2026\nCampaign: ${selectedCampaign}\nRecords: ${totalSubmissions}\nDate: ${new Date().toISOString()}`;
-          blob = new Blob([mockContent], { type: "application/x-spss-sav" });
-        }
-        const filename = `onefop_export_${selectedCampaign}_${timestamp}.sav`;
-        triggerFileDownload(blob, filename);
-        recordExport(".sav", blob, filename);
-        showSuccess("Fichier SPSS (.sav) téléchargé avec succès.");
-      } else if (selectedFormat === ".csv") {
-        let blob = await downloadSpssCsvBlob(currentFilters).catch(() => null);
-        if (!blob || blob.size === 0) {
-          const csvContent = "NIU,RAISON_SOCIALE,REGION,TYPE_EMPLOYEUR,EFFECTIF_TOTAL,STATUT\nCMR-001,SOSUCAM,Centre,ENTREPRISE,1420,APPROVED\nCMR-002,ALUCAM,Littoral,ENTREPRISE,890,APPROVED";
-          blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-        }
-        const filename = `onefop_export_${selectedCampaign}_${timestamp}.csv`;
-        triggerFileDownload(blob, filename);
-        recordExport(".csv", blob, filename);
-        showSuccess("Fichier CSV (.csv) téléchargé avec succès.");
-      } else {
-        let blob = await downloadExcelWorkbookBlob(currentFilters).catch(() => null);
-        if (!blob || blob.size === 0) {
-          const xlsxHeader = "EXCEL_WORKBOOK_ONEFOP_2026";
-          blob = new Blob([xlsxHeader], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        }
-        const filename = `onefop_export_${selectedCampaign}_${timestamp}.xlsx`;
-        triggerFileDownload(blob, filename);
-        recordExport(".xlsx", blob, filename);
-        showSuccess("Classeur Excel (.xlsx) téléchargé avec succès.");
+      const blob = await plan.download(currentFilters);
+      if (blob.size === 0) {
+        setErrorAlert(
+          "Le serveur a renvoyé un fichier vide : aucun enregistrement ne correspond au périmètre demandé, ou l'extraction a échoué côté serveur. Aucun fichier n'a été téléchargé.",
+        );
+        return;
       }
 
-      // If codebook was checked and format is SPSS .sav
+      const filename = `onefop_export_${selectedCampaign}_${timestamp}.${plan.ext}`;
+      triggerFileDownload(blob, filename);
+      recordExport(selectedFormat, blob, filename);
+      showSuccess(`${plan.label} téléchargé avec succès.`);
+
       if (includeCodebook && selectedFormat === ".sav") {
-        setTimeout(async () => {
-          try {
-            const manifest = await getSpssManifest(currentFilters).catch(() => null);
-            const syntaxContent = manifest?.sps || `* SPSS Syntax Codebook 2026.\nVARIABLE LABELS\n  NIU 'Numéro Identifiant Unique'\n  EFFECTIF 'Effectif Total'.\nEXECUTE.`;
-            const spsBlob = new Blob([syntaxContent], { type: "text/plain;charset=utf-8" });
-            triggerFileDownload(spsBlob, `onefop_codebook_${selectedCampaign}_${timestamp}.sps`);
-          } catch {
-            // safe ignore
-          }
-        }, 800);
+        await downloadCodebook(`onefop_codebook_${selectedCampaign}_${timestamp}.sps`);
       }
-    } catch (err: any) {
-      setErrorAlert("Erreur lors de l'export : " + (err.message || "Vérifiez les paramètres de diffusion."));
+    } catch (err: unknown) {
+      setErrorAlert(
+        `L'export n'a pas pu être généré : ${err instanceof Error ? err.message : "erreur inconnue"}. Aucun fichier n'a été téléchargé.`,
+      );
     } finally {
       setIsExporting(false);
     }
   };
 
-  // Specific Codebook download actions
+  /**
+   * The documentation downloads offered next to the export.
+   *
+   * Only the SPSS syntax has an authoritative source. The variable dictionary
+   * and the CNAE/FAP recoding guide have none
+   * (docs/admin-data-integrity-inventory.md section 7), so they are not
+   * offered: a hand-written dictionary shipped under an official filename
+   * would be read as the register's real metadata.
+   */
   const handleDownloadCodebookSps = async () => {
     try {
-      const manifest = await getSpssManifest(currentFilters).catch(() => null);
-      const syntax = manifest?.sps || `* ONEFOP Dictionnaire de Données v2.4 (SPSS Statistics 25+).\n* Enquête Nationale sur l'Emploi et la Main d'Oeuvre.\nVARIABLE LABELS\n  ID 'Identifiant Déclaration'\n  NIU 'Numéro d\\'Identifiant Unique'\n  REGION 'Région Administrative'\n  DEPARTEMENT 'Département'\n  STATUT 'Statut Visa'.\nVALUE LABELS REGION\n  1 'Centre'\n  2 'Littoral'\n  3 'Ouest'\n  4 'Sud-Ouest'.\nEXECUTE.`;
-      const blob = new Blob([syntax], { type: "text/plain;charset=utf-8" });
-      triggerFileDownload(blob, "onefop_codebook_principal_v2.4.sps");
-      showSuccess("Codebook Principal (.sps) téléchargé avec succès.");
-    } catch {
-      setErrorAlert("Impossible de télécharger le codebook.");
+      setErrorAlert(null);
+      await downloadCodebook("onefop_codebook_principal.sps");
+      showSuccess("Syntaxe SPSS téléchargée avec succès.");
+    } catch (err: unknown) {
+      setErrorAlert(
+        `Impossible de télécharger la syntaxe SPSS : ${err instanceof Error ? err.message : "erreur inconnue"}.`,
+      );
     }
-  };
-
-  const handleDownloadVariablesDict = () => {
-    const dictContent = `ONEFOP / MINEFOP - DICTIONNAIRE DES VARIABLES OFFICIEL (2026)\n\n1. SECTION IDENTIFICATION\n- NIU (String, 14)\n- RAISON_SOCIALE (String, 120)\n- FORME_JURIDIQUE (String, 20)\n\n2. SECTION EMPLOI & EFFECTIFS\n- EFF_HOMMES (Numeric, 6)\n- EFF_FEMMES (Numeric, 6)\n- EFF_TOTAL (Numeric, 6)\n`;
-    const blob = new Blob([dictContent], { type: "application/pdf" });
-    triggerFileDownload(blob, "onefop_dictionnaire_variables.pdf");
-    showSuccess("Dictionnaire des variables téléchargé avec succès.");
-  };
-
-  const handleDownloadRecodeGuide = () => {
-    const recodeSyntax = `* Guide de Recodage des Nomenclatures CNAE et FAP.\nRECODE CNAE (1 thru 5 = 1) (6 thru 12 = 2) (ELSE = 3) INTO SECTEUR_CONSOLIDE.\nVARIABLE LABELS SECTEUR_CONSOLIDE 'Secteur Macro-économique (Primaire, Secondaire, Tertiaire)'.\nEXECUTE.`;
-    const blob = new Blob([recodeSyntax], { type: "text/plain;charset=utf-8" });
-    triggerFileDownload(blob, "onefop_guide_recodage.sps");
-    showSuccess("Guide de recodage téléchargé avec succès.");
   };
 
   if (isLoading) return null;
@@ -480,11 +525,12 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : totalSubmissions.toLocaleString("fr-FR")}
+              {statsQuery.isLoading ? "…" : count(totalSubmissions)}
             </div>
-            <div className="text-xs font-semibold text-emerald-700 mt-2 flex items-center gap-1">
-              <span>↑</span>
-              <span>+14.2% ce mois</span>
+            {/* No month-over-month trend: /data-management/stats returns a
+                single snapshot with no prior period to compare against. */}
+            <div className="text-xs font-semibold text-slate-500 mt-2">
+              Dossiers enregistrés, hors brouillons
             </div>
           </div>
         </div>
@@ -501,10 +547,10 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : approvedCount.toLocaleString("fr-FR")}
+              {statsQuery.isLoading ? "…" : count(approvedCount)}
             </div>
             <div className="text-xs font-semibold text-slate-600 mt-2">
-              {approvedRate}% Taux de validation
+              {percent(approvedRate)} Taux de validation
             </div>
           </div>
         </div>
@@ -521,10 +567,10 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : pendingCount.toLocaleString("fr-FR")}
+              {statsQuery.isLoading ? "…" : count(pendingCount)}
             </div>
             <div className="text-xs font-semibold text-amber-600 mt-2">
-              {pendingRate}% en attente
+              {percent(pendingRate)} en attente
             </div>
           </div>
         </div>
@@ -541,10 +587,10 @@ export default function DiffusionPage() {
           </div>
           <div className="mt-3">
             <div className="text-[32px] font-extrabold tracking-tight text-slate-900 leading-none">
-              {statsQuery.isLoading ? "…" : rejectedCount.toLocaleString("fr-FR")}
+              {statsQuery.isLoading ? "…" : count(rejectedCount)}
             </div>
             <div className="text-xs font-semibold text-rose-600 mt-2">
-              {rejectedRate}% taux de rejet
+              {percent(rejectedRate)} taux de rejet
             </div>
           </div>
         </div>
@@ -662,7 +708,13 @@ export default function DiffusionPage() {
             </div>
             <div className="space-y-2.5">
               {[
-                { id: "all", label: `Toutes les données (${totalSubmissions.toLocaleString("fr-FR")})` },
+                {
+                  id: "all",
+                  label:
+                    totalSubmissions === null
+                      ? "Toutes les données autorisées"
+                      : `Toutes les données autorisées (${count(totalSubmissions)})`,
+                },
                 { id: "campaign", label: "Par campagne" },
                 { id: "region", label: "Par région" },
                 { id: "custom", label: "Sélection personnalisée" },
@@ -761,9 +813,17 @@ export default function DiffusionPage() {
                   onChange={(e) => setSelectedCampaign(e.target.value)}
                   className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                 >
-                  {CAMPAIGN_OPTIONS.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
+                  {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
+                    campaignsQuery.data.map((c) => (
+                      <option key={c.id} value={c.code || c.name || c.id}>
+                        {c.name || c.code || c.id}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">
+                      {campaignsQuery.isLoading ? "Chargement…" : "Aucune campagne enregistrée"}
+                    </option>
+                  )}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
                   <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -908,131 +968,124 @@ export default function DiffusionPage() {
               </p>
             </div>
 
-            {/* Data Volume Stats */}
+            {/* Volume and structure of the dataset.
+                - Total enregistrements: GET /data-management/stats
+                  (totals.onefopSubmissions).
+                - Variables / Sections: the canonical ONEFOP schema served at
+                  /schemas/onefop.schema.json (astTotals.questions /
+                  astTotals.sections), compiled from onefop_ast.dart.
+                "Taille estimée" is not shown: nothing computes the byte size
+                of an extract before it is generated. */}
             <div className="space-y-2.5 text-sm text-slate-600 mb-5">
               <div className="flex items-center justify-between">
                 <span>Total enregistrements</span>
                 <span className="font-bold text-slate-900">
-                  {totalSubmissions.toLocaleString("fr-FR")}
+                  {statsQuery.isLoading ? "…" : count(totalSubmissions)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Variables</span>
-                <span className="font-bold text-slate-900">156</span>
+                <span>Variables au schéma canonique</span>
+                <span className="font-bold text-slate-900">
+                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.questions ?? null)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Sections</span>
-                <span className="font-bold text-slate-900">6</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Taille estimée</span>
-                <span className="font-bold text-slate-900">~48 MB</span>
+                <span>Sections au schéma canonique</span>
+                <span className="font-bold text-slate-900">
+                  {schemaQuery.isLoading ? "…" : count(schemaQuery.data?.astTotals.sections ?? null)}
+                </span>
               </div>
             </div>
 
             <div className="border-t border-slate-100 my-4" />
 
-            {/* Breakdown by Type */}
+            {/* Breakdown by employer type.
+                Source: GET /admin/questionnaires?formType=<T>&limit=1 per
+                type — `total` is the count of the whole filtered query under
+                the caller's server-side scope, not of the returned page.
+                Share = that type's total / the sum of the retrieved totals,
+                rendered only once every query has answered, so a partial load
+                can never produce a wrong share. */}
             <div>
               <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
                 Répartition par type
               </div>
 
-              <div className="space-y-3">
-                {[
-                  { label: "Entreprises", count: "4,200", pct: 33, color: "bg-[#006644]" },
-                  { label: "Coopératives", count: "3,100", pct: 24, color: "bg-[#059669]" },
-                  { label: "Administration", count: "2,800", pct: 22, color: "bg-[#0284c7]" },
-                  { label: "Projets & Prog.", count: "1,600", pct: 12, color: "bg-[#38bdf8]" },
-                  { label: "ASFOP", count: "1,147", pct: 9, color: "bg-[#cbd5e1]" },
-                ].map((row) => (
-                  <div key={row.label} className="flex items-center text-xs">
-                    <span className="w-28 font-medium text-slate-700 shrink-0">
-                      {row.label}
-                    </span>
-                    <div className="flex-1 h-2 rounded-full bg-slate-100 mx-3 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${row.color}`}
-                        style={{ width: `${row.pct * 2.5}%` }}
-                      />
+              {typeBreakdownState !== "ready" ? (
+                <DataState
+                  dense
+                  state={typeBreakdownState}
+                  resource="la répartition par type"
+                  error={typeTotals.find((q) => q.isError)?.error}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {typeBreakdown.map((row) => (
+                    <div key={row.formType} className="flex items-center text-xs">
+                      <span className="w-28 font-medium text-slate-700 shrink-0">
+                        {row.label}
+                      </span>
+                      <div className="flex-1 h-2 rounded-full bg-slate-100 mx-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#006644]"
+                          style={{ width: meterWidth(row.share) }}
+                        />
+                      </div>
+                      <span className="w-12 text-right font-bold text-slate-800 shrink-0">
+                        {count(row.total)}
+                      </span>
                     </div>
-                    <span className="w-12 text-right font-bold text-slate-800 shrink-0">
-                      {row.count}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
-          {/* ── Card 2: Codebooks Disponibles ── */}
+          {/* ── Card 2: Documentation du jeu de données ── */}
           <section
             aria-labelledby="codebooks-heading"
             className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
           >
             <div className="mb-4">
               <h2 id="codebooks-heading" className="text-base font-bold text-slate-900">
-                Codebooks Disponibles
+                Documentation du jeu de données
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Télécharger les référentiels associés au dictionnaire SPSS.
+                Syntaxe générée par le serveur pour le périmètre sélectionné.
               </p>
             </div>
 
             <div className="space-y-3.5 pt-2">
-              {/* Item 1 */}
-              <div
+              {/* Server-generated SPSS syntax — the only documentation
+                  artefact with an authoritative source. Its size is unknown
+                  before the request, so none is claimed. */}
+              <button
+                type="button"
                 onClick={handleDownloadCodebookSps}
-                className="flex items-start gap-3 group cursor-pointer p-1.5 -mx-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                className="w-full text-left flex items-start gap-3 group cursor-pointer p-1.5 -mx-1.5 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 <div className="text-[#006644] mt-0.5 shrink-0 group-hover:scale-105 transition-transform">
                   <IconDownloadTray />
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-slate-800 group-hover:text-[#006644] transition-colors">
-                    Codebook Principal (v2.4)
+                    Syntaxe SPSS du périmètre courant
                   </div>
                   <div className="text-xs text-slate-400 mt-0.5">
-                    .sps &bull; 234 KB
+                    .sps &bull; générée à la demande
                   </div>
                 </div>
-              </div>
+              </button>
+            </div>
 
-              {/* Item 2 */}
-              <div
-                onClick={handleDownloadVariablesDict}
-                className="flex items-start gap-3 group cursor-pointer p-1.5 -mx-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                <div className="text-[#006644] mt-0.5 shrink-0 group-hover:scale-105 transition-transform">
-                  <IconDownloadTray />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-800 group-hover:text-[#006644] transition-colors">
-                    Dictionnaire des Variables
-                  </div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    .pdf &bull; 1.2 MB
-                  </div>
-                </div>
-              </div>
-
-              {/* Item 3 */}
-              <div
-                onClick={handleDownloadRecodeGuide}
-                className="flex items-start gap-3 group cursor-pointer p-1.5 -mx-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                <div className="text-[#006644] mt-0.5 shrink-0 group-hover:scale-105 transition-transform">
-                  <IconDownloadTray />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-800 group-hover:text-[#006644] transition-colors">
-                    Guide de Recodage
-                  </div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    .sps &bull; 89 KB
-                  </div>
-                </div>
-              </div>
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <DataState
+                dense
+                state="unavailable"
+                resource="la documentation de référence"
+                title="Dictionnaire des variables et guide de recodage : non disponibles"
+                hint="Ces référentiels ne sont pas encore produits par le système. Ils seront proposés ici dès qu'un service les générera à partir du schéma canonique ONEFOP."
+              />
             </div>
           </section>
 
@@ -1044,94 +1097,74 @@ export default function DiffusionPage() {
         aria-labelledby="recent-exports-heading"
         className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 id="recent-exports-heading" className="text-base font-bold text-slate-900">
-            Historique des Exports Récents
+            Exports de cette session
           </h2>
-          <button
-            type="button"
-            onClick={() => {
-              statsQuery.refetch();
-              showSuccess("Registre d'exports actualisé.");
-            }}
-            className="text-xs font-semibold text-[#006644] hover:underline flex items-center gap-1.5 cursor-pointer"
-          >
-            <IconRefresh />
-            <span>Rafraîchir le registre</span>
-          </button>
+          {/* Scope stated plainly: the backend keeps no export journal, so
+              this list cannot claim to be one. */}
+          <p className="text-xs text-slate-500 mt-0.5">
+            Extractions lancées depuis cet onglet. Le système ne conserve pas
+            d&apos;historique d&apos;export côté serveur : cette liste est vidée à la
+            fermeture de la page.
+          </p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
-                <th className="py-3 px-3">Date &amp; Heure</th>
-                <th className="py-3 px-3">Utilisateur</th>
-                <th className="py-3 px-3">Format</th>
-                <th className="py-3 px-3">Périmètre</th>
-                <th className="py-3 px-3">Taille</th>
-                <th className="py-3 px-3">Statut</th>
-                <th className="py-3 px-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
-              {history.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                    {row.dateDisplay}
-                  </td>
-                  <td className="py-3.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                    {row.user}
-                  </td>
-                  <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
-                    {row.format}
-                  </td>
-                  <td className="py-3.5 px-3 text-slate-600 whitespace-nowrap">
-                    {row.scope}
-                  </td>
-                  <td className="py-3.5 px-3 text-slate-600 whitespace-nowrap">
-                    {row.size}
-                  </td>
-                  <td className="py-3.5 px-3 whitespace-nowrap">
-                    {row.status === "COMPLETED" ? (
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
-                        <IconCheckCircle />
-                        <span>Terminé</span>
-                      </span>
-                    ) : row.status === "RUNNING" ? (
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-amber-600">
-                        <IconSpinner />
-                        <span>En cours</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-rose-600">
-                        <IconXCircle />
-                        <span>Échec</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (row.blob && row.filename) {
-                          triggerFileDownload(row.blob, row.filename);
-                        } else {
-                          handleLaunchExport();
-                        }
-                      }}
-                      disabled={row.status === "RUNNING"}
-                      aria-label={`Télécharger ${row.format}`}
-                      className="text-slate-600 hover:text-[#006644] p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <IconDownloadTray />
-                    </button>
-                  </td>
+        {history.length === 0 ? (
+          <DataState
+            state="empty"
+            resource="les exports de cette session"
+            title="Aucun export lancé depuis cette page"
+            hint="Les extractions que vous générerez apparaîtront ici, avec leur périmètre et leur taille réelle, le temps de la session."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 tracking-wider">
+                  <th className="py-3 px-3">Date &amp; Heure</th>
+                  <th className="py-3 px-3">Utilisateur</th>
+                  <th className="py-3 px-3">Format</th>
+                  <th className="py-3 px-3">Périmètre</th>
+                  <th className="py-3 px-3">Taille</th>
+                  <th className="py-3 px-3 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
+                {history.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
+                      {stamp(row.iso)}
+                    </td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                      {row.user}
+                    </td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                      {row.format}
+                    </td>
+                    <td className="py-3.5 px-3 text-slate-600 whitespace-nowrap">
+                      {row.scope}
+                    </td>
+                    {/* Real byte length of the blob the server returned. */}
+                    <td className="py-3.5 px-3 text-slate-600 whitespace-nowrap">
+                      {formatBytes(row.sizeBytes)}
+                    </td>
+                    <td className="py-3.5 px-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => triggerFileDownload(row.blob, row.filename)}
+                        aria-label={`Télécharger à nouveau ${row.filename}`}
+                        className="text-slate-600 hover:text-[#006644] p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <IconDownloadTray />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
     </div>
