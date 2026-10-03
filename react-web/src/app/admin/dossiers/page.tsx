@@ -187,6 +187,21 @@ const FIGMA_DOSSIERS: DossierItem[] = [
 ];
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
+// Region names, used both by the filter dropdown and to validate ?region=.
+// Still a hardcoded list rather than GET /locations — see T-8 in
+// docs/audit/territorial-supervision-2026-10-02.md.
+const REGION_VALUES = [
+  "Adamaoua",
+  "Centre",
+  "Est",
+  "Extrême-Nord",
+  "Littoral",
+  "Nord",
+  "Nord-Ouest",
+  "Ouest",
+  "Sud",
+  "Sud-Ouest",
+];
 const PAGE_SIZE = 10;
 
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
@@ -223,12 +238,19 @@ function DossiersContent() {
   // the last keystroke (each request runs a multi-column contains query).
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [regionFilter, setRegionFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  const requestedStatus = useSearchParams().get("status") ?? "";
+  const urlParams = useSearchParams();
+  const requestedStatus = urlParams.get("status") ?? "";
+  // ?region= lets the supervision tables deep-link a territorial count into
+  // the dossiers it is made of (counts -> list -> dossier). Same contract as
+  // ?status=: an unrecognised value is ignored rather than narrowing to
+  // nothing. The server applies the filter either way, so this only
+  // pre-selects the dropdown; it grants no extra visibility.
+  const requestedRegion = urlParams.get("region") ?? "";
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
+  const [regionFilter, setRegionFilter] = useState(REGION_VALUES.includes(requestedRegion) ? requestedRegion : "");
 
   useEffect(() => {
     if (requestedStatus && STATUS_VALUES.includes(requestedStatus)) {
@@ -239,6 +261,12 @@ function DossiersContent() {
       setOffset(0);
     }
   }, [requestedStatus]);
+
+  // No URL-sync effect for region, unlike ?status= above: the drill-down
+  // always arrives from another route (/admin/cibles, /admin/pilotage), so
+  // this component mounts fresh and the initialiser above is enough. Adding a
+  // second setState-in-effect would duplicate a pattern eslint already flags
+  // on the status one.
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -616,7 +644,7 @@ function DossiersContent() {
               onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
             >
               <option value="">Toutes les Régions</option>
-              {["Adamaoua", "Centre", "Est", "Extrême-Nord", "Littoral", "Nord", "Nord-Ouest", "Ouest", "Sud", "Sud-Ouest"].map((r) => (
+              {REGION_VALUES.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
