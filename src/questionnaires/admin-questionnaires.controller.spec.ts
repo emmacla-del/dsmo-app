@@ -5,7 +5,7 @@ import { buildAdminListWhere } from './admin-list-filter';
 
 type ListArgs = {
   status?: string; limit?: string; offset?: string; region?: string;
-  search?: string; formType?: string; period?: string;
+  search?: string; formType?: string; period?: string; companyId?: string;
 };
 
 describe('AdminQuestionnairesController.getAll — list params', () => {
@@ -13,7 +13,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   let controller: AdminQuestionnairesController;
   const req = { user: { id: 'a1', role: 'REGIONAL', region: 'Littoral' } };
   const getAll = (a: ListArgs = {}) =>
-    controller.getAll(a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period, req);
+    controller.getAll(a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period, a.companyId, req);
 
   beforeEach(() => {
     service = { listForAdmin: jest.fn(async () => ({ items: [], total: 0 })) };
@@ -30,10 +30,10 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
   it('parses string query params and passes every filter through', async () => {
     await getAll({
       status: 'APPROVED', limit: '10', offset: '30', region: ' Centre ', search: ' mbarga ',
-      formType: 'COOPERATIVE', period: '30d',
+      formType: 'COOPERATIVE', period: '30d', companyId: 'comp-1',
     });
     expect(service.listForAdmin).toHaveBeenCalledWith(
-      { status: 'APPROVED', formType: 'COOPERATIVE', period: '30d', region: 'Centre', search: 'mbarga', limit: 10, offset: 30 },
+      { status: 'APPROVED', formType: 'COOPERATIVE', period: '30d', region: 'Centre', search: 'mbarga', companyId: 'comp-1', limit: 10, offset: 30 },
       expect.objectContaining({ role: 'REGIONAL', region: 'Littoral' }),
     );
   });
