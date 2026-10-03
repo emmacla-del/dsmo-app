@@ -5,31 +5,34 @@ import { Territory, assertTerritorialAuthority } from './territory';
  * Which staff accounts an administrator may see and manage through the
  * /auth/users* endpoints.
  *
- * SUPER_ADMIN is unrestricted. SUPER_ADMIN_ONEFOP manages ONEFOP personnel
- * only: it can list, approve, reject, suspend, reactivate, delete and
- * re-role accounts whose role is one of ONEFOP_STAFF_ROLES, and can only
- * assign those roles — so it can never reach, create or grant an
- * administrator (SUPER_ADMIN*) account, nor touch COMPANY accounts.
- * Staff accounts carry no DSMO/ONEFOP stream in the schema, so the ONEFOP
- * personnel set is defined by role.
+ * SUPER_ADMIN is unrestricted. ADMIN_ONEFOP manages ONEFOP personnel only:
+ * it can list, approve, reject, suspend, reactivate, delete and re-role
+ * accounts whose role is one of ONEFOP_STAFF_ROLES, and can only assign
+ * those roles — so it can never reach, create or grant a SUPER_ADMIN
+ * account, nor touch COMPANY accounts. Staff accounts carry no DSMO/ONEFOP
+ * stream in the schema, so the ONEFOP personnel set is defined by role.
+ *
+ * ADMIN_ONEFOP is deliberately NOT in ONEFOP_STAFF_ROLES, although the
+ * role_model_refactor collapse folded four managed roles (CENTRAL,
+ * DATA_MANAGER, CAMPAIGN_MANAGER, ANALYST) into it alongside the former
+ * manager SUPER_ADMIN_ONEFOP. Including it would let an ADMIN_ONEFOP
+ * re-role, suspend, delete and grant its own rank — a self-escalation the
+ * eleven-value model prevented by keeping the manager outside the managed
+ * set. Only SUPER_ADMIN may create or re-role an ADMIN_ONEFOP.
  */
 export const ONEFOP_STAFF_ROLES = [
-  'CENTRAL',
-  'REGIONAL',
-  'DIVISIONAL',
-  'DATA_MANAGER',
-  'CAMPAIGN_MANAGER',
-  'ANALYST',
+  'REGIONAL_ADMIN',
+  'DIVISIONAL_ADMIN',
   'AUDITOR',
 ] as const;
 
 /** Roles allowed on the user-management endpoints (checked by RolesGuard). */
-export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP'] as const;
+export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
 
 /** null = unrestricted; otherwise the only target roles the actor may manage. */
 export function manageableRolesFor(actorRole: string | undefined): readonly string[] | null {
   if (actorRole === 'SUPER_ADMIN') return null;
-  if (actorRole === 'SUPER_ADMIN_ONEFOP') return ONEFOP_STAFF_ROLES;
+  if (actorRole === 'ADMIN_ONEFOP') return ONEFOP_STAFF_ROLES;
   return [];
 }
 
@@ -46,17 +49,17 @@ export function assertCanManageRole(actorRole: string | undefined, targetRole: s
  * USER_ADMIN_ROLES or manageableRolesFor: these roles get no other user
  * management power (list, suspend, delete, re-role).
  */
-export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL', 'DIVISIONAL'] as const;
+export const TERRITORIAL_APPROVER_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'] as const;
 
 /**
  * Authorization for PATCH /auth/approve-user/:id and /auth/reject-user/:id.
  *
- * - REGIONAL / DIVISIONAL: the target must be ONEFOP staff AND inside the
- *   actor's region (REGIONAL) or region + department (DIVISIONAL), checked
- *   by assertTerritorialAuthority. A target with no region/department
- *   fails closed.
+ * - REGIONAL_ADMIN / DIVISIONAL_ADMIN: the target must be ONEFOP staff AND
+ *   inside the actor's region (REGIONAL_ADMIN) or region + department
+ *   (DIVISIONAL_ADMIN), checked by assertTerritorialAuthority. A target
+ *   with no region/department fails closed.
  * - Every other role: the existing assertCanManageRole rule (SUPER_ADMIN
- *   unrestricted, SUPER_ADMIN_ONEFOP limited to ONEFOP staff, anyone else
+ *   unrestricted, ADMIN_ONEFOP limited to ONEFOP staff, anyone else
  *   refused).
  */
 export function assertCanApproveRegistration(

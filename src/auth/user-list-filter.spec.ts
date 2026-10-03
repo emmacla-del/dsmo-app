@@ -7,27 +7,27 @@ describe('buildUserListWhere', () => {
   });
 
   it('keeps the legacy single-role filter', () => {
-    expect(buildUserListWhere({ role: 'REGIONAL' }).role).toEqual({ in: ['REGIONAL'] });
+    expect(buildUserListWhere({ role: 'REGIONAL_ADMIN' }).role).toEqual({ in: ['REGIONAL_ADMIN'] });
   });
 
   it('accepts a comma-separated role list', () => {
     expect(buildUserListWhere({ roles: 'REGIONAL, DIVISIONAL' }).role).toEqual({
-      in: ['REGIONAL', 'DIVISIONAL'],
+      in: ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'],
     });
   });
 
   it('intersects role and roles instead of widening', () => {
-    expect(buildUserListWhere({ roles: 'REGIONAL,DIVISIONAL', role: 'CENTRAL' }).role).toEqual({
+    expect(buildUserListWhere({ roles: 'REGIONAL,DIVISIONAL', role: 'ADMIN_ONEFOP' }).role).toEqual({
       in: [],
     });
-    expect(buildUserListWhere({ roles: 'REGIONAL,DIVISIONAL', role: 'REGIONAL' }).role).toEqual({
-      in: ['REGIONAL'],
+    expect(buildUserListWhere({ roles: 'REGIONAL,DIVISIONAL', role: 'REGIONAL_ADMIN' }).role).toEqual({
+      in: ['REGIONAL_ADMIN'],
     });
   });
 
   it('never lists COMPANY accounts even when asked explicitly', () => {
     expect(buildUserListWhere({ role: 'COMPANY' }).role).toEqual({ in: [] });
-    expect(buildUserListWhere({ roles: 'COMPANY,CENTRAL' }).role).toEqual({ in: ['CENTRAL'] });
+    expect(buildUserListWhere({ roles: 'COMPANY,CENTRAL' }).role).toEqual({ in: ['ADMIN_ONEFOP'] });
   });
 
   it('rejects unknown roles with a 400', () => {

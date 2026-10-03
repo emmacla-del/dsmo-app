@@ -6,17 +6,17 @@ import { UserRole } from '../types/prisma.types';
 import { PILOTAGE_READ_ROLES, PILOTAGE_WRITE_ROLES, PilotageController } from './pilotage.controller';
 
 const ENUM_ROLES = [
-  'ANALYST',
+  'ADMIN_ONEFOP',
   'AUDITOR',
-  'CAMPAIGN_MANAGER',
-  'CENTRAL',
+  'ADMIN_ONEFOP',
+  'ADMIN_ONEFOP',
   'COMPANY',
-  'DATA_MANAGER',
-  'DIVISIONAL',
-  'REGIONAL',
+  'ADMIN_ONEFOP',
+  'DIVISIONAL_ADMIN',
+  'REGIONAL_ADMIN',
   'SUPER_ADMIN',
-  'SUPER_ADMIN_DSMO',
-  'SUPER_ADMIN_ONEFOP',
+  'SUPER_ADMIN',
+  'ADMIN_ONEFOP',
 ];
 
 function contextFor(handler: Function, role: string): ExecutionContext {
@@ -49,11 +49,11 @@ describe('PilotageController roles', () => {
       ['putInscriptionTargets', write],
       ['putCampaignQuotas', write],
     ] as const;
-    expect(write.has(UserRole.CENTRAL)).toBe(true);
+    expect(write.has(UserRole.ADMIN_ONEFOP)).toBe(true);
     expect(write.has(UserRole.SUPER_ADMIN)).toBe(true);
-    expect(write.has(UserRole.SUPER_ADMIN_ONEFOP)).toBe(true);
-    expect(read.has(UserRole.REGIONAL)).toBe(true);
-    expect(read.has(UserRole.DIVISIONAL)).toBe(true);
+    expect(write.has(UserRole.ADMIN_ONEFOP)).toBe(true);
+    expect(read.has(UserRole.REGIONAL_ADMIN)).toBe(true);
+    expect(read.has(UserRole.DIVISIONAL_ADMIN)).toBe(true);
 
     for (const [name, allowed] of handlers) {
       const handler = PilotageController.prototype[name];
@@ -64,7 +64,7 @@ describe('PilotageController roles', () => {
   });
 
   it('blocks REGIONAL and DIVISIONAL with 403 on a PUT with clear', async () => {
-    for (const role of [UserRole.REGIONAL, UserRole.DIVISIONAL]) {
+    for (const role of [UserRole.REGIONAL_ADMIN, UserRole.DIVISIONAL_ADMIN]) {
       await expect(
         guard.canActivate(contextFor(PilotageController.prototype.putInscriptionTargets, role)),
       ).resolves.toBe(false);

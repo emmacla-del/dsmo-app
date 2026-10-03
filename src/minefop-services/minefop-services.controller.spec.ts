@@ -69,7 +69,7 @@ describe('MinefopServicesController security & guards', () => {
       expect(guards).toContain(ActiveCompanyGuard);
 
       const roles = Reflect.getMetadata('roles', fn) || [];
-      expect(roles).toEqual([UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP]);
+      expect(roles).toEqual([UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP]);
     });
   });
 
@@ -97,7 +97,7 @@ describe('MinefopServicesController security & guards', () => {
 
     it('rejects CENTRAL role with 403 on RolesGuard', async () => {
       const ctx = createMockExecutionContext(controller.createService, {
-        role: UserRole.CENTRAL,
+        role: UserRole.ADMIN_ONEFOP,
         status: UserStatus.ACTIVE,
         isActive: true,
       });
@@ -108,7 +108,7 @@ describe('MinefopServicesController security & guards', () => {
 
     it('allows SUPER_ADMIN_ONEFOP to pass both RolesGuard and ActiveCompanyGuard', async () => {
       const ctx = createMockExecutionContext(controller.createService, {
-        role: UserRole.SUPER_ADMIN_ONEFOP,
+        role: UserRole.ADMIN_ONEFOP,
         status: UserStatus.ACTIVE,
         isActive: true,
       });

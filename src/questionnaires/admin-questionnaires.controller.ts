@@ -46,7 +46,7 @@ function optionalText(raw: unknown): string | undefined {
 
 @Controller('admin/questionnaires')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+@Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
 export class AdminQuestionnairesController {
   constructor(
     private readonly service: QuestionnairesService,

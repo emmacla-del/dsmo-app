@@ -3,9 +3,9 @@ import { UserRole } from '@prisma/client';
 
 /**
  * Geographic jurisdiction of a staff account. Administrative boundaries are
- * a security boundary: REGIONAL agents only see and act on their region,
- * DIVISIONAL agents on their department; SUPER_ADMIN, SUPER_ADMIN_ONEFOP
- * and CENTRAL are national.
+ * a security boundary: REGIONAL_ADMIN agents only see and act on their
+ * region, DIVISIONAL_ADMIN agents on their department; SUPER_ADMIN and
+ * ADMIN_ONEFOP are national.
  */
 export interface Territory {
   role?: string | null;
@@ -15,20 +15,25 @@ export interface Territory {
   departmentId?: string | null;
 }
 
-const NATIONAL_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL];
+const NATIONAL_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP];
 
 /**
  * Roles with national scope on the ONEFOP statistical exports only
  * (role-decisions D7). Deliberately separate from NATIONAL_ROLES, which also
  * drives assertTerritorialAuthority: these roles must not gain national
  * write scope (visa, reject, anomaly resolution) through this list.
+ *
+ * NOTE (role_model_refactor): the three roles that made this list wider than
+ * NATIONAL_ROLES — SUPER_ADMIN_DSMO, DATA_MANAGER, ANALYST — now map onto
+ * SUPER_ADMIN / ADMIN_ONEFOP, which are already national here. The two lists
+ * are consequently identical and D7 draws no distinction under the six-value
+ * model. The seam is kept (rather than collapsed into NATIONAL_ROLES) so a
+ * future read-only national role can be added here without also granting
+ * national write scope. The read-only national scope DATA_MANAGER and
+ * ANALYST used to have was intentionally absorbed into ADMIN_ONEFOP's write
+ * scope by that collapse — this is a ruled decision, not an oversight.
  */
-const EXPORT_NATIONAL_ROLES: string[] = [
-  ...NATIONAL_ROLES,
-  UserRole.SUPER_ADMIN_DSMO,
-  UserRole.DATA_MANAGER,
-  UserRole.ANALYST,
-];
+const EXPORT_NATIONAL_ROLES: string[] = [...NATIONAL_ROLES];
 
 /** Prisma filter that matches no row — used to fail closed. */
 const NO_ROWS = { id: { in: [] as string[] } };
@@ -69,12 +74,13 @@ export function territoryFromUser(user: any): Territory {
  * `undefined`/`null` means an internal call with no acting user (e.g.
  * assertCanApprove → evaluateDossier) and applies no restriction. A
  * Territory object is always an acting user: an unknown or missing role,
- * or a REGIONAL/DIVISIONAL account without an assignment, fails closed
- * (matches nothing) — it never falls through to an unscoped query.
+ * or a REGIONAL_ADMIN/DIVISIONAL_ADMIN account without an assignment,
+ * fails closed (matches nothing) — it never falls through to an unscoped
+ * query.
  *
- * Names match case-insensitively. DIVISIONAL matches region AND department
- * by name, because department names repeat across regions; a departmentId
- * is globally unique and suffices on its own.
+ * Names match case-insensitively. DIVISIONAL_ADMIN matches region AND
+ * department by name, because department names repeat across regions; a
+ * departmentId is globally unique and suffices on its own.
  */
 export function territoryWhere(territory?: Territory | null): Record<string, unknown> {
   return territoryWhereWithRoles(territory, NATIONAL_ROLES);
@@ -98,14 +104,14 @@ function territoryWhereWithRoles(
   const role = territory.role;
   if (role && nationalRoles.includes(role)) return {};
 
-  if (role === UserRole.REGIONAL) {
+  if (role === UserRole.REGIONAL_ADMIN) {
     if (territory.regionId) return { regionId: territory.regionId };
     const region = cleanName(territory.region);
     if (region) return { region: nameEquals(region) };
     return NO_ROWS;
   }
 
-  if (role === UserRole.DIVISIONAL) {
+  if (role === UserRole.DIVISIONAL_ADMIN) {
     if (territory.departmentId) return { departmentId: territory.departmentId };
     const region = cleanName(territory.region);
     const department = cleanName(territory.department);
@@ -137,7 +143,7 @@ export function assertTerritorialAuthority(
     return; // National jurisdiction
   }
 
-  if (actor.role === UserRole.REGIONAL) {
+  if (actor.role === UserRole.REGIONAL_ADMIN) {
     const matchRegion = (actor.regionId && actor.regionId === target.regionId) ||
                         sameName(actor.region, target.region);
     if (!matchRegion) {
@@ -146,7 +152,7 @@ export function assertTerritorialAuthority(
     return;
   }
 
-  if (actor.role === UserRole.DIVISIONAL) {
+  if (actor.role === UserRole.DIVISIONAL_ADMIN) {
     // Region AND department: department names repeat across regions. A region
     // mismatch reports the department message, kept stable for audit logs.
     const matchDept = (actor.departmentId && actor.departmentId === target.departmentId) ||

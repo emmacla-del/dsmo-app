@@ -11,7 +11,7 @@ describe('buildAdminListWhere', () => {
   it('puts the territory first, then the draft exclusion, then each filter, all under AND', () => {
     const where = buildAdminListWhere(
       { status: 'APPROVED', formType: 'COOPERATIVE', region: 'Centre', period: '30d', search: 'sodecoton' },
-      { role: 'REGIONAL', region: 'Littoral' },
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
       NOW,
     );
     expect(where.AND[0]).toEqual({ region: { equals: 'Littoral', mode: 'insensitive' } });
@@ -32,13 +32,13 @@ describe('buildAdminListWhere', () => {
 
   it('never lets a region filter replace the caller territory (scope escape)', () => {
     // A REGIONAL Littoral agent asking for region=Centre gets Littoral AND Centre (nothing).
-    const where = buildAdminListWhere({ region: 'Centre' }, { role: 'REGIONAL', region: 'Littoral' });
+    const where = buildAdminListWhere({ region: 'Centre' }, { role: 'REGIONAL_ADMIN', region: 'Littoral' });
     expect(where).not.toHaveProperty('region');
     expect(where.AND).toContainEqual({ region: { equals: 'Littoral', mode: 'insensitive' } });
   });
 
   it('fails closed for an unassigned territorial account, whatever the filters', () => {
-    expect(buildAdminListWhere({ region: 'Centre' }, { role: 'REGIONAL' }).AND[0]).toEqual({ id: { in: [] } });
+    expect(buildAdminListWhere({ region: 'Centre' }, { role: 'REGIONAL_ADMIN' }).AND[0]).toEqual({ id: { in: [] } });
   });
 
   it('adds no period condition for "Toutes les périodes"', () => {

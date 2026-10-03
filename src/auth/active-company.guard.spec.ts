@@ -42,7 +42,7 @@ describe('ActiveCompanyGuard', () => {
     it('allows staff role CENTRAL regardless of status or isActive', () => {
       const context = createMockContext({
         id: 'u-staff',
-        role: UserRole.CENTRAL,
+        role: UserRole.ADMIN_ONEFOP,
         status: UserStatus.PENDING_APPROVAL,
         isActive: false,
       });

@@ -388,7 +388,7 @@ export class AuthService {
 
     let canonicalRegion = region ?? null;
     let canonicalDepartment = department ?? null;
-    if (role === 'REGIONAL' || role === 'DIVISIONAL') {
+    if (role === 'REGIONAL_ADMIN' || role === 'DIVISIONAL_ADMIN') {
       const resolved = await resolveStaffTerritory(this.prisma, role, { region, department });
       canonicalRegion = resolved.region;
       canonicalDepartment = resolved.department;
@@ -423,11 +423,12 @@ export class AuthService {
   }
 
   // Roles a SUPER_ADMIN may create through adminCreateMinefopUser — the
-  // MINEFOP field-agent roles only. Other staff roles (SUPER_ADMIN,
-  // DATA_MANAGER, ANALYST, ...) still have no creation path; this endpoint
-  // exists specifically to replace the public MINEFOP self-registration
-  // flow that was removed from the app.
-  private static readonly MINEFOP_FIELD_ROLES = ['CENTRAL', 'REGIONAL', 'DIVISIONAL'];
+  // MINEFOP field-agent roles only. SUPER_ADMIN, ADMIN_ONEFOP and AUDITOR
+  // have no creation path: ADMIN_ONEFOP is excluded so that an ADMIN_ONEFOP
+  // actor cannot mint more of its own rank (see ONEFOP_STAFF_ROLES in
+  // staff-scope.ts). This endpoint exists specifically to replace the public
+  // MINEFOP self-registration flow that was removed from the app.
+  private static readonly MINEFOP_FIELD_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'];
 
   /** Unambiguous charset (no 0/O/1/l/I) — this gets read aloud/copied by hand. */
   private generateTemporaryPassword(): string {
@@ -464,7 +465,7 @@ export class AuthService {
     if (!AuthService.MINEFOP_FIELD_ROLES.includes(dto.role)) {
       throw new BadRequestException('Rôle invalide pour la création directe');
     }
-    // D1: SUPER_ADMIN_ONEFOP may create ONEFOP staff only.
+    // D1: ADMIN_ONEFOP may create ONEFOP staff only.
     assertCanManageRole(actorRole, dto.role);
     const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingUser) {
@@ -1538,15 +1539,10 @@ export class AuthService {
   }
 
   private static readonly ASSIGNABLE_ROLES = [
-    'DIVISIONAL',
-    'REGIONAL',
-    'CENTRAL',
+    'DIVISIONAL_ADMIN',
+    'REGIONAL_ADMIN',
+    'ADMIN_ONEFOP',
     'SUPER_ADMIN',
-    'SUPER_ADMIN_DSMO',
-    'SUPER_ADMIN_ONEFOP',
-    'DATA_MANAGER',
-    'CAMPAIGN_MANAGER',
-    'ANALYST',
     'AUDITOR',
   ];
 
@@ -1631,12 +1627,12 @@ export class AuthService {
     // Promotion keeps the account's stored territory, which must already be
     // complete (also enforced by users_divisional_requires_territory_chk and
     // users_regional_requires_region_chk).
-    if (role === 'DIVISIONAL' && (!user.department || !user.region)) {
+    if (role === 'DIVISIONAL_ADMIN' && (!user.department || !user.region)) {
       throw new BadRequestException(
         'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
       );
     }
-    if (role === 'REGIONAL' && !user.region) {
+    if (role === 'REGIONAL_ADMIN' && !user.region) {
       throw new BadRequestException(
         'Les utilisateurs régionaux doivent avoir une région assignée',
       );

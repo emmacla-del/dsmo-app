@@ -5,7 +5,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
-import { USER_ADMIN_ROLES } from './staff-scope';
+import { TERRITORIAL_APPROVER_ROLES, USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
@@ -166,10 +166,10 @@ export class AuthController {
   // SUPER_ADMIN creates the agent account directly (ACTIVE immediately,
   // mustChangePassword: true) instead of the agent registering and
   // waiting for approve-user below.
-  // D1: SUPER_ADMIN_ONEFOP too; the service limits it to ONEFOP staff roles.
+  // D1: ADMIN_ONEFOP too; the service limits it to ONEFOP staff roles.
   @Post('admin/create-minefop-user')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
   async adminCreateMinefopUser(@Request() req: any, @Body() body: {
     email: string;
     firstName: string;
@@ -192,12 +192,14 @@ export class AuthController {
     return this.authService.getPendingMinefopUsers();
   }
 
-  // D3: REGIONAL / DIVISIONAL may review registrations in their territory
-  // (assertCanApproveRegistration). Inline, not USER_ADMIN_ROLES, which also
-  // guards list / suspend / delete / re-role.
+  // D3: REGIONAL_ADMIN / DIVISIONAL_ADMIN may review registrations in their
+  // territory (assertCanApproveRegistration). Added alongside
+  // USER_ADMIN_ROLES, which also guards list / suspend / delete / re-role.
+  // The former 'ADMIN_ONEFOP' entry is dropped: it now maps to ADMIN_ONEFOP,
+  // which USER_ADMIN_ROLES already covers.
   @Patch('approve-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
   // centralStructureConfirmed is the "structure centrale" confirmation the
   // review dialog collects for an ADMINISTRATION file. The service refuses the
   // approval without it; the checkbox is only the prompt, not the check.
@@ -213,14 +215,14 @@ export class AuthController {
 
   @Patch('reject-user/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
   async rejectUser(@Param('id') id: string, @Request() req: any, @Body('reason') reason?: string) {
     return this.authService.rejectUser(id, req.user.id, req.user.role, territoryFromUser(req.user), reason ?? '');
   }
 
   @Patch('request-complements/:id')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
   async requestComplements(@Param('id') id: string, @Request() req: any, @Body('message') message?: string) {
     return this.authService.requestComplements(
       id,
@@ -233,14 +235,14 @@ export class AuthController {
 
   @Get('users/:id/documents')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
   async getUserDocuments(@Param('id') id: string) {
     return this.authService.getUserDocuments(id);
   }
 
   @Patch('users/:id/documents/:kind/verify')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
   async verifyUserDocument(
     @Param('id') id: string,
     @Param('kind') kind: string,
@@ -252,7 +254,7 @@ export class AuthController {
 
   @Get('company-registrations')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  @Roles(...USER_ADMIN_ROLES, ...TERRITORIAL_APPROVER_ROLES)
   async listCompanyRegistrations(
     @Request() req: any,
     @Query('entityType') entityType?: string,
@@ -329,11 +331,11 @@ export class AuthController {
     return this.authService.updateUserRole(id, role, req.user.id, req.user.role);
   }
 
-  // D1: SUPER_ADMIN_ONEFOP too; updateUserTerritory already calls
+  // D1: ADMIN_ONEFOP too; updateUserTerritory already calls
   // assertCanManageRole on the target's current role and on the new role.
   @Patch('users/:id/territory')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-  @Roles('SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP')
   async updateUserTerritory(
     @Param('id') id: string,
     @Body('role') role: string,

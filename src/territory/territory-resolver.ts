@@ -182,16 +182,16 @@ export async function resolveAndValidateTerritory(
  * Does not require or write foreign keys on User, but ensures territory names
  * are validated against the database hierarchy and stored with canonical spelling.
  *
- * - REGIONAL: requires region, department must be null.
- * - DIVISIONAL: requires region & department; department must belong to region.
- * - Non-territorial staff roles (CENTRAL, etc.): region and department must be null.
+ * - REGIONAL_ADMIN: requires region, department must be null.
+ * - DIVISIONAL_ADMIN: requires region & department; department must belong to region.
+ * - Non-territorial staff roles (ADMIN_ONEFOP, etc.): region and department must be null.
  */
 export async function resolveStaffTerritory(
   prisma: TxOrPrisma,
   role: string,
   territory: { region?: string | null; department?: string | null },
 ): Promise<{ region: string | null; department: string | null }> {
-  if (role === 'REGIONAL') {
+  if (role === 'REGIONAL_ADMIN') {
     if (!territory.region?.trim()) {
       throw new BadRequestException('Les utilisateurs régionaux doivent avoir une région assignée');
     }
@@ -208,7 +208,7 @@ export async function resolveStaffTerritory(
     };
   }
 
-  if (role === 'DIVISIONAL') {
+  if (role === 'DIVISIONAL_ADMIN') {
     if (!territory.region?.trim() || !territory.department?.trim()) {
       throw new BadRequestException(
         'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
