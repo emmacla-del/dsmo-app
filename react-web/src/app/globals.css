@@ -733,6 +733,12 @@ body {
   overscroll-behavior: contain;
   padding: var(--cam-card-body-pad-y) var(--cam-card-pad-x);
   scrollbar-gutter: stable;
+  /* Query container for the field layout below. inline-size only: the block
+     axis still comes from the flex chain above, so the rigid shell is
+     untouched. Its inline size is the form's own available width -- padding
+     and the reserved scrollbar gutter already excluded -- which is what the
+     field rule needs to measure instead of the viewport. */
+  container: cam-form / inline-size;
 }
 
 /* Rigid footer: error banner, then Back/Next, then the sign-in link that was
@@ -792,21 +798,120 @@ body {
   user-select: none;
 }
 
-/* ── Side-by-side field layout, >=1024px ──
-   Label left of its input on one row; hint, error and status text sit under the
-   input, aligned to the input column rather than hanging under the label.
+/* ── Step header ──
+   The title/description pair that opens each section, from StepHeader.tsx.
+   Each step used to declare these two elements inline with its own font sizes;
+   the sizes live here now so the whole wizard moves together. */
+.cam-auth-page--wizard .step-header {
+  margin-bottom: var(--cam-step-header-space-after);
+}
 
-   Scoped to .card-body-scroll rather than .form-single-column: the location
-   step builds its own inline flex columns and never uses that class, so
-   scoping to it would have left step 4 stacked while steps 2, 3 and 5 went
-   side-by-side. .card-body-scroll reaches every field in steps 2-5 and
-   naturally excludes step 1's radio list (a <fieldset> of <label> rows, no
-   .field), the review tables, and the card header and footer.
+.cam-auth-page--wizard .step-header-title {
+  font-size: var(--cam-step-title-size);
+  font-weight: 700;
+  color: var(--cam-green-dark);
+  line-height: 1.25;
+  margin: 0 0 var(--cam-step-header-gap);
+}
 
-   Below 1024px nothing here applies and the stacked layout is untouched, as
-   are login, forgot-password and verify-email -- the global label rule at the
-   top of this file is overridden here, never edited. */
-@media (min-width: 1024px) {
+.cam-auth-page--wizard .step-header-subtitle {
+  font-size: var(--cam-step-subtitle-size);
+  color: var(--cam-text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* ── Field parts (FormRow.tsx) ──
+   The required marker is a standalone element rather than " *" appended to the
+   label string, so it can carry aria-hidden while aria-required on the control
+   carries the meaning. */
+.cam-auth-page .field-required-mark {
+  color: var(--cam-error);
+  font-weight: 700;
+  margin-left: var(--cam-space-1);
+}
+
+.cam-auth-page .field-optional-mark {
+  color: var(--cam-text-muted);
+  font-weight: 400;
+  margin-left: var(--cam-space-1);
+}
+
+/* Explanation under the input, in the input column. Example values are not
+   hints -- they belong in the control's own placeholder. */
+.cam-auth-page .field-hint {
+  font-size: var(--cam-field-hint-size);
+  color: var(--cam-text-muted);
+  line-height: 1.4;
+  margin: var(--cam-space-1) 0 0;
+}
+
+/* ── Wizard field rhythm ──
+   Row spacing is owned by the flex gap on the column, so the per-field
+   margin-bottom (which the shared auth pages still use) is cleared here --
+   including the :last-of-type variant, which has the same specificity as the
+   rule below and would otherwise win on source order. */
+.cam-auth-page--wizard .card-body-scroll .field,
+.cam-auth-page--wizard .card-body-scroll .field:last-of-type {
+  margin-bottom: 0;
+}
+
+.cam-auth-page--wizard .card-body-scroll .form-single-column {
+  gap: var(--cam-field-row-gap);
+}
+
+/* Stacked layout (the default, and the only layout below 560px): label above
+   its input, left-aligned, 6px apart. */
+.cam-auth-page--wizard .card-body-scroll .field > label {
+  margin-bottom: var(--cam-field-stack-gap);
+}
+
+/* ── Wizard control metrics ──
+   48px tall, 8px radius, 1.5px border. Scoped to the wizard's scroll region so
+   login, forgot-password and verify-email keep the shared 40px control.
+
+   The resting border is --cam-border for inputs AND selects. Inputs alone were
+   resting on --cam-green, which put a brand-green box around every untouched
+   text field while the select beside it was grey -- the green belongs to the
+   focused control, which is what the focus rule below says. */
+.cam-auth-page--wizard .card-body-scroll input[type="email"],
+.cam-auth-page--wizard .card-body-scroll input[type="password"],
+.cam-auth-page--wizard .card-body-scroll input[type="text"],
+.cam-auth-page--wizard .card-body-scroll input[type="tel"],
+.cam-auth-page--wizard .card-body-scroll input[type="number"],
+.cam-auth-page--wizard .card-body-scroll input[type="date"],
+.cam-auth-page--wizard .card-body-scroll select {
+  height: var(--cam-field-height);
+  padding-top: 0;
+  padding-bottom: 0;
+  border: var(--cam-field-border-width) solid var(--cam-border);
+  border-radius: var(--cam-field-radius);
+}
+
+/* Colour-only focus change: the shared rule jumps the border to 2px, which
+   would reflow the row by half a pixel on every focus. */
+.cam-auth-page--wizard .card-body-scroll input:focus,
+.cam-auth-page--wizard .card-body-scroll select:focus {
+  border: var(--cam-field-border-width) solid var(--cam-green);
+  box-shadow: var(--cam-focus-shadow);
+}
+
+/* ── Side-by-side field layout, container >= 560px ──
+   Label left of its input on one row, right-aligned against a fixed column so
+   every label/input boundary in a section lines up on one vertical rule. Hint,
+   error and status text sit under the input, aligned to the input column
+   rather than hanging under the label.
+
+   This is a CONTAINER query, not a media query: it measures .card-body-scroll
+   (see `container:` above), which is the width the form actually has. The
+   previous 1024px MEDIA query measured the viewport, so the layout flipped on
+   a wide window even though the 780px card had not changed width at all.
+
+   Scoped to .card-body-scroll's descendants rather than .form-single-column:
+   it reaches every field in sections 2-5 and naturally excludes section 1's
+   radio list (a <fieldset> of <label> rows, no .field), the card header and
+   the footer. */
+@container cam-form (min-width: 560px) {
   .cam-auth-page--wizard .card-body-scroll .field {
     display: grid;
     grid-template-columns: var(--cam-field-label-col) minmax(0, 1fr);
@@ -814,30 +919,137 @@ body {
     align-items: start;
   }
 
-  /* Overrides the global .cam-auth-page label rule's display: block and
-     margin-bottom: 6px for this layout only. */
+  /* Overrides the global .cam-auth-page label rule's margin-bottom and the
+     stacked-layout gap above, for this layout only. */
   .cam-auth-page--wizard .card-body-scroll .field > label {
     display: block;
     margin-bottom: 0;
     padding-top: var(--cam-field-label-pad-top);
-    text-align: left;
+    text-align: right;
     grid-column: 1;
   }
 
   /* Everything that is not the label belongs to the input column: .input-row
      (which wraps every input and select in the flow and carries the
      position: relative the password eye-toggle depends on), the password
-     strength meter, and the aria-live status regions. Matching on :not(label)
-     rather than naming each class means a field gaining another sub-element
-     lands in the right column without a CSS change. */
+     strength meter, the rule tips and the aria-live status regions. Matching
+     on :not(label) rather than naming each class means a field gaining
+     another sub-element lands in the right column without a CSS change. */
   .cam-auth-page--wizard .card-body-scroll .field > *:not(label) {
     grid-column: 2;
     min-width: 0;
   }
+}
 
+/* Extra inline-end padding for the scroll region once there is room for it.
+   Stays a media query: a container cannot respond to its own container query
+   (changing this padding would change the queried width), and this is about
+   clearing the scrollbar on a wide window rather than about the label column.
+   scrollbar-gutter: stable reserves the gutter inside the padding box, so at
+   the base padding the input column's right edge cleared the scrollbar by only
+   ~11px. */
+@media (min-width: 1024px) {
   .cam-auth-page--wizard .card-body-scroll {
     padding-right: var(--cam-card-body-pad-end);
   }
+}
+
+/* A cascade field whose parent is still unanswered: the label greys to match
+   its disabled control. Set by FormRow's `gated` prop rather than an inline
+   style, so the colour comes from the token system in both layouts. */
+.cam-auth-page .field--gated > label {
+  color: var(--cam-text-muted);
+}
+
+/* Inline per-field status line (email availability, password confirmation).
+   These used to repeat the same four inline declarations at each call site. */
+.cam-auth-page .field-status {
+  display: block;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  margin-top: var(--cam-space-1);
+}
+
+.cam-auth-page .field-status.is-ok {
+  color: var(--cam-green);
+}
+
+.cam-auth-page .field-status.is-error {
+  color: var(--cam-error);
+}
+
+/* The once-per-step cascade note on the location section. */
+.cam-auth-page--wizard .cascade-note {
+  font-size: var(--cam-field-hint-size);
+  color: var(--cam-text-muted);
+  font-style: italic;
+  margin: 0 0 var(--cam-field-row-gap);
+}
+
+/* ── Password strength meter and rule tips ──
+   Both live in the input column (they are children of the password .field, so
+   the grid rule puts them there). The tips replaced a static paragraph that
+   listed the criteria whether or not they were met. */
+.cam-auth-page .password-strength-block {
+  margin-top: var(--cam-space-2);
+}
+
+.cam-auth-page .password-strength-label {
+  display: block;
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+  margin-top: var(--cam-space-1);
+}
+
+.cam-auth-page .password-rules {
+  margin-top: var(--cam-space-2);
+}
+
+.cam-auth-page .password-rules-title {
+  display: block;
+  font-size: var(--cam-field-hint-size);
+  font-weight: 600;
+  color: var(--cam-text);
+  margin-bottom: var(--cam-space-1);
+}
+
+.cam-auth-page .password-rules-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cam-space-1) var(--cam-space-4);
+}
+
+.cam-auth-page .password-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-1);
+  font-size: var(--cam-field-hint-size);
+  color: var(--cam-text-muted);
+}
+
+/* Colour is not the only signal: the marker itself changes from a bullet to a
+   checkmark, so the met/unmet distinction survives a colour-blind reading. */
+.cam-auth-page .password-rule.is-met {
+  color: var(--cam-green);
+  font-weight: 600;
+}
+
+.cam-auth-page .password-rule-mark {
+  width: 12px;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+/* The review step's summary tables share the form's label column width, so the
+   label/value boundary in section 6 lands on the same vertical rule the fields
+   above it used. Text stays left-aligned: these cells have visible borders, so
+   the column edge is already drawn, and right-aligning inside a drawn box is a
+   different device from right-aligning a borderless label. */
+.cam-auth-page--wizard .card-body-scroll .table-official .label-cell {
+  width: var(--cam-field-label-col);
 }
 
 /* Single-column responsive field layout */

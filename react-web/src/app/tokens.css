@@ -143,16 +143,55 @@
      which is unreadable and reads as unfinished rather than official. */
   --cam-container-wizard: 780px;
 
-  /* ── Side-by-side field layout (>=1024px) ──
+  /* ── Side-by-side field layout (container >= 560px) ──
      The label column is fixed so every label/input boundary in a step lines up
-     into one vertical rule; the input column takes the rest. pad-top is the
-     input's own top padding (10px) plus its 1px border, which is what puts the
-     label's first line on the same optical line as the typed value. The 1024px
-     breakpoint itself has to stay a literal in the @media rule -- custom
-     properties are not usable in media queries. */
-  --cam-field-label-col: 260px;
-  --cam-field-label-gap: var(--cam-space-5);
-  --cam-field-label-pad-top: 11px;
+     into one vertical rule; the input column takes the rest. Labels are
+     right-aligned against that rule, so a label sits as close to its own input
+     as the column allows and a long bilingual label wraps without moving the
+     input.
+
+     pad-top puts the label's first line on the same optical line as the text
+     inside the input: the input is --cam-field-height tall with its value
+     vertically centred, so the offset is (48 - ~20px line box) / 2, rounded to
+     the 14px the spec calls for.
+
+     The 560px threshold itself has to stay a literal in the @container rule --
+     custom properties are not usable in container or media query conditions.
+     It is a CONTAINER width, not a viewport width: the query measures the
+     wizard's own form column, so the layout is correct whatever chrome
+     surrounds it. */
+  --cam-field-label-col: 170px;
+  --cam-field-label-gap: var(--cam-space-4);
+  --cam-field-label-pad-top: 14px;
+
+  /* Space between two field rows, and (in the stacked layout) between a label
+     and the input beneath it. */
+  --cam-field-row-gap: 22px;
+  --cam-field-stack-gap: 6px;
+
+  /* ── Wizard control metrics ──
+     Taller and softer than the shared 40px auth input: the registration form
+     is a long data-entry session rather than a two-field sign-in. Scoped to
+     the wizard in globals.css so login, forgot-password and verify-email keep
+     --cam-form-field-height. */
+  --cam-field-height: 48px;
+  --cam-field-radius: 8px;
+  --cam-field-border-width: 1.5px;
+
+  /* Helper text under an input. Example values live in the control's own
+     placeholder, so this carries explanation only. */
+  --cam-field-hint-size: var(--cam-font-size-xs);
+
+  /* ── Section heading (StepHeader) ──
+     One step of visual hierarchy above the form itself: the step title is the
+     largest thing in the card body, the description sits under it in muted
+     body text, and the gap below the pair is wider than the row gap so the
+     heading reads as introducing the fields rather than belonging to the
+     first one. */
+  --cam-step-title-size: 1.375rem;
+  --cam-step-subtitle-size: var(--cam-font-size-sm);
+  --cam-step-header-gap: var(--cam-space-1);
+  --cam-step-header-space-after: var(--cam-space-5);
 
   /* Extra inline-end padding for the scroll region once the label column
      appears. scrollbar-gutter: stable reserves the gutter inside the padding

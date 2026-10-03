@@ -24,16 +24,30 @@ import {
   resolveCompanyName,
   resolveMainActivity,
   visibleEntityDataForType,
+  type EntityField,
   type EntityType,
   type RegistrationStepId,
 } from "@/lib/register-constants";
+import {
+  isSectionComplete,
+  type RegState,
+  type SubdivisionsStatus,
+} from "@/lib/register-completeness";
 import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "@/lib/register-options";
-import { passwordStrength, passwordStrengthLabel, validatePassword } from "@/lib/password-strength";
+import {
+  PASSWORD_RULE_IDS,
+  passwordRuleChecks,
+  passwordStrength,
+  passwordStrengthLabel,
+  validatePassword,
+} from "@/lib/password-strength";
 import { resetScroll } from "@/lib/reset-scroll";
 import { AuthHeader } from "@/components/auth/AuthHeader";
+import { FormRow } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
+import { StepHeader } from "@/components/auth/StepHeader";
 
 // CAM-LEAP Official Administrative Registration Wizard
 // 6-step architecture: entityType -> respondent -> entityInfo -> location -> security -> review
@@ -160,6 +174,40 @@ export default function RegisterPage() {
   });
   const sectorsQuery = useQuery({ queryKey: ["sectors"], queryFn: getSectors });
 
+  // The subdivision list's four distinct states. "No subdivision selected" and
+  // "this department has no subdivisions to select" must not collapse into one
+  // another: the first has to block, the second must not, or a department the
+  // server has no arrondissements for would strand the respondent here. See
+  // SubdivisionsStatus for the full reasoning.
+  const subdivisionsStatus: SubdivisionsStatus = !departmentId
+    ? "idle"
+    : subdivisionsQuery.isFetching
+      ? "loading"
+      : subdivisionsQuery.isError
+        ? "error"
+        : (subdivisionsQuery.data?.length ?? 0) === 0
+          ? "empty"
+          : "ready";
+
+  // Immutable snapshot handed to the pure completeness checks. Assembled here
+  // rather than inside isSectionComplete so that function never touches a hook.
+  const regState: RegState = {
+    entityType,
+    respondent,
+    emailAvailable,
+    entityData,
+    regionId,
+    departmentId,
+    subdivisionId,
+    subdivisionsStatus,
+    area,
+    sectorId,
+    password,
+    confirmPassword,
+  };
+
+  const currentSectionComplete = isSectionComplete(step, regState);
+
   // Debounced email availability check
   useEffect(() => {
     const email = respondent.email.trim();
@@ -181,6 +229,64 @@ export default function RegisterPage() {
 
   function isFieldVisible(field: { key?: string; dependsOn?: string; dependsValue?: string }): boolean {
     return checkFieldVisible(field as import("@/lib/register-constants").EntityField, entityData, config?.fields);
+  }
+
+  // Text for the empty <option> of a select whose list comes from the API, so
+  // "still loading", "nothing to choose" and "the request failed" are all
+  // distinguishable instead of every one of them reading as an empty dropdown.
+  // `gateLabel`, when given, wins: a cascade field whose parent is still
+  // unanswered has not requested anything yet.
+  function selectStatusLabel(
+    query: { isFetching: boolean; isError: boolean; data?: readonly unknown[] },
+    gateLabel?: string
+  ): string {
+    if (gateLabel) return gateLabel;
+    if (query.isFetching) return t("registerPage.loadingOptions");
+    if (query.isError) return t("registerPage.loadErrorOptions");
+    if ((query.data?.length ?? 0) === 0) return t("registerPage.noOptions");
+    return t("registerPage.selectPlaceholder");
+  }
+
+  // One renderer for all three field kinds in step 3, used by both the
+  // per-entity subsections and the unmapped-field fallback below them, which
+  // carried a second copy of this JSX.
+  function renderEntityField(field: EntityField) {
+    const id = `reg-entity-${field.key}`;
+    const controlProps = {
+      id,
+      "aria-required": field.required ? true : undefined,
+      value: entityData[field.key] ?? "",
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+        setEntityField(field.key, e.target.value),
+    };
+
+    return (
+      <FormRow
+        key={field.key}
+        htmlFor={id}
+        label={field.label}
+        required={field.required}
+        hint={field.hint}
+      >
+        <div className="input-row">
+          {field.kind === "select" ? (
+            <select {...controlProps}>
+              <option value="">{t("registerPage.selectPlaceholder")}</option>
+              {field.options?.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              {...controlProps}
+              type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
+            />
+          )}
+        </div>
+      </FormRow>
+    );
   }
 
   function goNext() {
@@ -397,6 +503,8 @@ export default function RegisterPage() {
   // Password strength calculations
   const pwScore = passwordStrength(password);
   const pwSegments = password ? (pwScore >= 0.9 ? 4 : pwScore >= 0.65 ? 3 : pwScore >= 0.35 ? 2 : 1) : 0;
+  // Which of the four requirements are met, for the tips under the input.
+  const pwRules = passwordRuleChecks(password);
 
   // Render receipt screen on success
   if (result) {
@@ -516,21 +624,13 @@ export default function RegisterPage() {
             <RegistrationProgress currentStep={step} />
           </div>
 
-          {/* The only scroll region in the flow */}
+          {/* The only scroll region in the flow, and the query container the
+              field layout measures (see globals.css) */}
           <div className="card-body-scroll">
             {/* STEP 1: ENTITY TYPE — single radio list */}
             {step === "entityType" && (
               <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
-                <h2
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 700,
-                    color: "var(--cam-green-dark)",
-                    margin: "0 0 var(--cam-space-4)",
-                  }}
-                >
-                  {t("registerPage.entityTypeQuestion")}
-                </h2>
+                <StepHeader title={t("registerPage.entityTypeQuestion")} />
 
                 <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
                   <legend
@@ -617,20 +717,13 @@ export default function RegisterPage() {
             {/* STEP 2: RESPONDENT */}
             {step === "respondent" && (
               <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <div style={{ marginBottom: "16px" }}>
-                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
-                    {t("registerPage.respondentTitle")} — Habilitation officielle
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "var(--cam-text-muted)", margin: 0 }}>
-                    Coordonnées de la personne habilitée à effectuer les déclarations officielles pour l&apos;établissement.
-                  </p>
-                </div>
+                <StepHeader
+                  title={t("registerPage.respondentTitle")}
+                  subtitle={t("registerPage.respondentSubtitle")}
+                />
 
                 <div className="form-single-column">
-                  <div className="field">
-                    <label htmlFor="reg-first-name">
-                      {t("registerPage.firstNameLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                  <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
                     <div className="input-row">
                       <input
                         id="reg-first-name"
@@ -640,12 +733,9 @@ export default function RegisterPage() {
                         placeholder="Ex: Emmanuel"
                       />
                     </div>
-                  </div>
+                  </FormRow>
 
-                  <div className="field">
-                    <label htmlFor="reg-last-name">
-                      {t("registerPage.lastNameLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                  <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required>
                     <div className="input-row">
                       <input
                         id="reg-last-name"
@@ -655,12 +745,9 @@ export default function RegisterPage() {
                         placeholder="Ex: Biya"
                       />
                     </div>
-                  </div>
+                  </FormRow>
 
-                  <div className="field" style={{ width: "100%" }}>
-                    <label htmlFor="reg-function">
-                      {t("registerPage.functionLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                  <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required>
                     <div className="input-row">
                       <select
                         id="reg-function"
@@ -676,12 +763,13 @@ export default function RegisterPage() {
                         ))}
                       </select>
                     </div>
-                  </div>
+                  </FormRow>
 
-                  <div className="field" style={{ width: "100%" }}>
-                    <label htmlFor="reg-email">
-                      {t("registerPage.professionalEmailLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                  <FormRow
+                    htmlFor="reg-email"
+                    label={t("registerPage.professionalEmailLabel")}
+                    required
+                  >
                     <div className="input-row">
                       <input
                         id="reg-email"
@@ -694,22 +782,19 @@ export default function RegisterPage() {
                     </div>
                     <div aria-live="polite" aria-atomic="true">
                       {emailAvailable === false && (
-                        <span style={{ color: "var(--cam-error)", fontSize: 12, fontWeight: 600, marginTop: 4, display: "block" }}>
+                        <span className="field-status is-error">
                           ⚠ {t("registerPage.emailUnavailable")}
                         </span>
                       )}
                       {emailAvailable === true && (
-                        <span style={{ color: "var(--cam-green)", fontSize: 12, fontWeight: 600, marginTop: 4, display: "block" }}>
+                        <span className="field-status is-ok">
                           ✓ {t("registerPage.emailAvailable")}
                         </span>
                       )}
                     </div>
-                  </div>
+                  </FormRow>
 
-                  <div className="field">
-                    <label htmlFor="reg-phone1">
-                      {t("registerPage.phone1Label")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                  <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required>
                     <div className="input-row">
                       <input
                         id="reg-phone1"
@@ -720,12 +805,13 @@ export default function RegisterPage() {
                         placeholder="6XXXXXXXX"
                       />
                     </div>
-                  </div>
+                  </FormRow>
 
-                  <div className="field">
-                    <label htmlFor="reg-phone2">
-                      {t("registerPage.phone2Label")} (optionnel)
-                    </label>
+                  <FormRow
+                    htmlFor="reg-phone2"
+                    label={t("registerPage.phone2Label")}
+                    optionalLabel={t("registerPage.optionalMarker")}
+                  >
                     <div className="input-row">
                       <input
                         id="reg-phone2"
@@ -735,7 +821,7 @@ export default function RegisterPage() {
                         placeholder="6XXXXXXXX / 2XXXXXXXX"
                       />
                     </div>
-                  </div>
+                  </FormRow>
                 </div>
               </form>
             )}
@@ -743,14 +829,10 @@ export default function RegisterPage() {
             {/* STEP 3: ENTITY INFORMATION */}
             {step === "entityInfo" && config && entityType && (
               <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <div style={{ marginBottom: "14px" }}>
-                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
-                    {config.title}
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "var(--cam-text-muted)", margin: 0 }}>
-                    Renseignez les données administratives et statutaires de votre structure.
-                  </p>
-                </div>
+                <StepHeader
+                  title={config.title}
+                  subtitle={t("registerPage.entityInfoSubtitle")}
+                />
 
                 {/* Subsections per entity type */}
                 {(() => {
@@ -775,44 +857,7 @@ export default function RegisterPage() {
                           <div key={secIdx}>
                             <div className="admin-section-header">{sec.title}</div>
                             <div className="form-single-column">
-                              {secFields.map((field) => (
-                                <div key={field.key} className="field">
-                                  <label htmlFor={`reg-entity-${field.key}`}>
-                                    {field.label}
-                                    {field.required && <span style={{ color: "var(--cam-error)" }}> *</span>}
-                                    {field.hint && (
-                                      <span style={{ fontWeight: 400, color: "var(--cam-text-muted)" }}>
-                                        {" "}({field.hint})
-                                      </span>
-                                    )}
-                                  </label>
-                                  <div className="input-row">
-                                    {field.kind === "select" ? (
-                                      <select
-                                        id={`reg-entity-${field.key}`}
-                                        aria-required={field.required ? true : undefined}
-                                        value={entityData[field.key] ?? ""}
-                                        onChange={(e) => setEntityField(field.key, e.target.value)}
-                                      >
-                                        <option value="">{t("registerPage.selectPlaceholder")}</option>
-                                        {field.options?.map((o) => (
-                                          <option key={o.value} value={o.value}>
-                                            {o.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        id={`reg-entity-${field.key}`}
-                                        aria-required={field.required ? true : undefined}
-                                        type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
-                                        value={entityData[field.key] ?? ""}
-                                        onChange={(e) => setEntityField(field.key, e.target.value)}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+                              {secFields.map(renderEntityField)}
                             </div>
                           </div>
                         );
@@ -829,39 +874,7 @@ export default function RegisterPage() {
                           <div>
                             <div className="admin-section-header">Informations complémentaires</div>
                             <div className="form-single-column">
-                              {remainingFields.map((field) => (
-                                <div key={field.key} className="field">
-                                  <label htmlFor={`reg-entity-${field.key}`}>
-                                    {field.label}
-                                    {field.required && <span style={{ color: "var(--cam-error)" }}> *</span>}
-                                  </label>
-                                  <div className="input-row">
-                                    {field.kind === "select" ? (
-                                      <select
-                                        id={`reg-entity-${field.key}`}
-                                        aria-required={field.required ? true : undefined}
-                                        value={entityData[field.key] ?? ""}
-                                        onChange={(e) => setEntityField(field.key, e.target.value)}
-                                      >
-                                        <option value="">{t("registerPage.selectPlaceholder")}</option>
-                                        {field.options?.map((o) => (
-                                          <option key={o.value} value={o.value}>
-                                            {o.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        id={`reg-entity-${field.key}`}
-                                        aria-required={field.required ? true : undefined}
-                                        type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
-                                        value={entityData[field.key] ?? ""}
-                                        onChange={(e) => setEntityField(field.key, e.target.value)}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+                              {remainingFields.map(renderEntityField)}
                             </div>
                           </div>
                         );
@@ -875,20 +888,113 @@ export default function RegisterPage() {
             {/* STEP 4: LOCATION */}
             {step === "location" && (
               <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <div style={{ marginBottom: "16px" }}>
-                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
-                    {t("registerPage.locationTitle")} — Rattachement territorial
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "var(--cam-text-muted)", margin: 0 }}>
-                    Précisez le découpage administratif et le secteur d&apos;activité de votre établissement.
-                  </p>
-                </div>
+                <StepHeader
+                  title={t("registerPage.locationTitle")}
+                  subtitle={t("registerPage.locationSubtitle")}
+                />
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div className="field" style={{ width: "100%" }}>
-                    <label htmlFor="reg-area">
-                      {t("registerPage.areaLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                {/* The cascade affordance: the ↳ markers and the gated
+                    placeholders say it per field, this says it once up front. */}
+                <p className="cascade-note">{t("registerPage.cascadeNote")}</p>
+
+                <div className="form-single-column">
+                  <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
+                    <div className="input-row">
+                      <select
+                        id="reg-region"
+                        aria-required={true}
+                        value={regionId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setRegionId(id);
+                          setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
+                          setDepartmentId("");
+                          setDepartmentName("");
+                          setSubdivisionId("");
+                          setSubdivisionName("");
+                        }}
+                      >
+                        <option value="">{selectStatusLabel(regionsQuery)}</option>
+                        {regionsQuery.data?.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </FormRow>
+
+                  <FormRow
+                    htmlFor="reg-department"
+                    label={t("registerPage.departmentLabel")}
+                    labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
+                    gated={!regionId}
+                    required
+                  >
+                    <div className="input-row">
+                      <select
+                        id="reg-department"
+                        aria-required={true}
+                        value={departmentId}
+                        disabled={!regionId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setDepartmentId(id);
+                          setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
+                          setSubdivisionId("");
+                          setSubdivisionName("");
+                        }}
+                      >
+                        <option value="">
+                          {selectStatusLabel(
+                            departmentsQuery,
+                            regionId ? undefined : t("registerPage.selectRegionFirst")
+                          )}
+                        </option>
+                        {departmentsQuery.data?.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </FormRow>
+
+                  <FormRow
+                    htmlFor="reg-subdivision"
+                    label={t("registerPage.subdivisionLabel")}
+                    labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
+                    gated={!departmentId}
+                    required
+                  >
+                    <div className="input-row">
+                      <select
+                        id="reg-subdivision"
+                        aria-required={true}
+                        value={subdivisionId}
+                        disabled={!departmentId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setSubdivisionId(id);
+                          setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
+                        }}
+                      >
+                        <option value="">
+                          {selectStatusLabel(
+                            subdivisionsQuery,
+                            departmentId ? undefined : t("registerPage.selectDepartmentFirst")
+                          )}
+                        </option>
+                        {subdivisionsQuery.data?.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </FormRow>
+
+                  <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required>
                     <div className="input-row">
                       <select
                         id="reg-area"
@@ -904,109 +1010,13 @@ export default function RegisterPage() {
                         ))}
                       </select>
                     </div>
-                  </div>
+                  </FormRow>
 
-                  <div style={{ paddingTop: "14px", borderTop: "1px solid var(--cam-border)" }}>
-                    <div style={{ fontSize: "12px", color: "var(--cam-text-muted)", marginBottom: "8px", fontStyle: "italic" }}>
-                      Chaque champ dépend du précédent
-                    </div>
-
-                    <div className="field">
-                      <label htmlFor="reg-region">
-                        {t("registerPage.regionLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                      </label>
-                      <div className="input-row">
-                        <select
-                          id="reg-region"
-                          aria-required={true}
-                          value={regionId}
-                          onChange={(e) => {
-                            const id = e.target.value;
-                            setRegionId(id);
-                            setRegionName(regionsQuery.data?.find((r) => r.id === id)?.name || "");
-                            setDepartmentId("");
-                            setDepartmentName("");
-                            setSubdivisionId("");
-                            setSubdivisionName("");
-                          }}
-                        >
-                          <option value="">{t("registerPage.selectPlaceholder")}</option>
-                          {regionsQuery.data?.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: "var(--cam-space-3)" }}>
-                      <div className="field" style={{ marginBottom: 0 }}>
-                        <label htmlFor="reg-department" style={{ color: !regionId ? "var(--cam-text-muted)" : undefined }}>
-                          <span className="cascade-arrow" aria-hidden="true">↳</span>
-                          {t("registerPage.departmentLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                        </label>
-                        <div className="input-row">
-                          <select
-                            id="reg-department"
-                            value={departmentId}
-                            disabled={!regionId}
-                            onChange={(e) => {
-                              const id = e.target.value;
-                              setDepartmentId(id);
-                              setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
-                              setSubdivisionId("");
-                              setSubdivisionName("");
-                            }}
-                          >
-                            <option value="">
-                              {regionId ? t("registerPage.selectPlaceholder") : t("registerPage.selectRegionFirst")}
-                            </option>
-                            {departmentsQuery.data?.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: "var(--cam-space-3)" }}>
-                      <div className="field" style={{ marginBottom: 0 }}>
-                        <label htmlFor="reg-subdivision" style={{ color: !departmentId ? "var(--cam-text-muted)" : undefined }}>
-                          <span className="cascade-arrow" aria-hidden="true">↳</span>
-                          {t("registerPage.subdivisionLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                        </label>
-                        <div className="input-row">
-                          <select
-                            id="reg-subdivision"
-                            value={subdivisionId}
-                            disabled={!departmentId}
-                            onChange={(e) => {
-                              const id = e.target.value;
-                              setSubdivisionId(id);
-                              setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
-                            }}
-                          >
-                            <option value="">
-                              {departmentId ? t("registerPage.selectPlaceholder") : t("registerPage.selectDepartmentFirst")}
-                            </option>
-                            {subdivisionsQuery.data?.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="field" style={{ width: "100%", marginTop: "6px" }}>
-                    <label htmlFor="reg-sector">
-                      {t("registerPage.sectorLabel")}
-                    </label>
+                  <FormRow
+                    htmlFor="reg-sector"
+                    label={t("registerPage.sectorLabel")}
+                    optionalLabel={t("registerPage.optionalMarker")}
+                  >
                     <div className="input-row">
                       <select
                         id="reg-sector"
@@ -1017,7 +1027,7 @@ export default function RegisterPage() {
                           setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
                         }}
                       >
-                        <option value="">{t("registerPage.selectPlaceholder")}</option>
+                        <option value="">{selectStatusLabel(sectorsQuery)}</option>
                         {sectorsQuery.data?.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.name}
@@ -1025,7 +1035,7 @@ export default function RegisterPage() {
                         ))}
                       </select>
                     </div>
-                  </div>
+                  </FormRow>
                 </div>
               </form>
             )}
@@ -1033,20 +1043,13 @@ export default function RegisterPage() {
             {/* STEP 5: SECURITY */}
             {step === "security" && (
               <form onSubmit={(e) => { e.preventDefault(); goNext(); }} onKeyDown={handleFormKeyDown}>
-                <div style={{ marginBottom: "16px" }}>
-                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
-                    {t("registerPage.securityTitle")} — Paramètres d&apos;accès
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "var(--cam-text-muted)", margin: 0 }}>
-                    Définissez un mot de passe robuste pour sécuriser l&apos;accès à votre espace déclarant.
-                  </p>
-                </div>
+                <StepHeader
+                  title={t("registerPage.securityTitle")}
+                  subtitle={t("registerPage.securitySubtitle")}
+                />
 
                 <div className="form-single-column">
-                  <div className="field">
-                    <label htmlFor="reg-password">
-                      {t("registerPage.passwordLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                  <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
                     <div className="input-row">
                       <input
                         id="reg-password"
@@ -1064,9 +1067,10 @@ export default function RegisterPage() {
                       />
                     </div>
 
-                    {/* Segmented strength meter */}
+                    {/* Segmented strength meter. Sits in the input column
+                        because it belongs to the value, not to the label. */}
                     {password && (
-                      <div style={{ marginTop: "6px" }}>
+                      <div className="password-strength-block">
                         <div className="password-strength-meter">
                           {[1, 2, 3, 4].map((seg) => (
                             <div
@@ -1075,17 +1079,44 @@ export default function RegisterPage() {
                             />
                           ))}
                         </div>
-                        <span style={{ fontSize: "11px", color: "var(--cam-text-muted)", marginTop: "4px", display: "block" }}>
-                          Robustesse : <strong>{passwordStrengthLabel(pwScore)}</strong>
+                        <span className="password-strength-label">
+                          {t("registerPage.passwordStrengthPrefix")} :{" "}
+                          <strong>{passwordStrengthLabel(pwScore)}</strong>
                         </span>
                       </div>
                     )}
-                  </div>
 
-                  <div className="field">
-                    <label htmlFor="reg-confirm-password">
-                      {t("registerPage.confirmPasswordLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
-                    </label>
+                    {/* The four requirements the score is built from, each
+                        ticking off as it is met, instead of one static
+                        sentence listing them all. */}
+                    <div className="password-rules">
+                      <span className="password-rules-title">
+                        {t("registerPage.passwordRulesTitle")}
+                      </span>
+                      <ul className="password-rules-list">
+                        {PASSWORD_RULE_IDS.map((id) => {
+                          const met = pwRules[id];
+                          return (
+                            <li
+                              key={id}
+                              className={`password-rule ${met ? "is-met" : ""}`}
+                            >
+                              <span className="password-rule-mark" aria-hidden="true">
+                                {met ? "✓" : "•"}
+                              </span>
+                              {t(`registerPage.passwordRule${id.charAt(0).toUpperCase()}${id.slice(1)}`)}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </FormRow>
+
+                  <FormRow
+                    htmlFor="reg-confirm-password"
+                    label={t("registerPage.confirmPasswordLabel")}
+                    required
+                  >
                     <div className="input-row">
                       <input
                         id="reg-confirm-password"
@@ -1105,39 +1136,15 @@ export default function RegisterPage() {
                     <div aria-live="polite" aria-atomic="true">
                       {confirmPassword && (
                         <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            marginTop: "4px",
-                            display: "block",
-                            color: password === confirmPassword ? "var(--cam-green)" : "var(--cam-error)",
-                          }}
+                          className={`field-status ${password === confirmPassword ? "is-ok" : "is-error"}`}
                         >
                           {password === confirmPassword
-                            ? "✓ Les mots de passe correspondent"
-                            : "⚠ Les mots de passe ne correspondent pas"}
+                            ? `✓ ${t("registerPage.passwordsMatch")}`
+                            : `⚠ ${t("registerPage.passwordsDoNotMatch")}`}
                         </span>
                       )}
                     </div>
-                  </div>
-
-                  {/* Password guidelines box */}
-                  <div
-                    style={{
-                      background: "var(--cam-surface-subtle)",
-                      border: "1px solid var(--cam-border)",
-                      borderRadius: "var(--cam-radius-sm)",
-                      padding: "10px 14px",
-                      fontSize: "12px",
-                      color: "var(--cam-text-muted)",
-                      marginTop: "4px",
-                    }}
-                  >
-                    <span style={{ fontWeight: 600, color: "var(--cam-text)", display: "block", marginBottom: 2 }}>
-                      Critères de sécurité administrative :
-                    </span>
-                    Minimum 8 caractères, comprenant idéalement au moins une majuscule, un chiffre et un caractère spécial.
-                  </div>
+                  </FormRow>
                 </div>
               </form>
             )}
@@ -1145,14 +1152,10 @@ export default function RegisterPage() {
             {/* STEP 6: REVIEW */}
             {step === "review" && config && entityType && (
               <div>
-                <div style={{ marginBottom: "12px" }}>
-                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--cam-green-dark)", margin: "0 0 4px" }}>
-                    {t("registerPage.reviewTitle")} — Contrôle avant transmission
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "var(--cam-text-muted)", margin: 0 }}>
-                    Vérifiez l&apos;exactitude des données enregistrées avant de confirmer la création officielle du compte.
-                  </p>
-                </div>
+                <StepHeader
+                  title={t("registerPage.reviewTitle")}
+                  subtitle={t("registerPage.reviewSubtitle")}
+                />
 
                 {submitError && (
                   <div className="auth-error-box" role="alert" style={{ marginBottom: "14px" }}>
@@ -1231,6 +1234,11 @@ export default function RegisterPage() {
                   className="btn-primary"
                   style={{ width: "auto", minWidth: "120px", padding: "10px 22px" }}
                   onClick={goNext}
+                  // Enabled exactly while the current section is complete, and
+                  // disabled again the moment it stops being. isSectionComplete
+                  // reads state only, so this never surfaces an error message
+                  // for a field the respondent has not finished typing.
+                  disabled={!currentSectionComplete}
                 >
                   {step === "entityType"
                     ? t("registerPage.continueButton")
