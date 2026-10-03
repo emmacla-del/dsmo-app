@@ -231,6 +231,25 @@ export class AuthController {
     );
   }
 
+  @Get('users/:id/documents')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  async getUserDocuments(@Param('id') id: string) {
+    return this.authService.getUserDocuments(id);
+  }
+
+  @Patch('users/:id/documents/:kind/verify')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
+  async verifyUserDocument(
+    @Param('id') id: string,
+    @Param('kind') kind: string,
+    @Body('state') state: string,
+    @Request() req: any,
+  ) {
+    return this.authService.verifyUserDocument(id, kind, state, req.user.id);
+  }
+
   @Get('company-registrations')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES, 'REGIONAL', 'DIVISIONAL', 'CENTRAL')
@@ -282,6 +301,8 @@ export class AuthController {
     @Query('pageSize') pageSize?: string,
     @Query('roles') roles?: string,
     @Query('region') region?: string,
+    @Query('fromCreatedAt') fromCreatedAt?: string,
+    @Query('toCreatedAt') toCreatedAt?: string,
   ) {
     return this.authService.listUsers({
       search,
@@ -290,6 +311,8 @@ export class AuthController {
       region,
       status,
       isActive,
+      fromCreatedAt,
+      toCreatedAt,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     }, req.user.role);

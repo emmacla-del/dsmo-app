@@ -9,6 +9,8 @@ export interface UserListFilterParams {
   region?: string;
   status?: string;
   isActive?: string;
+  fromCreatedAt?: string;
+  toCreatedAt?: string;
   /**
    * Server-side ceiling on visible roles (the caller's administrative
    * scope). Never taken from the request; requested roles are intersected
@@ -56,6 +58,11 @@ export function buildUserListWhere(params: UserListFilterParams): Record<string,
   }
   if (params.status) where.status = params.status;
   if (params.isActive !== undefined) where.isActive = params.isActive === 'true';
+  if (params.fromCreatedAt || params.toCreatedAt) {
+    where.createdAt = {};
+    if (params.fromCreatedAt) where.createdAt.gte = new Date(params.fromCreatedAt);
+    if (params.toCreatedAt) where.createdAt.lte = new Date(params.toCreatedAt);
+  }
 
   const term = params.search?.trim();
   if (term) {

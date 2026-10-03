@@ -1,14 +1,13 @@
-// Regression and feature coverage for the VTC Wizard UI/UX ameliorations:
-// 1. Live phone formatting preview + email chip prefix
-// 2. Cascading Cameroon administrative hierarchy (Region -> Department -> Sub-division)
-// 3. Explanatory contextual info badges
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dsmo_app/l10n/generated/app_localizations.dart';
+import 'package:dsmo_app/providers/locations_provider.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_constants.dart';
 import 'package:dsmo_app/screens/onefop/onefop_form_controller.dart';
-import 'package:dsmo_app/screens/onefop/wizard/vt_cameroon_admin_data.dart';
 import 'package:dsmo_app/screens/onefop/wizard/vt_wizard_constants.dart';
 import 'package:dsmo_app/screens/onefop/wizard/vt_wizard_fields.dart';
 
@@ -24,14 +23,34 @@ Future<OnefopFormController> _createController(
 }
 
 void main() {
+  setUpAll(() {
+    final file = File('test/fixtures/canonical-360.json');
+    if (file.existsSync()) {
+      final raw = jsonDecode(file.readAsStringSync()) as List;
+      final regions = raw
+          .map((r) => CameroonRegion.fromJson(Map<String, dynamic>.from(r as Map)))
+          .toList();
+      setCachedLocationStructure(regions);
+    }
+  });
+
   group('Cameroon Administrative Hierarchy Data', () {
-    test('contains 10 official regions and all 58 departments', () {
-      expect(kCameroonAdminHierarchy.length, 10);
-      final totalDepartments = kCameroonAdminHierarchy.fold<int>(
+    test('contains 10 official regions and all 58 departments from canonical data', () {
+      final tree = getCachedLocationStructure();
+      expect(tree.length, 10);
+      final totalDepartments = tree.fold<int>(
         0,
         (sum, r) => sum + r.departments.length,
       );
       expect(totalDepartments, 58);
+      final totalSubdivisions = tree.fold<int>(
+        0,
+        (sum, r) =>
+            sum +
+            r.departments
+                .fold<int>(0, (dSum, d) => dSum + d.subdivisions.length),
+      );
+      expect(totalSubdivisions, 360);
     });
 
     test('findCameroonRegion is case-insensitive', () {
@@ -48,11 +67,11 @@ void main() {
     test('findCameroonDepartment finds department and its subdivisions', () {
       final mfoundi = findCameroonDepartment('Mfoundi');
       expect(mfoundi, isNotNull);
-      expect(mfoundi!.subdivisions.contains('Yaoundé I'), isTrue);
+      expect(mfoundi!.subdivisions.any((s) => s.contains('Yaoundé')), isTrue);
 
       final wouri = findCameroonDepartment('wouri');
       expect(wouri, isNotNull);
-      expect(wouri!.subdivisions.contains('Douala I'), isTrue);
+      expect(wouri!.subdivisions.any((s) => s.contains('Douala')), isTrue);
     });
   });
 

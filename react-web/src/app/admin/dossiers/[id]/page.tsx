@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getAdminDossier,
@@ -11,91 +11,56 @@ import {
   rejectDossier,
   requestCorrectionDossier,
   type AdminDossier,
-  type DossierDiagnostic,
 } from "@/lib/api-client";
-import { entityTypeLabel } from "@/lib/companies-directory";
+import { DataState } from "@/components/admin/DataState";
+import {
+  METRIC_UNAVAILABLE,
+  NOT_RECORDED,
+  count,
+  fact,
+  factOr,
+  resolveDataState,
+  stamp,
+} from "@/lib/admin-data-state";
 
-// Default Figma mock for ENT-2026-04521
-const FIGMA_DOSSIER_MOCK: AdminDossier = {
-  id: "ENT-2026-04521",
-  submissionId: "ENT-2026-04521",
-  formType: "ENTERPRISE",
-  status: "PENDING_REVIEW",
-  region: "Littoral",
-  department: "Wouri",
-  subdivision: "Douala Ier",
-  submissionDate: "2026-09-18T16:45:00.000Z",
-  reviewedAt: null,
-  rejectionReason: null,
-  quarterCode: "2026-T1",
-  taxNumber: "M018400012542T",
-  cnpsNumber: "1234567890",
-  registrationNumber: "RC/DLA/2026/B/842",
-  respondent: {
-    respondentName: "Jean-Paul Mbarga",
-    respondentFunction: "Directeur des Ressources Humaines",
-    phone1: "+237 699 887 766",
-    phone2: null,
-    email: "jp.mbarga@example.cm",
-  },
-  enterpriseDetail: {
-    companyName: "SABC S.A. (Brasseries du Cameroun)",
-    headOffice: "Douala, Cameroun",
-    sector: "Secteur Secondaire",
-    branch: "Industrie Agro-alimentaire",
-    enterpriseSize: "Grande Entreprise",
-    permanentWorkers: "1 245 personnes",
-    taxNumber: "M018400012542T",
-    registrationNumber: "RC/DLA/2026/B/842",
-    region: "Littoral",
-    department: "Wouri",
-    commune: "Douala Ier",
-    address: "Rue des Écoles, Koumassi",
-    creationDate: "12 Décembre 1948",
-    taxRegime: "Réel",
-  },
-  cooperativeDetail: null,
-  ctdDetail: null,
-  ongDetail: null,
-  administrationDetail: null,
-  projectProgramDetail: null,
-  vocationalTrainingDetail: null,
+/**
+ * Administrative status of the dossier, exactly as stored.
+ *
+ * `null` (no status on the record) is its own case: it is reported, never
+ * folded into "en instance".
+ */
+const STATUS_BADGES: Record<string, { label: string; bg: string; color: string }> = {
+  PENDING_REVIEW: { label: "En instance", bg: "#fef3c7", color: "#d97706" },
+  APPROVED: { label: "Visé", bg: "#ecfdf5", color: "#047857" },
+  CORRECTION_REQUESTED: { label: "Correction demandée", bg: "#fff7ed", color: "#c2410c" },
+  REJECTED: { label: "Rejeté", bg: "#fef2f2", color: "#b91c1c" },
 };
 
-const FIGMA_DIAGNOSTIC_MOCK: DossierDiagnostic = {
-  submissionId: "ENT-2026-04521",
-  axis1Status: "PENDING_REVIEW",
-  axis2BlockingCount: 0,
-  axis2WarningCount: 2,
-  axis3Eligibility: "READY",
-  blockingAnomalies: [],
-  warningAnomalies: [
-    {
-      ruleCode: "SEC2_SUM_MISMATCH",
-      description: "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés.",
-      observedValue: "1 245 vs 1 189",
-      expectedValue: "Total cohérent",
-    },
-    {
-      ruleCode: "SEC2_PAYROLL_RATIO",
-      description: "Ratio masse salariale / effectif légèrement supérieur à la médiane sectorielle (+12%).",
-      observedValue: "285 000 000 FCFA",
-      expectedValue: "Médiane secteur",
-    },
-  ],
+/**
+ * Questionnaire sections whose figures this screen cannot show.
+ *
+ * GET /admin/questionnaires/:id does return the statistical tables
+ * (cspGenderAge, departureData, internshipData, trainingNeeds, …), but mapping
+ * them onto these section headings is a statistical-semantics decision owned by
+ * the ONEFOP domain and the canonical AST — not something the admin UI may
+ * improvise. Until that mapping is specified and reviewed, each section states
+ * that its figures are not rendered here rather than printing numbers.
+ * See docs/admin-data-integrity-inventory.md.
+ */
+const SECTION_SOURCES: Record<number, { title: string; backing: string }> = {
+  2: {
+    title: "Section 2 : Emploi et Conditions de Travail",
+    backing: "cspGenderAge, diplomaData, disabilityData, vulnerableData, firstTimeWorkers",
+  },
+  3: {
+    title: "Section 3 : Départs, Licenciements et Retraites",
+    backing: "departureData, dismissalReasons, dismissalUnemployment",
+  },
+  4: {
+    title: "Section 4 : Stage et Formation Professionnelle continue",
+    backing: "internshipData, skillNeeds, trainingNeeds",
+  },
 };
-
-function fmtDate(iso: string | null | undefined, withTime = false) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  }).format(d);
-}
 
 type Detail = Record<string, unknown>;
 
@@ -119,8 +84,9 @@ function entityName(detail: Detail): string | null {
 
 function SubmissionDetailContent() {
   const params = useParams();
-  const searchParams = useSearchParams();
-  const id = (params.id as string) || "ENT-2026-04521";
+  // No default id: without one there is no dossier to show, and substituting a
+  // known identifier would load someone else's record.
+  const id = typeof params.id === "string" ? params.id : "";
 
   const queryClient = useQueryClient();
 
@@ -136,15 +102,31 @@ function SubmissionDetailContent() {
     retry: false,
   });
 
-  // Use live data if present, otherwise fallback to Figma mock
-  const dossier: AdminDossier = dossierQuery.data || FIGMA_DOSSIER_MOCK;
-  const diag: DossierDiagnostic = diagnosticQuery.data || FIGMA_DIAGNOSTIC_MOCK;
-  const detail = entityDetail(dossier);
+  /**
+   * Source: GET /admin/questionnaires/:id (QuestionnairesService.getById).
+   * Out-of-territory and unknown ids both come back as 404 — the service
+   * deliberately does not distinguish them, so the UI reports "introuvable"
+   * without leaking the existence of a dossier outside the caller's ressort.
+   *
+   * There is no fallback record. A failed or forbidden load renders a state,
+   * never another establishment's dossier.
+   */
+  const dossier = dossierQuery.data ?? null;
+  const diag = diagnosticQuery.data ?? null;
+  const detail: Detail = dossier ? entityDetail(dossier) : {};
 
-  const name = entityName(detail) ?? searchParams.get("name") ?? "SABC S.A. (Brasseries du Cameroun)";
-  const ref = dossier.submissionId || id;
-  const date = fmtDate(dossier.submissionDate) || "18/09/2026";
-  const region = dossier.region || "Littoral";
+  const pageState = resolveDataState({
+    isLoading: dossierQuery.isLoading,
+    isError: dossierQuery.isError,
+    error: dossierQuery.error,
+  });
+
+  // Every header fact below is the stored value or the neutral marker.
+  const name = entityName(detail);
+  const ref = dossier?.submissionId ?? id;
+  const submittedOn = stamp(dossier?.submissionDate, false);
+  const region = dossier?.region ?? null;
+  const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
 
   const invalidateDossier = () => {
     queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
@@ -154,22 +136,30 @@ function SubmissionDetailContent() {
 
   // ── Modals State ────────────────────────────────────────────────────────
   const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
-  const [correctionSection, setCorrectionSection] = useState("Section 2 : Emploi et Conditions de Travail");
-  const [correctionProblem, setCorrectionProblem] = useState(
-    "Le total des employés permanents (1 245) ne correspond pas à la somme des catégories déclarées (1 189). Écart de 56 postes non classifiés."
-  );
-  const [correctionAction, setCorrectionAction] = useState(
-    "Veuillez vérifier et corriger les effectifs dans la Section 2. Le total doit correspondre exactement à la somme des catégories (cadres + agents de maîtrise + employés + ouvriers)."
-  );
+  // The correction request is written to the dossier and sent to the
+  // respondent, so nothing is pre-filled: a prepared sentence about figures
+  // this dossier may not contain would be persisted as a real administrative
+  // instruction. The reviewer states the problem and the action.
+  const [correctionSection, setCorrectionSection] = useState("");
+  const [correctionProblem, setCorrectionProblem] = useState("");
+  const [correctionAction, setCorrectionAction] = useState("");
   const [requireJustificatifs, setRequireJustificatifs] = useState(false);
   const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   const correctionMutation = useMutation({
     mutationFn: () => {
-      const fullComments = `[${correctionSection}] ${correctionAction.trim()}${
-        requireJustificatifs ? " — Pièces justificatives requises." : ""
-      } (Délai accordé : ${correctionDelay})`;
+      // Every part of the persisted comment comes from what the reviewer
+      // actually entered on this screen.
+      const fullComments = [
+        correctionSection ? `[${correctionSection}]` : null,
+        correctionProblem.trim() ? `Constat : ${correctionProblem.trim()}` : null,
+        `Action demandée : ${correctionAction.trim()}`,
+        requireJustificatifs ? "Pièces justificatives requises." : null,
+        `Délai accordé : ${correctionDelay}`,
+      ]
+        .filter(Boolean)
+        .join(" — ");
       return requestCorrectionDossier(id, fullComments, true);
     },
     onSuccess: () => {
@@ -226,6 +216,86 @@ function SubmissionDetailContent() {
   // Section accordion toggle
   const [expandedSection, setExpandedSection] = useState<number | null>(1);
 
+  /**
+   * Instruction history, derived exclusively from timestamps the record
+   * carries. A step exists only when its timestamp does; the decision step is
+   * labelled by the stored status.
+   */
+  const timeline = useMemo(() => {
+    if (!dossier) return [];
+    const steps: Array<{ key: string; title: string; detail: string | null; stamp: string; color: string }> = [];
+
+    if (dossier.submissionDate) {
+      steps.push({
+        key: "submitted",
+        title: "Fiche reçue par le serveur central",
+        detail: dossier.quarterCode ? `Campagne ${dossier.quarterCode}` : null,
+        stamp: stamp(dossier.submissionDate),
+        color: "#0d9488",
+      });
+    }
+
+    if (dossier.reviewedAt) {
+      const decision =
+        dossier.status === "APPROVED"
+          ? { title: "Visa administratif accordé", color: "#16a34a" }
+          : dossier.status === "REJECTED"
+            ? { title: "Dossier rejeté", color: "#dc2626" }
+            : dossier.status === "CORRECTION_REQUESTED"
+              ? { title: "Retour pour correction", color: "#d97706" }
+              : { title: "Décision enregistrée", color: "#6b7280" };
+      steps.push({
+        key: "reviewed",
+        title: decision.title,
+        detail: dossier.rejectionReason ?? null,
+        stamp: stamp(dossier.reviewedAt),
+        color: decision.color,
+      });
+    }
+
+    return steps;
+  }, [dossier]);
+
+  /**
+   * Nothing below renders without an authoritative record. Loading, a server
+   * error, an authorization refusal and "not found" are reported as
+   * themselves — there is no path on which a substitute dossier appears.
+   */
+  if (!dossier) {
+    return (
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "32px 0" }}>
+        <Link
+          href="/admin/dossiers"
+          style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
+        >
+          ← Retour aux dossiers
+        </Link>
+        <div style={{ marginTop: 20 }}>
+          <DataState
+            state={pageState === "ready" ? "notFound" : pageState}
+            resource="ce dossier"
+            error={dossierQuery.error}
+            onRetry={() => dossierQuery.refetch()}
+            title={
+              pageState === "notFound" || pageState === "ready"
+                ? "Dossier introuvable"
+                : pageState === "forbidden"
+                  ? "Accès non autorisé"
+                  : undefined
+            }
+            hint={
+              pageState === "notFound" || pageState === "ready"
+                ? "Aucun dossier ne correspond à cet identifiant dans votre ressort territorial."
+                : pageState === "forbidden"
+                  ? "Votre rôle ne permet pas de consulter ce dossier."
+                  : undefined
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 0 32px 0" }}>
       {/* ── Top Header matching Figma _id.png ── */}
@@ -266,6 +336,8 @@ function SubmissionDetailContent() {
               <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: 0 }}>
                 Soumission #{ref}
               </h1>
+              {/* Badge reflects the dossier's stored status. A record with no
+                  status says so rather than defaulting to "en attente". */}
               <span
                 style={{
                   display: "inline-flex",
@@ -273,8 +345,8 @@ function SubmissionDetailContent() {
                   gap: 6,
                   padding: "3px 10px",
                   borderRadius: 9999,
-                  background: "#fef3c7",
-                  color: "#d97706",
+                  background: statusBadge?.bg ?? "#f3f4f6",
+                  color: statusBadge?.color ?? "#6b7280",
                   fontSize: 12,
                   fontWeight: 600,
                 }}
@@ -284,14 +356,20 @@ function SubmissionDetailContent() {
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#d97706",
+                    background: statusBadge?.color ?? "#9ca3af",
                   }}
                 />
-                En Attente
+                {statusBadge?.label ?? "Statut non renseigné"}
               </span>
             </div>
+            {/* Submission date and territory as stored. The record holds no
+                supervisor relation (OnefopSubmission.reviewedBy is a bare
+                account id, set only once a decision is taken), so none is
+                named here. */}
             <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
-              Soumis le {date} — Superviseur: Samuel Eto&apos;o (Région {region})
+              Soumis le {submittedOn}
+              {region ? ` — Région ${region}` : ""}
+              {dossier.department ? ` / ${dossier.department}` : ""}
             </p>
           </div>
         </div>
@@ -605,7 +683,7 @@ function SubmissionDetailContent() {
                   NOM COMPLET
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {dossier.respondent?.respondentName || "Jean-Paul Mbarga"}
+                  {factOr(dossier.respondent?.respondentName, NOT_RECORDED)}
                 </div>
               </div>
               <div>
@@ -622,7 +700,7 @@ function SubmissionDetailContent() {
                   FONCTION / POSTE
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {dossier.respondent?.respondentFunction || "Directeur des Ressources Humaines"}
+                  {factOr(dossier.respondent?.respondentFunction, NOT_RECORDED)}
                 </div>
               </div>
               <div>
@@ -639,7 +717,7 @@ function SubmissionDetailContent() {
                   TÉLÉPHONE
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {dossier.respondent?.phone1 || "+237 699 887 766"}
+                  {factOr(dossier.respondent?.phone1, NOT_RECORDED)}
                 </div>
               </div>
               <div>
@@ -656,7 +734,7 @@ function SubmissionDetailContent() {
                   ADRESSE EMAIL
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {dossier.respondent?.email || "jp.mbarga@example.cm"}
+                  {factOr(dossier.respondent?.email, NOT_RECORDED)}
                 </div>
               </div>
             </div>
@@ -698,7 +776,7 @@ function SubmissionDetailContent() {
                   RAISON SOCIALE
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {String(detail.companyName || "SABC S.A. (Brasseries du Cameroun)")}
+                  {fact(detail.companyName)}
                 </div>
               </div>
               <div>
@@ -715,7 +793,7 @@ function SubmissionDetailContent() {
                   SIÈGE SOCIAL
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {String(detail.headOffice || "Douala, Cameroun")}
+                  {fact(detail.headOffice)}
                 </div>
               </div>
               <div>
@@ -732,7 +810,7 @@ function SubmissionDetailContent() {
                   SECTEUR D&apos;ACTIVITÉ
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {String(detail.sector || "Secteur Secondaire")}
+                  {fact(detail.sector)}
                 </div>
               </div>
               <div>
@@ -749,7 +827,7 @@ function SubmissionDetailContent() {
                   BRANCHE
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {String(detail.branch || "Industrie Agro-alimentaire")}
+                  {fact(detail.branch)}
                 </div>
               </div>
               <div>
@@ -766,7 +844,7 @@ function SubmissionDetailContent() {
                   TAILLE DE L&apos;ENTREPRISE
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {String(detail.enterpriseSize || "Grande Entreprise")}
+                  {fact(detail.enterpriseSize)}
                 </div>
               </div>
               <div>
@@ -783,7 +861,7 @@ function SubmissionDetailContent() {
                   EMPLOYÉS PERMANENTS
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-                  {String(detail.permanentWorkers || "1 245 personnes")}
+                  {fact(detail.permanentWorkers)}
                 </div>
               </div>
             </div>
@@ -856,7 +934,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {dossier.taxNumber || "M018400012542T"}
+                      {factOr(dossier.taxNumber, NOT_RECORDED)}
                     </div>
                   </div>
 
@@ -883,7 +961,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {dossier.registrationNumber || "RC/DLA/2026/B/842"}
+                      {factOr(dossier.registrationNumber, NOT_RECORDED)}
                     </div>
                   </div>
 
@@ -910,7 +988,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {String(detail.region || dossier.region || "Littoral")}
+                      {factOr(detail.region ?? dossier.region, NOT_RECORDED)}
                     </div>
                   </div>
 
@@ -937,7 +1015,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {String(detail.department || dossier.department || "Wouri")}
+                      {factOr(detail.department ?? dossier.department, NOT_RECORDED)}
                     </div>
                   </div>
 
@@ -964,7 +1042,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {String(detail.commune || dossier.subdivision || "Douala Ier")}
+                      {factOr(detail.commune ?? dossier.subdivision, NOT_RECORDED)}
                     </div>
                   </div>
 
@@ -991,7 +1069,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {String(detail.address || "Rue des Écoles, Koumassi")}
+                      {fact(detail.address)}
                     </div>
                   </div>
 
@@ -1018,7 +1096,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {String(detail.creationDate || "12 Décembre 1948")}
+                      {fact(detail.creationDate)}
                     </div>
                   </div>
 
@@ -1045,7 +1123,7 @@ function SubmissionDetailContent() {
                         fontWeight: 500,
                       }}
                     >
-                      {String(detail.taxRegime || "Réel")}
+                      {fact(detail.taxRegime)}
                     </div>
                   </div>
                 </div>
@@ -1087,40 +1165,13 @@ function SubmissionDetailContent() {
             </button>
             {expandedSection === 2 && (
               <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Employés permanents
-                    </label>
-                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
-                      1 245 personnes
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Cadres et dirigeants
-                    </label>
-                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
-                      120
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Agents de maîtrise / Techniciens
-                    </label>
-                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
-                      310
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Employés et ouvriers qualifiés
-                    </label>
-                    <div style={{ background: "#f9fafb", border: "1px solid #f3f4f6", borderRadius: 6, padding: "10px 14px", fontSize: 14, color: "#111827" }}>
-                      759
-                    </div>
-                  </div>
-                </div>
+                <DataState
+                  dense
+                  state="unavailable"
+                  resource="les données de cette section"
+                  title="Données chiffrées non affichées ici"
+                  hint={`Les tableaux statistiques de cette section (${SECTION_SOURCES[2].backing}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.`}
+                />
               </div>
             )}
           </div>
@@ -1159,9 +1210,13 @@ function SubmissionDetailContent() {
             </button>
             {expandedSection === 3 && (
               <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
-                <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-                  Aucun mouvement exceptionnel notifié sur cette période (14 départs volontaires, 8 départs à la retraite).
-                </p>
+                <DataState
+                  dense
+                  state="unavailable"
+                  resource="les données de cette section"
+                  title="Données chiffrées non affichées ici"
+                  hint={`Les tableaux statistiques de cette section (${SECTION_SOURCES[3].backing}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.`}
+                />
               </div>
             )}
           </div>
@@ -1200,9 +1255,13 @@ function SubmissionDetailContent() {
             </button>
             {expandedSection === 4 && (
               <div style={{ padding: "20px", borderTop: "1px solid #e5e7eb" }}>
-                <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-                  35 stagiaires académiques accueillis · 140 salariés formés au cours de l&apos;exercice · Budget 18 500 000 FCFA.
-                </p>
+                <DataState
+                  dense
+                  state="unavailable"
+                  resource="les données de cette section"
+                  title="Données chiffrées non affichées ici"
+                  hint={`Les tableaux statistiques de cette section (${SECTION_SOURCES[4].backing}) sont enregistrés avec le dossier, mais leur restitution dans cet écran n'est pas encore spécifiée par le domaine ONEFOP. Consultez le PDF officiel du dossier ou l'export statistique.`}
+                />
               </div>
             )}
           </div>
@@ -1259,7 +1318,16 @@ function SubmissionDetailContent() {
         </div>
       </div>
 
-      {/* ── Bottom Timeline Card matching Figma _id.png ── */}
+      {/* ── Instruction history ──
+          Built only from timestamps stored on the dossier:
+            - submissionDate  → reception by the central server
+            - reviewedAt      → the administrative decision, labelled by the
+                                stored status (visa / rejet / correction)
+            - rejectionReason → the recorded motive, when there is one
+          No step is shown for a timestamp the record does not carry, and no
+          actor is named: `reviewedBy` holds a bare account id, and the named
+          history of who did what lives in the audit journal, which is linked
+          rather than reconstructed here. */}
       <div
         style={{
           background: "#ffffff",
@@ -1269,101 +1337,85 @@ function SubmissionDetailContent() {
           marginTop: 24,
         }}
       >
-        <h2
+        <div
           style={{
-            fontSize: 16,
-            fontWeight: 700,
-            color: "#111827",
-            margin: 0,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
             paddingBottom: 14,
             borderBottom: "1px solid #e5e7eb",
           }}
         >
-          Historique d&apos;instruction de la Fiche
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 24,
-            marginTop: 20,
-          }}
-        >
-          {/* Step 1 */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#22c55e",
-                border: "3px solid #bbf7d0",
-                marginTop: 3,
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                Fiche d&apos;enquête initialisée
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                Soumis par le répondant, supervisé par Samuel Eto&apos;o
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#15803d", marginTop: 4 }}>
-                15/09/2026 - 08:30
-              </div>
-            </div>
-          </div>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
+            Historique d&apos;instruction de la Fiche
+          </h2>
+          <Link
+            href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
+            style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
+          >
+            Voir les événements d&apos;audit →
+          </Link>
+        </div>
 
-          {/* Step 2 */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#0d9488",
-                marginTop: 3,
-                flexShrink: 0,
-              }}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 20 }}>
+          {timeline.length === 0 ? (
+            <DataState
+              dense
+              state="empty"
+              resource="l'historique d'instruction"
+              title="Aucune étape horodatée"
+              hint="Ce dossier ne porte aucune date de soumission ni de décision."
             />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                Fiche soumise pour validation
+          ) : (
+            timeline.map((step) => (
+              <div key={step.key} style={{ display: "flex", gap: 12 }}>
+                <span
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    background: step.color,
+                    marginTop: 4,
+                    flexShrink: 0,
+                  }}
+                />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{step.title}</div>
+                  {step.detail && (
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{step.detail}</div>
+                  )}
+                  <div style={{ fontSize: 12, fontWeight: 600, color: step.color, marginTop: 4 }}>
+                    {step.stamp}
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                Soumis au serveur central de l&apos;Observatoire National
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#0f766e", marginTop: 4 }}>
-                18/09/2026 - 16:45
-              </div>
-            </div>
-          </div>
+            ))
+          )}
 
-          {/* Step 3 */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: "#f59e0b",
-                marginTop: 3,
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                Actuellement en cours de revue
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                En attente de validation par M. Ewane (Superviseur National)
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 4 }}>
-                En attente de revue
+          {/* Pending states are shown as pending, with no predicted approver. */}
+          {dossier.status === "PENDING_REVIEW" && (
+            <div style={{ display: "flex", gap: 12 }}>
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  background: "#f59e0b",
+                  marginTop: 4,
+                  flexShrink: 0,
+                }}
+              />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
+                  En attente de décision
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 4 }}>
+                  Aucune décision enregistrée
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -1476,6 +1528,7 @@ function SubmissionDetailContent() {
                         background: "#ffffff",
                       }}
                     >
+                      <option value="">Sélectionnez une section…</option>
                       <option value="Section 1 : Identification de l'Établissement">
                         Section 1 : Identification de l&apos;Établissement
                       </option>
@@ -1503,21 +1556,31 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      2. PROBLÈME IDENTIFIÉ
+                      2. PROBLÈME CONSTATÉ
                     </div>
-                    <div
+                    {/* Written by the reviewer. Nothing is pre-filled: this
+                        text is persisted with the dossier and sent to the
+                        respondent, so a prepared statement about figures the
+                        dossier may not contain would become a real
+                        administrative finding. */}
+                    <textarea
+                      id="modal-correction-problem"
+                      rows={3}
+                      value={correctionProblem}
+                      onChange={(e) => setCorrectionProblem(e.target.value)}
+                      placeholder="Décrivez l'écart ou la non-conformité constatée sur ce dossier."
                       style={{
-                        padding: "12px 14px",
-                        background: "#fffbeb",
-                        border: "1px solid #fde68a",
+                        width: "100%",
+                        padding: "10px 12px",
                         borderRadius: 6,
-                        color: "#92400e",
+                        border: "1px solid #d1d5db",
                         fontSize: 13,
-                        lineHeight: 1.45,
+                        lineHeight: 1.4,
+                        color: "#111827",
+                        resize: "vertical",
+                        boxSizing: "border-box",
                       }}
-                    >
-                      {correctionProblem}
-                    </div>
+                    />
                   </div>
 
                   {/* 3. Axe de qualité affecté */}
@@ -1532,20 +1595,28 @@ function SubmissionDetailContent() {
                         marginBottom: 6,
                       }}
                     >
-                      3. AXE DE QUALITÉ AFFECTÉ
+                      3. AXE DE QUALITÉ (DIAGNOSTIC DU DOSSIER)
                     </div>
+                    {/* Source: GET /admin/questionnaires/:id/diagnostic —
+                        axis2BlockingCount / axis2WarningCount as computed by
+                        EligibilityEngineService. Reported as "non disponible"
+                        when the diagnostic could not be read. */}
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
-                        color: "#dc2626",
+                        color: diag && diag.axis2BlockingCount > 0 ? "#dc2626" : "#6b7280",
                         fontSize: 13,
                         fontWeight: 600,
                       }}
                     >
                       <span>●</span>
-                      <span>Axe 2 — Qualité des données: Conforme → 2 Anomalies</span>
+                      <span>
+                        {diag
+                          ? `Axe 2 — ${count(diag.axis2BlockingCount)} anomalie(s) bloquante(s), ${count(diag.axis2WarningCount)} avertissement(s)`
+                          : `Axe 2 — ${METRIC_UNAVAILABLE}`}
+                      </span>
                     </div>
                   </div>
 
@@ -1625,6 +1696,22 @@ function SubmissionDetailContent() {
                       <option value="30 jours calendaires">30 jours calendaires</option>
                     </select>
                   </div>
+                  {correctionMutation.isError && (
+                    <div
+                      role="alert"
+                      style={{
+                        padding: 12,
+                        borderRadius: 6,
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        color: "#b91c1c",
+                        fontSize: 13,
+                        marginTop: 12,
+                      }}
+                    >
+                      La demande de correction a échoué : {(correctionMutation.error as Error)?.message ?? "Erreur inconnue"}.
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1664,7 +1751,7 @@ function SubmissionDetailContent() {
                   <button
                     type="button"
                     onClick={() => correctionMutation.mutate()}
-                    disabled={correctionMutation.isPending || !correctionAction.trim()}
+                    disabled={correctionMutation.isPending || !correctionAction.trim() || !correctionProblem.trim()}
                     style={{
                       padding: "8px 18px",
                       borderRadius: 6,
@@ -1737,9 +1824,27 @@ function SubmissionDetailContent() {
                   Le dossier a été officiellement visé et archivé.
                 </div>
               ) : (
-                <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                  Cette action accorde le visa administratif officiel à cette fiche et la marque comme validée pour intégration statistique. Confirmez-vous la décision ?
-                </p>
+                <>
+                  <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
+                    Cette action accorde le visa administratif officiel à cette fiche et la marque comme validée pour intégration statistique. Confirmez-vous la décision ?
+                  </p>
+                  {approveMutation.isError && (
+                    <div
+                      role="alert"
+                      style={{
+                        padding: 12,
+                        borderRadius: 6,
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        color: "#b91c1c",
+                        fontSize: 13,
+                        marginTop: 12,
+                      }}
+                    >
+                      La validation a échoué : {(approveMutation.error as Error)?.message ?? "Erreur inconnue"}.
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div
@@ -1940,6 +2045,22 @@ function SubmissionDetailContent() {
                   <p style={{ margin: 0, fontSize: 11, color: "#6b7280" }}>
                     Cette action génère une entrée d&apos;audit AUDIT_REJECT.
                   </p>
+
+                  {rejectMutation.isError && (
+                    <div
+                      role="alert"
+                      style={{
+                        padding: 12,
+                        borderRadius: 6,
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        color: "#b91c1c",
+                        fontSize: 13,
+                      }}
+                    >
+                      Le rejet a échoué : {(rejectMutation.error as Error)?.message ?? "Erreur inconnue"}.
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -8,7 +8,13 @@ import { questionCodeText } from "@/lib/question-code";
 import { CodedLabel } from "@/components/onefop/ui/QuestionCode";
 import { VT_NO_STEPPER_IDS, VT_SEGMENTED_RADIO_IDS } from "./vt-wizard-utils";
 import { VT_FIELD_TOOLTIPS } from "./vt-field-tooltips";
-import { CAMEROON_ADMIN_HIERARCHY, findCameroonDepartment, findCameroonRegion, regionDisplayName } from "./vt-cameroon-admin-data";
+import {
+  findCameroonDepartment,
+  findCameroonRegion,
+  regionDisplayName,
+  useTerritoryStructure,
+  type LocationRegion,
+} from "@/hooks/useTerritoryStructure";
 import { RadioGroup, type RadioOption } from "./form/Radio";
 import { CheckboxGroup, type CheckboxOption } from "./form/Checkbox";
 import { NumberStepper } from "./form/NumberStepper";
@@ -199,21 +205,28 @@ interface VtAdminSuggestions {
  * French-only there, but this app's chrome switches with the active
  * locale everywhere else, so the headers below do too.
  */
-function vtAdminSuggestionsFor(fieldId: string, data: FormData | undefined, locale: string): VtAdminSuggestions {
+function vtAdminSuggestionsFor(
+  fieldId: string,
+  data: FormData | undefined,
+  locale: string,
+  tree: LocationRegion[] | undefined | null,
+): VtAdminSuggestions {
   const isEn = locale.startsWith("en");
   const region = (data?.VT1_4 as string | undefined)?.trim();
   const dept = (data?.VT1_5 as string | undefined)?.trim();
   const subdiv = (data?.VT1_6 as string | undefined)?.trim();
   const plain = (names: string[]): VtAdminSuggestionItem[] => names.map((name) => ({ value: name, label: name }));
 
+  if (!tree || tree.length === 0) return { header: null, items: [] };
+
   if (fieldId === "VT1_4") {
     return {
       header: null,
-      items: CAMEROON_ADMIN_HIERARCHY.map((r) => ({ value: r.name, label: regionDisplayName(r.name, locale) })),
+      items: tree.map((r) => ({ value: r.name, label: regionDisplayName(r.name, locale) })),
     };
   }
   if (fieldId === "VT1_5") {
-    const regObj = findCameroonRegion(region);
+    const regObj = findCameroonRegion(tree, region);
     if (!regObj) return { header: null, items: [] };
     return {
       header: isEn ? `Departments (${region})` : `Départements (${region})`,
@@ -221,23 +234,23 @@ function vtAdminSuggestionsFor(fieldId: string, data: FormData | undefined, loca
     };
   }
   if (fieldId === "VT1_6") {
-    const deptObj = findCameroonDepartment(dept, region);
+    const deptObj = findCameroonDepartment(tree, dept, region);
     if (!deptObj) return { header: null, items: [] };
     return {
       header: isEn ? `Subdivisions (${dept})` : `Arrondissements (${dept})`,
-      items: plain(deptObj.subdivisions),
+      items: plain(deptObj.subdivisions.map((s) => s.name)),
     };
   }
   if (fieldId === "VT1_7") {
-    const deptObj = findCameroonDepartment(dept, region);
+    const deptObj = findCameroonDepartment(tree, dept, region);
     if (subdiv) {
-      const others = deptObj ? deptObj.subdivisions.filter((s) => s !== subdiv) : [];
+      const others = deptObj ? deptObj.subdivisions.map((s) => s.name).filter((s) => s !== subdiv) : [];
       return { header: `Communes (${subdiv})`, items: plain([subdiv, ...others]) };
     }
     if (deptObj) {
       return {
         header: isEn ? "Communes in this department" : "Communes du département",
-        items: plain(deptObj.subdivisions),
+        items: plain(deptObj.subdivisions.map((s) => s.name)),
       };
     }
     return { header: null, items: [] };
@@ -257,7 +270,8 @@ function VtWizardAdminSuggestionChips({
   onChange: (fieldId: string, value: unknown) => void;
 }) {
   const locale = useLocale();
-  const { header, items } = vtAdminSuggestionsFor(fieldId, data, locale);
+  const { data: tree } = useTerritoryStructure();
+  const { header, items } = vtAdminSuggestionsFor(fieldId, data, locale, tree);
   if (items.length === 0) return null;
   return (
     <div style={{ marginTop: 6 }}>

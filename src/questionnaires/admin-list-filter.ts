@@ -12,6 +12,7 @@ export interface AdminListFilters {
   search?: string;
   formType?: string;
   period?: AdminListPeriod;
+  companyId?: string;
 }
 
 export const ADMIN_LIST_PERIODS = ['7d', '30d', '3m', '12m'] as const;
@@ -48,6 +49,7 @@ export function buildAdminListWhere(
   const and: Record<string, unknown>[] = [territoryWhere(territory), { status: { not: OnefopStatus.DRAFT } }];
   if (filters.status) and.push({ status: filters.status });
   if (filters.formType) and.push({ formType: filters.formType });
+  if (filters.companyId) and.push({ companyId: filters.companyId });
   if (filters.region) and.push({ region: { equals: filters.region, mode: 'insensitive' } });
   // createdAt: indexed, the list's sort key, and the same instant as the
   // "Reçu le" submissionDate (both set when the row is created).

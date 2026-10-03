@@ -23,6 +23,9 @@ export interface DirectoryUser {
   matricule: string | null;
   serviceCode: string | null;
   createdAt: string;
+  lastLoginAt?: string | null;
+  submissionsCount?: number | null;
+  perAgentTarget?: number | null;
 }
 
 export interface ListUsersParams {
@@ -35,6 +38,8 @@ export interface ListUsersParams {
   isActive?: boolean;
   page?: number;
   pageSize?: number;
+  fromCreatedAt?: string;
+  toCreatedAt?: string;
 }
 
 export interface ListUsersResult {
@@ -54,6 +59,8 @@ export function listUsers(params: ListUsersParams) {
   if (params.isActive !== undefined) query.set("isActive", String(params.isActive));
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  if (params.fromCreatedAt) query.set("fromCreatedAt", params.fromCreatedAt);
+  if (params.toCreatedAt) query.set("toCreatedAt", params.toCreatedAt);
   const qs = query.toString();
   return apiFetch<ListUsersResult>(`/auth/users${qs ? `?${qs}` : ""}`);
 }
@@ -79,6 +86,34 @@ export function requestComplements(id: string, message: string) {
   return apiFetch(`/auth/request-complements/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ message }),
+  });
+}
+
+export interface RegistrationDocumentItem {
+  id: string;
+  userId: string;
+  kind: string;
+  label: string;
+  state: "PENDING" | "VERIFIED" | "REJECTED" | "MISSING";
+  uploadedAt: string;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+export interface UserDocumentsResult {
+  userId: string;
+  companyName: string | null;
+  items: RegistrationDocumentItem[];
+}
+
+export function getUserDocuments(userId: string) {
+  return apiFetch<UserDocumentsResult>(`/auth/users/${encodeURIComponent(userId)}/documents`);
+}
+
+export function verifyUserDocument(userId: string, kind: string, state: "VERIFIED" | "PENDING" | "REJECTED") {
+  return apiFetch<RegistrationDocumentItem>(`/auth/users/${encodeURIComponent(userId)}/documents/${encodeURIComponent(kind)}/verify`, {
+    method: "PATCH",
+    body: JSON.stringify({ state }),
   });
 }
 

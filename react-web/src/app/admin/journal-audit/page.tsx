@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import {
   AUDIT_ACTIONS,
-  AUDIT_PERIODS,
   AUDIT_RESOURCE_TYPES,
   auditActionLabel,
   auditActionTone,
@@ -17,203 +16,106 @@ import {
   auditTransition,
   listAuditLog,
 } from "@/lib/audit-log";
+import { listUsers } from "@/lib/user-directory";
 import type { UserRole } from "@/lib/user-types";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { DataStateRow } from "@/components/admin/DataState";
+import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
+const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 const PAGE_SIZE = 12;
 
+/**
+ * One audit row as rendered. Every field is mapped from an AuditLogEntry the
+ * backend returned; `transition` is null when the entry records no state
+ * change, which renders as an em dash rather than an invented transition.
+ */
 interface DisplayAuditItem {
   id: string;
   timestamp: string;
   actor: string;
+  actorRole: string | null;
   action: string;
   actionTone: "neutral" | "success" | "warn" | "danger";
   object: string;
   details: string;
-  transition: string;
+  transition: string | null;
   transitionTone?: "neutral" | "success" | "warn" | "danger";
 }
 
-const FIGMA_AUDIT_ITEMS: DisplayAuditItem[] = [
-  {
-    id: "f-1",
-    timestamp: "29/09/2026 14:32",
-    actor: "M. Ewane",
-    action: "Export généré",
-    actionTone: "neutral",
-    object: "EXP-2026-0098",
-    details: "Export SPSS Campagne 2026-T1, National, 8421 enregistrements",
-    transition: "— → Téléchargé",
-  },
-  {
-    id: "f-2",
-    timestamp: "29/09/2026 14:22",
-    actor: "DR Littoral",
-    action: "Coordonnées modif...",
-    actionTone: "neutral",
-    object: "SABC S.A. (ETB-001847)",
-    details: "Mise à jour téléphone et adresse",
-    transition: "+237 233 42 50 00 → +237 233 42 50 50",
-  },
-  {
-    id: "f-3",
-    timestamp: "29/09/2026 13:58",
-    actor: "Système",
-    action: "Anomalie détectée",
-    actionTone: "warn",
-    object: "ENT-2026-04521",
-    details: "Incohérence effectifs: total ≠ somme catégories",
-    transition: "Conforme → 2 Anomalies",
-    transitionTone: "warn",
-  },
-  {
-    id: "f-4",
-    timestamp: "29/09/2026 13:42",
-    actor: "M. Ewane",
-    action: "Visa en lot",
-    actionTone: "success",
-    object: "3 dossiers",
-    details: "Visa administratif accordé (ENT-04522, COP-00215, ADM-01044)",
-    transition: "En instance → Visé",
-    transitionTone: "success",
-  },
-  {
-    id: "f-5",
-    timestamp: "29/09/2026 12:15",
-    actor: "DR Centre",
-    action: "Déclaration retournée",
-    actionTone: "danger",
-    object: "ENT-2026-04519",
-    details: "Retour pour correction: effectifs incohérents",
-    transition: "En instance → Retournée",
-    transitionTone: "danger",
-  },
-  {
-    id: "f-6",
-    timestamp: "29/09/2026 11:30",
-    actor: "Système",
-    action: "Contrôle automatique",
-    actionTone: "neutral",
-    object: "Lot #847 (24 fiches)",
-    details: "Contrôle de complétude terminé, 3 anomalies",
-    transition: "— → Terminé",
-  },
-  {
-    id: "f-7",
-    timestamp: "29/09/2026 10:45",
-    actor: "M. Ewane",
-    action: "Campagne modifiée",
-    actionTone: "neutral",
-    object: "CAMP-2026-T1",
-    details: "Date limite terrain prolongée",
-    transition: "15/11/2026 → 30/11/2026",
-  },
-  {
-    id: "f-8",
-    timestamp: "29/09/2026 10:22",
-    actor: "DR Nord",
-    action: "Inscription approuvée",
-    actionTone: "success",
-    object: "INS-2026-0839",
-    details: "Association Jeunesse Active, ASFOP",
-    transition: "En attente → Approuvée",
-    transitionTone: "success",
-  },
-  {
-    id: "f-9",
-    timestamp: "29/09/2026 09:42",
-    actor: "SABC S.A.",
-    action: "Déclaration soumise",
-    actionTone: "neutral",
-    object: "ENT-2026-04521",
-    details: "Questionnaire Entreprises, Campagne 2026-T1",
-    transition: "Brouillon → Soumise",
-  },
-  {
-    id: "f-10",
-    timestamp: "29/09/2026 09:15",
-    actor: "M. Ewane",
-    action: "Agent configuré",
-    actionTone: "success",
-    object: "Fatima Harouna",
-    details: "Nouvel agent ONEFOP, Extrême-Nord",
-    transition: "— → Actif",
-    transitionTone: "success",
-  },
-  {
-    id: "f-11",
-    timestamp: "28/09/2026 17:30",
-    actor: "DR Littoral",
-    action: "Compte suspendu",
-    actionTone: "danger",
-    object: "Programme PIAASI (ET...",
-    details: "Non-conformité documentaire",
-    transition: "Actif → Suspendu",
-    transitionTone: "danger",
-  },
-  {
-    id: "f-12",
-    timestamp: "28/09/2026 16:45",
-    actor: "M. Ewane",
-    action: "Permission modifiée",
-    actionTone: "neutral",
-    object: "Salomon Bello",
-    details: "Rôle mis à jour",
-    transition: "Lecteur → Superviseur Régional",
-  },
-];
-
+/**
+ * Period windows accepted by the backend (ADMIN_LIST_PERIODS). "all" means no
+ * `period` parameter at all.
+ */
 const PERIOD_OPTIONS = [
   { value: "7d", label: "Derniers 7 jours" },
-  { value: "24h", label: "Dernières 24 heures" },
   { value: "30d", label: "Derniers 30 jours" },
+  { value: "3m", label: "3 derniers mois" },
+  { value: "12m", label: "12 derniers mois" },
   { value: "all", label: "Toutes les dates" },
 ];
 
-const ACTOR_OPTIONS = [
-  { value: "", label: "Tous les utilisateurs" },
-  { value: "M. Ewane", label: "M. Ewane" },
-  { value: "DR Littoral", label: "DR Littoral" },
-  { value: "Système", label: "Système" },
-  { value: "DR Centre", label: "DR Centre" },
-  { value: "DR Nord", label: "DR Nord" },
-  { value: "SABC S.A.", label: "SABC S.A." },
+/**
+ * Resource-type filter, keyed on the values the backend actually stores in
+ * AuditLog.resourceType (AUDIT_RESOURCE_TYPES in lib/audit-log.ts, derived by
+ * reading every auditLog.create call site in src/).
+ */
+const RESOURCE_TYPE_OPTIONS = [
+  { value: "", label: "Toutes les ressources" },
+  ...Object.entries(AUDIT_RESOURCE_TYPES).map(([value, label]) => ({ value, label })),
 ];
 
-const ACTION_TYPE_OPTIONS = [
-  { value: "", label: "Toutes" },
-  { value: "EXPORT", label: "Export généré" },
-  { value: "UPDATE_COORDINATES", label: "Coordonnées modifiées" },
-  { value: "ANOMALY", label: "Anomalie détectée" },
-  { value: "VISA_BATCH", label: "Visa en lot" },
-  { value: "RETURN_CORRECTION", label: "Déclaration retournée" },
-  { value: "AUTO_CHECK", label: "Contrôle automatique" },
-  { value: "CAMPAIGN_UPDATE", label: "Campagne modifiée" },
-  { value: "APPROVE_INSCRIPTION", label: "Inscription approuvée" },
-  { value: "SUBMIT_DECLARATION", label: "Déclaration soumise" },
-  { value: "CONFIG_AGENT", label: "Agent configuré" },
-  { value: "SUSPEND_ACCOUNT", label: "Compte suspendu" },
-  { value: "UPDATE_PERMISSION", label: "Permission modifiée" },
+/**
+ * Action filter, keyed on the action strings the backend actually writes
+ * (AUDIT_ACTIONS in lib/audit-log.ts). An action missing from that map still
+ * lists and renders under its raw code; it simply cannot be picked here.
+ */
+const ACTION_OPTIONS = [
+  { value: "", label: "Toutes les actions" },
+  ...Object.entries(AUDIT_ACTIONS).map(([value, meta]) => ({ value, label: meta.label })),
 ];
 
 export default function JournalAuditPage() {
   const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
 
-  // Filters state
+  // Filters. `actor` holds a real User.id, not a display name: the backend
+  // filters AuditLog.userId, so a free-text name could never match.
   const [period, setPeriod] = useState("7d");
   const [actor, setActor] = useState("");
-  const [actionType, setActionType] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [action, setAction] = useState("");
+  const [resourceType, setResourceType] = useState("");
+  const [resourceId, setResourceId] = useState("");
+  const [resourceIdInput, setResourceIdInput] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Backend query
+  // Debounced so each keystroke does not run a new audit query.
+  useEffect(() => {
+    const trimmed = resourceIdInput.trim();
+    if (trimmed === resourceId) return;
+    const timer = setTimeout(() => {
+      setResourceId(trimmed);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [resourceIdInput, resourceId]);
+
+  /**
+   * Source: GET /audit/reports?paginate=true (src/report/audit.controller.ts).
+   * Every filter is applied server-side, so `total` is the count of the
+   * filtered query and paging cannot hide matching rows.
+   *
+   * This endpoint is platform-wide by design, which is why this screen is
+   * guarded to SUPER_ADMIN / SUPER_ADMIN_ONEFOP / AUDITOR.
+   */
   const auditQuery = useQuery({
-    queryKey: ["admin", "audit", "list", { period, actor, actionType, searchQuery, currentPage }],
+    queryKey: ["admin", "audit", "list", { period, actor, action, resourceType, resourceId, currentPage }],
     queryFn: () =>
       listAuditLog({
         period: period === "all" ? undefined : period,
         actor: actor || undefined,
+        action: action || undefined,
+        resourceType: resourceType || undefined,
+        resourceId: resourceId || undefined,
         limit: PAGE_SIZE,
         offset: (currentPage - 1) * PAGE_SIZE,
       }),
@@ -221,52 +123,80 @@ export default function JournalAuditPage() {
     placeholderData: keepPreviousData,
   });
 
+  /**
+   * Actor filter options. Source: GET /auth/users — real accounts only, keyed
+   * by id. Hardcoding names here would offer filters that match nothing and
+   * would assert that those people exist.
+   */
+  const actorsQuery = useQuery({
+    queryKey: ["admin", "audit", "actors"],
+    queryFn: () => listUsers({ page: 1, pageSize: 100 }),
+    enabled: !isLoading && !forbidden,
+  });
+
+  const actorOptions = useMemo(() => {
+    const users = actorsQuery.data?.users ?? [];
+    return [
+      { value: "", label: "Tous les utilisateurs" },
+      ...users
+        .map((u) => ({
+          value: u.id,
+          label: `${[u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email} — ${directoryRoleLabel(u.role)}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+    ];
+  }, [actorsQuery.data]);
+
   const handleResetFilters = () => {
     setPeriod("7d");
     setActor("");
-    setActionType("");
-    setSearchQuery("");
+    setAction("");
+    setResourceType("");
+    setResourceIdInput("");
+    setResourceId("");
     setCurrentPage(1);
   };
 
-  // Merge real items if backend returned any, otherwise fallback to Figma canon
-  const displayItems = useMemo(() => {
-    if (auditQuery.data?.items && auditQuery.data.items.length > 0) {
-      return auditQuery.data.items.map((e) => {
-        const d = new Date(e.timestamp);
-        const stamp = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-        const rawTone = auditActionTone(e.action);
-        const mappedTone: "neutral" | "success" | "warn" | "danger" =
-          rawTone === "success" ? "success" : rawTone === "warning" ? "warn" : rawTone === "error" ? "danger" : "neutral";
-
-        return {
-          id: e.id,
-          timestamp: stamp,
-          actor: auditActorName(e),
-          action: auditActionLabel(e.action),
-          actionTone: mappedTone,
-          object: e.resourceId || auditResourceLabel(e.resourceType),
-          details: auditDetailsSummary(e),
-          transition: auditTransition(e) || "—",
-          transitionTone: mappedTone,
-        };
-      });
-    }
-
-    // Filter figma rows by active filters
-    return FIGMA_AUDIT_ITEMS.filter((item) => {
-      if (actor && !item.actor.toLowerCase().includes(actor.toLowerCase())) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesObject = item.object.toLowerCase().includes(q);
-        const matchesDetails = item.details.toLowerCase().includes(q);
-        if (!matchesObject && !matchesDetails) return false;
-      }
-      return true;
+  /**
+   * Audit rows, mapped one-to-one from the backend entries.
+   *
+   * There is no fallback dataset. The audit journal is an evidence screen: an
+   * invented actor, action or state transition here would be indistinguishable
+   * from a real administrative record.
+   */
+  const displayItems: DisplayAuditItem[] = useMemo(() => {
+    const items = auditQuery.data?.items ?? [];
+    return items.map((e) => {
+      const rawTone = auditActionTone(e.action);
+      const tone: DisplayAuditItem["actionTone"] =
+        rawTone === "success" ? "success" : rawTone === "warning" ? "warn" : rawTone === "error" ? "danger" : "neutral";
+      const transition = auditTransition(e);
+      return {
+        id: e.id,
+        timestamp: stamp(e.timestamp),
+        actor: auditActorName(e),
+        actorRole: e.user ? directoryRoleLabel(e.user.role) : null,
+        action: auditActionLabel(e.action),
+        actionTone: tone,
+        object: e.resourceId ?? auditResourceLabel(e.resourceType),
+        details: auditDetailsSummary(e),
+        transition,
+        transitionTone: transition ? tone : undefined,
+      };
     });
-  }, [auditQuery.data, actor, searchQuery]);
+  }, [auditQuery.data]);
 
-  const totalEvents = auditQuery.data?.total || 2847;
+  const totalEvents = auditQuery.data?.total ?? null;
+  const pageCount = totalEvents === null ? null : Math.max(1, Math.ceil(totalEvents / PAGE_SIZE));
+  const firstShown = displayItems.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastShown = (currentPage - 1) * PAGE_SIZE + displayItems.length;
+
+  const tableState = resolveDataState({
+    isLoading: auditQuery.isLoading,
+    isError: auditQuery.isError,
+    error: auditQuery.error,
+    rowCount: auditQuery.data?.items.length ?? null,
+  });
 
   if (isLoading) return null;
 
@@ -323,7 +253,7 @@ export default function JournalAuditPage() {
               <select
                 id="filter-period"
                 value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+                onChange={(e) => { setPeriod(e.target.value); setCurrentPage(1); }}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
                 {PERIOD_OPTIONS.map((p) => (
@@ -338,7 +268,7 @@ export default function JournalAuditPage() {
             </div>
           </div>
 
-          {/* Acteur */}
+          {/* Acteur — real accounts from GET /auth/users, filtered by id */}
           <div className="lg:col-span-3">
             <label htmlFor="filter-actor" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
               Acteur
@@ -347,10 +277,11 @@ export default function JournalAuditPage() {
               <select
                 id="filter-actor"
                 value={actor}
-                onChange={(e) => setActor(e.target.value)}
+                onChange={(e) => { setActor(e.target.value); setCurrentPage(1); }}
+                disabled={actorsQuery.isLoading}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
-                {ACTOR_OPTIONS.map((a) => (
+                {actorOptions.map((a) => (
                   <option key={a.value} value={a.value}>{a.label}</option>
                 ))}
               </select>
@@ -362,7 +293,7 @@ export default function JournalAuditPage() {
             </div>
           </div>
 
-          {/* Type d'action */}
+          {/* Type d'action — only actions the backend actually writes */}
           <div className="lg:col-span-2">
             <label htmlFor="filter-action" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
               Type d&apos;action
@@ -370,11 +301,11 @@ export default function JournalAuditPage() {
             <div className="relative">
               <select
                 id="filter-action"
-                value={actionType}
-                onChange={(e) => setActionType(e.target.value)}
+                value={action}
+                onChange={(e) => { setAction(e.target.value); setCurrentPage(1); }}
                 className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
               >
-                {ACTION_TYPE_OPTIONS.map((opt) => (
+                {ACTION_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -386,18 +317,42 @@ export default function JournalAuditPage() {
             </div>
           </div>
 
-          {/* Objet de l'action */}
-          <div className="lg:col-span-4">
-            <label htmlFor="filter-search" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-              Objet de l&apos;action
+          {/* Ressource */}
+          <div className="lg:col-span-2">
+            <label htmlFor="filter-resource" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
+              Ressource
+            </label>
+            <div className="relative">
+              <select
+                id="filter-resource"
+                value={resourceType}
+                onChange={(e) => { setResourceType(e.target.value); setCurrentPage(1); }}
+                className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
+              >
+                {RESOURCE_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-500">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 1 5 5 9 1" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Identifiant de la ressource — exact match, server-side */}
+          <div className="lg:col-span-2">
+            <label htmlFor="filter-resource-id" className="block text-[11px] font-bold tracking-wider text-slate-500 uppercase mb-1.5">
+              Identifiant
             </label>
             <div className="relative">
               <input
-                id="filter-search"
+                id="filter-resource-id"
                 type="text"
-                placeholder="Rechercher par ID ou nom..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ID exact de la ressource"
+                value={resourceIdInput}
+                onChange={(e) => setResourceIdInput(e.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all"
               />
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
@@ -440,41 +395,57 @@ export default function JournalAuditPage() {
               </tr>
             </thead>
             <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
+              {/* Loading, error, authorization refusal and "no records" stay
+                  distinct. There is no branch that renders sample rows. */}
+              <DataStateRow
+                colSpan={6}
+                state={tableState}
+                resource="le journal d'audit"
+                error={auditQuery.error}
+                onRetry={() => auditQuery.refetch()}
+                title={tableState === "empty" ? "Aucun historique d'audit disponible" : undefined}
+                hint={
+                  tableState === "empty"
+                    ? "Aucun événement enregistré ne correspond aux filtres sélectionnés. Les événements consignés par le système apparaîtront ici."
+                    : undefined
+                }
+              />
               {displayItems.map((row) => {
                 const actionBadgeClass =
                   row.actionTone === "success"
                     ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                     : row.actionTone === "warn"
-                    ? "bg-amber-50 text-amber-800 border-amber-200"
-                    : row.actionTone === "danger"
-                    ? "bg-rose-50 text-rose-800 border-rose-200"
-                    : "bg-slate-100 text-slate-700 border-slate-200";
+                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                      : row.actionTone === "danger"
+                        ? "bg-rose-50 text-rose-800 border-rose-200"
+                        : "bg-slate-100 text-slate-700 border-slate-200";
 
                 const transitionTextClass =
                   row.transitionTone === "success"
                     ? "text-emerald-700 font-semibold"
                     : row.transitionTone === "warn"
-                    ? "text-amber-700 font-semibold"
-                    : row.transitionTone === "danger"
-                    ? "text-rose-700 font-semibold"
-                    : "text-slate-600";
-
-                const isDangerRow = row.actionTone === "danger";
+                      ? "text-amber-700 font-semibold"
+                      : row.transitionTone === "danger"
+                        ? "text-rose-700 font-semibold"
+                        : "text-slate-600";
 
                 return (
                   <tr
                     key={row.id}
                     className={`transition-colors ${
-                      isDangerRow
-                        ? "bg-rose-50/50 hover:bg-rose-50/80"
-                        : "hover:bg-slate-50/60"
+                      row.actionTone === "danger" ? "bg-rose-50/50 hover:bg-rose-50/80" : "hover:bg-slate-50/60"
                     }`}
                   >
                     <td className="py-3 px-4 whitespace-nowrap text-slate-500">
                       {row.timestamp}
                     </td>
-                    <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
-                      {row.actor}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <span className="font-bold text-slate-900">{row.actor}</span>
+                      {/* Role comes from the audit entry's joined user record;
+                          omitted entirely for system-generated entries. */}
+                      {row.actorRole && (
+                        <span className="block text-[11px] font-normal text-slate-500">{row.actorRole}</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-medium border ${actionBadgeClass}`}>
@@ -484,11 +455,11 @@ export default function JournalAuditPage() {
                     <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
                       {row.object}
                     </td>
-                    <td className="py-3 px-4 text-slate-600 max-w-md truncate">
+                    <td className="py-3 px-4 text-slate-600 max-w-md truncate" title={row.details}>
                       {row.details}
                     </td>
                     <td className={`py-3 px-4 text-right whitespace-nowrap ${transitionTextClass}`}>
-                      {row.transition}
+                      {row.transition ?? NOT_PROVIDED}
                     </td>
                   </tr>
                 );
@@ -497,58 +468,35 @@ export default function JournalAuditPage() {
           </table>
         </div>
 
-        {/* ── Pagination Footer matching Figma ── */}
+        {/* Pagination driven by the server-reported `total` for the same
+            filtered query. No fixed page buttons: the number of pages is
+            whatever the real total implies, and the range reflects the rows
+            actually returned. */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 border-t border-slate-100 text-xs text-slate-500">
           <div>
-            Affichage 1-12 sur {totalEvents.toLocaleString("fr-FR")} événements
+            {totalEvents === null
+              ? NOT_PROVIDED
+              : totalEvents === 0
+                ? "0 événement"
+                : `Affichage ${count(firstShown)}-${count(lastShown)} sur ${count(totalEvents)} événement${totalEvents > 1 ? "s" : ""}`}
           </div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-700 font-medium"
             >
               Précédent
             </button>
+            <span className="px-2 font-semibold text-slate-700">
+              {pageCount === null ? `Page ${currentPage}` : `Page ${currentPage} / ${pageCount}`}
+            </span>
             <button
               type="button"
-              onClick={() => setCurrentPage(1)}
-              className={`w-8 h-8 rounded-lg font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 1
-                  ? "bg-[#164e32] text-white"
-                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              1
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(2)}
-              className={`w-8 h-8 rounded-lg font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 2
-                  ? "bg-[#006644] text-white"
-                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              2
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(3)}
-              className={`w-8 h-8 rounded-lg font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 3
-                  ? "bg-[#006644] text-white"
-                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              3
-            </button>
-            <span className="px-1 text-slate-400">…</span>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-slate-700 font-medium"
+              disabled={pageCount === null || currentPage >= pageCount}
+              onClick={() => setCurrentPage((prev) => prev + 1)}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-700 font-medium"
             >
               Suivant
             </button>

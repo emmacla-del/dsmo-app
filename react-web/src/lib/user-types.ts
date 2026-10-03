@@ -94,6 +94,24 @@ export interface Subdivision {
   departmentId: string;
 }
 
+export interface LocationSubdivision {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
+export interface LocationDepartment {
+  id: string;
+  name: string;
+  subdivisions: LocationSubdivision[];
+}
+
+export interface LocationRegion {
+  id: string;
+  name: string;
+  departments: LocationDepartment[];
+}
+
 export interface RegisterCompanyResult {
   access_token: string;
   user: User;

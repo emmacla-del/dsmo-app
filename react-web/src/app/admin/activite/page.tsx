@@ -1,245 +1,232 @@
 "use client";
 
-import { Suspense, useState, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { listAdminQuestionnaires, getPilotageQueues } from "@/lib/api-client";
+import { getPilotageQueues } from "@/lib/api-client";
+import {
+  AUDIT_ACTIONS,
+  auditActionLabel,
+  auditActionTone,
+  auditActorName,
+  auditDetailsSummary,
+  auditResourceLabel,
+  listAuditLog,
+} from "@/lib/audit-log";
+import {
+  ANOMALY_REGISTRY_ROLES,
+  anomalyCompanyName,
+  anomalyDossierRef,
+  listAnomalyRegistry,
+} from "@/lib/anomaly-registry";
+import { directoryRoleLabel } from "@/lib/user-directory";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState } from "@/components/admin/DataState";
+import {
+  NOT_PROVIDED,
+  count,
+  elapsedSince,
+  resolveDataState,
+  shortStamp,
+  stamp,
+} from "@/lib/admin-data-state";
 
-// Mock activity events matching Figma styling
-const DEFAULT_ACTIVITIES = [
-  {
-    id: "act-1",
-    time: "09:42",
-    date: "Aujourd'hui",
-    actor: "SABC S.A.",
-    role: "Déclarant (Littoral)",
-    action: "Déclaration soumise",
-    actionType: "submission",
-    targetId: "ENT-2026-04521",
-    details: "Questionnaire Entreprises soumis pour validation ministérielle.",
-    region: "Littoral",
-  },
-  {
-    id: "act-2",
-    time: "09:37",
-    date: "Aujourd'hui",
-    actor: "Agent Ndongo",
-    role: "Instructeur Régional",
-    action: "Déclaration retournée",
-    actionType: "return",
-    targetId: "ADM-2026-01042",
-    details: "Retour pour correction : pièces justificatives d'effectifs manquantes.",
-    region: "Centre",
-  },
-  {
-    id: "act-3",
-    time: "09:31",
-    date: "Aujourd'hui",
-    actor: "Coop. Cacaoyère du Sud",
-    role: "Déclarant (Sud)",
-    action: "Inscription validée",
-    actionType: "validation",
-    targetId: "COP-2026-00214",
-    details: "Nouvel établissement enregistré dans le répertoire national.",
-    region: "Sud",
-  },
-  {
-    id: "act-4",
-    time: "09:15",
-    date: "Aujourd'hui",
-    actor: "M. Ewane",
-    role: "Superviseur National",
-    action: "Visa en lot (3 dossiers)",
-    actionType: "visa",
-    targetId: "ENT-2026-04522",
-    details: "Visa administratif accordé avec succès sans anomalie bloquante.",
-    region: "National",
-  },
-  {
-    id: "act-5",
-    time: "08:58",
-    date: "Aujourd'hui",
-    actor: "GIC Espoir",
-    role: "Déclarant (Nord-Ouest)",
-    action: "Documents téléversés",
-    actionType: "upload",
-    targetId: "COP-2026-00215",
-    details: "Fichiers bilans financiers et registre du personnel ajoutés.",
-    region: "Nord-Ouest",
-  },
-  {
-    id: "act-6",
-    time: "08:42",
-    date: "Aujourd'hui",
-    actor: "Système Automatisé",
-    role: "Contrôle Qualité",
-    action: "Alerte de cohérence",
-    actionType: "alert",
-    targetId: "ENT-2026-04521",
-    details: "Écart détecté : effectif déclaré (1 245) ≠ somme des postes (1 189).",
-    region: "Littoral",
-  },
-  {
-    id: "act-7",
-    time: "08:30",
-    date: "Aujourd'hui",
-    actor: "Nexttel Cameroun",
-    role: "Déclarant (Centre)",
-    action: "Déclaration initiée",
-    actionType: "draft",
-    targetId: "ENT-2026-04523",
-    details: "Brouillon de déclaration trimestrielle créé par l'établissement.",
-    region: "Centre",
-  },
-];
+// Roles the backend lets read GET /audit/reports (src/report/audit.controller.ts).
+// Anyone else reaching this screen gets an explicit authorization state for
+// the event journal — never a substitute dataset.
+const AUDIT_READER_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 
-const SUPERVISION_ALERTS = [
-  {
-    id: "alt-1",
-    level: "bloquante",
-    title: "Incohérence arithmétique d'effectif",
-    targetId: "ENT-2026-04521",
-    company: "SABC S.A. (Brasseries du Cameroun)",
-    region: "Littoral",
-    description: "Écart de 56 postes non ventilés dans la grille des catégories socio-professionnelles.",
-    delay: "En attente depuis 14h",
-  },
-  {
-    id: "alt-2",
-    level: "delai",
-    title: "Délai d'instruction régional dépassé",
-    targetId: "ADM-2026-01042",
-    company: "MINSANTE Délégués",
-    region: "Centre",
-    description: "Fiche reçue il y a 76h sans décision de visa ou de renvoi pour correction.",
-    delay: "Dépassé de +28h",
-  },
-  {
-    id: "alt-3",
-    level: "retour",
-    title: "Correction déclarant en attente",
-    targetId: "COP-2026-00215",
-    company: "COOP-CA Ouest",
-    region: "Ouest",
-    description: "Demande de correction envoyée il y a 5 jours ouvrables. Aucun retour soumis.",
-    delay: "Échéance dans 2 jours",
-  },
-  {
-    id: "alt-4",
-    level: "qualite",
-    title: "Ratio masse salariale hors norme",
-    targetId: "PRJ-2026-00896",
-    company: "PNDP Littoral",
-    region: "Littoral",
-    description: "Masse salariale par employé supérieure de 35% à la moyenne sectorielle.",
-    delay: "Avis requis",
-  },
-];
+const EVENT_PAGE_SIZE = 25;
+const ALERT_PAGE_SIZE = 20;
+
+const CARD: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+};
+
+const PILL: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 16px",
+  borderRadius: 6,
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  color: "#374151",
+  fontSize: 13,
+  fontWeight: 500,
+  textDecoration: "none",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
+};
+
+const PILL_ACTIVE: React.CSSProperties = {
+  ...PILL,
+  background: "#1e6b3a",
+  color: "#ffffff",
+  border: "none",
+  fontWeight: 600,
+  boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
+};
+
+const SELECT: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 12px",
+  borderRadius: 6,
+  border: "1px solid #d1d5db",
+  fontSize: 13,
+  background: "#ffffff",
+};
+
+const LABEL: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#6b7280",
+  textTransform: "uppercase",
+  marginBottom: 6,
+};
+
+/**
+ * One KPI tile.
+ *
+ * `value` is `null` whenever the figure has not been retrieved — it then
+ * renders as an em dash. A zero is rendered as "0", because zero is an answer.
+ */
+function Kpi({
+  label,
+  value,
+  accent,
+  note,
+}: {
+  label: string;
+  value: number | null;
+  accent: string;
+  note: string;
+}) {
+  return (
+    <div style={{ ...CARD, borderLeft: `4px solid ${accent}`, padding: "16px 20px" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: "#111827", marginTop: 4 }}>
+        {count(value)}
+      </div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontWeight: 500 }}>{note}</div>
+    </div>
+  );
+}
 
 function ActiviteContent() {
   const user = useAuthStore((s) => s.user);
+  const role = user?.role;
 
-  // Filters
-  const [periodFilter, setPeriodFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [regionFilter, setRegionFilter] = useState(user?.region || "all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const canReadAudit = !!role && AUDIT_READER_ROLES.includes(role);
+  const canReadAnomalies = !!role && ANOMALY_REGISTRY_ROLES.includes(role);
 
+  // Filters. `action` and `period` are sent to the server; nothing is filtered
+  // client-side, so the counts shown always match the query that produced them.
+  const [period, setPeriod] = useState("7d");
+  const [action, setAction] = useState("");
+
+  /**
+   * Work-queue counters.
+   *
+   * Source: GET /admin/questionnaires/pilotage/queues
+   * (EligibilityEngineService.getPilotageQueues). Every figure is a Prisma
+   * count/groupBy over `territoryWhere(territory)`, so a REGIONAL or
+   * DIVISIONAL actor sees only its own ressort. Drafts are excluded server-side.
+   *
+   * On error the figures stay `null` rather than falling back to 0 or to a
+   * national number: an unreachable queue is not an empty queue.
+   */
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
   });
+  const queues = queuesQuery.data ?? null;
 
-  const queues = queuesQuery.data;
+  /**
+   * Event journal.
+   *
+   * Source: GET /audit/reports?paginate=true — stored AuditLog rows, newest
+   * first. This is the only record of who did what in the system; there is no
+   * second source and no fallback. Readable by super-admins and auditors only,
+   * which is why the panel reports an authorization state for other roles
+   * instead of inventing a feed.
+   */
+  const auditQuery = useQuery({
+    queryKey: ["admin", "activite", "audit", { period, action }],
+    queryFn: () =>
+      listAuditLog({
+        period: period === "all" ? undefined : period,
+        action: action || undefined,
+        limit: EVENT_PAGE_SIZE,
+        offset: 0,
+      }),
+    enabled: canReadAudit,
+  });
 
-  // Filter activities
-  const filteredActivities = useMemo(() => {
-    return DEFAULT_ACTIVITIES.filter((act) => {
-      if (regionFilter !== "all" && act.region.toLowerCase() !== regionFilter.toLowerCase() && act.region !== "National") {
-        return false;
-      }
-      if (typeFilter !== "all") {
-        if (typeFilter === "alert" && act.actionType !== "alert") return false;
-        if (typeFilter === "visa" && act.actionType !== "visa") return false;
-        if (typeFilter === "return" && act.actionType !== "return") return false;
-        if (typeFilter === "submission" && act.actionType !== "submission") return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          act.actor.toLowerCase().includes(q) ||
-          act.targetId.toLowerCase().includes(q) ||
-          act.details.toLowerCase().includes(q) ||
-          act.action.toLowerCase().includes(q)
-        );
-      }
-      return true;
+  /**
+   * Priority alerts.
+   *
+   * Source: GET /admin/questionnaires/anomalies/registry?status=OPEN&isBlocking=true
+   * — territory-scoped open blocking anomalies, newest detection first. Ageing
+   * is derived from each row's stored `detectedAt`, never from a literal.
+   */
+  const alertsQuery = useQuery({
+    queryKey: ["admin", "activite", "alerts"],
+    queryFn: () => listAnomalyRegistry({ status: "OPEN", isBlocking: true, limit: ALERT_PAGE_SIZE }),
+    enabled: canReadAnomalies,
+  });
+
+  const events = useMemo(() => {
+    const items = auditQuery.data?.items ?? [];
+    return items.map((e) => {
+      const tone = auditActionTone(e.action);
+      return {
+        id: e.id,
+        iso: e.timestamp,
+        actor: auditActorName(e),
+        actorRole: e.user ? directoryRoleLabel(e.user.role) : null,
+        action: auditActionLabel(e.action),
+        tone,
+        resource: e.resourceId ?? auditResourceLabel(e.resourceType),
+        resourceType: e.resourceType,
+        details: auditDetailsSummary(e),
+      };
     });
-  }, [regionFilter, typeFilter, searchQuery]);
+  }, [auditQuery.data]);
+
+  const eventsState = resolveDataState({
+    roleAllowed: canReadAudit,
+    isLoading: auditQuery.isLoading,
+    isError: auditQuery.isError,
+    error: auditQuery.error,
+    rowCount: auditQuery.data?.items.length ?? null,
+  });
+
+  const alerts = alertsQuery.data?.items ?? [];
+  const alertsState = resolveDataState({
+    roleAllowed: canReadAnomalies,
+    isLoading: alertsQuery.isLoading,
+    isError: alertsQuery.isError,
+    error: alertsQuery.error,
+    rowCount: alertsQuery.data?.items.length ?? null,
+  });
+
+  const eventTotal = auditQuery.data?.total ?? null;
 
   return (
     <div className="cam-admin-page" style={{ maxWidth: 1440, margin: "0 auto" }}>
-      {/* ── Page Header ── */}
       <AdminPageHeader
         breadcrumb={[{ label: "Supervision" }, { label: "Activité & alertes" }]}
         beforeTitle={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link
-              href="/admin/pilotage"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 16px",
-                borderRadius: 6,
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                textDecoration: "none",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-              }}
-            >
-              Tableau de bord
-            </Link>
-            <Link
-              href="/admin/dossiers"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 16px",
-                borderRadius: 6,
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                textDecoration: "none",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-              }}
-            >
-              Dossiers en instance
-            </Link>
-            <Link
-              href="/admin/activite"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 16px",
-                borderRadius: 6,
-                background: "#1e6b3a",
-                color: "#ffffff",
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-                boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
-              }}
-            >
-              Activité & alertes
-            </Link>
+            <Link href="/admin/pilotage" style={PILL}>Tableau de bord</Link>
+            <Link href="/admin/dossiers" style={PILL}>Dossiers en instance</Link>
+            <Link href="/admin/activite" style={PILL_ACTIVE}>Activité &amp; alertes</Link>
           </div>
         }
         title="Activité Récente & Alertes"
@@ -248,150 +235,82 @@ function ActiviteContent() {
         hideTabs={true}
       />
 
-      {/* ── KPI Counter Strip ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderLeft: "4px solid #dc2626", borderRadius: 8, padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>Alertes actives</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {queues?.blockingAnomaliesCount || 14}
-          </div>
-          <div style={{ fontSize: 12, color: "#dc2626", marginTop: 2, fontWeight: 500 }}>
-            4 prioritaires à traiter
-          </div>
+      {/* ── Work-queue counters, all from pilotage/queues ── */}
+      {queuesQuery.isError ? (
+        <div style={{ marginBottom: 24 }}>
+          <DataState
+            state="error"
+            resource="les compteurs de supervision"
+            error={queuesQuery.error}
+            onRetry={() => queuesQuery.refetch()}
+            hint="Les compteurs ne sont pas affichés tant que le serveur ne les a pas fournis."
+          />
         </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>Dossiers en instance</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {queues?.totalSubmissionsCount || 38}
-          </div>
-          <div style={{ fontSize: 12, color: "#d97706", marginTop: 2, fontWeight: 500 }}>
-            En attente de visa administratif
-          </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <Kpi
+            label="Anomalies bloquantes ouvertes"
+            value={queues?.blockingAnomaliesCount ?? null}
+            accent="#dc2626"
+            note="Dans votre ressort"
+          />
+          <Kpi
+            label="Dossiers en instance"
+            value={queues?.pendingNationalVisasCount ?? null}
+            accent="#f59e0b"
+            note="En attente de visa administratif"
+          />
+          <Kpi
+            label="Corrections en cours"
+            value={queues?.correctionsUnderReviewCount ?? null}
+            accent="#3b82f6"
+            note="Chez les déclarants"
+          />
+          <Kpi
+            label="Dossiers visés"
+            value={queues?.approvedCount ?? null}
+            accent="#1e6b3a"
+            note="Visa administratif accordé"
+          />
         </div>
+      )}
 
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderLeft: "4px solid #3b82f6", borderRadius: 8, padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>Retours pour correction</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {queues?.correctionsUnderReviewCount || 7}
-          </div>
-          <div style={{ fontSize: 12, color: "#2563eb", marginTop: 2, fontWeight: 500 }}>
-            En cours chez les déclarants
-          </div>
-        </div>
-
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderLeft: "4px solid #1e6b3a", borderRadius: 8, padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>Visas délivrés (Total)</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {queues?.approvedCount || 6983}
-          </div>
-          <div style={{ fontSize: 12, color: "#16a34a", marginTop: 2, fontWeight: 500 }}>
-            Intégrés dans la base statistique
-          </div>
-        </div>
-      </div>
-
-      {/* ── Filters Card matching Figma style ── */}
-      <section
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-          padding: "16px 20px",
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+      {/* ── Filters. Both are applied server-side on /audit/reports. ── */}
+      <section style={{ ...CARD, padding: "16px 20px", marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
           <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 6 }}>
-              Période
-            </label>
-            <select
-              value={periodFilter}
-              onChange={(e) => setPeriodFilter(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff" }}
-            >
+            <label htmlFor="act-period" style={LABEL}>Période</label>
+            <select id="act-period" value={period} onChange={(e) => setPeriod(e.target.value)} style={SELECT}>
+              <option value="7d">7 derniers jours</option>
+              <option value="30d">30 derniers jours</option>
+              <option value="3m">3 derniers mois</option>
+              <option value="12m">12 derniers mois</option>
               <option value="all">Toutes les dates</option>
-              <option value="today">Aujourd&apos;hui</option>
-              <option value="24h">Dernières 24 heures</option>
-              <option value="7d">Derniers 7 jours</option>
-              <option value="30d">Derniers 30 jours</option>
             </select>
           </div>
-
           <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 6 }}>
-              Type d&apos;événement
-            </label>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff" }}
-            >
-              <option value="all">Tous les types</option>
-              <option value="alert">Alertes de cohérence</option>
-              <option value="visa">Visas accordés</option>
-              <option value="return">Retours pour correction</option>
-              <option value="submission">Soumissions reçues</option>
+            <label htmlFor="act-action" style={LABEL}>Type d&apos;événement</label>
+            <select id="act-action" value={action} onChange={(e) => setAction(e.target.value)} style={SELECT}>
+              <option value="">Tous les types</option>
+              {/* Only actions the backend actually writes. */}
+              {Object.entries(AUDIT_ACTIONS).map(([value, meta]) => (
+                <option key={value} value={value}>{meta.label}</option>
+              ))}
             </select>
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 6 }}>
-              Région
-            </label>
-            <select
-              value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff" }}
-            >
-              <option value="all">Toutes les Régions</option>
-              <option value="Littoral">Littoral</option>
-              <option value="Centre">Centre</option>
-              <option value="Ouest">Ouest</option>
-              <option value="Sud-Ouest">Sud-Ouest</option>
-              <option value="Nord">Nord</option>
-              <option value="Extrême-Nord">Extrême-Nord</option>
-              <option value="Sud">Sud</option>
-              <option value="Adamaoua">Adamaoua</option>
-              <option value="Est">Est</option>
-              <option value="Nord-Ouest">Nord-Ouest</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 6 }}>
-              Recherche libre
-            </label>
-            <input
-              type="text"
-              placeholder="Rechercher par ID, acteur..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 13, background: "#ffffff" }}
-            />
           </div>
         </div>
       </section>
 
-      {/* ── Main Two Column Layout: Activity Stream (Left) & Alerts (Right) ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "start" }}>
-        {/* Left Column: Chronological Activity Feed */}
-        <section
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            overflow: "hidden",
-          }}
-        >
+        {/* ── Event journal ── */}
+        <section style={{ ...CARD, overflow: "hidden" }}>
           <div
             style={{
               padding: "16px 20px",
@@ -399,54 +318,84 @@ function ActiviteContent() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 12,
             }}
           >
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
-              Journal des Événements Récents ({filteredActivities.length})
+              Journal des Événements Récents
             </h2>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>Mise à jour en temps réel</span>
+            {/* Server-reported count for the same filtered query. */}
+            <span style={{ fontSize: 12, color: "#6b7280" }}>
+              {eventsState === "ready" && eventTotal !== null
+                ? `${count(events.length)} affiché(s) sur ${count(eventTotal)}`
+                : NOT_PROVIDED}
+            </span>
           </div>
 
-          <div style={{ padding: "8px 0" }}>
-            {filteredActivities.length === 0 ? (
-              <div style={{ padding: "32px 20px", textAlign: "center", color: "#6b7280", fontSize: 14 }}>
-                Aucun événement d&apos;activité ne correspond aux filtres sélectionnés.
-              </div>
-            ) : (
-              filteredActivities.map((act) => (
+          {eventsState !== "ready" ? (
+            <div style={{ padding: 20 }}>
+              <DataState
+                state={eventsState}
+                resource="le journal d'événements"
+                error={auditQuery.error}
+                onRetry={() => auditQuery.refetch()}
+                title={
+                  eventsState === "forbidden"
+                    ? "Journal d'audit non accessible à votre rôle"
+                    : eventsState === "empty"
+                      ? "Aucun événement enregistré"
+                      : undefined
+                }
+                hint={
+                  eventsState === "forbidden"
+                    ? "Le journal d'audit systémique est réservé aux super-administrateurs et aux auditeurs. Les alertes de contrôle de votre ressort restent affichées ci-contre."
+                    : eventsState === "empty"
+                      ? "Aucun événement consigné sur la période sélectionnée. Les opérations d'instruction apparaîtront ici dès qu'elles seront enregistrées."
+                      : undefined
+                }
+              />
+            </div>
+          ) : (
+            <div style={{ padding: "8px 0" }}>
+              {events.map((ev) => (
                 <div
-                  key={act.id}
+                  key={ev.id}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
                     gap: 16,
                     padding: "14px 20px",
                     borderBottom: "1px solid #f3f4f6",
-                    transition: "background 0.15s",
                   }}
                 >
-                  <div style={{ textAlign: "center", width: 44, flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{act.time}</div>
-                    <div style={{ fontSize: 10, color: "#9ca3af" }}>{act.date}</div>
+                  {/* Both lines derive from the entry's stored timestamp. */}
+                  <div style={{ textAlign: "center", width: 56, flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>
+                      {shortStamp(ev.iso)}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#9ca3af" }} title={stamp(ev.iso)}>
+                      {elapsedSince(ev.iso)}
+                    </div>
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
-                        {act.actor}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          padding: "2px 8px",
-                          borderRadius: 9999,
-                          background: "#f3f4f6",
-                          color: "#4b5563",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {act.role}
-                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{ev.actor}</span>
+                      {/* Role shown only when the entry carries a user record. */}
+                      {ev.actorRole && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 9999,
+                            background: "#f3f4f6",
+                            color: "#4b5563",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {ev.actorRole}
+                        </span>
+                      )}
                       <span
                         style={{
                           fontSize: 11,
@@ -454,168 +403,170 @@ function ActiviteContent() {
                           padding: "2px 8px",
                           borderRadius: 9999,
                           background:
-                            act.actionType === "alert"
-                              ? "#fef2f2"
-                              : act.actionType === "visa"
-                              ? "#ecfdf5"
-                              : act.actionType === "return"
-                              ? "#fffbeb"
-                              : "#eff6ff",
+                            ev.tone === "error" ? "#fef2f2"
+                              : ev.tone === "success" ? "#ecfdf5"
+                                : ev.tone === "warning" ? "#fffbeb"
+                                  : "#eff6ff",
                           color:
-                            act.actionType === "alert"
-                              ? "#dc2626"
-                              : act.actionType === "visa"
-                              ? "#16a34a"
-                              : act.actionType === "return"
-                              ? "#d97706"
-                              : "#2563eb",
+                            ev.tone === "error" ? "#dc2626"
+                              : ev.tone === "success" ? "#16a34a"
+                                : ev.tone === "warning" ? "#d97706"
+                                  : "#2563eb",
                         }}
                       >
-                        {act.action}
+                        {ev.action}
                       </span>
                     </div>
 
                     <p style={{ margin: "2px 0 6px", fontSize: 13, color: "#4b5563", lineHeight: 1.4 }}>
-                      {act.details}
+                      {ev.details}
                     </p>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <Link
-                        href={`/admin/dossiers/${act.targetId}`}
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "#1e6b3a",
-                          textDecoration: "none",
-                        }}
-                      >
-                        Dossier #{act.targetId} →
-                      </Link>
-                      <span style={{ fontSize: 12, color: "#9ca3af" }}>•</span>
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>Région {act.region}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      {/* Deep link only for resource types that have a page.
+                          Other types show the identifier without pretending a
+                          dossier exists behind it. */}
+                      {ev.resourceType === "OnefopSubmission" ? (
+                        <Link
+                          href={`/admin/dossiers/${encodeURIComponent(ev.resource)}`}
+                          style={{ fontSize: 12, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}
+                        >
+                          Dossier {ev.resource} →
+                        </Link>
+                      ) : (
+                        <span style={{ fontSize: 12, color: "#6b7280" }}>
+                          {auditResourceLabel(ev.resourceType)} · {ev.resource}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
-        {/* Right Column: Active Alerts Panel */}
-        <section
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              padding: "18px 20px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        {/* ── Priority alerts ── */}
+        <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ ...CARD, padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626" }} />
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
                   Alertes de Contrôle Prioritaires
                 </h2>
               </div>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  background: "#fee2e2",
-                  color: "#dc2626",
-                  padding: "2px 8px",
-                  borderRadius: 9999,
-                }}
-              >
-                {SUPERVISION_ALERTS.length} en cours
-              </span>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {SUPERVISION_ALERTS.map((alert) => (
-                <div
-                  key={alert.id}
+              {alertsState === "ready" && (
+                <span
                   style={{
-                    padding: "14px 16px",
-                    borderRadius: 8,
-                    background: alert.level === "bloquante" ? "#fef2f2" : "#fefce8",
-                    border: alert.level === "bloquante" ? "1px solid #fecaca" : "1px solid #fef08a",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: "#fee2e2",
+                    color: "#dc2626",
+                    padding: "2px 8px",
+                    borderRadius: 9999,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                    <strong style={{ fontSize: 13, color: alert.level === "bloquante" ? "#991b1b" : "#854d0e" }}>
-                      {alert.title}
-                    </strong>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: alert.level === "bloquante" ? "#dc2626" : "#b45309" }}>
-                      {alert.delay}
-                    </span>
-                  </div>
-
-                  <p style={{ margin: "2px 0 8px", fontSize: 12, color: "#374151", lineHeight: 1.4 }}>
-                    {alert.company} — {alert.description}
-                  </p>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>
-                      Région : {alert.region}
-                    </span>
-                    <Link
-                      href={`/admin/dossiers/${alert.targetId}`}
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: alert.level === "bloquante" ? "#b91c1c" : "#b45309",
-                        textDecoration: "none",
-                        background: "#ffffff",
-                        padding: "3px 10px",
-                        borderRadius: 4,
-                        border: "1px solid rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      Examiner la fiche →
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                  {count(alertsQuery.data?.total ?? null)} ouverte(s)
+                </span>
+              )}
             </div>
+
+            {alertsState !== "ready" ? (
+              <DataState
+                dense
+                state={alertsState}
+                resource="les alertes de contrôle"
+                error={alertsQuery.error}
+                onRetry={() => alertsQuery.refetch()}
+                title={
+                  alertsState === "empty"
+                    ? "Aucune anomalie bloquante enregistrée"
+                    : alertsState === "forbidden"
+                      ? "Registre d'anomalies non accessible à votre rôle"
+                      : undefined
+                }
+                hint={
+                  alertsState === "empty"
+                    ? "Aucune anomalie bloquante ouverte dans votre ressort. Les anomalies détectées et enregistrées apparaîtront ici."
+                    : undefined
+                }
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {alerts.map((a) => (
+                  <div
+                    key={a.id}
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 8,
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 4 }}>
+                      <strong style={{ fontSize: 13, color: "#991b1b" }}>{a.ruleFamily}</strong>
+                      {/* Ageing derived from the stored detectedAt only. */}
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#dc2626", whiteSpace: "nowrap" }}>
+                        {elapsedSince(a.detectedAt)}
+                      </span>
+                    </div>
+
+                    <p style={{ margin: "2px 0 8px", fontSize: 12, color: "#374151", lineHeight: 1.4 }}>
+                      {anomalyCompanyName(a) ? `${anomalyCompanyName(a)} — ` : ""}
+                      {a.description}
+                    </p>
+
+                    <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+                      Règle <strong>{a.ruleCode}</strong> · Observé {a.observedValue} · Attendu {a.expectedValue}
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      {/* Region printed only when the submission carries one. */}
+                      <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>
+                        {a.submission?.region ? `Région : ${a.submission.region}` : NOT_PROVIDED}
+                      </span>
+                      {a.submission?.id && (
+                        <Link
+                          href={`/admin/dossiers/${encodeURIComponent(a.submission.id)}`}
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#b91c1c",
+                            textDecoration: "none",
+                            background: "#ffffff",
+                            padding: "3px 10px",
+                            borderRadius: 4,
+                            border: "1px solid rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          Examiner {anomalyDossierRef(a)} →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Quality Engine Sync Status */}
-          <div
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              padding: "16px 20px",
-            }}
-          >
+          {/* The detection engine exposes no run history, rule count or
+              service-health endpoint, so none is claimed here. */}
+          <div style={{ ...CARD, padding: "16px 20px" }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, color: "#111827", margin: "0 0 8px" }}>
               Moteur de Contrôle Statistique
             </h3>
             <p style={{ margin: "0 0 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>
-              Les règles arithmétiques et seuils de complétude s&apos;exécutent à chaque soumission de fiche.
+              Les règles arithmétiques et les seuils de complétude sont évalués à
+              chaque consultation du diagnostic d&apos;un dossier.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#4b5563" }}>Dernière exécution :</span>
-                <strong style={{ color: "#111827" }}>Il y a 3 minutes</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#4b5563" }}>Règles actives :</span>
-                <strong style={{ color: "#16a34a" }}>32 règles de contrôle</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#4b5563" }}>Statut du service :</span>
-                <strong style={{ color: "#16a34a" }}>● Opérationnel</strong>
-              </div>
-            </div>
+            <DataState
+              dense
+              state="unavailable"
+              resource="l'état du moteur de contrôle"
+              title="État d'exécution non disponible"
+              hint="Le système ne publie pas d'historique d'exécution, de décompte de règles actives ni d'indicateur de disponibilité pour le moteur de contrôle."
+            />
           </div>
         </section>
       </div>

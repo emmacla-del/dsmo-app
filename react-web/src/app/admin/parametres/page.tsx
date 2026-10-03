@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
+import { useAuthStore } from "@/lib/auth-store";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { entityTypeLabel } from "@/lib/companies-directory";
 import type { UserRole } from "@/lib/user-types";
@@ -17,10 +18,22 @@ import {
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { DataState } from "@/components/admin/DataState";
+import {
+  auditActionLabel,
+  auditActorName,
+  auditDetailsSummary,
+  listAuditLog,
+} from "@/lib/audit-log";
+import { resolveDataState, stamp } from "@/lib/admin-data-state";
+import { listCampaigns } from "@/lib/campaigns";
 
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "SUPER_ADMIN_DSMO"];
 
-const CAMPAIGN_CHOICES = ["2026-T1", "2025-T4", "2025-T3", "2025-T2"];
+const RECENT_AUDIT_LIMIT = 6;
+
+// Roles the backend lets read GET /audit/reports.
+const AUDIT_READER_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 
 interface RolePermissionItem {
   id: string;
@@ -28,53 +41,56 @@ interface RolePermissionItem {
   description: string;
 }
 
-const INITIAL_ROLES: RolePermissionItem[] = [
+const SYSTEM_ROLES: RolePermissionItem[] = [
   {
-    id: "admin",
-    name: "Administrateur",
-    description: "Accès complet à la configuration, gestion des utilisateurs et sécurité.",
+    id: "SUPER_ADMIN",
+    name: "Super administrateur",
+    description: "Accès complet à la plateforme, gestion des administrateurs, des rôles et des paramètres système.",
   },
   {
-    id: "supervisor",
-    name: "Superviseur",
-    description: "Droit de validation des fiches de soumission et gestion des enquêteurs.",
+    id: "SUPER_ADMIN_DSMO",
+    name: "Admin DSMO",
+    description: "Supervision nationale des déclarations d'entreprises et gestion du volet DSMO.",
   },
   {
-    id: "reg-supervisor",
-    name: "Superviseur Régional",
-    description: "Supervision des soumissions dans sa région assignée.",
+    id: "SUPER_ADMIN_ONEFOP",
+    name: "Admin ONEFOP",
+    description: "Supervision nationale des enquêtes ONEFOP et gestion des équipes de collecte.",
   },
   {
-    id: "reader",
-    name: "Lecteur",
-    description: "Consultation seule des statistiques de l'observatoire.",
-  },
-];
-
-const INITIAL_RECENT_AUDIT = [
-  {
-    id: "aud-1",
-    time: "Il y a 10 min",
-    actor: "Ewane Marc",
-    desc: "Export SPSS de la Campagne 2026-T1 lancé",
+    id: "CENTRAL",
+    name: "Structure Centrale (MINEFOP)",
+    description: "Supervision centrale, instruction de second niveau et contrôle de conformité.",
   },
   {
-    id: "aud-2",
-    time: "Il y a 1 h",
-    actor: "Nguidjol Jean",
-    desc: "Campagne de Collecte 2026-T1 créée",
+    id: "REGIONAL",
+    name: "Délégation Régionale",
+    description: "Supervision des soumissions et contrôle de conformité dans le ressort de la région.",
   },
   {
-    id: "aud-3",
-    time: "Il y a 2 h",
-    actor: "System",
-    desc: "Nouvel agent ONEFOP 'Fatima Harouna' configuré",
+    id: "DIVISIONAL",
+    name: "Délégation Départementale",
+    description: "Supervision locale des enquêtes dans le ressort du département.",
   },
   {
-    id: "aud-4",
-    time: "Hier, 17:42",
-    actor: "Alhadji Amina",
-    desc: "Fiche de soumission 'ENT-2026-089' validée",
+    id: "DATA_MANAGER",
+    name: "Gestionnaire de données",
+    description: "Gestion des nomenclatures, des référentiels et contrôle de cohérence statistique.",
+  },
+  {
+    id: "CAMPAIGN_MANAGER",
+    name: "Gestionnaire de campagnes",
+    description: "Planification, ouverture, suivi d'avancement et clôture des campagnes de collecte.",
+  },
+  {
+    id: "ANALYST",
+    name: "Analyste statistique",
+    description: "Exploitation des données agrégées, génération d'indicateurs et rapports statistiques.",
+  },
+  {
+    id: "AUDITOR",
+    name: "Auditeur",
+    description: "Consultation intégrale du journal d'audit et contrôle de conformité procédurale.",
   },
 ];
 
@@ -100,10 +116,32 @@ function ParametresContent() {
   const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
   const queryClient = useQueryClient();
 
+  const role = useAuthStore((s) => s.user?.role);
+  const canReadAudit = !!role && AUDIT_READER_ROLES.includes(role);
+
   // Settings query
   const settingsQuery = useQuery({
     queryKey: ["system-settings"],
     queryFn: getSystemSettings,
+  });
+
+  /**
+   * Recent audit entries. Source: GET /audit/reports?paginate=true, newest
+   * first. Platform-wide by design, hence the role gate; a role that cannot
+   * read it gets an authorization state rather than a substitute list.
+   */
+  const recentAuditQuery = useQuery({
+    queryKey: ["admin", "audit", "recent", RECENT_AUDIT_LIMIT],
+    queryFn: () => listAuditLog({ limit: RECENT_AUDIT_LIMIT, offset: 0 }),
+    enabled: !isLoading && !forbidden && canReadAudit,
+  });
+
+  const recentAuditState = resolveDataState({
+    roleAllowed: canReadAudit,
+    isLoading: recentAuditQuery.isLoading,
+    isError: recentAuditQuery.isError,
+    error: recentAuditQuery.error,
+    rowCount: recentAuditQuery.data?.items.length ?? null,
   });
 
   // Observatory Form state
@@ -113,19 +151,27 @@ function ParametresContent() {
   const [timezone, setTimezone] = useState("Africa/Douala");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const campaignsQuery = useQuery({
+    queryKey: ["campaigns", "all"],
+    queryFn: () => listCampaigns(),
+  });
+
   // Collection settings state
-  const [defaultCampaign, setDefaultCampaign] = useState("2026-T1");
+  const [defaultCampaign, setDefaultCampaign] = useState("");
   const [maxFichesSupervisor, setMaxFichesSupervisor] = useState(500);
   const [submissionDelayDays, setSubmissionDelayDays] = useState(30);
   const [offlineAllowed, setOfflineAllowed] = useState(true);
   const [autoValidation, setAutoValidation] = useState(false);
 
-  // Roles state & dialog
-  const [roles, setRoles] = useState<RolePermissionItem[]>(INITIAL_ROLES);
-  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<RolePermissionItem | null>(null);
-  const [roleFormName, setRoleFormName] = useState("");
-  const [roleFormDesc, setRoleFormDesc] = useState("");
+  // Authoritative statutory system roles
+  const roles = SYSTEM_ROLES;
+
+  useEffect(() => {
+    if (campaignsQuery.data && campaignsQuery.data.length > 0 && !defaultCampaign) {
+      const active = campaignsQuery.data.find((c) => c.status === "ACTIVE");
+      setDefaultCampaign(active?.code || active?.name || campaignsQuery.data[0].code || campaignsQuery.data[0].name || "");
+    }
+  }, [campaignsQuery.data, defaultCampaign]);
 
   // Preserved advanced settings toggle
   const [showAdvancedPanels, setShowAdvancedPanels] = useState(false);
@@ -158,41 +204,6 @@ function ParametresContent() {
       defaultLanguage,
       timezone,
     });
-  };
-
-  const handleOpenAddRole = () => {
-    setEditingRole(null);
-    setRoleFormName("");
-    setRoleFormDesc("");
-    setRoleDialogOpen(true);
-  };
-
-  const handleOpenEditRole = (r: RolePermissionItem) => {
-    setEditingRole(r);
-    setRoleFormName(r.name);
-    setRoleFormDesc(r.description);
-    setRoleDialogOpen(true);
-  };
-
-  const handleSaveRole = () => {
-    if (!roleFormName.trim()) return;
-    if (editingRole) {
-      setRoles((prev) =>
-        prev.map((r) =>
-          r.id === editingRole.id
-            ? { ...r, name: roleFormName.trim(), description: roleFormDesc.trim() }
-            : r
-        )
-      );
-    } else {
-      const newRole: RolePermissionItem = {
-        id: "role-" + Date.now(),
-        name: roleFormName.trim(),
-        description: roleFormDesc.trim(),
-      };
-      setRoles((prev) => [...prev, newRole]);
-    }
-    setRoleDialogOpen(false);
   };
 
   if (isLoading) return null;
@@ -479,9 +490,17 @@ function ParametresContent() {
                       onChange={(e) => setDefaultCampaign(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                     >
-                      {CAMPAIGN_CHOICES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
+                      {campaignsQuery.data && campaignsQuery.data.length > 0 ? (
+                        campaignsQuery.data.map((c) => (
+                          <option key={c.id} value={c.code || c.name || c.id}>
+                            {c.name || c.code || c.id}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">
+                          {campaignsQuery.isLoading ? "Chargement des campagnes…" : "Aucune campagne enregistrée"}
+                        </option>
+                      )}
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
                       <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -573,36 +592,36 @@ function ParametresContent() {
             className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 id="roles-permissions-title" className="text-base font-bold text-slate-900">
-                Rôles &amp; Permissions
-              </h2>
-              <button
-                type="button"
-                onClick={handleOpenAddRole}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer shadow-xs"
+              <div>
+                <h2 id="roles-permissions-title" className="text-base font-bold text-slate-900">
+                  Rôles Réglementaires &amp; Habilitations
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Nomenclature statutaire des habilitations CAM-LEAP/ONEFOP
+                </p>
+              </div>
+              <Link
+                href="/admin/utilisateurs"
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs text-decoration-none"
               >
-                Ajouter un Rôle
-              </button>
+                Gérer les affectations →
+              </Link>
             </div>
 
             <div className="divide-y divide-slate-100">
               {roles.map((r) => (
                 <div key={r.id} className="py-3.5 flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                    <div className="sm:col-span-4 font-semibold text-sm text-slate-900">
-                      {r.name}
+                    <div className="sm:col-span-4 font-semibold text-sm text-slate-900 flex items-center gap-2">
+                      <span>{r.name}</span>
+                      <code className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                        {r.id}
+                      </code>
                     </div>
-                    <div className="sm:col-span-8 text-xs text-slate-500 truncate">
+                    <div className="sm:col-span-8 text-xs text-slate-500">
                       {r.description}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditRole(r)}
-                    className="text-xs font-semibold text-[#006644] hover:underline cursor-pointer shrink-0"
-                  >
-                    Éditer
-                  </button>
                 </div>
               ))}
             </div>
@@ -626,84 +645,48 @@ function ParametresContent() {
               </Link>
             </div>
 
-            <div className="space-y-2">
-              {INITIAL_RECENT_AUDIT.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-2.5 px-3 rounded-lg bg-slate-50/70 border border-slate-100 text-xs items-center"
-                >
-                  <div className="sm:col-span-2 text-slate-400">
-                    {item.time}
+            {/* Source: GET /audit/reports?paginate=true, newest first
+                (lib/audit-log.ts). Real entries only — no seeded list. */}
+            {recentAuditState !== "ready" ? (
+              <DataState
+                dense
+                state={recentAuditState}
+                resource="le journal d'audit"
+                error={recentAuditQuery.error}
+                onRetry={() => recentAuditQuery.refetch()}
+                title={
+                  recentAuditState === "empty"
+                    ? "Aucun historique d'audit disponible"
+                    : recentAuditState === "forbidden"
+                      ? "Journal d'audit non accessible à votre rôle"
+                      : undefined
+                }
+                hint={
+                  recentAuditState === "empty"
+                    ? "Les événements enregistrés par le système apparaîtront ici."
+                    : undefined
+                }
+              />
+            ) : (
+              <div className="space-y-2">
+                {(recentAuditQuery.data?.items ?? []).map((e) => (
+                  <div
+                    key={e.id}
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-2.5 px-3 rounded-lg bg-slate-50/70 border border-slate-100 text-xs items-center"
+                  >
+                    <div className="sm:col-span-3 text-slate-400">{stamp(e.timestamp)}</div>
+                    <div className="sm:col-span-3 font-semibold text-slate-800">{auditActorName(e)}</div>
+                    <div className="sm:col-span-6 text-slate-600 truncate" title={auditDetailsSummary(e)}>
+                      {auditActionLabel(e.action)} — {auditDetailsSummary(e)}
+                    </div>
                   </div>
-                  <div className="sm:col-span-3 font-semibold text-slate-800">
-                    {item.actor}
-                  </div>
-                  <div className="sm:col-span-7 text-slate-600 truncate">
-                    {item.desc}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
         </div>
       </div>
-
-      {/* Role Dialog (Add / Edit) */}
-      {roleDialogOpen && (
-        <AdminDialog
-          open={roleDialogOpen}
-          onClose={() => setRoleDialogOpen(false)}
-          title={editingRole ? `Modifier le rôle — ${editingRole.name}` : "Ajouter un Rôle"}
-          eyebrow="Configuration du contrôle d'accès"
-          footer={
-            <div className="flex justify-end gap-2 w-full">
-              <button
-                type="button"
-                className="cam-button cam-button-secondary"
-                onClick={() => setRoleDialogOpen(false)}
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="cam-button cam-button-primary bg-[#006644]"
-                onClick={handleSaveRole}
-                disabled={!roleFormName.trim()}
-              >
-                Enregistrer
-              </button>
-            </div>
-          }
-        >
-          <div className="space-y-4 text-xs">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                Nom du Rôle
-              </label>
-              <input
-                type="text"
-                className="cam-input w-full"
-                value={roleFormName}
-                onChange={(e) => setRoleFormName(e.target.value)}
-                placeholder="Ex. Superviseur Adjoint"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                Description / Portée
-              </label>
-              <textarea
-                rows={3}
-                className="w-full border border-slate-200 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#006644]"
-                value={roleFormDesc}
-                onChange={(e) => setRoleFormDesc(e.target.value)}
-                placeholder="Description des permissions conférées à ce rôle..."
-              />
-            </div>
-          </div>
-        </AdminDialog>
-      )}
 
     </div>
   );

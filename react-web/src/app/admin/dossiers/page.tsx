@@ -13,177 +13,45 @@ import {
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { entityTypeLabel } from "@/lib/companies-directory";
-import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataStateRow } from "@/components/admin/DataState";
+import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import {
+  NOT_PROVIDED,
+  count,
+  resolveDataState,
+  stamp,
+} from "@/lib/admin-data-state";
 
+/**
+ * One dossier row.
+ *
+ * Every field is mapped from a GET /admin/questionnaires item. Fields the
+ * record does not carry are `null` and render as an em dash; none of them has
+ * a default. `quality` and `eligibility` are derived — see `toRow` for the
+ * exact formulas.
+ */
 interface DossierItem {
   id: string;
   submissionId: string;
-  companyName: string;
-  respondentName: string;
-  region: string;
-  department: string;
-  formType: string;
-  adminStatus: "PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED";
+  companyName: string | null;
+  respondentName: string | null;
+  region: string | null;
+  department: string | null;
+  formType: string | null;
+  adminStatus: "PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED" | null;
   blockingCount: number;
   warningCount: number;
-  submittedAt: string;
-  qualityText?: string;
-  eligibilityText?: "Éligible" | "En attente" | "Non éligible";
+  submittedAt: string | null;
 }
 
-const FIGMA_DOSSIERS: DossierItem[] = [
-  {
-    id: "ENT-2026-04521",
-    submissionId: "ENT-2026-04521",
-    companyName: "SABC S.A.",
-    respondentName: "Jean-Paul Mbarga",
-    formType: "Entreprises",
-    region: "Littoral",
-    department: "Wouri",
-    adminStatus: "PENDING_REVIEW",
-    blockingCount: 0,
-    warningCount: 0,
-    submittedAt: "18/09/2026",
-    qualityText: "Conforme",
-    eligibilityText: "Éligible",
-  },
-  {
-    id: "COP-2026-00214",
-    submissionId: "COP-2026-00214",
-    companyName: "SOCAPALM Coop",
-    respondentName: "Fadimatou Ousmanou",
-    formType: "Coopératives",
-    region: "Sud",
-    department: "Océan",
-    adminStatus: "PENDING_REVIEW",
-    blockingCount: 3,
-    warningCount: 0,
-    submittedAt: "19/09/2026",
-    qualityText: "Anomalies 3",
-    eligibilityText: "Éligible",
-  },
-  {
-    id: "ADM-2026-01042",
-    submissionId: "ADM-2026-01042",
-    companyName: "MINSANTE Délégués",
-    respondentName: "Dr. Robert Atangana",
-    formType: "Administrations",
-    region: "Centre",
-    department: "Mfoundi",
-    adminStatus: "CORRECTION_REQUESTED",
-    blockingCount: 0,
-    warningCount: 2,
-    submittedAt: "17/09/2026",
-    qualityText: "Avertissements 2",
-    eligibilityText: "En attente",
-  },
-  {
-    id: "PRJ-2026-00895",
-    submissionId: "PRJ-2026-00895",
-    companyName: "PADEN Littoral",
-    respondentName: "Alain Nguema",
-    formType: "Projets & Prog.",
-    region: "Littoral",
-    department: "Sanaga-Maritime",
-    adminStatus: "REJECTED",
-    blockingCount: 0,
-    warningCount: 0,
-    submittedAt: "16/09/2026",
-    qualityText: "Conforme",
-    eligibilityText: "Non éligible",
-  },
-  {
-    id: "ASF-2026-03120",
-    submissionId: "ASF-2026-03120",
-    companyName: "CFPA Bafoussam",
-    respondentName: "Marie-Thérèse Abena",
-    formType: "ASFOP",
-    region: "Ouest",
-    department: "Mifi",
-    adminStatus: "PENDING_REVIEW",
-    blockingCount: 0,
-    warningCount: 1,
-    submittedAt: "20/09/2026",
-    qualityText: "Avertissements 1",
-    eligibilityText: "Éligible",
-  },
-  {
-    id: "ENT-2026-04522",
-    submissionId: "ENT-2026-04522",
-    companyName: "Guinness Cam",
-    respondentName: "Pierre Moukoko",
-    formType: "Entreprises",
-    region: "Littoral",
-    department: "Wouri",
-    adminStatus: "APPROVED",
-    blockingCount: 0,
-    warningCount: 0,
-    submittedAt: "15/09/2026",
-    qualityText: "Conforme",
-    eligibilityText: "Éligible",
-  },
-  {
-    id: "COP-2026-00215",
-    submissionId: "COP-2026-00215",
-    companyName: "COOP-CA Ouest",
-    respondentName: "Joseph Wambo",
-    formType: "Coopératives",
-    region: "Ouest",
-    department: "Bamboutos",
-    adminStatus: "CORRECTION_REQUESTED",
-    blockingCount: 2,
-    warningCount: 0,
-    submittedAt: "14/09/2026",
-    qualityText: "Anomalies 2",
-    eligibilityText: "En attente",
-  },
-  {
-    id: "ENT-2026-04523",
-    submissionId: "ENT-2026-04523",
-    companyName: "Sodecoton",
-    respondentName: "Amadou Toumani",
-    formType: "Entreprises",
-    region: "Nord",
-    department: "Bénoué",
-    adminStatus: "APPROVED",
-    blockingCount: 0,
-    warningCount: 0,
-    submittedAt: "12/09/2026",
-    qualityText: "Conforme",
-    eligibilityText: "Éligible",
-  },
-  {
-    id: "PRJ-2026-00896",
-    submissionId: "PRJ-2026-00896",
-    companyName: "PNDP Littoral",
-    respondentName: "Evelyne Ngo",
-    formType: "Projets & Prog.",
-    region: "Littoral",
-    department: "Moungo",
-    adminStatus: "REJECTED",
-    blockingCount: 4,
-    warningCount: 0,
-    submittedAt: "11/09/2026",
-    qualityText: "Anomalies 4",
-    eligibilityText: "Non éligible",
-  },
-  {
-    id: "ASF-2026-03121",
-    submissionId: "ASF-2026-03121",
-    companyName: "IPAR Buea",
-    respondentName: "Grace Enow",
-    formType: "ASFOP",
-    region: "Sud-Ouest",
-    department: "Fako",
-    adminStatus: "PENDING_REVIEW",
-    blockingCount: 0,
-    warningCount: 1,
-    submittedAt: "10/09/2026",
-    qualityText: "Avertissements 1",
-    eligibilityText: "En attente",
-  },
+// Roles whose authorised scope genuinely is national: territoryWhere() returns
+// an unfiltered query for these and only these.
+const NATIONAL_SCOPE_ROLES = [
+  "SUPER_ADMIN",
+  "SUPER_ADMIN_DSMO",
+  "SUPER_ADMIN_ONEFOP",
+  "CENTRAL",
 ];
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
@@ -201,10 +69,6 @@ const PERIODS: Array<{ value: string; label: string }> = [
 ];
 const SEARCH_DEBOUNCE_MS = 300;
 
-function fmtCount(n: number) {
-  return n.toLocaleString("fr-FR");
-}
-
 // Suspense because useSearchParams() requires it in the app router.
 export default function DossiersPage() {
   return (
@@ -217,7 +81,23 @@ export default function DossiersPage() {
 function DossiersContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const scopeLabel = user?.role === "REGIONAL" ? `Régional (${user.region || ""})` : user?.role === "DIVISIONAL" ? `Départemental (${user.department || ""})` : "National";
+  /**
+   * The actor's own authorised scope, from the stored user record.
+   *
+   * An account whose role is territorial but whose territory is unset is
+   * reported as unaffected — not as national. The backend fails such a scope
+   * closed (territoryWhere), and labelling it "National" here would assert an
+   * authorisation the account does not hold.
+   */
+  const scopeLabel =
+    user?.role === "REGIONAL"
+      ? (user.region ? `Régional — ${user.region}` : "Régional — ressort non affecté")
+      : user?.role === "DIVISIONAL"
+        ? (user.department ? `Départemental — ${user.department}` : "Départemental — ressort non affecté")
+        : user?.role && NATIONAL_SCOPE_ROLES.includes(user.role)
+          ? "National"
+          : "Ressort non affecté";
+  const { regions: territoryRegions } = useTerritoryRegions();
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
@@ -227,7 +107,9 @@ function DossiersContent() {
   const [typeFilter, setTypeFilter] = useState("");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  const requestedStatus = useSearchParams().get("status") ?? "";
+  const searchParams = useSearchParams();
+  const requestedStatus = searchParams.get("status") ?? "";
+  const companyIdFilter = searchParams.get("companyId") ?? "";
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
 
   useEffect(() => {
@@ -259,7 +141,7 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, offset }],
+    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, companyIdFilter, offset }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: statusFilter || undefined,
@@ -267,6 +149,7 @@ function DossiersContent() {
         period: periodFilter || undefined,
         region: regionFilter || undefined,
         search: search || undefined,
+        companyId: companyIdFilter || undefined,
         limit: PAGE_SIZE,
         offset,
       }),
@@ -323,10 +206,11 @@ function DossiersContent() {
   }, [searchInput, search]);
 
   const page = questionnairesQuery.data;
-  const total = page?.total ?? 0;
 
   const rawItems = page?.items ?? [];
-  const dossiers: DossierItem[] = rawItems.length > 0 ? rawItems.map((sub: any) => {
+  // Real rows only. An empty result renders an empty state; there is no
+  // sample dataset to substitute, and an error never becomes "no dossiers".
+  const dossiers: DossierItem[] = rawItems.map((sub: any) => {
     const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
     const name =
@@ -346,19 +230,44 @@ function DossiersContent() {
     return {
       id: sub.id,
       submissionId: sub.submissionId || sub.id,
+      // Null, not a placeholder name: the entity detail row may be absent.
       companyName: name,
-      respondentName: sub.respondent?.respondentName || "—",
-      region: sub.region || sub.rawData?.enterprise?.region || "—",
-      department: sub.department || sub.rawData?.enterprise?.department || "—",
-      formType: sub.formType || "ENTREPRISE",
-      adminStatus: sub.status || "PENDING_REVIEW",
+      respondentName: sub.respondent?.respondentName ?? null,
+      region: sub.region ?? null,
+      department: sub.department ?? null,
+      // No default form type — an unset formType is reported, not guessed.
+      formType: sub.formType ?? null,
+      adminStatus: sub.status ?? null,
       blockingCount,
       warningCount,
-      submittedAt: sub.submissionDate ? new Date(sub.submissionDate).toLocaleDateString("fr-FR") : "—",
+      submittedAt: sub.submissionDate ?? null,
     };
-  }) : FIGMA_DOSSIERS;
+  });
 
-  const totalCount = page?.total || 12847;
+  /**
+   * Source: GET /admin/questionnaires → `total`.
+   * Counts the whole filtered query (territory + status + type + region +
+   * period + search, drafts excluded) under the caller's server-side scope —
+   * the same scope that produced the rows above. `null` until the server
+   * answers; never replaced by a literal.
+   */
+  const totalCount = page?.total ?? null;
+  const pageCount = totalCount === null ? null : Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+  const firstShown = dossiers.length === 0 ? 0 : offset + 1;
+  const lastShown = offset + dossiers.length;
+
+  const tableState = resolveDataState({
+    isLoading: questionnairesQuery.isLoading,
+    isError: questionnairesQuery.isError,
+    error: questionnairesQuery.error,
+    rowCount: page?.items.length ?? null,
+  });
+
+  // The actor who will sign the operation, from the session's own user record.
+  const signatoryLabel = user
+    ? `${[user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email} — ${scopeLabel}`
+    : NOT_PROVIDED;
 
   const cleanPendingSelected = dossiers.filter(
     (d) => selectedIds.has(d.id) && d.adminStatus === "PENDING_REVIEW" && d.blockingCount === 0
@@ -541,7 +450,7 @@ function DossiersContent() {
                 gap: 6,
               }}
             >
-              <span>Ressort : National</span>
+              <span>Ressort : {scopeLabel}</span>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
             </div>
             <div style={{ position: "relative", width: 220 }}>
@@ -616,7 +525,7 @@ function DossiersContent() {
               onChange={(e) => changeFilter(() => setRegionFilter(e.target.value))}
             >
               <option value="">Toutes les Régions</option>
-              {["Adamaoua", "Centre", "Est", "Extrême-Nord", "Littoral", "Nord", "Nord-Ouest", "Ouest", "Sud", "Sud-Ouest"].map((r) => (
+              {territoryRegions.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
@@ -777,24 +686,64 @@ function DossiersContent() {
             </tr>
           </thead>
           <tbody>
+            {/* Loading, error, authorization refusal and "no dossiers" are
+                reported separately; no branch substitutes sample rows. */}
+            <DataStateRow
+              colSpan={9}
+              state={tableState}
+              resource="les dossiers"
+              error={questionnairesQuery.error}
+              onRetry={() => questionnairesQuery.refetch()}
+              title={tableState === "empty" ? "Aucun dossier trouvé" : undefined}
+              hint={
+                tableState === "empty"
+                  ? "Aucun dossier ne correspond aux critères actuels dans votre ressort territorial."
+                  : undefined
+              }
+            />
             {dossiers.map((d) => {
               const visaBadge =
                 d.adminStatus === "APPROVED" ? { label: "VISÉ", dot: "#047857", bg: "#ecfdf5", border: "#d1fae5", text: "#047857" } :
                 d.adminStatus === "CORRECTION_REQUESTED" ? { label: "CORRECTION DEMANDÉE", dot: "#c2410c", bg: "#fff7ed", border: "#ffedd5", text: "#c2410c" } :
                 d.adminStatus === "REJECTED" ? { label: "REJETÉ", dot: "#b91c1c", bg: "#fef2f2", border: "#fee2e2", text: "#b91c1c" } :
-                { label: "EN INSTANCE", dot: "#b45309", bg: "#fef9e7", border: "#fef3c7", text: "#b45309" };
+                d.adminStatus === "PENDING_REVIEW" ? { label: "EN INSTANCE", dot: "#b45309", bg: "#fef9e7", border: "#fef3c7", text: "#b45309" } :
+                // An item with no stored status is reported as such rather
+                // than defaulted into the pending queue.
+                { label: "STATUT NON RENSEIGNÉ", dot: "#9ca3af", bg: "#f3f4f6", border: "#e5e7eb", text: "#6b7280" };
 
-              const qualityText = d.qualityText || (
-                d.blockingCount > 0 ? `Anomalies ${d.blockingCount}` :
-                d.warningCount > 0 ? `Avertissements ${d.warningCount}` :
-                "Conforme"
-              );
+              /**
+               * Data quality, derived from the dossier's own anomaly rows
+               * (`anomalies`, included by QuestionnairesService.listForAdmin):
+               *   blockingCount = OPEN && isBlocking
+               *   warningCount  = OPEN && !isBlocking
+               *
+               * An empty anomaly list means "no anomaly recorded", which is
+               * not the same claim as "conforme" — nothing has certified this
+               * dossier, and detection results are not persisted today
+               * (docs/admin-data-integrity-inventory.md §7.1).
+               */
+              const quality =
+                d.blockingCount > 0
+                  ? { tone: "blocking" as const, text: `${d.blockingCount} anomalie(s) bloquante(s)` }
+                  : d.warningCount > 0
+                    ? { tone: "warning" as const, text: `${d.warningCount} avertissement(s)` }
+                    : { tone: "none" as const, text: "Aucune anomalie enregistrée" };
 
-              const eligibility = d.eligibilityText || (
-                d.adminStatus === "REJECTED" ? "Non éligible" :
-                d.adminStatus === "APPROVED" ? "Éligible" :
-                "En attente"
-              );
+              /**
+               * Statistical eligibility, mirroring the backend's own rule
+               * (EligibilityEngineService.isStatisticallyEligible): APPROVED
+               * **and** zero open blocking anomalies. Any other status is
+               * pending; a rejected dossier is excluded. A dossier with no
+               * stored status yields no claim at all.
+               */
+              const eligibility =
+                d.adminStatus === null
+                  ? null
+                  : d.adminStatus === "REJECTED"
+                    ? "Non éligible"
+                    : d.adminStatus === "APPROVED"
+                      ? (d.blockingCount === 0 ? "Éligible" : "Non éligible")
+                      : "En attente";
 
               return (
                 <tr key={d.id} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
@@ -815,20 +764,22 @@ function DossiersContent() {
                     </Link>
                   </td>
                   <td style={{ padding: "14px", fontWeight: 600, color: "#111827" }}>
-                    {d.respondentName}
+                    {d.respondentName ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "14px", color: "#374151" }}>
-                    {d.companyName}
+                    {d.companyName ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "14px", color: "#374151" }}>
-                    {d.formType === "ENTREPRISE" ? "Entreprises" :
-                     d.formType === "COOPERATIVE" ? "Coopératives" :
-                     d.formType === "ADMINISTRATION" ? "Administrations" :
-                     d.formType === "PROJECT_PROGRAM" ? "Projets & Prog." :
-                     d.formType === "VOCATIONAL_TRAINING" ? "ASFOP" : d.formType}
+                    {d.formType ? entityTypeLabel(d.formType) : NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "14px", color: "#374151" }}>
-                    {d.region}
+                    {/* Territory as stored on the submission. A dossier with
+                        no region is reported as such: inferring one would
+                        invent an authorization-sensitive fact. */}
+                    {d.region ?? NOT_PROVIDED}
+                    {d.department && (
+                      <span style={{ display: "block", fontSize: 11, color: "#6b7280" }}>{d.department}</span>
+                    )}
                   </td>
                   <td style={{ padding: "14px", textAlign: "center" }}>
                     <span
@@ -851,19 +802,19 @@ function DossiersContent() {
                     </span>
                   </td>
                   <td style={{ padding: "14px" }}>
-                    {qualityText.startsWith("Anomalies") ? (
-                      <span style={{ color: "#b91c1c", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span>▲</span> {qualityText}
-                      </span>
-                    ) : qualityText.startsWith("Avertissements") ? (
-                      <span style={{ color: "#b45309", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span>⚐</span> {qualityText}
-                      </span>
-                    ) : (
-                      <span style={{ color: "#047857", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <span>✓</span> Conforme
-                      </span>
-                    )}
+                    <span
+                      style={{
+                        color: quality.tone === "blocking" ? "#b91c1c" : quality.tone === "warning" ? "#b45309" : "#6b7280",
+                        fontWeight: quality.tone === "none" ? 500 : 600,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      {quality.tone === "blocking" && <span>▲</span>}
+                      {quality.tone === "warning" && <span>⚐</span>}
+                      {quality.text}
+                    </span>
                   </td>
                   <td style={{ padding: "14px", textAlign: "center" }}>
                     <span
@@ -883,7 +834,7 @@ function DossiersContent() {
                           "#6b7280",
                       }}
                     >
-                      {eligibility}
+                      {eligibility ?? NOT_PROVIDED}
                     </span>
                   </td>
                 </tr>
@@ -892,14 +843,22 @@ function DossiersContent() {
           </tbody>
         </table>
 
-        {/* ── Table Footer matching Figma ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderTop: "1px solid #e5e7eb", background: "#ffffff" }}>
+        {/* Pagination driven by the server-reported `total` for the same
+            filtered query. The range reflects the rows actually returned, and
+            the page count is whatever the real total implies. */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderTop: "1px solid #e5e7eb", background: "#ffffff", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 13, color: "#6b7280" }}>
-            Affichage de 1-10 de {fmtCount(totalCount)} soumissions
+            {totalCount === null
+              ? NOT_PROVIDED
+              : totalCount === 0
+                ? "0 soumission"
+                : `Affichage de ${count(firstShown)}-${count(lastShown)} sur ${count(totalCount)} soumission${totalCount > 1 ? "s" : ""}`}
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               type="button"
+              disabled={offset === 0}
+              onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
               style={{
                 padding: "6px 12px",
                 borderRadius: 6,
@@ -908,61 +867,19 @@ function DossiersContent() {
                 color: "#374151",
                 fontSize: 13,
                 fontWeight: 500,
-                cursor: "pointer",
+                cursor: offset === 0 ? "not-allowed" : "pointer",
+                opacity: offset === 0 ? 0.4 : 1,
               }}
             >
               Précédent
             </button>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+              {pageCount === null ? `Page ${currentPage}` : `Page ${currentPage} / ${pageCount}`}
+            </span>
             <button
               type="button"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                border: "none",
-                background: "#1e6b3a",
-                color: "#ffffff",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              1
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                border: "1px solid #e5e7eb",
-                background: "#ffffff",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              2
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                border: "1px solid #e5e7eb",
-                background: "#ffffff",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              3
-            </button>
-            <button
-              type="button"
+              disabled={pageCount === null || currentPage >= pageCount}
+              onClick={() => goToOffset(offset + PAGE_SIZE)}
               style={{
                 padding: "6px 12px",
                 borderRadius: 6,
@@ -971,7 +888,8 @@ function DossiersContent() {
                 color: "#374151",
                 fontSize: 13,
                 fontWeight: 500,
-                cursor: "pointer",
+                cursor: pageCount === null || currentPage >= pageCount ? "not-allowed" : "pointer",
+                opacity: pageCount === null || currentPage >= pageCount ? 0.4 : 1,
               }}
             >
               Suivant
@@ -1010,7 +928,7 @@ function DossiersContent() {
                 Visa en lot — confirmation officielle
               </h2>
               <p style={{ margin: "4px 0 20px", fontSize: 13, color: "#6b7280" }}>
-                {cleanPendingSelected.length > 0 ? `${cleanPendingSelected.length} dossiers sélectionnés` : "3 dossiers sélectionnés"}
+                {cleanPendingSelected.length} dossier(s) sélectionné(s) et éligible(s) au visa
               </p>
 
               <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#374151", marginBottom: 20 }}>
@@ -1025,20 +943,58 @@ function DossiersContent() {
                 </span>
               </label>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, padding: "14px 16px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>HORODATAGE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
-                    29/09/2026 — 14:32:07
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>SIGNATAIRE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
-                    M. Ewane — Superviseur National
-                  </div>
+              {/* Signatory is the signed-in actor. The authoritative
+                  timestamp is the one the server returns with the operation,
+                  so none is predicted before confirmation. */}
+              <div style={{ padding: "14px 16px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#6b7280" }}>SIGNATAIRE</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 4 }}>
+                  {signatoryLabel}
                 </div>
               </div>
+
+              {/* The real outcome of the operation, as reported by the server. */}
+              {bulkResult && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: "14px 16px",
+                    background: "#ecfdf5",
+                    border: "1px solid #a7f3d0",
+                    borderRadius: 6,
+                    color: "#065f46",
+                    fontSize: 13,
+                  }}
+                >
+                  <strong>
+                    {count(bulkResult.processedCount)} dossier(s) visé(s), {count(bulkResult.rejectedCount)} écarté(s).
+                  </strong>
+                  <div style={{ marginTop: 4 }}>Opération horodatée au {stamp(bulkResult.timestamp)}.</div>
+                  {bulkResult.rejectedItems?.length > 0 && (
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                      {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
+                        <li key={item.id}>{item.id} — {item.reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {bulkMutation.isError && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: "14px 16px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: 6,
+                    color: "#991b1b",
+                    fontSize: 13,
+                  }}
+                >
+                  Le visa groupé a échoué : {(bulkMutation.error as Error)?.message ?? "erreur inconnue"}. Aucun dossier n&apos;a été visé.
+                </div>
+              )}
 
               <p style={{ margin: "14px 0 0", fontSize: 11, color: "#6b7280" }}>
                 Cette action génère une entrée d&apos;audit AUDIT_BULK_VISA_GRANTED
@@ -1157,7 +1113,8 @@ function DossiersContent() {
                     fontSize: 14,
                   }}
                 >
-                  <strong>{rejectResult.processedCount} dossier(s) rejeté(s).</strong> Opération journalisée sous AUDIT_BULK_REJECT.
+                  <strong>{count(rejectResult.rejectedCount ?? rejectResult.processedCount)} dossier(s) rejeté(s).</strong>{" "}
+                  Opération journalisée sous AUDIT_BULK_REJECT, horodatée au {stamp(rejectResult.timestamp)}.
                 </div>
               ) : rejectableSelected.length === 0 ? (
                 <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
@@ -1233,6 +1190,22 @@ function DossiersContent() {
                       <strong>Je certifie sur l&apos;honneur</strong> avoir examiné ces {rejectableSelected.length} dossiers et confirme leur rejet officiel.
                     </span>
                   </label>
+                  {rejectMutation.isError && (
+                    <div
+                      role="alert"
+                      style={{
+                        padding: 12,
+                        borderRadius: 6,
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        color: "#b91c1c",
+                        fontSize: 13,
+                        marginTop: 12,
+                      }}
+                    >
+                      Le rejet groupé a échoué : {(rejectMutation.error as Error)?.message ?? "Erreur inconnue"}. Aucun dossier n&apos;a été rejeté.
+                    </div>
+                  )}
                 </>
               )}
             </div>

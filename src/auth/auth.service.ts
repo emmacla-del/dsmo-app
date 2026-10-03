@@ -186,6 +186,12 @@ export class AuthService {
       lastName: user.lastName,
     };
 
+    // Update lastLoginAt on login
+    this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    }).catch(() => {});
+
     const features = await this.buildFeatures(user.id, user.role);
 
     return {
@@ -922,6 +928,95 @@ export class AuthService {
     return toPublicUser(updated);
   }
 
+  async getUserDocuments(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        company: true,
+        registrationDocuments: {
+          include: {
+            verifier: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+
+    const expectedKinds = [
+      { kind: 'RCCM', label: 'Extrait RCCM / Acte constitutif' },
+      { kind: 'NIU', label: 'Attestation d\'immatriculation fiscale (NIU)' },
+      { kind: 'CNI', label: 'Pièce d\'identité du représentant / déclarant' },
+      { kind: 'ATTESTATION', label: 'Attestation de localisation ou plan' },
+    ];
+
+    const storedDocs = user.registrationDocuments || [];
+    const items = expectedKinds.map((exp) => {
+      const doc = storedDocs.find((d) => d.kind === exp.kind);
+      return {
+        id: doc?.id || exp.kind,
+        userId: user.id,
+        kind: exp.kind,
+        label: exp.label,
+        state: doc?.state || 'PENDING',
+        uploadedAt: doc?.uploadedAt || user.createdAt,
+        verifiedAt: doc?.verifiedAt || null,
+        verifiedBy: doc?.verifier
+          ? `${doc.verifier.firstName || ''} ${doc.verifier.lastName || ''}`.trim() || doc.verifier.email
+          : null,
+      };
+    });
+
+    return {
+      userId: user.id,
+      companyName: user.company?.name || null,
+      items,
+    };
+  }
+
+  async verifyUserDocument(userId: string, kindOrId: string, state: string, verifierId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new BadRequestException('Utilisateur non trouvé');
+
+    const validStates = ['PENDING', 'VERIFIED', 'REJECTED', 'MISSING'];
+    const targetState = validStates.includes(state) ? state : 'VERIFIED';
+
+    const existing = await this.prisma.registrationDocument.findFirst({
+      where: {
+        userId,
+        OR: [{ id: kindOrId }, { kind: kindOrId }],
+      },
+    });
+
+    if (existing) {
+      return this.prisma.registrationDocument.update({
+        where: { id: existing.id },
+        data: {
+          state: targetState,
+          verifiedAt: targetState === 'VERIFIED' ? new Date() : null,
+          verifiedBy: targetState === 'VERIFIED' ? verifierId : null,
+        },
+      });
+    }
+
+    return this.prisma.registrationDocument.create({
+      data: {
+        userId,
+        kind: kindOrId,
+        state: targetState,
+        verifiedAt: targetState === 'VERIFIED' ? new Date() : null,
+        verifiedBy: targetState === 'VERIFIED' ? verifierId : null,
+      },
+    });
+  }
+
   /**
    * The company fields a company may correct itself when complements were
    * requested. An explicit allowlist, copied field by field below rather than
@@ -1494,6 +1589,13 @@ export class AuthService {
           matricule: true,
           serviceCode: true,
           createdAt: true,
+          lastLoginAt: true,
+          perAgentTarget: true,
+          _count: {
+            select: {
+              onefopSubmissions: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
@@ -1501,7 +1603,12 @@ export class AuthService {
       }),
     ]);
 
-    return { users, total, page, pageSize };
+    const mappedUsers = users.map((u: any) => ({
+      ...u,
+      submissionsCount: u._count?.onefopSubmissions ?? 0,
+    }));
+
+    return { users: mappedUsers, total, page, pageSize };
   }
 
   async updateUserRole(id: string, role: string, actingUserId: string, actorRole: string) {
