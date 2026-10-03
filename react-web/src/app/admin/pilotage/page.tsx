@@ -12,6 +12,7 @@ import { KpiTile } from "@/components/admin/KpiTile";
 import { DataState } from "@/components/admin/DataState";
 import { count, rate, shortStamp, stamp, NOT_PROVIDED } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
@@ -270,13 +271,13 @@ function RecentActivity({
   );
 }
 
-function DataQuality({ eligibilityPct }: { eligibilityPct: number | null }) {
+function DataQuality({ quality, fallbackEligibilityPct }: { quality: QualitySummary | null; fallbackEligibilityPct: number | null }) {
   const metrics = [
-    { label: "Complétude", value: null },
-    { label: "Cohérence", value: null },
-    { label: "Anomalies", value: null },
-    { label: "Avertissements", value: null },
-    { label: "Éligibilité statistique", value: eligibilityPct },
+    { label: "Complétude", value: quality?.completenessRate ?? null },
+    { label: "Cohérence", value: quality?.coherenceRate ?? null },
+    { label: "Anomalies", value: quality?.anomalyRate ?? null },
+    { label: "Avertissements", value: quality?.warningRate ?? null },
+    { label: "Éligibilité statistique", value: quality?.statisticalEligibilityRate ?? fallbackEligibilityPct },
   ];
 
   return (
@@ -336,9 +337,16 @@ export default function PilotagePage() {
 
   const { activeCampaign } = useActiveCampaign();
 
+  const qualityQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "quality", "summary", activeCampaign?.id],
+    queryFn: () => getQualitySummary(activeCampaign?.id),
+    refetchInterval: 30000,
+  });
+
   // Authoritative data only. null until loaded or if query errors.
   const queues = queuesQuery.data ?? null;
   const stats = statsQuery.data ?? null;
+  const quality = qualityQuery.data ?? null;
 
   // Zero is data: if queues returns 0 submissions, totalSubmissions is 0.
   // Never substitute national figures for an empty territorial result.
@@ -536,7 +544,7 @@ export default function PilotagePage() {
             error={recentQuery.error}
             onRetry={() => recentQuery.refetch()}
           />
-          <DataQuality eligibilityPct={eligibilityPct} />
+          <DataQuality quality={quality} fallbackEligibilityPct={eligibilityPct} />
         </div>
       </div>
     </div>

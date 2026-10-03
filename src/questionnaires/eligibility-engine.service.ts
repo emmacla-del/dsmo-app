@@ -327,6 +327,159 @@ export class EligibilityEngineService {
   }
 
   /**
+   * Authoritative quality summary indicators and anomaly aggregates,
+   * scoped to territory and optional campaign.
+   */
+  async getQualitySummary(territory?: Territory, campaignId?: string) {
+    const baseWhere: any = {
+      AND: [
+        territoryWhere(territory),
+        { status: { not: OnefopStatus.DRAFT } },
+        ...(campaignId ? [{ campaignId }] : []),
+      ],
+    };
+
+    const [
+      totalSubmissions,
+      submissionsInCorrection,
+      submissionsWithBlockingAnomalies,
+      submissionsWithWarnings,
+      submissionsWithCoherenceAnomalies,
+      blockingAnomaliesCount,
+      warningsCount,
+      approvedCandidates,
+      familyGroups,
+      anomalyRegions,
+    ] = await Promise.all([
+      this.prisma.onefopSubmission.count({ where: baseWhere }),
+      this.prisma.onefopSubmission.count({
+        where: { ...baseWhere, status: OnefopStatus.CORRECTION_REQUESTED },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: true } },
+        },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: false } },
+        },
+      }),
+      this.prisma.onefopSubmission.count({
+        where: {
+          ...baseWhere,
+          anomalies: {
+            some: {
+              status: AnomalyStatus.OPEN,
+              ruleFamily: { in: ['COHERENCE', 'VT_COHERENCE', 'ARITHMETIC'] },
+            },
+          },
+        },
+      }),
+      this.prisma.onefopAnomaly.count({
+        where: {
+          status: AnomalyStatus.OPEN,
+          isBlocking: true,
+          submission: baseWhere,
+        },
+      }),
+      this.prisma.onefopAnomaly.count({
+        where: {
+          status: AnomalyStatus.OPEN,
+          isBlocking: false,
+          submission: baseWhere,
+        },
+      }),
+      this.prisma.onefopSubmission.findMany({
+        where: { ...baseWhere, status: OnefopStatus.APPROVED },
+        select: {
+          id: true,
+          _count: {
+            select: {
+              anomalies: {
+                where: { status: AnomalyStatus.OPEN, isBlocking: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.onefopAnomaly.groupBy({
+        by: ['ruleFamily'],
+        where: {
+          status: AnomalyStatus.OPEN,
+          submission: baseWhere,
+        },
+        _count: { _all: true },
+        orderBy: { _count: { ruleFamily: 'desc' } },
+      }),
+      this.prisma.onefopAnomaly.findMany({
+        where: {
+          status: AnomalyStatus.OPEN,
+          submission: baseWhere,
+        },
+        select: {
+          submission: {
+            select: { region: true },
+          },
+        },
+      }),
+    ]);
+
+    const statisticallyReadyCount = approvedCandidates.filter((s) => s._count.anomalies === 0).length;
+
+    // Rates: 0-100% or null if 0 submissions
+    const completenessRate = totalSubmissions > 0
+      ? Math.max(0, Math.round(((totalSubmissions - submissionsInCorrection) / totalSubmissions) * 100))
+      : null;
+
+    const coherenceRate = totalSubmissions > 0
+      ? Math.max(0, Math.round(((totalSubmissions - submissionsWithCoherenceAnomalies) / totalSubmissions) * 100))
+      : null;
+
+    const anomalyRate = totalSubmissions > 0
+      ? Math.min(100, Math.round((submissionsWithBlockingAnomalies / totalSubmissions) * 100))
+      : null;
+
+    const warningRate = totalSubmissions > 0
+      ? Math.min(100, Math.round((submissionsWithWarnings / totalSubmissions) * 100))
+      : null;
+
+    const statisticalEligibilityRate = totalSubmissions > 0
+      ? Math.min(100, Math.round((statisticallyReadyCount / totalSubmissions) * 100))
+      : null;
+
+    const byRuleFamily = familyGroups.map((g) => ({
+      ruleFamily: g.ruleFamily,
+      count: g._count._all,
+    }));
+
+    const regionMap = new Map<string, number>();
+    for (const a of anomalyRegions) {
+      const reg = a.submission?.region?.trim() || 'Non assigné';
+      regionMap.set(reg, (regionMap.get(reg) || 0) + 1);
+    }
+    const byRegion = Array.from(regionMap.entries())
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      completenessRate,
+      coherenceRate,
+      anomalyRate,
+      warningRate,
+      statisticalEligibilityRate,
+      totalSubmissions,
+      blockingAnomaliesCount,
+      warningsCount,
+      statisticallyReadyCount,
+      byRuleFamily,
+      byRegion,
+    };
+  }
+
+  /**
    * Resolve or waive an anomaly with actor-based authorization and legal audit
    */
   async resolveAnomaly(anomalyId: string, actor: any, dto: ResolveAnomalyDto) {

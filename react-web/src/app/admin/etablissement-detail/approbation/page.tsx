@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { approveUser, rejectUser, requestComplements } from "@/lib/user-directory";
+import { approveUser, rejectUser, requestComplements, getUserDocuments, verifyUserDocument } from "@/lib/user-directory";
 import { entityTypeLabel, listCompanies, type Company } from "@/lib/companies-directory";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -78,6 +78,22 @@ function Approbation() {
     isLoading: companyQuery.isLoading,
     isError: companyQuery.isError,
     error: companyQuery.error,
+  });
+
+  const documentsQuery = useQuery({
+    queryKey: ["auth", "users", account?.id, "documents"],
+    queryFn: () => (account?.id ? getUserDocuments(account.id) : null),
+    enabled: canRead && !!account?.id,
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: ({ kind, state }: { kind: string; state: "VERIFIED" | "PENDING" | "REJECTED" }) => {
+      if (!account?.id) throw new Error("Aucun compte rattaché.");
+      return verifyUserDocument(account.id, kind, state);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth", "users", account?.id, "documents"] });
+    },
   });
 
   /**
@@ -227,20 +243,68 @@ function Approbation() {
               </div>
             </div>
 
-            {/* Document checklist.
-                No document store backs this screen
-                (docs/admin-data-integrity-inventory.md §7.9), so no document
-                is listed as verified or missing: such a checklist is the
-                evidence a reviewer's decision rests on. */}
+            {/* Document checklist backed by RegistrationDocument model. */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ ...KEY, marginBottom: 10 }}>PIÈCES JUSTIFICATIVES</div>
-              <DataState
-                dense
-                state="unavailable"
-                resource="les pièces justificatives"
-                title="Pièces non suivies par le système"
-                hint="Le système ne conserve pas d'état de vérification documentaire. Vérifiez les pièces par les voies administratives habituelles avant de décider."
-              />
+              {documentsQuery.isLoading ? (
+                <p style={{ fontSize: 13, color: "#64748b" }}>Chargement des pièces justificatives…</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {(documentsQuery.data?.items ?? []).map((doc) => {
+                    const isVerified = doc.state === "VERIFIED";
+                    return (
+                      <div
+                        key={doc.kind}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          border: isVerified ? "1px solid #a7f3d0" : "1px solid #e5e7eb",
+                          background: isVerified ? "#f0fdf4" : "#ffffff",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                            {doc.label}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                            {isVerified && doc.verifiedBy
+                              ? `Vérifié par ${doc.verifiedBy} le ${stamp(doc.verifiedAt, false)}`
+                              : "En attente de vérification formelle"}
+                          </div>
+                        </div>
+
+                        {canDecide && (
+                          <button
+                            type="button"
+                            disabled={verifyMutation.isPending}
+                            onClick={() =>
+                              verifyMutation.mutate({
+                                kind: doc.kind,
+                                state: isVerified ? "PENDING" : "VERIFIED",
+                              })
+                            }
+                            style={{
+                              padding: "4px 12px",
+                              borderRadius: 6,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              border: isVerified ? "1px solid #059669" : "1px solid #d1d5db",
+                              background: isVerified ? "#059669" : "#ffffff",
+                              color: isVerified ? "#ffffff" : "#374151",
+                            }}
+                          >
+                            {isVerified ? "✓ Vérifié" : "Marquer vérifié"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {!canDecide ? (

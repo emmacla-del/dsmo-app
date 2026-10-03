@@ -54,6 +54,18 @@ export class AdminQuestionnairesController {
   ) {}
 
   /**
+   * Authoritative Quality Summary & Indicator Aggregates (Axis 1 & 2)
+   */
+  @Get('quality/summary')
+  async getQualitySummary(
+    @Query('campaignId') campaignId?: string,
+    @Request() req?: any,
+  ) {
+    const territory = territoryFromUser(req?.user);
+    return this.eligibilityEngine.getQualitySummary(territory, campaignId);
+  }
+
+  /**
    * Action-oriented Priority Queues ("Que dois-je traiter aujourd'hui ?")
    */
   @Get('pilotage/queues')

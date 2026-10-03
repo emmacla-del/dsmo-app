@@ -8,6 +8,7 @@ import {
   downloadSpssCsvBlob,
   downloadExcelWorkbookBlob,
   getDataManagementStats,
+  getExportHistory,
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
@@ -41,13 +42,6 @@ const BREAKDOWN_FORM_TYPES = [
   "ONG",
   "VOCATIONAL_TRAINING",
 ] as const;
-
-/** Byte length of a blob the server actually returned, as a readable size. */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-}
 
 function getStatusCount(
   source: Record<string, number> | { status: string; _count: number }[] | undefined | null,
@@ -154,29 +148,30 @@ const IconSpinner = () => (
   </svg>
 );
 
-/**
- * One export this browser session actually performed.
- *
- * Provenance: created only inside `recordExport`, after a real export blob has
- * come back from the API and been handed to the browser. `user` is the
- * signed-in actor from the auth store, `iso` is this client's clock at the
- * moment of the download, `sizeBytes` is the byte length of the blob the
- * server returned.
- *
- * This is NOT an export journal: the backend does not record repository
- * exports as resources (docs/admin-data-integrity-inventory.md section 7.5),
- * so the list covers the current session only and the UI says so. It is never
- * seeded.
- */
-interface ExportHistoryItem {
-  id: string;
-  iso: string;
-  user: string;
-  format: string;
-  scope: string;
-  sizeBytes: number;
-  filename: string;
-  blob: Blob;
+function formatExportFormat(fmt: string): string {
+  switch (fmt?.toUpperCase()) {
+    case "SPSS_SAV":
+      return "SPSS (.sav)";
+    case "SPSS_CSV":
+      return "CSV (.csv)";
+    case "EXCEL":
+      return "Excel (.xlsx)";
+    default:
+      return fmt || NOT_PROVIDED;
+  }
+}
+
+function formatExportScope(filters: Record<string, unknown> | null | undefined): string {
+  if (!filters || typeof filters !== "object" || Object.keys(filters).length === 0) {
+    return "Périmètre complet autorisé";
+  }
+  const parts: string[] = [];
+  if (filters.region && typeof filters.region === "string") parts.push(`Région: ${filters.region}`);
+  if (filters.department && typeof filters.department === "string") parts.push(`Dép: ${filters.department}`);
+  if (filters.campaign && typeof filters.campaign === "string") parts.push(`Campagne: ${filters.campaign}`);
+  if (filters.entityType && typeof filters.entityType === "string") parts.push(`Type: ${entityTypeLabel(filters.entityType)}`);
+  if (Array.isArray(filters.statuses) && filters.statuses.length > 0) parts.push(`Statuts: ${filters.statuses.join(", ")}`);
+  return parts.length > 0 ? parts.join(" • ") : "Périmètre complet autorisé";
 }
 
 export default function DiffusionPage() {
@@ -235,9 +230,11 @@ export default function DiffusionPage() {
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Export list for THIS session only. Never seeded: the backend keeps no
-  // export journal, so a pre-filled list would be invented history.
-  const [history, setHistory] = useState<ExportHistoryItem[]>([]);
+  const serverHistoryQuery = useQuery({
+    queryKey: ["admin", "data-management", "export", "history"],
+    queryFn: () => getExportHistory(20),
+    enabled: !isLoading && !forbidden,
+  });
 
   const schemaQuery = useOnefopSchema();
 
@@ -358,34 +355,8 @@ export default function DiffusionPage() {
     setTimeout(() => setSuccessToast(null), 4000);
   };
 
-  const recordExport = (format: string, blob: Blob, filename: string) => {
-    // Describes the filter the actor actually sent to the server, not a row
-    // count: the exported record count is not returned with the blob, so
-    // claiming one here would be invented.
-    const scopeDesc =
-      selectedRegion !== "Toutes"
-        ? `Périmètre filtré — région ${selectedRegion}`
-        : scopeMode === "all"
-          ? "Périmètre complet autorisé"
-          : `Campagne ${selectedCampaign}`;
-
-    const actorName = user
-      ? [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email
-      : NOT_PROVIDED;
-
-    setHistory((prev) => [
-      {
-        id: `hist-${Date.now()}`,
-        iso: new Date().toISOString(),
-        user: actorName,
-        format: format === ".sav" ? "SPSS .SAV" : format === ".csv" ? "CSV" : "Excel .XLSX",
-        scope: scopeDesc,
-        sizeBytes: blob.size,
-        filename,
-        blob,
-      },
-      ...prev,
-    ]);
+  const recordExport = () => {
+    serverHistoryQuery.refetch();
   };
 
   /**
@@ -435,7 +406,7 @@ export default function DiffusionPage() {
 
       const filename = `onefop_export_${selectedCampaign}_${timestamp}.${plan.ext}`;
       triggerFileDownload(blob, filename);
-      recordExport(selectedFormat, blob, filename);
+      recordExport();
       showSuccess(`${plan.label} téléchargé avec succès.`);
 
       if (includeCodebook && selectedFormat === ".sav") {
@@ -1099,23 +1070,32 @@ export default function DiffusionPage() {
       >
         <div className="mb-4">
           <h2 id="recent-exports-heading" className="text-base font-bold text-slate-900">
-            Exports de cette session
+            Historique des exports récents
           </h2>
-          {/* Scope stated plainly: the backend keeps no export journal, so
-              this list cannot claim to be one. */}
           <p className="text-xs text-slate-500 mt-0.5">
-            Extractions lancées depuis cet onglet. Le système ne conserve pas
-            d&apos;historique d&apos;export côté serveur : cette liste est vidée à la
-            fermeture de la page.
+            Journal d&apos;audit des extractions de données enregistrées sur la plateforme.
           </p>
         </div>
 
-        {history.length === 0 ? (
+        {serverHistoryQuery.isLoading ? (
+          <DataState
+            state="loading"
+            resource="l'historique des exports"
+            title="Chargement de l'historique des exports..."
+          />
+        ) : serverHistoryQuery.isError ? (
+          <DataState
+            state="error"
+            resource="l'historique des exports"
+            error={serverHistoryQuery.error}
+            onRetry={() => serverHistoryQuery.refetch()}
+          />
+        ) : !serverHistoryQuery.data || serverHistoryQuery.data.length === 0 ? (
           <DataState
             state="empty"
-            resource="les exports de cette session"
-            title="Aucun export lancé depuis cette page"
-            hint="Les extractions que vous générerez apparaîtront ici, avec leur périmètre et leur taille réelle, le temps de la session."
+            resource="l'historique des exports"
+            title="Aucun export enregistré"
+            hint="Les extractions de données générées par les administrateurs et analystes apparaîtront ici."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -1126,38 +1106,27 @@ export default function DiffusionPage() {
                   <th className="py-3 px-3">Utilisateur</th>
                   <th className="py-3 px-3">Format</th>
                   <th className="py-3 px-3">Périmètre</th>
-                  <th className="py-3 px-3">Taille</th>
-                  <th className="py-3 px-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="text-xs text-slate-700 divide-y divide-slate-50">
-                {history.map((row) => (
+                {serverHistoryQuery.data.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                      {stamp(row.iso)}
+                      {stamp(row.timestamp)}
                     </td>
                     <td className="py-3.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                      {row.user}
+                      {row.user?.name || row.user?.email || NOT_PROVIDED}
+                      {row.user?.role && (
+                        <span className="ml-1.5 text-[10px] font-normal text-slate-500">
+                          ({row.user.role})
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
-                      {row.format}
+                      {formatExportFormat(row.format)}
                     </td>
-                    <td className="py-3.5 px-3 text-slate-600 whitespace-nowrap">
-                      {row.scope}
-                    </td>
-                    {/* Real byte length of the blob the server returned. */}
-                    <td className="py-3.5 px-3 text-slate-600 whitespace-nowrap">
-                      {formatBytes(row.sizeBytes)}
-                    </td>
-                    <td className="py-3.5 px-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => triggerFileDownload(row.blob, row.filename)}
-                        aria-label={`Télécharger à nouveau ${row.filename}`}
-                        className="text-slate-600 hover:text-[#006644] p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                      >
-                        <IconDownloadTray />
-                      </button>
+                    <td className="py-3.5 px-3 text-slate-600">
+                      {formatExportScope(row.filters)}
                     </td>
                   </tr>
                 ))}

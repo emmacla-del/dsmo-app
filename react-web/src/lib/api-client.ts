@@ -813,3 +813,20 @@ export interface DataManagementStats {
 export function getDataManagementStats(): Promise<DataManagementStats> {
   return apiFetch<DataManagementStats>("/data-management/stats");
 }
+
+export interface ExportHistoryItem {
+  id: string;
+  timestamp: string;
+  format: string;
+  filters: Record<string, unknown>;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  } | null;
+}
+
+export function getExportHistory(limit = 20): Promise<ExportHistoryItem[]> {
+  return apiFetch<ExportHistoryItem[]>(`/data-management/export/history?limit=${limit}`);
+}

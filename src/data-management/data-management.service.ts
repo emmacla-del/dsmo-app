@@ -1831,4 +1831,61 @@ export class DataManagementService {
         return { columns, valuesBySubmission };
     }
 
+    async logExport(userId?: string, format = 'UNKNOWN', details?: any) {
+        if (!userId) return;
+        try {
+            await this.prisma.auditLog.create({
+                data: {
+                    userId,
+                    action: 'DATA_EXPORT',
+                    resourceType: 'DIFFUSION',
+                    resourceId: 'submissions',
+                    details: {
+                        format,
+                        ...(details || {}),
+                    },
+                },
+            });
+        } catch {
+            // Non-blocking logging
+        }
+    }
+
+    async getExportHistory(limit = 20) {
+        const logs = await this.prisma.auditLog.findMany({
+            where: {
+                action: 'DATA_EXPORT',
+                resourceType: 'DIFFUSION',
+            },
+            orderBy: { timestamp: 'desc' },
+            take: limit,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        role: true,
+                    },
+                },
+            },
+        });
+
+        return logs.map((l) => ({
+            id: l.id,
+            timestamp: l.timestamp,
+            format: (l.details as any)?.format || 'EXCEL',
+            filters: (l.details as any)?.filters || {},
+            user: l.user
+                ? {
+                    id: l.user.id,
+                    email: l.user.email,
+                    name: `${l.user.firstName || ''} ${l.user.lastName || ''}`.trim() || l.user.email,
+                    role: l.user.role,
+                }
+                : null,
+        }));
+    }
+
 }
