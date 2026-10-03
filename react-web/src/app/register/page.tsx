@@ -687,16 +687,18 @@ export default function RegisterPage() {
                         placeholder="contact@organisation.cm"
                       />
                     </div>
-                    {emailAvailable === false && (
-                      <span style={{ color: "var(--cam-error)", fontSize: 12, fontWeight: 600, marginTop: 4, display: "block" }}>
-                        ⚠ {t("registerPage.emailUnavailable")}
-                      </span>
-                    )}
-                    {emailAvailable === true && (
-                      <span style={{ color: "var(--cam-green)", fontSize: 12, fontWeight: 600, marginTop: 4, display: "block" }}>
-                        ✓ {t("registerPage.emailAvailable")}
-                      </span>
-                    )}
+                    <div aria-live="polite" aria-atomic="true">
+                      {emailAvailable === false && (
+                        <span style={{ color: "var(--cam-error)", fontSize: 12, fontWeight: 600, marginTop: 4, display: "block" }}>
+                          ⚠ {t("registerPage.emailUnavailable")}
+                        </span>
+                      )}
+                      {emailAvailable === true && (
+                        <span style={{ color: "var(--cam-green)", fontSize: 12, fontWeight: 600, marginTop: 4, display: "block" }}>
+                          ✓ {t("registerPage.emailAvailable")}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="field">
@@ -939,7 +941,7 @@ export default function RegisterPage() {
                       </span>
                       <div className="field" style={{ flex: 1, marginBottom: 0 }}>
                         <label htmlFor="reg-department" style={{ color: !regionId ? "var(--cam-text-muted)" : undefined }}>
-                          {t("registerPage.departmentLabel")}
+                          {t("registerPage.departmentLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
                         </label>
                         <div className="input-row">
                           <select
@@ -973,7 +975,7 @@ export default function RegisterPage() {
                       </span>
                       <div className="field" style={{ flex: 1, marginBottom: 0 }}>
                         <label htmlFor="reg-subdivision" style={{ color: !departmentId ? "var(--cam-text-muted)" : undefined }}>
-                          {t("registerPage.subdivisionLabel")}
+                          {t("registerPage.subdivisionLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
                         </label>
                         <div className="input-row">
                           <select
@@ -1099,21 +1101,23 @@ export default function RegisterPage() {
                         hideLabel={t("registerPage.hidePasswordButton")}
                       />
                     </div>
-                    {confirmPassword && (
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          marginTop: "4px",
-                          display: "block",
-                          color: password === confirmPassword ? "var(--cam-green)" : "var(--cam-error)",
-                        }}
-                      >
-                        {password === confirmPassword
-                          ? "✓ Les mots de passe correspondent"
-                          : "⚠ Les mots de passe ne correspondent pas"}
-                      </span>
-                    )}
+                    <div aria-live="polite" aria-atomic="true">
+                      {confirmPassword && (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            marginTop: "4px",
+                            display: "block",
+                            color: password === confirmPassword ? "var(--cam-green)" : "var(--cam-error)",
+                          }}
+                        >
+                          {password === confirmPassword
+                            ? "✓ Les mots de passe correspondent"
+                            : "⚠ Les mots de passe ne correspondent pas"}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Password guidelines box */}
@@ -1173,14 +1177,16 @@ export default function RegisterPage() {
           </div>
 
           <div className="card-footer">
-            {/* Step error banner */}
-            {(stepError || submitError) && (
+            {/* Step-validation errors only. submitError has its own banner in
+                the review block; rendering it here as well printed every
+                submission failure twice. */}
+            {stepError && (
               <div
                 className="auth-error-box"
                 role="alert"
                 style={{ marginBottom: "var(--cam-space-3)", whiteSpace: "pre-line" }}
               >
-                {submitError || stepError}
+                {stepError}
               </div>
             )}
 
