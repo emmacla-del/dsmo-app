@@ -11,12 +11,26 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import { NOT_PROVIDED, fact, resolveDataState, stamp } from "@/lib/admin-data-state";
-import { NATIONAL_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+import { APPROVAL_ROLES, DIRECTORY_ROLES, hasRole } from "@/lib/roles";
 
 // Fails closed: a role that has not loaded is not authorised.
-// Read: GET /companies is DIRECTORY_ROLES, territory-scoped server-side;
-// this screen is gated to NATIONAL_ROLES.
-// Decide: SUPER_ADMIN alone (SETTINGS_ROLES membership).
+// Read: DIRECTORY_ROLES, matching GET /companies, which territory-scopes its
+// rows server-side. The establishment list is where a territorial admin
+// discovers a registration to review, so gating this screen more narrowly
+// than the list made that list a dead end for REGIONAL_ADMIN and
+// DIVISIONAL_ADMIN — and left their decision rights below unreachable.
+// Decide: APPROVAL_ROLES — the group that mirrors the backend's own
+// @Roles on approve-user / reject-user / request-complements. The
+// territorial narrowing (a REGIONAL_ADMIN may only act inside its region) is
+// applied server-side by assertCanApproveRegistration, not here.
+
+/**
+ * Entity types the backend approves at self-registration
+ * (AUTO_APPROVE_ENTITY_TYPES in src/auth/auth.service.ts). Their account is
+ * already ACTIVE with an establishment ID issued, so there is no pending
+ * decision for a reviewer to take and the decision form is withheld.
+ */
+const AUTO_APPROVED_ENTITY_TYPES = ["ADMINISTRATION"];
 
 type Decision = "approve" | "reject" | "complements";
 
@@ -44,8 +58,8 @@ function Approbation() {
   const id = searchParams.get("id")?.trim() ?? "";
 
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = hasRole(role, NATIONAL_ROLES);
-  const canDecide = hasRole(role, SETTINGS_ROLES);
+  const canRead = hasRole(role, DIRECTORY_ROLES);
+  const canDecide = hasRole(role, APPROVAL_ROLES);
   const queryClient = useQueryClient();
 
   const [decision, setDecision] = useState<Decision>("complements");
@@ -174,6 +188,9 @@ function Approbation() {
   }
 
   const territory = [company.region, company.department, company.subdivision].filter(Boolean).join(" / ");
+  const isAutoApproved = AUTO_APPROVED_ENTITY_TYPES.includes(
+    (company.entityType ?? "").toUpperCase(),
+  );
 
   return (
     <div className="cam-admin-page" style={{ background: "#f8fafc", minHeight: "100vh", padding: "24px 32px" }}>
@@ -309,12 +326,29 @@ function Approbation() {
               )}
             </div>
 
-            {!canDecide ? (
+            {isAutoApproved ? (
+              <div
+                role="status"
+                style={{
+                  background: "#ecfdf5",
+                  border: "1px solid #a7f3d0",
+                  borderRadius: 8,
+                  padding: "14px 18px",
+                  fontSize: 13,
+                  color: "#065f46",
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: 4 }}>
+                  Approbation automatique
+                </strong>
+                Le compte est actif. Aucune action requise.
+              </div>
+            ) : !canDecide ? (
               <DataState
                 state="forbidden"
                 resource="la décision de validation"
-                title="Décision réservée au super-administrateur plateforme"
-                hint="Vous pouvez consulter ce dossier, mais la décision d'approbation ou de rejet relève du super-administrateur."
+                title="Décision réservée aux rôles d'instruction"
+                hint="Vous pouvez consulter ce dossier, mais la décision d'approbation ou de rejet relève d'un rôle habilité à instruire les inscriptions."
               />
             ) : !account ? (
               <DataState

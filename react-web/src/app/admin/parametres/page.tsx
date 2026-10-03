@@ -131,7 +131,7 @@ function ParametresContent() {
 
   // Observatory Form state
   const [observatoryName, setObservatoryName] = useState("Observatoire National de l'Emploi");
-  const [countryCode, setCountryCode] = useState("CMR");
+  const [countryCode, setCountryCode] = useState(COUNTRY_OPTIONS[0].value);
   const [defaultLanguage, setDefaultLanguage] = useState("fr");
   const [timezone, setTimezone] = useState("Africa/Douala");
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -376,8 +376,7 @@ function ParametresContent() {
                       onChange={(e) => setCountryCode(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                     >
-                      <option value="CMR">Cameroun</option>
-                      {COUNTRY_OPTIONS.filter((c) => c.value !== "CMR").map((c) => (
+                      {COUNTRY_OPTIONS.map((c) => (
                         <option key={c.value} value={c.value}>{c.label}</option>
                       ))}
                     </select>
