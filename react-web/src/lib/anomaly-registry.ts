@@ -126,3 +126,22 @@ export const ANOMALY_RESOLUTION_LABELS: Record<AnomalyResolutionType, string> = 
   FIELD_INSPECTION: "Inspection de terrain",
   LEGAL_DEROGATION: "Dérogation légale",
 };
+
+export interface QualitySummary {
+  completenessRate: number | null;
+  coherenceRate: number | null;
+  anomalyRate: number | null;
+  warningRate: number | null;
+  statisticalEligibilityRate: number | null;
+  totalSubmissions: number;
+  blockingAnomaliesCount: number;
+  warningsCount: number;
+  statisticallyReadyCount: number;
+  byRuleFamily: { ruleFamily: string; count: number }[];
+  byRegion: { region: string; count: number }[];
+}
+
+export function getQualitySummary(campaignId?: string) {
+  const qs = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+  return apiFetch<QualitySummary>(`/admin/questionnaires/quality/summary${qs}`);
+}

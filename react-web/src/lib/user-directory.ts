@@ -89,6 +89,34 @@ export function requestComplements(id: string, message: string) {
   });
 }
 
+export interface RegistrationDocumentItem {
+  id: string;
+  userId: string;
+  kind: string;
+  label: string;
+  state: "PENDING" | "VERIFIED" | "REJECTED" | "MISSING";
+  uploadedAt: string;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}
+
+export interface UserDocumentsResult {
+  userId: string;
+  companyName: string | null;
+  items: RegistrationDocumentItem[];
+}
+
+export function getUserDocuments(userId: string) {
+  return apiFetch<UserDocumentsResult>(`/auth/users/${encodeURIComponent(userId)}/documents`);
+}
+
+export function verifyUserDocument(userId: string, kind: string, state: "VERIFIED" | "PENDING" | "REJECTED") {
+  return apiFetch<RegistrationDocumentItem>(`/auth/users/${encodeURIComponent(userId)}/documents/${encodeURIComponent(kind)}/verify`, {
+    method: "PATCH",
+    body: JSON.stringify({ state }),
+  });
+}
+
 export interface CompanyRegistrationItem {
   id: string;
   companyId: string;

@@ -12,9 +12,11 @@ import {
   anomalyDossierRef,
   listAnomalyRegistry,
   resolveAnomalyRecord,
+  getQualitySummary,
   type AnomalyRecord,
   type AnomalyResolutionType,
   type AnomalyStatus,
+  type QualitySummary,
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -23,31 +25,12 @@ import {
   NOT_PROVIDED,
   count,
   elapsedSince,
+  percent,
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
 
 const REGISTRY_PAGE_SIZE = 50;
-
-/**
- * Quality indicators the Figma frame shows for this screen.
- *
- * None of them has a backend source: no endpoint computes completeness,
- * coherence, warning or statistical-eligibility rates over a scope
- * (docs/admin-data-integrity-inventory.md §7.4). They are listed here so the
- * screen can name precisely what is missing instead of printing a number.
- *
- * The one rate the system *can* compute —
- * statisticallyReadyCount / totalSubmissionsCount from pilotage/queues — is
- * surfaced on /admin/pilotage, which owns that figure.
- */
-const UNSOURCED_QUALITY_KPIS = [
-  "Complétude",
-  "Cohérence",
-  "Taux d'anomalies",
-  "Avertissements",
-  "Éligibilité statistique",
-];
 
 export default function CentreQualitePage() {
   const queryClient = useQueryClient();
@@ -92,6 +75,14 @@ export default function CentreQualitePage() {
       }),
     enabled: canReadRegistry,
   });
+
+  const qualityQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "quality", "summary"],
+    queryFn: () => getQualitySummary(),
+    enabled: canReadRegistry,
+  });
+
+  const quality = qualityQuery.data ?? null;
 
   const items = useMemo(() => anomaliesQuery.data?.items ?? [], [anomaliesQuery.data]);
   const totalCount = anomaliesQuery.data?.total ?? null;
@@ -275,38 +266,58 @@ export default function CentreQualitePage() {
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: 12,
-            marginBottom: 16,
           }}
         >
-          {UNSOURCED_QUALITY_KPIS.map((label) => (
-            <div key={label} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
-                {label}
-              </span>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#94a3b8", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
-                {NOT_PROVIDED}
-              </div>
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+              Complétude
+            </span>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+              {qualityQuery.isLoading ? "…" : percent(quality?.completenessRate)}
             </div>
-          ))}
-        </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Dossiers complets</div>
+          </div>
 
-        <DataState
-          dense
-          state="unavailable"
-          resource="les indicateurs de qualité"
-          title="Indicateurs non calculés par le système"
-          hint={
-            <>
-              Aucun service ne calcule aujourd&apos;hui ces taux sur un périmètre
-              territorial. Le seul indicateur disponible — la part des dossiers
-              éligibles au traitement statistique — est publié sur le{" "}
-              <Link href="/admin/pilotage" style={{ color: "#007a5e", fontWeight: 600 }}>
-                tableau de bord de supervision
-              </Link>
-              .
-            </>
-          }
-        />
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+              Cohérence
+            </span>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+              {qualityQuery.isLoading ? "…" : percent(quality?.coherenceRate)}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>Sans contradiction</div>
+          </div>
+
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+              Taux d&apos;anomalies
+            </span>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#b91c1c", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+              {qualityQuery.isLoading ? "…" : percent(quality?.anomalyRate)}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.blockingAnomaliesCount)} bloquante(s)</div>
+          </div>
+
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+              Avertissements
+            </span>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+              {qualityQuery.isLoading ? "…" : percent(quality?.warningRate)}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.warningsCount)} alerte(s)</div>
+          </div>
+
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px", background: "#ffffff" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>
+              Éligibilité statistique
+            </span>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#1e6b3a", letterSpacing: "-0.02em", margin: "6px 0 0", lineHeight: 1 }}>
+              {qualityQuery.isLoading ? "…" : percent(quality?.statisticalEligibilityRate)}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>{count(quality?.statisticallyReadyCount)} dossier(s) prêts</div>
+          </div>
+        </div>
       </section>
 
       {/* ── Main Content Grid matching Figma qualite/centre.png ── */}
@@ -315,11 +326,7 @@ export default function CentreQualitePage() {
         {/* ── Left Column: ANOMALIES PAR TYPE & ANOMALIES PAR RÉGION ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           
-          {/* Aggregates by anomaly type and by region.
-              Nothing serves anomalies grouped by rule family or by region
-              (docs/admin-data-integrity-inventory.md §7.3). Deriving either
-              from the capped registry page below would state a share of a
-              total the page does not contain, so neither table is rendered. */}
+          {/* Authoritative aggregates by anomaly type and by region. */}
           <section
             aria-labelledby="anomalies-aggregates-title"
             style={{
@@ -336,12 +343,48 @@ export default function CentreQualitePage() {
             >
               ANOMALIES PAR TYPE ET PAR RÉGION
             </h2>
-            <DataState
-              state="unavailable"
-              resource="les agrégats d'anomalies"
-              title="Répartition agrégée non disponible"
-              hint="Le système ne publie pas d'agrégat d'anomalies par famille de règle ni par région. Le registre détaillé ci-dessous reste consultable et reflète votre ressort."
-            />
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div>
+                <h3 style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 10px", textTransform: "uppercase" }}>
+                  Par famille de règles
+                </h3>
+                {qualityQuery.isLoading ? (
+                  <p style={{ fontSize: 13, color: "#64748b" }}>Chargement des familles…</p>
+                ) : (quality?.byRuleFamily?.length ?? 0) === 0 ? (
+                  <p style={{ fontSize: 13, color: "#64748b" }}>Aucune anomalie ouverte par famille.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {quality?.byRuleFamily.map((f) => (
+                      <div key={f.ruleFamily} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 10px", background: "#f8fafc", borderRadius: 6 }}>
+                        <span style={{ fontWeight: 500, color: "#1e293b" }}>{f.ruleFamily}</span>
+                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(f.count)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: 12, fontWeight: 600, color: "#475569", margin: "0 0 10px", textTransform: "uppercase" }}>
+                  Par région
+                </h3>
+                {qualityQuery.isLoading ? (
+                  <p style={{ fontSize: 13, color: "#64748b" }}>Chargement des régions…</p>
+                ) : (quality?.byRegion?.length ?? 0) === 0 ? (
+                  <p style={{ fontSize: 13, color: "#64748b" }}>Aucune anomalie ouverte par région.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {quality?.byRegion.map((r) => (
+                      <div key={r.region} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "6px 10px", background: "#f8fafc", borderRadius: 6 }}>
+                        <span style={{ fontWeight: 500, color: "#1e293b" }}>{r.region}</span>
+                        <span style={{ fontWeight: 700, color: "#b91c1c" }}>{count(r.count)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </section>
 
         </div>
