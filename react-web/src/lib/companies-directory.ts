@@ -53,11 +53,31 @@ export interface ListCompaniesResult {
   pageSize: number;
 }
 
-export function listCompanies(params: { search?: string; page?: number; pageSize?: number }) {
+export interface CompanyStats {
+  total: number;
+  active: number;
+  pendingValidation: number;
+  rejected: number;
+  suspended: number;
+}
+
+export function getCompanyStats() {
+  return apiFetch<CompanyStats>("/dsmo/companies/stats");
+}
+
+export function listCompanies(params: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  region?: string;
+}) {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  if (params.status) query.set("status", params.status);
+  if (params.region) query.set("region", params.region);
   const qs = query.toString();
   return apiFetch<ListCompaniesResult>(`/dsmo/companies${qs ? `?${qs}` : ""}`);
 }

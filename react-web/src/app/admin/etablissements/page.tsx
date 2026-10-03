@@ -7,13 +7,14 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   listCompanies,
+  getCompanyStats,
   entityTypeLabel,
   type Company,
 } from "@/lib/companies-directory";
 import { getDataManagementStats } from "@/lib/api-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
-import { DataState, DataStateRow } from "@/components/admin/DataState";
+import { DataStateRow } from "@/components/admin/DataState";
 import {
   NOT_PROVIDED,
   count,
@@ -74,26 +75,12 @@ interface EtabItem {
   status: "ACTIF" | "EN_ATTENTE" | "SUSPENDU" | "INCONNU";
 }
 
-/**
- * Account-status tiles the Figma frame shows.
- *
- * None is computable: `/auth/users` excludes COMPANY accounts by construction
- * and `/dsmo/companies` has no status filter, so active / pending / suspended
- * establishment-account totals have no source
- * (docs/admin-data-integrity-inventory.md §7.11).
- */
 const STATUS_LABELS: Record<EtabItem["status"], string> = {
   ACTIF: "Actif",
   EN_ATTENTE: "En attente",
   SUSPENDU: "Suspendu",
   INCONNU: "Aucun compte lié",
 };
-
-const UNSOURCED_ACCOUNT_TILES = [
-  "Comptes actifs",
-  "En attente de validation",
-  "Comptes suspendus",
-];
 
 export default function EtablissementsPage() {
   const router = useRouter();
@@ -127,6 +114,12 @@ export default function EtablissementsPage() {
     queryFn: getDataManagementStats,
   });
 
+  const companyStatsQuery = useQuery({
+    queryKey: ["dsmo", "companies", "stats"],
+    queryFn: getCompanyStats,
+    enabled: canRead,
+  });
+
   const companiesQuery = useQuery({
     queryKey: ["dsmo", "companies", search, page],
     queryFn: () => listCompanies({ search: search || undefined, page, pageSize: PAGE_SIZE }),
@@ -134,18 +127,13 @@ export default function EtablissementsPage() {
   });
 
   const stats = statsQuery.data;
+  const companyStats = companyStatsQuery.data;
 
   /**
    * Total establishments.
-   *
-   * Source: GET /data-management/stats → totals.companies
-   * (DataManagementService.getDataStats: prisma.company.count()).
-   *
-   * Platform-wide with no territorial filter — truthful here only because
-   * this screen is guarded to DIRECTORY_ROLES, which GET /dsmo/companies
-   * itself restricts to the super-admin roles. `null` until retrieved.
+   * Sourced directly from GET /dsmo/companies/stats (or GET /data-management/stats).
    */
-  const totalEtablissements = stats?.totals?.companies ?? stats?.totalCompanies ?? null;
+  const totalEtablissements = companyStats?.total ?? stats?.totals?.companies ?? stats?.totalCompanies ?? null;
 
   const rawRows: Company[] = companiesQuery.data?.companies ?? [];
 
@@ -348,45 +336,55 @@ export default function EtablissementsPage() {
         </div>
       </div>
 
-      {/* Register volume. The only account figure with a source is the total
-          number of establishments; the three account-status tiles have none,
-          so they are named as unavailable instead of being filled. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 16 }}>
+      {/* Register volume. Authoritative metrics sourced from GET /dsmo/companies/stats. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
             TOTAL ÉTABLISSEMENTS
           </div>
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-            {statsQuery.isLoading ? "…" : count(totalEtablissements)}
+            {companyStatsQuery.isLoading || statsQuery.isLoading ? "…" : count(totalEtablissements)}
           </div>
-          {/* No month-over-month figure: the stats endpoint returns one
-              snapshot with no prior period. */}
           <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
             Entités enregistrées au répertoire
           </div>
         </div>
 
-        {UNSOURCED_ACCOUNT_TILES.map((label) => (
-          <div key={label} style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              {label}
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#9ca3af", marginTop: 8, lineHeight: 1 }}>
-              {NOT_PROVIDED}
-            </div>
-            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>Non calculé par le système</div>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            COMPTES ACTIFS
           </div>
-        ))}
-      </div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {companyStatsQuery.isLoading ? "…" : count(companyStats?.active)}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
+            Comptes déclarants validés et actifs
+          </div>
+        </div>
 
-      <div style={{ marginBottom: 24 }}>
-        <DataState
-          dense
-          state="unavailable"
-          resource="les compteurs de comptes"
-          title="Comptes actifs, en attente et suspendus : non disponibles"
-          hint="Le système ne publie pas de décompte des comptes déclarants par statut. Le statut de chaque établissement reste visible ligne par ligne dans le tableau ci-dessous."
-        />
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            EN ATTENTE DE VALIDATION
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {companyStatsQuery.isLoading ? "…" : count(companyStats?.pendingValidation)}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
+            Dossiers soumis en attente d&apos;approbation
+          </div>
+        </div>
+
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            COMPTES SUSPENDUS
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {companyStatsQuery.isLoading ? "…" : count(companyStats?.suspended)}
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
+            Comptes désactivés ou suspendus
+          </div>
+        </div>
       </div>
 
       {/* Filter controls matching Figma */}
