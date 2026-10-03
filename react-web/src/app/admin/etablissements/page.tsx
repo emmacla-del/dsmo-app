@@ -8,12 +8,18 @@ import { useAuthStore } from "@/lib/auth-store";
 import {
   listCompanies,
   entityTypeLabel,
-  formatDate,
   type Company,
 } from "@/lib/companies-directory";
 import { getDataManagementStats } from "@/lib/api-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { DataState, DataStateRow } from "@/components/admin/DataState";
+import {
+  NOT_PROVIDED,
+  count,
+  resolveDataState,
+  stamp,
+} from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
@@ -29,11 +35,13 @@ const ENTITY_TYPES = [
   { value: "ONG", label: "ONG" },
 ];
 
+// Only states a linked account can actually be in, derived from User.status /
+// User.isActive. "Incomplet" was offered but no record ever carries it, so
+// that filter could only ever return nothing.
 const ACCOUNT_STATUSES = [
   { value: "ALL", label: "Tous" },
   { value: "ACTIVE", label: "Actif" },
   { value: "PENDING", label: "En attente" },
-  { value: "INCOMPLETE", label: "Incomplet" },
   { value: "SUSPENDED", label: "Suspendu" },
 ];
 
@@ -44,126 +52,55 @@ const SECTORS = [
   { value: "TERTIAIRE", label: "Secteur Tertiaire" },
 ];
 
-function fmt(n: number) {
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-}
-
+/**
+ * One establishment row.
+ *
+ * Every field is mapped from a GET /dsmo/companies record. Fields the record
+ * does not carry stay `null` and render as an em dash. There is deliberately
+ * no `creePar`: nothing on the Company model records who created the account
+ * (docs/admin-data-integrity-inventory.md), so the column was removed rather
+ * than filled with "Auto-inscription" on every row.
+ */
 interface EtabItem {
   id: string;
-  name: string;
-  type: string;
-  typeBadge: "Entreprise" | "Coopérative" | "Administration" | "ASFOP";
-  rccm: string;
-  regionCity: string;
-  responsable: string;
-  dateInscription: string;
-  creePar: string;
-  status: "ACTIF" | "EN_ATTENTE" | "INCOMPLET" | "SUSPENDU";
+  companyId: string;
+  name: string | null;
+  type: string | null;
+  typeLabel: string | null;
+  rccm: string | null;
+  regionCity: string | null;
+  responsable: string | null;
+  dateInscription: string | null;
+  status: "ACTIF" | "EN_ATTENTE" | "SUSPENDU" | "INCONNU";
 }
 
-const DEFAULT_SAMPLE_ETABLISSEMENTS: EtabItem[] = [
-  {
-    id: "RC/DLA/1921/B/004",
-    name: "SABC (Société Anonyme des Brasseries du Cameroun)",
-    type: "ENTREPRISE",
-    typeBadge: "Entreprise",
-    rccm: "RC/DLA/1921/B/004",
-    regionCity: "Littoral / Douala",
-    responsable: "Emmanuel de Tailly",
-    dateInscription: "12/01/2026",
-    creePar: "Admin Central",
-    status: "ACTIF",
-  },
-  {
-    id: "COOP-CA/LT/2024-001",
-    name: "Coopérative Agricole du Moungo",
-    type: "COOPERATIVE",
-    typeBadge: "Coopérative",
-    rccm: "COOP-CA/LT/2024-0...",
-    regionCity: "Littoral / Nkongsamb...",
-    responsable: "Pierre Elong",
-    dateInscription: "05/02/2026",
-    creePar: "DR Littoral",
-    status: "ACTIF",
-  },
-  {
-    id: "MINFI-YDE-2026",
-    name: "Ministère des Finances",
-    type: "ADMINISTRATION",
-    typeBadge: "Administration",
-    rccm: "MINFI-YDE-2026",
-    regionCity: "Centre / Yaoundé",
-    responsable: "Dr. Louis Paul Motaze",
-    dateInscription: "20/11/2025",
-    creePar: "Admin Central",
-    status: "ACTIF",
-  },
-  {
-    id: "RC/DLA/1968/B/021",
-    name: "SOCAPALM S.A.",
-    type: "ENTREPRISE",
-    typeBadge: "Entreprise",
-    rccm: "RC/DLA/1968/B/021",
-    regionCity: "Littoral / Douala",
-    responsable: "Dominique Cornet",
-    dateInscription: "18/01/2026",
-    creePar: "Auto-inscription",
-    status: "ACTIF",
-  },
-  {
-    id: "ASF-2026-N0-041",
-    name: "GIC Espoir des Jeunes",
-    type: "ASFOP",
-    typeBadge: "ASFOP",
-    rccm: "ASF-2026-N0-041",
-    regionCity: "Nord-Ouest / Bame...",
-    responsable: "Amadou Bello",
-    dateInscription: "29/02/2026",
-    creePar: "DR Nord-Ouest",
-    status: "EN_ATTENTE",
-  },
-  {
-    id: "RC/YDE/2012/B/4122",
-    name: "Nexttel Cameroun",
-    type: "ENTREPRISE",
-    typeBadge: "Entreprise",
-    rccm: "RC/YDE/2012/B/4122",
-    regionCity: "Centre / Yaoundé",
-    responsable: "Haman Oumar",
-    dateInscription: "03/01/2026",
-    creePar: "Auto-inscription",
-    status: "ACTIF",
-  },
-  {
-    id: "COOP-CA/SD/2025-108",
-    name: "Coopérative Cacaoyère du Sud",
-    type: "COOPERATIVE",
-    typeBadge: "Coopérative",
-    rccm: "COOP-CA/SD/2025-1...",
-    regionCity: "Sud / Ebolowa",
-    responsable: "Jean-Pierre Mendomo",
-    dateInscription: "22/02/2026",
-    creePar: "DR Sud",
-    status: "INCOMPLET",
-  },
-  {
-    id: "PRJ-PIAASI-AD-2026",
-    name: "Programme PIAASI",
-    type: "ASFOP",
-    typeBadge: "ASFOP",
-    rccm: "PRJ-PIAASI-AD-2026",
-    regionCity: "Nord / Garou...",
-    responsable: "Marie-Thérèse Abena",
-    dateInscription: "14/12/2025",
-    creePar: "Admin Central",
-    status: "SUSPENDU",
-  },
+/**
+ * Account-status tiles the Figma frame shows.
+ *
+ * None is computable: `/auth/users` excludes COMPANY accounts by construction
+ * and `/dsmo/companies` has no status filter, so active / pending / suspended
+ * establishment-account totals have no source
+ * (docs/admin-data-integrity-inventory.md §7.11).
+ */
+const STATUS_LABELS: Record<EtabItem["status"], string> = {
+  ACTIF: "Actif",
+  EN_ATTENTE: "En attente",
+  SUSPENDU: "Suspendu",
+  INCONNU: "Aucun compte lié",
+};
+
+const UNSOURCED_ACCOUNT_TILES = [
+  "Comptes actifs",
+  "En attente de validation",
+  "Comptes suspendus",
 ];
 
 export default function EtablissementsPage() {
   const router = useRouter();
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = !role || DIRECTORY_ROLES.includes(role);
+  // Fails closed: an unknown or not-yet-loaded role is not authorised. The
+  // previous `!role ||` made a missing role read as permitted.
+  const canRead = !!role && DIRECTORY_ROLES.includes(role);
 
   const { regions: territoryRegions } = useTerritoryRegions();
   const CAMEROON_REGIONS: string[] = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
@@ -197,53 +134,107 @@ export default function EtablissementsPage() {
   });
 
   const stats = statsQuery.data;
-  const totalEtablissements = stats?.totalCompanies ?? companiesQuery.data?.total ?? 1847;
-  const activeComptes = 1612;
-  const pendingComptes = 142;
-  const suspendedComptes = 93;
+
+  /**
+   * Total establishments.
+   *
+   * Source: GET /data-management/stats → totals.companies
+   * (DataManagementService.getDataStats: prisma.company.count()).
+   *
+   * Platform-wide with no territorial filter — truthful here only because
+   * this screen is guarded to DIRECTORY_ROLES, which GET /dsmo/companies
+   * itself restricts to the super-admin roles. `null` until retrieved.
+   */
+  const totalEtablissements = stats?.totals?.companies ?? stats?.totalCompanies ?? null;
 
   const rawRows: Company[] = companiesQuery.data?.companies ?? [];
 
-  // Convert raw rows if any, else use Figma canonical rows
-  const displayRows: EtabItem[] = rawRows.length > 0
-    ? rawRows.map((c) => ({
-        id: c.establishmentId || c.id,
-        name: c.name || `Établissement #${c.id.slice(0, 8)}`,
-        type: c.entityType?.toUpperCase() || "ENTREPRISE",
-        typeBadge: (entityTypeLabel(c.entityType) as EtabItem["typeBadge"]) || "Entreprise",
-        rccm: c.registrationNumber || c.taxNumber || c.establishmentId || "—",
-        regionCity: [c.region, c.department || c.subdivision].filter(Boolean).join(" / ") || "—",
-        responsable: [c.respondentFirstName, c.respondentLastName].filter(Boolean).join(" ") || c.user?.email || "—",
-        dateInscription: formatDate(c.createdAt),
-        creePar: "Auto-inscription",
-        status: (c.user?.status === "PENDING_APPROVAL" ? "EN_ATTENTE" : c.user?.isActive ? "ACTIF" : "SUSPENDU") as EtabItem["status"],
-      }))
-    : DEFAULT_SAMPLE_ETABLISSEMENTS;
+  // Real rows only. Fields the record does not carry stay null.
+  const displayRows: EtabItem[] = rawRows.map((c) => ({
+    id: c.establishmentId || c.id,
+    companyId: c.id,
+    name: c.name ?? null,
+    type: c.entityType?.toUpperCase() ?? null,
+    typeLabel: c.entityType ? entityTypeLabel(c.entityType) : null,
+    rccm: c.registrationNumber ?? c.taxNumber ?? c.establishmentId ?? null,
+    regionCity: [c.region, c.department ?? c.subdivision].filter(Boolean).join(" / ") || null,
+    responsable:
+      [c.respondentFirstName, c.respondentLastName].filter(Boolean).join(" ").trim() ||
+      c.user?.email ||
+      null,
+    dateInscription: c.createdAt ?? null,
+    // Derived from the linked account's own stored state. A company with no
+    // linked account yields "INCONNU" rather than being called suspended.
+    status: !c.user
+      ? "INCONNU"
+      : c.user.status === "PENDING_APPROVAL"
+        ? "EN_ATTENTE"
+        : c.user.isActive
+          ? "ACTIF"
+          : "SUSPENDU",
+  }));
 
+  /**
+   * Client-side narrowing of the rows the server returned.
+   *
+   * `/dsmo/companies` supports only `search`, so type / region / status are
+   * applied here. That means these three filters narrow the *current page*,
+   * which is why the row count below is reported as "N sur cette page" and the
+   * server total is reported separately — the two are never conflated.
+   */
   const filteredRows = displayRows.filter((item) => {
     if (selectedType !== "ALL" && item.type !== selectedType) return false;
-    if (selectedRegion !== "Toutes" && !item.regionCity.toLowerCase().includes(selectedRegion.toLowerCase())) return false;
-    if (selectedStatus !== "ALL") {
-      if (selectedStatus === "ACTIVE" && item.status !== "ACTIF") return false;
-      if (selectedStatus === "PENDING" && item.status !== "EN_ATTENTE") return false;
-      if (selectedStatus === "INCOMPLETE" && item.status !== "INCOMPLET") return false;
-      if (selectedStatus === "SUSPENDED" && item.status !== "SUSPENDU") return false;
-    }
-    if (search && !item.name.toLowerCase().includes(search.toLowerCase()) && !item.rccm.toLowerCase().includes(search.toLowerCase())) return false;
+    if (selectedRegion !== "Toutes" && !(item.regionCity ?? "").toLowerCase().includes(selectedRegion.toLowerCase())) return false;
+    if (selectedStatus === "ACTIVE" && item.status !== "ACTIF") return false;
+    if (selectedStatus === "PENDING" && item.status !== "EN_ATTENTE") return false;
+    if (selectedStatus === "SUSPENDED" && item.status !== "SUSPENDU") return false;
     return true;
   });
 
+  const tableState = resolveDataState({
+    roleAllowed: canRead,
+    isLoading: companiesQuery.isLoading,
+    isError: companiesQuery.isError,
+    error: companiesQuery.error,
+    rowCount: companiesQuery.data?.companies.length ?? null,
+  });
+
+  /**
+   * Exports exactly the rows on screen, which are exactly the records the
+   * server returned (narrowed by the client-side filters above). Nothing is
+   * padded or generated; an empty table exports nothing.
+   *
+   * Values are CSV-quoted so a company name containing a comma cannot shift
+   * other fields into the wrong column — a silent corruption of an
+   * administrative export.
+   */
   const exportCsv = () => {
-    const headers = ["Nom", "RCCM", "Type", "Région", "Responsable", "Date Inscription", "Statut"];
-    const rows = filteredRows.map((r) => [r.name, r.rccm, r.typeBadge, r.regionCity, r.responsable, r.dateInscription, r.status]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    if (filteredRows.length === 0) return;
+    const headers = ["Nom", "RCCM / Identifiant", "Type", "Région / Ville", "Responsable", "Date d'inscription", "Statut"];
+    const cell = (v: string | null) => `"${(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [
+      headers.map((h) => cell(h)).join(","),
+      ...filteredRows.map((r) =>
+        [
+          cell(r.name),
+          cell(r.rccm),
+          cell(r.typeLabel),
+          cell(r.regionCity),
+          cell(r.responsable),
+          cell(r.dateInscription ? stamp(r.dateInscription, false) : null),
+          cell(STATUS_LABELS[r.status]),
+        ].join(","),
+      ),
+    ];
+    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `etablissements_nefop_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.download = `etablissements_onefop_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -357,79 +348,45 @@ export default function EtablissementsPage() {
         </div>
       </div>
 
-      {/* 4 KPI cards matching Figma declarants/etablissements.png */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-        {/* TOTAL ÉTABLISSEMENTS */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              TOTAL ÉTABLISSEMENTS
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              {fmt(totalEtablissements)}
-            </div>
-            <div style={{ fontSize: 13, color: "#059669", fontWeight: 600, marginTop: 8 }}>
-              ↑ +23 ce mois
-            </div>
+      {/* Register volume. The only account figure with a source is the total
+          number of establishments; the three account-status tiles have none,
+          so they are named as unavailable instead of being filled. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
+            TOTAL ÉTABLISSEMENTS
           </div>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", color: "#059669" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
+            {statsQuery.isLoading ? "…" : count(totalEtablissements)}
+          </div>
+          {/* No month-over-month figure: the stats endpoint returns one
+              snapshot with no prior period. */}
+          <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, marginTop: 8 }}>
+            Entités enregistrées au répertoire
           </div>
         </div>
 
-        {/* COMPTES ACTIFS */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
+        {UNSOURCED_ACCOUNT_TILES.map((label) => (
+          <div key={label} style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              COMPTES ACTIFS
+              {label}
             </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              {fmt(activeComptes)}
+            <div style={{ fontSize: 32, fontWeight: 700, color: "#9ca3af", marginTop: 8, lineHeight: 1 }}>
+              {NOT_PROVIDED}
             </div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, fontWeight: 500 }}>
-              87.3% du total
-            </div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>Non calculé par le système</div>
           </div>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", color: "#059669" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-        </div>
+        ))}
+      </div>
 
-        {/* EN ATTENTE DE VALIDATION */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              EN ATTENTE DE VALIDATION
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              {fmt(pendingComptes)}
-            </div>
-            <div style={{ fontSize: 13, color: "#d97706", fontWeight: 600, marginTop: 8 }}>
-              Action requise
-            </div>
-          </div>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", color: "#d97706" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-        </div>
-
-        {/* COMPTES SUSPENDUS */}
-        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
-              COMPTES SUSPENDUS
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#111827", marginTop: 8, lineHeight: 1 }}>
-              {fmt(suspendedComptes)}
-            </div>
-            <div style={{ fontSize: 13, color: "#dc2626", fontWeight: 600, marginTop: 8 }}>
-              Anomalies / Défauts
-            </div>
-          </div>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          </div>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <DataState
+          dense
+          state="unavailable"
+          resource="les compteurs de comptes"
+          title="Comptes actifs, en attente et suspendus : non disponibles"
+          hint="Le système ne publie pas de décompte des comptes déclarants par statut. Le statut de chaque établissement reste visible ligne par ligne dans le tableau ci-dessous."
+        />
       </div>
 
       {/* Filter controls matching Figma */}
@@ -514,12 +471,26 @@ export default function EtablissementsPage() {
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Région / Ville</th>
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Responsable</th>
                 <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Date d&apos;inscription</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Créé par</th>
-                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Statut</th>
+                {/* "Créé par" removed: the Company model records no creator,
+                    so the column could only ever be filled with a guess. */}
+                <th scope="col" style={{ padding: "12px 12px", fontWeight: 600 }}>Statut du compte</th>
                 <th scope="col" style={{ padding: "12px 12px", textAlign: "right", fontWeight: 600 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
+              <DataStateRow
+                colSpan={7}
+                state={tableState}
+                resource="le répertoire des établissements"
+                error={companiesQuery.error}
+                onRetry={() => companiesQuery.refetch()}
+                title={tableState === "empty" ? "Aucun établissement trouvé" : undefined}
+                hint={
+                  tableState === "empty"
+                    ? "Aucun établissement ne correspond à la recherche en cours."
+                    : undefined
+                }
+              />
               {filteredRows.map((item) => (
                 <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: 13, height: 58 }}>
                   <td style={{ padding: "12px 12px", maxWidth: 260 }}>
@@ -527,37 +498,37 @@ export default function EtablissementsPage() {
                       href={`/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`}
                       style={{ fontWeight: 600, color: "#111827", textDecoration: "none", display: "block" }}
                     >
-                      {item.name}
+                      {item.name ?? NOT_PROVIDED}
                     </Link>
-                    <div style={{ marginTop: 4 }}>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: item.typeBadge === "ASFOP" ? "#fef3c7" : item.typeBadge === "Administration" ? "#eff6ff" : item.typeBadge === "Coopérative" ? "#f0fdf4" : "rgba(0, 122, 94, 0.08)",
-                          color: item.typeBadge === "ASFOP" ? "#b45309" : item.typeBadge === "Administration" ? "#1d4ed8" : item.typeBadge === "Coopérative" ? "#15803d" : "#004d3d",
-                          padding: "2px 8px",
-                          borderRadius: 4,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {item.typeBadge}
-                      </span>
-                    </div>
+                    {/* Entity type badge only when the record carries one. */}
+                    {item.typeLabel && (
+                      <div style={{ marginTop: 4 }}>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            background: "rgba(0, 122, 94, 0.08)",
+                            color: "#004d3d",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.typeLabel}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "12px 12px", fontFamily: "ui-monospace, monospace", color: "#004d3d", fontWeight: 700, whiteSpace: "nowrap" }}>
-                    {item.rccm}
+                    {item.rccm ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
-                    {item.regionCity}
+                    {item.regionCity ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "12px 12px", fontWeight: 500, color: "#111827", whiteSpace: "nowrap" }}>
-                    {item.responsable}
+                    {item.responsable ?? NOT_PROVIDED}
                   </td>
                   <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
-                    {item.dateInscription}
-                  </td>
-                  <td style={{ padding: "12px 12px", color: "#475569", whiteSpace: "nowrap" }}>
-                    {item.creePar}
+                    {stamp(item.dateInscription, false)}
                   </td>
                   <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
                     {item.status === "ACTIF" && (
@@ -570,9 +541,11 @@ export default function EtablissementsPage() {
                         En attente
                       </span>
                     )}
-                    {item.status === "INCOMPLET" && (
+                    {/* A company with no linked account is reported as such,
+                        not folded into "suspendu". */}
+                    {item.status === "INCONNU" && (
                       <span style={{ fontSize: 11, background: "#e2e8f0", color: "#475569", padding: "4px 12px", borderRadius: 9999, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        ● Incomplet
+                        {STATUS_LABELS.INCONNU}
                       </span>
                     )}
                     {item.status === "SUSPENDU" && (

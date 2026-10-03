@@ -1,12 +1,16 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useAuthStore } from "@/lib/auth-store";
 import { getDataManagementStats, getPilotageQueues, listAdminQuestionnaires } from "@/lib/api-client";
 import type { Campaign } from "@/lib/campaigns";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions, useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { KpiTile } from "@/components/admin/KpiTile";
+import { DataState } from "@/components/admin/DataState";
+import { count, rate, shortStamp, stamp, NOT_PROVIDED } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -16,26 +20,8 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   REJECTED: { label: "Rejeté", color: "#b3202c", bg: "#fdecea" },
 };
 
-function fmt(n: number) {
-  return n.toLocaleString("fr-FR");
-}
-
-function fmtDate(dateStr: string | null | undefined) {
-  if (!dateStr) return "—";
-  try {
-    return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(dateStr));
-  } catch {
-    return dateStr;
-  }
-}
-
-// Timeline stamp: time of day for today's events, short date otherwise.
-function fmtStamp(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "—";
-  const today = new Date();
-  const sameDay = d.toDateString() === today.toDateString();
-  return new Intl.DateTimeFormat("fr-FR", sameDay ? { hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" }).format(d);
+function fmt(n: number | null | undefined) {
+  return count(n);
 }
 
 function computeDaysLeft(deadlineStr?: string | null): number | null {
@@ -55,7 +41,7 @@ function SectionLabel({ id, tone, children }: { id: string; tone: "gold" | "gree
   );
 }
 
-function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; totalSubmissions: number }) {
+function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; totalSubmissions: number | null }) {
   const deadlineStr = campaign?.extendedDeadline || campaign?.deadline;
   const daysLeft = computeDaysLeft(deadlineStr);
 
@@ -91,15 +77,15 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
 
   const target = campaign.progress?.total ?? null;
   const submittedCount = campaign.progress?.submitted ?? totalSubmissions;
-  const completionPct = target && target > 0
+  const completionPct = target && target > 0 && submittedCount !== null
     ? Math.round((submittedCount / target) * 100)
     : null;
 
   const dateRange = campaign.startDate && deadlineStr
-    ? `${fmtDate(campaign.startDate)} — ${fmtDate(deadlineStr)}`
+    ? `${stamp(campaign.startDate, false)} — ${stamp(deadlineStr, false)}`
     : campaign.startDate
-      ? `Depuis le ${fmtDate(campaign.startDate)}`
-      : "—";
+      ? `Depuis le ${stamp(campaign.startDate, false)}`
+      : NOT_PROVIDED;
 
   return (
     <section className="cam-dash-card" aria-labelledby="dash-campaign-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
@@ -131,7 +117,7 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Taux de couverture des entreprises ciblées</span>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#1e6b3a" }}>
-            {completionPct !== null ? `${completionPct}%` : "—"}
+            {completionPct !== null ? `${completionPct}%` : NOT_PROVIDED}
           </span>
         </div>
         <div style={{ height: 8, borderRadius: 4, background: "#e5e7eb", overflow: "hidden" }}>
@@ -143,25 +129,25 @@ function CampaignCard({ campaign, totalSubmissions }: { campaign?: Campaign; tot
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Temps restant</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {daysLeft !== null ? `${daysLeft} jours restants` : "—"}
+            {daysLeft !== null ? `${daysLeft} jours restants` : NOT_PROVIDED}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Entreprises ciblées</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>
-            {target !== null ? `${fmt(target)} entreprises` : "—"}
+            {target !== null ? `${fmt(target)} entreprises` : NOT_PROVIDED}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "#6b7280" }}>Agents de collecte</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>—</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 4 }}>{NOT_PROVIDED}</div>
         </div>
       </div>
     </section>
   );
 }
 
-function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] }) {
+function RegionalCoverage({ rows, isDivisional }: { rows: { name: string; count: number }[]; isDivisional?: boolean }) {
   return (
     <section className="cam-dash-card" aria-labelledby="dash-regions-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -180,15 +166,23 @@ function RegionalCoverage({ rows }: { rows: { name: string; count: number }[] })
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.name} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
-                <th scope="row" style={{ padding: "10px 12px", fontWeight: 600, color: "#111827", textAlign: "left" }}>{r.name}</th>
-                <td className="is-num" style={{ padding: "10px 12px", textAlign: "right", color: "#111827" }}>{fmt(r.count)}</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>—</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>—</td>
-                <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>—</td>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ padding: "16px 12px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
+                  {isDivisional ? "Ressort départemental (couverture régionale non applicable)." : "Aucune donnée régionale disponible."}
+                </td>
               </tr>
-            ))}
+            ) : (
+              rows.map((r) => (
+                <tr key={r.name} style={{ borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
+                  <th scope="row" style={{ padding: "10px 12px", fontWeight: 600, color: "#111827", textAlign: "left" }}>{r.name}</th>
+                  <td className="is-num" style={{ padding: "10px 12px", textAlign: "right", color: "#111827" }}>{fmt(r.count)}</td>
+                  <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>{NOT_PROVIDED}</td>
+                  <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>{NOT_PROVIDED}</td>
+                  <td style={{ padding: "10px 12px", textAlign: "right", color: "#6b7280" }}>{NOT_PROVIDED}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -207,14 +201,36 @@ interface ActivitySubmissionItem {
   rawData?: { enterprise?: { region?: string; companyName?: string } };
 }
 
-function RecentActivity({ items, isLoading }: { items: ActivitySubmissionItem[]; isLoading: boolean }) {
+function RecentActivity({
+  items,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+}: {
+  items: ActivitySubmissionItem[];
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  onRetry: () => void;
+}) {
   return (
     <section className="cam-dash-card" id="activity" aria-labelledby="dash-activity-title" style={{ padding: "20px 24px", background: "#ffffff", borderRadius: 12, border: "1px solid #e5e7eb" }}>
       <div className="cam-dash-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h3 id="dash-activity-title" style={{ fontSize: 16, fontWeight: 700, color: "#1e6b3a", margin: 0 }}>Activité Récente</h3>
         <Link href="/admin/journal-audit" style={{ fontSize: 13, fontWeight: 600, color: "#1e6b3a", textDecoration: "none" }}>Voir tout le journal →</Link>
       </div>
-      {isLoading ? (
+      {isError ? (
+        <div style={{ padding: "16px 0" }}>
+          <DataState
+            dense
+            state="error"
+            resource="l'activité récente"
+            error={error}
+            onRetry={onRetry}
+          />
+        </div>
+      ) : isLoading ? (
         <div style={{ padding: "24px 0", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
           Chargement de l&apos;activité...
         </div>
@@ -225,13 +241,16 @@ function RecentActivity({ items, isLoading }: { items: ActivitySubmissionItem[];
       ) : (
         <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {items.map((s, idx) => {
-            const meta = STATUS_META[s.adminStatus || s.status || "PENDING_REVIEW"] ?? STATUS_META.PENDING_REVIEW;
+            const statusKey = s.adminStatus || s.status;
+            const meta = statusKey && STATUS_META[statusKey]
+              ? STATUS_META[statusKey]
+              : { label: statusKey || "En attente", color: "#6b7280", bg: "#f3f4f6" };
             const region = s.region || s.rawData?.enterprise?.region || null;
-            const name = s.companyName || s.rawData?.enterprise?.companyName || `Fiche #${s.id?.slice(0, 8)}`;
+            const name = s.companyName || s.rawData?.enterprise?.companyName || (s.id ? `Fiche #${s.id.slice(0, 8)}` : NOT_PROVIDED);
             return (
               <li key={s.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
                 <span style={{ color: "#6b7280", fontSize: 12, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
-                  {fmtStamp(s.submittedAt || s.createdAt || new Date().toISOString())}
+                  {shortStamp(s.submittedAt || s.createdAt)}
                 </span>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0 }} aria-hidden="true" />
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#111827" }}>
@@ -272,7 +291,7 @@ function DataQuality({ eligibilityPct }: { eligibilityPct: number | null }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
               <span style={{ color: "#374151", fontWeight: 500 }}>{m.label}</span>
               <strong style={{ color: m.value !== null ? "#1e6b3a" : "#6b7280", fontWeight: 700 }}>
-                {m.value !== null ? `${m.value}%` : "—"}
+                {m.value !== null ? `${m.value}%` : NOT_PROVIDED}
               </strong>
             </div>
             <div style={{ height: 6, borderRadius: 3, background: "#f3f4f6", overflow: "hidden" }}>
@@ -289,12 +308,20 @@ function DataQuality({ eligibilityPct }: { eligibilityPct: number | null }) {
 
 export default function PilotagePage() {
   const { regions: CAMEROON_REGIONS } = useTerritoryRegions();
+  const user = useAuthStore((s) => s.user);
+  const userRole = user?.role;
+  const isRegional = userRole === "REGIONAL";
+  const isDivisional = userRole === "DIVISIONAL";
+  const isTerritorial = isRegional || isDivisional;
+  const userRegion = user?.region?.trim().toLowerCase();
+
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues"],
     queryFn: getPilotageQueues,
     refetchInterval: 30000,
   });
 
+  // GET /data-management/stats is territory-scoped server-side (territoryWhere).
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management", "stats"],
     queryFn: getDataManagementStats,
@@ -309,68 +336,71 @@ export default function PilotagePage() {
 
   const { activeCampaign } = useActiveCampaign();
 
-  const queues = queuesQuery.data ?? {
-    totalSubmissionsCount: 0,
-    blockingAnomaliesCount: 0,
-    pendingNationalVisasCount: 0,
-    pendingRegionalVisasCount: 0,
-    pendingDivisionalVisasCount: 0,
-    correctionsUnderReviewCount: 0,
-    statisticallyReadyCount: 0,
-    statusCounts: { PENDING_REVIEW: 0, APPROVED: 0, CORRECTION_REQUESTED: 0, REJECTED: 0 },
-    approvedCount: 0,
-    regionCounts: [],
-  };
+  // Authoritative data only. null until loaded or if query errors.
+  const queues = queuesQuery.data ?? null;
+  const stats = statsQuery.data ?? null;
 
-  const stats = statsQuery.data;
+  // Zero is data: if queues returns 0 submissions, totalSubmissions is 0.
+  // Never substitute national figures for an empty territorial result.
+  const totalSubmissions = queues ? queues.totalSubmissionsCount : null;
 
-  const totalSubmissions = queues.totalSubmissionsCount > 0
-    ? queues.totalSubmissionsCount
-    : (stats ? (stats.totalOnefopSubmissions ?? 0) + (stats.totalDeclarations ?? 0) : 0);
+  const eligibilityPct = queues ? rate(queues.statisticallyReadyCount, queues.totalSubmissionsCount) : null;
 
-  const eligibilityPct = queues.totalSubmissionsCount > 0
-    ? Math.round((queues.statisticallyReadyCount / queues.totalSubmissionsCount) * 100)
-    : null;
+  const regionalData = useMemo(() => {
+    if (!queues) return [];
+    if (isRegional && userRegion) {
+      const match = queues.regionCounts.find(
+        (rc) => rc.region?.trim().toLowerCase() === userRegion
+      );
+      const matchedRegionName = CAMEROON_REGIONS.find((r) => r.toLowerCase() === userRegion) || user?.region || "";
+      return [{
+        name: matchedRegionName,
+        count: match?.count ?? 0,
+      }];
+    }
+    if (isDivisional) {
+      return [];
+    }
+    return CAMEROON_REGIONS.map((regionName) => {
+      const match = queues.regionCounts.find(
+        (rc) => rc.region?.trim().toLowerCase() === regionName.toLowerCase()
+      );
+      return {
+        name: regionName,
+        count: match?.count ?? 0,
+      };
+    });
+  }, [queues, isRegional, isDivisional, userRegion, user?.region, CAMEROON_REGIONS]);
 
-  const regionalData = CAMEROON_REGIONS.map((regionName) => {
-    const match = queues.regionCounts.find(
-      (rc) => rc.region?.trim().toLowerCase() === regionName.toLowerCase()
-    );
-    return {
-      name: regionName,
-      count: match?.count ?? 0,
-    };
-  });
-
-  const statusCounts = {
-    approved: queues.approvedCount ?? 0,
-    pending: queues.statusCounts?.PENDING_REVIEW ?? 0,
-    correction: queues.statusCounts?.CORRECTION_REQUESTED ?? 0,
-    rejected: queues.statusCounts?.REJECTED ?? 0,
-  };
+  const statusApproved = queues ? queues.approvedCount : null;
 
   const recentActivity = recentQuery.data?.items ?? [];
 
-  // 6-stage pipeline: real values from DB stats & queues
-  const totalInscriptions = stats?.totalCompanies ?? 0;
-  const regionalCount = queues.pendingRegionalVisasCount ?? 0;
-  const nationalCount = queues.pendingNationalVisasCount ?? 0;
-  const readyCount = queues.statisticallyReadyCount ?? 0;
+  // Inscriptions: GET /data-management/stats is territory-scoped server-side.
+  const totalInscriptions = stats
+    ? (stats.totals?.companies ?? stats.totalCompanies ?? null)
+    : null;
+
+  const regionalCount = queues ? queues.pendingRegionalVisasCount : null;
+  const nationalCount = !isTerritorial && queues ? queues.pendingNationalVisasCount : null;
+  const readyCount = queues ? queues.statisticallyReadyCount : null;
 
   const pipeline = [
     { label: "Inscriptions", value: totalInscriptions, highlighted: false },
     { label: "Déclarations", value: totalSubmissions, highlighted: true },
     { label: "Contrôle régional", value: regionalCount, highlighted: true },
     { label: "Supervision nationale", value: nationalCount, highlighted: false },
-    { label: "Approuvées", value: statusCounts.approved, highlighted: false },
+    { label: "Approuvées", value: statusApproved, highlighted: false },
     { label: "Exportables", value: readyCount, highlighted: false },
   ];
 
   // 4 "À TRAITER" tiles: null renders "—" when no dedicated metric exists yet
   const inscriptionsPending = null;
-  const declarationsReview = queuesQuery.data ? queues.pendingNationalVisasCount + queues.pendingRegionalVisasCount : null;
-  const correctionsCount = queuesQuery.data ? queues.correctionsUnderReviewCount : null;
-  const anomaliesCount = queuesQuery.data ? queues.blockingAnomaliesCount : null;
+  const declarationsReview = queues
+    ? (queues.pendingNationalVisasCount ?? 0) + (queues.pendingRegionalVisasCount ?? 0)
+    : null;
+  const correctionsCount = queues ? queues.correctionsUnderReviewCount : null;
+  const anomaliesCount = queues ? queues.blockingAnomaliesCount : null;
 
   return (
     <div className="cam-admin-page">
@@ -380,6 +410,17 @@ export default function PilotagePage() {
         actions={<AdminHeaderActions />}
         hideTabs={true}
       />
+
+      {queuesQuery.isError && (
+        <div style={{ marginBottom: 20 }}>
+          <DataState
+            state="error"
+            resource="les indicateurs de supervision"
+            error={queuesQuery.error}
+            onRetry={() => queuesQuery.refetch()}
+          />
+        </div>
+      )}
 
       <section aria-labelledby="dash-todo-title" style={{ marginBottom: 28 }}>
         <SectionLabel id="dash-todo-title" tone="green">À TRAITER</SectionLabel>
@@ -484,11 +525,17 @@ export default function PilotagePage() {
       <div className="cam-dash-columns">
         <div className="cam-dash-column">
           <CampaignCard campaign={activeCampaign} totalSubmissions={totalSubmissions} />
-          <RegionalCoverage rows={regionalData} />
+          <RegionalCoverage rows={regionalData} isDivisional={isDivisional} />
         </div>
 
         <div className="cam-dash-column">
-          <RecentActivity items={recentActivity} isLoading={recentQuery.isLoading} />
+          <RecentActivity
+            items={recentActivity}
+            isLoading={recentQuery.isLoading}
+            isError={recentQuery.isError}
+            error={recentQuery.error}
+            onRetry={() => recentQuery.refetch()}
+          />
           <DataQuality eligibilityPct={eligibilityPct} />
         </div>
       </div>
