@@ -29,6 +29,21 @@ export const ONEFOP_STAFF_ROLES = [
 /** Roles allowed on the user-management endpoints (checked by RolesGuard). */
 export const USER_ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN_ONEFOP'] as const;
 
+/**
+ * Roles allowed to read the establishment directory (GET /companies,
+ * GET /companies/stats). Wider than USER_ADMIN_ROLES because the territorial
+ * roles need the register for their own jurisdiction: both handlers scope
+ * their rows with territoryFromUser/territoryWhere, so a REGIONAL_ADMIN or
+ * DIVISIONAL_ADMIN sees only its own region/department. Read-only — these
+ * roles get no company mutation power from being on this list.
+ */
+export const DIRECTORY_ROLES = [
+  'SUPER_ADMIN',
+  'ADMIN_ONEFOP',
+  'REGIONAL_ADMIN',
+  'DIVISIONAL_ADMIN',
+] as const;
+
 /** null = unrestricted; otherwise the only target roles the actor may manage. */
 export function manageableRolesFor(actorRole: string | undefined): readonly string[] | null {
   if (actorRole === 'SUPER_ADMIN') return null;

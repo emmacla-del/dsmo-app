@@ -1,6 +1,17 @@
 ﻿import { Controller, Get, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { SectorsService } from './sectors.service';
 
+/**
+ * Public reference data — intentionally unguarded.
+ *
+ * /sectors: national economic sector nomenclature.
+ * /locations/*: administrative hierarchy (regions, departments,
+ * subdivisions) published by the state.
+ *
+ * No PII, no per-user data. Guarding these adds friction without
+ * protecting anything sensitive. If this assumption changes, add
+ * @UseGuards(JwtAuthGuard).
+ */
 @Controller('sectors')
 export class SectorsController {
   constructor(private readonly sectorsService: SectorsService) {}

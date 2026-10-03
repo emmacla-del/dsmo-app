@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { DsmoModule } from './dsmo/dsmo.module';
+import { CompaniesModule } from './companies/companies.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { LocationsModule } from './locations/locations.module';
 import { SectorsModule } from './sectors/sectors.module';
@@ -25,6 +26,7 @@ import { PilotageModule } from './pilotage/pilotage.module';
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     AuthModule,
     DsmoModule,
+    CompaniesModule,
     PrismaModule,
     LocationsModule,
     SectorsModule,

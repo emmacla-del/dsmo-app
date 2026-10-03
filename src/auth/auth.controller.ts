@@ -320,6 +320,18 @@ export class AuthController {
     }, req.user.role);
   }
 
+  // Autocomplete for the audit journal's actor filter, which matches
+  // AuditLog.userId exactly and therefore needs an id, not a typed name.
+  // Declared ahead of the `users/:id/*` block: no GET takes an :id today,
+  // but a literal segment registered after a parameterised one is read as
+  // an id, so keeping the order makes adding GET users/:id safe.
+  @Get('users/search')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...USER_ADMIN_ROLES)
+  async searchUsers(@Request() req: any, @Query('q') q?: string) {
+    return this.authService.searchUsers(q, req.user.role);
+  }
+
   @Patch('users/:id/role')
   @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
   @Roles(...USER_ADMIN_ROLES)

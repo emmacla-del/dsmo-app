@@ -316,8 +316,6 @@ export class EligibilityEngineService {
       totalSubmissionsCount,
       blockingAnomaliesCount,
       pendingNationalVisasCount,
-      pendingRegionalVisasCount: 0, // Always 0 — single-tier approval model, no waiting state.
-      pendingDivisionalVisasCount: 0, // Always 0 — single-tier approval model, no waiting state.
       correctionsUnderReviewCount,
       statisticallyReadyCount,
       statusCounts,
