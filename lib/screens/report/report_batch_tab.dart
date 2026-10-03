@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dsmo_app/core/i18n/l10n_ext.dart';
+import '../../providers/locations_provider.dart';
 import '../../theme/ultra_theme.dart';
 import 'report_models.dart';
 import 'report_service.dart';
@@ -24,19 +25,6 @@ class ReportBatchTab extends ConsumerStatefulWidget {
 class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
   final List<String> _selectedRegions = [];
   bool _generating = false;
-
-  final List<String> _availableRegions = [
-    'Littoral',
-    'Centre',
-    'Nord',
-    'Extrême-Nord',
-    'Ouest',
-    'Sud',
-    'Est',
-    'Adamaoua',
-    'Nord-Ouest',
-    'Sud-Ouest'
-  ];
 
   Future<void> _generateBatch() async {
     if (_selectedRegions.isEmpty) {
@@ -150,7 +138,7 @@ class _ReportBatchTabState extends ConsumerState<ReportBatchTab> {
               Text(context.l10n.reportBatchByRegionTitle,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              ..._availableRegions.map((region) => CheckboxListTile(
+              ...ref.watch(locationRegionsProvider).map((region) => CheckboxListTile(
                     value: _selectedRegions.contains(region),
                     onChanged: (v) {
                       setState(() {
