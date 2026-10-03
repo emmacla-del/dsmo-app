@@ -141,7 +141,7 @@
      sized for the single-column login card) but far short of full bleed: on a
      1920px monitor an uncapped card turns every field into an 1800px input,
      which is unreadable and reads as unfinished rather than official. */
-  --cam-container-wizard: 720px;
+  --cam-container-wizard: 780px;
 
   /* ── Side-by-side field layout (>=1024px) ──
      The label column is fixed so every label/input boundary in a step lines up
@@ -150,9 +150,15 @@
      label's first line on the same optical line as the typed value. The 1024px
      breakpoint itself has to stay a literal in the @media rule -- custom
      properties are not usable in media queries. */
-  --cam-field-label-col: 220px;
+  --cam-field-label-col: 260px;
   --cam-field-label-gap: var(--cam-space-5);
   --cam-field-label-pad-top: 11px;
+
+  /* Extra inline-end padding for the scroll region once the label column
+     appears. scrollbar-gutter: stable reserves the gutter inside the padding
+     box, so at the base padding the input column's right edge clears the
+     scrollbar by only ~11px; this restores a readable gap. */
+  --cam-card-body-pad-end: calc(var(--cam-card-pad-x) + var(--cam-space-2));
 
   /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,

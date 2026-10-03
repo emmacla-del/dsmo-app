@@ -834,6 +834,10 @@ body {
     grid-column: 2;
     min-width: 0;
   }
+
+  .cam-auth-page--wizard .card-body-scroll {
+    padding-right: var(--cam-card-body-pad-end);
+  }
 }
 
 /* Single-column responsive field layout */
