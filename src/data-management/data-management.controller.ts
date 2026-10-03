@@ -54,8 +54,9 @@ export class DataManagementController {
 
   @Get('stats')
   @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL, UserRole.DATA_MANAGER, UserRole.ANALYST, UserRole.REGIONAL)
-  async getDataStats() {
-    return this.dataManagementService.getDataStats();
+  async getDataStats(@Request() req: any) {
+    const territory = territoryFromUser(req?.user);
+    return this.dataManagementService.getDataStats(territory);
   }
 
   @Get('export/submissions')

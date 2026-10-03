@@ -1,5 +1,6 @@
 // src/questionnaires/questionnaires.service.ts
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Logger, Optional } from '@nestjs/common';
+import { AnomalySeverity, AnomalyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -1383,7 +1384,7 @@ export class QuestionnairesService {
       }
     }
 
-    let result: { submissionId: string };
+    let result: { id: string; submissionId: string };
     try {
       result = await this.prisma.onefopSubmission.create({
         data: {
@@ -1515,6 +1516,37 @@ export class QuestionnairesService {
           `Campaign progress update failed for ONEFOP submission ${result.submissionId} ` +
           `(company ${resolvedCompanyId}, campaign ${resolvedCampaignId})`,
           err?.stack,
+        );
+      }
+    }
+
+    // Persist anomalies into OnefopAnomaly for non-draft submissions:
+    if (!isDraft && result?.id && coherenceFlags.length > 0) {
+      try {
+        await this.prisma.onefopAnomaly.deleteMany({
+          where: { submissionId: result.id, status: AnomalyStatus.OPEN },
+        });
+
+        await this.prisma.onefopAnomaly.createMany({
+          data: coherenceFlags.map((flag) => {
+            const isBlocking = flag.code.includes('BLOCKING') || flag.code.includes('MISMATCH');
+            return {
+              submissionId: result.id,
+              ruleCode: flag.code,
+              ruleFamily: flag.code.startsWith('VT_') ? 'VT_COHERENCE' : 'COHERENCE',
+              severity: isBlocking ? AnomalySeverity.CRITICAL : AnomalySeverity.WARNING,
+              isBlocking,
+              status: AnomalyStatus.OPEN,
+              description: flag.message,
+              observedValue: 'Incohérence détectée',
+              expectedValue: 'Égalité requise',
+            };
+          }),
+        });
+      } catch (anomalyErr: any) {
+        this.logger.error(
+          `Failed to persist anomalies for ONEFOP submission ${result.id}: ${anomalyErr?.message}`,
+          anomalyErr?.stack,
         );
       }
     }
