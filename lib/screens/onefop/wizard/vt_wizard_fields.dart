@@ -28,9 +28,9 @@ import '../../../core/focus/schema/field_schema.dart';
 import '../../../core/i18n/l10n_ext.dart';
 import '../../../core/i18n/localized_text.dart'
     show LocalizedOption, LocalizedText;
+import '../../../providers/locations_provider.dart';
 import '../onefop_form_constants.dart' show kAccent, kAccentDeep;
 import '../onefop_form_controller.dart';
-import 'vt_cameroon_admin_data.dart';
 import 'vt_wizard_constants.dart';
 
 const _kBorderMuted = Color(0xFFCBD5E1);
@@ -313,14 +313,16 @@ class VtWizardTextField extends StatelessWidget {
     final isSubdiv = field.id == 'VT1_6';
     final isCommune = field.id == 'VT1_7';
 
+    final tree = getCachedLocationStructure();
+
     // Compute cascading administrative suggestions if this is a Cameroon geo field
     List<String> suggestions = const [];
     String? suggestionHeader;
     if (isRegion) {
-      suggestions = [for (final r in kCameroonAdminHierarchy) r.name];
+      suggestions = [for (final r in tree) r.name];
     } else if (isDept) {
       final currentRegion = ctrl.ctrl['VT1_4']?.text.trim();
-      final regObj = findCameroonRegion(currentRegion);
+      final regObj = findCameroonRegionInTree(tree, currentRegion);
       if (regObj != null) {
         suggestions = [for (final d in regObj.departments) d.name];
         suggestionHeader = 'Départements ($currentRegion)';
@@ -329,7 +331,7 @@ class VtWizardTextField extends StatelessWidget {
       final currentDept = ctrl.ctrl['VT1_5']?.text.trim();
       final currentRegion = ctrl.ctrl['VT1_4']?.text.trim();
       final deptObj =
-          findCameroonDepartment(currentDept, regionName: currentRegion);
+          findCameroonDepartmentInTree(tree, currentDept, regionName: currentRegion);
       if (deptObj != null) {
         suggestions = deptObj.subdivisions;
         suggestionHeader = 'Arrondissements ($currentDept)';
@@ -339,7 +341,7 @@ class VtWizardTextField extends StatelessWidget {
       final currentDept = ctrl.ctrl['VT1_5']?.text.trim();
       final currentRegion = ctrl.ctrl['VT1_4']?.text.trim();
       final deptObj =
-          findCameroonDepartment(currentDept, regionName: currentRegion);
+          findCameroonDepartmentInTree(tree, currentDept, regionName: currentRegion);
       if (currentSubdiv != null && currentSubdiv.isNotEmpty) {
         suggestions = [currentSubdiv];
         if (deptObj != null) {
@@ -485,7 +487,8 @@ class VtWizardTextField extends StatelessWidget {
             return const SizedBox.shrink();
           },
         ),
-        if (suggestions.isNotEmpty && !field.readOnly) ...[
+        if (suggestions.isNotEmpty &&
+            (!field.readOnly || isRegion || isDept || isSubdiv || isCommune)) ...[
           const SizedBox(height: 6),
           AnimatedBuilder(
             animation: Listenable.merge([c, ctrl]),
