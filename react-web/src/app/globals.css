@@ -237,16 +237,6 @@ body {
   box-sizing: border-box;
 }
 
-/* Registration wizard only. Steps 3 and 6 are taller than the viewport, and a
-   centred flex item that overflows its container pushes its own top edge above
-   the scroll origin, where no scrollbar can reach it -- the first fields of
-   those steps become unreachable. The short auth cards (login, forgot-password,
-   verify-email) never overflow, so they keep the vertical centring above; only
-   the wizard opts out. */
-.cam-auth-page--wizard {
-  align-items: flex-start;
-}
-
 .cam-auth-page * {
   box-sizing: border-box;
 }
@@ -664,24 +654,38 @@ body {
 
    Scoped to --wizard throughout so the register success screen (which uses the
    same .card--admin and always fits) keeps the shared centred layout. */
+/* Self-contained rather than leaning on the base .cam-auth-page rule for
+   `display`: with flex-direction: column, `align-items` governs the HORIZONTAL
+   axis and `justify-content` the vertical one, so splitting them across two
+   rules is how the card ended up left-aligned. Vertical overflow is handled by
+   justify-content: flex-start (a centred item taller than its container pushes
+   its own top edge above the scroll origin, out of the scrollbar's reach);
+   align-items: center does the horizontal centring. */
 .cam-auth-page--wizard {
   height: 100dvh;
   overflow: hidden;
+  display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: flex-start;
-  padding: var(--cam-card-shell-pad-y) var(--cam-card-shell-pad-x);
+  padding: 0;
 }
 
-/* The masthead and the help line bracket the card and must not absorb the
-   height budget the scroll region needs. */
-.cam-auth-page--wizard .masthead,
-.cam-auth-page--wizard .help {
+/* The masthead brackets the card and must not absorb the height budget the
+   scroll region needs. */
+.cam-auth-page--wizard .masthead {
   flex: 0 0 auto;
 }
 
+/* Owns the width cap and the shell padding, so the card's own edges are what
+   the viewport-height chain measures. */
 .cam-auth-page--wizard .wrap-wide {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: var(--cam-container-wizard);
+  margin: 0 auto;
+  padding: var(--cam-card-shell-pad-y) var(--cam-card-shell-pad-x);
   display: flex;
   flex-direction: column;
 }
@@ -743,6 +747,29 @@ body {
    it is prose and stays left-aligned, as it was in the card body. */
 .cam-auth-page--wizard .card-footer .auth-error-box {
   text-align: left;
+}
+
+/* Support line, pinned below the card as part of the shell rather than left in
+   the scrolling document flow where overflow: hidden would clip it. */
+.cam-auth-page--wizard .wizard-legal-line {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: var(--cam-container-wizard);
+  margin: 0 auto;
+  padding: var(--cam-space-2) var(--cam-card-shell-pad-x) var(--cam-space-3);
+  text-align: center;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+.cam-auth-page--wizard .wizard-legal-line a {
+  color: var(--cam-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cam-auth-page--wizard .wizard-legal-line a:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 640px) {

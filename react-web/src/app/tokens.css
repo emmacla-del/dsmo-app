@@ -134,8 +134,14 @@
   --cam-card-head-pad-bottom: 14px;
   --cam-card-body-pad-y: 20px;
   --cam-card-foot-pad-y: 14px;
-  --cam-card-shell-pad-y: var(--cam-space-7);
+  --cam-card-shell-pad-y: var(--cam-space-5);
   --cam-card-shell-pad-x: var(--cam-space-4);
+
+  /* The wizard's own container cap, wider than --cam-container-form (640px,
+     sized for the single-column login card) but far short of full bleed: on a
+     1920px monitor an uncapped card turns every field into an 1800px input,
+     which is unreadable and reads as unfinished rather than official. */
+  --cam-container-wizard: 720px;
 
   /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,

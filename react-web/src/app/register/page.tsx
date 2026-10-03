@@ -1252,13 +1252,15 @@ export default function RegisterPage() {
             </span>
           </div>
         </div>
+      </div>
 
-        <p className="help">
-          {t("loginPage.needHelpText")}{" "}
-          <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
-            {t("loginPage.whatsappLink")}
-          </a>
-        </p>
+      {/* Shell strip, not document flow: under the card's overflow: hidden a
+          trailing element inside .wrap-wide is clipped or pushed off-screen. */}
+      <div className="wizard-legal-line">
+        {t("loginPage.needHelpText")}{" "}
+        <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
+          {t("loginPage.whatsappLink")}
+        </a>
       </div>
     </main>
   );
