@@ -631,13 +631,125 @@ body {
   color: var(--cam-error);
 }
 
-/* --- Registration Administrative Form Frame --- */
+/* --- Registration Administrative Form Frame ---
+   A 1px border over --cam-shadow-sm (4% opacity) read as no frame at all, so
+   the card did not visually contain the form it was meant to frame. Both
+   selectors are register-only (.card--admin and .wrap-wide are used by
+   src/app/register/page.tsx and nowhere else), so login, forgot-password and
+   verify-email are unaffected. */
 .cam-auth-page .card--admin,
 .cam-auth-page .wrap-wide .card {
-  border: 1px solid var(--cam-green);
+  border: var(--cam-card-frame-width) solid var(--cam-green);
   border-radius: var(--cam-radius-lg);
   background: var(--cam-surface);
-  box-shadow: var(--cam-shadow-sm);
+  box-shadow: var(--cam-card-shadow);
+}
+
+/* ── Registration wizard: rigid shell with a single inner scroll region ──
+   Before this, nothing in the flow established a scroll container: the card,
+   the stepper, the error banner and Back/Next were all plain document flow, so
+   a respondent on a tall step (3 and 6 run two to three viewports) lost both
+   their progress indicator and the only primary action while still typing.
+
+   The page is now the scroll ceiling and the form body is the only scroll
+   region. Every link in the chain needs min-height: 0 -- a flex item's default
+   min-height is auto, which refuses to shrink below its content, and a single
+   missing declaration sends the scroll straight back to the document. The
+   chain is:
+
+     main.cam-auth-page--wizard   height: 100dvh; overflow: hidden
+       .wrap-wide                 flex: 1; min-height: 0
+         .card--admin             flex: 1; min-height: 0
+           .card-body-scroll      flex: 1; min-height: 0; overflow-y: auto
+
+   Scoped to --wizard throughout so the register success screen (which uses the
+   same .card--admin and always fits) keeps the shared centred layout. */
+.cam-auth-page--wizard {
+  height: 100dvh;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: var(--cam-card-shell-pad-y) var(--cam-card-shell-pad-x);
+}
+
+/* The masthead and the help line bracket the card and must not absorb the
+   height budget the scroll region needs. */
+.cam-auth-page--wizard .masthead,
+.cam-auth-page--wizard .help {
+  flex: 0 0 auto;
+}
+
+.cam-auth-page--wizard .wrap-wide {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cam-auth-page--wizard .card--admin {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Shadow-only, never border-width: animating the border would reflow the whole
+   scroll region on every focus change. */
+@media (prefers-reduced-motion: no-preference) {
+  .cam-auth-page--wizard .card--admin {
+    transition: box-shadow 0.18s ease;
+  }
+}
+
+.cam-auth-page--wizard .card--admin:focus-within {
+  box-shadow: var(--cam-card-shadow-focus);
+}
+
+/* Rigid header: the tricolor stripe sits above it, the progress rail inside. */
+.cam-auth-page--wizard .card-header {
+  flex: 0 0 auto;
+  padding: var(--cam-card-head-pad-top) var(--cam-card-pad-x)
+    var(--cam-card-head-pad-bottom);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+/* The progress rail carries its own trailing margin for the old single-body
+   layout; the header's padding now owns that gap. */
+.cam-auth-page--wizard .card-header > * {
+  margin-bottom: 0;
+}
+
+/* The only scroll region in the flow. overscroll-behavior stops the scroll
+   chaining to the document at either end, and scrollbar-gutter keeps the form
+   from shifting sideways between a short step (2, 5) and a tall one (3, 6). */
+.cam-auth-page--wizard .card-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--cam-card-body-pad-y) var(--cam-card-pad-x);
+  scrollbar-gutter: stable;
+}
+
+/* Rigid footer: error banner, then Back/Next, then the sign-in link that was
+   already here. .card-footer's own padding/border/background already match the
+   spec, so only the wizard's vertical rhythm is overridden. */
+.cam-auth-page--wizard .card-footer {
+  flex: 0 0 auto;
+  padding: var(--cam-card-foot-pad-y) var(--cam-card-pad-x);
+}
+
+/* .card-footer centres its text for the sign-in link; the error banner inside
+   it is prose and stays left-aligned, as it was in the card body. */
+.cam-auth-page--wizard .card-footer .auth-error-box {
+  text-align: left;
+}
+
+@media (max-width: 640px) {
+  .cam-auth-page--wizard .card--admin,
+  .cam-auth-page--wizard .wrap-wide .card {
+    border-radius: var(--cam-radius-md);
+  }
 }
 
 /* Single-column responsive field layout */

@@ -114,6 +114,29 @@
   --cam-border-width: 1px;
   --cam-table-grid: #171a18;
 
+  /* ── Registration wizard rigid card shell ──
+     The wizard's card frames a six-step form whose tall steps scroll inside
+     it, so the frame has to read as a real boundary rather than a hairline:
+     a brand-green border plus a green-tinted shadow, in place of
+     --cam-shadow-sm, which is effectively invisible at 4% opacity. The chrome
+     paddings are tokens so the <=640px step-down happens in one place (see the
+     media query at the end of this file) instead of being repeated across the
+     header, body and footer rules in globals.css. */
+  --cam-card-frame-width: 2px;
+  --cam-card-shadow:
+    0 6px 20px -4px rgba(30, 107, 58, 0.22),
+    0 2px 6px rgba(30, 107, 58, 0.1);
+  --cam-card-shadow-focus:
+    0 0 0 4px rgba(30, 107, 58, 0.14),
+    0 6px 20px -4px rgba(30, 107, 58, 0.26);
+  --cam-card-pad-x: 26px;
+  --cam-card-head-pad-top: 20px;
+  --cam-card-head-pad-bottom: 14px;
+  --cam-card-body-pad-y: 20px;
+  --cam-card-foot-pad-y: 14px;
+  --cam-card-shell-pad-y: var(--cam-space-7);
+  --cam-card-shell-pad-x: var(--cam-space-4);
+
   /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,
      TableRenderer's grids, VT tables, activities table, guided-mode live
@@ -192,4 +215,20 @@
 /* Phones: every table cell steps down together, never individually. */
 @media (max-width: 639px) {
   :root { --cam-table-fs: 0.8125rem; }
+}
+
+/* Phones: the wizard card's chrome tightens so the scrolling form body keeps
+   as much of the height budget as possible. The border deliberately does NOT
+   thin -- on a small screen the frame is the only thing separating the form
+   from the page behind it. */
+@media (max-width: 640px) {
+  :root {
+    --cam-card-pad-x: 16px;
+    --cam-card-head-pad-top: 14px;
+    --cam-card-head-pad-bottom: 10px;
+    --cam-card-body-pad-y: 14px;
+    --cam-card-foot-pad-y: 12px;
+    --cam-card-shell-pad-y: var(--cam-space-3);
+    --cam-card-shell-pad-x: var(--cam-space-2);
+  }
 }

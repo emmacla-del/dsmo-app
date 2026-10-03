@@ -505,10 +505,14 @@ export default function RegisterPage() {
 
         <div className="card card--admin">
           <div className="stripe" aria-hidden="true" />
-          <div className="card-body">
+          {/* Rigid header: stays put while the form body scrolls under it */}
+          <div className="card-header">
             {/* Desktop and mobile progress rails */}
             <RegistrationProgress currentStep={step} />
+          </div>
 
+          {/* The only scroll region in the flow */}
+          <div className="card-body-scroll">
             {/* STEP 1: ENTITY TYPE — single radio list */}
             {step === "entityType" && (
               <form onSubmit={(e) => { e.preventDefault(); goNext(); }}>
@@ -1166,23 +1170,27 @@ export default function RegisterPage() {
                 />
               </div>
             )}
+          </div>
 
+          <div className="card-footer">
             {/* Step error banner */}
             {(stepError || submitError) && (
-              <div className="auth-error-box" role="alert" style={{ marginTop: "16px", whiteSpace: "pre-line" }}>
+              <div
+                className="auth-error-box"
+                role="alert"
+                style={{ marginBottom: "var(--cam-space-3)", whiteSpace: "pre-line" }}
+              >
                 {submitError || stepError}
               </div>
             )}
 
-            {/* Wizard action buttons */}
+            {/* Wizard action buttons. The footer supplies the rule and the
+                padding that this row used to carry itself. */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginTop: "24px",
-                paddingTop: "16px",
-                borderTop: "1px solid var(--cam-border)",
               }}
             >
               {/* Step 1 has no previous step: omit the control rather than showing it disabled */}
@@ -1224,10 +1232,8 @@ export default function RegisterPage() {
                 </button>
               )}
             </div>
-          </div>
 
-          <div className="card-footer">
-            <span className="create-account">
+            <span className="create-account" style={{ display: "block", marginTop: "var(--cam-space-3)" }}>
               <Link href="/login">
                 {step === "entityType"
                   ? t("registerPage.alreadyRegisteredSignIn")
