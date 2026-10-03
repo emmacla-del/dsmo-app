@@ -18,6 +18,7 @@ import {
   ENTITY_CONFIGS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
+  pruneEntityDataForType,
   resolveAddress,
   resolveCompanyName,
   resolveMainActivity,
@@ -551,6 +552,10 @@ export default function RegisterPage() {
                         value={option.type}
                         checked={entityType === option.type}
                         onChange={() => {
+                          // Changing type strands the previous type's answers in
+                          // entityData, and submit() sends every key regardless of
+                          // type — drop the ones the new type does not declare.
+                          setEntityData((prev) => pruneEntityDataForType(prev, option.type));
                           setEntityType(option.type);
                           setStepError(null);
                         }}

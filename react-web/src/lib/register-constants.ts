@@ -245,6 +245,33 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
 };
 
+// Drops the entity fields that do not belong to `nextType` when the respondent
+// changes their structure type mid-flow, keeping the values of fields the new
+// type also declares (address, phone, phone2, poBox and the like).
+//
+// This matters beyond tidiness: submit() builds RegisterCompanyPayload from a
+// fixed flat list of entityData keys spanning all seven types, with no filter
+// on the selected type, so an orphaned key is transmitted as though the
+// respondent had entered it. resolveCompanyName() compounds this — it returns
+// the first non-empty of companyName/cooperativeName/ctdName/ngoName/..., so a
+// stale companyName left over from "Entreprise" would outrank the ngoName an
+// ONG respondent actually typed.
+//
+// Mirrors register_screen.dart's StepEntityType onSelect, which clears
+// _entityData wholesale on type change; this keeps the shared fields instead of
+// making the respondent retype them.
+export function pruneEntityDataForType(
+  data: Record<string, string>,
+  nextType: EntityType
+): Record<string, string> {
+  const keep = new Set(ENTITY_CONFIGS[nextType].fields.map((f) => f.key));
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (keep.has(key)) next[key] = value;
+  }
+  return next;
+}
+
 // Mirrors EntityConfig.resolveCompanyName/resolveAddress/resolveMainActivity
 // in register_constants.dart: several entity types use a differently-named
 // field for what the backend's RegisterCompanyDto always calls
