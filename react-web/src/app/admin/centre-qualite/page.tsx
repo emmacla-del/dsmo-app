@@ -13,10 +13,12 @@ import {
   listAnomalyRegistry,
   resolveAnomalyRecord,
   getQualitySummary,
+  getValidationRules,
   type AnomalyRecord,
   type AnomalyResolutionType,
   type AnomalyStatus,
   type QualitySummary,
+  type ValidationRuleItem,
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -83,6 +85,20 @@ export default function CentreQualitePage() {
   });
 
   const quality = qualityQuery.data ?? null;
+
+  const rulesQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "rules"],
+    queryFn: getValidationRules,
+    enabled: canReadRegistry,
+  });
+
+  const rulesState = resolveDataState({
+    roleAllowed: canReadRegistry,
+    isLoading: rulesQuery.isLoading,
+    isError: rulesQuery.isError,
+    error: rulesQuery.error,
+    rowCount: rulesQuery.data?.length ?? null,
+  });
 
   const items = useMemo(() => anomaliesQuery.data?.items ?? [], [anomaliesQuery.data]);
   const totalCount = anomaliesQuery.data?.total ?? null;
@@ -499,16 +515,67 @@ export default function CentreQualitePage() {
             }}
             aria-labelledby="regles-validation-title"
           >
-            <h2 id="regles-validation-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: "0 0 16px" }}>
-              RÈGLES DE VALIDATION
-            </h2>
-            <DataState
-              dense
-              state="unavailable"
-              resource="le référentiel des règles"
-              title="Référentiel des règles non publié"
-              hint="Le système ne conserve pas de référentiel de règles de contrôle ni leur état d'activation. Les codes de règle visibles dans le registre proviennent des anomalies effectivement enregistrées."
-            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 id="regles-validation-title" style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", color: "#0f172a", textTransform: "uppercase", margin: 0 }}>
+                RÈGLES DE VALIDATION{rulesQuery.data?.length !== undefined ? ` (${count(rulesQuery.data.length)})` : ""}
+              </h2>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#15803d", background: "#dcfce7", padding: "2px 8px", borderRadius: 9999 }}>
+                ACTIVES
+              </span>
+            </div>
+
+            {rulesState !== "ready" ? (
+              <DataState
+                dense
+                state={rulesState}
+                resource="le référentiel des règles"
+                error={rulesQuery.error}
+                onRetry={() => rulesQuery.refetch()}
+                title={rulesState === "empty" ? "Aucune règle répertoriée" : undefined}
+                hint={rulesState === "empty" ? "Les règles de contrôle configurées s'afficheront ici." : undefined}
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {rulesQuery.data?.map((rule) => (
+                  <div
+                    key={rule.code}
+                    style={{
+                      border: "1px solid #f1f5f9",
+                      borderRadius: 8,
+                      padding: "12px 14px",
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>
+                          {rule.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace", marginTop: 2 }}>
+                          {rule.code} • Famille : {rule.family}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          whiteSpace: "nowrap",
+                          background: rule.isBlocking ? "#fee2e2" : "#fef3c7",
+                          color: rule.isBlocking ? "#b91c1c" : "#b45309",
+                        }}
+                      >
+                        {rule.isBlocking ? "BLOQUANTE" : "AVERTISSEMENT"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 6, lineHeight: 1.4 }}>
+                      {rule.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
         </div>

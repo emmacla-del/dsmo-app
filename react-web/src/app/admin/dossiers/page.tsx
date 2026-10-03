@@ -107,7 +107,9 @@ function DossiersContent() {
   const [typeFilter, setTypeFilter] = useState("");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  const requestedStatus = useSearchParams().get("status") ?? "";
+  const searchParams = useSearchParams();
+  const requestedStatus = searchParams.get("status") ?? "";
+  const companyIdFilter = searchParams.get("companyId") ?? "";
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
 
   useEffect(() => {
@@ -139,7 +141,7 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, offset }],
+    queryKey: ["admin", "questionnaires", "list", { statusFilter, typeFilter, regionFilter, periodFilter, search, companyIdFilter, offset }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: statusFilter || undefined,
@@ -147,6 +149,7 @@ function DossiersContent() {
         period: periodFilter || undefined,
         region: regionFilter || undefined,
         search: search || undefined,
+        companyId: companyIdFilter || undefined,
         limit: PAGE_SIZE,
         offset,
       }),

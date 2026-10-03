@@ -145,3 +145,17 @@ export function getQualitySummary(campaignId?: string) {
   const qs = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
   return apiFetch<QualitySummary>(`/admin/questionnaires/quality/summary${qs}`);
 }
+
+export interface ValidationRuleItem {
+  code: string;
+  name: string;
+  family: string;
+  severity: "CRITICAL" | "WARNING";
+  isBlocking: boolean;
+  description: string;
+  enabled: boolean;
+}
+
+export function getValidationRules(): Promise<ValidationRuleItem[]> {
+  return apiFetch<ValidationRuleItem[]>("/admin/questionnaires/rules");
+}

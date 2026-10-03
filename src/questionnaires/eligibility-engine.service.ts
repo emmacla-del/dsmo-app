@@ -888,4 +888,76 @@ export class EligibilityEngineService {
 
     return { total, items };
   }
+
+  /**
+   * Authoritative catalog of statistical and administrative validation rules
+   * enforced by the ONEFOP eligibility and validation engines.
+   */
+  getValidationRules() {
+    return [
+      {
+        code: 'COHERENCE_TOTAL',
+        name: 'Cohérence des Effectifs Totaux',
+        family: 'COHERENCE',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Vérifie que la somme des effectifs déclarés (hommes + femmes) égale l’effectif total de l’établissement.',
+        enabled: true,
+      },
+      {
+        code: 'COHERENCE_CSP',
+        name: 'Cohérence Catégories Socio-Professionnelles (CSP)',
+        family: 'COHERENCE',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Vérifie la cohérence arithmétique entre la distribution par CSP et l’effectif global déclaré.',
+        enabled: true,
+      },
+      {
+        code: 'COHERENCE_NATIONALITY',
+        name: 'Cohérence Nationalité Salariés',
+        family: 'COHERENCE',
+        severity: 'WARNING',
+        isBlocking: false,
+        description: 'Vérifie que la somme des effectifs nationaux et expatriés correspond aux totaux saisis.',
+        enabled: true,
+      },
+      {
+        code: 'VT_COHERENCE_LEARNERS',
+        name: 'Flux Apprenants et Formateurs TVET',
+        family: 'VT_COHERENCE',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Contrôle la cohérence des effectifs d’apprenants inscrits, admis et certifiés par spécialité.',
+        enabled: true,
+      },
+      {
+        code: 'VT_INFRASTRUCTURE',
+        name: 'Cohérence Capacités & Ateliers TVET',
+        family: 'VT_COHERENCE',
+        severity: 'WARNING',
+        isBlocking: false,
+        description: 'Vérifie la présence et le statut fonctionnel des ateliers et équipements déclarés.',
+        enabled: true,
+      },
+      {
+        code: 'COMPLETENESS_REQUIRED',
+        name: 'Complétude Administrative Obligatoire',
+        family: 'COMPLETENESS',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Exige la présence des données d’identification, du répondant officiel et du rattachement territorial.',
+        enabled: true,
+      },
+      {
+        code: 'STATISTICAL_ELIGIBILITY',
+        name: 'Éligibilité Statistique Nationale',
+        family: 'ELIGIBILITY',
+        severity: 'CRITICAL',
+        isBlocking: true,
+        description: 'Condition stricte : visa administratif accordé sans anomalie bloquante ouverte pour admission aux statistiques nationales.',
+        enabled: true,
+      },
+    ];
+  }
 }

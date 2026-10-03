@@ -66,6 +66,14 @@ export class AdminQuestionnairesController {
   }
 
   /**
+   * Validation Rules Catalog (Data Quality Axis 2)
+   */
+  @Get('rules')
+  async getValidationRules() {
+    return this.eligibilityEngine.getValidationRules();
+  }
+
+  /**
    * Action-oriented Priority Queues ("Que dois-je traiter aujourd'hui ?")
    */
   @Get('pilotage/queues')
@@ -137,6 +145,7 @@ export class AdminQuestionnairesController {
     @Query('search') search?: string,
     @Query('formType') formType?: string,
     @Query('period') period?: string,
+    @Query('companyId') companyId?: string,
     @Request() req?: any,
   ) {
     // DRAFT is not in ADMIN_LIST_STATUSES: drafts are never listed.
@@ -159,6 +168,7 @@ export class AdminQuestionnairesController {
         period: periodFilter as AdminListPeriod | undefined,
         region: optionalText(region),
         search: optionalText(search),
+        companyId: optionalText(companyId),
         limit: parseIntParam(limit, LIST_MAX_LIMIT, 1, LIST_MAX_LIMIT,
           `Le paramètre « limit » doit être un entier entre 1 et ${LIST_MAX_LIMIT}.`),
         offset: parseIntParam(offset, 0, 0, Number.MAX_SAFE_INTEGER,

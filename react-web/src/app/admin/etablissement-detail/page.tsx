@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { activateUser, deleteUser, suspendUser } from "@/lib/user-directory";
 import { entityTypeLabel, listCompanies, type Company } from "@/lib/companies-directory";
+import { listAdminQuestionnaires } from "@/lib/api-client";
 import {
   auditActionLabel,
   auditActorName,
@@ -139,9 +140,24 @@ function EtablissementDetail() {
     rowCount: auditQuery.data?.items.length ?? null,
   });
 
+  const submissionsQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "by-company", company?.id],
+    queryFn: () => listAdminQuestionnaires({ companyId: company!.id, limit: 10 }),
+    enabled: canRead && !!company?.id,
+  });
+
+  const submissionsState = resolveDataState({
+    roleAllowed: canRead,
+    isLoading: submissionsQuery.isLoading,
+    isError: submissionsQuery.isError,
+    error: submissionsQuery.error,
+    rowCount: submissionsQuery.data?.items.length ?? null,
+  });
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["dsmo", "companies"] });
     queryClient.invalidateQueries({ queryKey: ["audit", "by-resource"] });
+    queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires", "by-company"] });
   };
 
   const suspendMutation = useMutation({
@@ -372,28 +388,102 @@ function EtablissementDetail() {
             </div>
           </section>
 
-          {/* Submission history has no endpoint: /admin/questionnaires cannot
-              be filtered by company (docs/admin-data-integrity-inventory.md
-              §7.7), so the dossier list is linked instead of reconstructed. */}
+          {/* Submission history for this company */}
           <section style={CARD}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: "0 0 18px", borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
-              Historique des Soumissions
-            </h2>
-            <DataState
-              state="unavailable"
-              resource="l'historique des soumissions"
-              title="Historique par établissement non disponible"
-              hint={
-                <>
-                  Le système ne permet pas encore de filtrer les dossiers par
-                  établissement. Recherchez cet établissement dans{" "}
-                  <Link href="/admin/dossiers" style={{ color: "#004d3d", fontWeight: 600 }}>
-                    l&apos;instruction des dossiers
-                  </Link>
-                  .
-                </>
-              }
-            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", margin: 0 }}>
+                Historique des Soumissions{submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total)})` : ""}
+              </h2>
+              {company && (
+                <Link
+                  href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}
+                  style={{ fontSize: 12, color: "#004d3d", fontWeight: 600, textDecoration: "none" }}
+                >
+                  Tous les dossiers →
+                </Link>
+              )}
+            </div>
+
+            {submissionsState !== "ready" ? (
+              <DataState
+                dense
+                state={submissionsState}
+                resource="l'historique des soumissions"
+                error={submissionsQuery.error}
+                onRetry={() => submissionsQuery.refetch()}
+                title={submissionsState === "empty" ? "Aucune déclaration soumise" : undefined}
+                hint={submissionsState === "empty" ? "Cet établissement n'a pas encore soumis de déclaration administrative." : undefined}
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {submissionsQuery.data?.items.map((sub) => (
+                  <div
+                    key={sub.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "10px 12px",
+                      border: "1px solid #f1f5f9",
+                      borderRadius: 6,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                        {sub.submissionId || sub.id}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                        Reçu le {stamp(sub.submissionDate || sub.createdAt)} • Type : {entityTypeLabel(sub.formType)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          borderRadius: 9999,
+                          background:
+                            sub.status === "APPROVED"
+                              ? "#dcfce7"
+                              : sub.status === "PENDING_REVIEW"
+                                ? "#fef3c7"
+                                : sub.status === "REJECTED"
+                                  ? "#fee2e2"
+                                  : "#f1f5f9",
+                          color:
+                            sub.status === "APPROVED"
+                              ? "#15803d"
+                              : sub.status === "PENDING_REVIEW"
+                                ? "#b45309"
+                                : sub.status === "REJECTED"
+                                  ? "#b91c1c"
+                                  : "#475569",
+                        }}
+                      >
+                        {sub.status}
+                      </span>
+                      <Link
+                        href={`/admin/dossiers/${encodeURIComponent(sub.id)}`}
+                        style={{
+                          fontSize: 12,
+                          color: "#004d3d",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                          padding: "4px 8px",
+                          borderRadius: 4,
+                          background: "#ffffff",
+                          border: "1px solid #cbd5e1",
+                        }}
+                      >
+                        Consulter
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 

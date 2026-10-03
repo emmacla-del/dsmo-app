@@ -602,6 +602,7 @@ export interface AdminQuestionnairesPage {
 export function listAdminQuestionnaires(
   params: {
     status?: string; formType?: string; period?: string; region?: string; search?: string;
+    companyId?: string;
     limit?: number; offset?: number;
   } = {},
 ) {
@@ -611,6 +612,7 @@ export function listAdminQuestionnaires(
   if (params.period) query.set("period", params.period);
   if (params.region) query.set("region", params.region);
   if (params.search) query.set("search", params.search);
+  if (params.companyId) query.set("companyId", params.companyId);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   const qs = query.toString();
