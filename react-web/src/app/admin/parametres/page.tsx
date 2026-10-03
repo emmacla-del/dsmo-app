@@ -27,13 +27,11 @@ import {
 } from "@/lib/audit-log";
 import { resolveDataState, stamp } from "@/lib/admin-data-state";
 import { listCampaigns } from "@/lib/campaigns";
-
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "SUPER_ADMIN_DSMO"];
+import { AUDIT_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
 const RECENT_AUDIT_LIMIT = 6;
 
-// Roles the backend lets read GET /audit/reports.
-const AUDIT_READER_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
+// Roles the backend lets read GET /audit/reports: AUDIT_ROLES in @/lib/roles.
 
 interface RolePermissionItem {
   id: string;
@@ -45,52 +43,34 @@ const SYSTEM_ROLES: RolePermissionItem[] = [
   {
     id: "SUPER_ADMIN",
     name: "Super administrateur",
-    description: "Accès complet à la plateforme, gestion des administrateurs, des rôles et des paramètres système.",
+    description:
+      "Accès complet à la plateforme, gestion des administrateurs, des rôles et des paramètres système. Seul rôle pouvant créer ou promouvoir un administrateur ONEFOP.",
   },
   {
-    id: "SUPER_ADMIN_DSMO",
-    name: "Admin DSMO",
-    description: "Supervision nationale des déclarations d'entreprises et gestion du volet DSMO.",
+    id: "ADMIN_ONEFOP",
+    name: "Administrateur ONEFOP",
+    description:
+      "Supervision nationale des enquêtes ONEFOP et des déclarations : instruction de second niveau, contrôle de conformité, gestion des campagnes, des nomenclatures et des équipes de collecte. Exploitation des données agrégées et production des indicateurs.",
   },
   {
-    id: "SUPER_ADMIN_ONEFOP",
-    name: "Admin ONEFOP",
-    description: "Supervision nationale des enquêtes ONEFOP et gestion des équipes de collecte.",
-  },
-  {
-    id: "CENTRAL",
-    name: "Structure Centrale (MINEFOP)",
-    description: "Supervision centrale, instruction de second niveau et contrôle de conformité.",
-  },
-  {
-    id: "REGIONAL",
+    id: "REGIONAL_ADMIN",
     name: "Délégation Régionale",
     description: "Supervision des soumissions et contrôle de conformité dans le ressort de la région.",
   },
   {
-    id: "DIVISIONAL",
+    id: "DIVISIONAL_ADMIN",
     name: "Délégation Départementale",
     description: "Supervision locale des enquêtes dans le ressort du département.",
   },
   {
-    id: "DATA_MANAGER",
-    name: "Gestionnaire de données",
-    description: "Gestion des nomenclatures, des référentiels et contrôle de cohérence statistique.",
-  },
-  {
-    id: "CAMPAIGN_MANAGER",
-    name: "Gestionnaire de campagnes",
-    description: "Planification, ouverture, suivi d'avancement et clôture des campagnes de collecte.",
-  },
-  {
-    id: "ANALYST",
-    name: "Analyste statistique",
-    description: "Exploitation des données agrégées, génération d'indicateurs et rapports statistiques.",
-  },
-  {
     id: "AUDITOR",
     name: "Auditeur",
-    description: "Consultation intégrale du journal d'audit et contrôle de conformité procédurale.",
+    description: "Consultation intégrale du journal d'audit et contrôle de conformité procédurale. Aucun droit d'écriture.",
+  },
+  {
+    id: "COMPANY",
+    name: "Déclarant",
+    description: "Dépôt et suivi des déclarations de l'établissement. Aucun accès aux écrans d'administration.",
   },
 ];
 
@@ -113,11 +93,11 @@ export default function ParametresPage() {
 }
 
 function ParametresContent() {
-  const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(SETTINGS_ROLES);
   const queryClient = useQueryClient();
 
   const role = useAuthStore((s) => s.user?.role);
-  const canReadAudit = !!role && AUDIT_READER_ROLES.includes(role);
+  const canReadAudit = !!role && AUDIT_ROLES.includes(role);
 
   // Settings query
   const settingsQuery = useQuery({

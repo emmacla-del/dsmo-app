@@ -52,7 +52,7 @@ type Modal =
 export interface RoleScope {
   key: string;
   label: string;
-  roles: string[];
+  roles: readonly string[];
 }
 
 interface UsersDirectoryProps {
@@ -189,7 +189,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
             ) : (
               <>
                 <option value="">{t("usersDirectory.allRolesOption")}</option>
-                {ASSIGNABLE_ROLES.map((r) => (
+                {assignableRoles.map((r: string) => (
                   <option key={r} value={r}>{directoryRoleLabel(r)}</option>
                 ))}
               </>
@@ -581,7 +581,7 @@ function RejectModal({ user, pending, error, onCancel, onConfirm }: { user: Dire
   );
 }
 
-function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user: DirectoryUser; roles: string[]; pending: boolean; error: Error | null; onCancel: () => void; onConfirm: (role: string) => void }) {
+function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user: DirectoryUser; roles: readonly string[]; pending: boolean; error: Error | null; onCancel: () => void; onConfirm: (role: string) => void }) {
   const t = useTranslations();
   return (
     <div style={modalBodyStyle}>

@@ -32,7 +32,7 @@ export interface ListUsersParams {
   search?: string;
   role?: string;
   /** Several roles at once (GET /auth/users?roles=A,B). */
-  roles?: string[];
+  roles?: readonly string[];
   region?: string;
   status?: string;
   isActive?: boolean;

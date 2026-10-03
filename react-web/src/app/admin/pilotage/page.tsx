@@ -311,8 +311,8 @@ export default function PilotagePage() {
   const { regions: CAMEROON_REGIONS } = useTerritoryRegions();
   const user = useAuthStore((s) => s.user);
   const userRole = user?.role;
-  const isRegional = userRole === "REGIONAL";
-  const isDivisional = userRole === "DIVISIONAL";
+  const isRegional = userRole === "REGIONAL_ADMIN";
+  const isDivisional = userRole === "DIVISIONAL_ADMIN";
   const isTerritorial = isRegional || isDivisional;
   const userRegion = user?.region?.trim().toLowerCase();
 

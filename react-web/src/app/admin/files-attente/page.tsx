@@ -17,15 +17,11 @@ import { useAuthStore } from "@/lib/auth-store";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState } from "@/lib/admin-data-state";
+import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
 
-// Roles whose authorised scope genuinely is national (src/common territory
-// helpers: territoryWhere returns an unfiltered query for these only).
-const NATIONAL_SCOPE_ROLES = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-];
+// Roles whose authorised scope genuinely is national: NATIONAL_ROLES in
+// @/lib/roles, mirroring src/auth/territory.ts, where territoryWhere returns
+// an unfiltered query for these only.
 
 type QueueTab = "anomalies" | "visas" | "corrections";
 const QUEUE_TABS: QueueTab[] = ["anomalies", "visas", "corrections"];
@@ -140,7 +136,7 @@ function FilesAttenteContent() {
     ? `Département ${user.department}`
     : user?.region
       ? `Délégation ${user.region}`
-      : user?.role && NATIONAL_SCOPE_ROLES.includes(user.role)
+      : user?.role && NATIONAL_ROLES.includes(user.role)
         ? "Territoire national"
         : "Ressort non affecté";
 

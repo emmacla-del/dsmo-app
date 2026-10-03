@@ -88,7 +88,10 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "files-attente", label: "Dossiers en Instance", route: "/admin/files-attente" },
     { slug: "submissions", label: "Instruction des Dossiers", route: "/admin/dossiers" },
     { slug: "analytics-dsmo", label: "Statistiques DSMO" },
-    { slug: "notifications", label: "Communications & Notifications" },
+    // REGIONAL_ADMIN will be able to send notifications when the ONEFOP
+    // notification composer is implemented. The slug is intentionally omitted
+    // until that component exists — see the deleted DSMO SendNotificationForm
+    // in git history for the shape it should take.
   ],
   // Union of the former CENTRAL and SUPER_ADMIN_ONEFOP lists (see header).
   ADMIN_ONEFOP: [
@@ -100,7 +103,6 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
     { slug: "annuaire", label: "Répertoire des Établissements", route: "/home/annuaire" },
     { slug: "analytics-dsmo", label: "Statistiques DSMO" },
-    { slug: "notifications", label: "Communications & Notifications" },
   ],
   SUPER_ADMIN: [
     { slug: "pilotage", label: "Tableau de Bord National", route: "/admin/pilotage" },
@@ -109,7 +111,6 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
     { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
-    { slug: "declarations-dsmo", label: "Déclarations DSMO" },
     { slug: "annuaire", label: "Gestion des Utilisateurs & Entités", route: "/home/annuaire" },
   ],
   // AUDITOR had no _buildTabs branch in Flutter and fell through to the
@@ -117,7 +118,7 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   AUDITOR: [],
 };
 
-const FALLBACK_TABS: NavItem[] = [{ slug: "notifications", label: "Notifications" }];
+const FALLBACK_TABS: NavItem[] = [];
 
 /**
  * Full nav item list for a role.

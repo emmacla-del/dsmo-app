@@ -109,6 +109,17 @@ export const NATIONAL_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP
 /** Territorially-scoped staff: their view is narrowed to their assignment. */
 export const TERRITORIAL_ROLES: readonly UserRole[] = ["REGIONAL_ADMIN", "DIVISIONAL_ADMIN"];
 
+/**
+ * Communication page (/home/communication): campaign management only.
+ * SUPER_ADMIN only, matching the shipped nav. Distinct from SETTINGS_ROLES
+ * because this is a page concern, not a platform-settings concern — a
+ * later change to one must not silently move the other.
+ *
+ * The former notification composer tab was removed with the DSMO
+ * notification client; see the /home/notifications page deletion.
+ */
+export const COMMUNICATION_ROLES: readonly UserRole[] = ["SUPER_ADMIN"];
+
 /** Convenience predicate; `role` is widened because JWT payloads are untyped. */
 export function hasRole(role: string | null | undefined, group: readonly UserRole[]): boolean {
   return !!role && (group as readonly string[]).includes(role);

@@ -17,8 +17,7 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
-
-const ALLOWED_ROLES = ["SUPER_ADMIN" as const, "SUPER_ADMIN_ONEFOP" as const];
+import { USER_ADMIN_ROLES, hasRole } from "@/lib/roles";
 
 const AGENTS_PAGE_SIZE = 50;
 
@@ -29,8 +28,12 @@ const AGENTS_PAGE_SIZE = 50;
  * unknown role with 400 "Rôle inconnu". The screen previously asked for
  * "INVESTIGATOR", which is not in the enum, so every request failed and the
  * table could only ever render its sample dataset.
+ *
+ * ADMIN_ONEFOP is not listed: it is no longer a field role, and it is
+ * outside ONEFOP_STAFF_ROLES so no actor here may manage it (src/auth/
+ * staff-scope.ts).
  */
-const FIELD_ROLES = ["REGIONAL", "DIVISIONAL", "CENTRAL"];
+const FIELD_ROLES = ["REGIONAL_ADMIN", "DIVISIONAL_ADMIN"];
 
 /**
  * One agent row.
@@ -63,7 +66,7 @@ function initialsOf(first: string, last: string): string {
 }
 
 export default function OnefopUsersPage() {
-  const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(USER_ADMIN_ROLES);
   const enabled = !isLoading && !forbidden;
   const [createOpen, setCreateOpen] = useState(false);
   const [profileAgent, setProfileAgent] = useState<AgentItem | null>(null);
@@ -73,10 +76,10 @@ export default function OnefopUsersPage() {
   /**
    * Agent list.
    *
-   * Source: GET /auth/users?roles=REGIONAL,DIVISIONAL,CENTRAL
+   * Source: GET /auth/users?roles=REGIONAL_ADMIN,DIVISIONAL_ADMIN
    * (AuthService.listUsers). `total` counts the whole filtered query; the
    * roles the caller may see are additionally capped server-side by
-   * manageableRolesFor(actorRole), so a SUPER_ADMIN_ONEFOP sees ONEFOP staff
+   * manageableRolesFor(actorRole), so an ADMIN_ONEFOP sees ONEFOP staff
    * only. COMPANY accounts are never returned by this endpoint.
    */
   const agentsQuery = useQuery({
@@ -381,7 +384,7 @@ export default function OnefopUsersPage() {
                       territorial but whose territory is unset is reported as
                       unassigned — the backend fails that scope closed. */}
                   <td style={{ padding: "12px 18px", color: "#4b5563" }}>
-                    {agent.region ?? (TERRITORIAL_ROLES.includes(agent.role) ? "Ressort non affecté" : NOT_PROVIDED)}
+                    {agent.region ?? (hasRole(agent.role, TERRITORIAL_ROLES) ? "Ressort non affecté" : NOT_PROVIDED)}
                     {agent.department && (
                       <span style={{ display: "block", fontSize: 11, color: "#6b7280" }}>{agent.department}</span>
                     )}
@@ -481,7 +484,7 @@ export default function OnefopUsersPage() {
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>RESSORT ASSIGNÉ</div>
               <div style={{ color: "#111827", marginTop: 2 }}>
-                {profileAgent.region ?? (TERRITORIAL_ROLES.includes(profileAgent.role) ? "Ressort non affecté" : NOT_PROVIDED)}
+                {profileAgent.region ?? (hasRole(profileAgent.role, TERRITORIAL_ROLES) ? "Ressort non affecté" : NOT_PROVIDED)}
                 {profileAgent.department ? ` (${profileAgent.department})` : ""}
               </div>
             </div>
@@ -521,7 +524,7 @@ export default function OnefopUsersPage() {
 }
 
 // ── Ajouter Agent Dialog ────────────────────────────────────────────────────────
-const EMPTY_FORM = { firstName: "", lastName: "", email: "", role: "REGIONAL", region: "Littoral", department: "", matricule: "", poste: "" };
+const EMPTY_FORM = { firstName: "", lastName: "", email: "", role: "REGIONAL_ADMIN", region: "Littoral", department: "", matricule: "", poste: "" };
 
 function CreateAgentDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
   const queryClient = useQueryClient();
@@ -638,7 +641,7 @@ function ReassignDialog({ agent, onClose, onSuccess }: { agent: AgentItem; onClo
 
   const mutation = useMutation({
     // The account keeps its own role: this dialog reassigns a territory, and
-    // writing "REGIONAL" would silently re-role a DIVISIONAL or CENTRAL agent.
+    // writing "REGIONAL_ADMIN" would silently re-role a DIVISIONAL_ADMIN agent.
     mutationFn: () =>
       updateUserTerritory(agent.id, {
         role: agent.role,

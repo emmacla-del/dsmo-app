@@ -12,6 +12,7 @@ import {
   type Company,
 } from "@/lib/companies-directory";
 import { getDataManagementStats } from "@/lib/api-client";
+import { DIRECTORY_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -23,7 +24,6 @@ import {
 } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
-const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const PAGE_SIZE = 8;
 
 const ENTITY_TYPES = [
