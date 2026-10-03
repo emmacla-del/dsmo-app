@@ -104,9 +104,11 @@ class RegState {
 /// validation error UI.
 bool isSectionComplete(int step, RegState s) {
   switch (step) {
+    case 0:
     case kStepEntityType:
       return s.entityType != null;
 
+    case 1:
     case kStepRespondent:
       return s.respondentFirstName.trim().isNotEmpty &&
           s.respondentLastName.trim().isNotEmpty &&
@@ -115,6 +117,7 @@ bool isSectionComplete(int step, RegState s) {
           s.respondentPhone1.trim().isNotEmpty &&
           s.emailIsAvailable;
 
+    case 2:
     case kStepEntityInfo:
       if (s.entityType == null) return false;
       final config = entityConfigs[s.entityType];
@@ -134,6 +137,7 @@ bool isSectionComplete(int step, RegState s) {
       }
       return true;
 
+    case 3:
     case kStepLocation:
       if (s.selectedRegion == null || s.selectedDepartment == null) {
         return false;
@@ -142,9 +146,11 @@ bool isSectionComplete(int step, RegState s) {
       if (s.subdivisions.isEmpty && !s.loadingSubdivisions) return true;
       return false;
 
+    case 4:
     case kStepSecurity:
       return s.isSecurityValid;
 
+    case 5:
     case kStepReview:
       return true;
 

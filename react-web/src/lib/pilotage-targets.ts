@@ -1,31 +1,11 @@
 import { apiFetch, ApiError } from "./api-client";
-import type { UserRole } from "./user-types";
+import type { UserRole } from "./roles";
+import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "./roles";
 
 export const YEAR_MIN = 2000;
 export const YEAR_MAX = 2100;
 /** PostgreSQL INTEGER. Matches the T.1 API cap. */
 export const TARGET_MAX = 2_147_483_647;
-
-export const PILOTAGE_WRITE_ROLES: UserRole[] = [
-  "CENTRAL",
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_ONEFOP",
-];
-
-export const PILOTAGE_READ_ROLES: UserRole[] = [
-  ...PILOTAGE_WRITE_ROLES,
-  "REGIONAL",
-  "DIVISIONAL",
-];
-
-/** Same set as GET /campaigns (@Roles on campaign.controller.ts). */
-export const CAMPAIGN_LIST_ROLES: UserRole[] = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-  "REGIONAL",
-];
 
 export type TargetMode = "UNSET" | "DEPARTMENT" | "REGION" | "MIXED";
 export type TargetField = "inscriptionTarget" | "submissionTarget";
@@ -167,11 +147,11 @@ export interface CoverageResponse {
 }
 
 export function canWritePilotageTargets(role: UserRole | undefined): boolean {
-  return !!role && PILOTAGE_WRITE_ROLES.includes(role);
+  return hasRole(role, NATIONAL_ROLES);
 }
 
 export function canListCampaigns(role: UserRole | undefined): boolean {
-  return !!role && CAMPAIGN_LIST_ROLES.includes(role);
+  return hasRole(role, CAMPAIGN_ROLES);
 }
 
 /** Africa/Douala is UTC+1 with no DST. */

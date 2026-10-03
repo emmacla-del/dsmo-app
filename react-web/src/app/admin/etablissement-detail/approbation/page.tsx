@@ -11,10 +11,11 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import { NOT_PROVIDED, fact, resolveDataState, stamp } from "@/lib/admin-data-state";
+import { NATIONAL_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
 // Fails closed: a role that has not loaded is not authorised.
-const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
-const DECISION_ROLES = ["SUPER_ADMIN"];
+// Read: GET /dsmo/companies is SUPER_ADMIN/ADMIN_ONEFOP (NATIONAL_ROLES).
+// Decide: SUPER_ADMIN alone (SETTINGS_ROLES membership).
 
 type Decision = "approve" | "reject" | "complements";
 
@@ -42,8 +43,8 @@ function Approbation() {
   const id = searchParams.get("id")?.trim() ?? "";
 
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = !!role && DIRECTORY_ROLES.includes(role);
-  const canDecide = !!role && DECISION_ROLES.includes(role);
+  const canRead = hasRole(role, NATIONAL_ROLES);
+  const canDecide = hasRole(role, SETTINGS_ROLES);
   const queryClient = useQueryClient();
 
   const [decision, setDecision] = useState<Decision>("complements");

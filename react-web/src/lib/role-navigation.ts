@@ -19,7 +19,7 @@
 //     became unreachable. Ordering follows the former SUPER_ADMIN_ONEFOP
 //     list, with CENTRAL's two extra entries appended.
 import type { User } from "./user-types";
-import type { UserRole } from "./roles";
+import { USER_ADMIN_ROLES, type UserRole } from "./roles";
 
 export type NavRole = UserRole;
 
@@ -97,7 +97,7 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "dossiers", label: "Instruction & Visas", route: "/admin/dossiers" },
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
-    { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: ["SUPER_ADMIN", "ADMIN_ONEFOP"] },
+    { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
     { slug: "annuaire", label: "Répertoire des Établissements", route: "/home/annuaire" },
     { slug: "analytics-dsmo", label: "Statistiques DSMO" },
     { slug: "notifications", label: "Communications & Notifications" },
@@ -108,7 +108,7 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "dossiers", label: "Instruction & Visas", route: "/admin/dossiers" },
     { slug: "diffusion", label: "Statistiques & Diffusion", route: "/admin/diffusion" },
     { slug: "settings", label: "Nomenclature des Secteurs", route: "/admin/sectors" },
-    { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: ["SUPER_ADMIN", "ADMIN_ONEFOP"] },
+    { slug: "utilisateurs", label: "Utilisateurs ONEFOP", route: "/admin/utilisateurs", rawRoles: [...USER_ADMIN_ROLES] },
     { slug: "declarations-dsmo", label: "Déclarations DSMO" },
     { slug: "annuaire", label: "Gestion des Utilisateurs & Entités", route: "/home/annuaire" },
   ],

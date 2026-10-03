@@ -1,7 +1,7 @@
 // src/lib/notifications.ts
 //
 // POST /dsmo/notifications/send (src/dsmo/dsmo.controller.ts, guarded to
-// DIVISIONAL/REGIONAL/CENTRAL/SUPER_ADMIN/SUPER_ADMIN_DSMO/SUPER_ADMIN_ONEFOP
+// DIVISIONAL_ADMIN/REGIONAL_ADMIN/ADMIN_ONEFOP/SUPER_ADMIN
 // server-side — read directly from dsmo.controller.ts + notification.service.ts,
 // not guessed from the Flutter UI). This is a real, consequential,
 // mutating action: it queues real emails to real companies. Unlike the

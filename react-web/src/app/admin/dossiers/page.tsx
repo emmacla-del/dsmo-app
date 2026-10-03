@@ -22,6 +22,7 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
+import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
 
 /**
  * One dossier row.
@@ -44,15 +45,6 @@ interface DossierItem {
   warningCount: number;
   submittedAt: string | null;
 }
-
-// Roles whose authorised scope genuinely is national: territoryWhere() returns
-// an unfiltered query for these and only these.
-const NATIONAL_SCOPE_ROLES = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-];
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
 const PAGE_SIZE = 10;
@@ -90,11 +82,11 @@ function DossiersContent() {
    * authorisation the account does not hold.
    */
   const scopeLabel =
-    user?.role === "REGIONAL"
+    user?.role === "REGIONAL_ADMIN"
       ? (user.region ? `Régional — ${user.region}` : "Régional — ressort non affecté")
-      : user?.role === "DIVISIONAL"
+      : user?.role === "DIVISIONAL_ADMIN"
         ? (user.department ? `Départemental — ${user.department}` : "Départemental — ressort non affecté")
-        : user?.role && NATIONAL_SCOPE_ROLES.includes(user.role)
+        : hasRole(user?.role, NATIONAL_ROLES)
           ? "National"
           : "Ressort non affecté";
   const { regions: territoryRegions } = useTerritoryRegions();

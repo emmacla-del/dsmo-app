@@ -24,16 +24,13 @@ import {
 import { entityTypeLabel } from "@/lib/companies-directory";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
-import type { UserRole } from "@/lib/user-types";
+import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "CAMPAIGN_MANAGER"];
-
 // @Roles on POST /campaigns/:id/activate|pause|close|remind (campaign.controller.ts).
-// Every other role that reaches this page (REGIONAL) reads only.
-const MUTATE_ROLES: string[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "CENTRAL"];
+// Every other role that reaches this page (REGIONAL_ADMIN) reads only.
 const READ_ONLY_REASON = "Action réservée aux administrateurs et au niveau central : votre rôle permet la consultation seulement.";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -106,9 +103,9 @@ type DialogState =
   | null;
 
 export default function CampagnesPage() {
-  const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(CAMPAIGN_ROLES);
   const role = useAuthStore((s) => s.user?.role);
-  const canMutate = !!role && MUTATE_ROLES.includes(role);
+  const canMutate = hasRole(role, NATIONAL_ROLES);
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>(null);
   const [createOpen, setCreateOpen] = useState(false);

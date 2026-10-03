@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ASSIGNABLE_ROLES,
   STATUS_FILTERS,
   type DirectoryUser,
   type StatusFilterKey,
@@ -21,6 +20,7 @@ import {
   updateUserRole,
   updateUserTerritory,
 } from "@/lib/user-directory";
+import { ADMIN_ROLES } from "@/lib/roles";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
 const PAGE_SIZE = 20;
@@ -62,7 +62,7 @@ interface UsersDirectoryProps {
   defaultStatus?: StatusFilterKey;
   showRegionFilter?: boolean;
   /** Roles offered in the role-change dialog (default: every assignable role). */
-  assignableRoles?: string[];
+  assignableRoles?: readonly string[];
   /**
    * Agent-roster layout (Figma "Utilisateurs ONEFOP"): initials avatar, assigned
    * region column and text-link row actions. Off by default so the Annuaire
@@ -73,10 +73,10 @@ interface UsersDirectoryProps {
    * Enables the "Réassigner" action (PATCH /auth/users/:id/territory) with
    * these roles on offer. Omitted = no reassign action.
    */
-  reassignRoles?: string[];
+  reassignRoles?: readonly string[];
 }
 
-export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ASSIGNABLE_ROLES, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
+export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "pending", showRegionFilter = false, assignableRoles = ADMIN_ROLES, agentRoster = false, reassignRoles }: UsersDirectoryProps = {}) {
   const t = useTranslations();
   const { regions: directoryRegions } = useTerritoryRegions();
   const [searchInput, setSearchInput] = useState("");
@@ -611,11 +611,11 @@ function RoleModal({ user, roles, pending, error, onCancel, onConfirm }: { user:
 }
 
 // Role + region + department in one PATCH /auth/users/:id/territory. Mirrors
-// the server's rules so the admin sees them before submitting: REGIONAL needs
-// a region, DIVISIONAL a region and a department. The server re-checks all of
+// the server's rules so the admin sees them before submitting: REGIONAL_ADMIN needs
+// a region, DIVISIONAL_ADMIN a region and a department. The server re-checks all of
 // it and refuses reassigning your own account.
 function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
-  user: DirectoryUser; roles: string[]; pending: boolean; error: Error | null; onCancel: () => void;
+  user: DirectoryUser; roles: readonly string[]; pending: boolean; error: Error | null; onCancel: () => void;
   onConfirm: (v: { role: string; region: string; department: string }) => void;
 }) {
   const t = useTranslations();
@@ -625,9 +625,9 @@ function ReassignModal({ user, roles, pending, error, onCancel, onConfirm }: {
   const [department, setDepartment] = useState(user.department ?? "");
   const { departments } = useTerritoryDepartments(region);
   const missing =
-    (role === "REGIONAL" || role === "DIVISIONAL") && !region
+    (role === "REGIONAL_ADMIN" || role === "DIVISIONAL_ADMIN") && !region
       ? t("usersDirectory.reassignRegionRequired")
-      : role === "DIVISIONAL" && !department
+      : role === "DIVISIONAL_ADMIN" && !department
         ? t("usersDirectory.reassignDepartmentRequired")
         : null;
   const fieldStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "var(--cam-space-1)", marginTop: "var(--cam-space-3)" };

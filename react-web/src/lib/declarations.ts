@@ -11,9 +11,9 @@
 // tap on that Flutter screen 404s today. The real endpoint is
 // `PATCH /dsmo/declarations/:id/validate` with `{accept: boolean,
 // rejectionReason?: string}` — dsmo.service.ts's approveDeclaration()
-// computes the next status from the CALLER'S OWN ROLE server-side (DIVISIONAL
-// -> DIVISION_APPROVED, REGIONAL -> REGION_APPROVED, CENTRAL/SUPER_ADMIN/
-// SUPER_ADMIN_DSMO -> FINAL_APPROVED), so the client never needs to name a
+// computes the next status from the CALLER'S OWN ROLE server-side (DIVISIONAL_ADMIN
+// -> DIVISION_APPROVED, REGIONAL_ADMIN -> REGION_APPROVED, ADMIN_ONEFOP/
+// SUPER_ADMIN -> FINAL_APPROVED), so the client never needs to name a
 // target status at all. This is wired to the real, working endpoint rather
 // than reproducing the broken one — porting a confirmed-broken network call
 // on purpose would ship a known-dead button, which serves no one. Flagged

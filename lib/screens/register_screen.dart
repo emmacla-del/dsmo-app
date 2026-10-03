@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,16 +27,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   static const String _kDraftBox = 'draftBox';
   static const String _kDraftKey = 'registration_draft';
 
-  final PageController _pageCtrl = PageController();
+  final ScrollController _scrollCtrl = ScrollController();
+  final List<GlobalKey> _sectionKeys = List.generate(6, (_) => GlobalKey());
   final GlobalKey<FormState> _respondentKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _entityKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _securityKey = GlobalKey<FormState>();
 
   bool _draftLoaded = false;
+  int _reached = 0;
   // COMPANY is the only role StepRole offers (MINEFOP self-registration was
   // removed — see StepRole), so it's set once here instead of making every
   // registrant click through a single-option screen. The wizard starts
-  // directly on entity-type selection — see _step and _visibleSteps below.
+  // directly on entity-type selection — see _visibleSteps below.
   String _role = 'COMPANY';
   EntityType? _selectedEntityType;
 
@@ -71,7 +74,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   String _password = '';
   bool _securityValid = false;
-  int _step = kStepEntityType;
   bool _isSubmitting = false;
   Timer? _debounce;
 
@@ -110,7 +112,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       ];
 
   int get _visibleCount => _visibleSteps.length;
-  int get _currentVisibleIdx => _visibleSteps.indexOf(_step);
 
   EntityConfig? get _currentEntityConfig =>
       _selectedEntityType != null ? entityConfigs[_selectedEntityType] : null;
@@ -132,7 +133,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     for (final ctrl in _entityControllers.values) {
       ctrl.dispose();
     }
-    _pageCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -146,8 +147,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   void _scheduleDraftSave() {
     _debounce?.cancel();
-    _debounce = Timer(
-        const Duration(milliseconds: 500), () => _saveDraft(immediate: true));
+    _debounce = Timer(const Duration(milliseconds: 450), () {
+      _saveDraft(immediate: true);
+      _revealIfComplete();
+    });
   }
 
   Future<void> _saveDraft({bool immediate = false}) async {
@@ -169,8 +172,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         'selectedSubdivision': _selectedSubdivision,
         'selectedArea': _selectedArea,
         'selectedSector': _selectedSector,
-        'password': _password,
-        'step': _step,
+        // SECURITY: stop persisting _password in the Hive draft.
+        'step': _reached,
       });
     } catch (e) {
       debugPrint('Draft save failed: $e');
@@ -186,7 +189,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       if ((data['role'] as String? ?? '').isEmpty) return;
 
       setState(() {
-        _role = data['role'] as String? ?? '';
+        _role = data['role'] as String? ?? 'COMPANY';
         if (data['selectedEntityType'] != null) {
           _selectedEntityType =
               _parseEntityType(data['selectedEntityType'] as String);
@@ -218,20 +221,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           _selectedSector =
               Map<String, dynamic>.from(data['selectedSector'] as Map);
         }
-        _password = data['password'] as String? ?? '';
-        // A draft saved before the role step was removed could have step
-        // 0 (kStepRole) persisted — that step no longer exists, so treat
-        // it the same as "no step saved yet".
-        final loadedStep = data['step'] as int? ?? kStepEntityType;
-        _step = _visibleSteps.contains(loadedStep) ? loadedStep : kStepEntityType;
+        // Password is never restored from draft (security rule)
+        _password = '';
+        _securityValid = false;
+
+        final rawStep = data['step'];
+        int savedStep = 0;
+        if (rawStep is int) {
+          if (_visibleSteps.contains(rawStep)) {
+            savedStep = _visibleSteps.indexOf(rawStep);
+          } else if (rawStep >= 0 && rawStep <= 5) {
+            savedStep = rawStep;
+          }
+        }
+
+        int firstIncomplete = 5;
+        for (int i = 0; i < 5; i++) {
+          if (!_isSectionComplete(i)) {
+            firstIncomplete = i;
+            break;
+          }
+        }
+
+        final int candidate = math.max(savedStep, firstIncomplete - 1);
+        _reached = candidate.clamp(0, 5);
         _draftLoaded = true;
       });
 
       if (_selectedEntityType != null) _initEntityControllers();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _step > kStepEntityType) {
-          _pageCtrl.jumpToPage(_pageIndexForStep(_step));
+        if (!mounted) return;
+        _revealIfComplete();
+        if (_reached > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(context.l10n.registerDraftRestored),
@@ -278,31 +300,47 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     }
   }
 
-  int _pageIndexForStep(int step) {
-    final idx = _visibleSteps.indexOf(step);
-    return idx < 0 ? 0 : idx;
-  }
+  bool get _hasAnyData =>
+      _selectedEntityType != null ||
+      _respondentFirstName.trim().isNotEmpty ||
+      _respondentLastName.trim().isNotEmpty ||
+      _respondentFunction.trim().isNotEmpty ||
+      _respondentEmail.trim().isNotEmpty ||
+      _respondentPhone1.trim().isNotEmpty ||
+      _respondentPhone2.trim().isNotEmpty ||
+      _entityData.values
+          .any((v) => v != null && v.toString().trim().isNotEmpty) ||
+      _selectedRegion != null ||
+      _password.trim().isNotEmpty;
 
-  void _goToStep(int step) {
-    setState(() => _step = step);
-    _pageCtrl.animateToPage(
-      _pageIndexForStep(step),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeInOut,
+  Future<bool> _confirmLeave() async {
+    if (!_hasAnyData) return true;
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.l10n.registerLeaveTitle),
+        content: Text(context.l10n.registerLeaveMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(context.l10n.registerLeaveCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              context.l10n.registerLeaveConfirm,
+              style: const TextStyle(color: PublicColors.red),
+            ),
+          ),
+        ],
+      ),
     );
-    _saveDraft(immediate: true);
+    return res ?? false;
   }
 
-  void _next() {
-    final int idx = _visibleSteps.indexOf(_step);
-    if (idx < _visibleSteps.length - 1) _goToStep(_visibleSteps[idx + 1]);
-  }
-
-  void _back() {
-    final int idx = _visibleSteps.indexOf(_step);
-    if (idx > 0) {
-      _goToStep(_visibleSteps[idx - 1]);
-    } else {
+  Future<void> _handleBack() async {
+    final shouldLeave = await _confirmLeave();
+    if (shouldLeave && mounted) {
       if (context.canPop()) {
         context.pop();
       } else {
@@ -311,67 +349,107 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     }
   }
 
-  Future<void> _advance() async {
-    switch (_step) {
-      case kStepRole:
-        if (_role.isEmpty) {
-          _showSnack(context.l10n.registerSelectAccountType, error: true);
-          return;
-        }
-        _next();
-        break;
-
-      case kStepEntityType:
-        if (_selectedEntityType == null) {
-          _showSnack(context.l10n.registerSelectEntityType, error: true);
-          return;
-        }
-        _initEntityControllers();
-        _next();
-        break;
-
-      case kStepRespondent:
-        if (!_respondentKey.currentState!.validate()) return;
-        if (!_emailIsAvailable) {
-          _showSnack(context.l10n.registerEmailAlreadyUsed, error: true);
-          return;
-        }
-        _respondentKey.currentState!.save();
-        _next();
-        break;
-
-      case kStepEntityInfo:
-        if (!_entityKey.currentState!.validate()) return;
-        _entityKey.currentState!.save();
-        _next();
-        break;
-
-      case kStepLocation:
-        if (_selectedRegion == null) {
-          _showSnack(context.l10n.registerSelectRegion, error: true);
-          return;
-        }
-        if (_isCompany && _selectedDepartment == null) {
-          _showSnack(context.l10n.registerSelectDepartment, error: true);
-          return;
-        }
-        if (_isCompany && _selectedSubdivision == null) {
-          _showSnack(context.l10n.registerSelectSubdivision, error: true);
-          return;
-        }
-        _next();
-        break;
-
-      case kStepSecurity:
-        if (!_securityKey.currentState!.validate()) return;
-        _securityKey.currentState!.save();
-        _next();
-        break;
-
-      case kStepReview:
-        await _submit();
-        break;
+  void _revealIfComplete() {
+    if (!mounted) return;
+    bool revealedAny = false;
+    while (_reached < 5 && _isSectionComplete(_reached)) {
+      _reached++;
+      revealedAny = true;
     }
+    if (revealedAny) {
+      setState(() {});
+      _saveDraft(immediate: true);
+      final newStep = _reached;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final keyContext = _sectionKeys[newStep].currentContext;
+        if (keyContext != null) {
+          final renderBox = keyContext.findRenderObject() as RenderBox?;
+          if (renderBox != null && renderBox.hasSize) {
+            final position = renderBox.localToGlobal(Offset.zero);
+            final screenHeight = MediaQuery.of(context).size.height;
+            if (position.dy > screenHeight / 2) {
+              Scrollable.ensureVisible(
+                keyContext,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOut,
+              );
+            }
+          }
+        }
+      });
+    }
+  }
+
+  void _scrollToSection(int step) {
+    if (step < 0 || step >= _sectionKeys.length) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final keyContext = _sectionKeys[step].currentContext;
+      if (keyContext != null) {
+        Scrollable.ensureVisible(
+          keyContext,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _validateAllForSubmit() async {
+    // Step 0: Entity Type
+    if (_selectedEntityType == null) {
+      _showSnack(context.l10n.registerSelectEntityType, error: true);
+      _scrollToSection(0);
+      return;
+    }
+
+    // Step 1: Respondent
+    if (!_respondentKey.currentState!.validate()) {
+      _scrollToSection(1);
+      return;
+    }
+    if (!_emailIsAvailable) {
+      _showSnack(context.l10n.registerEmailAlreadyUsed, error: true);
+      _scrollToSection(1);
+      return;
+    }
+    _respondentKey.currentState!.save();
+
+    // Step 2: Entity Info
+    if (!_entityKey.currentState!.validate()) {
+      _scrollToSection(2);
+      return;
+    }
+    _entityKey.currentState!.save();
+
+    // Step 3: Location
+    if (_selectedRegion == null) {
+      _showSnack(context.l10n.registerSelectRegion, error: true);
+      _scrollToSection(3);
+      return;
+    }
+    if (_isCompany && _selectedDepartment == null) {
+      _showSnack(context.l10n.registerSelectDepartment, error: true);
+      _scrollToSection(3);
+      return;
+    }
+    if (_isCompany &&
+        _selectedSubdivision == null &&
+        _subdivisions.isNotEmpty) {
+      _showSnack(context.l10n.registerSelectSubdivision, error: true);
+      _scrollToSection(3);
+      return;
+    }
+
+    // Step 4: Security
+    if (!_securityKey.currentState!.validate()) {
+      _scrollToSection(4);
+      return;
+    }
+    _securityKey.currentState!.save();
+
+    await _submit();
   }
 
   // Location data loaders (unchanged)
@@ -630,198 +708,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final authState = ref.watch(authProvider);
     final bool isBusy = _isSubmitting || authState.isLoading;
 
-    final List<Widget> pages = _visibleSteps.map((step) {
-      switch (step) {
-        case kStepRole:
-          return StepRole(
-            role: _role,
-            onSelect: (role) {
-              setState(() {
-                _role = role;
-                _selectedEntityType = null;
-              });
-              _saveDraft(immediate: true);
-              if (role.isNotEmpty) {
-                _next();
-              }
-            },
-          );
-
-        case kStepEntityType:
-          return StepEntityType(
-            selected: _selectedEntityType,
-            onSelect: (type) {
-              setState(() {
-                _selectedEntityType = type;
-                for (final c in _entityControllers.values) {
-                  c.dispose();
-                }
-                _entityControllers.clear();
-                _entityData.clear();
-              });
-              _saveDraft(immediate: true);
-              _advance();
-            },
-          );
-
-        case kStepRespondent:
-          return StepRespondent(
-            key: ValueKey(_draftLoaded),
-            formKey: _respondentKey,
-            initialFirstName: _respondentFirstName,
-            initialLastName: _respondentLastName,
-            initialFunction: _respondentFunction,
-            initialEmail: _respondentEmail,
-            initialPhone1: _respondentPhone1,
-            initialPhone2: _respondentPhone2,
-            onChanged: (fn, ln, func, email, p1, p2) {
-              final oldComplete = _isSectionComplete(kStepRespondent);
-              _respondentFirstName = fn;
-              _respondentLastName = ln;
-              _respondentFunction = func;
-              _respondentEmail = email;
-              _respondentPhone1 = p1;
-              _respondentPhone2 = p2;
-              final newComplete = _isSectionComplete(kStepRespondent);
-              if (oldComplete != newComplete) {
-                setState(() {});
-              }
-              _scheduleDraftSave();
-            },
-            onEmailAvailabilityChanged: (isAvailable) {
-              setState(() => _emailIsAvailable = isAvailable);
-            },
-            // removed onTargetLevelChanged
-          );
-
-        case kStepEntityInfo:
-          return StepEntityInfo(
-            key: ValueKey(_selectedEntityType),
-            formKey: _entityKey,
-            entityType: _selectedEntityType,
-            config: _currentEntityConfig,
-            controllers: _entityControllers,
-            entityData: _entityData,
-            onChanged: () {
-              setState(() {});
-              _scheduleDraftSave();
-            },
-            onDropdownChanged: (key, value) {
-              setState(() => _entityData[key] = value);
-              _scheduleDraftSave();
-            },
-          );
-
-        case kStepLocation:
-          return StepLocation(
-            regions: _regions,
-            departments: _departments,
-            subdivisions: _subdivisions,
-            sectors: _sectors,
-            loadingRegions: _loadingRegions,
-            loadingDepartments: _loadingDepartments,
-            loadingSubdivisions: _loadingSubdivisions,
-            loadingSectors: _loadingSectors,
-            selectedRegion: _selectedRegion,
-            selectedDepartment: _selectedDepartment,
-            selectedSubdivision: _selectedSubdivision,
-            selectedArea: _selectedArea,
-            selectedSector: _selectedSector,
-            onRegionChanged: (r) {
-              setState(() {
-                _selectedRegion = r;
-                _selectedDepartment = null;
-                _selectedSubdivision = null;
-                _departments = [];
-                _subdivisions = [];
-              });
-              if (r != null) _loadDepartments(r['id'] as String);
-              _scheduleDraftSave();
-            },
-            onDepartmentChanged: (d) {
-              setState(() {
-                _selectedDepartment = d;
-                _selectedSubdivision = null;
-                _subdivisions = [];
-              });
-              if (d != null) _loadSubdivisions(d['id'] as String);
-              _scheduleDraftSave();
-            },
-            onSubdivisionChanged: (s) {
-              setState(() => _selectedSubdivision = s);
-              _scheduleDraftSave();
-            },
-            onAreaChanged: (a) {
-              setState(() => _selectedArea = a);
-              _scheduleDraftSave();
-            },
-            onSectorChanged: (s) {
-              setState(() => _selectedSector = s);
-              _scheduleDraftSave();
-            },
-            onInit: () {
-              _loadRegions();
-              if (_isCompany) _loadSectors();
-            },
-          );
-
-        case kStepSecurity:
-          return StepSecurity(
-            formKey: _securityKey,
-            initialPassword: _password,
-            onChanged: (pw) {
-              _password = pw;
-              _scheduleDraftSave();
-            },
-            onValidityChanged: (valid) {
-              if (_securityValid != valid) {
-                setState(() => _securityValid = valid);
-              }
-            },
-          );
-
-        case kStepReview:
-          return StepReview(
-            entityType: _selectedEntityType,
-            respondentFirstName: _respondentFirstName,
-            respondentLastName: _respondentLastName,
-            respondentFunction: _respondentFunction,
-            respondentEmail: _respondentEmail,
-            respondentPhone1: _respondentPhone1,
-            respondentPhone2: _respondentPhone2,
-            entityData: _entityData,
-            selectedRegion: _selectedRegion,
-            selectedDepartment: _selectedDepartment,
-            selectedSubdivision: _selectedSubdivision,
-            selectedArea: _selectedArea,
-            selectedSector: _selectedSector,
-          );
-
-        default:
-          return const SizedBox.shrink();
-      }
-    }).map((page) {
-      // Cap each step to a conventional form width and center it — on
-      // mobile the screen is already narrower than the cap so this is a
-      // no-op, on desktop/web it stops fields from stretching edge-to-edge.
-      // 720px width allows the 170px side-label layout on wide displays.
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: page,
-        ),
-      );
-    }).toList();
-
     return PopScope(
-      // Only let a back gesture/button leave the screen entirely on the
-      // first step. On every other step it steps back within the form
-      // instead, so a stray swipe can't dump the user out to the home
-      // screen mid-registration.
-      canPop: _currentVisibleIdx == 0,
-      onPopInvokedWithResult: (didPop, result) {
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        _back();
+        await _handleBack();
       },
       child: Scaffold(
         backgroundColor: PublicColors.bg,
@@ -830,10 +721,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             children: [
               const TopFlagStripe(),
               RegisterHeader(
-                currentStep: _currentVisibleIdx,
-                totalSteps: _visibleCount,
-                step: _step,
-                onBack: _back,
+                currentStep: _reached,
+                totalSteps: 6,
+                step: _reached,
+                isStepComplete: _isSectionComplete,
+                onBack: _handleBack,
               ),
               if (authState.hasError && !isBusy)
                 Container(
@@ -856,21 +748,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   ]),
                 ),
               Expanded(
-                child: PageView(
-                  controller: _pageCtrl,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: pages,
-                ),
-              ),
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: _BottomNav(
-                    isBusy: isBusy,
-                    canAdvance: _isSectionComplete(_step),
-                    step: _step,
-                    onPrevious: _back,
-                    onNext: _advance,
+                child: SingleChildScrollView(
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (int i = 0; i <= _reached; i++) ...[
+                            if (i > 0) const SizedBox(height: 20),
+                            KeyedSubtree(
+                              key: _sectionKeys[i],
+                              child: _buildSection(i),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -880,105 +776,162 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       ),
     );
   }
-}
 
-class _BottomNav extends StatelessWidget {
-  final bool isBusy;
-  final bool canAdvance;
-  final int step;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
+  Widget _buildSection(int index) {
+    switch (index) {
+      case 0:
+        return StepEntityType(
+          selected: _selectedEntityType,
+          onSelect: (type) {
+            setState(() {
+              _selectedEntityType = type;
+              _initEntityControllers();
+            });
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+        );
 
-  const _BottomNav({
-    required this.isBusy,
-    this.canAdvance = true,
-    required this.step,
-    required this.onPrevious,
-    required this.onNext,
-  });
+      case 1:
+        return StepRespondent(
+          key: ValueKey(_draftLoaded),
+          formKey: _respondentKey,
+          initialFirstName: _respondentFirstName,
+          initialLastName: _respondentLastName,
+          initialFunction: _respondentFunction,
+          initialEmail: _respondentEmail,
+          initialPhone1: _respondentPhone1,
+          initialPhone2: _respondentPhone2,
+          onChanged: (fn, ln, func, email, p1, p2) {
+            _respondentFirstName = fn;
+            _respondentLastName = ln;
+            _respondentFunction = func;
+            _respondentEmail = email;
+            _respondentPhone1 = p1;
+            _respondentPhone2 = p2;
+            setState(() {});
+            _scheduleDraftSave();
+          },
+          onEmailAvailabilityChanged: (isAvailable) {
+            setState(() => _emailIsAvailable = isAvailable);
+            _revealIfComplete();
+          },
+        );
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 54,
-                child: OutlinedButton(
-                  onPressed: isBusy ? null : onPrevious,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: PublicColors.green,
-                    side: const BorderSide(color: PublicColors.green),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.arrow_back_rounded, size: 18),
-                      const SizedBox(width: 8),
-                      Text(context.l10n.previousButton,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SizedBox(
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: (isBusy || !canAdvance) ? null : onNext,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: PublicColors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 2,
-                  ),
-                  child: isBusy
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                step == kStepReview
-                                    ? context.l10n.registerCreateAccountButton
-                                    : context.l10n.registerContinueButton,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                                softWrap: false,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    fontSize: 15, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                                step == kStepReview
-                                    ? Icons.check_rounded
-                                    : Icons.arrow_forward_rounded,
-                                size: 18),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      case 2:
+        return StepEntityInfo(
+          key: ValueKey(_selectedEntityType),
+          formKey: _entityKey,
+          entityType: _selectedEntityType,
+          config: _currentEntityConfig,
+          controllers: _entityControllers,
+          entityData: _entityData,
+          onChanged: () {
+            setState(() {});
+            _scheduleDraftSave();
+          },
+          onDropdownChanged: (key, value) {
+            setState(() => _entityData[key] = value);
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+        );
+
+      case 3:
+        return StepLocation(
+          regions: _regions,
+          departments: _departments,
+          subdivisions: _subdivisions,
+          sectors: _sectors,
+          loadingRegions: _loadingRegions,
+          loadingDepartments: _loadingDepartments,
+          loadingSubdivisions: _loadingSubdivisions,
+          loadingSectors: _loadingSectors,
+          selectedRegion: _selectedRegion,
+          selectedDepartment: _selectedDepartment,
+          selectedSubdivision: _selectedSubdivision,
+          selectedArea: _selectedArea,
+          selectedSector: _selectedSector,
+          onRegionChanged: (r) {
+            setState(() {
+              _selectedRegion = r;
+              _selectedDepartment = null;
+              _selectedSubdivision = null;
+              _departments = [];
+              _subdivisions = [];
+            });
+            if (r != null) _loadDepartments(r['id'] as String);
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+          onDepartmentChanged: (d) {
+            setState(() {
+              _selectedDepartment = d;
+              _selectedSubdivision = null;
+              _subdivisions = [];
+            });
+            if (d != null) _loadSubdivisions(d['id'] as String);
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+          onSubdivisionChanged: (s) {
+            setState(() => _selectedSubdivision = s);
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+          onAreaChanged: (a) {
+            setState(() => _selectedArea = a);
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+          onSectorChanged: (s) {
+            setState(() => _selectedSector = s);
+            _saveDraft(immediate: true);
+            _revealIfComplete();
+          },
+          onInit: () {
+            _loadRegions();
+            if (_isCompany) _loadSectors();
+          },
+        );
+
+      case 4:
+        return StepSecurity(
+          formKey: _securityKey,
+          initialPassword: _password,
+          onChanged: (pw) {
+            _password = pw;
+            _scheduleDraftSave();
+          },
+          onValidityChanged: (valid) {
+            if (_securityValid != valid) {
+              setState(() => _securityValid = valid);
+              _revealIfComplete();
+            }
+          },
+        );
+
+      case 5:
+        return StepReview(
+          entityType: _selectedEntityType,
+          respondentFirstName: _respondentFirstName,
+          respondentLastName: _respondentLastName,
+          respondentFunction: _respondentFunction,
+          respondentEmail: _respondentEmail,
+          respondentPhone1: _respondentPhone1,
+          respondentPhone2: _respondentPhone2,
+          entityData: _entityData,
+          selectedRegion: _selectedRegion,
+          selectedDepartment: _selectedDepartment,
+          selectedSubdivision: _selectedSubdivision,
+          selectedArea: _selectedArea,
+          selectedSector: _selectedSector,
+          isSubmitting: _isSubmitting || ref.watch(authProvider).isLoading,
+          onSubmit: _validateAllForSubmit,
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

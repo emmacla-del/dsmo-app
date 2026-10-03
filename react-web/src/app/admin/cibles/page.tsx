@@ -11,6 +11,7 @@ import { CoverageTable } from "@/components/admin/CoverageTable";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
+import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { listCampaigns, type Campaign } from "@/lib/campaigns";
 import {
   buildTargetPayload,
@@ -636,7 +637,7 @@ function parseVue(raw: string | null): Vue {
 }
 
 function isNational(role: string | undefined): boolean {
-  return role === "CENTRAL" || role === "SUPER_ADMIN" || role === "SUPER_ADMIN_ONEFOP";
+  return hasRole(role, NATIONAL_ROLES);
 }
 
 function readCentral(

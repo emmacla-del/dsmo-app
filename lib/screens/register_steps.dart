@@ -24,28 +24,25 @@ class StepRole extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          StepHeader(
-            title: context.l10n.registerCreateAccountTitle,
-            subtitle: context.l10n.registerSelectProfileSubtitle,
-          ),
-          RoleCard(
-            value: 'COMPANY',
-            selected: _isCompanySelected ? 'COMPANY' : '',
-            icon: Icons.business_outlined,
-            color: PublicColors.green,
-            title: context.l10n.registerRoleCompanyTitle,
-            subtitle: context.l10n.registerRoleCompanySubtitle,
-            onTap: (_) => onSelect('COMPANY'),
-          ),
-          // MINEFOP self-registration removed — Central/Regional/Divisional
-          // staff accounts are now created by a Super Admin, not through this
-          // public wizard.
-        ]),
-      ),
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        StepHeader(
+          title: context.l10n.registerCreateAccountTitle,
+          subtitle: context.l10n.registerSelectProfileSubtitle,
+        ),
+        RoleCard(
+          value: 'COMPANY',
+          selected: _isCompanySelected ? 'COMPANY' : '',
+          icon: Icons.business_outlined,
+          color: PublicColors.green,
+          title: context.l10n.registerRoleCompanyTitle,
+          subtitle: context.l10n.registerRoleCompanySubtitle,
+          onTap: (_) => onSelect('COMPANY'),
+        ),
+        // MINEFOP self-registration removed — Central/Regional/Divisional
+        // staff accounts are now created by a Super Admin, not through this
+        // public wizard.
+      ]),
     );
   }
 }
@@ -62,34 +59,31 @@ class StepEntityType extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          StepHeader(
-            title: context.l10n.registerStepTitleEntityType,
-            subtitle: context.l10n.registerEntityTypeSubtitle,
-          ),
-          ...EntityType.values.map((type) {
-            final config = entityConfigs[type];
-            if (config == null) return const SizedBox.shrink();
-            final isEn = context.loc.languageCode == 'en';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: RoleCard(
-                value: type.toString(),
-                selected: selected?.toString() ?? '',
-                icon: config.icon,
-                color: config.color,
-                title: config.title.of(context.loc),
-                subtitle:
-                    isEn ? type.formSectionLabelEn : type.formSectionLabel,
-                onTap: (_) => onSelect(type),
-              ),
-            );
-          }),
-        ]),
-      ),
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        StepHeader(
+          title: context.l10n.registerStepTitleEntityType,
+          subtitle: context.l10n.registerEntityTypeSubtitle,
+        ),
+        ...EntityType.values.map((type) {
+          final config = entityConfigs[type];
+          if (config == null) return const SizedBox.shrink();
+          final isEn = context.loc.languageCode == 'en';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: RoleCard(
+              value: type.toString(),
+              selected: selected?.toString() ?? '',
+              icon: config.icon,
+              color: config.color,
+              title: config.title.of(context.loc),
+              subtitle:
+                  isEn ? type.formSectionLabelEn : type.formSectionLabel,
+              onTap: (_) => onSelect(type),
+            ),
+          );
+        }),
+      ]),
     );
   }
 }
@@ -183,10 +177,8 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Form(
+    return SectionCard(
+      child: Form(
           key: widget.formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             StepHeader(
@@ -285,8 +277,7 @@ class _StepRespondentState extends ConsumerState<StepRespondent> {
             ),
           ]),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -327,27 +318,24 @@ class _StepEntityInfoState extends State<StepEntityInfo> {
     }
     final config = widget.config!;
     final isEn = context.loc.languageCode == 'en';
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Form(
-          key: widget.formKey,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            StepHeader(
-              title: config.title.of(context.loc),
-              subtitle: isEn
-                  ? widget.entityType!.formSectionLabelEn
-                  : widget.entityType!.formSectionLabel,
-            ),
-            ...config.fields.map(_buildField),
-            const SizedBox(height: 4),
-            InfoBox(
-              icon: Icons.auto_fix_high_outlined,
-              color: Colors.teal,
-              text: context.l10n.registerEntityInfoInfoBox,
-            ),
-          ]),
-        ),
+    return SectionCard(
+      child: Form(
+        key: widget.formKey,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          StepHeader(
+            title: config.title.of(context.loc),
+            subtitle: isEn
+                ? widget.entityType!.formSectionLabelEn
+                : widget.entityType!.formSectionLabel,
+          ),
+          ...config.fields.map(_buildField),
+          const SizedBox(height: 4),
+          InfoBox(
+            icon: Icons.auto_fix_high_outlined,
+            color: Colors.teal,
+            text: context.l10n.registerEntityInfoInfoBox,
+          ),
+        ]),
       ),
     );
   }
@@ -550,10 +538,8 @@ class _StepLocationState extends State<StepLocation> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           StepHeader(
             title: context.l10n.registerStepTitleLocation,
             subtitle: context.l10n.registerLocationSubtitle,
@@ -708,8 +694,7 @@ class _StepLocationState extends State<StepLocation> {
             text: context.l10n.registerLocationInfoBox,
           ),
         ]),
-      ),
-    );
+      );
   }
 }
 
@@ -821,10 +806,8 @@ class _StepSecurityState extends State<StepSecurity> {
   @override
   Widget build(BuildContext context) {
     final sc = _strengthColor(_strength);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Form(
+    return SectionCard(
+      child: Form(
           key: widget.formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             StepHeader(
@@ -918,8 +901,7 @@ class _StepSecurityState extends State<StepSecurity> {
             ),
           ]),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -963,7 +945,7 @@ class _PasswordTips extends StatelessWidget {
 // STEP 7 — Review / Summary
 // ════════════════════════════════════════════════════════════════
 
-class StepReview extends StatelessWidget {
+class StepReview extends StatefulWidget {
   final EntityType? entityType;
   final String respondentFirstName,
       respondentLastName,
@@ -977,6 +959,8 @@ class StepReview extends StatelessWidget {
       selectedSubdivision,
       selectedSector;
   final String? selectedArea;
+  final bool isSubmitting;
+  final VoidCallback? onSubmit;
 
   const StepReview({
     super.key,
@@ -993,88 +977,158 @@ class StepReview extends StatelessWidget {
     required this.selectedSubdivision,
     required this.selectedArea,
     required this.selectedSector,
+    this.isSubmitting = false,
+    this.onSubmit,
   });
 
+  @override
+  State<StepReview> createState() => _StepReviewState();
+}
+
+class _StepReviewState extends State<StepReview> {
+  bool _certified = false;
+
   EntityConfig? get _entityConfig =>
-      entityType != null ? entityConfigs[entityType] : null;
+      widget.entityType != null ? entityConfigs[widget.entityType] : null;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: SectionCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          StepHeader(
-            title: context.l10n.registerStepTitleReview,
-            subtitle: context.l10n.registerReviewSubtitle,
-          ),
-          _roleBadge(context),
-          const SizedBox(height: 16),
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        StepHeader(
+          title: context.l10n.registerStepTitleReview,
+          subtitle: context.l10n.registerReviewSubtitle,
+        ),
+        _roleBadge(context),
+        const SizedBox(height: 16),
+        ReviewCard(
+          title: context.l10n.registerReviewRespondentTitle,
+          icon: Icons.person_outline,
+          rows: [
+            (
+              context.l10n.registerFullNameLabel,
+              '${widget.respondentFirstName} ${widget.respondentLastName}'
+            ),
+            if (widget.respondentFunction.isNotEmpty)
+              (context.l10n.registerFunctionRowLabel, widget.respondentFunction),
+            (context.l10n.registerEmailRowLabel, widget.respondentEmail),
+            (context.l10n.registerPhone1RowLabel, widget.respondentPhone1),
+            if (widget.respondentPhone2.isNotEmpty)
+              (context.l10n.registerPhone2RowLabel, widget.respondentPhone2),
+          ],
+        ),
+        if (_entityConfig != null) ...[
+          const SizedBox(height: 12),
           ReviewCard(
-            title: context.l10n.registerReviewRespondentTitle,
-            icon: Icons.person_outline,
+            title: context.loc.languageCode == 'en'
+                ? widget.entityType!.formSectionLabelEn
+                : widget.entityType!.formSectionLabel,
+            icon: _entityConfig!.icon,
+            rows: _buildEntityRows(context),
+          ),
+        ],
+        if (widget.selectedRegion != null ||
+            widget.selectedDepartment != null) ...[
+          const SizedBox(height: 12),
+          ReviewCard(
+            title: context.l10n.registerStepTitleLocation,
+            icon: Icons.map_outlined,
             rows: [
-              (context.l10n.registerFullNameLabel,
-                  '$respondentFirstName $respondentLastName'),
-              if (respondentFunction.isNotEmpty)
-                (context.l10n.registerFunctionRowLabel, respondentFunction),
-              (context.l10n.registerEmailRowLabel, respondentEmail),
-              (context.l10n.registerPhone1RowLabel, respondentPhone1),
-              if (respondentPhone2.isNotEmpty)
-                (context.l10n.registerPhone2RowLabel, respondentPhone2),
+              if (widget.selectedRegion != null)
+                (
+                  context.l10n.registerRegionRowLabel,
+                  widget.selectedRegion!['name'] as String? ?? ''
+                ),
+              if (widget.selectedDepartment != null)
+                (
+                  context.l10n.registerDepartmentRowLabel,
+                  widget.selectedDepartment!['name'] as String? ?? ''
+                ),
+              if (widget.selectedSubdivision != null)
+                (
+                  context.l10n.registerArrondissementLabel,
+                  widget.selectedSubdivision!['name'] as String? ?? ''
+                ),
+              if (widget.selectedArea != null)
+                (
+                  context.l10n.registerMilieuLabel,
+                  kAreaOptions
+                      .firstWhere((o) => o.value == widget.selectedArea,
+                          orElse: () => LocalizedOption(widget.selectedArea!,
+                              LocalizedText.same(widget.selectedArea!)))
+                      .text
+                      .of(context.loc)
+                ),
+              if (widget.selectedSector != null)
+                (
+                  context.l10n.registerSectorRowLabel,
+                  widget.selectedSector!['name'] as String? ?? ''
+                ),
             ],
           ),
-          if (_entityConfig != null) ...[
-            const SizedBox(height: 12),
-            ReviewCard(
-              title: context.loc.languageCode == 'en'
-                  ? entityType!.formSectionLabelEn
-                  : entityType!.formSectionLabel,
-              icon: _entityConfig!.icon,
-              rows: _buildEntityRows(context),
+        ],
+        const SizedBox(height: 16),
+        InfoBox(
+          icon: Icons.check_circle_outline,
+          color: PublicColors.green,
+          text: context.l10n.registerCompanyPendingInfoBox,
+        ),
+        const SizedBox(height: 16),
+        CheckboxListTile(
+          key: const Key('register_certification_checkbox'),
+          value: _certified,
+          onChanged: widget.isSubmitting
+              ? null
+              : (val) => setState(() => _certified = val ?? false),
+          title: Text(
+            context.l10n.registerCertificationCheckbox,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: PublicColors.gray900,
             ),
-          ],
-          if (selectedRegion != null || selectedDepartment != null) ...[
-            const SizedBox(height: 12),
-            ReviewCard(
-              title: context.l10n.registerStepTitleLocation,
-              icon: Icons.map_outlined,
-              rows: [
-                if (selectedRegion != null)
-                  (context.l10n.registerRegionRowLabel,
-                      selectedRegion!['name'] as String? ?? ''),
-                if (selectedDepartment != null)
-                  (context.l10n.registerDepartmentRowLabel,
-                      selectedDepartment!['name'] as String? ?? ''),
-                if (selectedSubdivision != null)
-                  (
-                    context.l10n.registerArrondissementLabel,
-                    selectedSubdivision!['name'] as String? ?? ''
-                  ),
-                if (selectedArea != null)
-                  (
-                    context.l10n.registerMilieuLabel,
-                    kAreaOptions
-                        .firstWhere((o) => o.value == selectedArea,
-                            orElse: () => LocalizedOption(
-                                selectedArea!, LocalizedText.same(selectedArea!)))
-                        .text
-                        .of(context.loc)
-                  ),
-                if (selectedSector != null)
-                  (context.l10n.registerSectorRowLabel,
-                      selectedSector!['name'] as String? ?? ''),
-              ],
-            ),
-          ],
-          const SizedBox(height: 16),
-          InfoBox(
-            icon: Icons.check_circle_outline,
-            color: PublicColors.green,
-            text: context.l10n.registerCompanyPendingInfoBox,
           ),
-        ]),
-      ),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          activeColor: PublicColors.green,
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            key: const Key('register_submit_button'),
+            onPressed:
+                (_certified && !widget.isSubmitting) ? widget.onSubmit : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PublicColors.green,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: PublicColors.gray200,
+              disabledForegroundColor: PublicColors.gray400,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+            child: widget.isSubmitting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    context.l10n.registerCreateAccountButton,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+      ]),
     );
   }
 
@@ -1092,11 +1146,14 @@ class StepReview extends StatelessWidget {
           Icon(_entityConfig!.icon, color: _entityConfig!.color),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(_entityConfig!.title.of(context.loc),
-                style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: _entityConfig!.color)),
+            child: Text(
+              _entityConfig!.title.of(context.loc),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: _entityConfig!.color,
+              ),
+            ),
           ),
         ]),
       );
@@ -1108,7 +1165,7 @@ class StepReview extends StatelessWidget {
     if (_entityConfig == null) return [];
     final rows = <(String, String)>[];
     for (final field in _entityConfig!.fields) {
-      final raw = entityData[field.key];
+      final raw = widget.entityData[field.key];
       final value = raw?.toString().trim() ?? '';
       if (value.isEmpty) continue;
       rows.add((field.label.of(context.loc), value));

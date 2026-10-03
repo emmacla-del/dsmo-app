@@ -218,27 +218,27 @@ test("computeUserScopeLabel: handles unauthenticated or role-less accounts", () 
 });
 
 test("computeUserScopeLabel: prevents widening unassigned territorial accounts to National", () => {
-  // REGIONAL with no region assigned must NOT widen to National
-  assert.equal(computeUserScopeLabel({ role: "REGIONAL", region: null }), "Régional (non assigné)");
-  assert.equal(computeUserScopeLabel({ role: "REGIONAL", region: "" }), "Régional (non assigné)");
+  // REGIONAL_ADMIN with no region assigned must NOT widen to National
+  assert.equal(computeUserScopeLabel({ role: "REGIONAL_ADMIN", region: null }), "Régional (non assigné)");
+  assert.equal(computeUserScopeLabel({ role: "REGIONAL_ADMIN", region: "" }), "Régional (non assigné)");
 
-  // DIVISIONAL with neither department nor region must NOT widen to National
-  assert.equal(computeUserScopeLabel({ role: "DIVISIONAL", department: null, region: null }), "Départemental (non assigné)");
-  assert.equal(computeUserScopeLabel({ role: "DIVISIONAL", department: "" }), "Départemental (non assigné)");
+  // DIVISIONAL_ADMIN with neither department nor region must NOT widen to National
+  assert.equal(computeUserScopeLabel({ role: "DIVISIONAL_ADMIN", department: null, region: null }), "Départemental (non assigné)");
+  assert.equal(computeUserScopeLabel({ role: "DIVISIONAL_ADMIN", department: "" }), "Départemental (non assigné)");
 });
 
 test("computeUserScopeLabel: formats assigned territorial accounts accurately", () => {
   assert.equal(
-    computeUserScopeLabel({ role: "REGIONAL", region: "Centre" }),
+    computeUserScopeLabel({ role: "REGIONAL_ADMIN", region: "Centre" }),
     "Région Centre",
   );
   assert.equal(
-    computeUserScopeLabel({ role: "DIVISIONAL", department: "Mfoundi", region: "Centre" }),
+    computeUserScopeLabel({ role: "DIVISIONAL_ADMIN", department: "Mfoundi", region: "Centre" }),
     "Département Mfoundi",
   );
-  // DIVISIONAL with only region assigned
+  // DIVISIONAL_ADMIN with only region assigned
   assert.equal(
-    computeUserScopeLabel({ role: "DIVISIONAL", department: null, region: "Littoral" }),
+    computeUserScopeLabel({ role: "DIVISIONAL_ADMIN", department: null, region: "Littoral" }),
     "Région Littoral",
   );
 });
@@ -346,15 +346,13 @@ test("anomalyDossierRef: resolves authoritative dossier reference hierarchically
 test("ANOMALY_REGISTRY_ROLES: enforces statutory access boundaries", () => {
   assert.deepEqual(ANOMALY_REGISTRY_ROLES, [
     "SUPER_ADMIN",
-    "SUPER_ADMIN_ONEFOP",
-    "CENTRAL",
-    "REGIONAL",
-    "DIVISIONAL",
+    "ADMIN_ONEFOP",
+    "REGIONAL_ADMIN",
+    "DIVISIONAL_ADMIN",
   ]);
   assert.deepEqual(ANOMALY_DEROGATION_ROLES, [
     "SUPER_ADMIN",
-    "SUPER_ADMIN_ONEFOP",
-    "CENTRAL",
+    "ADMIN_ONEFOP",
   ]);
 });
 

@@ -1,7 +1,7 @@
 // src/lib/companies-directory.ts
 //
 // GET /dsmo/companies (src/dsmo/dsmo.controller.ts, guarded to exactly
-// SUPER_ADMIN/SUPER_ADMIN_DSMO/SUPER_ADMIN_ONEFOP — matches the roles that
+// SUPER_ADMIN/ADMIN_ONEFOP — matches the roles that
 // reference "Annuaire" in role-navigation.ts) — read directly from
 // dsmo.controller.ts + dsmo.service.ts's listCompanies() to get the real
 // query params and response shape, not guessed from the Flutter UI alone.

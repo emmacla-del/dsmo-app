@@ -265,6 +265,7 @@ class SectionCard extends StatelessWidget {
 class RegisterHeader extends StatelessWidget {
   final int currentStep, totalSteps, step;
   final VoidCallback onBack;
+  final bool Function(int)? isStepComplete;
 
   const RegisterHeader({
     super.key,
@@ -272,24 +273,31 @@ class RegisterHeader extends StatelessWidget {
     required this.totalSteps,
     required this.step,
     required this.onBack,
+    this.isStepComplete,
   });
 
   String _title(BuildContext context) {
     switch (step) {
-      case kStepRole:
-        return context.l10n.registerStepTitleRole;
+      case 0:
       case kStepEntityType:
         return context.l10n.registerStepTitleEntityType;
+      case 1:
       case kStepRespondent:
         return context.l10n.registerStepTitleRespondent;
+      case 2:
       case kStepEntityInfo:
         return context.l10n.registerStepTitleEntityInfo;
+      case 3:
       case kStepLocation:
         return context.l10n.registerStepTitleLocation;
+      case 4:
       case kStepSecurity:
         return context.l10n.registerStepTitleSecurity;
+      case 5:
       case kStepReview:
         return context.l10n.registerStepTitleReview;
+      case kStepRole:
+        return context.l10n.registerStepTitleRole;
       default:
         return '';
     }
@@ -297,55 +305,113 @@ class RegisterHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double progress =
-        totalSteps > 1 ? currentStep / (totalSteps - 1) : 1.0;
+    const goldColor = Color(0xFFC9920A);
+    final count = totalSteps > 0 ? totalSteps : 6;
+    final int safeCurrent = currentStep.clamp(0, count - 1);
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(8, 12, 20, 16),
-      child: Row(children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: onBack,
-          color: PublicColors.green,
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _title(context),
-                      style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: PublicColors.green),
-                    ),
-                  ),
-                  Text(
-                    '${currentStep + 1} / $totalSteps',
-                    style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF666666)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 5,
-                  backgroundColor: PublicColors.gray200,
-                  color: PublicColors.green,
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.fromLTRB(8, 12, 16, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            onPressed: onBack,
+            color: PublicColors.green,
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           ),
-        ),
-      ]),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.registerStepProgress(
+                    safeCurrent + 1,
+                    count,
+                    _title(context),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: PublicColors.green,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: List.generate(count, (i) {
+                    final bool isDone =
+                        isStepComplete?.call(i) ?? (i < safeCurrent);
+                    final bool isCurrent = i == safeCurrent;
+                    final Color segmentColor = isDone
+                        ? PublicColors.green
+                        : (isCurrent ? goldColor : PublicColors.gray200);
+
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: i < count - 1 ? 4.0 : 0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isDone
+                                    ? PublicColors.green
+                                    : (isCurrent
+                                        ? goldColor
+                                        : PublicColors.gray100),
+                                border: Border.all(
+                                  color: isDone
+                                      ? PublicColors.green
+                                      : (isCurrent
+                                          ? goldColor
+                                          : PublicColors.gray300),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: isDone
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 13,
+                                      color: Colors.white,
+                                    )
+                                  : Text(
+                                      '${i + 1}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: isCurrent
+                                            ? Colors.white
+                                            : PublicColors.gray600,
+                                      ),
+                                    ),
+                            ),
+                            const SizedBox(height: 5),
+                            Container(
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: segmentColor,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -44,11 +44,11 @@ const fieldWrapperStyle: React.CSSProperties = { marginBottom: "var(--cam-space-
  *    real API call if desired": hardcoded 12 or 148 depending only on
  *    whether a region is picked). Showing a fabricated number to someone
  *    about to email real companies is worse than showing none.
- *  - notification.service.ts auto-scopes DIVISIONAL/REGIONAL senders to
+ *  - notification.service.ts auto-scopes DIVISIONAL_ADMIN/REGIONAL_ADMIN senders to
  *    their own department/region and 403s if their filter picks a
  *    different one — Flutter's UI doesn't reflect this (same free-choice
  *    dropdowns for every role), so this port doesn't invent that guidance
- *    either; a DIVISIONAL/REGIONAL sender picking a mismatched filter will
+ *    either; a DIVISIONAL_ADMIN/REGIONAL_ADMIN sender picking a mismatched filter will
  *    see the real backend error, same as in Flutter today.
  */
 export function SendNotificationForm() {

@@ -228,9 +228,9 @@ export function deleteUser(id: string) {
 
 // PATCH /auth/users/:id/territory — role + region + department in one write,
 // audited server-side as USER_TERRITORY_CHANGED. SUPER_ADMIN and
-// SUPER_ADMIN_ONEFOP (D1); the server applies assertCanManageRole to both the
+// ADMIN_ONEFOP (D1); the server applies assertCanManageRole to both the
 // current and the new role, refuses self-reassignment, and requires a region
-// for REGIONAL and a region + department for DIVISIONAL. Blank values are
+// for REGIONAL_ADMIN and a region + department for DIVISIONAL_ADMIN. Blank values are
 // omitted so they are stored as null, not "".
 export function updateUserTerritory(id: string, body: { role: string; region?: string; department?: string }) {
   return apiFetch<DirectoryUser>(`/auth/users/${id}/territory`, {
@@ -256,7 +256,7 @@ export interface CreateMinefopUserBody {
 
 // POST /auth/admin/create-minefop-user — creates an ACTIVE account with
 // mustChangePassword set, skipping approval. SUPER_ADMIN and
-// SUPER_ADMIN_ONEFOP (D1). The temporary password is returned once, in
+// ADMIN_ONEFOP (D1). The temporary password is returned once, in
 // plaintext, and never again: show it to the admin, never store it.
 export function createMinefopUser(body: CreateMinefopUserBody) {
   return apiFetch<{ user: DirectoryUser; temporaryPassword: string }>("/auth/admin/create-minefop-user", {
@@ -265,60 +265,28 @@ export function createMinefopUser(body: CreateMinefopUserBody) {
   });
 }
 
-// Mirrors AuthService.MINEFOP_FIELD_ROLES: the only roles create-minefop-user accepts.
-export const MINEFOP_FIELD_ROLES = ["CENTRAL", "REGIONAL", "DIVISIONAL"];
-
-// Mirrors AuthService.ASSIGNABLE_ROLES / widgets/admin_kit.dart's
-// kAssignableRoles exactly (same order).
-export const ASSIGNABLE_ROLES = [
-  "DIVISIONAL",
-  "REGIONAL",
-  "CENTRAL",
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "DATA_MANAGER",
-  "CAMPAIGN_MANAGER",
-  "ANALYST",
-  "AUDITOR",
-];
+export { TERRITORIAL_ROLES, ADMIN_ROLES as ASSIGNABLE_ROLES } from "./roles";
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super administrateur",
-  SUPER_ADMIN_DSMO: "Admin DSMO",
-  SUPER_ADMIN_ONEFOP: "Admin ONEFOP",
-  CENTRAL: "Central",
-  REGIONAL: "Régional",
-  DIVISIONAL: "Divisionnaire",
-  DATA_MANAGER: "Gestionnaire de données",
-  CAMPAIGN_MANAGER: "Gestionnaire de campagnes",
-  ANALYST: "Analyste",
+  ADMIN_ONEFOP: "Admin ONEFOP",
+  REGIONAL_ADMIN: "Régional",
+  DIVISIONAL_ADMIN: "Divisionnaire",
   AUDITOR: "Auditeur",
+  COMPANY: "Entreprise",
 };
-
-/**
- * ONEFOP personnel — mirrors ONEFOP_STAFF_ROLES in src/auth/staff-scope.ts,
- * the set a SUPER_ADMIN_ONEFOP may see, manage and assign. Administrator
- * accounts are managed from the Annuaire by SUPER_ADMIN.
- */
-export const ONEFOP_STAFF_ROLES = ["CENTRAL", "REGIONAL", "DIVISIONAL", "DATA_MANAGER", "CAMPAIGN_MANAGER", "ANALYST", "AUDITOR"];
-export const TERRITORIAL_ROLES = ["REGIONAL", "DIVISIONAL"];
 
 export function directoryRoleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role.replace(/_/g, " ");
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  REGIONAL: "var(--cam-info)",
-  DIVISIONAL: "var(--cam-info)",
-  CENTRAL: "var(--cam-warning)",
-  DATA_MANAGER: "var(--cam-info)",
-  CAMPAIGN_MANAGER: "var(--cam-info)",
-  ANALYST: "var(--cam-info)",
-  AUDITOR: "var(--cam-warning)",
-  SUPER_ADMIN_DSMO: "var(--cam-green)",
-  SUPER_ADMIN_ONEFOP: "var(--cam-green)",
   SUPER_ADMIN: "var(--cam-green-dark)",
+  ADMIN_ONEFOP: "var(--cam-green)",
+  REGIONAL_ADMIN: "var(--cam-info)",
+  DIVISIONAL_ADMIN: "var(--cam-info)",
+  AUDITOR: "var(--cam-warning)",
+  COMPANY: "var(--cam-green)",
 };
 
 export function directoryRoleColor(role: string): string {

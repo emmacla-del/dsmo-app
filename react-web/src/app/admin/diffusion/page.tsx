@@ -15,7 +15,7 @@ import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerrito
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
-import { DATA_ROLES } from "@/app/admin/_routes";
+import { NATIONAL_ROLES } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { entityTypeLabel } from "@/lib/companies-directory";
@@ -175,7 +175,7 @@ function formatExportScope(filters: Record<string, unknown> | null | undefined):
 }
 
 export default function DiffusionPage() {
-  const { isLoading, forbidden } = useAdminScreenGuard(DATA_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
   const user = useAuthStore((s) => s.user);
 
   // Stats query
@@ -246,9 +246,9 @@ export default function DiffusionPage() {
    * PENDING_REVIEW | REJECTED].
    *
    * That endpoint applies no territorial filter. It is only truthful here
-   * because this screen is guarded to DATA_ROLES (super-admins, CENTRAL,
-   * DATA_MANAGER, ANALYST) - all national-scope roles. Do not reuse it on a
-   * screen reachable by REGIONAL or DIVISIONAL.
+   * because this screen is guarded to NATIONAL_ROLES (SUPER_ADMIN, ADMIN_ONEFOP)
+   * - all national-scope roles. Do not reuse it on a screen reachable by
+   * REGIONAL_ADMIN or DIVISIONAL_ADMIN.
    *
    * `null` means "not retrieved" and renders as an em dash. It is never
    * replaced by a stand-in, and 0 is reported as 0.

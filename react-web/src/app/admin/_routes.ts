@@ -1,4 +1,14 @@
-import type { UserRole } from "@/lib/user-types";
+import type { UserRole } from "@/lib/roles";
+import {
+  ADMIN_ROLES,
+  APPROVAL_ROLES,
+  AUDIT_ROLES,
+  CAMPAIGN_ROLES,
+  DIRECTORY_ROLES,
+  NATIONAL_ROLES,
+  SETTINGS_ROLES,
+  USER_ADMIN_ROLES,
+} from "@/lib/roles";
 
 // Admin console role-based navigation & permissions single source of truth.
 // Maps all 6 primary hubs and their sub-routes to allowed user roles, mirroring
@@ -18,7 +28,7 @@ export interface AdminSubRoute {
   label: string;
   href: string;
   badgeKey?: "pending" | "inscriptions" | "anomalies";
-  allowedRoles?: UserRole[];
+  allowedRoles?: readonly UserRole[];
 }
 
 export interface AdminHub {
@@ -28,75 +38,20 @@ export interface AdminHub {
   iconName: "dashboard" | "collecte" | "declarants" | "quality" | "data" | "settings";
   matchPrefixes: string[];
   badgeKey?: "pending" | "inscriptions" | "anomalies";
-  allowedRoles?: UserRole[];
+  allowedRoles?: readonly UserRole[];
   subRoutes: AdminSubRoute[];
 }
 
 export interface AdminRoute {
   label: string;
   href: string | null;
-  allowedRoles?: UserRole[];
+  allowedRoles?: readonly UserRole[];
 }
 
 export interface AdminRouteSection {
   group: string;
   items: AdminRoute[];
 }
-
-// ── Role Groups ──────────────────────────────────────────────────────────────
-
-export const SUPER_ADMIN_ROLES: UserRole[] = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-];
-
-export const DOSSIER_PROCESSORS: UserRole[] = [
-  ...SUPER_ADMIN_ROLES,
-  "CENTRAL",
-  "REGIONAL",
-  "DIVISIONAL",
-];
-
-export const CAMPAIGN_MANAGERS: UserRole[] = [
-  ...SUPER_ADMIN_ROLES,
-  "CENTRAL",
-  "CAMPAIGN_MANAGER",
-  "REGIONAL",
-  "DATA_MANAGER",
-  "ANALYST",
-];
-
-export const QUESTIONNAIRE_MANAGERS: UserRole[] = [
-  ...SUPER_ADMIN_ROLES,
-  "CENTRAL",
-  "CAMPAIGN_MANAGER",
-  "DATA_MANAGER",
-  "REGIONAL",
-  "DIVISIONAL",
-];
-
-export const DATA_ROLES: UserRole[] = [
-  ...SUPER_ADMIN_ROLES,
-  "CENTRAL",
-  "DATA_MANAGER",
-  "ANALYST",
-];
-
-export const DIRECTORY_ROLES: UserRole[] = [
-  ...SUPER_ADMIN_ROLES,
-  "CENTRAL",
-  "REGIONAL",
-  "DIVISIONAL",
-  "DATA_MANAGER",
-  "ANALYST",
-  "AUDITOR",
-];
-
-// Administrative roles
-export const SETTINGS_ROLES: UserRole[] = [...SUPER_ADMIN_ROLES];
-export const USER_ADMIN_ROLES: UserRole[] = [...SUPER_ADMIN_ROLES];
-export const AUDIT_LOG_ROLES: UserRole[] = [...SUPER_ADMIN_ROLES, "AUDITOR"];
 
 // ── Primary 6 Hubs Definition ────────────────────────────────────────────────
 
@@ -110,9 +65,9 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/pilotage", "/admin/dossiers", "/admin/activite", "/admin/cibles"],
     subRoutes: [
       { label: "Tableau de bord", href: "/admin/pilotage" },
-      { label: "Dossiers en instance", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: [...DOSSIER_PROCESSORS, "AUDITOR"] },
+      { label: "Dossiers en instance", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: ADMIN_ROLES },
       { label: "Activité & alertes", href: "/admin/activite" },
-      { label: "Cibles et couverture", href: "/admin/cibles", allowedRoles: ["CENTRAL", "SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "REGIONAL", "DIVISIONAL"] },
+      { label: "Cibles et couverture", href: "/admin/cibles", allowedRoles: APPROVAL_ROLES },
     ],
   },
   {
@@ -120,11 +75,11 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Collecte",
     href: "/admin/campagnes",
     iconName: "collecte",
-    allowedRoles: [...CAMPAIGN_MANAGERS, ...QUESTIONNAIRE_MANAGERS],
+    allowedRoles: APPROVAL_ROLES,
     matchPrefixes: ["/admin/campagnes", "/admin/questionnaires"],
     subRoutes: [
-      { label: "Campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_MANAGERS },
-      { label: "Questionnaires", href: "/admin/questionnaires", allowedRoles: QUESTIONNAIRE_MANAGERS },
+      { label: "Campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_ROLES },
+      { label: "Questionnaires", href: "/admin/questionnaires", allowedRoles: APPROVAL_ROLES },
     ],
   },
   {
@@ -135,7 +90,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     badgeKey: "inscriptions",
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
-      { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: DOSSIER_PROCESSORS },
+      { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
       { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
     ],
@@ -146,12 +101,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/centre-qualite",
     iconName: "quality",
     badgeKey: "anomalies",
-    allowedRoles: [...DOSSIER_PROCESSORS, "DATA_MANAGER", "AUDITOR"],
+    allowedRoles: ADMIN_ROLES,
     matchPrefixes: ["/admin/centre-qualite", "/admin/files-attente"],
     subRoutes: [
-      { label: "Centre Qualité", href: "/admin/centre-qualite", allowedRoles: [...DOSSIER_PROCESSORS, "DATA_MANAGER", "AUDITOR"] },
-      { label: "Anomalies", href: "/admin/files-attente?tab=anomalies", badgeKey: "anomalies", allowedRoles: [...DOSSIER_PROCESSORS, "DATA_MANAGER", "AUDITOR"] },
-      { label: "Contrôle régional", href: "/admin/centre-qualite?tab=regional", allowedRoles: DOSSIER_PROCESSORS },
+      { label: "Centre Qualité", href: "/admin/centre-qualite", allowedRoles: ADMIN_ROLES },
+      { label: "Anomalies", href: "/admin/files-attente?tab=anomalies", badgeKey: "anomalies", allowedRoles: ADMIN_ROLES },
+      { label: "Contrôle régional", href: "/admin/centre-qualite?tab=regional", allowedRoles: APPROVAL_ROLES },
     ],
   },
   {
@@ -159,11 +114,11 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Données",
     href: "/admin/diffusion",
     iconName: "data",
-    allowedRoles: DATA_ROLES,
+    allowedRoles: NATIONAL_ROLES,
     matchPrefixes: ["/admin/diffusion", "/admin/sectors"],
     subRoutes: [
-      { label: "Gestion & Exports", href: "/admin/diffusion", allowedRoles: DATA_ROLES },
-      { label: "Jeux de données (Secteurs)", href: "/admin/sectors", allowedRoles: DATA_ROLES },
+      { label: "Gestion & Exports", href: "/admin/diffusion", allowedRoles: NATIONAL_ROLES },
+      { label: "Jeux de données (Secteurs)", href: "/admin/sectors", allowedRoles: NATIONAL_ROLES },
     ],
   },
   {
@@ -172,11 +127,11 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/utilisateurs",
     iconName: "settings",
     // Visible only if user role has at least one administrative permission
-    allowedRoles: [...SETTINGS_ROLES, ...USER_ADMIN_ROLES, ...AUDIT_LOG_ROLES],
+    allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES],
     matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit"],
     subRoutes: [
       { label: "Utilisateurs & rôles", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
-      { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_LOG_ROLES },
+      { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
       { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
     ],
   },
@@ -193,9 +148,9 @@ export const ADMIN_ROUTES: AdminRouteSection[] = ADMIN_HUBS.map((hub) => ({
 }));
 
 /** True when a route with these allowedRoles may be shown to `role`. */
-export function isRoleAllowed(allowedRoles: UserRole[] | undefined, role: UserRole | undefined): boolean {
+export function isRoleAllowed(allowedRoles: readonly UserRole[] | undefined, role: UserRole | undefined): boolean {
   if (!allowedRoles) return true;
-  return !!role && allowedRoles.includes(role);
+  return !!role && (allowedRoles as readonly string[]).includes(role);
 }
 
 /**
@@ -226,7 +181,7 @@ export function getVisibleHubs(role: UserRole | undefined): AdminHub[] {
  * Roles allowed on `pathname`: those of the longest matching route prefix,
  * or null when no gated route matches (no per-page gate).
  */
-export function getAllowedRoles(pathname: string): UserRole[] | null {
+export function getAllowedRoles(pathname: string): readonly UserRole[] | null {
   let best: AdminSubRoute | undefined;
   for (const hub of ADMIN_HUBS) {
     for (const route of hub.subRoutes) {

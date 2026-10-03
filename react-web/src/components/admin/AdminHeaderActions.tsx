@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
-import type { UserRole } from "@/lib/user-types";
+import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
 
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
-
-// Mirrors @Roles on GET /campaigns (campaign.controller.ts).
-const CAMPAIGN_READER_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL"];
 
 /**
  * The active campaign, or undefined when there is none or the user's role
@@ -19,7 +16,7 @@ const CAMPAIGN_READER_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "S
  */
 export function useActiveCampaign() {
   const user = useAuthStore((s) => s.user);
-  const canReadCampaigns = !!user && CAMPAIGN_READER_ROLES.includes(user.role);
+  const canReadCampaigns = hasRole(user?.role, CAMPAIGN_ROLES);
   const query = useQuery({
     queryKey: ["campaigns", "ACTIVE"],
     queryFn: () => listCampaigns("ACTIVE"),

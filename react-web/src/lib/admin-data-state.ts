@@ -24,6 +24,7 @@
 //     wired into a per-actor figure.
 
 import { ApiError } from "./api-client";
+import { NATIONAL_ROLES, hasRole } from "./roles";
 
 /** Neutral marker for a field the system holds no value for. */
 export const NOT_PROVIDED = "—";
@@ -37,7 +38,7 @@ export const METRIC_UNAVAILABLE = "Données non disponibles";
 /**
  * Backend endpoints that return platform-wide figures with no territorial
  * filter. Their values are only truthful for an actor whose authorised scope
- * *is* national (SUPER_ADMIN / SUPER_ADMIN_* / CENTRAL).
+ * *is* national (SUPER_ADMIN / ADMIN_ONEFOP).
  *
  * - GET /audit/reports (src/report/audit.controller.ts — platform-wide
  *   by design, which is why it is restricted to the super-admin and auditor
@@ -50,17 +51,7 @@ export const UNSCOPED_ENDPOINTS = [
   "/audit/reports",
 ] as const;
 
-/** Statutory roles whose authorized scope is platform-wide (national). */
-export const NATIONAL_ROLES: readonly string[] = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-  "DATA_MANAGER",
-  "CAMPAIGN_MANAGER",
-  "ANALYST",
-  "AUDITOR",
-];
+export { NATIONAL_ROLES } from "./roles";
 
 export interface UserScopeCandidate {
   role?: string | null;
@@ -70,20 +61,20 @@ export interface UserScopeCandidate {
 
 /**
  * Determine the honest territorial scope label for an authenticated user.
- * Never widens an unassigned REGIONAL or DIVISIONAL account to "National".
+ * Never widens an unassigned REGIONAL_ADMIN or DIVISIONAL_ADMIN account to "National".
  */
 export function computeUserScopeLabel(user: UserScopeCandidate | null | undefined): string {
   if (!user || !user.role) return NOT_PROVIDED;
-  if (user.role === "DIVISIONAL") {
+  if (user.role === "DIVISIONAL_ADMIN") {
     if (user.department) return `Département ${user.department}`;
     if (user.region) return `Région ${user.region}`;
     return "Départemental (non assigné)";
   }
-  if (user.role === "REGIONAL") {
+  if (user.role === "REGIONAL_ADMIN") {
     if (user.region) return `Région ${user.region}`;
     return "Régional (non assigné)";
   }
-  if (NATIONAL_ROLES.includes(user.role)) {
+  if (hasRole(user.role, NATIONAL_ROLES)) {
     return "National";
   }
   return user.department

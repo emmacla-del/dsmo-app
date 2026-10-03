@@ -5,24 +5,12 @@ import { useTranslations } from "next-intl";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { CampaignManagement } from "@/components/admin/CampaignManagement";
 import { SendNotificationForm } from "@/components/admin/SendNotificationForm";
-import type { UserRole } from "@/lib/user-types";
+import { SETTINGS_ROLES } from "@/lib/roles";
 
-// Matches home_screen.dart: only the full SUPER_ADMIN role gets a
-// "Communication" nav entry — stream-scoped admins keep a bare
-// "Notifications" tab instead (see communication_screen.dart's own
-// comment: "Only used by the full SUPER_ADMIN role"). The campaign
-// endpoints themselves also allow SUPER_ADMIN_DSMO/SUPER_ADMIN_ONEFOP/
-// CENTRAL server-side, but Flutter's shipped nav is the reference here,
-// same as annuaire/notifications/declarations-dsmo's guards.
-const COMMUNICATION_ROLES: UserRole[] = ["SUPER_ADMIN"];
-
-/**
- * Faithful port of communication_screen.dart: merges campaign management
- * and the notification composer behind one "Communication" nav entry.
- */
+// Matches home_screen.dart: only SUPER_ADMIN gets a "Communication" nav entry.
 export default function CommunicationPage() {
   const t = useTranslations();
-  const { isLoading, forbidden } = useAdminScreenGuard(COMMUNICATION_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(SETTINGS_ROLES);
   const [tab, setTab] = useState<"campaigns" | "notifications">("campaigns");
 
   if (isLoading) return <p>{t("common.loading")}</p>;

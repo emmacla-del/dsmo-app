@@ -588,6 +588,52 @@ class AppLocalizationsFr extends AppLocalizations {
   String get registerStepTitleReview => 'Récapitulatif';
 
   @override
+  String registerStepProgress(int current, int total, String title) {
+    return 'Étape $current sur $total - $title';
+  }
+
+  @override
+  String get registerLeaveTitle => 'Quitter l\'inscription ?';
+
+  @override
+  String get registerLeaveMessage => 'Votre brouillon est enregistré.';
+
+  @override
+  String get registerLeaveConfirm => 'Quitter';
+
+  @override
+  String get registerLeaveCancel => 'Continuer';
+
+  @override
+  String get registerCertificationCheckbox =>
+      'Je certifie sur l\'honneur l\'exactitude des informations fournies.';
+
+  @override
+  String get registerEntityTypeChangeDialogTitle =>
+      'Changer le type d\'entité ?';
+
+  @override
+  String get registerEntityTypeChangeDialogMessage =>
+      'Changer le type d\'entité effacera les informations saisies à l\'étape 3. Continuer ?';
+
+  @override
+  String get registerEntityTypeChangeDialogConfirm => 'Changer';
+
+  @override
+  String get registerEntityTypeChangeDialogCancel => 'Annuler';
+
+  @override
+  String get registerEntityTypeChangedSnackbar =>
+      'Informations de l\'entité réinitialisées';
+
+  @override
+  String get registerTerritoryResetSnackbar =>
+      'Département et arrondissement réinitialisés';
+
+  @override
+  String get registerSectionModifierButton => 'Modifier';
+
+  @override
   String get registerEntitySubtitleEnterprise =>
       'Société commerciale, SA, SARL, établissement à but lucratif.';
 
