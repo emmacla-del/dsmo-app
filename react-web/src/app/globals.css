@@ -779,6 +779,63 @@ body {
   }
 }
 
+/* The cascade affordance on the location step. It used to be a separate flex
+   sibling of the .field with a marginTop: 28px tuned by hand to the height of
+   a stacked label -- which broke the moment a label wrapped, and would break
+   again under the side-by-side grid below. Folded into the label instead, so it
+   tracks the label in both layouts with no offset at all, and inherits the
+   label's colour, which is what greys it out while the parent select is
+   still empty. */
+.cam-auth-page .cascade-arrow {
+  margin-right: var(--cam-space-1);
+  font-weight: 400;
+  user-select: none;
+}
+
+/* ── Side-by-side field layout, >=1024px ──
+   Label left of its input on one row; hint, error and status text sit under the
+   input, aligned to the input column rather than hanging under the label.
+
+   Scoped to .card-body-scroll rather than .form-single-column: the location
+   step builds its own inline flex columns and never uses that class, so
+   scoping to it would have left step 4 stacked while steps 2, 3 and 5 went
+   side-by-side. .card-body-scroll reaches every field in steps 2-5 and
+   naturally excludes step 1's radio list (a <fieldset> of <label> rows, no
+   .field), the review tables, and the card header and footer.
+
+   Below 1024px nothing here applies and the stacked layout is untouched, as
+   are login, forgot-password and verify-email -- the global label rule at the
+   top of this file is overridden here, never edited. */
+@media (min-width: 1024px) {
+  .cam-auth-page--wizard .card-body-scroll .field {
+    display: grid;
+    grid-template-columns: var(--cam-field-label-col) minmax(0, 1fr);
+    column-gap: var(--cam-field-label-gap);
+    align-items: start;
+  }
+
+  /* Overrides the global .cam-auth-page label rule's display: block and
+     margin-bottom: 6px for this layout only. */
+  .cam-auth-page--wizard .card-body-scroll .field > label {
+    display: block;
+    margin-bottom: 0;
+    padding-top: var(--cam-field-label-pad-top);
+    text-align: left;
+    grid-column: 1;
+  }
+
+  /* Everything that is not the label belongs to the input column: .input-row
+     (which wraps every input and select in the flow and carries the
+     position: relative the password eye-toggle depends on), the password
+     strength meter, and the aria-live status regions. Matching on :not(label)
+     rather than naming each class means a field gaining another sub-element
+     lands in the right column without a CSS change. */
+  .cam-auth-page--wizard .card-body-scroll .field > *:not(label) {
+    grid-column: 2;
+    min-width: 0;
+  }
+}
+
 /* Single-column responsive field layout */
 .cam-auth-page .form-single-column {
   display: flex;

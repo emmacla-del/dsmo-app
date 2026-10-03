@@ -143,6 +143,17 @@
      which is unreadable and reads as unfinished rather than official. */
   --cam-container-wizard: 720px;
 
+  /* ── Side-by-side field layout (>=1024px) ──
+     The label column is fixed so every label/input boundary in a step lines up
+     into one vertical rule; the input column takes the rest. pad-top is the
+     input's own top padding (10px) plus its 1px border, which is what puts the
+     label's first line on the same optical line as the typed value. The 1024px
+     breakpoint itself has to stay a literal in the @media rule -- custom
+     properties are not usable in media queries. */
+  --cam-field-label-col: 220px;
+  --cam-field-label-gap: var(--cam-space-5);
+  --cam-field-label-pad-top: 11px;
+
   /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,
      TableRenderer's grids, VT tables, activities table, guided-mode live

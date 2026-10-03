@@ -940,12 +940,10 @@ export default function RegisterPage() {
                       </div>
                     </div>
 
-                    <div style={{ marginTop: "12px", display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                      <span style={{ fontSize: "16px", color: !regionId ? "#cbd5e1" : "#64748b", marginTop: "28px", userSelect: "none" }} aria-hidden="true">
-                        ↳
-                      </span>
-                      <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+                    <div style={{ marginTop: "var(--cam-space-3)" }}>
+                      <div className="field" style={{ marginBottom: 0 }}>
                         <label htmlFor="reg-department" style={{ color: !regionId ? "var(--cam-text-muted)" : undefined }}>
+                          <span className="cascade-arrow" aria-hidden="true">↳</span>
                           {t("registerPage.departmentLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
                         </label>
                         <div className="input-row">
@@ -974,12 +972,10 @@ export default function RegisterPage() {
                       </div>
                     </div>
 
-                    <div style={{ marginTop: "12px", display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                      <span style={{ fontSize: "16px", color: !departmentId ? "#cbd5e1" : "#64748b", marginTop: "28px", userSelect: "none" }} aria-hidden="true">
-                        ↳
-                      </span>
-                      <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+                    <div style={{ marginTop: "var(--cam-space-3)" }}>
+                      <div className="field" style={{ marginBottom: 0 }}>
                         <label htmlFor="reg-subdivision" style={{ color: !departmentId ? "var(--cam-text-muted)" : undefined }}>
+                          <span className="cascade-arrow" aria-hidden="true">↳</span>
                           {t("registerPage.subdivisionLabel")} <span style={{ color: "var(--cam-error)" }}>*</span>
                         </label>
                         <div className="input-row">
