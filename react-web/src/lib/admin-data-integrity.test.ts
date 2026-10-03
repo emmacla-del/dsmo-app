@@ -364,7 +364,6 @@ test("pilotage data rules: zero submissions in territorial queues is preserved a
     totalSubmissionsCount: 0,
     statisticallyReadyCount: 0,
     approvedCount: 0,
-    pendingRegionalVisasCount: 0,
     pendingNationalVisasCount: 0,
     regionCounts: [],
   };

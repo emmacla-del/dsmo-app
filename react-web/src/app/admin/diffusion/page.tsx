@@ -217,6 +217,15 @@ export default function DiffusionPage() {
     }
   }, [campaignsQuery.data, selectedCampaign]);
 
+  // The <select> carries code || name || id (that is what the filename and the
+  // scope label show), so the campaign's real id has to be resolved back out
+  // of the list: the backend filter is OnefopSubmission.campaignId.
+  const selectedCampaignId = useMemo(() => {
+    const campaigns = campaignsQuery.data ?? [];
+    const match = campaigns.find((c) => (c.code || c.name || c.id) === selectedCampaign);
+    return match?.id ?? null;
+  }, [campaignsQuery.data, selectedCampaign]);
+
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("APPROVED");
 
@@ -319,7 +328,12 @@ export default function DiffusionPage() {
     if (selectedRegion && selectedRegion !== "Toutes") filters.region = selectedRegion;
     if (selectedDepartment) filters.department = selectedDepartment;
     if (selectedEntityType) filters.entityType = selectedEntityType;
+    // campaignId is the one the export actually filters on
+    // (buildOnefopExportWhere); `campaign` is kept alongside it because it
+    // carries the human-readable code that formatExportScope renders in the
+    // export history. Sending only the id would show a UUID there.
     if (selectedCampaign) filters.campaign = selectedCampaign;
+    if (selectedCampaignId) filters.campaignId = selectedCampaignId;
     if (selectedStatus === "APPROVED") {
       filters.statuses = ["APPROVED"];
     } else if (selectedStatus === "PENDING_REVIEW") {
@@ -328,7 +342,7 @@ export default function DiffusionPage() {
       filters.statuses = ["REJECTED"];
     }
     return filters;
-  }, [selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedStatus]);
+  }, [selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedCampaignId, selectedStatus]);
 
   const triggerFileDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);

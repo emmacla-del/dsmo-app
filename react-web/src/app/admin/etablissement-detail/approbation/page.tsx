@@ -14,7 +14,8 @@ import { NOT_PROVIDED, fact, resolveDataState, stamp } from "@/lib/admin-data-st
 import { NATIONAL_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
 // Fails closed: a role that has not loaded is not authorised.
-// Read: GET /dsmo/companies is SUPER_ADMIN/ADMIN_ONEFOP (NATIONAL_ROLES).
+// Read: GET /companies is DIRECTORY_ROLES, territory-scoped server-side;
+// this screen is gated to NATIONAL_ROLES.
 // Decide: SUPER_ADMIN alone (SETTINGS_ROLES membership).
 
 type Decision = "approve" | "reject" | "complements";
@@ -55,7 +56,7 @@ function Approbation() {
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   /**
-   * Source: GET /dsmo/companies?search=<id>, matched exactly on
+   * Source: GET /companies?search=<id>, matched exactly on
    * establishmentId or registrationNumber. `null` means no such establishment;
    * there is no template record, so nothing is inherited from another company.
    */

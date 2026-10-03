@@ -389,14 +389,12 @@ export default function PilotagePage() {
     ? (stats.totals?.companies ?? stats.totalCompanies ?? null)
     : null;
 
-  const regionalCount = queues ? queues.pendingRegionalVisasCount : null;
   const nationalCount = !isTerritorial && queues ? queues.pendingNationalVisasCount : null;
   const readyCount = queues ? queues.statisticallyReadyCount : null;
 
   const pipeline = [
     { label: "Inscriptions", value: totalInscriptions, highlighted: false },
     { label: "Déclarations", value: totalSubmissions, highlighted: true },
-    { label: "Contrôle régional", value: regionalCount, highlighted: true },
     { label: "Supervision nationale", value: nationalCount, highlighted: false },
     { label: "Approuvées", value: statusApproved, highlighted: false },
     { label: "Exportables", value: readyCount, highlighted: false },
@@ -404,9 +402,7 @@ export default function PilotagePage() {
 
   // 4 "À TRAITER" tiles: null renders "—" when no dedicated metric exists yet
   const inscriptionsPending = null;
-  const declarationsReview = queues
-    ? (queues.pendingNationalVisasCount ?? 0) + (queues.pendingRegionalVisasCount ?? 0)
-    : null;
+  const declarationsReview = queues ? (queues.pendingNationalVisasCount ?? 0) : null;
   const correctionsCount = queues ? queues.correctionsUnderReviewCount : null;
   const anomaliesCount = queues ? queues.blockingAnomaliesCount : null;
 

@@ -56,7 +56,7 @@ const SECTORS = [
 /**
  * One establishment row.
  *
- * Every field is mapped from a GET /dsmo/companies record. Fields the record
+ * Every field is mapped from a GET /companies record. Fields the record
  * does not carry stay `null` and render as an em dash. There is deliberately
  * no `creePar`: nothing on the Company model records who created the account
  * (docs/admin-data-integrity-inventory.md), so the column was removed rather
@@ -131,7 +131,7 @@ export default function EtablissementsPage() {
 
   /**
    * Total establishments.
-   * Sourced directly from GET /dsmo/companies/stats (or GET /data-management/stats).
+   * Sourced directly from GET /companies/stats (or GET /data-management/stats).
    */
   const totalEtablissements = companyStats?.total ?? stats?.totals?.companies ?? stats?.totalCompanies ?? null;
 
@@ -165,7 +165,7 @@ export default function EtablissementsPage() {
   /**
    * Client-side narrowing of the rows the server returned.
    *
-   * `/dsmo/companies` supports only `search`, so type / region / status are
+   * `/companies` supports only `search`, so type / region / status are
    * applied here. That means these three filters narrow the *current page*,
    * which is why the row count below is reported as "N sur cette page" and the
    * server total is reported separately — the two are never conflated.
@@ -336,7 +336,7 @@ export default function EtablissementsPage() {
         </div>
       </div>
 
-      {/* Register volume. Authoritative metrics sourced from GET /dsmo/companies/stats. */}
+      {/* Register volume. Authoritative metrics sourced from GET /companies/stats. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
