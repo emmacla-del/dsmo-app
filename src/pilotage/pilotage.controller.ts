@@ -8,17 +8,17 @@ import { territoryFromUser } from '../auth/territory';
 import { PilotageService } from './pilotage.service';
 
 export const PILOTAGE_WRITE_ROLES = [
-  UserRole.CENTRAL,
+  UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
-  UserRole.SUPER_ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP,
 ] as const;
 
 export const PILOTAGE_READ_ROLES = [
-  UserRole.CENTRAL,
+  UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
-  UserRole.SUPER_ADMIN_ONEFOP,
-  UserRole.REGIONAL,
-  UserRole.DIVISIONAL,
+  UserRole.ADMIN_ONEFOP,
+  UserRole.REGIONAL_ADMIN,
+  UserRole.DIVISIONAL_ADMIN,
 ] as const;
 
 @Controller('admin/pilotage')

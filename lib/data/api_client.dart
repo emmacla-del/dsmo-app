@@ -709,9 +709,11 @@ class ApiClient {
     try {
       final response = await dio.patch('/system-settings', data: {
         if (passwordMinLength != null) 'passwordMinLength': passwordMinLength,
-        if (require2FAForStaff != null) 'require2FAForStaff': require2FAForStaff,
+        if (require2FAForStaff != null)
+          'require2FAForStaff': require2FAForStaff,
         if (maintenanceMode != null) 'maintenanceMode': maintenanceMode,
-        if (maintenanceMessage != null) 'maintenanceMessage': maintenanceMessage,
+        if (maintenanceMessage != null)
+          'maintenanceMessage': maintenanceMessage,
       });
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
@@ -730,7 +732,7 @@ class ApiClient {
     int pageSize = 20,
   }) async {
     try {
-      final response = await dio.get('/dsmo/companies', queryParameters: {
+      final response = await dio.get('/companies', queryParameters: {
         if (search != null && search.isNotEmpty) 'search': search,
         'page': page,
         'pageSize': pageSize,
@@ -903,8 +905,8 @@ class ApiClient {
   Future<List<Map<String, dynamic>>> getLandingConfigHistory() async {
     try {
       final response = await dio.get('/admin/landing-config/history');
-      return List<Map<String, dynamic>>.from(
-          (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)));
+      return List<Map<String, dynamic>>.from((response.data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map)));
     } on DioException catch (e) {
       throw ApiException(
         statusCode: e.response?.statusCode,
@@ -1455,9 +1457,8 @@ class ApiClient {
         data: data,
         options: Options(
           responseType: ResponseType.bytes,
-          headers: languageCode == null
-              ? null
-              : {'Accept-Language': languageCode},
+          headers:
+              languageCode == null ? null : {'Accept-Language': languageCode},
         ),
       );
       return response.data;
@@ -1563,7 +1564,8 @@ class ApiClient {
   /// URL is a Supabase signed link that expires after 7 days
   /// (PdfService.signedUrlExpirySeconds), so opening it directly once a
   /// declaration is older than that fails with an expired-token error.
-  Future<List<int>> getDeclarationPdf(String declarationId, {int copy = 1}) async {
+  Future<List<int>> getDeclarationPdf(String declarationId,
+      {int copy = 1}) async {
     try {
       final response = await dio.get(
         '/dsmo/declarations/$declarationId/pdf/$copy',
@@ -1589,9 +1591,8 @@ class ApiClient {
         '/onefop/submissions/$submissionId/pdf',
         options: Options(
           responseType: ResponseType.bytes,
-          headers: languageCode == null
-              ? null
-              : {'Accept-Language': languageCode},
+          headers:
+              languageCode == null ? null : {'Accept-Language': languageCode},
         ),
       );
       return response.data;
@@ -1738,8 +1739,8 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> rejectQuestionnaire(
-      String id, String reason, {required bool certified}) async {
+  Future<Map<String, dynamic>> rejectQuestionnaire(String id, String reason,
+      {required bool certified}) async {
     try {
       final response = await dio.patch('/admin/questionnaires/$id/reject',
           data: {'reason': reason, 'certified': certified});
@@ -1752,8 +1753,8 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> requestCorrection(
-      String id, String comments, {required bool certified}) async {
+  Future<Map<String, dynamic>> requestCorrection(String id, String comments,
+      {required bool certified}) async {
     try {
       final response = await dio.patch(
           '/admin/questionnaires/$id/request-correction',

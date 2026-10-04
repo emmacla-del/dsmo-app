@@ -275,7 +275,7 @@ describe('TerritoryResolver', () => {
 
   describe('resolveStaffTerritory', () => {
     it('resolves REGIONAL staff territory with canonical name and null department', async () => {
-      const res = await resolveStaffTerritory(mockPrisma, 'REGIONAL', {
+      const res = await resolveStaffTerritory(mockPrisma, 'REGIONAL_ADMIN', {
         region: 'centre',
         department: 'anything',
       });
@@ -287,12 +287,12 @@ describe('TerritoryResolver', () => {
 
     it('rejects REGIONAL staff missing region', async () => {
       await expect(
-        resolveStaffTerritory(mockPrisma, 'REGIONAL', { region: '' }),
+        resolveStaffTerritory(mockPrisma, 'REGIONAL_ADMIN', { region: '' }),
       ).rejects.toThrow('Les utilisateurs régionaux doivent avoir une région assignée');
     });
 
     it('resolves DIVISIONAL staff territory with canonical names', async () => {
-      const res = await resolveStaffTerritory(mockPrisma, 'DIVISIONAL', {
+      const res = await resolveStaffTerritory(mockPrisma, 'DIVISIONAL_ADMIN', {
         region: 'littoral',
         department: 'wouri',
       });
@@ -304,18 +304,18 @@ describe('TerritoryResolver', () => {
 
     it('rejects DIVISIONAL staff missing department', async () => {
       await expect(
-        resolveStaffTerritory(mockPrisma, 'DIVISIONAL', { region: 'Centre', department: '' }),
+        resolveStaffTerritory(mockPrisma, 'DIVISIONAL_ADMIN', { region: 'Centre', department: '' }),
       ).rejects.toThrow('Les utilisateurs divisionnaires doivent avoir une région et un département assignés');
     });
 
     it('rejects DIVISIONAL staff with cross-region department mismatch', async () => {
       await expect(
-        resolveStaffTerritory(mockPrisma, 'DIVISIONAL', { region: 'Centre', department: 'Wouri' }),
+        resolveStaffTerritory(mockPrisma, 'DIVISIONAL_ADMIN', { region: 'Centre', department: 'Wouri' }),
       ).rejects.toThrow("Le département 'Wouri' n'appartient pas à la région 'Centre' (il appartient à la région 'Littoral').");
     });
 
     it('clears territory for non-territorial staff (e.g. CENTRAL)', async () => {
-      const res = await resolveStaffTerritory(mockPrisma, 'CENTRAL', {
+      const res = await resolveStaffTerritory(mockPrisma, 'ADMIN_ONEFOP', {
         region: 'Centre',
         department: 'Mfoundi',
       });

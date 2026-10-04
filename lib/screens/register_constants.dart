@@ -32,25 +32,26 @@ InputDecoration modernInput({
     suffixText: suffixText,
     suffixStyle: suffixStyle,
     isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
     filled: true,
     fillColor: hasError ? PublicColors.redFaint : PublicColors.gray100,
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: PublicColors.gray200)),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: PublicColors.gray200, width: 1.5)),
     enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(
-            color: hasError ? PublicColors.red : PublicColors.gray200)),
+            color: hasError ? PublicColors.red : PublicColors.gray200,
+            width: 1.5)),
     focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: PublicColors.green, width: 2)),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: PublicColors.green, width: 1.5)),
     errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: PublicColors.red)),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: PublicColors.red, width: 1.5)),
     focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: PublicColors.red, width: 2)),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: PublicColors.red, width: 1.5)),
   );
 }
 

@@ -122,7 +122,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   if (!activeHub) return null;
 
   // Filter sub-routes strictly by user role permissions
-  const allowedSubRoutes = activeHub.subRoutes.filter((sub) => isRoleAllowed(sub.allowedRoles, role));
+  const allowedSubRoutes = activeHub.subRoutes.filter((sub) => !sub.hidden && isRoleAllowed(sub.allowedRoles, role));
   if (allowedSubRoutes.length <= 1) return null;
 
   const pendingCount =

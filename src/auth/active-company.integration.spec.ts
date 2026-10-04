@@ -156,13 +156,13 @@ describe('ActiveCompanyGuard Integration / End-to-End Route Behavior', () => {
     it('passes staff roles through untouched without checking status or isActive', () => {
       for (const role of [
         UserRole.SUPER_ADMIN,
-        UserRole.SUPER_ADMIN_ONEFOP,
-        UserRole.SUPER_ADMIN_DSMO,
-        UserRole.CENTRAL,
-        UserRole.REGIONAL,
-        UserRole.DIVISIONAL,
-        UserRole.DATA_MANAGER,
-        UserRole.ANALYST,
+        UserRole.ADMIN_ONEFOP,
+        UserRole.SUPER_ADMIN,
+        UserRole.ADMIN_ONEFOP,
+        UserRole.REGIONAL_ADMIN,
+        UserRole.DIVISIONAL_ADMIN,
+        UserRole.ADMIN_ONEFOP,
+        UserRole.ADMIN_ONEFOP,
         UserRole.AUDITOR,
       ]) {
         const ctx = createMockExecutionContext(OnefopController, handler, {
@@ -289,7 +289,7 @@ describe('ActiveCompanyGuard Integration / End-to-End Route Behavior', () => {
       });
 
       it('5. allows Staff roles (REGIONAL and CENTRAL) regardless of user status → 200', async () => {
-        for (const role of [UserRole.REGIONAL, UserRole.CENTRAL]) {
+        for (const role of [UserRole.REGIONAL_ADMIN, UserRole.ADMIN_ONEFOP]) {
           const res = await invokeRoute(
             questionnairesController,
             'submit',
@@ -366,7 +366,7 @@ describe('ActiveCompanyGuard Integration / End-to-End Route Behavior', () => {
       });
 
       it('5. allows Staff roles (REGIONAL and CENTRAL) regardless of user status → 200', async () => {
-        for (const role of [UserRole.REGIONAL, UserRole.CENTRAL]) {
+        for (const role of [UserRole.REGIONAL_ADMIN, UserRole.ADMIN_ONEFOP]) {
           const res = await invokeRoute(
             dsmoController,
             'submitDeclaration',

@@ -316,8 +316,6 @@ export class EligibilityEngineService {
       totalSubmissionsCount,
       blockingAnomaliesCount,
       pendingNationalVisasCount,
-      pendingRegionalVisasCount: 0, // Always 0 — single-tier approval model, no waiting state.
-      pendingDivisionalVisasCount: 0, // Always 0 — single-tier approval model, no waiting state.
       correctionsUnderReviewCount,
       statisticallyReadyCount,
       statusCounts,
@@ -498,7 +496,7 @@ export class EligibilityEngineService {
 
     // Strict Authorization check on LEGAL_DEROGATION
     if (dto.resolutionType === AnomalyResolutionType.LEGAL_DEROGATION) {
-      const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP, UserRole.CENTRAL];
+      const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP];
       if (!allowedRoles.includes(actor.role)) {
         throw new ForbiddenException(
           'Seule la Direction Centrale ONEFOP ou le SuperAdmin National peut accorder une dispense légale (WAIVED).'

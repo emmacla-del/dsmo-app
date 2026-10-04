@@ -2,99 +2,77 @@
 
 import { useTranslations } from "next-intl";
 
-interface StepItem {
-  id: string;
-  labelKey:
-    | "stepEntityType"
-    | "stepRespondent"
-    | "stepEntityInfo"
-    | "stepLocation"
-    | "stepSecurity"
-    | "stepReview";
-}
-
-const REGISTRATION_STEPS: StepItem[] = [
-  { id: "entityType", labelKey: "stepEntityType" },
-  { id: "respondent", labelKey: "stepRespondent" },
-  { id: "entityInfo", labelKey: "stepEntityInfo" },
-  { id: "location", labelKey: "stepLocation" },
-  { id: "security", labelKey: "stepSecurity" },
-  { id: "review", labelKey: "stepReview" },
-];
+// Shared with app/register/page.tsx: this rail used to carry its own copy of
+// the step list, which nothing kept in step with the page's navigation order.
+import { REGISTRATION_STEPS } from "@/lib/register-constants";
 
 interface RegistrationProgressProps {
-  currentStep: string;
-  totalSteps?: number;
+  // Index of the section the respondent is working in.
+  currentIndex: number;
+  // Per-section completeness, same order as REGISTRATION_STEPS. A section's
+  // badge shows a checkmark from this, not from "is behind the cursor": on a
+  // single-page flow the respondent can be editing section 2 while 4 is
+  // already answered, and the rail has to say so.
+  completed: readonly boolean[];
 }
 
-export function RegistrationProgress({ currentStep }: RegistrationProgressProps) {
+export function RegistrationProgress({ currentIndex, completed }: RegistrationProgressProps) {
   const t = useTranslations("registerPage");
-  const currentIdx = REGISTRATION_STEPS.findIndex((s) => s.id === currentStep);
-  const activeIdx = currentIdx >= 0 ? currentIdx : 0;
-  const currentItem = REGISTRATION_STEPS[activeIdx] || REGISTRATION_STEPS[0];
+  const total = REGISTRATION_STEPS.length;
+  const activeIdx = Math.min(Math.max(currentIndex, 0), total - 1);
+  const currentItem = REGISTRATION_STEPS[activeIdx];
+
+  function stateClass(idx: number): string {
+    if (completed[idx]) return "is-completed";
+    if (idx === activeIdx) return "is-current";
+    return "is-upcoming";
+  }
 
   return (
-    <div aria-label={t("stepIndicator", { current: activeIdx + 1, total: REGISTRATION_STEPS.length })} style={{ marginBottom: "20px" }}>
-      {/* Desktop segmented track with connecting lines */}
-      <div className="progress-rail-desktop" role="list">
-        {REGISTRATION_STEPS.map((s, idx) => {
-          const isCompleted = idx < activeIdx;
-          const isCurrent = idx === activeIdx;
-          const stateClass = isCompleted ? "is-completed" : isCurrent ? "is-current" : "";
+    <div className="registration-progress">
+      {/* The one line that always says where the respondent is. Announced on
+          change, because on a scrolling single-page flow the rail is the only
+          thing that reports the move from one section to the next. */}
+      <p className="progress-caption" aria-live="polite">
+        {t("stepIndicator", { current: activeIdx + 1, total })}
+        {" — "}
+        {t(currentItem.labelKey)}
+      </p>
 
-          return (
-            <div
-              key={s.id}
-              className={`progress-step-item ${stateClass}`}
-              role="listitem"
-              aria-current={isCurrent ? "step" : undefined}
-            >
-              <div className="progress-step-circle" aria-hidden="true">
-                {isCompleted ? (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  idx + 1
-                )}
-              </div>
-              <span className="progress-step-label">
-                {t(s.labelKey)}
-              </span>
+      {/* Wide: numbered badges with their section names. */}
+      <div
+        className="progress-rail-desktop"
+        role="list"
+        aria-label={t("stepIndicator", { current: activeIdx + 1, total })}
+      >
+        {REGISTRATION_STEPS.map((s, idx) => (
+          <div
+            key={s.id}
+            className={`progress-step-item ${stateClass(idx)}`}
+            role="listitem"
+            aria-current={idx === activeIdx ? "step" : undefined}
+          >
+            <div className="progress-step-circle" aria-hidden="true">
+              {completed[idx] ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                idx + 1
+              )}
             </div>
-          );
-        })}
+            <span className="progress-step-label">{t(s.labelKey)}</span>
+          </div>
+        ))}
       </div>
 
-      {/* Mobile compact progress bar */}
-      <div className="progress-rail-mobile">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--cam-green-dark)" }}>
-            {t("stepIndicator", { current: activeIdx + 1, total: REGISTRATION_STEPS.length })}
-          </span>
-          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--cam-text-muted)" }}>
-            {t(currentItem.labelKey)}
-          </span>
-        </div>
-        <div
-          style={{
-            height: "4px",
-            width: "100%",
-            background: "var(--cam-border)",
-            borderRadius: "var(--cam-radius-full)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${((activeIdx + 1) / REGISTRATION_STEPS.length) * 100}%`,
-              background: "var(--cam-green)",
-              borderRadius: "var(--cam-radius-full)",
-              transition: "width 0.25s ease-in-out",
-            }}
-          />
-        </div>
+      {/* Narrow: the same six states as discrete segments. Replaces a single
+          filled bar, which could only express "how far along" and never which
+          sections were actually answered. */}
+      <div className="progress-segments" aria-hidden="true">
+        {REGISTRATION_STEPS.map((s, idx) => (
+          <span key={s.id} className={`progress-segment ${stateClass(idx)}`} />
+        ))}
       </div>
     </div>
   );

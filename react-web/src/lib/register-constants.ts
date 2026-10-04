@@ -15,13 +15,28 @@ export type EntityType =
   | "projectProgram"
   | "vocationalTraining";
 
-// Progressive classification: Public vs Private status filter for Step 1
-export type InstitutionStatus = "public" | "private";
+// The wizard's step sequence, owned here because it had two independent
+// copies: STEPS in app/register/page.tsx (navigation order) and
+// REGISTRATION_STEPS in components/auth/RegistrationProgress.tsx (rail
+// labels). They happened to agree, but nothing enforced it, and a drift would
+// have surfaced as a mislabeled or skipped circle rather than a type error.
+//
+// `id` is what page.tsx navigates by; `labelKey` resolves against next-intl's
+// registerPage namespace.
+export const REGISTRATION_STEPS = [
+  { id: "entityType", labelKey: "stepEntityType" },
+  { id: "respondent", labelKey: "stepRespondent" },
+  { id: "entityInfo", labelKey: "stepEntityInfo" },
+  { id: "location", labelKey: "stepLocation" },
+  { id: "security", labelKey: "stepSecurity" },
+  { id: "review", labelKey: "stepReview" },
+] as const;
 
-export const ENTITY_TYPES_BY_STATUS: Record<InstitutionStatus, EntityType[]> = {
-  public: ["administration", "ctd", "projectProgram", "vocationalTraining"],
-  private: ["enterprise", "cooperative", "ong", "vocationalTraining"],
-};
+export type RegistrationStepId = (typeof REGISTRATION_STEPS)[number]["id"];
+
+// Ordered ids alone, for the index arithmetic in goNext/goBack.
+export const REGISTRATION_STEP_IDS: readonly RegistrationStepId[] =
+  REGISTRATION_STEPS.map((step) => step.id);
 
 // Backend wire value (RegisterCompanyDto.entityType / normalizeEntityType()
 // in questionnaires.service.ts) — distinct from the schema-registry spelling
@@ -253,6 +268,67 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
 };
 
+// Drops the entity fields that do not belong to `nextType` when the respondent
+// changes their structure type mid-flow, keeping the values of fields the new
+// type also declares (address, phone, phone2, poBox and the like).
+//
+// This matters beyond tidiness: submit() builds RegisterCompanyPayload from a
+// fixed flat list of entityData keys spanning all seven types, with no filter
+// on the selected type, so an orphaned key is transmitted as though the
+// respondent had entered it. resolveCompanyName() compounds this — it returns
+// the first non-empty of companyName/cooperativeName/ctdName/ngoName/..., so a
+// stale companyName left over from "Entreprise" would outrank the ngoName an
+// ONG respondent actually typed.
+//
+// Mirrors register_screen.dart's StepEntityType onSelect, which clears
+// _entityData wholesale on type change; this keeps the shared fields instead of
+// making the respondent retype them.
+export function pruneEntityDataForType(
+  data: Record<string, string>,
+  nextType: EntityType
+): Record<string, string> {
+  const keep = new Set(ENTITY_CONFIGS[nextType].fields.map((f) => f.key));
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (keep.has(key)) next[key] = value;
+  }
+  return next;
+}
+
+// The submission-time counterpart to pruneEntityDataForType: that one drops
+// fields belonging to a *type* the respondent moved away from, this one drops
+// fields whose own dependsOn gate is currently closed.
+//
+// Both are needed because they fail differently. A respondent who sets a CFP's
+// functionalStatus to "Non-fonctionnelle", answers nonFunctionalReason and
+// nonFunctionalReasonOther, then corrects the status back to "Fonctionnelle"
+// leaves two orphaned children in entityData. isFieldVisible() hides them from
+// the form and from RegistrationReview, so the respondent sees a functional
+// centre -- but submit() read entityData raw, so the payload still carried a
+// reason for being non-functional. The review screen and the transmitted
+// record disagreed, silently, and the wrong one was the record.
+//
+// Deliberately general: it gates on isFieldVisible rather than naming the CFP
+// pair, so any dependsOn field added later is covered without a second fix.
+// Keys the type does not declare at all are dropped too, which makes the
+// payload correct even if a prune were ever missed upstream.
+export function visibleEntityDataForType(
+  data: Record<string, string>,
+  type: EntityType
+): Record<string, string> {
+  const fields = ENTITY_CONFIGS[type].fields;
+  const next: Record<string, string> = {};
+  for (const field of fields) {
+    const value = data[field.key];
+    if (value === undefined) continue;
+    // Gate against the raw data: a child's visibility depends on its parent's
+    // current value, not on the filtered copy being built here.
+    if (!isFieldVisible(field, data, fields)) continue;
+    next[field.key] = value;
+  }
+  return next;
+}
+
 // Mirrors EntityConfig.resolveCompanyName/resolveAddress/resolveMainActivity
 // in register_constants.dart: several entity types use a differently-named
 // field for what the backend's RegisterCompanyDto always calls
@@ -282,7 +358,7 @@ export function resolveAddress(data: Record<string, unknown>): string {
 }
 
 export function resolveMainActivity(data: Record<string, unknown>): string {
-  const candidates = [data.mainActivity, data.mainMission, data.trainingDomains];
+  const candidates = [data.mainActivity, data.mainMission];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return c;
   }

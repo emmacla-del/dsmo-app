@@ -171,9 +171,9 @@ export class OnefopService {
         if (filters.quarterCode) where.quarterCode = filters.quarterCode;
 
         // Role-based filtering
-        if (user.role === 'DIVISIONAL' && user.department) {
+        if (user.role === 'DIVISIONAL_ADMIN' && user.department) {
             where.department = user.department;
-        } else if (user.role === 'REGIONAL' && user.region) {
+        } else if (user.role === 'REGIONAL_ADMIN' && user.region) {
             where.region = user.region;
         } else if (user.role === 'COMPANY') {
             const company = await this.prisma.company.findFirst({ where: { userId: user.id } });
@@ -238,8 +238,8 @@ export class OnefopService {
     }
 
     /// A COMPANY user may only reach their own submissions — the other
-    /// roles listed on these endpoints (DIVISIONAL/REGIONAL/CENTRAL/
-    /// SUPER_ADMIN*) are trusted reviewer roles with no per-record scoping
+    /// roles listed on these endpoints (DIVISIONAL_ADMIN / REGIONAL_ADMIN /
+    /// ADMIN_ONEFOP / SUPER_ADMIN) are trusted reviewer roles with no scoping
     /// today, so this only tightens the newly-added COMPANY case.
     private async assertCanAccessSubmission(user: any, companyId: string) {
         if (user.role !== 'COMPANY') return;

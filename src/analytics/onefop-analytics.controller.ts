@@ -30,7 +30,7 @@ function toDate(val: any): Date | undefined {
 // which do derive companyId from the authenticated user server-side.
 @Controller('onefop-analytics')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-@Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP')
+@Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
 export class OnefopAnalyticsController {
     constructor(private readonly analytics: OnefopAnalyticsFacade) { }
 

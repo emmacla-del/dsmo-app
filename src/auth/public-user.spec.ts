@@ -28,7 +28,7 @@ function fullUser(): User {
     email: 'agent@minefop.cm',
     firstName: 'Marie',
     lastName: 'Ebanda',
-    role: 'DIVISIONAL',
+    role: 'DIVISIONAL_ADMIN',
     region: 'Centre',
     department: 'Mfoundi',
     isActive: true,
@@ -56,7 +56,7 @@ describe('public user allowlist', () => {
     for (const secret of SECRET_USER_FIELDS) {
       expect(out).not.toHaveProperty(secret);
     }
-    expect(out).toMatchObject({ id: 'u1', email: 'agent@minefop.cm', role: 'DIVISIONAL', region: 'Centre' });
+    expect(out).toMatchObject({ id: 'u1', email: 'agent@minefop.cm', role: 'DIVISIONAL_ADMIN', region: 'Centre' });
   });
 
   it('withholds columns it does not know about', () => {

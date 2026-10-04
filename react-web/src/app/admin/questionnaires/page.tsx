@@ -12,13 +12,12 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
 import { count, NOT_PROVIDED, METRIC_UNAVAILABLE } from "@/lib/admin-data-state";
+import { APPROVAL_ROLES } from "@/lib/roles";
 
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
 // The questionnaire structure is owned by the canonical AST
 // (lib/core/focus/compiler/onefop_ast.dart); this page reads the
 // generated public/schemas/onefop.schema.json for section counts and schema details.
-
-const SUBMISSION_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "DIVISIONAL"];
 
 // Generated schema entity key → OnefopSubmission.formType.
 const QUESTIONNAIRES: { schemaKey: string; formType: string }[] = [
@@ -44,7 +43,7 @@ function FileIcon() {
 
 export default function QuestionnairesPage() {
   const role = useAuthStore((s) => s.user?.role);
-  const canReadSubmissions = !!role && SUBMISSION_ROLES.includes(role);
+  const canReadSubmissions = !!role && APPROVAL_ROLES.includes(role);
   const schemaQuery = useOnefopSchema();
   const [selectedPreview, setSelectedPreview] = useState<{ schemaKey: string; formType: string } | null>(null);
 

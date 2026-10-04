@@ -26,12 +26,12 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
+import { AUDIT_ROLES, NATIONAL_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
-// GET /dsmo/companies is restricted to these roles server-side; the check here
-// fails closed, so a role that has not loaded yet is not treated as authorised.
-const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
-const ACCOUNT_ROLES = ["SUPER_ADMIN"];
-const AUDIT_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
+// GET /companies is restricted to DIRECTORY_ROLES server-side
+// (NATIONAL_ROLES); the check here fails closed, so a role that has not
+// loaded yet is not treated as authorised. Account management is SUPER_ADMIN
+// alone (SETTINGS_ROLES membership).
 
 const CARD: React.CSSProperties = {
   background: "#ffffff",
@@ -76,9 +76,9 @@ function EtablissementDetail() {
   const id = searchParams.get("id")?.trim() ?? "";
 
   const role = useAuthStore((s) => s.user?.role);
-  const canRead = !!role && DIRECTORY_ROLES.includes(role);
-  const canManageAccount = !!role && ACCOUNT_ROLES.includes(role);
-  const canReadAudit = !!role && AUDIT_ROLES.includes(role);
+  const canRead = hasRole(role, NATIONAL_ROLES);
+  const canManageAccount = hasRole(role, SETTINGS_ROLES);
+  const canReadAudit = hasRole(role, AUDIT_ROLES);
 
   const queryClient = useQueryClient();
   const [accountOpen, setAccountOpen] = useState(searchParams.get("manage") === "true");
@@ -92,7 +92,7 @@ function EtablissementDetail() {
   };
 
   /**
-   * Source: GET /dsmo/companies?search=<id> (DsmoService.listCompanies), then
+   * Source: GET /companies?search=<id> (DsmoService.listCompanies), then
    * the row whose establishmentId or registrationNumber matches exactly.
    *
    * `null` means the search returned no matching establishment. There is no
@@ -521,7 +521,7 @@ function EtablissementDetail() {
               >
                 <div>
                   {/* The account's own email. No display name is invented:
-                      /dsmo/companies returns only id, email, status and
+                      /companies returns only id, email, status and
                       isActive for the linked user. */}
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{fact(linkedAccount.email)}</div>
                   <div style={{ fontSize: 12, color: "#6b7280" }}>Statut : {fact(linkedAccount.status)}</div>

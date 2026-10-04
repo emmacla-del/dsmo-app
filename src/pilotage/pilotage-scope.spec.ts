@@ -29,7 +29,7 @@ const departments = [
 describe('resolveTargetScope', () => {
   it('gives national roles the whole country, including a stray region', async () => {
     const prisma = prismaFor(regions, departments);
-    for (const role of ['SUPER_ADMIN', 'SUPER_ADMIN_ONEFOP', 'CENTRAL']) {
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
       await expect(resolveTargetScope(prisma as any, { role, region: 'Littoral', regionId: 'r-other' }))
         .resolves.toEqual({ kind: 'national' });
     }
@@ -40,7 +40,7 @@ describe('resolveTargetScope', () => {
     const prisma = prismaFor(regions, departments);
     await expect(resolveTargetScope(prisma as any, undefined)).resolves.toEqual({ kind: 'none' });
     await expect(resolveTargetScope(prisma as any, null)).resolves.toEqual({ kind: 'none' });
-    for (const role of ['SUPER_ADMIN_DSMO', 'DATA_MANAGER', 'CAMPAIGN_MANAGER', 'ANALYST', 'AUDITOR', 'COMPANY']) {
+    for (const role of ['AUDITOR', 'COMPANY']) {
       await expect(resolveTargetScope(prisma as any, { role, region: 'Centre' })).resolves.toEqual({ kind: 'none' });
     }
     expect(prisma.region.findMany).not.toHaveBeenCalled();
@@ -48,40 +48,40 @@ describe('resolveTargetScope', () => {
 
   it('resolves a regional account by case-insensitive name, and by regionId when one is present', async () => {
     const prisma = prismaFor(regions, departments);
-    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL', region: 'CENTRE' }))
+    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL_ADMIN', region: 'CENTRE' }))
       .resolves.toEqual({ kind: 'region', regionId: 'r-centre' });
-    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL', region: 'Centre', regionId: 'r-extreme' }))
+    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL_ADMIN', region: 'Centre', regionId: 'r-extreme' }))
       .resolves.toEqual({ kind: 'region', regionId: 'r-extreme' });
   });
 
   it('fails closed for a regional account with no region, an unknown name, or a name that only matches without accents', async () => {
     const prisma = prismaFor(regions, departments);
-    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL' })).resolves.toEqual({ kind: 'none' });
-    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL', region: 'Atlantis' })).resolves.toEqual({ kind: 'none' });
-    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL', region: 'Extreme-Nord' })).resolves.toEqual({ kind: 'none' });
+    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL_ADMIN' })).resolves.toEqual({ kind: 'none' });
+    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL_ADMIN', region: 'Atlantis' })).resolves.toEqual({ kind: 'none' });
+    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL_ADMIN', region: 'Extreme-Nord' })).resolves.toEqual({ kind: 'none' });
   });
 
   it('fails closed when two regions share the same case-insensitive name', async () => {
     const prisma = prismaFor([{ id: 'a', name: 'Centre' }, { id: 'b', name: 'centre' }], []);
-    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL', region: 'Centre' })).resolves.toEqual({ kind: 'none' });
+    await expect(resolveTargetScope(prisma as any, { role: 'REGIONAL_ADMIN', region: 'Centre' })).resolves.toEqual({ kind: 'none' });
   });
 
   it('resolves a divisional account by region and department names, or by departmentId', async () => {
     const prisma = prismaFor(regions, departments);
-    await expect(resolveTargetScope(prisma as any, { role: 'DIVISIONAL', region: 'Centre', department: 'mfoundi' }))
+    await expect(resolveTargetScope(prisma as any, { role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'mfoundi' }))
       .resolves.toEqual({ kind: 'department', regionId: 'r-centre', departmentId: 'd-mfoundi' });
-    await expect(resolveTargetScope(prisma as any, { role: 'DIVISIONAL', departmentId: 'd-lekie' }))
+    await expect(resolveTargetScope(prisma as any, { role: 'DIVISIONAL_ADMIN', departmentId: 'd-lekie' }))
       .resolves.toEqual({ kind: 'department', regionId: 'r-centre', departmentId: 'd-lekie' });
   });
 
   it('fails closed for a divisional account missing its region or its department', async () => {
     const prisma = prismaFor(regions, departments);
     const cases: Territory[] = [
-      { role: 'DIVISIONAL' },
-      { role: 'DIVISIONAL', region: 'Centre' },
-      { role: 'DIVISIONAL', department: 'Mfoundi' },
-      { role: 'DIVISIONAL', region: 'Centre', department: 'Wouri' },
-      { role: 'DIVISIONAL', departmentId: 'missing' },
+      { role: 'DIVISIONAL_ADMIN' },
+      { role: 'DIVISIONAL_ADMIN', region: 'Centre' },
+      { role: 'DIVISIONAL_ADMIN', department: 'Mfoundi' },
+      { role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'Wouri' },
+      { role: 'DIVISIONAL_ADMIN', departmentId: 'missing' },
     ];
     for (const territory of cases) {
       await expect(resolveTargetScope(prisma as any, territory)).resolves.toEqual({ kind: 'none' });

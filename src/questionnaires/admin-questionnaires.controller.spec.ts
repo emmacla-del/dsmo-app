@@ -11,7 +11,7 @@ type ListArgs = {
 describe('AdminQuestionnairesController.getAll — list params', () => {
   let service: { listForAdmin: jest.Mock };
   let controller: AdminQuestionnairesController;
-  const req = { user: { id: 'a1', role: 'REGIONAL', region: 'Littoral' } };
+  const req = { user: { id: 'a1', role: 'REGIONAL_ADMIN', region: 'Littoral' } };
   const getAll = (a: ListArgs = {}) =>
     controller.getAll(a.status, a.limit, a.offset, a.region, a.search, a.formType, a.period, a.companyId, req);
 
@@ -34,7 +34,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
     });
     expect(service.listForAdmin).toHaveBeenCalledWith(
       { status: 'APPROVED', formType: 'COOPERATIVE', period: '30d', region: 'Centre', search: 'mbarga', companyId: 'comp-1', limit: 10, offset: 30 },
-      expect.objectContaining({ role: 'REGIONAL', region: 'Littoral' }),
+      expect.objectContaining({ role: 'REGIONAL_ADMIN', region: 'Littoral' }),
     );
   });
 
@@ -112,7 +112,7 @@ describe('QuestionnairesService.listForAdmin', () => {
 
   it('builds its where with the shared builder (the one exports will use)', async () => {
     const filters = { status: 'APPROVED', formType: 'ONG', region: 'Centre', search: 'x', limit: 10, offset: 0 };
-    const territory = { role: 'REGIONAL', region: 'Littoral' };
+    const territory = { role: 'REGIONAL_ADMIN', region: 'Littoral' };
     await service.listForAdmin(filters, territory);
     const [{ where }] = prisma.onefopSubmission.findMany.mock.calls[0];
     expect(where).toEqual(buildAdminListWhere(filters, territory));

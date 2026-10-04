@@ -672,8 +672,8 @@ export class DsmoService {
         ],
       },
     };
-    if (user.role === UserRole.DIVISIONAL) where.division = user.department;
-    else if (user.role === UserRole.REGIONAL) where.region = user.region;
+    if (user.role === UserRole.DIVISIONAL_ADMIN) where.division = user.department;
+    else if (user.role === UserRole.REGIONAL_ADMIN) where.region = user.region;
     else if (user.role === UserRole.COMPANY) throw new ForbiddenException('Accès refusé.');
 
     return this.prisma.declaration.findMany({
@@ -694,9 +694,9 @@ export class DsmoService {
     await this.getDeclarationWithAccess(userId, declarationId);
 
     let nextStatus: DeclarationStatus;
-    if (user.role === UserRole.DIVISIONAL) nextStatus = DeclarationStatus.DIVISION_APPROVED;
-    else if (user.role === UserRole.REGIONAL) nextStatus = DeclarationStatus.REGION_APPROVED;
-    else if (user.role === UserRole.CENTRAL || user.role === UserRole.SUPER_ADMIN || user.role === UserRole.SUPER_ADMIN_DSMO)
+    if (user.role === UserRole.DIVISIONAL_ADMIN) nextStatus = DeclarationStatus.DIVISION_APPROVED;
+    else if (user.role === UserRole.REGIONAL_ADMIN) nextStatus = DeclarationStatus.REGION_APPROVED;
+    else if (user.role === UserRole.ADMIN_ONEFOP || user.role === UserRole.SUPER_ADMIN)
       nextStatus = DeclarationStatus.FINAL_APPROVED;
     else throw new ForbiddenException('Privilèges insuffisants.');
 
@@ -729,9 +729,9 @@ export class DsmoService {
       const comp = await this.prisma.company.findUnique({ where: { userId } });
       if (!comp) return [];
       where.companyId = comp.id;
-    } else if (user.role === UserRole.DIVISIONAL) {
+    } else if (user.role === UserRole.DIVISIONAL_ADMIN) {
       where.division = user.department;
-    } else if (user.role === UserRole.REGIONAL) {
+    } else if (user.role === UserRole.REGIONAL_ADMIN) {
       where.region = user.region;
     }
 

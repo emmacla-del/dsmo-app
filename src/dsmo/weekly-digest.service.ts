@@ -77,17 +77,17 @@ export class WeeklyDigestService {
     }
 
     const STAFF_ROLES: UserRole[] = [
-      UserRole.DIVISIONAL,
-      UserRole.REGIONAL,
-      UserRole.CENTRAL,
+      UserRole.DIVISIONAL_ADMIN,
+      UserRole.REGIONAL_ADMIN,
+      UserRole.ADMIN_ONEFOP,
       UserRole.SUPER_ADMIN,
-      UserRole.SUPER_ADMIN_DSMO,
-      UserRole.SUPER_ADMIN_ONEFOP,
+      UserRole.SUPER_ADMIN,
+      UserRole.ADMIN_ONEFOP,
     ];
     if (!STAFF_ROLES.includes(user.role)) return null;
 
-    const region = user.role === UserRole.REGIONAL ? user.region ?? undefined : undefined;
-    const department = user.role === UserRole.DIVISIONAL ? user.department ?? undefined : undefined;
+    const region = user.role === UserRole.REGIONAL_ADMIN ? user.region ?? undefined : undefined;
+    const department = user.role === UserRole.DIVISIONAL_ADMIN ? user.department ?? undefined : undefined;
 
     const where: any = {};
     if (region) where.region = region;

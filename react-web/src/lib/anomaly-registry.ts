@@ -10,15 +10,17 @@
 // company column silently fell through to a fallback on every row.
 //
 // Rows are territory-scoped server-side (`where.submission =
-// territoryWhere(territory)`), so a REGIONAL or DIVISIONAL caller only ever
+// territoryWhere(territory)`), so a REGIONAL_ADMIN or DIVISIONAL_ADMIN caller only ever
 // sees anomalies inside its own ressort. `total` counts the filtered query,
 // not the returned page.
 //
-// KNOWN DATA GAP: nothing in the backend writes to `onefop_anomalies` today
-// (no `onefopAnomaly.create` anywhere in src/). Detection is computed but
-// never persisted, so this endpoint currently returns an empty page for every
-// caller. Screens must render that emptiness honestly — see
-// docs/admin-data-integrity-inventory.md §7.1.
+// Rows ARE persisted. Three `onefopAnomaly.createMany` call sites write them:
+// src/questionnaires/eligibility-engine.service.ts:58 (on evaluation),
+// src/questionnaires/eligibility-engine.service.ts:839 (the backfill path),
+// and src/questionnaires/questionnaires.service.ts:1530 (re-detection on
+// resubmit, after a deleteMany of the submission's previous rows). An earlier
+// comment here claimed the opposite — it was wrong, and screens should not
+// treat an empty page as the expected steady state.
 
 import { apiFetch } from "./api-client";
 
@@ -93,17 +95,7 @@ export function resolveAnomalyRecord(
   });
 }
 
-/** Roles the backend lets read the registry (admin-questionnaires.controller.ts). */
-export const ANOMALY_REGISTRY_ROLES = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-  "REGIONAL",
-  "DIVISIONAL",
-];
-
-/** Roles allowed to waive an anomaly by legal derogation. */
-export const ANOMALY_DEROGATION_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL"];
+export { APPROVAL_ROLES as ANOMALY_REGISTRY_ROLES, NATIONAL_ROLES as ANOMALY_DEROGATION_ROLES } from "./roles";
 
 /** Establishment name as actually stored, or null when the record has none. */
 export function anomalyCompanyName(a: AnomalyRecord): string | null {

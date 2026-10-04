@@ -153,7 +153,7 @@ export class CampaignService {
         if (status) where.status = status;
         if (type) where.type = type;
 
-        if (user?.role === UserRole.REGIONAL && user.region) {
+        if (user?.role === UserRole.REGIONAL_ADMIN && user.region) {
             // An empty targetRegions means "all regions", so it must still
             // match here — `has` on an empty array is always false, which
             // used to hide every "all regions" campaign from REGIONAL users.

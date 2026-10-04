@@ -580,6 +580,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get registerStepTitleReview => 'Review';
 
   @override
+  String registerStepProgress(int current, int total, String title) {
+    return 'Step $current of $total - $title';
+  }
+
+  @override
+  String get registerLeaveTitle => 'Leave registration?';
+
+  @override
+  String get registerLeaveMessage => 'Your draft has been saved.';
+
+  @override
+  String get registerLeaveConfirm => 'Leave';
+
+  @override
+  String get registerLeaveCancel => 'Continue';
+
+  @override
+  String get registerCertificationCheckbox =>
+      'I hereby certify that the information provided is accurate and true.';
+
+  @override
+  String get registerEntityTypeChangeDialogTitle => 'Change entity type?';
+
+  @override
+  String get registerEntityTypeChangeDialogMessage =>
+      'Changing the entity type will clear information entered in step 3. Continue?';
+
+  @override
+  String get registerEntityTypeChangeDialogConfirm => 'Change';
+
+  @override
+  String get registerEntityTypeChangeDialogCancel => 'Cancel';
+
+  @override
+  String get registerEntityTypeChangedSnackbar => 'Entity information reset';
+
+  @override
+  String get registerTerritoryResetSnackbar =>
+      'Department and subdivision reset';
+
+  @override
+  String get registerSectionModifierButton => 'Modify';
+
+  @override
   String get registerEntitySubtitleEnterprise =>
       'Commercial company, SA, SARL, for-profit establishment.';
 

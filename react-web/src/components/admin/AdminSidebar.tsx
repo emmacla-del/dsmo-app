@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
-import { getVisibleHubs, getActiveHub, type AdminHub } from "@/app/admin/_routes";
+import { useMemo } from "react";
+import { getActiveHub, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
 import { useAuthStore } from "@/lib/auth-store";
+import { useNavProfile } from "@/hooks/useNavProfile";
+import { navHubsFor } from "@/lib/nav-profiles";
 
 export interface AdminSidebarProps {
   user?: {
@@ -13,7 +15,14 @@ export interface AdminSidebarProps {
     roleLabel: string;
     initials: string;
   };
-  /** Current user's role key; items outside their allowedRoles are hidden. */
+  /**
+   * Current user's role key. Optional override: when omitted the rail renders
+   * the signed-in account's profile from the auth store (useNavProfile). Pass
+   * it to render another role's rail — the layout does, from the same store.
+   *
+   * The hubs shown are that role's entry in NAV_PROFILES (@/lib/nav-profiles),
+   * not ADMIN_HUBS filtered by allowedRoles; see that file for why.
+   */
   role?: UserRole;
   /** Badge count on "Supervision" (blocking anomalies + pending national visas) */
   pendingCount?: number;
@@ -21,9 +30,6 @@ export interface AdminSidebarProps {
   inscriptionsCount?: number;
   /** Badge count on "Contrôle Qualité" */
   anomaliesCount?: number;
-  /** Current locale for the FR | EN switcher */
-  locale?: "fr" | "en";
-  onLocaleChange?: (locale: "fr" | "en") => void;
   onLogout?: () => void;
 }
 
@@ -121,8 +127,6 @@ export function AdminSidebar({
   pendingCount = 0,
   inscriptionsCount = 0,
   anomaliesCount = 0,
-  locale = "fr",
-  onLocaleChange,
   onLogout,
 }: AdminSidebarProps) {
   const pathname = usePathname();
@@ -139,8 +143,11 @@ export function AdminSidebar({
     }
   };
 
-  // Filter hubs by user role and tailor landing URL to first allowed sub-route
-  const visibleHubs = getVisibleHubs(role);
+  // The signed-in account's profile, unless a role was passed explicitly.
+  // Either way the hubs come from NAV_PROFILES, each href already pointing at
+  // the first sub-route that role may open.
+  const { hubs: ownHubs } = useNavProfile();
+  const visibleHubs = useMemo(() => (role ? navHubsFor(role) : ownHubs), [role, ownHubs]);
 
   const activeHub = getActiveHub(pathname, searchParams);
 
@@ -253,33 +260,8 @@ export function AdminSidebar({
         })}
       </nav>
 
-      {/* ── Footer: locale toggle + user card ── */}
+      {/* ── Footer: user card ── */}
       <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "12px 16px" }}>
-        {/* FR | EN */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-          {(["fr", "en"] as const).map((l, i) => (
-            <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {i > 0 && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>|</span>}
-              <button
-                type="button"
-                onClick={() => onLocaleChange?.(l)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: "2px 4px",
-                  fontSize: 11,
-                  fontWeight: locale === l ? 700 : 400,
-                  color: locale === l ? "#fff" : "rgba(255,255,255,0.45)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {l.toUpperCase()}
-              </button>
-            </span>
-          ))}
-        </div>
-
         {/* User card */}
         {user && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

@@ -14,8 +14,9 @@ describe('ONEFOP export filters', () => {
     expect(buildOnefopExportWhere({}, ELIGIBLE)).toEqual(ELIGIBLE);
   });
 
-  it('selects exactly the requested statuses, from a query string or an array', () => {
+  it('narrows the status WITHIN the eligibility base, never replacing it (D7)', () => {
     expect(buildOnefopExportWhere({ statuses: 'PENDING_REVIEW,REJECTED' }, ELIGIBLE)).toEqual({
+      anomalies: ELIGIBLE.anomalies,
       status: { in: ['PENDING_REVIEW', 'REJECTED'] },
     });
     expect(parseStatuses(['DRAFT', 'APPROVED', 'CORRECTION_REQUESTED', 'APPROVED'])).toEqual([
@@ -23,6 +24,13 @@ describe('ONEFOP export filters', () => {
       'APPROVED',
       'CORRECTION_REQUESTED',
     ]);
+  });
+
+  it('filters rows by collection campaign (D1)', () => {
+    expect(buildOnefopExportWhere({ campaignId: 'camp-1' }, ELIGIBLE)).toMatchObject({
+      campaignId: 'camp-1',
+    });
+    expect(buildOnefopExportWhere({}, ELIGIBLE).campaignId).toBeUndefined();
   });
 
   it('rejects unknown statuses, entity types and years with a 400', () => {

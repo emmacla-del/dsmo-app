@@ -12,6 +12,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { findIdentifier } from "@/lib/api-client";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
+import { ADMIN_ROLES, hasRole } from "@/lib/roles";
 
 type Tab = "login" | "forgot";
 
@@ -45,19 +46,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      const adminRoles = [
-        "SUPER_ADMIN",
-        "SUPER_ADMIN_DSMO",
-        "SUPER_ADMIN_ONEFOP",
-        "CENTRAL",
-        "REGIONAL",
-        "DIVISIONAL",
-        "DATA_MANAGER",
-        "CAMPAIGN_MANAGER",
-        "ANALYST",
-        "AUDITOR",
-      ];
-      if (user && adminRoles.includes(user.role)) {
+      if (hasRole(user?.role, ADMIN_ROLES)) {
         router.replace("/admin/pilotage");
       } else if (
         user?.role === "COMPANY" &&

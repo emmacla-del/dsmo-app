@@ -145,6 +145,11 @@ function SubmissionDetailContent() {
   const [correctionAction, setCorrectionAction] = useState("");
   const [requireJustificatifs, setRequireJustificatifs] = useState(false);
   const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
+  // PATCH .../request-correction requires certified === true server-side: the
+  // reviewer's attestation, not a formality the client can assume. It was
+  // hardcoded here, so the attestation was being made on the reviewer's
+  // behalf. Same pattern as certifiedReject below.
+  const [certifiedCorrection, setCertifiedCorrection] = useState(false);
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   const correctionMutation = useMutation({
@@ -160,7 +165,7 @@ function SubmissionDetailContent() {
       ]
         .filter(Boolean)
         .join(" — ");
-      return requestCorrectionDossier(id, fullComments, true);
+      return requestCorrectionDossier(id, fullComments, certifiedCorrection);
     },
     onSuccess: () => {
       setCorrectionSuccess(true);
@@ -168,9 +173,15 @@ function SubmissionDetailContent() {
     },
   });
 
+  // Same three conditions the submit button disables on, so the button's
+  // colour and its enabled state can never disagree.
+  const correctionReady =
+    certifiedCorrection && !!correctionAction.trim() && !!correctionProblem.trim();
+
   const openCorrectionModal = () => {
     setCorrectionSuccess(false);
     correctionMutation.reset();
+    setCertifiedCorrection(false);
     setIsCorrectionOpen(true);
   };
 
@@ -1696,6 +1707,32 @@ function SubmissionDetailContent() {
                       <option value="30 jours calendaires">30 jours calendaires</option>
                     </select>
                   </div>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      fontSize: 13,
+                      color: "#374151",
+                      cursor: "pointer",
+                      padding: 10,
+                      background: "#fffbeb",
+                      border: "1px solid #fde68a",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={certifiedCorrection}
+                      onChange={(e) => setCertifiedCorrection(e.target.checked)}
+                      style={{ marginTop: 2, cursor: "pointer" }}
+                    />
+                    <span>
+                      <strong>Je certifie sur l&apos;honneur</strong> que cette demande de correction est motivée et conforme aux règles ministérielles.
+                    </span>
+                  </label>
+
                   {correctionMutation.isError && (
                     <div
                       role="alert"
@@ -1751,16 +1788,21 @@ function SubmissionDetailContent() {
                   <button
                     type="button"
                     onClick={() => correctionMutation.mutate()}
-                    disabled={correctionMutation.isPending || !correctionAction.trim() || !correctionProblem.trim()}
+                    disabled={
+                      correctionMutation.isPending ||
+                      !certifiedCorrection ||
+                      !correctionAction.trim() ||
+                      !correctionProblem.trim()
+                    }
                     style={{
                       padding: "8px 18px",
                       borderRadius: 6,
                       border: "none",
-                      background: "#d97706",
+                      background: correctionReady ? "#d97706" : "#fcd34d",
                       color: "#ffffff",
                       fontSize: 13,
                       fontWeight: 600,
-                      cursor: "pointer",
+                      cursor: correctionReady ? "pointer" : "not-allowed",
                     }}
                   >
                     {correctionMutation.isPending ? "Transmission..." : "Confirmer le Retour"}

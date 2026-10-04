@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
-import type { UserRole } from "@/lib/user-types";
+import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
 
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
-
-// Mirrors @Roles on GET /campaigns (campaign.controller.ts).
-const CAMPAIGN_READER_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL"];
 
 /**
  * The active campaign, or undefined when there is none or the user's role
@@ -19,7 +16,7 @@ const CAMPAIGN_READER_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "S
  */
 export function useActiveCampaign() {
   const user = useAuthStore((s) => s.user);
-  const canReadCampaigns = !!user && CAMPAIGN_READER_ROLES.includes(user.role);
+  const canReadCampaigns = hasRole(user?.role, CAMPAIGN_ROLES);
   const query = useQuery({
     queryKey: ["campaigns", "ACTIVE"],
     queryFn: () => listCampaigns("ACTIVE"),
@@ -165,18 +162,6 @@ export function AdminHeaderActions({
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
-          <span
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: 5,
-              right: 5,
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: "#dc2626",
-            }}
-          />
         </Link>
       )}
 

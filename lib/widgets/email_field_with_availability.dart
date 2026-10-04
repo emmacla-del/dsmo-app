@@ -232,8 +232,7 @@ class _EmailFieldWithAvailabilityState
     required bool hasError,
   }) {
     return InputDecoration(
-      labelText: label,
-      prefixIcon: const Icon(Icons.email_outlined, size: 20),
+      hintText: 'nom@exemple.cm',
       suffixIcon: isChecking
           ? const SizedBox(
               width: 20,
@@ -245,30 +244,31 @@ class _EmailFieldWithAvailabilityState
             )
           : null,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       filled: true,
       fillColor: hasError ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5)),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
               color: hasError
                   ? const Color(0xFFE24B4A)
-                  : const Color(0xFFE2E8F0))),
+                  : const Color(0xFFE2E8F0),
+              width: 1.5)),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(
               color:
                   hasError ? const Color(0xFFE24B4A) : PublicColors.green,
-              width: 2)),
+              width: 1.5)),
       errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE24B4A))),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE24B4A), width: 1.5)),
       focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE24B4A), width: 2)),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE24B4A), width: 1.5)),
     );
   }
 }
