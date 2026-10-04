@@ -21,8 +21,8 @@ import type { UserRole } from "@/lib/user-types";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
+import { AUDIT_ROLES } from "@/lib/roles";
 
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 const PAGE_SIZE = 12;
 
 /**
@@ -76,7 +76,7 @@ const ACTION_OPTIONS = [
 ];
 
 export default function JournalAuditPage() {
-  const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(AUDIT_ROLES);
 
   // Filters. `actor` holds a real User.id, not a display name: the backend
   // filters AuditLog.userId, so a free-text name could never match.
@@ -105,7 +105,7 @@ export default function JournalAuditPage() {
    * filtered query and paging cannot hide matching rows.
    *
    * This endpoint is platform-wide by design, which is why this screen is
-   * guarded to SUPER_ADMIN / SUPER_ADMIN_ONEFOP / AUDITOR.
+   * guarded to AUDIT_ROLES (SUPER_ADMIN / AUDITOR).
    */
   const auditQuery = useQuery({
     queryKey: ["admin", "audit", "list", { period, actor, action, resourceType, resourceId, currentPage }],

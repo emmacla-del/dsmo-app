@@ -20,6 +20,7 @@ import {
   anomalyDossierRef,
   listAnomalyRegistry,
 } from "@/lib/anomaly-registry";
+import { AUDIT_ROLES, hasRole } from "@/lib/roles";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -32,11 +33,6 @@ import {
   shortStamp,
   stamp,
 } from "@/lib/admin-data-state";
-
-// Roles the backend lets read GET /audit/reports (src/report/audit.controller.ts).
-// Anyone else reaching this screen gets an explicit authorization state for
-// the event journal — never a substitute dataset.
-const AUDIT_READER_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
 
 const EVENT_PAGE_SIZE = 25;
 const ALERT_PAGE_SIZE = 20;
@@ -122,8 +118,8 @@ function ActiviteContent() {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
 
-  const canReadAudit = !!role && AUDIT_READER_ROLES.includes(role);
-  const canReadAnomalies = !!role && ANOMALY_REGISTRY_ROLES.includes(role);
+  const canReadAudit = hasRole(role, AUDIT_ROLES);
+  const canReadAnomalies = hasRole(role, ANOMALY_REGISTRY_ROLES);
 
   // Filters. `action` and `period` are sent to the server; nothing is filtered
   // client-side, so the counts shown always match the query that produced them.
@@ -135,8 +131,8 @@ function ActiviteContent() {
    *
    * Source: GET /admin/questionnaires/pilotage/queues
    * (EligibilityEngineService.getPilotageQueues). Every figure is a Prisma
-   * count/groupBy over `territoryWhere(territory)`, so a REGIONAL or
-   * DIVISIONAL actor sees only its own ressort. Drafts are excluded server-side.
+   * count/groupBy over `territoryWhere(territory)`, so a REGIONAL_ADMIN or
+   * DIVISIONAL_ADMIN actor sees only its own ressort. Drafts are excluded server-side.
    *
    * On error the figures stay `null` rather than falling back to 0 or to a
    * national number: an unreachable queue is not an empty queue.

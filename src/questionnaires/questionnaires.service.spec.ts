@@ -865,7 +865,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         reviewedAt: new Date(),
       });
 
-      await service.approve('sub-clean', 'reg-admin-1', { role: 'REGIONAL', region: 'Centre' });
+      await service.approve('sub-clean', 'reg-admin-1', { role: 'REGIONAL_ADMIN', region: 'Centre' });
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -900,7 +900,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         reviewedAt: new Date(),
       });
 
-      await service.approve('sub-clean', 'central-admin-1', { role: 'CENTRAL' });
+      await service.approve('sub-clean', 'central-admin-1', { role: 'ADMIN_ONEFOP' });
 
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: {

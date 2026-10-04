@@ -44,6 +44,25 @@ const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
 };
 
 /**
+ * Entity types approved at self-registration instead of by staff review.
+ *
+ * ADMINISTRATION files are state structures: the applicant is already a
+ * known public body, there is nothing for a reviewer to verify that the
+ * registration form does not already carry, and leaving them in the queue
+ * only delayed their own declarations. Their account is therefore created
+ * ACTIVE with its establishment ID allocated on the spot — the same
+ * allocation approveCompanyRegistration performs, written in one
+ * transaction so the activation and the ID commit together.
+ *
+ * Every other entity type keeps the staff-approval path untouched. The
+ * `centralStructureConfirmed` gate in approveCompanyRegistration is left in
+ * place deliberately: it stays correct for any ADMINISTRATION file still
+ * sitting in the queue from before this change, and for a file that reaches
+ * review because its auto-approval transaction failed.
+ */
+const AUTO_APPROVE_ENTITY_TYPES = ['ADMINISTRATION'] as const;
+
+/**
  * Extra confirmations a reviewer must supply alongside an approval.
  *
  * `centralStructureConfirmed` backs the "structure centrale" checkbox the
@@ -388,7 +407,7 @@ export class AuthService {
 
     let canonicalRegion = region ?? null;
     let canonicalDepartment = department ?? null;
-    if (role === 'REGIONAL' || role === 'DIVISIONAL') {
+    if (role === 'REGIONAL_ADMIN' || role === 'DIVISIONAL_ADMIN') {
       const resolved = await resolveStaffTerritory(this.prisma, role, { region, department });
       canonicalRegion = resolved.region;
       canonicalDepartment = resolved.department;
@@ -423,11 +442,12 @@ export class AuthService {
   }
 
   // Roles a SUPER_ADMIN may create through adminCreateMinefopUser — the
-  // MINEFOP field-agent roles only. Other staff roles (SUPER_ADMIN,
-  // DATA_MANAGER, ANALYST, ...) still have no creation path; this endpoint
-  // exists specifically to replace the public MINEFOP self-registration
-  // flow that was removed from the app.
-  private static readonly MINEFOP_FIELD_ROLES = ['CENTRAL', 'REGIONAL', 'DIVISIONAL'];
+  // MINEFOP field-agent roles only. SUPER_ADMIN, ADMIN_ONEFOP and AUDITOR
+  // have no creation path: ADMIN_ONEFOP is excluded so that an ADMIN_ONEFOP
+  // actor cannot mint more of its own rank (see ONEFOP_STAFF_ROLES in
+  // staff-scope.ts). This endpoint exists specifically to replace the public
+  // MINEFOP self-registration flow that was removed from the app.
+  private static readonly MINEFOP_FIELD_ROLES = ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN'];
 
   /** Unambiguous charset (no 0/O/1/l/I) — this gets read aloud/copied by hand. */
   private generateTemporaryPassword(): string {
@@ -464,7 +484,7 @@ export class AuthService {
     if (!AuthService.MINEFOP_FIELD_ROLES.includes(dto.role)) {
       throw new BadRequestException('Rôle invalide pour la création directe');
     }
-    // D1: SUPER_ADMIN_ONEFOP may create ONEFOP staff only.
+    // D1: ADMIN_ONEFOP may create ONEFOP staff only.
     assertCanManageRole(actorRole, dto.role);
     const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingUser) {
@@ -609,7 +629,11 @@ export class AuthService {
       { requireSubdivision: true },
     );
 
-    // Establishment IDs are issued at staff approval, not at self-registration.
+    // Establishment IDs are issued at staff approval, except for the entity
+    // types in AUTO_APPROVE_ENTITY_TYPES, which get theirs below.
+    const autoApprove =
+      !!companyData.entityType &&
+      (AUTO_APPROVE_ENTITY_TYPES as readonly string[]).includes(companyData.entityType);
     const resolvedTaxNumber =
       companyData.taxNumber ||
       `NA-${crypto.randomUUID()}`;
@@ -688,6 +712,17 @@ export class AuthService {
         },
       });
 
+      // Auto-approval: activate the account and allocate its establishment ID
+      // in one transaction, so a failure here leaves a normal PENDING_APPROVAL
+      // file for staff review rather than an active account with no ID.
+      let activeUser = user;
+      let autoApprovedEstablishmentId: string | null = null;
+      if (autoApprove) {
+        const approved = await this.autoApproveRegistration(user, company);
+        activeUser = approved.user;
+        autoApprovedEstablishmentId = approved.establishmentId;
+      }
+
       const rawToken = await this.issueEmailVerificationToken(user.id);
       const verifyLink = `${process.env.APP_URL || 'https://dsmo.ministry.cm'}/verify-email?token=${rawToken}`;
       // Fire-and-forget: a slow/unreachable SMTP server must not block the
@@ -698,14 +733,16 @@ export class AuthService {
         );
       });
 
-      const loginResult = await this.login(user);
+      // activeUser, not user: login() echoes `status` back to the client, and
+      // an auto-approved account has to report ACTIVE, not PENDING_APPROVAL.
+      const loginResult = await this.login(activeUser);
 
       return {
         ...loginResult,
         company: {
           id: company.id,
           name: company.name,
-          establishmentId: null,
+          establishmentId: autoApprovedEstablishmentId,
           taxNumber: company.taxNumber,
           entityType: company.entityType,
           attestationUrl: null,
@@ -717,6 +754,115 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Activates a freshly self-registered account whose entity type is in
+   * AUTO_APPROVE_ENTITY_TYPES and allocates its establishment ID.
+   *
+   * Deliberately the same five writes, in the same order, as the transaction
+   * inside approveCompanyRegistration — establishment ID, Company update,
+   * principal Establishment row, user ACTIVE, audit row — so an
+   * auto-approved file is indistinguishable downstream from a staff-approved
+   * one. The only differences: the audit action records that no reviewer was
+   * involved, and the audit row is attributed to the registrant because
+   * there is no actor.
+   *
+   * EstablishmentIdGenerator takes a pg advisory lock that is only held for
+   * the statement outside a transaction, so the generate/update pair must
+   * stay inside $transaction. The serial it derives can still collide under
+   * concurrency, hence the same single retry on P2002.
+   */
+  private async autoApproveRegistration(
+    user: { id: string; email: string },
+    company: {
+      id: string;
+      name: string | null;
+      entityType: string | null;
+      establishmentId: string | null;
+      subdivisionId: string | null;
+      regionId: string | null;
+      departmentId: string | null;
+      region: string | null;
+      department: string | null;
+      subdivision: string | null;
+      address: string | null;
+      phone: string | null;
+    },
+  ): Promise<{ user: any; establishmentId: string }> {
+    if (!company.entityType) {
+      throw new BadRequestException("Le type d'entité est obligatoire pour générer l'identifiant d'établissement.");
+    }
+    if (!company.subdivisionId) {
+      throw new BadRequestException("L'arrondissement est obligatoire pour générer l'identifiant d'établissement.");
+    }
+
+    const attempts = 2;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const subdivision = await tx.subdivision.findUnique({
+            where: { id: company.subdivisionId as string },
+            select: { id: true, code: true },
+          });
+          if (!subdivision?.code?.trim()) {
+            throw new BadRequestException("Code d'arrondissement introuvable pour cet établissement.");
+          }
+          const subdivisionCode = subdivision.code.slice(-2);
+          let issued = company.establishmentId;
+          if (!issued) {
+            issued = await EstablishmentIdGenerator.generate(tx, company.entityType as string, subdivisionCode);
+            await tx.company.update({
+              where: { id: company.id },
+              data: { establishmentId: issued, establishmentIdGeneratedAt: new Date() },
+            });
+          }
+          await tx.establishment.create({
+            data: {
+              code: `${issued}-01`,
+              name: company.name || 'Siège Principal',
+              isPrincipal: true,
+              status: 'ACTIVE',
+              companyId: company.id,
+              regionId: company.regionId || '',
+              departmentId: company.departmentId || '',
+              subdivisionId: (company.subdivisionId || '') as string,
+              region: company.region || '',
+              department: company.department || '',
+              subdivision: company.subdivision || '',
+              address: company.address || '',
+              phone: company.phone || null,
+              email: (company as any).email || user.email,
+            },
+          });
+          const updated = await tx.user.update({
+            where: { id: user.id },
+            data: { status: 'ACTIVE', isActive: true, approvedAt: new Date() },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: user.id,
+              action: 'COMPANY_REGISTRATION_AUTO_APPROVED',
+              resourceType: 'User',
+              resourceId: user.id,
+              details: {
+                companyId: company.id,
+                establishmentId: issued,
+                entityType: company.entityType,
+                reason: 'AUTO_APPROVE_ENTITY_TYPES',
+              },
+            },
+          });
+          return { user: updated, establishmentId: issued };
+        });
+      } catch (error) {
+        if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002' && attempt < attempts) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new ConflictException("Un identifiant d'établissement existe déjà pour ce territoire.");
   }
 
   /**
@@ -1537,16 +1683,14 @@ export class AuthService {
     });
   }
 
+  /** Hard cap on GET /auth/users/search — an autocomplete, not a list. */
+  private static readonly SEARCH_MAX_RESULTS = 10;
+
   private static readonly ASSIGNABLE_ROLES = [
-    'DIVISIONAL',
-    'REGIONAL',
-    'CENTRAL',
+    'DIVISIONAL_ADMIN',
+    'REGIONAL_ADMIN',
+    'ADMIN_ONEFOP',
     'SUPER_ADMIN',
-    'SUPER_ADMIN_DSMO',
-    'SUPER_ADMIN_ONEFOP',
-    'DATA_MANAGER',
-    'CAMPAIGN_MANAGER',
-    'ANALYST',
     'AUDITOR',
   ];
 
@@ -1611,6 +1755,52 @@ export class AuthService {
     return { users: mappedUsers, total, page, pageSize };
   }
 
+  /**
+   * Autocomplete behind the audit journal's actor filter.
+   *
+   * The audit list now matches `userId` exactly (audit-log-filter.ts), so the
+   * page needs a way to turn a typed name into one id. Deliberately narrow
+   * next to listUsers: name-partial only (no email — nothing on the audit
+   * page needs to probe addresses), at most SEARCH_MAX_RESULTS rows, and only
+   * id + displayName in the response, so this cannot become a back door onto
+   * the fields the full list guards. Visibility reuses manageableRolesFor, so
+   * an ADMIN_ONEFOP resolves only the accounts it already administers.
+   *
+   * Unlike listUsers this does NOT exclude role=COMPANY: declarants are
+   * actors in the audit journal, and the substring filter this replaces
+   * reached them too — excluding them would silently shrink what the page
+   * can filter by. displayName cannot come back empty: the query matched
+   * firstName or lastName, so at least one of them is non-empty.
+   */
+  async searchUsers(term: string | undefined, actorRole: string) {
+    const query = term?.trim();
+    if (!query) return [];
+
+    const allowedRoles = manageableRolesFor(actorRole);
+    // [] = this role manages nobody; an empty `in` would match every row in
+    // Prisma only if omitted, so return early rather than widen by accident.
+    if (allowedRoles && allowedRoles.length === 0) return [];
+
+    const contains = { contains: query, mode: 'insensitive' as const };
+    // `any`: allowedRoles is a readonly string[] from staff-scope, not the
+    // generated UserRole union — same cast listUsers/buildUserListWhere use.
+    const where: any = {
+      ...(allowedRoles ? { role: { in: allowedRoles as string[] } } : {}),
+      OR: [{ firstName: contains }, { lastName: contains }],
+    };
+    const users = await this.prisma.user.findMany({
+      where,
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      take: AuthService.SEARCH_MAX_RESULTS,
+    });
+
+    return users.map((u) => ({
+      id: u.id,
+      displayName: [u.firstName, u.lastName].filter(Boolean).join(' ').trim(),
+    }));
+  }
+
   async updateUserRole(id: string, role: string, actingUserId: string, actorRole: string) {
     if (id === actingUserId) {
       throw new BadRequestException('Vous ne pouvez pas modifier votre propre rôle');
@@ -1631,12 +1821,12 @@ export class AuthService {
     // Promotion keeps the account's stored territory, which must already be
     // complete (also enforced by users_divisional_requires_territory_chk and
     // users_regional_requires_region_chk).
-    if (role === 'DIVISIONAL' && (!user.department || !user.region)) {
+    if (role === 'DIVISIONAL_ADMIN' && (!user.department || !user.region)) {
       throw new BadRequestException(
         'Les utilisateurs divisionnaires doivent avoir une région et un département assignés',
       );
     }
-    if (role === 'REGIONAL' && !user.region) {
+    if (role === 'REGIONAL_ADMIN' && !user.region) {
       throw new BadRequestException(
         'Les utilisateurs régionaux doivent avoir une région assignée',
       );

@@ -3210,11 +3210,7 @@ export class QuestionnairesService {
   const role = territory?.role;
   const isCentralOrSuperAdmin =
     typeof role === 'string' &&
-    (role === 'CENTRAL' ||
-      role === 'SUPER_ADMIN' ||
-      role === 'SUPER_ADMIN_ONEFOP' ||
-      role === 'SUPER_ADMIN_DSMO' ||
-      role.startsWith('SUPER_ADMIN'));
+    (role === 'ADMIN_ONEFOP' || role === 'SUPER_ADMIN');
 
   if (!isCentralOrSuperAdmin) {
     return false;

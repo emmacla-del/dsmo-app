@@ -14,13 +14,13 @@ describe('JwtStrategy.validate', () => {
   const dbUser = {
     id: 'u1',
     email: 'agent@minefop.cm',
-    role: 'REGIONAL',
+    role: 'REGIONAL_ADMIN',
     region: 'Centre',
     department: null,
     isActive: true,
     status: 'ACTIVE',
   };
-  const accessPayload = { sub: 'u1', email: 'agent@minefop.cm', role: 'REGIONAL', region: 'Littoral', department: null };
+  const accessPayload = { sub: 'u1', email: 'agent@minefop.cm', role: 'REGIONAL_ADMIN', region: 'Littoral', department: null };
 
   beforeEach(() => {
     prisma = { user: { findUnique: jest.fn(async () => ({ ...dbUser })) } };
@@ -31,7 +31,7 @@ describe('JwtStrategy.validate', () => {
     await expect(strategy.validate(accessPayload)).resolves.toEqual({
       id: 'u1',
       email: 'agent@minefop.cm',
-      role: 'REGIONAL',
+      role: 'REGIONAL_ADMIN',
       region: 'Centre', // DB value, not the token's stale 'Littoral'
       department: null,
       status: 'ACTIVE',
@@ -44,8 +44,8 @@ describe('JwtStrategy.validate', () => {
   });
 
   it('picks up a role change made after the token was issued', async () => {
-    prisma.user.findUnique.mockResolvedValue({ ...dbUser, role: 'DIVISIONAL', department: 'Mfoundi' });
-    await expect(strategy.validate(accessPayload)).resolves.toMatchObject({ role: 'DIVISIONAL', department: 'Mfoundi' });
+    prisma.user.findUnique.mockResolvedValue({ ...dbUser, role: 'DIVISIONAL_ADMIN', department: 'Mfoundi' });
+    await expect(strategy.validate(accessPayload)).resolves.toMatchObject({ role: 'DIVISIONAL_ADMIN', department: 'Mfoundi' });
   });
 
   it('rejects a suspended staff account with 401', async () => {

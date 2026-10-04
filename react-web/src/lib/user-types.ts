@@ -1,18 +1,9 @@
 // Mirrors lib/models/user.dart and prisma UserRole — kept as a thin type
 // layer, not a redefinition of business rules (those stay server-side).
 
-export type UserRole =
-  | "COMPANY"
-  | "DIVISIONAL"
-  | "REGIONAL"
-  | "CENTRAL"
-  | "SUPER_ADMIN"
-  | "SUPER_ADMIN_DSMO"
-  | "SUPER_ADMIN_ONEFOP"
-  | "DATA_MANAGER"
-  | "CAMPAIGN_MANAGER"
-  | "ANALYST"
-  | "AUDITOR";
+import type { UserRole } from "./roles";
+
+export type { UserRole };
 
 export interface UserFeatures {
   onefopBasicAnalytics: boolean;

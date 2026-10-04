@@ -70,21 +70,21 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        const NATIONAL_ROLES = [UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP] as UserRole[];
+        const NATIONAL_ROLES = [UserRole.ADMIN_ONEFOP, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP] as UserRole[];
 
-        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
+        if (!([UserRole.DIVISIONAL_ADMIN, UserRole.REGIONAL_ADMIN] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, CENTRAL, or SUPER_ADMIN users can send notifications');
         }
 
         const where: any = {};
 
-        if (user.role === UserRole.DIVISIONAL) {
+        if (user.role === UserRole.DIVISIONAL_ADMIN) {
             if (!user.department) throw new BadRequestException('User has no department assigned');
             where.department = user.department;
             if (filters.departmentFilter && filters.departmentFilter !== user.department) {
                 throw new ForbiddenException('Cannot send to companies outside your department');
             }
-        } else if (user.role === UserRole.REGIONAL) {
+        } else if (user.role === UserRole.REGIONAL_ADMIN) {
             if (!user.region) throw new BadRequestException('User has no region assigned');
             where.region = user.region;
             if (filters.regionFilter && filters.regionFilter !== user.region) {
@@ -350,16 +350,16 @@ export class NotificationService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        const NATIONAL_ROLES = [UserRole.CENTRAL, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_DSMO, UserRole.SUPER_ADMIN_ONEFOP] as UserRole[];
+        const NATIONAL_ROLES = [UserRole.ADMIN_ONEFOP, UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP] as UserRole[];
 
-        if (!([UserRole.DIVISIONAL, UserRole.REGIONAL] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
+        if (!([UserRole.DIVISIONAL_ADMIN, UserRole.REGIONAL_ADMIN] as UserRole[]).includes(user.role) && !NATIONAL_ROLES.includes(user.role)) {
             throw new ForbiddenException('Only DIVISIONAL, REGIONAL, CENTRAL, or SUPER_ADMIN users can view notifications');
         }
 
         const where: any = {};
-        if (user.role === UserRole.DIVISIONAL) {
+        if (user.role === UserRole.DIVISIONAL_ADMIN) {
             where.regionFilter = user.department;
-        } else if (user.role === UserRole.REGIONAL) {
+        } else if (user.role === UserRole.REGIONAL_ADMIN) {
             where.regionFilter = user.region;
         }
 

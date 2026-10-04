@@ -8,7 +8,7 @@ import { ADMIN_LIST_PERIODS, AdminListPeriod, periodStart } from '../questionnai
  */
 export interface AuditLogFilters {
   period?: AdminListPeriod;
-  /** Free text matched against the acting user's first name, last name or email. */
+  /** The acting user's id (User.id) — matched exactly, never as a substring. */
   actor?: string;
   action?: string;
   resourceType?: string;
@@ -69,11 +69,10 @@ export function buildAuditLogWhere(
   if (filters.action) and.push({ action: filters.action });
   if (filters.resourceType) and.push({ resourceType: filters.resourceType });
   if (filters.resourceId) and.push({ resourceId: { contains: filters.resourceId, mode: 'insensitive' } });
-  if (filters.actor) {
-    const contains = { contains: filters.actor, mode: 'insensitive' };
-    and.push({
-      user: { OR: [{ firstName: contains }, { lastName: contains }, { email: contains }] },
-    });
-  }
+  // userId: an exact actor identity, not a substring sweep over names and
+  // emails. The audit page sends the user's id (picked through the
+  // GET /auth/users/search autocomplete), so a row is attributed to exactly
+  // one account and two staff sharing a surname can no longer be conflated.
+  if (filters.actor) and.push({ userId: { equals: filters.actor } });
   return { AND: and };
 }

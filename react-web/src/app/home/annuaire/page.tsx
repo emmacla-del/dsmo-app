@@ -7,9 +7,7 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { resolveEffectiveRole } from "@/lib/role-navigation";
 import { CompaniesDirectory } from "@/components/admin/CompaniesDirectory";
 import { UsersDirectory } from "@/components/admin/UsersDirectory";
-import type { UserRole } from "@/lib/user-types";
-
-const ANNUAIRE_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
+import { USER_ADMIN_ROLES } from "@/lib/roles";
 
 export default function AnnuairePage() {
   return (
@@ -23,7 +21,7 @@ function AnnuaireContent() {
   const t = useTranslations();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const { isLoading, forbidden, user } = useAdminScreenGuard(ANNUAIRE_ROLES);
+  const { isLoading, forbidden, user } = useAdminScreenGuard(USER_ADMIN_ROLES);
   const [tab, setTab] = useState<"users" | "companies">(
     requestedTab === "users" ? "users" : "companies"
   );

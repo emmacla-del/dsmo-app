@@ -6,12 +6,12 @@ import { useTranslations } from "next-intl";
 import { getSectors } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
-import { DATA_ROLES } from "@/app/admin/_routes";
+import { NATIONAL_ROLES } from "@/lib/roles";
 import type { UserRole } from "@/lib/user-types";
 
 export default function AdminSectorsPage() {
   const t = useTranslations();
-  const { isLoading, isAuthenticated, forbidden } = useAdminScreenGuard(DATA_ROLES);
+  const { isLoading, isAuthenticated, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
   const logout = useAuthStore((s) => s.logout);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 

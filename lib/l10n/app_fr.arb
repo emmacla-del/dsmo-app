@@ -231,6 +231,32 @@
   "registerStepTitleLocation": "Localisation",
   "registerStepTitleSecurity": "Sécurité",
   "registerStepTitleReview": "Récapitulatif",
+  "registerStepProgress": "Étape {current} sur {total} - {title}",
+  "@registerStepProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "registerLeaveTitle": "Quitter l'inscription ?",
+  "registerLeaveMessage": "Votre brouillon est enregistré.",
+  "registerLeaveConfirm": "Quitter",
+  "registerLeaveCancel": "Continuer",
+  "registerCertificationCheckbox": "Je certifie sur l'honneur l'exactitude des informations fournies.",
+  "registerEntityTypeChangeDialogTitle": "Changer le type d'entité ?",
+  "registerEntityTypeChangeDialogMessage": "Changer le type d'entité effacera les informations saisies à l'étape 3. Continuer ?",
+  "registerEntityTypeChangeDialogConfirm": "Changer",
+  "registerEntityTypeChangeDialogCancel": "Annuler",
+  "registerEntityTypeChangedSnackbar": "Informations de l'entité réinitialisées",
+  "registerTerritoryResetSnackbar": "Département et arrondissement réinitialisés",
+  "registerSectionModifierButton": "Modifier",
   "registerEntitySubtitleEnterprise": "Société commerciale, SA, SARL, établissement à but lucratif.",
   "registerEntitySubtitleCooperative": "Société coopérative ou groupement d'intérêt économique.",
   "registerEntitySubtitleCtd": "Collectivité Territoriale Décentralisée (commune, région).",

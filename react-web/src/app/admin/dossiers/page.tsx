@@ -22,6 +22,7 @@ import {
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
+import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
 
 /**
  * One dossier row.
@@ -44,15 +45,6 @@ interface DossierItem {
   warningCount: number;
   submittedAt: string | null;
 }
-
-// Roles whose authorised scope genuinely is national: territoryWhere() returns
-// an unfiltered query for these and only these.
-const NATIONAL_SCOPE_ROLES = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-];
 
 const STATUS_VALUES = ["PENDING_REVIEW", "APPROVED", "CORRECTION_REQUESTED", "REJECTED"];
 const PAGE_SIZE = 10;
@@ -90,26 +82,30 @@ function DossiersContent() {
    * authorisation the account does not hold.
    */
   const scopeLabel =
-    user?.role === "REGIONAL"
+    user?.role === "REGIONAL_ADMIN"
       ? (user.region ? `Régional — ${user.region}` : "Régional — ressort non affecté")
-      : user?.role === "DIVISIONAL"
+      : user?.role === "DIVISIONAL_ADMIN"
         ? (user.department ? `Départemental — ${user.department}` : "Départemental — ressort non affecté")
-        : user?.role && NATIONAL_SCOPE_ROLES.includes(user.role)
+        : hasRole(user?.role, NATIONAL_ROLES)
           ? "National"
           : "Ressort non affecté";
   const { regions: territoryRegions } = useTerritoryRegions();
 
+  const searchParams = useSearchParams();
+  const requestedStatus = searchParams.get("status") ?? "";
+  const companyIdFilter = searchParams.get("companyId") ?? "";
+  // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
+  // search box on arrival instead of being dropped.
+  const requestedQuery = searchParams.get("q") ?? "";
+
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState(requestedQuery);
+  const [search, setSearch] = useState(requestedQuery.trim());
   const [regionFilter, setRegionFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [periodFilter, setPeriodFilter] = useState("");
   const [offset, setOffset] = useState(0);
-  const searchParams = useSearchParams();
-  const requestedStatus = searchParams.get("status") ?? "";
-  const companyIdFilter = searchParams.get("companyId") ?? "";
   const [statusFilter, setStatusFilter] = useState(STATUS_VALUES.includes(requestedStatus) ? requestedStatus : "");
 
   useEffect(() => {
@@ -123,6 +119,16 @@ function DossiersContent() {
   }, [requestedStatus]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // A new ?q= (the header search box pushing while already on this page)
+  // replaces the box contents. Both searchInput and `search` are set together
+  // so the debounce effect below sees no pending change and stays quiet.
+  useEffect(() => {
+    setSearchInput(requestedQuery);
+    setSearch(requestedQuery.trim());
+    setOffset(0);
+    setSelectedIds(new Set());
+  }, [requestedQuery]);
 
   // Modal / Drawer state — bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);

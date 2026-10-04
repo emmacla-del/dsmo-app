@@ -160,9 +160,9 @@ function asRegions(regions: unknown): Array<Record<string, any>> {
   return regions as Array<Record<string, any>>;
 }
 
-const national = { role: 'CENTRAL', region: 'Littoral' };
-const regional = { role: 'REGIONAL', region: 'Centre' };
-const divisional = { role: 'DIVISIONAL', region: 'Centre', department: 'Mfoundi' };
+const national = { role: 'ADMIN_ONEFOP', region: 'Littoral' };
+const regional = { role: 'REGIONAL_ADMIN', region: 'Centre' };
+const divisional = { role: 'DIVISIONAL_ADMIN', region: 'Centre', department: 'Mfoundi' };
 
 function knownError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('db', { code, clientVersion: '5.22.0' });
@@ -465,9 +465,9 @@ describe('PilotageService reads', () => {
     expect(littoral).toMatchObject({ mode: 'MIXED', inscriptionTarget: null });
 
     await expect(harness.service.getInscriptionTargets(undefined, '2026')).resolves.toEqual({ year: 2026, central: null, regions: [] });
-    await expect(harness.service.getInscriptionTargets({ role: 'SUPER_ADMIN_DSMO', region: 'Centre' }, '2026'))
+    await expect(harness.service.getInscriptionTargets({ role: 'AUDITOR', region: 'Centre' }, '2026'))
       .resolves.toEqual({ year: 2026, central: null, regions: [] });
-    await expect(harness.service.getInscriptionTargets({ role: 'REGIONAL', region: 'Extreme-Nord' }, '2026'))
+    await expect(harness.service.getInscriptionTargets({ role: 'REGIONAL_ADMIN', region: 'Extreme-Nord' }, '2026'))
       .resolves.toEqual({ year: 2026, central: null, regions: [] });
   });
 

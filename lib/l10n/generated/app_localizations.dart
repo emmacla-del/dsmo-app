@@ -1148,6 +1148,84 @@ abstract class AppLocalizations {
   /// **'Récapitulatif'**
   String get registerStepTitleReview;
 
+  /// No description provided for @registerStepProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Étape {current} sur {total} - {title}'**
+  String registerStepProgress(int current, int total, String title);
+
+  /// No description provided for @registerLeaveTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter l\'inscription ?'**
+  String get registerLeaveTitle;
+
+  /// No description provided for @registerLeaveMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre brouillon est enregistré.'**
+  String get registerLeaveMessage;
+
+  /// No description provided for @registerLeaveConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter'**
+  String get registerLeaveConfirm;
+
+  /// No description provided for @registerLeaveCancel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Continuer'**
+  String get registerLeaveCancel;
+
+  /// No description provided for @registerCertificationCheckbox.
+  ///
+  /// In fr, this message translates to:
+  /// **'Je certifie sur l\'honneur l\'exactitude des informations fournies.'**
+  String get registerCertificationCheckbox;
+
+  /// No description provided for @registerEntityTypeChangeDialogTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer le type d\'entité ?'**
+  String get registerEntityTypeChangeDialogTitle;
+
+  /// No description provided for @registerEntityTypeChangeDialogMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer le type d\'entité effacera les informations saisies à l\'étape 3. Continuer ?'**
+  String get registerEntityTypeChangeDialogMessage;
+
+  /// No description provided for @registerEntityTypeChangeDialogConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer'**
+  String get registerEntityTypeChangeDialogConfirm;
+
+  /// No description provided for @registerEntityTypeChangeDialogCancel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuler'**
+  String get registerEntityTypeChangeDialogCancel;
+
+  /// No description provided for @registerEntityTypeChangedSnackbar.
+  ///
+  /// In fr, this message translates to:
+  /// **'Informations de l\'entité réinitialisées'**
+  String get registerEntityTypeChangedSnackbar;
+
+  /// No description provided for @registerTerritoryResetSnackbar.
+  ///
+  /// In fr, this message translates to:
+  /// **'Département et arrondissement réinitialisés'**
+  String get registerTerritoryResetSnackbar;
+
+  /// No description provided for @registerSectionModifierButton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier'**
+  String get registerSectionModifierButton;
+
   /// No description provided for @registerEntitySubtitleEnterprise.
   ///
   /// In fr, this message translates to:

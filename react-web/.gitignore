@@ -42,3 +42,4 @@ next-env.d.ts
 
 # scratch dumps
 .all_tsx.txt
+.next/

@@ -12,12 +12,12 @@ import {
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
 import { formatDate } from "@/lib/companies-directory";
+import { APPROVAL_ROLES } from "@/lib/roles";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 
-const QUEUE_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "CENTRAL", "REGIONAL", "DIVISIONAL"];
 const PAGE_SIZE = 8;
 
 const ENTITY_TYPES = [
@@ -83,7 +83,7 @@ function daysAgo(days: number): string {
 
 export default function InscriptionsPage() {
   const role = useAuthStore((s) => s.user?.role);
-  const canReadQueue = !!role && QUEUE_ROLES.includes(role);
+  const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
   const queryClient = useQueryClient();
   const { regions: territoryRegions } = useTerritoryRegions();
 

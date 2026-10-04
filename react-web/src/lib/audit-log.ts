@@ -1,7 +1,7 @@
 // src/lib/audit-log.ts
 //
 // GET /audit/reports?paginate=true — src/report/audit.controller.ts.
-// Roles: SUPER_ADMIN, SUPER_ADMIN_ONEFOP, AUDITOR. Rows are platform-wide
+// Roles: SUPER_ADMIN, ADMIN_ONEFOP, AUDITOR. Rows are platform-wide
 // AuditLog entries (no territory scoping), newest first.
 import { apiFetch } from "./api-client";
 import { directoryRoleLabel } from "./user-directory";

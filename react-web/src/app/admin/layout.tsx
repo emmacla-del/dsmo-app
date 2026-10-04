@@ -9,7 +9,7 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
-import type { UserRole } from "@/lib/user-types";
+import { ADMIN_ROLES } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -26,19 +26,6 @@ const PAGE_TITLES: Record<string, { title: string; sub: string; group?: string; 
   "/admin/files-attente": { title: "Dossiers en instance", sub: "Files de traitement prioritaire et arbitrage", group: "Supervision", nav: "Dossiers en instance" },
   "/admin/sectors":       { title: "Référentiel des secteurs", sub: "Nomenclature nationale des métiers et secteurs d'activité", group: "Données", nav: "Jeux de données" },
 };
-
-const ADMIN_ROLES: UserRole[] = [
-  "SUPER_ADMIN",
-  "SUPER_ADMIN_DSMO",
-  "SUPER_ADMIN_ONEFOP",
-  "CENTRAL",
-  "REGIONAL",
-  "DIVISIONAL",
-  "DATA_MANAGER",
-  "CAMPAIGN_MANAGER",
-  "ANALYST",
-  "AUDITOR",
-];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();

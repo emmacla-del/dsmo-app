@@ -15,7 +15,7 @@ import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerrito
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
-import { DATA_ROLES } from "@/app/admin/_routes";
+import { NATIONAL_ROLES } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { entityTypeLabel } from "@/lib/companies-directory";
@@ -78,14 +78,6 @@ const STATUS_OPTIONS = [
   { value: "ALL", label: "Tous les statuts" },
   { value: "PENDING_REVIEW", label: "En attente uniquement" },
   { value: "REJECTED", label: "Rejeté uniquement" },
-];
-
-const SECTIONS_LIST = [
-  { id: "ident", label: "Identification du Répondant" },
-  { id: "loc", label: "Localisation Administrative" },
-  { id: "struct", label: "Informations Structure" },
-  { id: "ops", label: "Données Opérationnelles" },
-  { id: "rh", label: "Ressources Humaines" },
 ];
 
 // Icons matching Figma donnees/exports.png
@@ -175,7 +167,7 @@ function formatExportScope(filters: Record<string, unknown> | null | undefined):
 }
 
 export default function DiffusionPage() {
-  const { isLoading, forbidden } = useAdminScreenGuard(DATA_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
   const user = useAuthStore((s) => s.user);
 
   // Stats query
@@ -202,11 +194,6 @@ export default function DiffusionPage() {
   // Scope mode radio: all | campaign | region | custom
   const [scopeMode, setScopeMode] = useState<"all" | "campaign" | "region" | "custom">("all");
 
-  // Sections selection
-  const [selectedSections, setSelectedSections] = useState<string[]>([
-    "ident", "loc", "struct", "ops", "rh",
-  ]);
-
   // Dropdown states
   const [selectedCampaign, setSelectedCampaign] = useState("");
 
@@ -215,6 +202,15 @@ export default function DiffusionPage() {
       const active = campaignsQuery.data.find((c) => c.status === "ACTIVE");
       setSelectedCampaign(active?.code || active?.name || campaignsQuery.data[0].code || campaignsQuery.data[0].name || "");
     }
+  }, [campaignsQuery.data, selectedCampaign]);
+
+  // The <select> carries code || name || id (that is what the filename and the
+  // scope label show), so the campaign's real id has to be resolved back out
+  // of the list: the backend filter is OnefopSubmission.campaignId.
+  const selectedCampaignId = useMemo(() => {
+    const campaigns = campaignsQuery.data ?? [];
+    const match = campaigns.find((c) => (c.code || c.name || c.id) === selectedCampaign);
+    return match?.id ?? null;
   }, [campaignsQuery.data, selectedCampaign]);
 
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
@@ -246,9 +242,9 @@ export default function DiffusionPage() {
    * PENDING_REVIEW | REJECTED].
    *
    * That endpoint applies no territorial filter. It is only truthful here
-   * because this screen is guarded to DATA_ROLES (super-admins, CENTRAL,
-   * DATA_MANAGER, ANALYST) - all national-scope roles. Do not reuse it on a
-   * screen reachable by REGIONAL or DIVISIONAL.
+   * because this screen is guarded to NATIONAL_ROLES (SUPER_ADMIN, ADMIN_ONEFOP)
+   * - all national-scope roles. Do not reuse it on a screen reachable by
+   * REGIONAL_ADMIN or DIVISIONAL_ADMIN.
    *
    * `null` means "not retrieved" and renders as an em dash. It is never
    * replaced by a stand-in, and 0 is reported as 0.
@@ -308,18 +304,17 @@ export default function DiffusionPage() {
     return deptList.map((d) => ({ name: d }));
   }, [selectedRegion, deptList]);
 
-  const toggleSection = (id: string) => {
-    setSelectedSections((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
-  };
-
   const currentFilters = useMemo(() => {
     const filters: Record<string, any> = {};
     if (selectedRegion && selectedRegion !== "Toutes") filters.region = selectedRegion;
     if (selectedDepartment) filters.department = selectedDepartment;
     if (selectedEntityType) filters.entityType = selectedEntityType;
+    // campaignId is the one the export actually filters on
+    // (buildOnefopExportWhere); `campaign` is kept alongside it because it
+    // carries the human-readable code that formatExportScope renders in the
+    // export history. Sending only the id would show a UUID there.
     if (selectedCampaign) filters.campaign = selectedCampaign;
+    if (selectedCampaignId) filters.campaignId = selectedCampaignId;
     if (selectedStatus === "APPROVED") {
       filters.statuses = ["APPROVED"];
     } else if (selectedStatus === "PENDING_REVIEW") {
@@ -328,7 +323,7 @@ export default function DiffusionPage() {
       filters.statuses = ["REJECTED"];
     }
     return filters;
-  }, [selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedStatus]);
+  }, [selectedRegion, selectedDepartment, selectedEntityType, selectedCampaign, selectedCampaignId, selectedStatus]);
 
   const triggerFileDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -716,51 +711,6 @@ export default function DiffusionPage() {
                     </div>
                     <span className={`text-sm ${isChecked ? "font-semibold text-slate-900" : "font-normal text-slate-700"}`}>
                       {scp.label}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 my-5" />
-
-          {/* Section 4: SECTIONS À INCLURE */}
-          <div className="mb-5">
-            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              Sections à inclure
-            </div>
-            <div className="space-y-2.5">
-              {SECTIONS_LIST.map((sec) => {
-                const isChecked = selectedSections.includes(sec.id);
-                return (
-                  <label
-                    key={sec.id}
-                    className="flex items-center gap-3 cursor-pointer select-none group"
-                  >
-                    <div className="relative flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleSection(sec.id)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                          isChecked
-                            ? "border-[#006644] bg-[#006644] text-white"
-                            : "border-slate-300 bg-white group-hover:border-slate-400"
-                        }`}
-                      >
-                        {isChecked && (
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="1 4 3.5 6.5 9 1" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`text-sm ${isChecked ? "font-semibold text-slate-800" : "text-slate-600"}`}>
-                      {sec.label}
                     </span>
                   </label>
                 );

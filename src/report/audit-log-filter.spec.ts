@@ -46,7 +46,7 @@ describe('buildAuditLogWhere', () => {
 
   it('combines every filter with AND', () => {
     const where = buildAuditLogWhere(
-      { period: '7d', action: 'AUDIT_REJECT', resourceType: 'OnefopSubmission', resourceId: 'abc', actor: 'ewane' },
+      { period: '7d', action: 'AUDIT_REJECT', resourceType: 'OnefopSubmission', resourceId: 'abc', actor: 'user-7' },
       now,
     );
     expect(where.AND).toEqual([
@@ -54,16 +54,14 @@ describe('buildAuditLogWhere', () => {
       { action: 'AUDIT_REJECT' },
       { resourceType: 'OnefopSubmission' },
       { resourceId: { contains: 'abc', mode: 'insensitive' } },
-      {
-        user: {
-          OR: [
-            { firstName: { contains: 'ewane', mode: 'insensitive' } },
-            { lastName: { contains: 'ewane', mode: 'insensitive' } },
-            { email: { contains: 'ewane', mode: 'insensitive' } },
-          ],
-        },
-      },
+      { userId: { equals: 'user-7' } },
     ]);
+  });
+
+  it('matches the actor exactly, never as a substring of a name or email', () => {
+    const [clause] = buildAuditLogWhere({ actor: 'user-7' }, now).AND;
+    expect(clause).toEqual({ userId: { equals: 'user-7' } });
+    expect(JSON.stringify(clause)).not.toContain('contains');
   });
 });
 

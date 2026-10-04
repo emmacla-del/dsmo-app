@@ -8,7 +8,7 @@ import { OnefopAnalyticsController } from '../analytics/onefop-analytics.control
 import { AdminQuestionnairesController } from '../questionnaires/admin-questionnaires.controller';
 
 class HandlerOnlyController {
-  @Roles('CENTRAL')
+  @Roles('ADMIN_ONEFOP')
   guarded() {}
 
   open() {}
@@ -21,7 +21,7 @@ class ClassOnlyController {
 
 @Roles('SUPER_ADMIN')
 class MixedController {
-  @Roles('REGIONAL')
+  @Roles('REGIONAL_ADMIN')
   overridden() {}
 
   inherited() {}
@@ -46,7 +46,7 @@ describe('RolesGuard', () => {
 
   it('enforces handler-level @Roles', async () => {
     const handler = HandlerOnlyController.prototype.guarded;
-    await expect(allows(HandlerOnlyController, handler, 'CENTRAL')).resolves.toBe(true);
+    await expect(allows(HandlerOnlyController, handler, 'ADMIN_ONEFOP')).resolves.toBe(true);
     await expect(allows(HandlerOnlyController, handler, 'COMPANY')).resolves.toBe(false);
   });
 
@@ -62,12 +62,12 @@ describe('RolesGuard', () => {
 
   it('lets handler-level @Roles win over class-level @Roles', async () => {
     const overridden = MixedController.prototype.overridden;
-    await expect(allows(MixedController, overridden, 'REGIONAL')).resolves.toBe(true);
+    await expect(allows(MixedController, overridden, 'REGIONAL_ADMIN')).resolves.toBe(true);
     await expect(allows(MixedController, overridden, 'SUPER_ADMIN')).resolves.toBe(false);
 
     const inherited = MixedController.prototype.inherited;
     await expect(allows(MixedController, inherited, 'SUPER_ADMIN')).resolves.toBe(true);
-    await expect(allows(MixedController, inherited, 'REGIONAL')).resolves.toBe(false);
+    await expect(allows(MixedController, inherited, 'REGIONAL_ADMIN')).resolves.toBe(false);
   });
 
   it.each([

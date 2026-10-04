@@ -12,6 +12,7 @@ import {
   type Company,
 } from "@/lib/companies-directory";
 import { getDataManagementStats } from "@/lib/api-client";
+import { DIRECTORY_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -23,40 +24,55 @@ import {
 } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 
-const DIRECTORY_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP"];
 const PAGE_SIZE = 8;
+
+/**
+ * The seven live OnefopEntityType values, labelled through the shared
+ * entityTypeLabel() helper so this list and the row badges can never
+ * disagree.
+ *
+ * Replaces a hand-written array that offered a type absent from the enum —
+ * so that option could only ever return nothing — and omitted
+ * PROJECT_PROGRAM and VOCATIONAL_TRAINING, hiding two real entity types from
+ * the filter. The deprecated VOCATIONAL_TRAINING_CENTER is deliberately not
+ * here.
+ */
+const ENTITY_TYPE_VALUES = [
+  "ENTREPRISE",
+  "COOPERATIVE",
+  "CTD",
+  "ONG",
+  "ADMINISTRATION",
+  "PROJECT_PROGRAM",
+  "VOCATIONAL_TRAINING",
+];
 
 const ENTITY_TYPES = [
   { value: "ALL", label: "Tous" },
-  { value: "ENTREPRISE", label: "Entreprise" },
-  { value: "COOPERATIVE", label: "Coopérative" },
-  { value: "ADMINISTRATION", label: "Administration" },
-  { value: "ASFOP", label: "ASFOP" },
-  { value: "CTD", label: "CTD" },
-  { value: "ONG", label: "ONG" },
+  ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: entityTypeLabel(value) })),
 ];
 
 // Only states a linked account can actually be in, derived from User.status /
 // User.isActive. "Incomplet" was offered but no record ever carries it, so
 // that filter could only ever return nothing.
+//
+// ACTIVE and PENDING_APPROVAL are literal UserStatus values and go to the
+// server as-is. SUSPENDED is not a UserStatus at all — suspension is
+// User.isActive === false — so GET /companies has no way to express it and
+// it stays a page-local narrowing. See SERVER_FILTERABLE_STATUSES.
 const ACCOUNT_STATUSES = [
   { value: "ALL", label: "Tous" },
   { value: "ACTIVE", label: "Actif" },
-  { value: "PENDING", label: "En attente" },
+  { value: "PENDING_APPROVAL", label: "En attente" },
   { value: "SUSPENDED", label: "Suspendu" },
 ];
 
-const SECTORS = [
-  { value: "ALL", label: "Tous" },
-  { value: "PRIMAIRE", label: "Secteur Primaire" },
-  { value: "SECONDAIRE", label: "Secteur Secondaire" },
-  { value: "TERTIAIRE", label: "Secteur Tertiaire" },
-];
+const SERVER_FILTERABLE_STATUSES = ["ACTIVE", "PENDING_APPROVAL"];
 
 /**
  * One establishment row.
  *
- * Every field is mapped from a GET /dsmo/companies record. Fields the record
+ * Every field is mapped from a GET /companies record. Fields the record
  * does not carry stay `null` and render as an em dash. There is deliberately
  * no `creePar`: nothing on the Company model records who created the account
  * (docs/admin-data-integrity-inventory.md), so the column was removed rather
@@ -97,17 +113,24 @@ export default function EtablissementsPage() {
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedSector, setSelectedSector] = useState("ALL");
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Region and status are server-side filters now, so they share the search
+  // box's 300ms debounce: one timer, one refetch, and the three controls can
+  // never queue three separate requests between keystrokes.
+  const [appliedRegion, setAppliedRegion] = useState("Toutes");
+  const [appliedStatus, setAppliedStatus] = useState("ALL");
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput.trim());
+      setAppliedRegion(selectedRegion);
+      setAppliedStatus(selectedStatus);
       setPage(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, selectedRegion, selectedStatus]);
 
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management", "stats"],
@@ -120,9 +143,21 @@ export default function EtablissementsPage() {
     enabled: canRead,
   });
 
+  // Sent to GET /companies, which filters and counts over the whole
+  // territory-scoped register rather than over the page already fetched.
+  const serverStatus = SERVER_FILTERABLE_STATUSES.includes(appliedStatus) ? appliedStatus : undefined;
+  const serverRegion = appliedRegion !== "Toutes" ? appliedRegion : undefined;
+
   const companiesQuery = useQuery({
-    queryKey: ["dsmo", "companies", search, page],
-    queryFn: () => listCompanies({ search: search || undefined, page, pageSize: PAGE_SIZE }),
+    queryKey: ["dsmo", "companies", search, serverStatus ?? "ALL", serverRegion ?? "ALL", page],
+    queryFn: () =>
+      listCompanies({
+        search: search || undefined,
+        status: serverStatus,
+        region: serverRegion,
+        page,
+        pageSize: PAGE_SIZE,
+      }),
     enabled: canRead,
   });
 
@@ -131,7 +166,7 @@ export default function EtablissementsPage() {
 
   /**
    * Total establishments.
-   * Sourced directly from GET /dsmo/companies/stats (or GET /data-management/stats).
+   * Sourced directly from GET /companies/stats (or GET /data-management/stats).
    */
   const totalEtablissements = companyStats?.total ?? stats?.totals?.companies ?? stats?.totalCompanies ?? null;
 
@@ -163,19 +198,45 @@ export default function EtablissementsPage() {
   }));
 
   /**
-   * Client-side narrowing of the rows the server returned.
+   * What is left for the client to narrow, now that search / region / status
+   * are applied and counted server-side.
    *
-   * `/dsmo/companies` supports only `search`, so type / region / status are
-   * applied here. That means these three filters narrow the *current page*,
-   * which is why the row count below is reported as "N sur cette page" and the
-   * server total is reported separately — the two are never conflated.
+   * Two dimensions GET /companies cannot express:
+   *  - entity type: the endpoint takes no entityType param;
+   *  - "Suspendu": suspension is User.isActive === false, and the endpoint's
+   *    `status` param filters User.status, which has no SUSPENDED member.
+   *
+   * Both therefore narrow the *current page* only. `localNarrowing` is true
+   * whenever one is active, and the footer then stops claiming a server
+   * total it is no longer describing.
    */
+  const localNarrowing = selectedType !== "ALL" || appliedStatus === "SUSPENDED";
+
+  /**
+   * Pager figures, all taken from the response GET /companies actually
+   * returned. Until now the footer read "Affichage 1-8 sur 1 847
+   * établissements" from a hardcoded string and the page buttons had no
+   * onClick at all, so `page` could never leave 1 and the total was an
+   * invented figure.
+   */
+  const filteredTotal = companiesQuery.data?.total ?? null;
+  const totalPages = filteredTotal === null ? 1 : Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
+  const rangeFrom = rawRows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeTo = rawRows.length === 0 ? 0 : rangeFrom + rawRows.length - 1;
+
+  // A short window around the current page: a register of several thousand
+  // establishments must not render several hundred buttons.
+  const pageWindow: number[] = (() => {
+    const span = 3;
+    let start = Math.max(1, page - Math.floor(span / 2));
+    const end = Math.min(totalPages, start + span - 1);
+    start = Math.max(1, end - span + 1);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  })();
+
   const filteredRows = displayRows.filter((item) => {
     if (selectedType !== "ALL" && item.type !== selectedType) return false;
-    if (selectedRegion !== "Toutes" && !(item.regionCity ?? "").toLowerCase().includes(selectedRegion.toLowerCase())) return false;
-    if (selectedStatus === "ACTIVE" && item.status !== "ACTIF") return false;
-    if (selectedStatus === "PENDING" && item.status !== "EN_ATTENTE") return false;
-    if (selectedStatus === "SUSPENDED" && item.status !== "SUSPENDU") return false;
+    if (appliedStatus === "SUSPENDED" && item.status !== "SUSPENDU") return false;
     return true;
   });
 
@@ -184,13 +245,13 @@ export default function EtablissementsPage() {
     isLoading: companiesQuery.isLoading,
     isError: companiesQuery.isError,
     error: companiesQuery.error,
-    rowCount: companiesQuery.data?.companies.length ?? null,
+    rowCount: companiesQuery.data ? filteredRows.length : null,
   });
 
   /**
-   * Exports exactly the rows on screen, which are exactly the records the
-   * server returned (narrowed by the client-side filters above). Nothing is
-   * padded or generated; an empty table exports nothing.
+   * Exports exactly the rows on screen — one page of the server's filtered
+   * result, minus any page-local narrowing. Nothing is padded or generated;
+   * an empty table exports nothing.
    *
    * Values are CSV-quoted so a company name containing a comma cannot shift
    * other fields into the wrong column — a silent corruption of an
@@ -336,7 +397,7 @@ export default function EtablissementsPage() {
         </div>
       </div>
 
-      {/* Register volume. Authoritative metrics sourced from GET /dsmo/companies/stats. */}
+      {/* Register volume. Authoritative metrics sourced from GET /companies/stats. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginBottom: 24 }}>
         <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "20px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "#6b7280" }}>
@@ -389,7 +450,7 @@ export default function EtablissementsPage() {
 
       {/* Filter controls matching Figma */}
       <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 18, marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr 1.2fr 1.6fr", gap: 14, alignItems: "flex-end" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr 1.6fr", gap: 14, alignItems: "flex-end" }}>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
               TYPE D&apos;ÉTABLISSEMENT
@@ -424,18 +485,6 @@ export default function EtablissementsPage() {
               style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
             >
               {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              SECTEUR D&apos;ACTIVITÉ
-            </label>
-            <select
-              value={selectedSector}
-              onChange={(e) => setSelectedSector(e.target.value)}
-              style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
-            >
-              {SECTORS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
           <div>
@@ -655,91 +704,67 @@ export default function EtablissementsPage() {
         {/* Table pagination footer */}
         <div style={{ padding: "14px 20px", borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
           <span style={{ color: "#6b7280" }}>
-            Affichage 1-8 sur 1 847 établissements
+            {companiesQuery.isLoading
+              ? "…"
+              : localNarrowing
+                ? `${filteredRows.length} sur ${rawRows.length} établissement(s) de cette page (type / suspendu filtrés localement)`
+                : filteredTotal === null
+                  ? NOT_PROVIDED
+                  : `Affichage ${rangeFrom}-${rangeTo} sur ${count(filteredTotal)} établissement(s)`}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
               type="button"
-              disabled
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
               style={{
                 padding: "6px 14px",
                 background: "#ffffff",
-                border: "1px solid #e5e7eb",
+                border: `1px solid ${page <= 1 ? "#e5e7eb" : "#d1d5db"}`,
                 borderRadius: 6,
                 fontSize: 13,
-                color: "#9ca3af",
-                cursor: "not-allowed",
+                color: page <= 1 ? "#9ca3af" : "#374151",
+                cursor: page <= 1 ? "not-allowed" : "pointer",
               }}
             >
               Précédent
             </button>
+            {pageWindow.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setPage(n)}
+                aria-current={n === page ? "page" : undefined}
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: n === page ? "#004d3d" : "#ffffff",
+                  color: n === page ? "#ffffff" : "#374151",
+                  border: n === page ? "none" : "1px solid #d1d5db",
+                  borderRadius: 6,
+                  fontWeight: n === page ? 600 : 500,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                {n}
+              </button>
+            ))}
             <button
               type="button"
-              style={{
-                width: 32,
-                height: 32,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#004d3d",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              1
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 32,
-                height: 32,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#ffffff",
-                color: "#374151",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                fontWeight: 500,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              2
-            </button>
-            <button
-              type="button"
-              style={{
-                width: 32,
-                height: 32,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#ffffff",
-                color: "#374151",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                fontWeight: 500,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              3
-            </button>
-            <button
-              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
               style={{
                 padding: "6px 14px",
                 background: "#ffffff",
-                border: "1px solid #d1d5db",
+                border: `1px solid ${page >= totalPages ? "#e5e7eb" : "#d1d5db"}`,
                 borderRadius: 6,
                 fontSize: 13,
-                color: "#374151",
-                cursor: "pointer",
+                color: page >= totalPages ? "#9ca3af" : "#374151",
+                cursor: page >= totalPages ? "not-allowed" : "pointer",
                 fontWeight: 500,
               }}
             >

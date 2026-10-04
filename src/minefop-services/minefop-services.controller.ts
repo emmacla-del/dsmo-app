@@ -171,7 +171,7 @@ export class MinefopServicesController {
      */
     @Post()
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     @HttpCode(HttpStatus.CREATED)
     async createService(@Body() createServiceDto: CreateServiceDto) {
         return this.svc.createService(createServiceDto);
@@ -182,7 +182,7 @@ export class MinefopServicesController {
      */
     @Post('positions')
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     @HttpCode(HttpStatus.CREATED)
     async createPosition(@Body() createPositionDto: CreatePositionDto) {
         return this.svc.createPosition(createPositionDto);
@@ -193,7 +193,7 @@ export class MinefopServicesController {
      */
     @Patch('positions/:id')
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     async updatePosition(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() updatePositionDto: UpdatePositionDto
@@ -206,7 +206,7 @@ export class MinefopServicesController {
      */
     @Delete('positions/:id')
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     @HttpCode(HttpStatus.NO_CONTENT)
     async deletePosition(@Param('id', ParseUUIDPipe) id: string) {
         await this.svc.deletePosition(id);
@@ -254,7 +254,7 @@ export class MinefopServicesController {
      */
     @Patch(':code')
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     async updateService(
         @Param('code') code: string,
         @Body() updateServiceDto: UpdateServiceDto
@@ -267,7 +267,7 @@ export class MinefopServicesController {
      */
     @Delete(':code/hard')
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     @HttpCode(HttpStatus.NO_CONTENT)
     async hardDeleteService(@Param('code') code: string) {
         await this.svc.hardDeleteService(code);
@@ -278,7 +278,7 @@ export class MinefopServicesController {
      */
     @Delete(':code')
     @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.SUPER_ADMIN_ONEFOP)
+    @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP)
     @HttpCode(HttpStatus.NO_CONTENT)
     async deleteService(@Param('code') code: string) {
         await this.svc.deleteService(code);

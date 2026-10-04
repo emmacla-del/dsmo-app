@@ -27,72 +27,57 @@ import {
 } from "@/lib/audit-log";
 import { resolveDataState, stamp } from "@/lib/admin-data-state";
 import { listCampaigns } from "@/lib/campaigns";
-
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "SUPER_ADMIN_ONEFOP", "SUPER_ADMIN_DSMO"];
+import { AUDIT_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 
 const RECENT_AUDIT_LIMIT = 6;
 
-// Roles the backend lets read GET /audit/reports.
-const AUDIT_READER_ROLES = ["SUPER_ADMIN", "SUPER_ADMIN_DSMO", "SUPER_ADMIN_ONEFOP", "AUDITOR"];
+// Roles the backend lets read GET /audit/reports: AUDIT_ROLES in @/lib/roles.
 
 interface RolePermissionItem {
-  id: string;
   name: string;
   description: string;
 }
 
-const SYSTEM_ROLES: RolePermissionItem[] = [
-  {
-    id: "SUPER_ADMIN",
+/**
+ * Statutory description of each role, for the read-only roles card.
+ *
+ * Typed as a total Record over UserRole (@/lib/roles) rather than held as a
+ * second hand-written list of role identifiers: adding or removing a value in
+ * the Prisma enum then becomes a type error here instead of a silently stale
+ * card. Declaration order is the card's display order — widest authority
+ * first, the declarant last.
+ *
+ * The names below are the long statutory titles this card shows, which are
+ * deliberately not directoryRoleLabel()'s compact badge labels.
+ */
+const SYSTEM_ROLE_DETAILS: Record<UserRole, RolePermissionItem> = {
+  SUPER_ADMIN: {
     name: "Super administrateur",
-    description: "Accès complet à la plateforme, gestion des administrateurs, des rôles et des paramètres système.",
+    description:
+      "Accès complet à la plateforme, gestion des administrateurs, des rôles et des paramètres système. Seul rôle pouvant créer ou promouvoir un administrateur ONEFOP.",
   },
-  {
-    id: "SUPER_ADMIN_DSMO",
-    name: "Admin DSMO",
-    description: "Supervision nationale des déclarations d'entreprises et gestion du volet DSMO.",
+  ADMIN_ONEFOP: {
+    name: "Administrateur ONEFOP",
+    description:
+      "Supervision nationale des enquêtes ONEFOP et des déclarations : instruction de second niveau, contrôle de conformité, gestion des campagnes, des nomenclatures et des équipes de collecte. Exploitation des données agrégées et production des indicateurs.",
   },
-  {
-    id: "SUPER_ADMIN_ONEFOP",
-    name: "Admin ONEFOP",
-    description: "Supervision nationale des enquêtes ONEFOP et gestion des équipes de collecte.",
-  },
-  {
-    id: "CENTRAL",
-    name: "Structure Centrale (MINEFOP)",
-    description: "Supervision centrale, instruction de second niveau et contrôle de conformité.",
-  },
-  {
-    id: "REGIONAL",
+  REGIONAL_ADMIN: {
     name: "Délégation Régionale",
     description: "Supervision des soumissions et contrôle de conformité dans le ressort de la région.",
   },
-  {
-    id: "DIVISIONAL",
+  DIVISIONAL_ADMIN: {
     name: "Délégation Départementale",
     description: "Supervision locale des enquêtes dans le ressort du département.",
   },
-  {
-    id: "DATA_MANAGER",
-    name: "Gestionnaire de données",
-    description: "Gestion des nomenclatures, des référentiels et contrôle de cohérence statistique.",
-  },
-  {
-    id: "CAMPAIGN_MANAGER",
-    name: "Gestionnaire de campagnes",
-    description: "Planification, ouverture, suivi d'avancement et clôture des campagnes de collecte.",
-  },
-  {
-    id: "ANALYST",
-    name: "Analyste statistique",
-    description: "Exploitation des données agrégées, génération d'indicateurs et rapports statistiques.",
-  },
-  {
-    id: "AUDITOR",
+  AUDITOR: {
     name: "Auditeur",
-    description: "Consultation intégrale du journal d'audit et contrôle de conformité procédurale.",
+    description: "Consultation intégrale du journal d'audit et contrôle de conformité procédurale. Aucun droit d'écriture.",
   },
-];
+  COMPANY: {
+    name: "Déclarant",
+    description: "Dépôt et suivi des déclarations de l'établissement. Aucun accès aux écrans d'administration.",
+  },
+};
 
 const ENTITY_TYPES = [
   "ENTREPRISE",
@@ -113,11 +98,11 @@ export default function ParametresPage() {
 }
 
 function ParametresContent() {
-  const { isLoading, forbidden } = useAdminScreenGuard(ALLOWED_ROLES);
+  const { isLoading, forbidden } = useAdminScreenGuard(SETTINGS_ROLES);
   const queryClient = useQueryClient();
 
   const role = useAuthStore((s) => s.user?.role);
-  const canReadAudit = !!role && AUDIT_READER_ROLES.includes(role);
+  const canReadAudit = !!role && AUDIT_ROLES.includes(role);
 
   // Settings query
   const settingsQuery = useQuery({
@@ -146,7 +131,7 @@ function ParametresContent() {
 
   // Observatory Form state
   const [observatoryName, setObservatoryName] = useState("Observatoire National de l'Emploi");
-  const [countryCode, setCountryCode] = useState("CMR");
+  const [countryCode, setCountryCode] = useState(COUNTRY_OPTIONS[0].value);
   const [defaultLanguage, setDefaultLanguage] = useState("fr");
   const [timezone, setTimezone] = useState("Africa/Douala");
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -163,8 +148,8 @@ function ParametresContent() {
   const [offlineAllowed, setOfflineAllowed] = useState(true);
   const [autoValidation, setAutoValidation] = useState(false);
 
-  // Authoritative statutory system roles
-  const roles = SYSTEM_ROLES;
+  // Authoritative statutory system roles, in declaration order.
+  const roles = Object.entries(SYSTEM_ROLE_DETAILS) as Array<[UserRole, RolePermissionItem]>;
 
   useEffect(() => {
     if (campaignsQuery.data && campaignsQuery.data.length > 0 && !defaultCampaign) {
@@ -391,8 +376,7 @@ function ParametresContent() {
                       onChange={(e) => setCountryCode(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 pr-8 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006644] focus:border-transparent transition-all cursor-pointer"
                     >
-                      <option value="CMR">Cameroun</option>
-                      {COUNTRY_OPTIONS.filter((c) => c.value !== "CMR").map((c) => (
+                      {COUNTRY_OPTIONS.map((c) => (
                         <option key={c.value} value={c.value}>{c.label}</option>
                       ))}
                     </select>
@@ -609,13 +593,13 @@ function ParametresContent() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {roles.map((r) => (
-                <div key={r.id} className="py-3.5 flex items-center justify-between gap-4">
+              {roles.map(([id, r]) => (
+                <div key={id} className="py-3.5 flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                     <div className="sm:col-span-4 font-semibold text-sm text-slate-900 flex items-center gap-2">
                       <span>{r.name}</span>
                       <code className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                        {r.id}
+                        {id}
                       </code>
                     </div>
                     <div className="sm:col-span-8 text-xs text-slate-500">

@@ -409,7 +409,7 @@ describe('AuthService registration review — approver role boundaries', () => {
   const pendingStaffUser = {
     id: 'u-staff',
     email: 'agent@minefop.cm',
-    role: 'REGIONAL',
+    role: 'REGIONAL_ADMIN',
     status: 'PENDING_APPROVAL',
     isActive: true,
     region: 'Littoral',
@@ -418,7 +418,7 @@ describe('AuthService registration review — approver role boundaries', () => {
 
   it('CENTRAL approves a company registration nationally', async () => {
     const { service, prisma } = makeService(pendingCompanyUser);
-    await expect(service.approveUser('u-co', 'actor-central', 'CENTRAL', {})).resolves.toMatchObject({
+    await expect(service.approveUser('u-co', 'actor-central', 'ADMIN_ONEFOP', {})).resolves.toMatchObject({
       status: 'ACTIVE',
       isActive: true,
     });
@@ -433,23 +433,23 @@ describe('AuthService registration review — approver role boundaries', () => {
   it('SUPER_ADMIN_ONEFOP approves a company registration nationally', async () => {
     const { service } = makeService(pendingCompanyUser);
     await expect(
-      service.approveUser('u-co', 'actor-onefop', 'SUPER_ADMIN_ONEFOP', {}),
+      service.approveUser('u-co', 'actor-onefop', 'ADMIN_ONEFOP', {}),
     ).resolves.toMatchObject({ status: 'ACTIVE' });
   });
 
-  it('CENTRAL still cannot approve a STAFF registration, before any write', async () => {
+  it('AUDITOR cannot approve a field-staff registration, before any write', async () => {
     const { service, prisma } = makeService(pendingStaffUser);
-    await expect(service.approveUser('u-staff', 'actor-central', 'CENTRAL', {})).rejects.toThrow(
+    await expect(service.approveUser('u-staff', 'actor-auditor', 'AUDITOR', {})).rejects.toThrow(
       ForbiddenException,
     );
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
-  it('CENTRAL still cannot reject a STAFF registration, before any write', async () => {
+  it('AUDITOR cannot reject a field-staff registration, before any write', async () => {
     const { service, prisma } = makeService(pendingStaffUser);
     await expect(
-      service.rejectUser('u-staff', 'actor-central', 'CENTRAL', {}, 'motif'),
+      service.rejectUser('u-staff', 'actor-auditor', 'AUDITOR', {}, 'motif'),
     ).rejects.toThrow(ForbiddenException);
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
@@ -457,7 +457,7 @@ describe('AuthService registration review — approver role boundaries', () => {
 
   it('emails the company on approval, rejection and complements request', async () => {
     const approved = makeService(pendingCompanyUser);
-    await approved.service.approveUser('u-co', 'actor-1', 'CENTRAL', {});
+    await approved.service.approveUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {});
     expect(approved.notifications.sendRegistrationApprovedEmail).toHaveBeenCalledWith(
       'co@example.cm',
       'Menuiserie',
@@ -465,7 +465,7 @@ describe('AuthService registration review — approver role boundaries', () => {
     );
 
     const rejected = makeService(pendingCompanyUser);
-    await rejected.service.rejectUser('u-co', 'actor-1', 'CENTRAL', {}, 'Dossier incomplet');
+    await rejected.service.rejectUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {}, 'Dossier incomplet');
     expect(rejected.notifications.sendRegistrationRejectedEmail).toHaveBeenCalledWith(
       'co@example.cm',
       'Menuiserie',
@@ -473,7 +473,7 @@ describe('AuthService registration review — approver role boundaries', () => {
     );
 
     const complements = makeService(pendingCompanyUser);
-    await complements.service.requestComplements('u-co', 'actor-1', 'CENTRAL', {}, 'Joindre le NIU');
+    await complements.service.requestComplements('u-co', 'actor-1', 'ADMIN_ONEFOP', {}, 'Joindre le NIU');
     expect(complements.notifications.sendRegistrationComplementsEmail).toHaveBeenCalledWith(
       'co@example.cm',
       'Menuiserie',
@@ -484,7 +484,7 @@ describe('AuthService registration review — approver role boundaries', () => {
   it('a failing mail server does not fail the decision', async () => {
     const { service, notifications } = makeService(pendingCompanyUser);
     notifications.sendRegistrationApprovedEmail.mockRejectedValue(new Error('SMTP unreachable'));
-    await expect(service.approveUser('u-co', 'actor-1', 'CENTRAL', {})).resolves.toMatchObject({
+    await expect(service.approveUser('u-co', 'actor-1', 'ADMIN_ONEFOP', {})).resolves.toMatchObject({
       status: 'ACTIVE',
     });
   });
@@ -492,7 +492,7 @@ describe('AuthService registration review — approver role boundaries', () => {
   it('CENTRAL cannot request complements on a STAFF account', async () => {
     const { service, prisma } = makeService(pendingStaffUser);
     await expect(
-      service.requestComplements('u-staff', 'actor-central', 'CENTRAL', {}, 'message'),
+      service.requestComplements('u-staff', 'actor-central', 'ADMIN_ONEFOP', {}, 'message'),
     ).rejects.toThrow('Les demandes de compléments concernent uniquement les comptes entreprise.');
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
@@ -512,7 +512,7 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
   it('applies the region filter server-side, on top of the territory scope', async () => {
     const { service, prisma } = makeService();
     await service.listCompanyRegistrations(
-      { role: 'REGIONAL', region: 'Littoral' },
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
       { region: 'Littoral' },
     );
     expect(prisma.company.findMany).toHaveBeenCalledWith(
@@ -528,7 +528,7 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
   it('refuses a region outside the actor jurisdiction instead of widening it', async () => {
     const { service, prisma } = makeService();
     await expect(
-      service.listCompanyRegistrations({ role: 'REGIONAL', region: 'Littoral' }, { region: 'Centre' }),
+      service.listCompanyRegistrations({ role: 'REGIONAL_ADMIN', region: 'Littoral' }, { region: 'Centre' }),
     ).rejects.toThrow(ForbiddenException);
     expect(prisma.company.findMany).not.toHaveBeenCalled();
   });
@@ -536,7 +536,7 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
   it('lets a DIVISIONAL reviewer narrow to its own region', async () => {
     const { service, prisma } = makeService();
     await service.listCompanyRegistrations(
-      { role: 'DIVISIONAL', region: 'Littoral', department: 'Wouri' },
+      { role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' },
       { region: 'Littoral' },
     );
     expect(prisma.company.findMany).toHaveBeenCalled();
@@ -544,7 +544,7 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
 
   it('lets a national role narrow to any region', async () => {
     const { service, prisma } = makeService();
-    await service.listCompanyRegistrations({ role: 'CENTRAL' }, { region: 'Centre' });
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { region: 'Centre' });
     expect(prisma.company.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

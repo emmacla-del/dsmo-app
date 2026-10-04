@@ -24,3 +24,24 @@ export function validatePassword(password: string): string | null {
   if (passwordStrength(password) < 0.35) return "Mot de passe trop faible/ Password too weak";
   return null;
 }
+
+// The four requirements the score above is built from, exposed so the security
+// section can show which ones are already met instead of printing one static
+// sentence of criteria.
+//
+// The predicates are deliberately kept next to passwordStrength rather than
+// factored out of it: passwordStrength is a direct port of the Dart
+// implementation and is not being rewritten here. register-completeness.test.ts
+// asserts the two agree, which is what guards against them drifting apart.
+export const PASSWORD_RULE_IDS = ["length", "uppercase", "digit", "special"] as const;
+
+export type PasswordRuleId = (typeof PASSWORD_RULE_IDS)[number];
+
+export function passwordRuleChecks(password: string): Record<PasswordRuleId, boolean> {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    digit: /[0-9]/.test(password),
+    special: /[!@#$%^&*]/.test(password),
+  };
+}

@@ -23,6 +23,8 @@ export interface OnefopExportFilters {
    * no open blocking anomaly (EligibilityEngineService).
    */
   statuses?: string | string[];
+  /** DataCampaign.id — narrows the export to one collection campaign. */
+  campaignId?: string;
 }
 
 const KNOWN_STATUSES = new Set<string>(Object.values(OnefopStatus));
@@ -42,11 +44,17 @@ export function parseStatuses(raw: OnefopExportFilters['statuses']): string[] {
 
 /**
  * Prisma `where` for the export rows. `eligibilityWhere` is the official
- * statistical-base predicate, used only when no status is requested.
+ * statistical-base predicate and is ALWAYS part of the selection: an
+ * explicit `statuses` list narrows the status dimension *within* that base
+ * rather than replacing it, so the open-blocking-anomaly exclusion survives
+ * every export (D7). `eligibilityWhere` is spread first, so its own
+ * `status` key — when it carries one — is the one a request overrides.
  */
 export function buildOnefopExportWhere(filters: OnefopExportFilters, eligibilityWhere: object): any {
   const statuses = parseStatuses(filters.statuses);
-  const where: any = statuses.length > 0 ? { status: { in: statuses } } : { ...eligibilityWhere };
+  const where: any = statuses.length > 0
+    ? { ...eligibilityWhere, status: { in: statuses } }
+    : { ...eligibilityWhere };
 
   if (filters.entityType) {
     if (!KNOWN_ENTITY_TYPES.has(filters.entityType)) {
@@ -61,6 +69,7 @@ export function buildOnefopExportWhere(filters: OnefopExportFilters, eligibility
     if (!Number.isInteger(year)) throw new BadRequestException(`Année invalide : ${filters.year}`);
     where.surveyYear = year;
   }
+  if (filters.campaignId) where.campaignId = filters.campaignId;
   if (filters.fromDate || filters.toDate) {
     where.createdAt = {};
     if (filters.fromDate) where.createdAt.gte = new Date(filters.fromDate);

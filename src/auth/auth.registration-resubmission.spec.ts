@@ -167,7 +167,7 @@ describe('AuthService.resubmitRegistration', () => {
   });
 
   it('refuses a non-company account', async () => {
-    const { service } = makeService({ user: { role: 'DIVISIONAL' } });
+    const { service } = makeService({ user: { role: 'DIVISIONAL_ADMIN' } });
     await expect(service.resubmitRegistration('u-co')).rejects.toThrow(BadRequestException);
   });
 
@@ -302,7 +302,7 @@ describe('AuthService.listCompanyRegistrations — resubmission diff and ADMINIS
 
   it('surfaces the last resubmission diff when it is newer than the complements request', async () => {
     const { service } = makeQueueService('ENTREPRISE', [resubmittedRow, complementsRow]);
-    const result = await service.listCompanyRegistrations({ role: 'CENTRAL' }, {});
+    const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
 
     expect(result.items[0].lastResubmission).toEqual({
       at: RESUBMITTED_AT,
@@ -316,27 +316,27 @@ describe('AuthService.listCompanyRegistrations — resubmission diff and ADMINIS
   it('reports no resubmission when complements were requested again afterwards', async () => {
     const staleResubmission = { ...resubmittedRow, createdAt: new Date('2026-02-20T10:00:00Z') };
     const { service } = makeQueueService('ENTREPRISE', [complementsRow, staleResubmission]);
-    const result = await service.listCompanyRegistrations({ role: 'CENTRAL' }, {});
+    const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
 
     expect(result.items[0].lastResubmission).toBeNull();
   });
 
   it('reports no resubmission on a file that has never been resubmitted', async () => {
     const { service } = makeQueueService('ENTREPRISE', [complementsRow]);
-    const result = await service.listCompanyRegistrations({ role: 'CENTRAL' }, {});
+    const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
 
     expect(result.items[0].lastResubmission).toBeNull();
   });
 
   it('flags an ADMINISTRATION file for the central-structure check, and only that one', async () => {
     const admin = await makeQueueService('ADMINISTRATION', []).service.listCompanyRegistrations(
-      { role: 'CENTRAL' },
+      { role: 'ADMIN_ONEFOP' },
       {},
     );
     expect(admin.items[0].requiresCentralStructureCheck).toBe(true);
 
     const entreprise = await makeQueueService('ENTREPRISE', []).service.listCompanyRegistrations(
-      { role: 'CENTRAL' },
+      { role: 'ADMIN_ONEFOP' },
       {},
     );
     expect(entreprise.items[0].requiresCentralStructureCheck).toBe(false);

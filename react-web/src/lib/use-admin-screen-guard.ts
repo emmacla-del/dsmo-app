@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "./auth-store";
-import type { UserRole } from "./user-types";
+import type { UserRole } from "./roles";
 
 // Named apart from src/lib/use-require-auth.ts on purpose: that file is
 // owned by the concurrent Phase 3 session's home-shell guard (token
@@ -13,7 +13,7 @@ import type { UserRole } from "./user-types";
 // ships. Reconcile into one shared guard once both slices have landed —
 // do not silently merge them now while the other session may still be
 // editing use-require-auth.ts.
-export function useAdminScreenGuard(allowedRoles?: UserRole[]) {
+export function useAdminScreenGuard(allowedRoles?: readonly UserRole[]) {
   const router = useRouter();
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);

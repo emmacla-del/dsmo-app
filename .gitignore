@@ -75,3 +75,4 @@ Claude outputs/
 # Test output
 test/failures/
 test/goldens/
+test-failures.txt

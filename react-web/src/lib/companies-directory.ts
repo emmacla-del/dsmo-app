@@ -1,10 +1,12 @@
 // src/lib/companies-directory.ts
 //
-// GET /dsmo/companies (src/dsmo/dsmo.controller.ts, guarded to exactly
-// SUPER_ADMIN/SUPER_ADMIN_DSMO/SUPER_ADMIN_ONEFOP — matches the roles that
-// reference "Annuaire" in role-navigation.ts) — read directly from
-// dsmo.controller.ts + dsmo.service.ts's listCompanies() to get the real
-// query params and response shape, not guessed from the Flutter UI alone.
+// GET /companies (src/companies/companies.controller.ts, guarded to
+// DIRECTORY_ROLES — SUPER_ADMIN, ADMIN_ONEFOP, REGIONAL_ADMIN,
+// DIVISIONAL_ADMIN, with the rows territory-scoped server-side) — read
+// directly from the controller + dsmo.service.ts's listCompanies() to get
+// the real query params and response shape, not guessed from the Flutter UI
+// alone. Both routes lived under the /dsmo prefix until the register moved
+// out of DsmoController.
 import { apiFetch } from "./api-client";
 
 export interface CompanyUser {
@@ -62,7 +64,7 @@ export interface CompanyStats {
 }
 
 export function getCompanyStats() {
-  return apiFetch<CompanyStats>("/dsmo/companies/stats");
+  return apiFetch<CompanyStats>("/companies/stats");
 }
 
 export function listCompanies(params: {
@@ -79,7 +81,7 @@ export function listCompanies(params: {
   if (params.status) query.set("status", params.status);
   if (params.region) query.set("region", params.region);
   const qs = query.toString();
-  return apiFetch<ListCompaniesResult>(`/dsmo/companies${qs ? `?${qs}` : ""}`);
+  return apiFetch<ListCompaniesResult>(`/companies${qs ? `?${qs}` : ""}`);
 }
 
 // Ported labels — CompaniesScreen's _entityTypeLabel (companies_screen.dart).

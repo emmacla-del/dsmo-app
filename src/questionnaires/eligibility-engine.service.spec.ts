@@ -228,7 +228,7 @@ describe('EligibilityEngineService', () => {
         submission: { region: 'Centre' },
       });
 
-      const regionalUser = { id: 'usr-1', role: UserRole.REGIONAL, region: 'Centre' };
+      const regionalUser = { id: 'usr-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre' };
       await expect(
         service.resolveAnomaly('ano-1', regionalUser, {
           resolutionType: AnomalyResolutionType.LEGAL_DEROGATION,
@@ -353,7 +353,7 @@ describe('EligibilityEngineService.executeBulkVisa — companion fixes', () => {
     buildEngine([{
       id: 's1', status: OnefopStatus.APPROVED, region: 'Centre', department: 'Mfoundi', anomalies: [],
     }]);
-    const divActor = { id: 'a', role: UserRole.DIVISIONAL, region: 'Centre', department: 'Wouri', email: 'a@a.cm' };
+    const divActor = { id: 'a', role: UserRole.DIVISIONAL_ADMIN, region: 'Centre', department: 'Wouri', email: 'a@a.cm' };
     const result = await engine.executeBulkVisa(divActor, { submissionIds: ['s1'], certified: true });
     // Must NOT reveal that the status was APPROVED (territory info-leak)
     expect(result.rejectedItems[0].reason).not.toMatch(/APPROVED/i);
@@ -449,7 +449,7 @@ describe('EligibilityEngineService.executeBulkReject', () => {
   });
 
   it('territory check before status check — out-of-territory reason is generic', async () => {
-    const divActor = { id: 'a', role: UserRole.DIVISIONAL, region: 'Centre', department: 'Wouri', email: 'a@a.cm' };
+    const divActor = { id: 'a', role: UserRole.DIVISIONAL_ADMIN, region: 'Centre', department: 'Wouri', email: 'a@a.cm' };
     buildEngine([sub('s1', OnefopStatus.APPROVED, 'Centre', 'Mfoundi')]);
     const result = await engine.executeBulkReject(divActor, validDto);
     expect(result.rejectedItems[0].reason).not.toMatch(/APPROVED/i);
@@ -568,7 +568,7 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     };
     const engine = new EligibilityEngineService(prisma);
 
-    const queues = await engine.getPilotageQueues({ role: 'REGIONAL', region: 'Littoral' });
+    const queues = await engine.getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
 
     expect(queues.statusCounts).toEqual({ PENDING_REVIEW: 400, APPROVED: 700, CORRECTION_REQUESTED: 0, REJECTED: 100 });
     expect(queues.approvedCount).toBe(700);

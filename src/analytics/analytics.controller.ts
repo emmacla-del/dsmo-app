@@ -31,13 +31,13 @@ export class AnalyticsController {
     // ═══════════════════════════════════════════════════════════
 
     @Get('employment-by-region')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getEmploymentByRegion(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getEmploymentByRegion(year);
     }
 
     @Get('employment-trends')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getEmploymentTrends(
         @Query('startYear', ParseIntPipe) startYear: number,
         @Query('endYear', ParseIntPipe) endYear: number,
@@ -53,7 +53,7 @@ export class AnalyticsController {
     }
 
     @Get('sector-distribution')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getSectorDistribution(
         @Query('year', ParseIntPipe) year: number,
         @Query('region') region?: string,
@@ -62,7 +62,7 @@ export class AnalyticsController {
     }
 
     @Get('gender-distribution')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getGenderDistribution(
         @Query('year', ParseIntPipe) year: number,
         @Query('region') region?: string,
@@ -71,13 +71,13 @@ export class AnalyticsController {
     }
 
     @Get('category-distribution')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getCategoryDistribution(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getCategoryDistribution(year);
     }
 
     @Get('recruitment-forecast')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getRecruitmentForecast(
         @Query('years', new ParseIntPipe({ optional: true })) years?: number,
         @Query('forecastYears', new ParseIntPipe({ optional: true })) forecastYears?: number,
@@ -86,19 +86,19 @@ export class AnalyticsController {
     }
 
     @Get('unemployment-risk-regions')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getUnemploymentRiskRegions(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getUnemploymentRiskRegions(year);
     }
 
     @Get('sector-labor-shortages')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getSectorLaborShortages(@Query('year', ParseIntPipe) year: number) {
         return this.analyticsService.getSectorLaborShortages(year);
     }
 
     @Get('companies-with-recruitment-plans')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getCompaniesWithRecruitmentPlans(
         @Query('year', ParseIntPipe) year: number,
         @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
@@ -107,7 +107,7 @@ export class AnalyticsController {
     }
 
     @Get('dashboard-summary')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async getDashboardSummary(
         @Query('year', ParseIntPipe) year: number,
         @Query('region') region?: string,
@@ -156,7 +156,7 @@ export class AnalyticsController {
     // ═══════════════════════════════════════════════════════════
 
     @Get('export')
-    @Roles('CENTRAL', 'REGIONAL', 'DIVISIONAL', 'SUPER_ADMIN', 'SUPER_ADMIN_DSMO')
+    @Roles('ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'SUPER_ADMIN')
     async exportData(
         @Query('startYear') startYear: number,
         @Query('endYear') endYear: number,

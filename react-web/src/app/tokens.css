@@ -114,6 +114,99 @@
   --cam-border-width: 1px;
   --cam-table-grid: #171a18;
 
+  /* ── Registration wizard rigid card shell ──
+     The wizard's card frames a six-step form whose tall steps scroll inside
+     it, so the frame has to read as a real boundary rather than a hairline:
+     a brand-green border plus a green-tinted shadow, in place of
+     --cam-shadow-sm, which is effectively invisible at 4% opacity. The chrome
+     paddings are tokens so the <=640px step-down happens in one place (see the
+     media query at the end of this file) instead of being repeated across the
+     header, body and footer rules in globals.css. */
+  --cam-card-frame-width: 2px;
+  --cam-card-shadow:
+    0 6px 20px -4px rgba(30, 107, 58, 0.22),
+    0 2px 6px rgba(30, 107, 58, 0.1);
+  --cam-card-shadow-focus:
+    0 0 0 4px rgba(30, 107, 58, 0.14),
+    0 6px 20px -4px rgba(30, 107, 58, 0.26);
+  --cam-card-pad-x: 26px;
+  --cam-card-head-pad-top: 20px;
+  --cam-card-head-pad-bottom: 14px;
+  --cam-card-body-pad-y: 20px;
+  --cam-card-foot-pad-y: 14px;
+  --cam-card-shell-pad-y: var(--cam-space-5);
+  --cam-card-shell-pad-x: var(--cam-space-4);
+
+  /* The wizard's own container cap, wider than --cam-container-form (640px,
+     sized for the single-column login card) but far short of full bleed: on a
+     1920px monitor an uncapped card turns every field into an 1800px input,
+     which is unreadable and reads as unfinished rather than official. */
+  --cam-container-wizard: 780px;
+
+  /* ── Side-by-side field layout (container >= 560px) ──
+     The label column is fixed so every label/input boundary in a step lines up
+     into one vertical rule; the input column takes the rest. Labels are
+     right-aligned against that rule, so a label sits as close to its own input
+     as the column allows and a long bilingual label wraps without moving the
+     input.
+
+     pad-top puts the label's first line on the same optical line as the text
+     inside the input: the input is --cam-field-height tall with its value
+     vertically centred, so the offset is (48 - ~20px line box) / 2, rounded to
+     the 14px the spec calls for.
+
+     The 560px threshold itself has to stay a literal in the @container rule --
+     custom properties are not usable in container or media query conditions.
+     It is a CONTAINER width, not a viewport width: the query measures the
+     wizard's own form column, so the layout is correct whatever chrome
+     surrounds it. */
+  --cam-field-label-col: 170px;
+  --cam-field-label-gap: var(--cam-space-4);
+  --cam-field-label-pad-top: 14px;
+
+  /* Space between two field rows, and (in the stacked layout) between a label
+     and the input beneath it. */
+  --cam-field-row-gap: 22px;
+  --cam-field-stack-gap: 6px;
+
+  /* ── Wizard control metrics ──
+     Taller and softer than the shared 40px auth input: the registration form
+     is a long data-entry session rather than a two-field sign-in. Scoped to
+     the wizard in globals.css so login, forgot-password and verify-email keep
+     --cam-form-field-height. */
+  --cam-field-height: 48px;
+  --cam-field-radius: 8px;
+  --cam-field-border-width: 1.5px;
+
+  /* Helper text under an input. Example values live in the control's own
+     placeholder, so this carries explanation only. */
+  --cam-field-hint-size: var(--cam-font-size-xs);
+
+  /* ── Progressive-flow section cards ──
+     Each revealed section of the wizard is a card in one scrolling column.
+     The padding steps down on a narrow container; the step-down is a media
+     query because a container cannot restyle itself from its own query. */
+  --cam-section-radius: 12px;
+  --cam-section-pad: 28px;
+  --cam-section-gap: 20px;
+
+  /* ── Section heading (StepHeader) ──
+     One step of visual hierarchy above the form itself: the step title is the
+     largest thing in the card body, the description sits under it in muted
+     body text, and the gap below the pair is wider than the row gap so the
+     heading reads as introducing the fields rather than belonging to the
+     first one. */
+  --cam-step-title-size: 1.375rem;
+  --cam-step-subtitle-size: var(--cam-font-size-sm);
+  --cam-step-header-gap: var(--cam-space-1);
+  --cam-step-header-space-after: var(--cam-space-5);
+
+  /* Extra inline-end padding for the scroll region once the label column
+     appears. scrollbar-gutter: stable reserves the gutter inside the padding
+     box, so at the base padding the input column's right edge clears the
+     scrollbar by only ~11px; this restores a readable gap. */
+  --cam-card-body-pad-end: calc(var(--cam-card-pad-x) + var(--cam-space-2));
+
   /* ── Questionnaire statistical tables ──
      One palette for every data-entry table (StatisticalGridRenderer,
      TableRenderer's grids, VT tables, activities table, guided-mode live
@@ -192,4 +285,21 @@
 /* Phones: every table cell steps down together, never individually. */
 @media (max-width: 639px) {
   :root { --cam-table-fs: 0.8125rem; }
+}
+
+/* Phones: the wizard card's chrome tightens so the scrolling form body keeps
+   as much of the height budget as possible. The border deliberately does NOT
+   thin -- on a small screen the frame is the only thing separating the form
+   from the page behind it. */
+@media (max-width: 640px) {
+  :root {
+    --cam-section-pad: 18px;
+    --cam-card-pad-x: 16px;
+    --cam-card-head-pad-top: 14px;
+    --cam-card-head-pad-bottom: 10px;
+    --cam-card-body-pad-y: 14px;
+    --cam-card-foot-pad-y: 12px;
+    --cam-card-shell-pad-y: var(--cam-space-3);
+    --cam-card-shell-pad-x: var(--cam-space-2);
+  }
 }

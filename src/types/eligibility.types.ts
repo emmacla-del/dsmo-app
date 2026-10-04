@@ -48,8 +48,6 @@ export interface DossierDiagnostic {
 export interface PilotageQueues {
   blockingAnomaliesCount: number;
   pendingNationalVisasCount: number;
-  pendingRegionalVisasCount: number;
-  pendingDivisionalVisasCount: number;
   correctionsUnderReviewCount: number;
   statisticallyReadyCount: number;
   totalSubmissionsCount: number;
