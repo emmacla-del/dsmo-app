@@ -47,4 +47,10 @@ export class AuditController {
                 'Le paramètre « offset » doit être un entier positif ou nul.'),
         );
     }
+
+    // TODO(phase-4): POST /audit/nudge goes here — call
+    // NotificationsService.create to deliver the nudge to the target admin's
+    // in-app inbox. The inbox and its routes landed in Phase 3; this is the
+    // only writer Phase 3-lite planned for, and it belongs to the monitoring
+    // dashboard rather than to the inbox itself.
 }
