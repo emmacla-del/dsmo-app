@@ -6,6 +6,8 @@
 // ONEFOP Section 1 (see the Dart file's own comment on this), not a second
 // definition of the ONEFOP schema itself — kept in its own file, distinct
 // from onefop-schema.ts, precisely so it's never confused with that.
+import type { LocalizedText } from "./register-i18n";
+
 export type EntityType =
   | "enterprise"
   | "cooperative"
@@ -88,8 +90,8 @@ export function parseCompanyEntityType(apiValue: string | null | undefined): Ent
 
 export interface EntityField {
   key: string;
-  label: string;
-  hint?: string;
+  label: LocalizedText;
+  hint?: LocalizedText;
   required: boolean;
   kind: "text" | "tel" | "number" | "select";
   options?: import("./register-options").RegisterOption[];
@@ -103,7 +105,7 @@ export interface EntityField {
 
 export interface EntityConfig {
   type: EntityType;
-  title: string;
+  title: LocalizedText;
   fields: EntityField[];
 }
 
@@ -137,110 +139,193 @@ import {
   SEX_OPTIONS,
 } from "./register-options";
 
+// Shared field definitions.
+//
+// `address`, `phone`, `phone2`, `poBox`, the NIU and the year are declared
+// once each and reused across the seven types -- which is what they already
+// were in practice, the same label typed out seven times, with the drift that
+// invites. A type needing different wording (vocationalTraining's "Adresse du
+// CFP") still declares its own.
+const PHONE: EntityField = {
+  key: "phone",
+  label: { fr: "Téléphone", en: "Phone" },
+  hint: { fr: "Ex : 655000000", en: "E.g. 655000000" },
+  required: true,
+  kind: "tel",
+};
+const PHONE_2: EntityField = {
+  key: "phone2",
+  // Was "Téléphone secondaire" / "Secondary phone". Both fit on one line, but
+  // "Téléphone 2" matches the Declarant section's own phone 1 / phone 2 pair,
+  // which the respondent has already filled in once.
+  label: { fr: "Téléphone 2", en: "Phone 2" },
+  required: false,
+  kind: "tel",
+};
+const PO_BOX: EntityField = {
+  key: "poBox",
+  label: { fr: "Boîte postale", en: "P.O. box" },
+  required: false,
+  kind: "text",
+};
+const TAX_NUMBER: EntityField = {
+  key: "taxNumber",
+  label: { fr: "N° contribuable (NIU)", en: "Taxpayer no. (NIU)" },
+  required: true,
+  kind: "text",
+};
+const HEAD_OFFICE: EntityField = {
+  key: "address",
+  // Was "Adresse du siège social" / "Registered office address" (23 / 25).
+  // "social" and "registered" do no work under a block heading that already
+  // says Siège social.
+  label: { fr: "Adresse du siège", en: "Office address" },
+  required: true,
+  kind: "text",
+};
+const YEAR_OF_CREATION: EntityField = {
+  key: "yearOfCreation",
+  label: { fr: "Année de création", en: "Year established" },
+  hint: { fr: "AAAA", en: "YYYY" },
+  required: true,
+  kind: "number",
+};
+const MAIN_MISSION: EntityField = {
+  key: "mainMission",
+  label: { fr: "Mission principale", en: "Main mission" },
+  required: true,
+  kind: "text",
+};
+const SIGLE: EntityField = {
+  key: "sigle",
+  label: { fr: "Sigle", en: "Acronym" },
+  required: false,
+  kind: "text",
+};
+
 export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   enterprise: {
     type: "enterprise",
-    title: "Entreprise/ Company",
+    title: { fr: "Entreprise", en: "Company" },
     fields: [
-      { key: "companyName", label: "Raison sociale/ Company name", hint: "Nom légal de l'entreprise", required: true, kind: "text" },
-      { key: "legalStatus", label: "Statut juridique/ Legal status", required: true, kind: "select", options: LEGAL_STATUS_OPTIONS },
-      { key: "taxNumber", label: "N° Contribuable (NIU)/ Taxpayer No.", required: true, kind: "text" },
-      { key: "cnpsNumber", label: "N° d'affiliation CNPS/ CNPS affiliation No.", required: false, kind: "text" },
-      { key: "mainActivity", label: "Activité principale/ Main activity", required: true, kind: "text" },
-      { key: "branch", label: "Branche d'activité/ Business branch", hint: "Ex: Commerce, Industrie, Services", required: false, kind: "text" },
-      { key: "address", label: "Adresse du siège social/ Registered office address", required: true, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", hint: "6XXXXXXXX", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
-      { key: "socialCapital", label: "Capital social (XAF)/ Share capital (XAF)", required: false, kind: "number" },
-      { key: "parentCompany", label: "Maison mère / Groupe/ Parent company / Group", required: false, kind: "text" },
-      { key: "secondaryActivity", label: "Activité secondaire/ Secondary activity", required: false, kind: "text" },
+      { key: "companyName", label: { fr: "Raison sociale", en: "Company name" }, hint: { fr: "Nom légal de l'entreprise", en: "The company's legal name" }, required: true, kind: "text" },
+      { key: "legalStatus", label: { fr: "Statut juridique", en: "Legal status" }, required: true, kind: "select", options: LEGAL_STATUS_OPTIONS },
+      TAX_NUMBER,
+      // Was "N° d'affiliation CNPS" / "CNPS affiliation No.". The number IS
+      // the affiliation, and the block heading says Affiliation.
+      { key: "cnpsNumber", label: { fr: "N° CNPS", en: "CNPS no." }, required: false, kind: "text" },
+      { key: "mainActivity", label: { fr: "Activité principale", en: "Main activity" }, required: true, kind: "text" },
+      { key: "branch", label: { fr: "Branche d'activité", en: "Business branch" }, hint: { fr: "Ex : Commerce, Industrie, Services", en: "E.g. Trade, Industry, Services" }, required: false, kind: "text" },
+      HEAD_OFFICE,
+      PHONE,
+      PHONE_2,
+      PO_BOX,
+      { key: "socialCapital", label: { fr: "Capital social (XAF)", en: "Share capital (XAF)" }, required: false, kind: "number" },
+      // Was "Maison mère / Groupe" / "Parent company / Group" -- the label
+      // whose FRENCH half contains its own " / ", which is why these could
+      // not be split mechanically.
+      { key: "parentCompany", label: { fr: "Maison mère", en: "Parent company" }, required: false, kind: "text" },
+      { key: "secondaryActivity", label: { fr: "Activité secondaire", en: "Secondary activity" }, required: false, kind: "text" },
     ],
   },
   cooperative: {
     type: "cooperative",
-    title: "Coopérative/ Cooperative",
+    title: { fr: "Coopérative", en: "Coopérative" },
     fields: [
-      { key: "cooperativeName", label: "Nom de la coopérative/ Cooperative name", required: true, kind: "text" },
-      { key: "cooperativeType", label: "Type de coopérative/ Cooperative type", required: true, kind: "select", options: COOPERATIVE_TYPE_OPTIONS },
-      { key: "yearOfCreation", label: "Année de création/ Year established", hint: "AAAA/ YYYY", required: true, kind: "number" },
-      { key: "taxNumber", label: "N° Contribuable (NIU)/ Taxpayer No.", required: true, kind: "text" },
-      { key: "mainActivity", label: "Activité principale/ Main activity", required: true, kind: "text" },
-      { key: "cooperativeHeadOffice", label: "Adresse du siège social/ Registered office address", required: true, kind: "text" },
-      { key: "branch", label: "Branche d'activité/ Business branch", required: false, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
+      { key: "cooperativeName", label: { fr: "Nom de la coopérative", en: "Cooperative name" }, required: true, kind: "text" },
+      { key: "cooperativeType", label: { fr: "Type de coopérative", en: "Cooperative type" }, required: true, kind: "select", options: COOPERATIVE_TYPE_OPTIONS },
+      YEAR_OF_CREATION,
+      TAX_NUMBER,
+      { key: "mainActivity", label: { fr: "Activité principale", en: "Main activity" }, required: true, kind: "text" },
+      { key: "cooperativeHeadOffice", label: { fr: "Adresse du siège", en: "Office address" }, required: true, kind: "text" },
+      { key: "branch", label: { fr: "Branche d'activité", en: "Business branch" }, required: false, kind: "text" },
+      PHONE,
+      PHONE_2,
+      PO_BOX,
     ],
   },
   ctd: {
     type: "ctd",
-    title: "CTD/ RLA",
+    title: { fr: "CTD", en: "RLA" },
     fields: [
-      { key: "ctdType", label: "Type de CTD/ RLA type", required: true, kind: "select", options: CTD_TYPE_OPTIONS },
-      { key: "ctdName", label: "Nom de la CTD/ RLA name", hint: "Région ou Commune/ Region or Municipality", required: true, kind: "text" },
-      { key: "yearOfCreation", label: "Année de création/ Year established", required: true, kind: "number" },
-      { key: "taxNumber", label: "N° Contribuable (NIU)/ Taxpayer No.", required: true, kind: "text" },
-      { key: "address", label: "Adresse du siège/ Head office address", required: true, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
+      { key: "ctdType", label: { fr: "Type de CTD", en: "RLA type" }, required: true, kind: "select", options: CTD_TYPE_OPTIONS },
+      { key: "ctdName", label: { fr: "Nom de la CTD", en: "RLA name" }, hint: { fr: "Région ou commune", en: "Region or municipality" }, required: true, kind: "text" },
+      YEAR_OF_CREATION,
+      TAX_NUMBER,
+      HEAD_OFFICE,
+      PHONE,
+      PHONE_2,
+      PO_BOX,
     ],
   },
   ong: {
     type: "ong",
-    title: "ONG/ NGO",
+    title: { fr: "ONG", en: "NGO" },
     fields: [
-      { key: "ngoName", label: "Nom de l'ONG/ NGO name", required: true, kind: "text" },
-      { key: "registrationNumber", label: "N° d'enregistrement/ Registration No.", hint: "Numéro d'agrément/ Approval number", required: true, kind: "text" },
-      { key: "taxNumber", label: "N° Contribuable (NIU)/ Taxpayer No.", required: true, kind: "text" },
-      { key: "yearOfCreation", label: "Année de création/ Year established", required: true, kind: "number" },
-      { key: "mainMission", label: "Mission principale/ Main mission", required: true, kind: "text" },
-      { key: "address", label: "Adresse du siège social/ Registered office address", required: true, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
+      { key: "ngoName", label: { fr: "Nom de l'ONG", en: "NGO name" }, required: true, kind: "text" },
+      { key: "registrationNumber", label: { fr: "N° d'enregistrement", en: "Registration no." }, hint: { fr: "Numéro d'agrément", en: "Approval number" }, required: true, kind: "text" },
+      TAX_NUMBER,
+      YEAR_OF_CREATION,
+      MAIN_MISSION,
+      HEAD_OFFICE,
+      PHONE,
+      PHONE_2,
+      PO_BOX,
     ],
   },
   administration: {
     type: "administration",
-    title: "Administration",
+    title: { fr: "Administration", en: "Administration" },
     fields: [
-      { key: "administrationName", label: "Nom de l'administration/ Administration name", required: true, kind: "text" },
-      { key: "sigle", label: "Sigle/ Acronym", required: false, kind: "text" },
-      { key: "mainMission", label: "Mission principale/ Main mission", required: true, kind: "text" },
-      { key: "address", label: "Adresse du siège/ Head office address", required: true, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
+      // Was "Nom de l'administration" / "Administration name". Both fit, but
+      // the block heading already says which administration this is.
+      { key: "administrationName", label: { fr: "Nom", en: "Name" }, required: true, kind: "text" },
+      SIGLE,
+      MAIN_MISSION,
+      HEAD_OFFICE,
+      PHONE,
+      PHONE_2,
+      PO_BOX,
     ],
   },
   projectProgram: {
     type: "projectProgram",
-    title: "Projet / Programme/ Project / Programme",
+    title: { fr: "Projet / Programme", en: "Project / Programme" },
     fields: [
-      { key: "projectProgramName", label: "Nom/ Name", required: true, kind: "text" },
-      { key: "sigle", label: "Sigle ou acronyme/ Abbreviation or acronym", required: false, kind: "text" },
-      { key: "mainMission", label: "Objectif ou mission principale/ Objective or main mission", required: true, kind: "text" },
-      { key: "address", label: "Siège social/ Head office", required: true, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
+      { key: "projectProgramName", label: { fr: "Nom", en: "Name" }, required: true, kind: "text" },
+      // Was "Sigle ou acronyme" / "Abbreviation or acronym" -- the same field
+      // every other type calls Sigle.
+      SIGLE,
+      // Was "Objectif ou mission principale" (30) / "Objective or main
+      // mission" (26): over the one-line budget, and the same field the ONG
+      // and Administration configs call Mission principale.
+      MAIN_MISSION,
+      HEAD_OFFICE,
+      PHONE,
+      PHONE_2,
+      PO_BOX,
     ],
   },
   vocationalTraining: {
     type: "vocationalTraining",
-    title: "Centre de formation professionnelle (enquête ONEFOP)/ Vocational Training Center (ONEFOP survey)",
+    title: {
+      fr: "Centre de formation professionnelle (enquête ONEFOP)",
+      en: "Vocational training centre (ONEFOP survey)",
+    },
     fields: [
-      { key: "centerName", label: "Nom du CFP/ Name of VTC", required: true, kind: "text" },
-      { key: "sigle", label: "Sigle/ Initials", required: false, kind: "text" },
-      { key: "taxNumber", label: "N° Contribuable (NIU)/ Taxpayer No.", required: true, kind: "text" },
-      { key: "cfpType", label: "Type de CFP/ Type of VTC", required: true, kind: "select", options: CFP_TYPE_OPTIONS },
-      { key: "educationSystem", label: "Ordre d'enseignement/ Education system", required: true, kind: "select", options: EDUCATION_SYSTEM_OPTIONS },
-      { key: "functionalStatus", label: "Situation du Centre/ Status of the center", required: true, kind: "select", options: FUNCTIONAL_STATUS_OPTIONS },
+      { key: "centerName", label: { fr: "Nom du CFP", en: "VTC name" }, required: true, kind: "text" },
+      SIGLE,
+      TAX_NUMBER,
+      { key: "cfpType", label: { fr: "Type de CFP", en: "VTC type" }, required: true, kind: "select", options: CFP_TYPE_OPTIONS },
+      { key: "educationSystem", label: { fr: "Ordre d'enseignement", en: "Education system" }, required: true, kind: "select", options: EDUCATION_SYSTEM_OPTIONS },
+      { key: "functionalStatus", label: { fr: "Situation du centre", en: "Centre status" }, required: true, kind: "select", options: FUNCTIONAL_STATUS_OPTIONS },
       {
         key: "nonFunctionalReason",
-        label: "Raison (si non-fonctionnelle)/ Reason (if non-functional)",
+        // Was "Raison (si non-fonctionnelle)" (29) / "Reason (if
+        // non-functional)" (26). The parenthetical restated the gate that
+        // puts the field on screen at all: it only appears once the centre
+        // has been declared non-functional.
+        label: { fr: "Raison", en: "Reason" },
         required: true,
         kind: "select",
         options: NON_FUNCTIONAL_REASON_OPTIONS,
@@ -249,21 +334,30 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
       },
       {
         key: "nonFunctionalReasonOther",
-        label: "Autre raison (préciser)/ Other reason (specify)",
+        // "(preciser)" / "(specify)" moves from the label to the hint, where
+        // an instruction belongs.
+        label: { fr: "Autre raison", en: "Other reason" },
+        hint: { fr: "Précisez", en: "Please specify" },
         required: true,
         kind: "text",
         dependsOn: "nonFunctionalReason",
         dependsValue: "Autres",
       },
-      { key: "yearOfCreation", label: "Année d'ouverture/ Year of establishment", required: true, kind: "number" },
-      { key: "address", label: "Adresse du CFP/ VTC's address", required: true, kind: "text" },
-      { key: "phone", label: "Téléphone/ Phone", required: true, kind: "tel" },
-      { key: "phone2", label: "Téléphone secondaire/ Secondary phone", required: false, kind: "tel" },
-      { key: "poBox", label: "Boîte postale/ P.O. Box", required: false, kind: "text" },
-      { key: "promoterName", label: "Promoteur/Directeur — Noms et prénoms/ Promoter/Director — Full name", required: true, kind: "text" },
-      { key: "promoterSex", label: "Promoteur/Directeur — Sexe/ Promoter/Director — Sex", required: true, kind: "select", options: SEX_OPTIONS },
-      { key: "promoterPhone1", label: "Promoteur/Directeur — Téléphone 1/ Promoter/Director — Phone 1", required: true, kind: "tel" },
-      { key: "promoterPhone2", label: "Promoteur/Directeur — Téléphone 2/ Promoter/Director — Phone 2", required: false, kind: "tel" },
+      { key: "yearOfCreation", label: { fr: "Année d'ouverture", en: "Year opened" }, hint: { fr: "AAAA", en: "YYYY" }, required: true, kind: "number" },
+      { key: "address", label: { fr: "Adresse du CFP", en: "VTC address" }, required: true, kind: "text" },
+      PHONE,
+      PHONE_2,
+      PO_BOX,
+      // The four promoter labels were "Promoteur/Directeur -- ...", 33 to 37
+      // characters each and two lines in any column. The block heading now
+      // carries "Promoteur / Directeur", so the label only has to say which
+      // of their details this is -- but it keeps a "Promoteur" prefix,
+      // because section 3 also asks for the CENTRE's two phone numbers and
+      // the missing-fields notice lists these by name.
+      { key: "promoterName", label: { fr: "Promoteur — Nom", en: "Promoter — name" }, required: true, kind: "text" },
+      { key: "promoterSex", label: { fr: "Promoteur — Sexe", en: "Promoter — sex" }, required: true, kind: "select", options: SEX_OPTIONS },
+      { key: "promoterPhone1", label: { fr: "Promoteur — Tél. 1", en: "Promoter — phone 1" }, required: true, kind: "tel" },
+      { key: "promoterPhone2", label: { fr: "Promoteur — Tél. 2", en: "Promoter — phone 2" }, required: false, kind: "tel" },
     ],
   },
 };

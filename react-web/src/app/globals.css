@@ -37,7 +37,7 @@ body {
   outline-offset: 2px;
 }
 
-.vt-checkbox-option input:focus-visible + span {
+.vt-checkbox-option input:focus-visible+span {
   outline: 2px solid var(--cam-focus-ring);
   outline-offset: 2px;
 }
@@ -307,12 +307,10 @@ body {
 
 .cam-auth-page .stripe {
   height: 4px;
-  background: linear-gradient(
-    to right,
-    var(--cam-flag-green) 0 33.3%,
-    var(--cam-flag-red) 33.3% 66.6%,
-    var(--cam-flag-yellow) 66.6% 100%
-  );
+  background: linear-gradient(to right,
+      var(--cam-flag-green) 0 33.3%,
+      var(--cam-flag-red) 33.3% 66.6%,
+      var(--cam-flag-yellow) 66.6% 100%);
 }
 
 .cam-auth-page .card-body {
@@ -365,12 +363,19 @@ body {
   position: relative;
 }
 
+/* input:not([type]) is a safety net, not a licence to omit the attribute.
+   An <input> with no type attribute behaves as text but matches none of the
+   [type=] selectors below, so it rendered with no border at the browser's
+   own default height -- which is exactly what happened to Prenom and Nom.
+   The attribute is still set at every call site; this makes the next
+   omission a cosmetic non-event rather than a broken field. */
 .cam-auth-page input[type="email"],
 .cam-auth-page input[type="password"],
 .cam-auth-page input[type="text"],
 .cam-auth-page input[type="tel"],
 .cam-auth-page input[type="number"],
 .cam-auth-page input[type="date"],
+.cam-auth-page input:not([type]),
 .cam-auth-page textarea {
   width: 100%;
   padding: 10px var(--cam-space-3);
@@ -635,153 +640,185 @@ body {
   box-shadow: var(--cam-card-shadow);
 }
 
-/* ── Registration wizard: rigid shell with a single inner scroll region ──
-   Before this, nothing in the flow established a scroll container: the card,
-   the stepper, the error banner and Back/Next were all plain document flow, so
-   a respondent on a tall step (3 and 6 run two to three viewports) lost both
-   their progress indicator and the only primary action while still typing.
+/* ── Registration flow: one screen, one frame, one scrollbar ──
+   The route is a 100dvh flex column that never scrolls:
 
-   The page is now the scroll ceiling and the form body is the only scroll
-   region. Every link in the chain needs min-height: 0 -- a flex item's default
-   min-height is auto, which refuses to shrink below its content, and a single
-   missing declaration sends the scroll straight back to the document. The
-   chain is:
+     .flow-stripe   4px of national tricolor, full bleed
+     .flow-header   the wordmark, the caption and the progress rail. Sticky by
+                    STRUCTURE -- it is a fixed-size row of the column, so
+                    nothing can scroll under it and no position: sticky, no
+                    z-index and no scroll-margin-top compensation is needed
+                    anywhere (the three rules that used to do that, and the
+                    --cam-flow-header-offset token behind them, are gone).
+     .flow-body     flex: 1, min-height: 0 -- the min-height is what lets the
+                    frame inside it be shorter than its content and scroll.
+     .flow-footer   one line: back to sign-in, and the help link.
 
-     main.cam-auth-page--wizard   height: 100dvh; overflow: hidden
-       .wrap-wide                 flex: 1; min-height: 0
-         .card--admin             flex: 1; min-height: 0
-           .card-body-scroll      flex: 1; min-height: 0; overflow-y: auto
-
-   Scoped to --wizard throughout so the register success screen (which uses the
-   same .card--admin and always fits) keeps the shared centred layout. */
-/* Self-contained rather than leaning on the base .cam-auth-page rule for
-   `display`: with flex-direction: column, `align-items` governs the HORIZONTAL
-   axis and `justify-content` the vertical one, so splitting them across two
-   rules is how the card ended up left-aligned. Vertical overflow is handled by
-   justify-content: flex-start (a centred item taller than its container pushes
-   its own top edge above the scroll origin, out of the scrollbar's reach);
-   align-items: center does the horizontal centring. */
+   Inside .flow-body there is exactly one frame, and inside the frame exactly
+   one scroll container. The modifier is used by src/app/register/page.tsx and
+   nowhere else (the register success screen renders .cam-auth-page without
+   it, and login/forgot-password/verify-email use .wrap, not .wrap-wide), so
+   no other route is affected. */
 .cam-auth-page--wizard {
-  height: 100dvh;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0;
-}
-
-/* The masthead brackets the card and must not absorb the height budget the
-   scroll region needs. */
-.cam-auth-page--wizard .masthead {
-  flex: 0 0 auto;
-}
-
-/* Owns the width cap and the shell padding, so the card's own edges are what
-   the viewport-height chain measures. */
-.cam-auth-page--wizard .wrap-wide {
-  flex: 1;
+  height: 100dvh;
+  max-height: 100dvh;
   min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.cam-auth-page--wizard .flow-stripe {
+  flex: 0 0 auto;
+  height: 4px;
+  width: 100%;
+  background: linear-gradient(to right,
+      var(--cam-flag-green) 0 33.3%,
+      var(--cam-flag-red) 33.3% 66.6%,
+      var(--cam-flag-yellow) 66.6% 100%);
+}
+
+.cam-auth-page--wizard .flow-header {
+  flex: 0 0 auto;
+  background: var(--cam-surface);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  padding: var(--cam-space-3) var(--cam-space-4) var(--cam-space-3);
+}
+
+.cam-auth-page--wizard .flow-header-inner {
   width: 100%;
   max-width: var(--cam-container-wizard);
   margin: 0 auto;
-  padding: var(--cam-card-shell-pad-y) var(--cam-card-shell-pad-x);
-  display: flex;
-  flex-direction: column;
 }
 
-.cam-auth-page--wizard .card--admin {
-  flex: 1;
+/* The emblem placeholder, the note explaining it and the CAM-LEAP wordmark
+   are all hidden on this route. The first two are a reminder to the team
+   rather than information for the respondent; the third is a second title
+   on a page whose real title is the section in the frame, and on a 680px
+   laptop it was costing the form a line it could not spare. The subtitle
+   stays and carries the identity on its own, on one line. */
+.cam-auth-page--wizard .seal,
+.cam-auth-page--wizard .seal-note,
+.cam-auth-page--wizard .brand-name {
+  display: none;
+}
+
+.cam-auth-page--wizard .masthead {
+  margin: 0 0 var(--cam-space-3);
+}
+
+/* One line, whatever the width: the subtitle is an identifier, not prose,
+   and a second line here is a line the frame does not get. */
+.cam-auth-page--wizard .brand-sub {
+  font-size: var(--cam-font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* min-height: 0 is the whole trick: without it a flex item refuses to be
+   shorter than its content, the frame grows past the viewport and the
+   document starts scrolling again. */
+.cam-auth-page--wizard .flow-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding: var(--cam-space-4) var(--cam-space-4) var(--cam-space-2);
+}
+
+/* The one framed element on the page, and the query container the
+   side-by-side field layout measures -- see the @container rule below. It is
+   the FRAME and not the scroll region that carries the container, because the
+   scroll region's content box is narrower by its own padding and the
+   reserved scrollbar gutter, which would put a 600px frame under the 560px
+   threshold and stack every label. */
+.cam-auth-page--wizard .flow-frame {
+  container: cam-form / inline-size;
+  width: 100%;
+  max-width: var(--cam-container-wizard);
   min-height: 0;
   display: flex;
   flex-direction: column;
+  border: 1.5px solid var(--cam-green);
+  border-radius: var(--cam-section-radius);
+  background: var(--cam-surface);
+  overflow: hidden;
 }
 
-/* Shadow-only, never border-width: animating the border would reflow the whole
-   scroll region on every focus change. */
-@media (prefers-reduced-motion: no-preference) {
-  .cam-auth-page--wizard .card--admin {
-    transition: box-shadow 0.18s ease;
-  }
-}
-
-.cam-auth-page--wizard .card--admin:focus-within {
-  box-shadow: var(--cam-card-shadow-focus);
-}
-
-/* Rigid header: the tricolor stripe sits above it, the progress rail inside. */
-.cam-auth-page--wizard .card-header {
-  flex: 0 0 auto;
-  padding: var(--cam-card-head-pad-top) var(--cam-card-pad-x)
-    var(--cam-card-head-pad-bottom);
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
-}
-
-/* The progress rail carries its own trailing margin for the old single-body
-   layout; the header's padding now owns that gap. */
-.cam-auth-page--wizard .card-header > * {
-  margin-bottom: 0;
-}
-
-/* The only scroll region in the flow. overscroll-behavior stops the scroll
-   chaining to the document at either end, and scrollbar-gutter keeps the form
-   from shifting sideways between a short step (2, 5) and a tall one (3, 6). */
-.cam-auth-page--wizard .card-body-scroll {
-  flex: 1;
+/* The only scroll container on the route. scrollbar-gutter keeps the space
+   reserved whether or not the section in the frame is tall enough to need it,
+   so moving between sections does not shift the fields sideways. */
+.cam-auth-page--wizard .flow-frame-scroll {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--cam-card-body-pad-y) var(--cam-card-pad-x);
+  overflow-x: hidden;
   scrollbar-gutter: stable;
-  /* Query container for the field layout below. inline-size only: the block
-     axis still comes from the flex chain above, so the rigid shell is
-     untouched. Its inline size is the form's own available width -- padding
-     and the reserved scrollbar gutter already excluded -- which is what the
-     field rule needs to measure instead of the viewport. */
-  container: cam-form / inline-size;
+  /* The frame is 600px wide and the gutter is reserved whether or not it is
+     in use, so a platform-default 15-17px bar is a visible bite out of the
+     input column on every section, tall or short. */
+  scrollbar-width: thin;
+  padding: 20px 22px 8px;
 }
 
-/* Rigid footer: error banner, then Back/Next, then the sign-in link that was
-   already here. .card-footer's own padding/border/background already match the
-   spec, so only the wizard's vertical rhythm is overridden. */
-.cam-auth-page--wizard .card-footer {
+/* One line under the frame: the way back to sign-in and the help contact,
+   which were two separate blocks when the document still scrolled. */
+.cam-auth-page--wizard .flow-footer {
   flex: 0 0 auto;
-  padding: var(--cam-card-foot-pad-y) var(--cam-card-pad-x);
-}
-
-/* .card-footer centres its text for the sign-in link; the error banner inside
-   it is prose and stays left-aligned, as it was in the card body. */
-.cam-auth-page--wizard .card-footer .auth-error-box {
-  text-align: left;
-}
-
-/* Support line, pinned below the card as part of the shell rather than left in
-   the scrolling document flow where overflow: hidden would clip it. */
-.cam-auth-page--wizard .wizard-legal-line {
-  flex: 0 0 auto;
-  width: 100%;
-  max-width: var(--cam-container-wizard);
-  margin: 0 auto;
-  padding: var(--cam-space-2) var(--cam-card-shell-pad-x) var(--cam-space-3);
   text-align: center;
+  padding: 0 var(--cam-space-4) var(--cam-space-3);
   font-size: var(--cam-font-size-xs);
   color: var(--cam-text-muted);
 }
 
-.cam-auth-page--wizard .wizard-legal-line a {
+.cam-auth-page--wizard .flow-footer a {
   color: var(--cam-text-muted);
   font-weight: 600;
   text-decoration: none;
 }
 
-.cam-auth-page--wizard .wizard-legal-line a:hover {
+.cam-auth-page--wizard .flow-footer a:hover {
   text-decoration: underline;
 }
 
+.cam-auth-page--wizard .flow-footer-sep {
+  margin: 0 var(--cam-space-2);
+  color: var(--cam-border-strong);
+}
+
+/* Short viewports: the header gives back what it can, since the frame's
+   height is whatever is left. */
+@media (max-height: 699px) {
+  .cam-auth-page--wizard .flow-header {
+    padding-top: var(--cam-space-2);
+    padding-bottom: var(--cam-space-2);
+  }
+
+  .cam-auth-page--wizard .masthead {
+    display: none;
+  }
+
+  .cam-auth-page--wizard .flow-body {
+    padding-top: var(--cam-space-3);
+  }
+}
+
 @media (max-width: 640px) {
-  .cam-auth-page--wizard .card--admin,
-  .cam-auth-page--wizard .wrap-wide .card {
-    border-radius: var(--cam-radius-md);
+  .cam-auth-page--wizard .flow-header {
+    padding-left: var(--cam-space-3);
+    padding-right: var(--cam-space-3);
+  }
+
+  .cam-auth-page--wizard .flow-body {
+    padding: var(--cam-space-3) var(--cam-space-3) var(--cam-space-2);
+  }
+
+  .cam-auth-page--wizard .flow-frame-scroll {
+    padding: var(--cam-section-pad) var(--cam-section-pad) var(--cam-space-2);
   }
 }
 
@@ -831,12 +868,6 @@ body {
   margin-left: var(--cam-space-1);
 }
 
-.cam-auth-page .field-optional-mark {
-  color: var(--cam-text-muted);
-  font-weight: 400;
-  margin-left: var(--cam-space-1);
-}
-
 /* Explanation under the input, in the input column. Example values are not
    hints -- they belong in the control's own placeholder. */
 .cam-auth-page .field-hint {
@@ -851,36 +882,45 @@ body {
    margin-bottom (which the shared auth pages still use) is cleared here --
    including the :last-of-type variant, which has the same specificity as the
    rule below and would otherwise win on source order. */
-.cam-auth-page--wizard .card-body-scroll .field,
-.cam-auth-page--wizard .card-body-scroll .field:last-of-type {
+/* The query container for the field layout below is .flow-frame, not this
+   form: the frame's width is the 600px the layout is specified against, while
+   the form sits inside the scroll region's padding and reserved gutter and so
+   measures ~60px narrower. There is no scroll-margin-top anywhere any more --
+   the header is a flex row above the scroll container rather than a sticky
+   overlay on top of it, so nothing can land underneath it. */
+.cam-auth-page--wizard .cam-form-flow .field,
+.cam-auth-page--wizard .cam-form-flow .field:last-of-type {
   margin-bottom: 0;
 }
 
-.cam-auth-page--wizard .card-body-scroll .form-single-column {
+.cam-auth-page--wizard .cam-form-flow .form-single-column {
   gap: var(--cam-field-row-gap);
 }
 
 /* Stacked layout (the default, and the only layout below 560px): label above
    its input, left-aligned, 6px apart. */
-.cam-auth-page--wizard .card-body-scroll .field > label {
+.cam-auth-page--wizard .cam-form-flow .field>label {
   margin-bottom: var(--cam-field-stack-gap);
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.3;
 }
 
 /* ── Wizard control metrics ──
-   48px tall, 8px radius, 1.5px border. Scoped to the wizard's scroll region so
-   login, forgot-password and verify-email keep the shared 40px control.
+   --cam-field-height tall, 8px radius, 1.5px border. Scoped to the wizard's
+   form so login, forgot-password and verify-email keep the shared control.
 
    The resting border is --cam-border for inputs AND selects. Inputs alone were
    resting on --cam-green, which put a brand-green box around every untouched
    text field while the select beside it was grey -- the green belongs to the
    focused control, which is what the focus rule below says. */
-.cam-auth-page--wizard .card-body-scroll input[type="email"],
-.cam-auth-page--wizard .card-body-scroll input[type="password"],
-.cam-auth-page--wizard .card-body-scroll input[type="text"],
-.cam-auth-page--wizard .card-body-scroll input[type="tel"],
-.cam-auth-page--wizard .card-body-scroll input[type="number"],
-.cam-auth-page--wizard .card-body-scroll input[type="date"],
-.cam-auth-page--wizard .card-body-scroll select {
+.cam-auth-page--wizard .cam-form-flow input[type="email"],
+.cam-auth-page--wizard .cam-form-flow input[type="password"],
+.cam-auth-page--wizard .cam-form-flow input[type="text"],
+.cam-auth-page--wizard .cam-form-flow input[type="tel"],
+.cam-auth-page--wizard .cam-form-flow input[type="number"],
+.cam-auth-page--wizard .cam-form-flow input[type="date"],
+.cam-auth-page--wizard .cam-form-flow input:not([type]),
+.cam-auth-page--wizard .cam-form-flow select {
   height: var(--cam-field-height);
   padding-top: 0;
   padding-bottom: 0;
@@ -890,10 +930,65 @@ body {
 
 /* Colour-only focus change: the shared rule jumps the border to 2px, which
    would reflow the row by half a pixel on every focus. */
-.cam-auth-page--wizard .card-body-scroll input:focus,
-.cam-auth-page--wizard .card-body-scroll select:focus {
+.cam-auth-page--wizard .cam-form-flow input:focus,
+.cam-auth-page--wizard .cam-form-flow select:focus {
   border: var(--cam-field-border-width) solid var(--cam-green);
   box-shadow: var(--cam-focus-shadow);
+}
+
+/* iOS Safari zooms the viewport in on focus whenever the focused control's
+   font is under 16px, and it does not zoom back out. On a page that must not
+   scroll, that leaves the respondent inside a magnified form with the rail
+   off-screen -- so phones get 16px controls rather than the 15px base. The
+   value typed is what has to be 16px; the placeholder may stay smaller,
+   because a placeholder is never focused text. */
+@media (max-width: 640px) {
+
+  .cam-auth-page--wizard .cam-form-flow input,
+  .cam-auth-page--wizard .cam-form-flow select,
+  .cam-auth-page--wizard .cam-form-flow textarea {
+    font-size: 16px;
+  }
+}
+
+
+/* Placeholders get their OWN colour, not the label's --cam-text-muted.
+   Sharing it made an example value read with the same weight as the label
+   naming the field, so a column of untouched inputs looked filled in. A
+   placeholder is an absence; it has to sit visibly behind both the label
+   and the value. 14px literal rather than --cam-font-size-sm, because the
+   control steps up to 16px on phones (see the iOS rule above) and the
+   placeholder deliberately does not follow: it is never focused text.
+   opacity: 1 because Firefox dims placeholders by default, which would put
+   the colour somewhere neither token says. */
+/* A select showing its empty option is displaying a placeholder, but the
+   browser draws it in the control's own value colour, so an unanswered
+   dropdown looked exactly like an answered one. :has() lets the control
+   restyle itself from the option that happens to be selected, which is the
+   only way to reach this without a class the change handler has to maintain.
+   Scoped to the empty option specifically: the moment a real option is
+   chosen the rule stops matching and the value returns to full contrast. */
+.cam-auth-page--wizard .cam-form-flow select:has(option[value=""]:checked) {
+  color: var(--cam-placeholder);
+}
+
+/* The SIZE half, above the phone breakpoint only. :has() carries its
+   argument's specificity, so this selector out-specifies the bare `select`
+   in the iOS rule above and would have won at every width -- leaving an
+   unanswered dropdown, the only kind anyone taps first, as the one control
+   that still zoomed the viewport on focus. Gating the declaration by width
+   is order-independent, which the specificity fight was not. */
+@media (min-width: 641px) {
+  .cam-auth-page--wizard .cam-form-flow select:has(option[value=""]:checked) {
+    font-size: 14px;
+  }
+}
+
+.cam-auth-page--wizard .cam-form-flow :is(input, textarea)::placeholder {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--cam-placeholder);
+  opacity: 1;
 }
 
 /* ── Side-by-side field layout, container >= 560px ──
@@ -902,29 +997,61 @@ body {
    error and status text sit under the input, aligned to the input column
    rather than hanging under the label.
 
-   This is a CONTAINER query, not a media query: it measures .card-body-scroll
-   (see `container:` above), which is the width the form actually has. The
-   previous 1024px MEDIA query measured the viewport, so the layout flipped on
-   a wide window even though the 780px card had not changed width at all.
+   This is a CONTAINER query, not a media query: it measures .flow-frame (see
+   `container:` there), which is the frame the fields actually sit in. A media
+   query would measure the viewport, so the layout would flip on a wide window
+   even though the 600px frame had not changed width at all.
 
-   Scoped to .card-body-scroll's descendants rather than .form-single-column:
+   Scoped to .cam-form-flow's descendants rather than .form-single-column:
    it reaches every field in sections 2-5 and naturally excludes section 1's
-   radio list (a <fieldset> of <label> rows, no .field), the card header and
-   the footer. */
+   radio list (a <fieldset> of <label> rows, no .field). */
 @container cam-form (min-width: 560px) {
-  .cam-auth-page--wizard .card-body-scroll .field {
+
+  /* The COLUMN owns the tracks, and each .field is a subgrid of it.
+     Why not a fixed label column: a fixed width has to be wide enough for
+     the longest label anywhere in the wizard, so every other label floats in
+     whitespace, and any label that still does not fit wraps to two lines and
+     pushes its own input down. fit-content() sizes the track to the longest
+     label IN THIS SECTION and no wider, which is what keeps labels on one
+     line and inputs on one x at the same time. The 14rem cap stops one long
+     label from eating the input column; --cam-field-label-col is the floor,
+     applied as a min-width on the labels themselves, because minmax() will
+     not take fit-content() as a maximum. */
+  .cam-auth-page--wizard .cam-form-flow .form-single-column {
     display: grid;
-    grid-template-columns: var(--cam-field-label-col) minmax(0, 1fr);
+    grid-template-columns: fit-content(14rem) minmax(0, 1fr);
     column-gap: var(--cam-field-label-gap);
+    row-gap: var(--cam-field-row-gap);
     align-items: start;
+  }
+
+  /* subgrid, so every row measures against the SAME track -- including rows
+     separated by a block heading, which is why section 3 renders one grid
+     for all its blocks rather than one per block. */
+  .cam-auth-page--wizard .cam-form-flow .field {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: start;
+  }
+
+  /* Block headings are rows of the same grid and span both tracks. */
+  .cam-auth-page--wizard .cam-form-flow .admin-section-header {
+    grid-column: 1 / -1;
   }
 
   /* Overrides the global .cam-auth-page label rule's margin-bottom and the
      stacked-layout gap above, for this layout only. */
-  .cam-auth-page--wizard .card-body-scroll .field > label {
+  .cam-auth-page--wizard .cam-form-flow .field>label {
     display: block;
     margin-bottom: 0;
-    padding-top: var(--cam-field-label-pad-top);
+    /* The floor for the fit-content() track above. */
+    min-width: var(--cam-field-label-col);
+    /* Centres the label's first line on the input's own text. Derived from
+       the control height rather than hand-tuned, so the two stay aligned if
+       --cam-field-height ever moves again. 1.3em is the label's line-height,
+       set in the stacked rule above. */
+    padding-top: calc((var(--cam-field-height) - 1.3em) / 2);
     text-align: right;
     grid-column: 1;
   }
@@ -935,30 +1062,70 @@ body {
      strength meter, the rule tips and the aria-live status regions. Matching
      on :not(label) rather than naming each class means a field gaining
      another sub-element lands in the right column without a CSS change. */
-  .cam-auth-page--wizard .card-body-scroll .field > *:not(label) {
+  .cam-auth-page--wizard .cam-form-flow .field>*:not(label) {
     grid-column: 2;
     min-width: 0;
   }
-}
 
-/* Extra inline-end padding for the scroll region once there is room for it.
-   Stays a media query: a container cannot respond to its own container query
-   (changing this padding would change the queried width), and this is about
-   clearing the scrollbar on a wide window rather than about the label column.
-   scrollbar-gutter: stable reserves the gutter inside the padding box, so at
-   the base padding the input column's right edge cleared the scrollbar by only
-   ~11px. */
-@media (min-width: 1024px) {
-  .cam-auth-page--wizard .card-body-scroll {
-    padding-right: var(--cam-card-body-pad-end);
+  /* ── Field widths (FormRow's `size`) ──
+     Capped on EVERY child of the input column, not just the control, so the
+     hint and the error line keep the control's right edge instead of running
+     the full width under a short box. */
+  .cam-auth-page--wizard .cam-form-flow .field--short>*:not(label) {
+    max-width: 220px;
+  }
+
+  .cam-auth-page--wizard .cam-form-flow .field--medium>*:not(label) {
+    max-width: 280px;
   }
 }
 
 /* A cascade field whose parent is still unanswered: the label greys to match
    its disabled control. Set by FormRow's `gated` prop rather than an inline
    style, so the colour comes from the token system in both layouts. */
-.cam-auth-page .field--gated > label {
+.cam-auth-page .field--gated>label {
   color: var(--cam-text-muted);
+}
+
+/* ── A field a trigger has flagged ──
+   Driven by aria-invalid on the control itself rather than by a class on the
+   row: the attribute has to be there for assistive tech anyway, so making it
+   the style hook means the visual state and the announced state cannot come
+   apart. Both clear together the moment the field is filled, because neither
+   is stored -- see flaggedIds in register/page.tsx. */
+.cam-auth-page--wizard .cam-form-flow :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--cam-error);
+}
+
+.cam-auth-page--wizard .cam-form-flow :is(input, select, textarea)[aria-invalid="true"]:focus {
+  border-color: var(--cam-error);
+  box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.15);
+}
+
+/* Under the input, in the input column, where the hint would be. */
+.cam-auth-page--wizard .field-error {
+  font-size: var(--cam-field-hint-size);
+  font-weight: 600;
+  color: var(--cam-error);
+  line-height: 1.4;
+  margin: var(--cam-space-1) 0 0;
+}
+
+/* ── The missing-fields notice ──
+   Pinned to the bottom of the frame rather than placed in the scrolling
+   content: it reports fields that may be anywhere in a section taller than
+   the frame, so it has to stay on screen while the respondent scrolls to
+   them. It is a sibling of .flow-frame-scroll, so it adds no scroller and
+   the frame's own border still closes around it. */
+.cam-auth-page--wizard .flow-missing-notice {
+  flex: 0 0 auto;
+  background: var(--cam-error-bg);
+  border-top: var(--cam-border-width) solid var(--cam-error-border);
+  color: var(--cam-error);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: var(--cam-space-2) var(--cam-space-4);
 }
 
 /* Inline per-field status line (email availability, password confirmation).
@@ -1048,15 +1215,27 @@ body {
    above it used. Text stays left-aligned: these cells have visible borders, so
    the column edge is already drawn, and right-aligning inside a drawn box is a
    different device from right-aligning a borderless label. */
-.cam-auth-page--wizard .card-body-scroll .table-official .label-cell {
+.cam-auth-page--wizard .cam-form-flow .table-official .label-cell {
   width: var(--cam-field-label-col);
 }
 
-/* Single-column responsive field layout */
+/* Single-column responsive field layout. This is the STACKED form, used
+   below the 560px container query above and by the non-wizard auth pages;
+   the wizard replaces it with a grid at wider widths. */
 .cam-auth-page .form-single-column {
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-3);
+}
+
+/* Narrow: the caps still apply, so a phone number does not stretch the full
+   width of a phone screen either. */
+.cam-auth-page--wizard .cam-form-flow .field--short .input-row {
+  max-width: 220px;
+}
+
+.cam-auth-page--wizard .cam-form-flow .field--medium .input-row {
+  max-width: 280px;
 }
 
 /* Two-column responsive field grid */
@@ -1127,46 +1306,78 @@ body {
   word-break: break-word;
 }
 
-/* The one-off notice shown when a saved draft is put back on screen. Says
-   what came back and, more importantly, that the password did not. */
-.cam-auth-page--wizard .draft-restored-notice {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-info);
+/* A note that belongs to one section, shown under its heading rather than
+   at the top of the frame. A left rule instead of a box: inside the frame,
+   a second bordered rectangle is a second frame, and the only one of those
+   on this page is the frame itself. */
+.cam-auth-page--wizard .section-notice {
+  border-left: 3px solid var(--cam-info);
   background: var(--cam-info-bg);
-  border: var(--cam-border-width) solid var(--cam-info-border);
-  border-radius: var(--cam-radius-md);
-  padding: var(--cam-space-3) var(--cam-space-4);
-  margin-bottom: var(--cam-section-gap);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
   line-height: 1.45;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  margin: 0 0 var(--cam-field-row-gap);
+  border-radius: 0 var(--cam-radius-sm) var(--cam-radius-sm) 0;
 }
 
-/* ── Progressive single-page flow ──
-   Every revealed section is a card in one column inside .card-body-scroll,
-   which stays the only scroll region in the flow. A revealed section is never
-   unmounted, so a section scrolled out of view keeps its state and its
-   pending network requests. */
-.cam-auth-page--wizard .wizard-sections {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-section-gap);
+/* ── The section in the frame ──
+   No border, no radius, no padding and no background of its own: the frame
+   around it supplies all four, and a second box inside the first was exactly
+   the "frame around every field" this layout exists to remove.
+
+   A section the respondent has left is hidden, never unmounted, so it keeps
+   its state and its in-flight requests. `hidden` gives it display: none,
+   which also takes its fields out of the tab order and out of the Enter-key
+   field walk (which filters on offsetParent) with no extra bookkeeping --
+   but Tailwind's preflight sets `display` on elements by type, so the
+   attribute needs saying out loud here or a hidden <section> would still
+   render. */
+.cam-auth-page--wizard .wizard-section[hidden] {
+  display: none;
 }
 
-.cam-auth-page--wizard .wizard-section {
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-section-radius);
-  padding: var(--cam-section-pad);
-  background: var(--cam-surface);
+/* The error banner sits above the section inside the frame, so a failure
+   stays on screen when the respondent is sent back to the section that
+   caused it. */
+.cam-auth-page--wizard .flow-frame-scroll > .auth-error-box {
+  margin-bottom: var(--cam-space-4);
 }
 
-/* The section in hand is the only one with a coloured edge: on a page of six
-   cards, "where am I" has to be readable without counting. */
-.cam-auth-page--wizard .wizard-section.is-current {
-  border-color: var(--cam-green);
+/* ── Continue link ──
+   Not a button bar: finishing a section with optional fields is reported by
+   a plain text link under the fields, in the reading order the respondent is
+   already in. The sections that advance by themselves never render it. */
+.cam-auth-page--wizard .flow-continue {
+  margin: var(--cam-space-5) 0 0;
 }
 
-/* ── Screen-reader-only text ──
-   Used by the collapsed section card, whose check badge is decorative: the
-   "complete" state has to reach a screen reader as words. */
+.cam-auth-page--wizard .flow-continue-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+  color: var(--cam-green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.cam-auth-page--wizard .flow-continue-link:hover {
+  color: var(--cam-green-dark);
+}
+
+/* Deliberately NOT greyed out. The link stays legible and clickable while
+   the section is incomplete, because clicking it is how the respondent finds
+   out what is missing -- aria-disabled says "this will not advance you yet"
+   to assistive tech without taking the control away from anyone. */
+.cam-auth-page--wizard .flow-continue-link[aria-disabled="true"] {
+  cursor: pointer;
+}
+
+/* ── Screen-reader-only text ── */
 .cam-auth-page .sr-only {
   position: absolute;
   width: 1px;
@@ -1373,18 +1584,25 @@ body {
   gap: var(--cam-space-3);
 }
 
-/* Progress Rail (Desktop Segmented & Mobile Compact) */
-.cam-auth-page .progress-rail-desktop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 0 var(--cam-space-2);
-  position: relative;
+/* ── Progress rail: the wizard's navigation ──
+   Six buttons, not six decorations. The rail replaced the Suivant/Retour pair
+   and the collapsed summary lines, so it carries the whole of "where am I,
+   what have I answered, and how do I get back to it".
+
+   One rail at every width. Below 560px the labels are dropped and the circles
+   stay, because six 30px circles fit on a 360px screen and six labels do not;
+   the caption above names the step the circles can no longer spell out. */
+.cam-auth-page .registration-progress {
+  width: 100%;
 }
 
-/* The caption is the one element present at every width: on a single
-   scrolling page it is what reports which section the respondent is in. */
+/* Below 560px the rail's labels are hidden and this names the step. Above
+   that width the labels name it already, and printing it twice -- once as
+   "Etape 2 sur 6 - Declarant" and again under the gold circle -- was a line
+   of header the frame could have had. Hidden by default, shown by the
+   narrow query at the end of this block. */
 .cam-auth-page .progress-caption {
+  display: none;
   font-size: var(--cam-font-size-2xs);
   font-weight: 700;
   color: var(--cam-green-dark);
@@ -1392,38 +1610,11 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* Narrow-width form of the rail: six discrete segments carrying the same
-   three states as the badges, in place of one continuously filled bar. */
-.cam-auth-page .progress-segments {
-  display: none;
-  gap: var(--cam-space-1);
-}
-
-.cam-auth-page .progress-segment {
-  flex: 1;
-  height: 4px;
-  border-radius: var(--cam-radius-full);
-  background: var(--cam-border);
-  transition: background 0.15s ease;
-}
-
-.cam-auth-page .progress-segment.is-completed {
-  background: var(--cam-green);
-}
-
-/* Gold for the section in hand: the brand's second institutional colour, so
-   "where I am" is not the same signal as "this one is done". */
-.cam-auth-page .progress-segment.is-current {
-  background: var(--cam-gold);
-}
-
-@media (max-width: 640px) {
-  .cam-auth-page .progress-rail-desktop {
-    display: none;
-  }
-  .cam-auth-page .progress-segments {
-    display: flex;
-  }
+.cam-auth-page .progress-rail {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0 var(--cam-space-1);
 }
 
 .cam-auth-page .progress-step-item {
@@ -1431,27 +1622,44 @@ body {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 0;
   position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
 }
 
+/* A locked item still takes a click -- it answers "why can't I go there?"
+   by naming what the current section is missing -- so it keeps the pointer
+   rather than claiming to be inert. */
+.cam-auth-page .progress-step-item[aria-disabled="true"] {
+  cursor: pointer;
+}
+
+/* The connector between two circles. Green once the section behind it is
+   answered, so the rail reads as a filled track rather than six unrelated
+   dots. */
 .cam-auth-page .progress-step-item:not(:last-child)::after {
   content: "";
   position: absolute;
-  top: 14px;
-  left: calc(50% + 14px);
-  right: calc(-50% + 14px);
+  top: 15px;
+  left: calc(50% + 17px);
+  right: calc(-50% + 17px);
   height: 2px;
   background: var(--cam-border);
   z-index: 1;
 }
 
-.cam-auth-page .progress-step-item.is-completed:not(:last-child)::after {
+.cam-auth-page .progress-step-item.is-done:not(:last-child)::after {
   background: var(--cam-green);
 }
 
 .cam-auth-page .progress-step-circle {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
   border-radius: var(--cam-radius-full);
   display: flex;
   align-items: center;
@@ -1463,31 +1671,7 @@ body {
   color: var(--cam-text-muted);
   position: relative;
   z-index: 2;
-  transition: all 0.15s ease;
-}
-
-.cam-auth-page .progress-step-item.is-completed .progress-step-circle {
-  background: var(--cam-green);
-  border-color: var(--cam-green);
-  color: #ffffff;
-}
-
-/* Gold, not green: green means "this section is answered", and the section
-   being worked in is precisely the one that is not answered yet. */
-.cam-auth-page .progress-step-item.is-current .progress-step-circle {
-  background: var(--cam-surface);
-  border: 2px solid var(--cam-gold);
-  color: var(--cam-gold-dark);
-  box-shadow: 0 0 0 3px rgba(232, 160, 32, 0.18);
-}
-
-.cam-auth-page .progress-step-item.is-current .progress-step-label {
-  color: var(--cam-gold-dark);
-  font-weight: 700;
-}
-
-.cam-auth-page .progress-step-item.is-completed .progress-step-label {
-  color: var(--cam-green-dark);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .cam-auth-page .progress-step-label {
@@ -1497,15 +1681,111 @@ body {
   color: var(--cam-text-muted);
   text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.cam-auth-page .progress-step-item.is-current .progress-step-label {
+/* Complete: solid green, check mark, dark label. A check mark means complete
+   and nothing else -- "Recapitulatif" is never complete from field state, so
+   it can never show one before the registration has been sent. */
+.cam-auth-page .progress-step-item.is-done .progress-step-circle {
+  background: var(--cam-green);
+  border-color: var(--cam-green);
+  color: #ffffff;
+}
+
+/* Underlined, because a completed circle is a way back into that section
+   and nothing else on the rail said so. The pointer cursor is already on
+   .progress-step-item; this is the visual half of the same claim. */
+.cam-auth-page .progress-step-item.is-done .progress-step-label {
+  color: var(--cam-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Current: a gold ring. Gold, not green, because green means "answered" and
+   the section in hand is usually the one that is not. */
+.cam-auth-page .progress-step-item.is-current .progress-step-circle,
+.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
+  border-color: var(--cam-gold);
+  color: var(--cam-gold-dark);
+  box-shadow: 0 0 0 3px rgba(232, 160, 32, 0.18);
+}
+
+/* Current AND complete -- the respondent came back to an answered section.
+   The gold ring says "you are here", the soft green fill says "this one is
+   done": two facts, two channels, no check mark competing with the ring. */
+.cam-auth-page .progress-step-item.is-currentComplete .progress-step-circle {
+  background: var(--cam-success-bg);
   color: var(--cam-green-dark);
+}
+
+.cam-auth-page .progress-step-item.is-current .progress-step-label,
+.cam-auth-page .progress-step-item.is-currentComplete .progress-step-label {
+  color: var(--cam-green);
   font-weight: 700;
 }
 
-.cam-auth-page .progress-step-item.is-completed .progress-step-label {
-  color: var(--cam-text);
+/* Revealed but unanswered, and not in hand: a DASHED gold ring. Dashed is the
+   point -- it is the same gold as "you are here" but visibly unfinished, so
+   an abandoned section is distinguishable from the current one at a glance
+   and still reads as somewhere to go back to. */
+.cam-auth-page .progress-step-item.is-revealed .progress-step-circle {
+  border-style: dashed;
+  border-color: var(--cam-gold);
+  color: var(--cam-gold-dark);
+}
+
+.cam-auth-page .progress-step-item.is-revealed .progress-step-label {
+  color: var(--cam-text-muted);
+}
+
+/* Not revealed yet: grey and disabled. Shown rather than hidden, because
+   "six steps, three to go" is worth knowing. */
+.cam-auth-page .progress-step-item.is-locked .progress-step-circle {
+  background: var(--cam-surface-subtle);
+  border-color: var(--cam-border);
+  color: var(--cam-border-strong);
+}
+
+/* The CIRCLE stays on --cam-border-strong: it is a disabled control and has
+   to look it. The LABEL does not -- it is the only place the six steps are
+   named, and a step name drawn at hairline contrast is a step name nobody
+   reads. See --cam-rail-upcoming. */
+.cam-auth-page .progress-step-item.is-locked .progress-step-label {
+  color: var(--cam-rail-upcoming);
+}
+
+.cam-auth-page .progress-step-item:not([aria-disabled="true"]):hover .progress-step-circle {
+  border-color: var(--cam-green);
+}
+
+.cam-auth-page .progress-step-item:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 3px;
+  border-radius: var(--cam-radius-md);
+}
+
+/* Said once, when the first circle turns green and the rail stops being a
+   progress bar and starts being a navigation. Dismissed on the first click
+   of any item and never shown again in that session. */
+.cam-auth-page .progress-rail-hint {
+  margin: var(--cam-space-2) 0 0;
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+  text-align: center;
+}
+
+/* Narrow: circles only, and the caption comes back to name the step. */
+@media (max-width: 559px) {
+  .cam-auth-page .progress-step-label {
+    display: none;
+  }
+
+  .cam-auth-page .progress-caption {
+    display: block;
+  }
 }
 
 /* Review section header & edit button */
@@ -1565,15 +1845,37 @@ body {
   transition: background-color 0.2s ease;
 }
 
-.cam-auth-page .password-strength-seg.active-1 { background: var(--cam-error); }
-.cam-auth-page .password-strength-seg.active-2 { background: var(--cam-gold); }
-.cam-auth-page .password-strength-seg.active-3 { background: #5a9e31; }
-.cam-auth-page .password-strength-seg.active-4 { background: var(--cam-green); }
+.cam-auth-page .password-strength-seg.active-1 {
+  background: var(--cam-error);
+}
+
+.cam-auth-page .password-strength-seg.active-2 {
+  background: var(--cam-gold);
+}
+
+.cam-auth-page .password-strength-seg.active-3 {
+  background: #5a9e31;
+}
+
+.cam-auth-page .password-strength-seg.active-4 {
+  background: var(--cam-green);
+}
 
 @keyframes onefopPulse {
-  0% { transform: scale(0.92); box-shadow: 0 0 20px rgba(30, 107, 58, 0.2); }
-  50% { transform: scale(1.06); box-shadow: 0 0 50px rgba(30, 107, 58, 0.45); }
-  100% { transform: scale(0.92); box-shadow: 0 0 20px rgba(30, 107, 58, 0.2); }
+  0% {
+    transform: scale(0.92);
+    box-shadow: 0 0 20px rgba(30, 107, 58, 0.2);
+  }
+
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 50px rgba(30, 107, 58, 0.45);
+  }
+
+  100% {
+    transform: scale(0.92);
+    box-shadow: 0 0 20px rgba(30, 107, 58, 0.2);
+  }
 }
 
 .cam-pulsing-logo {
@@ -1652,6 +1954,7 @@ body {
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1682,12 +1985,15 @@ body {
 .cam-hoverable {
   transition: filter 0.15s ease;
 }
+
 .cam-hoverable:hover:not(:disabled) {
   filter: brightness(0.94);
 }
+
 .cam-hoverable:active:not(:disabled) {
   filter: brightness(0.88);
 }
+
 .cam-hoverable:disabled {
   cursor: not-allowed;
 }
@@ -1718,11 +2024,13 @@ body {
     opacity: 0;
     transform: translateX(-50%) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) scale(1);
   }
 }
+
 .cam-tooltip-pop-in {
   animation: camTooltipPopIn 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -1734,11 +2042,13 @@ body {
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .cam-panel-fade-in {
   animation: camPanelFadeIn 160ms ease backwards;
 }
@@ -1750,30 +2060,57 @@ body {
    short window after close (via a `drawerClosing` state) so the "-out"
    keyframes get a chance to play before the node actually unmounts. */
 @keyframes camBackdropFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 @keyframes camBackdropFadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
+
 @keyframes camSheetSlideIn {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
+
 @keyframes camSheetSlideOut {
-  from { transform: translateY(0); }
-  to { transform: translateY(100%); }
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(100%);
+  }
 }
+
 .cam-drawer-backdrop-in {
   animation: camBackdropFadeIn 0.2s ease backwards;
 }
+
 .cam-drawer-backdrop-out {
   animation: camBackdropFadeOut 0.2s ease both;
 }
+
 .cam-drawer-sheet-in {
   animation: camSheetSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
+
 .cam-drawer-sheet-out {
   animation: camSheetSlideOut 0.22s cubic-bezier(0.4, 0, 1, 1) both;
 }
@@ -1781,6 +2118,7 @@ body {
 /* Respect OS "reduce motion": skip entrance/exit animations entirely so
    no element is ever promoted to an animation layer for these users. */
 @media (prefers-reduced-motion: reduce) {
+
   .deck-view-transition,
   .cam-card-fade-in,
   .cam-panel-fade-in,
@@ -1788,6 +2126,7 @@ body {
   .cam-drawer-sheet-in {
     animation: none !important;
   }
+
   /* Tooltip keeps its animation (its translateX(-50%) centering lives in
      the keyframes); exit animations must still fire animationend. */
   .cam-tooltip-pop-in,
@@ -1817,25 +2156,72 @@ body {
   letter-spacing: normal;
   color: var(--cam-table-text);
 }
+
 /* Browsers give <th> bold and form controls their own font; reset both so
    the role classes below are the only thing that decides. */
 .cam-dt :is(th, td, input, select, textarea, button) {
   font: inherit;
   letter-spacing: inherit;
 }
+
 .cam-dt .cam-dt-corner,
-.cam-dt .cam-dt-group            { font-weight: var(--cam-table-w-group); }
-.cam-dt .cam-dt-leaf             { font-weight: var(--cam-table-w-leaf); }
-.cam-dt .cam-dt-rowhead          { font-weight: var(--cam-table-w-label); text-align: left; }
-.cam-dt .cam-dt-rowhead--block   { font-weight: var(--cam-table-w-group); }
-.cam-dt .cam-dt-rowhead--total   { font-weight: var(--cam-table-w-total); color: var(--cam-table-readonly-text); }
-.cam-dt .cam-dt-input            { font-weight: var(--cam-table-w-value); color: var(--cam-table-text); }
-.cam-dt .cam-dt-input--computed  { font-weight: var(--cam-table-w-computed); color: var(--cam-table-readonly-text); }
-.cam-dt .cam-dt-input::placeholder { color: var(--cam-table-muted); font-weight: var(--cam-table-w-value); opacity: 1; }
-.cam-dt .cam-dt-value            { font-weight: var(--cam-table-w-value); }
-.cam-dt .cam-dt-value--computed  { font-weight: var(--cam-table-w-computed); color: var(--cam-table-readonly-text); }
-.cam-dt .cam-dt-value--total     { font-weight: var(--cam-table-w-total); color: var(--cam-table-readonly-text); }
-.cam-dt .cam-dt-empty            { font-weight: var(--cam-table-w-value); color: var(--cam-table-muted); }
+.cam-dt .cam-dt-group {
+  font-weight: var(--cam-table-w-group);
+}
+
+.cam-dt .cam-dt-leaf {
+  font-weight: var(--cam-table-w-leaf);
+}
+
+.cam-dt .cam-dt-rowhead {
+  font-weight: var(--cam-table-w-label);
+  text-align: left;
+}
+
+.cam-dt .cam-dt-rowhead--block {
+  font-weight: var(--cam-table-w-group);
+}
+
+.cam-dt .cam-dt-rowhead--total {
+  font-weight: var(--cam-table-w-total);
+  color: var(--cam-table-readonly-text);
+}
+
+.cam-dt .cam-dt-input {
+  font-weight: var(--cam-table-w-value);
+  color: var(--cam-table-text);
+}
+
+.cam-dt .cam-dt-input--computed {
+  font-weight: var(--cam-table-w-computed);
+  color: var(--cam-table-readonly-text);
+}
+
+.cam-dt .cam-dt-input::placeholder {
+  color: var(--cam-table-muted);
+  font-weight: var(--cam-table-w-value);
+  opacity: 1;
+}
+
+.cam-dt .cam-dt-value {
+  font-weight: var(--cam-table-w-value);
+}
+
+.cam-dt .cam-dt-value--computed {
+  font-weight: var(--cam-table-w-computed);
+  color: var(--cam-table-readonly-text);
+}
+
+.cam-dt .cam-dt-value--total {
+  font-weight: var(--cam-table-w-total);
+  color: var(--cam-table-readonly-text);
+}
+
+.cam-dt .cam-dt-empty {
+  font-weight: var(--cam-table-w-value);
+  color: var(--cam-table-muted);
+}
+
 .cam-dt .cam-dt-rowcode {
   font-family: var(--cam-font-mono);
   font-size: 0.75rem;
@@ -1845,11 +2231,26 @@ body {
 
 /* Alignment (also owned by DataTable): values, entries and column headers
    centred; row labels + corner header left; free text left. */
-.cam-dt :is(td, .cam-dt-group, .cam-dt-leaf, .cam-dt-cell) { text-align: center; }
-.cam-dt :is(.cam-dt-corner, .cam-dt-rowhead)               { text-align: left; }
-.cam-dt .cam-dt-input                                        { text-align: center; }
-.cam-dt .cam-dt-input--select                                { text-align: center; text-align-last: center; }
-.cam-dt .cam-dt-input--text                                  { text-align: left; }
+.cam-dt :is(td, .cam-dt-group, .cam-dt-leaf, .cam-dt-cell) {
+  text-align: center;
+}
+
+.cam-dt :is(.cam-dt-corner, .cam-dt-rowhead) {
+  text-align: left;
+}
+
+.cam-dt .cam-dt-input {
+  text-align: center;
+}
+
+.cam-dt .cam-dt-input--select {
+  text-align: center;
+  text-align-last: center;
+}
+
+.cam-dt .cam-dt-input--text {
+  text-align: left;
+}
 
 /* No browser spinner arrows inside table cells (they squeeze the value and
    look different in every browser); arrow keys still work. */
@@ -1857,6 +2258,7 @@ body {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
 .cam-dt input[type="number"]::-webkit-inner-spin-button,
 .cam-dt input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -1906,7 +2308,7 @@ body {
   align-items: stretch;
 }
 
-.cam-quiz-tabs > button {
+.cam-quiz-tabs>button {
   width: 100%;
   white-space: normal;
 }
@@ -1920,7 +2322,7 @@ body {
     gap: var(--cam-space-3, 12px) var(--cam-space-6, 32px);
   }
 
-  .cam-quiz-tabs > button {
+  .cam-quiz-tabs>button {
     width: auto;
     white-space: nowrap;
   }

@@ -137,11 +137,11 @@
   --cam-card-shell-pad-y: var(--cam-space-5);
   --cam-card-shell-pad-x: var(--cam-space-4);
 
-  /* The wizard's own container cap, wider than --cam-container-form (640px,
-     sized for the single-column login card) but far short of full bleed: on a
-     1920px monitor an uncapped card turns every field into an 1800px input,
-     which is unreadable and reads as unfinished rather than official. */
-  --cam-container-wizard: 780px;
+  /* The wizard's one frame. 600px is a reading measure, not a viewport
+     fraction: the form is a single column of label + input, and widening it
+     only stretches the inputs. The frame fills the page's remaining height
+     whatever the window, so this caps width alone. */
+  --cam-container-wizard: 600px;
 
   /* ── Side-by-side field layout (container >= 560px) ──
      The label column is fixed so every label/input boundary in a step lines up
@@ -150,31 +150,30 @@
      as the column allows and a long bilingual label wraps without moving the
      input.
 
-     pad-top puts the label's first line on the same optical line as the text
-     inside the input: the input is --cam-field-height tall with its value
-     vertically centred, so the offset is (48 - ~20px line box) / 2, rounded to
-     the 14px the spec calls for.
+     The label's first line is put on the same optical line as the text inside
+     the input by the @container rule itself, with
+     calc((--cam-field-height - 1.3em) / 2) -- computed from the control
+     height rather than from a hand-tuned constant, so changing the height
+     moves the label with it. (The constant it replaces,
+     --cam-field-label-pad-top, is gone for exactly that reason.)
 
      The 560px threshold itself has to stay a literal in the @container rule --
      custom properties are not usable in container or media query conditions.
      It is a CONTAINER width, not a viewport width: the query measures the
-     wizard's own form column, so the layout is correct whatever chrome
-     surrounds it. */
-  --cam-field-label-col: 170px;
-  --cam-field-label-gap: var(--cam-space-4);
-  --cam-field-label-pad-top: 14px;
+     frame, so the layout is correct whatever chrome surrounds it. */
+  --cam-field-label-col: 160px;
+  --cam-field-label-gap: 12px;
 
   /* Space between two field rows, and (in the stacked layout) between a label
      and the input beneath it. */
-  --cam-field-row-gap: 22px;
+  --cam-field-row-gap: 16px;
   --cam-field-stack-gap: 6px;
 
   /* ── Wizard control metrics ──
-     Taller and softer than the shared 40px auth input: the registration form
-     is a long data-entry session rather than a two-field sign-in. Scoped to
-     the wizard in globals.css so login, forgot-password and verify-email keep
-     --cam-form-field-height. */
-  --cam-field-height: 48px;
+     40px, matching --cam-form-field-height: the frame has a fixed height
+     budget and must hold a whole section without the respondent scrolling
+     for every field. Scoped to the wizard in globals.css. */
+  --cam-field-height: 40px;
   --cam-field-radius: 8px;
   --cam-field-border-width: 1.5px;
 
@@ -182,12 +181,26 @@
      placeholder, so this carries explanation only. */
   --cam-field-hint-size: var(--cam-font-size-xs);
 
-  /* ── Progressive-flow section cards ──
-     Each revealed section of the wizard is a card in one scrolling column.
-     The padding steps down on a narrow container; the step-down is a media
-     query because a container cannot restyle itself from its own query. */
+  /* Placeholder text. Its own token rather than --cam-text-muted, which is
+     the LABEL colour: an example value drawn at the same weight as the
+     label naming the field made a column of untouched inputs read as
+     already filled in. Lighter than both the label and the typed value,
+     and still over 4.5:1 on --cam-surface. */
+  --cam-placeholder: #7d8981;
+
+  /* Rail items the respondent has not reached. Lighter than --cam-text-muted
+     so "not yet" reads as not yet, darker than --cam-border-strong (which
+     the circle keeps) so the step NAME stays legible -- a label the colour
+     of a hairline is a label nobody reads, and the rail is the only place
+     the six steps are listed. */
+  --cam-rail-upcoming: #6b776f;
+
+  /* ── Wizard frame ──
+     The single bordered frame the current section is shown in. The padding
+     steps down on a narrow viewport; that step-down is a media query because
+     a container cannot restyle itself from its own query. */
   --cam-section-radius: 12px;
-  --cam-section-pad: 28px;
+  --cam-section-pad: 20px;
   --cam-section-gap: 20px;
 
   /* ── Section heading (StepHeader) ──
@@ -196,8 +209,8 @@
      body text, and the gap below the pair is wider than the row gap so the
      heading reads as introducing the fields rather than belonging to the
      first one. */
-  --cam-step-title-size: 1.375rem;
-  --cam-step-subtitle-size: var(--cam-font-size-sm);
+  --cam-step-title-size: 1.25rem;
+  --cam-step-subtitle-size: 0.84375rem;
   --cam-step-header-gap: var(--cam-space-1);
   --cam-step-header-space-after: var(--cam-space-5);
 
@@ -293,7 +306,7 @@
    from the page behind it. */
 @media (max-width: 640px) {
   :root {
-    --cam-section-pad: 18px;
+    --cam-section-pad: 16px;
     --cam-card-pad-x: 16px;
     --cam-card-head-pad-top: 14px;
     --cam-card-head-pad-bottom: 10px;

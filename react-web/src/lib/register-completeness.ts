@@ -123,8 +123,54 @@ export function isSectionComplete(step: RegistrationStepId, state: RegState): bo
     case "security":
       return isSecurityComplete(state);
     case "review":
-      // The review section has nothing of its own to complete; the
-      // certification checkbox is what gates submission.
+      // A section with no required fields of its own is NOT complete. Review
+      // declares nothing: returning true for it made the progress header show
+      // a done checkmark against "Recapitulatif" the moment it was revealed,
+      // claiming the registration was finished while it was still unsent.
+      // What completes review is submitting, which is not a field state.
+      return false;
+  }
+}
+
+// Whether a section opens the next one the instant it becomes complete.
+//
+// A section whose every field is required is finished the moment it is
+// complete -- there is nothing further the respondent might add -- so the
+// wizard can move straight on. A section with optional fields cannot: moving
+// on the moment it became valid would pull the second phone number or the
+// CNPS number out from under someone who was about to fill them. Those wait
+// until the respondent has changed the section's LAST field, or followed the
+// "continue" link the section offers once its required fields are satisfied.
+//
+// Renamed from collapsesOnReveal: nothing collapses any more (the frame shows
+// one section at a time instead of a column of cards), but the question the
+// function answers -- "has this section any optional field worth waiting
+// for?" -- and its answers are unchanged.
+export function advancesImmediately(
+  step: RegistrationStepId,
+  entityType: EntityType | null
+): boolean {
+  switch (step) {
+    case "entityType":
+      // One radio list, and picking from it is the whole section.
       return true;
+    case "respondent":
+      // phone2 is optional.
+      return false;
+    case "entityInfo":
+      // Read from the type's own field set rather than assumed: every type
+      // declared today has optional fields, but that is data, not a rule.
+      return entityType
+        ? !ENTITY_CONFIGS[entityType].fields.some((f) => !f.required)
+        : false;
+    case "location":
+      // The activity sector is optional.
+      return false;
+    case "security":
+      // The password and its confirmation are both required.
+      return true;
+    case "review":
+      // The last section: there is nothing to advance to.
+      return false;
   }
 }

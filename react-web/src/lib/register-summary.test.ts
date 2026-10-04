@@ -10,8 +10,11 @@ import {
 } from "@/lib/register-summary";
 
 // The label resolver is injected, so tests read the key back and never depend
-// on the message catalogue's wording.
+// on the message catalogue's wording. The LOCALE is explicit for the other
+// half of the strings: field names, option answers and the entity type's own
+// title are {fr, en} data (see register-i18n.ts), not catalogue keys.
 const t = (key: string) => key;
+const LOCALE = "fr" as const;
 
 function baseState(overrides: Partial<SummaryState> = {}): SummaryState {
   return {
@@ -51,24 +54,24 @@ function baseState(overrides: Partial<SummaryState> = {}): SummaryState {
 
 // ── per step ─────────────────────────────────────────────────────────────
 test("entityType summarises to the selected type's title", () => {
-  const rows = summaryRows("entityType", baseState(), t);
+  const rows = summaryRows("entityType", baseState(), t, LOCALE);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].label, "registerPage.summaryEntityTypeLabel");
-  assert.equal(rows[0].value, "Entreprise/ Company");
+  assert.equal(rows[0].value, "Entreprise");
 });
 
 test("entityType yields no rows before a type is picked", () => {
-  assert.deepEqual(summaryRows("entityType", baseState({ entityType: null }), t), []);
+  assert.deepEqual(summaryRows("entityType", baseState({ entityType: null }), t, LOCALE), []);
 });
 
 test("respondent joins the first and last name into one row", () => {
-  const rows = summaryRows("respondent", baseState(), t);
+  const rows = summaryRows("respondent", baseState(), t, LOCALE);
   assert.equal(rows[0].label, "registerPage.summaryFullNameLabel");
   assert.equal(rows[0].value, "Emmanuel Biya");
 });
 
 test("respondent omits the optional second phone when unanswered", () => {
-  const without = summaryRows("respondent", baseState(), t);
+  const without = summaryRows("respondent", baseState(), t, LOCALE);
   assert.equal(
     without.some((r) => r.label === "registerPage.phone2Label"),
     false
@@ -78,7 +81,8 @@ test("respondent omits the optional second phone when unanswered", () => {
   const withPhone2 = summaryRows(
     "respondent",
     { ...state, respondent: { ...state.respondent, phone2: "233000000" } },
-    t
+    t,
+    LOCALE
   );
   assert.equal(
     withPhone2.some((r) => r.label === "registerPage.phone2Label" && r.value === "233000000"),
@@ -86,18 +90,68 @@ test("respondent omits the optional second phone when unanswered", () => {
   );
 });
 
-test("respondent shows the function's option label, not its stored value", () => {
+test("respondent shows the function's option label, in the active locale", () => {
   const state = baseState();
   const stored = RESPONDENT_FUNCTION_OPTIONS[0].value;
-  const rows = summaryRows(
-    "respondent",
-    { ...state, respondent: { ...state.respondent, function: stored } },
-    t
+  const withFunction = { ...state, respondent: { ...state.respondent, function: stored } };
+
+  const fr = summaryRows("respondent", withFunction, t, "fr").find(
+    (r) => r.label === "registerPage.functionLabel"
   );
-  const fn = rows.find((r) => r.label === "registerPage.functionLabel");
-  assert.ok(fn);
-  assert.equal(fn.value, RESPONDENT_FUNCTION_OPTIONS[0].label);
-  assert.notEqual(fn.value, stored);
+  assert.equal(fr?.value, RESPONDENT_FUNCTION_OPTIONS[0].label.fr);
+
+  // The English half is what proves the lookup actually happens: the FRENCH
+  // label of every respondent function is identical to its stored `value`
+  // (the wire format is French), so a French-only assertion here would pass
+  // just as well if optionLabel returned the raw value.
+  const en = summaryRows("respondent", withFunction, t, "en").find(
+    (r) => r.label === "registerPage.functionLabel"
+  );
+  assert.equal(en?.value, RESPONDENT_FUNCTION_OPTIONS[0].label.en);
+  assert.notEqual(en?.value, stored);
+});
+
+test("a select answer is resolved in whichever locale is asked for", () => {
+  // promoterSex is the clearest case: the wire value is "Masculin" and
+  // NEITHER label is that -- fr says "Homme", en says "Male".
+  const state = baseState({
+    entityType: "vocationalTraining",
+    entityData: { centerName: "CFP Exemple", promoterSex: "Masculin" },
+  });
+  const frRow = summaryRows("entityInfo", state, t, "fr").find(
+    (r) => r.label === "Promoteur — Sexe"
+  );
+  assert.equal(frRow?.value, "Homme");
+
+  const enRow = summaryRows("entityInfo", state, t, "en").find(
+    (r) => r.label === "Promoter — sex"
+  );
+  assert.equal(enRow?.value, "Male");
+});
+
+test("no summary label carries both languages at once", () => {
+  // The review card is the last place the old "Français/ English" strings
+  // would have survived unnoticed.
+  const state = baseState({
+    entityType: "vocationalTraining",
+    entityData: {
+      centerName: "CFP Exemple",
+      functionalStatus: "Non-fonctionnelle",
+      nonFunctionalReason: "Autres",
+      nonFunctionalReasonOther: "Autre",
+      promoterSex: "Masculin",
+    },
+  });
+  for (const locale of ["fr", "en"] as const) {
+    for (const step of ["entityType", "respondent", "entityInfo", "location"] as const) {
+      for (const row of summaryRows(step, state, t, locale)) {
+        assert.ok(
+          !row.label.includes("/ "),
+          `${locale} ${step}: "${row.label}" still carries both languages`
+        );
+      }
+    }
+  }
 });
 
 test("an unrecognised stored value falls back to itself rather than vanishing", () => {
@@ -107,26 +161,28 @@ test("an unrecognised stored value falls back to itself rather than vanishing", 
   const rows = summaryRows(
     "respondent",
     { ...state, respondent: { ...state.respondent, function: "Fonction retiree" } },
-    t
+    t,
+    LOCALE
   );
   const fn = rows.find((r) => r.label === "registerPage.functionLabel");
   assert.equal(fn?.value, "Fonction retiree");
 });
 
 test("entityInfo leads with the type and then the answered fields", () => {
-  const rows = summaryRows("entityInfo", baseState(), t);
+  const rows = summaryRows("entityInfo", baseState(), t, LOCALE);
   assert.equal(rows[0].label, "registerPage.summaryEntityTypeLabel");
   const labels = rows.map((r) => r.label);
-  // Field labels are the questionnaire's own bilingual strings, not keys.
-  assert.ok(labels.includes("Raison sociale/ Company name"));
-  assert.ok(labels.includes("N° Contribuable (NIU)/ Taxpayer No."));
+  // Field labels are the questionnaire's own {fr, en} strings, resolved
+  // against LOCALE -- not catalogue keys.
+  assert.ok(labels.includes("Raison sociale"));
+  assert.ok(labels.includes("N° contribuable (NIU)"));
 });
 
 test("entityInfo skips fields with no answer", () => {
-  const rows = summaryRows("entityInfo", baseState(), t);
+  const rows = summaryRows("entityInfo", baseState(), t, LOCALE);
   // cnpsNumber, poBox, socialCabital... are declared but unanswered here.
   assert.equal(
-    rows.some((r) => r.label === "N° d'affiliation CNPS/ CNPS affiliation No."),
+    rows.some((r) => r.label === "N° CNPS"),
     false
   );
 });
@@ -136,10 +192,10 @@ test("entityInfo resolves a select answer to its option label", () => {
     entityType: "vocationalTraining",
     entityData: { centerName: "CFP Exemple", functionalStatus: "Non-fonctionnelle" },
   });
-  const rows = summaryRows("entityInfo", state, t);
-  const status = rows.find((r) => r.label === "Situation du Centre/ Status of the center");
+  const rows = summaryRows("entityInfo", state, t, LOCALE);
+  const status = rows.find((r) => r.label === "Situation du centre");
   assert.ok(status);
-  assert.equal(status.value, "Non-fonctionnelle/ Non-functional");
+  assert.equal(status.value, "Non-fonctionnelle");
 });
 
 test("entityInfo drops a field whose gate has closed even if a value remains", () => {
@@ -152,8 +208,8 @@ test("entityInfo drops a field whose gate has closed even if a value remains", (
     },
   });
   assert.ok(
-    summaryRows("entityInfo", open, t).some(
-      (r) => r.label === "Raison (si non-fonctionnelle)/ Reason (if non-functional)"
+    summaryRows("entityInfo", open, t, LOCALE).some(
+      (r) => r.label === "Raison"
     )
   );
 
@@ -168,22 +224,22 @@ test("entityInfo drops a field whose gate has closed even if a value remains", (
     },
   });
   assert.equal(
-    summaryRows("entityInfo", closed, t).some(
-      (r) => r.label === "Raison (si non-fonctionnelle)/ Reason (if non-functional)"
+    summaryRows("entityInfo", closed, t, LOCALE).some(
+      (r) => r.label === "Raison"
     ),
     false
   );
 });
 
 test("location uses the administrative names and the area's option label", () => {
-  const rows = summaryRows("location", baseState(), t);
+  const rows = summaryRows("location", baseState(), t, LOCALE);
   assert.deepEqual(
     rows.map((r) => [r.label, r.value]),
     [
       ["registerPage.regionLabel", "Centre"],
       ["registerPage.departmentLabel", "Mfoundi"],
       ["registerPage.subdivisionLabel", "Yaounde I"],
-      ["registerPage.areaLabel", "Urbain/ Urban"],
+      ["registerPage.areaLabel", "Urbain"],
       ["registerPage.sectorLabel", "Commerce"],
     ]
   );
@@ -193,7 +249,8 @@ test("location omits an unselected subdivision and an unselected sector", () => 
   const rows = summaryRows(
     "location",
     baseState({ subdivisionName: "", sectorName: "" }),
-    t
+    t,
+    LOCALE
   );
   const labels = rows.map((r) => r.label);
   assert.equal(labels.includes("registerPage.subdivisionLabel"), false);
@@ -202,7 +259,7 @@ test("location omits an unselected subdivision and an unselected sector", () => 
 });
 
 test("security summarises the login and never the password", () => {
-  const rows = summaryRows("security", baseState(), t);
+  const rows = summaryRows("security", baseState(), t, LOCALE);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].value, "contact@organisation.cm");
   const serialized = JSON.stringify(rows);
@@ -210,20 +267,20 @@ test("security summarises the login and never the password", () => {
 });
 
 test("review has no rows of its own", () => {
-  assert.deepEqual(summaryRows("review", baseState(), t), []);
+  assert.deepEqual(summaryRows("review", baseState(), t, LOCALE), []);
 });
 
 // ── the collapsed one-liner ──────────────────────────────────────────────
 test("sectionSummary joins the first few values from the same rows", () => {
-  const rows = summaryRows("respondent", baseState(), t);
+  const rows = summaryRows("respondent", baseState(), t, LOCALE);
   assert.equal(
     sectionSummary(rows),
-    "Emmanuel Biya, Directeur des Ressources Humaines/ Human Resources Director, contact@organisation.cm"
+    "Emmanuel Biya, Directeur des Ressources Humaines, contact@organisation.cm"
   );
 });
 
 test("sectionSummary stops at the cap", () => {
-  const rows = summaryRows("location", baseState(), t);
+  const rows = summaryRows("location", baseState(), t, LOCALE);
   assert.equal(rows.length, 5);
   assert.equal(sectionSummary(rows).split(", ").length, SECTION_SUMMARY_MAX_VALUES);
   assert.equal(sectionSummary(rows, 2), "Centre, Mfoundi");
@@ -232,14 +289,14 @@ test("sectionSummary stops at the cap", () => {
 test("sectionSummary skips the optional fields summaryRows left out", () => {
   // phone2 absent, so the three values are name, function, email -- the
   // collapsed line never shows a gap or a stray separator.
-  const rows = summaryRows("respondent", baseState(), t);
+  const rows = summaryRows("respondent", baseState(), t, LOCALE);
   const line = sectionSummary(rows);
   assert.equal(line.includes(", ,"), false);
   assert.equal(line.endsWith(","), false);
 });
 
 test("sectionSummary of an empty section is an empty string", () => {
-  assert.equal(sectionSummary(summaryRows("review", baseState(), t)), "");
+  assert.equal(sectionSummary(summaryRows("review", baseState(), t, LOCALE)), "");
   assert.equal(sectionSummary([]), "");
 });
 
@@ -247,7 +304,7 @@ test("the collapsed line is derived from the review rows, not a second source", 
   // The guarantee the single-source rule exists for: whatever the review card
   // shows first is what the collapsed line shows.
   for (const step of ["respondent", "entityInfo", "location", "security"] as const) {
-    const rows = summaryRows(step, baseState(), t);
+    const rows = summaryRows(step, baseState(), t, LOCALE);
     const expected = rows
       .map((r) => r.value)
       .filter(Boolean)
