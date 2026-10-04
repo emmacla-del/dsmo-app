@@ -12,7 +12,8 @@ import {
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
 import { formatDate } from "@/lib/companies-directory";
-import { APPROVAL_ROLES } from "@/lib/roles";
+import { APPROVAL_ROLES, DIRECTORY_ROLES } from "@/lib/roles";
+import { registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -84,6 +85,8 @@ function daysAgo(days: number): string {
 export default function InscriptionsPage() {
   const role = useAuthStore((s) => s.user?.role);
   const canReadQueue = !!role && APPROVAL_ROLES.includes(role);
+  // Same four roles the backend's POST /auth/admin/register-company accepts.
+  const canRegisterAssisted = !!role && DIRECTORY_ROLES.includes(role);
   const queryClient = useQueryClient();
   const { regions: territoryRegions } = useTerritoryRegions();
 
@@ -201,6 +204,11 @@ export default function InscriptionsPage() {
       <div style={{ display: "flex", gap: 10, margin: "20px 0 24px" }}>
         <Link href="/admin/inscriptions" className="cam-admin-tab" aria-current="page">Inscriptions</Link>
         <Link href="/admin/etablissements" className="cam-admin-tab">Établissements</Link>
+        {canRegisterAssisted && (
+          <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm" style={{ marginLeft: "auto" }}>
+            Nouvelle inscription
+          </Link>
+        )}
       </div>
 
       {notice && (
@@ -265,6 +273,7 @@ export default function InscriptionsPage() {
               <th scope="col">Type</th>
               <th scope="col">Territoire</th>
               <th scope="col">Soumise le</th>
+              <th scope="col">Enregistré par</th>
               <th scope="col">Vérification</th>
               <th scope="col">Doublons</th>
               <th scope="col">Action</th>
@@ -279,6 +288,13 @@ export default function InscriptionsPage() {
                   <td>{entityLabel(item.entityType)}</td>
                   <td>{[item.region, item.department].filter(Boolean).join(" / ")}</td>
                   <td>{formatDate(item.submittedAt)}</td>
+                  <td>
+                    {/* An assisted or admin-created file names its author; a
+                        self-service one has none, which reads as the method
+                        badge alone rather than as a missing name. */}
+                    {item.createdByName && <div>{item.createdByName}</div>}
+                    <MethodBadge method={item.registrationMethod} />
+                  </td>
                   <td>
                     <span style={{ fontSize: 11, background: badge.bg, color: badge.color, padding: "4px 10px", borderRadius: 9999, fontWeight: 600 }}>
                       {badge.text}
@@ -386,6 +402,18 @@ export default function InscriptionsPage() {
         )}
       </AdminDialog>
     </div>
+  );
+}
+
+/** The registration-method badge, or a dash for a row that predates tracking. */
+function MethodBadge({ method }: { method: string | null }) {
+  const label = registrationMethodLabel(method);
+  if (!label) return <span>—</span>;
+  const tone = registrationMethodTone(method);
+  return (
+    <span style={{ fontSize: 11, background: tone.bg, color: tone.color, padding: "3px 9px", borderRadius: 9999, fontWeight: 600, whiteSpace: "nowrap" }}>
+      {label}
+    </span>
   );
 }
 

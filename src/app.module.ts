@@ -19,6 +19,7 @@ import { ReportModule } from './report/report.module';
 import { DataManagementModule } from './data-management/data-management.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { PilotageModule } from './pilotage/pilotage.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { PilotageModule } from './pilotage/pilotage.module';
     DataManagementModule,
     SystemSettingsModule,
     PilotageModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

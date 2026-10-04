@@ -34,6 +34,12 @@ export const PUBLIC_USER_SELECT = {
   createdAt: true,
   updatedAt: true,
   status: true,
+  // Phase 1 (territorial admin monitoring): how the account came into
+  // existence and which admin created it. Public so the admin console can
+  // show attribution ("Enregistre par", method badge). assigneeId stays
+  // secret until the monitoring dashboard needs it.
+  createdBy: true,
+  registrationMethod: true,
 } satisfies Prisma.UserSelect;
 
 /** Columns that must never be returned to a client. */
@@ -50,8 +56,6 @@ export const SECRET_USER_FIELDS = [
   // PUBLIC_USER_SELECT only when a screen needs it.
   'lastLoginAt',
   'approvedAt',
-  'createdBy',
-  'registrationMethod',
   'tokenVersion',
   'registrationNumber',
   'assigneeId',

@@ -70,8 +70,10 @@ export interface NavProfile {
  * sub-route inside it. Under that rule the lists below are the full closure
  * of what each role can reach — "donnees" is absent from the territorial
  * profiles because both its sub-routes are NATIONAL_ROLES, and
- * "administration" is absent because all three of its sub-routes
- * (USER_ADMIN_ROLES, AUDIT_ROLES, SETTINGS_ROLES) exclude them.
+ * "administration" is absent from DIVISIONAL_ADMIN because none of its
+ * sub-routes (USER_ADMIN_ROLES, AUDIT_ROLES, MONITORING_ROLES,
+ * SETTINGS_ROLES) include it. REGIONAL_ADMIN is in MONITORING_ROLES, so it
+ * gets the hub for /admin/equipe.
  *
  * AUDITOR is the one deliberate exception. It can open the two ungated
  * sub-routes under "supervision" (/admin/pilotage and /admin/activite have no
@@ -92,13 +94,15 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   ADMIN_ONEFOP: {
     hubs: ["supervision", "collecte", "declarants", "qualite", "donnees", "administration"],
   },
-  // Territorial profiles. Identical in membership today; separate entries for
-  // the same reason as above. They differ in where two hubs land:
+  // Territorial profiles. Identical in membership no longer: REGIONAL_ADMIN also
+  // gets "administration", whose only openable sub-route for it is /admin/equipe
+  // (MONITORING_ROLES). DIVISIONAL_ADMIN opens none of its sub-routes. They also
+  // differ in where two hubs land:
   // "collecte" resolves to /admin/campagnes for REGIONAL_ADMIN (it is in
   // CAMPAIGN_ROLES) but to /admin/questionnaires for DIVISIONAL_ADMIN (it is
   // not), and each hub's own territory scoping is applied server-side.
   REGIONAL_ADMIN: {
-    hubs: ["supervision", "collecte", "declarants", "qualite"],
+    hubs: ["supervision", "collecte", "declarants", "qualite", "administration"],
   },
   DIVISIONAL_ADMIN: {
     hubs: ["supervision", "collecte", "declarants", "qualite"],
