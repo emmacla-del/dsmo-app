@@ -181,6 +181,13 @@
      placeholder, so this carries explanation only. */
   --cam-field-hint-size: var(--cam-font-size-xs);
 
+  /* Placeholder text. Its own token rather than --cam-text-muted, which is
+     the LABEL colour: an example value drawn at the same weight as the
+     label naming the field made a column of untouched inputs read as
+     already filled in. Lighter than both the label and the typed value,
+     and still over 4.5:1 on --cam-surface. */
+  --cam-placeholder: #7d8981;
+
   /* ── Wizard frame ──
      The single bordered frame the current section is shown in. The padding
      steps down on a narrow viewport; that step-down is a media query because

@@ -189,7 +189,11 @@ export const ENTITY_CONFIGS: Record<EntityType, EntityConfig> = {
   },
   ong: {
     type: "ong",
-    title: "ONG/ NGO",
+    // "ONG / NGO", not "ONG/ NGO": the slash separates the French and
+    // English halves of a bilingual label and takes a space on both sides.
+    // This string is the section 3 heading, the review's type row and the
+    // rail's tooltip, so the stray space was visible in three places.
+    title: "ONG / NGO",
     fields: [
       { key: "ngoName", label: "Nom de l'ONG/ NGO name", required: true, kind: "text" },
       { key: "registrationNumber", label: "N° d'enregistrement/ Registration No.", hint: "Numéro d'agrément/ Approval number", required: true, kind: "text" },

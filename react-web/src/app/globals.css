@@ -363,12 +363,19 @@ body {
   position: relative;
 }
 
+/* input:not([type]) is a safety net, not a licence to omit the attribute.
+   An <input> with no type attribute behaves as text but matches none of the
+   [type=] selectors below, so it rendered with no border at the browser's
+   own default height -- which is exactly what happened to Prenom and Nom.
+   The attribute is still set at every call site; this makes the next
+   omission a cosmetic non-event rather than a broken field. */
 .cam-auth-page input[type="email"],
 .cam-auth-page input[type="password"],
 .cam-auth-page input[type="text"],
 .cam-auth-page input[type="tel"],
 .cam-auth-page input[type="number"],
 .cam-auth-page input[type="date"],
+.cam-auth-page input:not([type]),
 .cam-auth-page textarea {
   width: 100%;
   padding: 10px var(--cam-space-3);
@@ -912,6 +919,7 @@ body {
 .cam-auth-page--wizard .cam-form-flow input[type="tel"],
 .cam-auth-page--wizard .cam-form-flow input[type="number"],
 .cam-auth-page--wizard .cam-form-flow input[type="date"],
+.cam-auth-page--wizard .cam-form-flow input:not([type]),
 .cam-auth-page--wizard .cam-form-flow select {
   height: var(--cam-field-height);
   padding-top: 0;
@@ -944,16 +952,20 @@ body {
 }
 
 
-/* Placeholders in the wizard otherwise inherit the input's base size, which
-   is larger than the 14px label. Sized down and pinned to the muted colour;
-   typed text stays at the base size, which also avoids iOS Safari zooming
-   into smaller fields on focus. */
+/* Placeholders get their OWN colour, not the label's --cam-text-muted.
+   Sharing it made an example value read with the same weight as the label
+   naming the field, so a column of untouched inputs looked filled in. A
+   placeholder is an absence; it has to sit visibly behind both the label
+   and the value. 14px literal rather than --cam-font-size-sm, because the
+   control steps up to 16px on phones (see the iOS rule above) and the
+   placeholder deliberately does not follow: it is never focused text.
+   opacity: 1 because Firefox dims placeholders by default, which would put
+   the colour somewhere neither token says. */
 .cam-auth-page--wizard .cam-form-flow :is(input, textarea)::placeholder {
-  font-size: var(--cam-font-size-sm);
+  font-size: 14px;
   font-weight: 400;
-  color: var(--cam-text-muted);
+  color: var(--cam-placeholder);
   opacity: 1;
-  /* Firefox dims placeholders by default; keep the colour predictable */
 }
 
 /* ── Side-by-side field layout, container >= 560px ──

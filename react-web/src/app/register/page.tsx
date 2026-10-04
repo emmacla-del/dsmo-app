@@ -1006,8 +1006,15 @@ export default function RegisterPage() {
             <div className="form-single-column">
               <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
                 <div className="input-row">
+                  {/* type="text" is not a default to be left implicit: the
+                      wizard's control rule selects input[type="text"], so an
+                      input with no type attribute at all matched nothing and
+                      rendered borderless at the browser's own ~33px. The CSS
+                      now carries an input:not([type]) safety net too, but the
+                      attribute is the fix. */}
                   <input
                     id="reg-first-name"
+                    type="text"
                     aria-required={true}
                     value={respondent.firstName}
                     onChange={(e) => setRespondentField("firstName", e.target.value)}
@@ -1020,6 +1027,7 @@ export default function RegisterPage() {
                 <div className="input-row">
                   <input
                     id="reg-last-name"
+                    type="text"
                     aria-required={true}
                     value={respondent.lastName}
                     onChange={(e) => setRespondentField("lastName", e.target.value)}
