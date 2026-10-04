@@ -63,6 +63,88 @@ const SECURITY_QUESTIONS: Record<SecurityQuestionKey, string> = {
 const AUTO_APPROVE_ENTITY_TYPES = ['ADMINISTRATION'] as const;
 
 /**
+ * A staff account's name for display next to a record it authored, falling
+ * back to the address when neither name part is set (seeded and
+ * script-created accounts have no first/last name). null when there is no
+ * author at all — a self-registration, which the UI renders as its own case
+ * rather than as a missing name.
+ */
+function displayNameOf(
+  user: { firstName: string | null; lastName: string | null; email: string } | null | undefined,
+): string | null {
+  if (!user) return null;
+  const name = [user.firstName, user.lastName].filter((part) => part?.trim()).join(' ').trim();
+  return name || user.email;
+}
+
+/**
+ * The company half of a registration body, shared by the public route and the
+ * admin-assisted one. Extracted verbatim from registerCompany's former inline
+ * literal so both paths are typed by one declaration rather than two copies.
+ */
+export interface CompanyRegistrationData {
+  name: string;
+  parentCompany?: string;
+  mainActivity: string;
+  secondaryActivity?: string;
+  region: string;
+  department: string;
+  subdivision: string;
+  regionId?: string;
+  departmentId?: string;
+  subdivisionId?: string;
+  address: string;
+  taxNumber: string;
+  cnpsNumber?: string;
+  socialCapital?: number;
+  contactName?: string;
+  entityType?: string;
+  fax?: string;
+  totalEmployees?: number;
+  menCount?: number;
+  womenCount?: number;
+  lastYearMenCount?: number;
+  lastYearWomenCount?: number;
+  lastYearTotal?: number;
+  area?: string;
+  sectorId?: string;
+  phone?: string;
+  phone2?: string;
+  poBox?: string;
+  branch?: string;
+  legalStatus?: string;
+  cooperativeType?: string;
+  ctdType?: string;
+  yearOfCreation?: string;
+  mainMission?: string;
+  registrationNumber?: string;
+  trainingDomains?: string;
+  respondentFirstName?: string;
+  respondentLastName?: string;
+  respondentPhone?: string;
+  respondentPhone2?: string;
+  respondentFunction?: string;
+  // VOCATIONAL_TRAINING-specific identification fields — see the
+  // 2026-08-30 VT registration audit. cfpType/educationSystem/
+  // functionalStatus/nonFunctionalReason are plain strings (no VT enum
+  // backs them, matching the AST's own posture on these fields).
+  sigle?: string;
+  cfpType?: string;
+  educationSystem?: string;
+  functionalStatus?: string;
+  nonFunctionalReason?: string;
+  nonFunctionalReasonOther?: string;
+  // 1.16 — Promoteur/Directeur du CFP, a second contact block distinct
+  // from the respondent above (1.15). VT-only; no other entity type
+  // collects a second contact at registration time.
+  promoterName?: string;
+  promoterSex?: string;
+  promoterPhone1?: string;
+  promoterPhone2?: string;
+}
+
+
+/**
  * Extra confirmations a reviewer must supply alongside an approval.
  *
  * `centralStructureConfirmed` backs the "structure centrale" checkbox the
@@ -533,68 +615,32 @@ export class AuthService {
     }
   }
 
-  async registerCompany(
+  /**
+   * Creates the user + company pair for a registration, whatever its origin.
+   *
+   * `attribution` is supplied by the caller, never by the request body: the
+   * public route passes SELF_REGISTRATION with no author, the admin-assisted
+   * route passes ASSISTED plus the acting admin's id.
+   *
+   * Deliberately returns the rows rather than a session. The public route
+   * logs the new declarant in; the assisted route must not, because its
+   * caller is the admin, who stays logged in as themselves.
+   */
+  private async createCompanyRegistration(
     email: string,
     password: string,
-    companyData: {
-      name: string;
-      parentCompany?: string;
-      mainActivity: string;
-      secondaryActivity?: string;
-      region: string;
-      department: string;
-      subdivision: string;
-      regionId?: string;
-      departmentId?: string;
-      subdivisionId?: string;
-      address: string;
-      taxNumber: string;
-      cnpsNumber?: string;
-      socialCapital?: number;
-      contactName?: string;
-      entityType?: string;
-      fax?: string;
-      totalEmployees?: number;
-      menCount?: number;
-      womenCount?: number;
-      lastYearMenCount?: number;
-      lastYearWomenCount?: number;
-      lastYearTotal?: number;
-      area?: string;
-      sectorId?: string;
-      phone?: string;
-      phone2?: string;
-      poBox?: string;
-      branch?: string;
-      legalStatus?: string;
-      cooperativeType?: string;
-      ctdType?: string;
-      yearOfCreation?: string;
-      mainMission?: string;
-      registrationNumber?: string;
-      trainingDomains?: string;
-      respondentFirstName?: string;
-      respondentLastName?: string;
-      respondentPhone?: string;
-      respondentPhone2?: string;
-      respondentFunction?: string;
-      // VOCATIONAL_TRAINING-specific identification fields — see the
-      // 2026-08-30 VT registration audit. cfpType/educationSystem/
-      // functionalStatus/nonFunctionalReason are plain strings (no VT enum
-      // backs them, matching the AST's own posture on these fields).
-      sigle?: string;
-      cfpType?: string;
-      educationSystem?: string;
-      functionalStatus?: string;
-      nonFunctionalReason?: string;
-      nonFunctionalReasonOther?: string;
-      // 1.16 — Promoteur/Directeur du CFP, a second contact block distinct
-      // from the respondent above (1.15). VT-only; no other entity type
-      // collects a second contact at registration time.
-      promoterName?: string;
-      promoterSex?: string;
-      promoterPhone1?: string;
-      promoterPhone2?: string;
+    companyData: CompanyRegistrationData,
+    attribution: {
+      registrationMethod: string;
+      createdBy?: string | null;
+      assigneeId?: string | null;
+      /**
+       * Forces the file into the review queue even when its entity type is in
+       * AUTO_APPROVE_ENTITY_TYPES. Set by the assisted route per DECISION 2:
+       * the field error rate is unknown, and a declarant that did not fill in
+       * its own details gets no less oversight than one that did.
+       */
+      skipAutoApproval?: boolean;
     },
   ) {
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
@@ -639,6 +685,7 @@ export class AuthService {
     // Establishment IDs are issued at staff approval, except for the entity
     // types in AUTO_APPROVE_ENTITY_TYPES, which get theirs below.
     const autoApprove =
+      !attribution.skipAutoApproval &&
       !!companyData.entityType &&
       (AUTO_APPROVE_ENTITY_TYPES as readonly string[]).includes(companyData.entityType);
     const resolvedTaxNumber =
@@ -660,8 +707,9 @@ export class AuthService {
           status: 'PENDING_APPROVAL',
           isActive: true,
           emailVerified: false,
-          // Phase 1: public company registration — no creating admin.
-          registrationMethod: 'SELF_REGISTRATION',
+          registrationMethod: attribution.registrationMethod,
+          createdBy: attribution.createdBy ?? null,
+          assigneeId: attribution.assigneeId ?? null,
         },
       });
 
@@ -742,27 +790,139 @@ export class AuthService {
         );
       });
 
-      // activeUser, not user: login() echoes `status` back to the client, and
-      // an auto-approved account has to report ACTIVE, not PENDING_APPROVAL.
-      const loginResult = await this.login(activeUser);
-
-      return {
-        ...loginResult,
-        company: {
-          id: company.id,
-          name: company.name,
-          establishmentId: autoApprovedEstablishmentId,
-          taxNumber: company.taxNumber,
-          entityType: company.entityType,
-          attestationUrl: null,
-        },
-      };
+      // activeUser, not user: callers echo `status` back to the client, and an
+      // auto-approved account has to report ACTIVE, not PENDING_APPROVAL.
+      return { user: activeUser, company, establishmentId: autoApprovedEstablishmentId };
     } catch (error: any) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Email ou numéro contribuable déjà utilisé');
       }
       throw error;
     }
+  }
+
+  /**
+   * Public company self-registration. The declarant chose its own password and
+   * is logged in on success, so the response shape is unchanged from before
+   * createCompanyRegistration was extracted out of it.
+   */
+  async registerCompany(
+    email: string,
+    password: string,
+    companyData: CompanyRegistrationData,
+  ) {
+    const created = await this.createCompanyRegistration(email, password, companyData, {
+      registrationMethod: 'SELF_REGISTRATION',
+    });
+
+    const loginResult = await this.login(created.user);
+    return {
+      ...loginResult,
+      company: {
+        id: created.company.id,
+        name: created.company.name,
+        establishmentId: created.establishmentId,
+        taxNumber: created.company.taxNumber,
+        entityType: created.company.entityType,
+        attestationUrl: null,
+      },
+    };
+  }
+
+  /**
+   * Staff registers a declarant on its behalf — the field-work path.
+   *
+   * Phase 2 of docs/plans/territorial-admin-monitoring.md. Differs from the
+   * public route in four ways, all of them deliberate:
+   *
+   *  - The password is generated here and returned once, in plaintext, like
+   *    adminCreateMinefopUser. Outbound email is unreliable on this
+   *    deployment, so handing it to the admin is the delivery path, not a
+   *    fallback.
+   *  - No session is issued. The caller is the admin, who must stay logged in
+   *    as themselves; returning a token for the new declarant would hand the
+   *    admin someone else's account.
+   *  - The file always queues for review (DECISION 2), even for the entity
+   *    types that auto-approve on the public route.
+   *  - The acting admin is recorded as both author (createdBy) and owner of
+   *    the follow-up (assigneeId).
+   *
+   * A territorial actor may only register inside its own ressort:
+   * assertTerritorialAuthority is checked against the *resolved* territory, so
+   * the check runs on canonical region/department names rather than on
+   * whatever the body happened to spell.
+   */
+  async adminRegisterCompany(
+    companyData: CompanyRegistrationData & { email: string },
+    actor: Territory & { id: string },
+  ) {
+    const resolved = await resolveAndValidateTerritory(
+      this.prisma,
+      {
+        regionId: companyData.regionId,
+        departmentId: companyData.departmentId,
+        subdivisionId: companyData.subdivisionId,
+        region: companyData.region,
+        department: companyData.department,
+        subdivision: companyData.subdivision,
+      },
+      { requireSubdivision: true },
+    );
+    assertTerritorialAuthority(actor, {
+      region: resolved.region,
+      department: resolved.department,
+      regionId: resolved.regionId,
+      departmentId: resolved.departmentId,
+    });
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const created = await this.createCompanyRegistration(
+      companyData.email,
+      temporaryPassword,
+      companyData,
+      {
+        registrationMethod: 'ASSISTED',
+        createdBy: actor.id,
+        assigneeId: actor.id,
+        skipAutoApproval: true,
+      },
+    );
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actor.id,
+        action: 'COMPANY_REGISTRATION_ASSISTED',
+        resourceType: 'User',
+        resourceId: created.user.id,
+        details: {
+          email: companyData.email,
+          companyId: created.company.id,
+          organisation: created.company.name,
+          entityType: created.company.entityType,
+          region: resolved.region,
+          department: resolved.department,
+          registrationMethod: 'ASSISTED',
+        },
+      },
+    }).catch((error: any) => {
+      // The registration itself succeeded; losing its journal entry must not
+      // undo it or fail the admin's request.
+      this.logger.error(
+        `Failed to audit assisted registration of ${companyData.email}: ${(error as Error).message}`,
+      );
+    });
+
+    return {
+      user: toPublicUser(created.user),
+      company: {
+        id: created.company.id,
+        name: created.company.name,
+        establishmentId: created.establishmentId,
+        taxNumber: created.company.taxNumber,
+        entityType: created.company.entityType,
+      },
+      temporaryPassword,
+    };
   }
 
   /**
@@ -1392,6 +1552,12 @@ export class AuthService {
               approvalComment: true,
               rejectionReason: true,
               registrationNumber: true,
+              // Phase 2: who registered this file and how. createdByUser is
+              // joined rather than resolved client-side so the queue renders
+              // a name without a second round trip per row.
+              registrationMethod: true,
+              createdBy: true,
+              createdByUser: { select: { id: true, firstName: true, lastName: true, email: true } },
             },
           },
         },
@@ -1632,6 +1798,9 @@ export class AuthService {
         approvalComment: string | null;
         rejectionReason: string | null;
         registrationNumber: string | null;
+        registrationMethod: string | null;
+        createdBy: string | null;
+        createdByUser: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
       };
     }>,
   ) {
@@ -1688,6 +1857,9 @@ export class AuthService {
         rejectionReason: row.user.rejectionReason,
         duplicateHints: [...new Set(hints)],
         requiresCentralStructureCheck: row.entityType === 'ADMINISTRATION',
+        registrationMethod: row.user.registrationMethod,
+        createdBy: row.user.createdBy,
+        createdByName: displayNameOf(row.user.createdByUser),
       };
     });
   }
@@ -1744,6 +1916,11 @@ export class AuthService {
           createdAt: true,
           lastLoginAt: true,
           perAgentTarget: true,
+          // Phase 2: attribution on the staff roster, same treatment as the
+          // registration queue.
+          registrationMethod: true,
+          createdBy: true,
+          createdByUser: { select: { id: true, firstName: true, lastName: true, email: true } },
           _count: {
             select: {
               onefopSubmissions: true,
@@ -1759,6 +1936,8 @@ export class AuthService {
     const mappedUsers = users.map((u: any) => ({
       ...u,
       submissionsCount: u._count?.onefopSubmissions ?? 0,
+      createdByName: displayNameOf(u.createdByUser),
+      createdByUser: undefined,
     }));
 
     return { users: mappedUsers, total, page, pageSize };

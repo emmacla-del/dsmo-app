@@ -8,6 +8,7 @@ import { Roles } from './roles.decorator';
 import { TERRITORIAL_APPROVER_ROLES, USER_ADMIN_ROLES } from './staff-scope';
 import { territoryFromUser } from './territory';
 import { RegisterCompanyDto } from './dto/register-company.dto';
+import { AssistedRegistrationDto } from './dto/assisted-registration.dto';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
@@ -183,6 +184,79 @@ export class AuthController {
     positionType?: string;
   }) {
     return this.authService.adminCreateMinefopUser(body, req.user.role, req.user.id);
+  }
+
+  // Admin-assisted declarant registration — Phase 2 of
+  // docs/plans/territorial-admin-monitoring.md. The field-work counterpart to
+  // the public register-company route: a territorial admin registers a
+  // declarant it met on a visit or over the phone.
+  //
+  // Same @Roles set as the registration review queue, because it is the same
+  // population of reviewers; the service narrows a territorial actor to its
+  // own ressort with assertTerritorialAuthority, so the guard's four roles are
+  // the outer bound and not the whole check.
+  //
+  // The ValidationPipe override matches the public route's: the global pipe
+  // sets skipMissingProperties: true, which would skip validation of any field
+  // the client omits entirely and defeat the requiredness checks on the DTO.
+  // whitelist strips anything the DTO does not declare — `password`,
+  // `registrationMethod` and `createdBy` among them, so a caller cannot set
+  // its own attribution or pick the declarant's password.
+  @Post('admin/register-company')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP', 'REGIONAL_ADMIN', 'DIVISIONAL_ADMIN')
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true, skipMissingProperties: false }))
+  async adminRegisterCompany(@Request() req: any, @Body() body: AssistedRegistrationDto) {
+    return this.authService.adminRegisterCompany(
+      {
+        email: body.email,
+        name: body.companyName,
+        parentCompany: body.parentCompany,
+        mainActivity: body.mainActivity,
+        secondaryActivity: body.secondaryActivity,
+        region: body.region,
+        department: body.department,
+        subdivision: body.subdivision,
+        regionId: body.regionId,
+        departmentId: body.departmentId,
+        subdivisionId: body.subdivisionId,
+        address: body.address,
+        taxNumber: body.taxNumber,
+        cnpsNumber: body.cnpsNumber,
+        socialCapital: body.socialCapital,
+        contactName: body.contactName,
+        entityType: body.entityType,
+        area: body.area,
+        sectorId: body.sectorId,
+        phone: body.phone,
+        phone2: body.phone2,
+        poBox: body.poBox,
+        legalStatus: body.legalStatus,
+        cooperativeType: body.cooperativeType,
+        ctdType: body.ctdType,
+        yearOfCreation: body.yearOfCreation,
+        mainMission: body.mainMission,
+        registrationNumber: body.registrationNumber,
+        trainingDomains: body.trainingDomains,
+        respondentPhone: body.respondentPhone,
+        respondentPhone2: body.respondentPhone2,
+        respondentFunction: body.respondentFunction,
+        respondentFirstName: body.respondentFirstName ?? body.firstName,
+        respondentLastName: body.respondentLastName ?? body.lastName,
+        branch: body.branch,
+        sigle: body.sigle,
+        cfpType: body.cfpType,
+        educationSystem: body.educationSystem,
+        functionalStatus: body.functionalStatus,
+        nonFunctionalReason: body.nonFunctionalReason,
+        nonFunctionalReasonOther: body.nonFunctionalReasonOther,
+        promoterName: body.promoterName,
+        promoterSex: body.promoterSex,
+        promoterPhone1: body.promoterPhone1,
+        promoterPhone2: body.promoterPhone2,
+      },
+      { ...territoryFromUser(req.user), id: req.user.id },
+    );
   }
 
   @Get('pending-minefop')

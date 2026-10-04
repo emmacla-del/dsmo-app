@@ -87,6 +87,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
       { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
+      // Admin-assisted registration (Phase 2 of the territorial admin
+      // monitoring plan). Listed after Inscriptions so the hub keeps landing
+      // on the queue rather than on a blank form. Its path nests under
+      // /admin/inscriptions, and getAllowedRoles() takes the longest matching
+      // prefix, so this entry — not the queue's — gates it.
+      { label: "Nouvelle inscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
       { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
       // Detail pages reached from Établissements. Listed so getAllowedRoles()

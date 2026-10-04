@@ -87,7 +87,11 @@ describe('Phase 1 — registrationMethod and createdBy on every creation path', 
     const data = lastUserCreate(prisma);
     expect(data.registrationMethod).toBe('SELF_REGISTRATION');
     // No creating admin exists on a public path — the absence is the signal.
-    expect(data.createdBy).toBeUndefined();
+    // Asserted as "no author" rather than on the JS representation: this path
+    // omits the key while registerCompany writes an explicit null, and both
+    // store NULL. A test that pinned `undefined` would break on a refactor
+    // that changed nothing about the column.
+    expect(data.createdBy ?? null).toBeNull();
   });
 
   it('public company registration is SELF_REGISTRATION with no creator', async () => {
@@ -96,7 +100,8 @@ describe('Phase 1 — registrationMethod and createdBy on every creation path', 
     const data = lastUserCreate(prisma);
     expect(data.role).toBe('COMPANY');
     expect(data.registrationMethod).toBe('SELF_REGISTRATION');
-    expect(data.createdBy).toBeUndefined();
+    expect(data.createdBy ?? null).toBeNull();
+    expect(data.assigneeId ?? null).toBeNull();
     expect(data.status).toBe('PENDING_APPROVAL');
   });
 
