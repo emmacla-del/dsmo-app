@@ -28,7 +28,7 @@ test("each role's rail is exactly its profile, in declared order", () => {
   const expected: Record<UserRole, string[]> = {
     SUPER_ADMIN: ["supervision", "collecte", "declarants", "qualite", "donnees", "administration"],
     ADMIN_ONEFOP: ["supervision", "collecte", "declarants", "qualite", "donnees", "administration"],
-    REGIONAL_ADMIN: ["supervision", "collecte", "declarants", "qualite"],
+    REGIONAL_ADMIN: ["supervision", "collecte", "declarants", "qualite", "administration"],
     DIVISIONAL_ADMIN: ["supervision", "collecte", "declarants", "qualite"],
     AUDITOR: ["administration"],
     COMPANY: [],
@@ -50,14 +50,20 @@ test("a shared hub resolves to a different landing route per role", () => {
   const landing = (role: UserRole, key: string) =>
     navHubsFor(role).find((h) => h.key === key)?.href;
 
-  // "administration" is in three profiles and lands in three places.
+  // "administration" is in four profiles and lands in three places.
   assert.equal(landing("SUPER_ADMIN", "administration"), "/admin/utilisateurs");
   assert.equal(landing("ADMIN_ONEFOP", "administration"), "/admin/utilisateurs");
+  assert.equal(landing("REGIONAL_ADMIN", "administration"), "/admin/equipe");
   assert.equal(landing("AUDITOR", "administration"), "/admin/journal-audit");
 
-  // ADMIN_ONEFOP reaches user administration but neither the journal nor settings.
+  // ADMIN_ONEFOP reaches user administration and monitoring but neither the
+  // journal nor settings.
   const onefopAdmin = navHubsFor("ADMIN_ONEFOP").find((h) => h.key === "administration");
-  assert.deepEqual(onefopAdmin?.subRoutes.map((r) => r.href), ["/admin/utilisateurs"]);
+  assert.deepEqual(onefopAdmin?.subRoutes.map((r) => r.href), ["/admin/utilisateurs", "/admin/equipe"]);
+
+  // REGIONAL_ADMIN reaches monitoring and nothing else in the hub.
+  const regionalAdmin = navHubsFor("REGIONAL_ADMIN").find((h) => h.key === "administration");
+  assert.deepEqual(regionalAdmin?.subRoutes.map((r) => r.href), ["/admin/equipe"]);
 
   // "collecte" splits the two territorial roles: DIVISIONAL_ADMIN is outside
   // CAMPAIGN_ROLES, so campagnes is hidden and the hub lands on questionnaires.
@@ -65,15 +71,18 @@ test("a shared hub resolves to a different landing route per role", () => {
   assert.equal(landing("DIVISIONAL_ADMIN", "collecte"), "/admin/questionnaires");
 });
 
-// Territorial roles reach neither hub: every sub-route under "donnees" is
-// NATIONAL_ROLES, and every sub-route under "administration" is one of
-// USER_ADMIN_ROLES / AUDIT_ROLES / SETTINGS_ROLES.
+// Territorial roles reach no national-only hub: every sub-route under "donnees"
+// is NATIONAL_ROLES. Only REGIONAL_ADMIN reaches "administration", through
+// /admin/equipe; DIVISIONAL_ADMIN is outside every one of its sub-routes.
 test("territorial roles get no national-only hub", () => {
   for (const role of TERRITORIAL_ROLES) {
     const keys = navHubsFor(role).map((h) => h.key);
     assert.ok(!keys.includes("donnees"), `${role} should not see Données`);
-    assert.ok(!keys.includes("administration"), `${role} should not see Administration`);
   }
+  assert.ok(
+    !navHubsFor("DIVISIONAL_ADMIN").some((h) => h.key === "administration"),
+    "DIVISIONAL_ADMIN should not see Administration",
+  );
 });
 
 test("each rendered hub lands on a route the role is allowed to open", () => {
