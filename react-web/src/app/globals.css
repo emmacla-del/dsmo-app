@@ -694,13 +694,15 @@ body {
   margin: 0 auto;
 }
 
-/* The emblem placeholder and the note explaining it are hidden on this
-   route: they are a reminder to the team, not information for the
-   respondent, and the frame below needs every pixel of the fixed height
-   budget. The wordmark and subtitle stay -- this is a government portal and
-   it has to say whose. */
+/* The emblem placeholder, the note explaining it and the CAM-LEAP wordmark
+   are all hidden on this route. The first two are a reminder to the team
+   rather than information for the respondent; the third is a second title
+   on a page whose real title is the section in the frame, and on a 680px
+   laptop it was costing the form a line it could not spare. The subtitle
+   stays and carries the identity on its own, on one line. */
 .cam-auth-page--wizard .seal,
-.cam-auth-page--wizard .seal-note {
+.cam-auth-page--wizard .seal-note,
+.cam-auth-page--wizard .brand-name {
   display: none;
 }
 
@@ -708,13 +710,13 @@ body {
   margin: 0 0 var(--cam-space-3);
 }
 
-.cam-auth-page--wizard .brand-name {
-  font-size: var(--cam-font-size-lg);
-  margin-bottom: 2px;
-}
-
+/* One line, whatever the width: the subtitle is an identifier, not prose,
+   and a second line here is a line the frame does not get. */
 .cam-auth-page--wizard .brand-sub {
   font-size: var(--cam-font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* min-height: 0 is the whole trick: without it a flex item refuses to be
@@ -756,6 +758,10 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
+  /* The frame is 600px wide and the gutter is reserved whether or not it is
+     in use, so a platform-default 15-17px bar is a visible bite out of the
+     input column on every section, tall or short. */
+  scrollbar-width: thin;
   padding: 20px 22px 8px;
 }
 
@@ -862,12 +868,6 @@ body {
   margin-left: var(--cam-space-1);
 }
 
-.cam-auth-page .field-optional-mark {
-  color: var(--cam-text-muted);
-  font-weight: 400;
-  margin-left: var(--cam-space-1);
-}
-
 /* Explanation under the input, in the input column. Example values are not
    hints -- they belong in the control's own placeholder. */
 .cam-auth-page .field-hint {
@@ -961,6 +961,29 @@ body {
    placeholder deliberately does not follow: it is never focused text.
    opacity: 1 because Firefox dims placeholders by default, which would put
    the colour somewhere neither token says. */
+/* A select showing its empty option is displaying a placeholder, but the
+   browser draws it in the control's own value colour, so an unanswered
+   dropdown looked exactly like an answered one. :has() lets the control
+   restyle itself from the option that happens to be selected, which is the
+   only way to reach this without a class the change handler has to maintain.
+   Scoped to the empty option specifically: the moment a real option is
+   chosen the rule stops matching and the value returns to full contrast. */
+.cam-auth-page--wizard .cam-form-flow select:has(option[value=""]:checked) {
+  color: var(--cam-placeholder);
+}
+
+/* The SIZE half, above the phone breakpoint only. :has() carries its
+   argument's specificity, so this selector out-specifies the bare `select`
+   in the iOS rule above and would have won at every width -- leaving an
+   unanswered dropdown, the only kind anyone taps first, as the one control
+   that still zoomed the viewport on focus. Gating the declaration by width
+   is order-independent, which the specificity fight was not. */
+@media (min-width: 641px) {
+  .cam-auth-page--wizard .cam-form-flow select:has(option[value=""]:checked) {
+    font-size: 14px;
+  }
+}
+
 .cam-auth-page--wizard .cam-form-flow :is(input, textarea)::placeholder {
   font-size: 14px;
   font-weight: 400;
@@ -1189,17 +1212,19 @@ body {
   word-break: break-word;
 }
 
-/* The one-off notice shown when a saved draft is put back on screen. Says
-   what came back and, more importantly, that the password did not. */
-.cam-auth-page--wizard .draft-restored-notice {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-info);
+/* A note that belongs to one section, shown under its heading rather than
+   at the top of the frame. A left rule instead of a box: inside the frame,
+   a second bordered rectangle is a second frame, and the only one of those
+   on this page is the frame itself. */
+.cam-auth-page--wizard .section-notice {
+  border-left: 3px solid var(--cam-info);
   background: var(--cam-info-bg);
-  border: var(--cam-border-width) solid var(--cam-info-border);
-  border-radius: var(--cam-radius-md);
-  padding: var(--cam-space-3) var(--cam-space-4);
-  margin-bottom: var(--cam-section-gap);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
   line-height: 1.45;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  margin: 0 0 var(--cam-field-row-gap);
+  border-radius: 0 var(--cam-radius-sm) var(--cam-radius-sm) 0;
 }
 
 /* ── The section in the frame ──
@@ -1469,8 +1494,13 @@ body {
   width: 100%;
 }
 
-/* The one element present at every width. */
+/* Below 560px the rail's labels are hidden and this names the step. Above
+   that width the labels name it already, and printing it twice -- once as
+   "Etape 2 sur 6 - Declarant" and again under the gold circle -- was a line
+   of header the frame could have had. Hidden by default, shown by the
+   narrow query at the end of this block. */
 .cam-auth-page .progress-caption {
+  display: none;
   font-size: var(--cam-font-size-2xs);
   font-weight: 700;
   color: var(--cam-green-dark);
@@ -1560,8 +1590,13 @@ body {
   color: #ffffff;
 }
 
+/* Underlined, because a completed circle is a way back into that section
+   and nothing else on the rail said so. The pointer cursor is already on
+   .progress-step-item; this is the visual half of the same claim. */
 .cam-auth-page .progress-step-item.is-done .progress-step-label {
   color: var(--cam-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Current: a gold ring. Gold, not green, because green means "answered" and
@@ -1609,8 +1644,12 @@ body {
   color: var(--cam-border-strong);
 }
 
+/* The CIRCLE stays on --cam-border-strong: it is a disabled control and has
+   to look it. The LABEL does not -- it is the only place the six steps are
+   named, and a step name drawn at hairline contrast is a step name nobody
+   reads. See --cam-rail-upcoming. */
 .cam-auth-page .progress-step-item.is-locked .progress-step-label {
-  color: var(--cam-border-strong);
+  color: var(--cam-rail-upcoming);
 }
 
 .cam-auth-page .progress-step-item:not(:disabled):hover .progress-step-circle {
@@ -1623,10 +1662,24 @@ body {
   border-radius: var(--cam-radius-md);
 }
 
-/* Narrow: circles only. The caption above is what names the step. */
+/* Said once, when the first circle turns green and the rail stops being a
+   progress bar and starts being a navigation. Dismissed on the first click
+   of any item and never shown again in that session. */
+.cam-auth-page .progress-rail-hint {
+  margin: var(--cam-space-2) 0 0;
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-text-muted);
+  text-align: center;
+}
+
+/* Narrow: circles only, and the caption comes back to name the step. */
 @media (max-width: 559px) {
   .cam-auth-page .progress-step-label {
     display: none;
+  }
+
+  .cam-auth-page .progress-caption {
+    display: block;
   }
 }
 

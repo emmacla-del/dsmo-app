@@ -161,7 +161,7 @@
      custom properties are not usable in container or media query conditions.
      It is a CONTAINER width, not a viewport width: the query measures the
      frame, so the layout is correct whatever chrome surrounds it. */
-  --cam-field-label-col: 140px;
+  --cam-field-label-col: 160px;
   --cam-field-label-gap: 12px;
 
   /* Space between two field rows, and (in the stacked layout) between a label
@@ -187,6 +187,13 @@
      already filled in. Lighter than both the label and the typed value,
      and still over 4.5:1 on --cam-surface. */
   --cam-placeholder: #7d8981;
+
+  /* Rail items the respondent has not reached. Lighter than --cam-text-muted
+     so "not yet" reads as not yet, darker than --cam-border-strong (which
+     the circle keeps) so the step NAME stays legible -- a label the colour
+     of a hairline is a label nobody reads, and the rail is the only place
+     the six steps are listed. */
+  --cam-rail-upcoming: #6b776f;
 
   /* ── Wizard frame ──
      The single bordered frame the current section is shown in. The padding

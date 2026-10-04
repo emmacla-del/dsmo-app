@@ -126,6 +126,10 @@ export default function RegisterPage() {
   const [current, setCurrent] = useState(0);
   const [certified, setCertified] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  // Item 6: the rail only becomes a navigation once something on it is
+  // clickable, so the line explaining that appears when the first circle
+  // turns green and never again after the respondent has used it.
+  const [railHintDismissed, setRailHintDismissed] = useState(false);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
@@ -264,13 +268,19 @@ export default function RegisterPage() {
   // unanswered has not requested anything yet.
   function selectStatusLabel(
     query: { isFetching: boolean; isError: boolean; data?: readonly unknown[] },
-    gateLabel?: string
+    gateLabel?: string,
+    optional = false
   ): string {
     if (gateLabel) return gateLabel;
     if (query.isFetching) return t("registerPage.loadingOptions");
     if (query.isError) return t("registerPage.loadErrorOptions");
     if ((query.data?.length ?? 0) === 0) return t("registerPage.noOptions");
-    return t("registerPage.selectPlaceholder");
+    // An optional select says so in its own empty option, which is where the
+    // respondent is looking when deciding whether to answer it -- the label
+    // no longer carries an "(optionnel)" suffix.
+    return optional
+      ? t("registerPage.optionalPlaceholder")
+      : t("registerPage.selectPlaceholder");
   }
 
   // One renderer for all three field kinds in step 3, used by both the
@@ -278,6 +288,12 @@ export default function RegisterPage() {
   // carried a second copy of this JSX.
   function renderEntityField(field: EntityField) {
     const id = `reg-entity-${field.key}`;
+    // Optionality lives in the control, not in a "(optionnel)" suffix on the
+    // label -- see FormRow. A required field shows nothing here unless its
+    // own hint carries an example.
+    const optionalPlaceholder = field.required
+      ? undefined
+      : t("registerPage.optionalPlaceholder");
     const controlProps = {
       id,
       "aria-required": field.required ? true : undefined,
@@ -297,7 +313,9 @@ export default function RegisterPage() {
         <div className="input-row">
           {field.kind === "select" ? (
             <select {...controlProps}>
-              <option value="">{t("registerPage.selectPlaceholder")}</option>
+              <option value="">
+                {optionalPlaceholder ?? t("registerPage.selectPlaceholder")}
+              </option>
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -308,6 +326,7 @@ export default function RegisterPage() {
             <input
               {...controlProps}
               type={field.kind === "tel" ? "tel" : field.kind === "number" ? "number" : "text"}
+              placeholder={optionalPlaceholder}
             />
           )}
         </div>
@@ -602,6 +621,10 @@ export default function RegisterPage() {
   // Called by the rail. A locked section is not reachable -- the rail renders
   // it as a disabled button, and this is the second line of that defence.
   function goToSection(index: number) {
+    // Dismissed on the first click of ANY rail item, enabled or not: the
+    // respondent has shown they know the circles are controls, which is the
+    // only thing the hint was there to say.
+    setRailHintDismissed(true);
     if (index < 0 || index > reached) return;
     setAdvanceArmed(false);
     setCurrent(index);
@@ -753,9 +776,19 @@ export default function RegisterPage() {
         isSectionComplete(step, restoredState)
       )
     );
+    // The notice used to sit at the top of the frame, above the section, and
+    // cost the Declarant step a scrollbar at 1366x680 for a sentence that was
+    // only true once. It is two separate facts, each delivered where it is
+    // relevant: "your draft came back" is a transient event, so it goes
+    // through the snackbar the page already has; "your password did not come
+    // back" is about one section, so it waits inside that section.
+    setSnackbar(t("registerPage.draftRestoredNotice"));
     setDraftRestored(true);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+    // `t` is in the deps because the snackbar text above is translated. It
+    // cannot cause a second restore: draftLoadedRef short-circuits the body
+    // on every run after the first.
+  }, [t]);
 
   // Serialized once per render and used both as the effect's dependency and
   // as what gets written: an unrelated re-render produces the same string and
@@ -1018,7 +1051,7 @@ export default function RegisterPage() {
                     aria-required={true}
                     value={respondent.firstName}
                     onChange={(e) => setRespondentField("firstName", e.target.value)}
-                    placeholder="Ex: Emmanuel"
+                    placeholder={t("registerPage.firstNamePlaceholder")}
                   />
                 </div>
               </FormRow>
@@ -1031,7 +1064,7 @@ export default function RegisterPage() {
                     aria-required={true}
                     value={respondent.lastName}
                     onChange={(e) => setRespondentField("lastName", e.target.value)}
-                    placeholder="Ex: Biya"
+                    placeholder={t("registerPage.lastNamePlaceholder")}
                   />
                 </div>
               </FormRow>
@@ -1066,7 +1099,7 @@ export default function RegisterPage() {
                     type="email"
                     value={respondent.email}
                     onChange={(e) => setRespondentField("email", e.target.value)}
-                    placeholder="contact@organisation.cm"
+                    placeholder={t("registerPage.emailPlaceholder")}
                   />
                 </div>
                 <div aria-live="polite" aria-atomic="true">
@@ -1091,23 +1124,19 @@ export default function RegisterPage() {
                     type="tel"
                     value={respondent.phone1}
                     onChange={(e) => setRespondentField("phone1", e.target.value)}
-                    placeholder="6XXXXXXXX"
+                    placeholder={t("registerPage.phonePlaceholder")}
                   />
                 </div>
               </FormRow>
 
-              <FormRow
-                htmlFor="reg-phone2"
-                label={t("registerPage.phone2Label")}
-                optionalLabel={t("registerPage.optionalMarker")}
-              >
+              <FormRow htmlFor="reg-phone2" label={t("registerPage.phone2Label")}>
                 <div className="input-row">
                   <input
                     id="reg-phone2"
                     type="tel"
                     value={respondent.phone2}
                     onChange={(e) => setRespondentField("phone2", e.target.value)}
-                    placeholder="6XXXXXXXX / 2XXXXXXXX"
+                    placeholder={t("registerPage.optionalPlaceholder")}
                   />
                 </div>
               </FormRow>
@@ -1285,11 +1314,7 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow
-                htmlFor="reg-sector"
-                label={t("registerPage.sectorLabel")}
-                optionalLabel={t("registerPage.optionalMarker")}
-              >
+              <FormRow htmlFor="reg-sector" label={t("registerPage.sectorLabel")}>
                 <div className="input-row">
                   <select
                     id="reg-sector"
@@ -1304,7 +1329,9 @@ export default function RegisterPage() {
                       setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
                     }}
                   >
-                    <option value="">{selectStatusLabel(sectorsQuery)}</option>
+                    <option value="">
+                      {selectStatusLabel(sectorsQuery, undefined, true)}
+                    </option>
                     {sectorsQuery.data?.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
@@ -1325,6 +1352,17 @@ export default function RegisterPage() {
               title={t("registerPage.securityTitle")}
               subtitle={t("registerPage.securitySubtitle")}
             />
+
+            {/* The half of the restore notice that belongs to this section.
+                It appears when the section opens rather than at the top of
+                the flow, and goes as soon as there is a password to speak
+                of -- a standing reminder to type something the respondent
+                has just typed is noise. */}
+            {draftRestored && !password && (
+              <p className="section-notice" role="status">
+                {t("registerPage.draftPasswordReminder")}
+              </p>
+            )}
 
             <div className="form-single-column">
               <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
@@ -1504,6 +1542,11 @@ export default function RegisterPage() {
             completed={completed}
             summaries={railSummaries}
             onSelect={goToSection}
+            hint={
+              !railHintDismissed && completed.some((c, i) => c && i !== current)
+                ? t("registerPage.railEditHintLine")
+                : null
+            }
           />
         </div>
       </header>
@@ -1513,12 +1556,6 @@ export default function RegisterPage() {
             container the side-by-side field layout measures. */}
         <div className="flow-frame">
           <div className="flow-frame-scroll" ref={frameScrollRef}>
-            {draftRestored && (
-              <div className="draft-restored-notice" role="status">
-                {t("registerPage.draftRestoredNotice")}
-              </div>
-            )}
-
             {/* Above the section rather than inside the review: a failure
                 sends the respondent to the section that failed, and the
                 message has to travel with them. */}

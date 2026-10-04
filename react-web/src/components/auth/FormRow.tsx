@@ -16,11 +16,17 @@ import type { ReactNode } from "react";
 //
 // `hint` renders under the input, inside the input column, never under the
 // label -- example values belong in the control's own placeholder instead.
+//
+// There is no optional marker. A trailing "(optionnel)" was the second thing
+// on every optional label, which pushed those labels onto two lines and made
+// the label column size itself to a parenthesis rather than to a field name.
+// Optionality is said in the control instead, by a "Facultatif" placeholder:
+// it is in the box the respondent is deciding whether to fill, and it costs
+// the label column nothing.
 export function FormRow({
   htmlFor,
   label,
   required = false,
-  optionalLabel,
   hint,
   labelPrefix,
   labelId,
@@ -34,9 +40,6 @@ export function FormRow({
   htmlFor?: string;
   label: string;
   required?: boolean;
-  // Muted "(optionnel)" suffix for fields whose optionality is not otherwise
-  // obvious. Passed in already translated; this component never calls t().
-  optionalLabel?: string;
   hint?: string;
   // Decoration before the label text -- the location step's cascade arrow.
   // Decorative only, so the caller is expected to mark it aria-hidden.
@@ -57,9 +60,6 @@ export function FormRow({
           <span className="field-required-mark" aria-hidden="true">
             *
           </span>
-        )}
-        {!required && optionalLabel && (
-          <span className="field-optional-mark">{optionalLabel}</span>
         )}
       </label>
       {children}

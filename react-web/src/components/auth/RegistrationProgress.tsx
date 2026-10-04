@@ -24,6 +24,11 @@ interface RegistrationProgressProps {
   // can never disagree. Empty for a section with nothing answered.
   summaries: readonly string[];
   onSelect: (index: number) => void;
+  // One line under the rail, shown once the first section is behind the
+  // respondent and dropped for good on their first click. Null means "not
+  // now"; the caller owns both conditions, so this component stays a pure
+  // render of the state it is handed.
+  hint?: string | null;
 }
 
 // The rail IS the navigation.
@@ -42,6 +47,7 @@ export function RegistrationProgress({
   completed,
   summaries,
   onSelect,
+  hint = null,
 }: RegistrationProgressProps) {
   const t = useTranslations("registerPage");
   const total = REGISTRATION_STEPS.length;
@@ -53,6 +59,10 @@ export function RegistrationProgress({
       {/* The one line that always says where the respondent is. Below 560px
           the rail's labels are hidden, so this is the only thing naming the
           step; it is announced on change for the same reason. */}
+      {/* Below 560px the rail's labels are hidden and this is the only thing
+          naming the step, which is also why it is announced on change. Above
+          that width the labels say it already, so CSS hides this rather than
+          printing the step's name twice. */}
       <p className="progress-caption" aria-live="polite">
         {t("stepIndicator", { current: activeIdx + 1, total })}
         {" — "}
@@ -101,6 +111,12 @@ export function RegistrationProgress({
           );
         })}
       </div>
+
+      {hint && (
+        <p className="progress-rail-hint" role="status">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
