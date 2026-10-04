@@ -13,6 +13,7 @@ import {
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { entityTypeLabel } from "@/lib/companies-directory";
+import { resolveEntityName } from "@/lib/onefop-entity-name";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
@@ -219,19 +220,7 @@ function DossiersContent() {
   const dossiers: DossierItem[] = rawItems.map((sub: any) => {
     const blockingCount = sub.anomalies?.filter((a: any) => a.isBlocking && a.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((a: any) => !a.isBlocking && a.status === "OPEN").length ?? 0;
-    const name =
-      sub.enterpriseDetail?.companyName ||
-      sub.cooperativeDetail?.cooperativeName ||
-      sub.ongDetail?.ongName ||
-      sub.administrationDetail?.name ||
-      sub.projectProgramDetail?.name ||
-      sub.vocationalTrainingDetail?.name ||
-      sub.rawData?.enterprise?.name ||
-      sub.rawData?.cooperative?.name ||
-      sub.rawData?.ctd?.name ||
-      sub.rawData?.respondent?.companyName ||
-      sub.rawData?.companyName ||
-      `Dossier ${sub.submissionId || sub.id}`;
+    const name = resolveEntityName(sub) ?? `Dossier ${sub.submissionId || sub.id}`;
 
     return {
       id: sub.id,

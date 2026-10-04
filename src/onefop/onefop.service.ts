@@ -123,13 +123,23 @@ export class OnefopService {
     async saveDraft(userId: string, params: { quarterCode: string; entityType: string; draftData: any }) {
         const company = await this.prisma.company.findFirst({ where: { userId } });
         if (!company) throw new ForbiddenException('No company profile found');
+        // Company.establishmentId is nullable, SubmissionDraft.establishmentId
+        // is not: without this guard a company whose site code has not been
+        // issued yet drives a null into the composite unique key, which Prisma
+        // rejects as a 500. Answer 400 with a message the respondent can act on.
+        if (!company.establishmentId) {
+            throw new BadRequestException(
+                "Votre établissement n'a pas encore d'identifiant (code site). Impossible d'enregistrer un brouillon avant son attribution.",
+            );
+        }
+        const establishmentId = company.establishmentId;
 
         const { quarterCode, entityType, draftData } = params;
         return this.prisma.submissionDraft.upsert({
-            where: { establishmentId_quarterCode: { establishmentId: company.establishmentId, quarterCode } },
+            where: { establishmentId_quarterCode: { establishmentId, quarterCode } },
             update: { entityType: entityType?.toUpperCase() as any, draftData, lastSavedAt: new Date(), savedByUserId: userId },
             create: {
-                establishmentId: company.establishmentId,
+                establishmentId,
                 quarterCode,
                 entityType: entityType?.toUpperCase() as any,
                 draftData,

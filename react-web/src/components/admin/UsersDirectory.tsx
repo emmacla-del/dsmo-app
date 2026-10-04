@@ -572,7 +572,7 @@ function RejectModal({ user, pending, error, onCancel, onConfirm }: { user: Dire
       />
       <div style={modalActionsRow}>
         <button type="button" className="cam-button cam-button-secondary" style={cancelBtnStyle} onClick={onCancel}>{t("common.cancel")}</button>
-        <button type="button" className="cam-button" disabled={pending} onClick={() => onConfirm(reason.trim())} style={{ flex: 1, color: "#fff", background: "var(--cam-error)" }}>
+        <button type="button" className="cam-button" disabled={pending || !reason.trim()} onClick={() => onConfirm(reason.trim())} style={{ flex: 1, color: "#fff", background: "var(--cam-error)" }}>
           {pending ? "…" : t("usersDirectory.confirmRejectButton")}
         </button>
       </div>
