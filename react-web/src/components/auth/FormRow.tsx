@@ -1,5 +1,24 @@
 import type { ReactNode } from "react";
 
+// How wide the input column's contents may grow.
+//
+// A 9-digit phone number in a 400px box is not a form, it is a box with a
+// phone number lost in it: the width of a field is a readability cue about
+// what belongs in it, and every field being full width throws that cue away.
+// Three steps rather than a free number, so the page has three alignments
+// instead of fourteen.
+//
+//   short  (220px) phone, year, capital, any count
+//   medium (280px) NIU, CNPS, registration numbers -- long codes, but codes
+//   full          names, addresses, emails, missions, selects, passwords
+export type FieldSize = "short" | "medium" | "full";
+
+const SIZE_CLASS: Record<FieldSize, string> = {
+  short: "field--short",
+  medium: "field--medium",
+  full: "",
+};
+
 // The single label/field layout for the registration wizard's sections.
 //
 // Layout lives in CSS (.field, plus the @container rule in globals.css): the
@@ -30,6 +49,7 @@ export function FormRow({
   hint,
   error,
   errorId,
+  size = "full",
   labelPrefix,
   labelId,
   gated = false,
@@ -50,6 +70,9 @@ export function FormRow({
   // point at, in the input column where the eye already is.
   error?: string;
   errorId?: string;
+  // Caps the input column's contents -- the control, its hint and its error
+  // all together, so the three stay the same width and keep one right edge.
+  size?: FieldSize;
   // Decoration before the label text -- the location step's cascade arrow.
   // Decorative only, so the caller is expected to mark it aria-hidden.
   labelPrefix?: ReactNode;
@@ -61,7 +84,7 @@ export function FormRow({
   children: ReactNode;
 }) {
   return (
-    <div className={gated ? "field field--gated" : "field"}>
+    <div className={["field", gated ? "field--gated" : "", SIZE_CLASS[size]].filter(Boolean).join(" ")}>
       <label htmlFor={htmlFor} id={labelId}>
         {labelPrefix}
         {label}

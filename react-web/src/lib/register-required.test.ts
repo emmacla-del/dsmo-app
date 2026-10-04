@@ -15,7 +15,7 @@ import {
 // wording; entity labels are the questionnaire's own strings.
 const resolvers: NameResolvers = {
   t: (key) => key,
-  entityLabel: (field) => field.label,
+  entityLabel: (field) => field.label.fr,
 };
 
 const ALL_TYPES: EntityType[] = [

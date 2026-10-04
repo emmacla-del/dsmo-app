@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
   ApiError,
@@ -39,6 +39,7 @@ import {
   entityFieldGroups,
   lastEntityFieldKey,
 } from "@/lib/register-entity-sections";
+import { asUiLocale, localized } from "@/lib/register-i18n";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   lastFieldId,
@@ -64,7 +65,7 @@ import {
 } from "@/lib/password-strength";
 import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
-import { FormRow } from "@/components/auth/FormRow";
+import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
@@ -121,6 +122,13 @@ const ENTITY_TYPE_OPTIONS: { type: EntityType; labelKey: string; hintKey?: strin
 
 export default function RegisterPage() {
   const t = useTranslations();
+  // The language the questionnaire's own strings are read in -- field labels,
+  // hints, option answers and the entity type's name. They are {fr, en} data
+  // in register-constants.ts / register-options.ts rather than catalogue
+  // keys (see register-i18n.ts), so they need the locale, not just `t`.
+  // Source of truth: the NEXT_LOCALE cookie, read server-side in
+  // src/i18n/request.ts and handed down by NextIntlClientProvider.
+  const locale = asUiLocale(useLocale());
   const router = useRouter();
   // `reached` is the highest revealed section index: everything past it is
   // locked on the rail. `current` is the one section the frame shows. Both
@@ -295,6 +303,20 @@ export default function RegisterPage() {
       : t("registerPage.selectPlaceholder");
   }
 
+  // Which codes are long enough to need the middle width. Named by key
+  // rather than inferred, because "it is a number written as text" describes
+  // the NIU and the CNPS number but also the P.O. box, which is short.
+  const CODE_FIELD_KEYS = new Set(["taxNumber", "cnpsNumber", "registrationNumber"]);
+
+  function entityFieldSize(field: EntityField): FieldSize {
+    if (CODE_FIELD_KEYS.has(field.key)) return "medium";
+    // tel covers every phone; number covers the year of creation and the
+    // share capital. None of them is wider than a few characters, and a
+    // select always gets the full column because its options can be long.
+    if (field.kind === "tel" || field.kind === "number") return "short";
+    return "full";
+  }
+
   // One renderer for all three field kinds in step 3, used by both the
   // per-entity subsections and the unmapped-field fallback below them, which
   // carried a second copy of this JSX.
@@ -320,11 +342,12 @@ export default function RegisterPage() {
       <FormRow
         key={field.key}
         htmlFor={id}
-        label={field.label}
+        label={localized(field.label, locale)}
         required={field.required}
-        hint={field.hint}
+        hint={field.hint ? localized(field.hint, locale) : undefined}
         error={invalid.message}
         errorId={`${id}-error`}
+        size={entityFieldSize(field)}
       >
         <div className="input-row">
           {field.kind === "select" ? (
@@ -334,7 +357,7 @@ export default function RegisterPage() {
               </option>
               {field.options?.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {localized(o.label, locale)}
                 </option>
               ))}
             </select>
@@ -628,7 +651,7 @@ export default function RegisterPage() {
   // review card prints. Derived at render time, never cached, so an edit
   // elsewhere cannot leave a stale line on a circle.
   const railSummaries = STEPS.map((id) =>
-    sectionSummary(summaryRows(id, summaryState, (k) => t(k)))
+    sectionSummary(summaryRows(id, summaryState, (k) => t(k), locale))
   );
 
   // ── Navigation ─────────────────────────────────────────────────────────
@@ -747,7 +770,7 @@ export default function RegisterPage() {
   // questionnaire's own field set.
   const nameResolvers: NameResolvers = {
     t: (key) => t(key),
-    entityLabel: (field) => field.label,
+    entityLabel: (field) => localized(field.label, locale),
   };
 
   const currentStep = STEPS[current];
@@ -988,8 +1011,10 @@ export default function RegisterPage() {
                   </tr>
                   {config && (
                     <tr>
-                      <td className="label-cell">Catégorie d&apos;entité / Type</td>
-                      <td className="value-cell">{config.title}</td>
+                      <td className="label-cell">
+                        {t("registerPage.summaryEntityTypeLabel")}
+                      </td>
+                      <td className="value-cell">{localized(config.title, locale)}</td>
                     </tr>
                   )}
                   {result.establishmentId && (
@@ -1202,7 +1227,7 @@ export default function RegisterPage() {
                     <option value="">{t("registerPage.selectPlaceholder")}</option>
                     {RESPONDENT_FUNCTION_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
-                        {o.label}
+                        {localized(o.label, locale)}
                       </option>
                     ))}
                   </select>
@@ -1242,7 +1267,7 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required error={invalidProps("reg-phone1").message} errorId="reg-phone1-error">
+              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required size="short" error={invalidProps("reg-phone1").message} errorId="reg-phone1-error">
                 <div className="input-row">
                   <input
                     id="reg-phone1"
@@ -1256,7 +1281,7 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-phone2" label={t("registerPage.phone2Label")}>
+              <FormRow htmlFor="reg-phone2" label={t("registerPage.phone2Label")} size="short">
                 <div className="input-row">
                   <input
                     id="reg-phone2"
@@ -1277,7 +1302,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-entityInfo"
-              title={config.title}
+              title={localized(config.title, locale)}
               subtitle={t("registerPage.entityInfoSubtitle")}
             />
 
@@ -1285,14 +1310,21 @@ export default function RegisterPage() {
                 entityFieldGroups, which is also what lastEntityFieldKey
                 reads: the field the wizard treats as "the last one in this
                 section" is by construction the last one rendered here. */}
-            {entityFieldGroups(entityType, entityData).map((group) => (
-              <div key={group.title}>
-                <div className="admin-section-header">{group.title}</div>
-                <div className="form-single-column">
+            {/* ONE grid for the whole section, not one per block. The label
+                column is a grid track sized to the longest label in it, so a
+                grid per block would give each block its own column width and
+                the inputs would start at a different x after every heading.
+                The headings are grid items spanning both columns instead. */}
+            <div className="form-single-column">
+              {entityFieldGroups(entityType, entityData).map((group) => (
+                <Fragment key={group.title.fr}>
+                  <div className="admin-section-header">
+                    {localized(group.title, locale)}
+                  </div>
                   {group.fields.map(renderEntityField)}
-                </div>
-              </div>
-            ))}
+                </Fragment>
+              ))}
+            </div>
           </>
         );
 
@@ -1443,7 +1475,7 @@ export default function RegisterPage() {
                     <option value="">{t("registerPage.urbanRuralPlaceholder")}</option>
                     {AREA_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
-                        {o.label}
+                        {localized(o.label, locale)}
                       </option>
                     ))}
                   </select>

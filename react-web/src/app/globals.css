@@ -1006,11 +1006,38 @@ body {
    it reaches every field in sections 2-5 and naturally excludes section 1's
    radio list (a <fieldset> of <label> rows, no .field). */
 @container cam-form (min-width: 560px) {
+
+  /* The COLUMN owns the tracks, and each .field is a subgrid of it.
+     Why not a fixed label column: a fixed width has to be wide enough for
+     the longest label anywhere in the wizard, so every other label floats in
+     whitespace, and any label that still does not fit wraps to two lines and
+     pushes its own input down. fit-content() sizes the track to the longest
+     label IN THIS SECTION and no wider, which is what keeps labels on one
+     line and inputs on one x at the same time. The 14rem cap stops one long
+     label from eating the input column; --cam-field-label-col is the floor,
+     applied as a min-width on the labels themselves, because minmax() will
+     not take fit-content() as a maximum. */
+  .cam-auth-page--wizard .cam-form-flow .form-single-column {
+    display: grid;
+    grid-template-columns: fit-content(14rem) minmax(0, 1fr);
+    column-gap: var(--cam-field-label-gap);
+    row-gap: var(--cam-field-row-gap);
+    align-items: start;
+  }
+
+  /* subgrid, so every row measures against the SAME track -- including rows
+     separated by a block heading, which is why section 3 renders one grid
+     for all its blocks rather than one per block. */
   .cam-auth-page--wizard .cam-form-flow .field {
     display: grid;
-    grid-template-columns: var(--cam-field-label-col) minmax(0, 1fr);
-    column-gap: var(--cam-field-label-gap);
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     align-items: start;
+  }
+
+  /* Block headings are rows of the same grid and span both tracks. */
+  .cam-auth-page--wizard .cam-form-flow .admin-section-header {
+    grid-column: 1 / -1;
   }
 
   /* Overrides the global .cam-auth-page label rule's margin-bottom and the
@@ -1018,6 +1045,8 @@ body {
   .cam-auth-page--wizard .cam-form-flow .field>label {
     display: block;
     margin-bottom: 0;
+    /* The floor for the fit-content() track above. */
+    min-width: var(--cam-field-label-col);
     /* Centres the label's first line on the input's own text. Derived from
        the control height rather than hand-tuned, so the two stay aligned if
        --cam-field-height ever moves again. 1.3em is the label's line-height,
@@ -1036,6 +1065,18 @@ body {
   .cam-auth-page--wizard .cam-form-flow .field>*:not(label) {
     grid-column: 2;
     min-width: 0;
+  }
+
+  /* ── Field widths (FormRow's `size`) ──
+     Capped on EVERY child of the input column, not just the control, so the
+     hint and the error line keep the control's right edge instead of running
+     the full width under a short box. */
+  .cam-auth-page--wizard .cam-form-flow .field--short>*:not(label) {
+    max-width: 220px;
+  }
+
+  .cam-auth-page--wizard .cam-form-flow .field--medium>*:not(label) {
+    max-width: 280px;
   }
 }
 
@@ -1178,11 +1219,23 @@ body {
   width: var(--cam-field-label-col);
 }
 
-/* Single-column responsive field layout */
+/* Single-column responsive field layout. This is the STACKED form, used
+   below the 560px container query above and by the non-wizard auth pages;
+   the wizard replaces it with a grid at wider widths. */
 .cam-auth-page .form-single-column {
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-3);
+}
+
+/* Narrow: the caps still apply, so a phone number does not stretch the full
+   width of a phone screen either. */
+.cam-auth-page--wizard .cam-form-flow .field--short .input-row {
+  max-width: 220px;
+}
+
+.cam-auth-page--wizard .cam-form-flow .field--medium .input-row {
+  max-width: 280px;
 }
 
 /* Two-column responsive field grid */

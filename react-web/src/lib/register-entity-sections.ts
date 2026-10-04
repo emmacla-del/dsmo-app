@@ -11,60 +11,66 @@
 // the render order the respondent actually sees, so both come from
 // entityFieldGroups() below.
 //
-// The titles are the questionnaire's own bilingual block headings, not UI
-// copy, so they are data here rather than next-intl keys -- the same rule
-// register-summary.ts applies to ENTITY_CONFIGS' field labels.
+// The titles are the questionnaire's own block headings, not UI copy, so
+// they are {fr, en} data here rather than next-intl keys -- the same rule
+// register-i18n.ts sets out for ENTITY_CONFIGS' field labels.
 import {
   ENTITY_CONFIGS,
   isFieldVisible,
   type EntityField,
   type EntityType,
 } from "./register-constants";
+import type { LocalizedText } from "./register-i18n";
 
 export interface EntityFieldGroup {
-  title: string;
+  title: LocalizedText;
   fields: EntityField[];
 }
 
-const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: string; keys: string[] }[]> = {
+const ENTITY_SECTION_LAYOUT: Record<EntityType, { title: LocalizedText; keys: string[] }[]> = {
   enterprise: [
-    { title: "Identité juridique / Legal Identity", keys: ["companyName", "legalStatus", "socialCapital", "parentCompany"] },
-    { title: "Fiscalité & Affiliation / Tax & Social", keys: ["taxNumber", "cnpsNumber"] },
-    { title: "Activité économique / Economic Activity", keys: ["mainActivity", "secondaryActivity", "branch"] },
-    { title: "Siège social & Coordonnées / Registered Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
+    { title: { fr: "Identité juridique", en: "Legal identity" }, keys: ["companyName", "legalStatus", "socialCapital", "parentCompany"] },
+    { title: { fr: "Fiscalité et affiliation", en: "Tax and social security" }, keys: ["taxNumber", "cnpsNumber"] },
+    { title: { fr: "Activité économique", en: "Economic activity" }, keys: ["mainActivity", "secondaryActivity", "branch"] },
+    { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   cooperative: [
-    { title: "Identité de la coopérative / Cooperative Legal Identity", keys: ["cooperativeName", "cooperativeType", "yearOfCreation", "taxNumber"] },
-    { title: "Activité / Activity", keys: ["mainActivity", "branch"] },
-    { title: "Siège social & Coordonnées / Registered Office & Contact", keys: ["cooperativeHeadOffice", "phone", "phone2", "poBox"] },
+    { title: { fr: "Identité de la coopérative", en: "Cooperative identity" }, keys: ["cooperativeName", "cooperativeType", "yearOfCreation", "taxNumber"] },
+    { title: { fr: "Activité", en: "Activity" }, keys: ["mainActivity", "branch"] },
+    { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["cooperativeHeadOffice", "phone", "phone2", "poBox"] },
   ],
   ctd: [
-    { title: "Identification de la CTD / RLA Identification", keys: ["ctdType", "ctdName", "yearOfCreation", "taxNumber"] },
-    { title: "Siège & Coordonnées / Head Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
+    { title: { fr: "Identification de la CTD", en: "RLA identification" }, keys: ["ctdType", "ctdName", "yearOfCreation", "taxNumber"] },
+    { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   ong: [
-    { title: "Enregistrement & Mission / NGO Registration & Mission", keys: ["ngoName", "registrationNumber", "taxNumber", "yearOfCreation", "mainMission"] },
-    { title: "Siège social & Coordonnées / Registered Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
+    { title: { fr: "Enregistrement et mission", en: "Registration and mission" }, keys: ["ngoName", "registrationNumber", "taxNumber", "yearOfCreation", "mainMission"] },
+    { title: { fr: "Siège social et contact", en: "Registered office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   administration: [
-    { title: "Identification administrative / Administrative Identity", keys: ["administrationName", "sigle", "mainMission"] },
-    { title: "Siège & Coordonnées / Head Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
+    { title: { fr: "Identification administrative", en: "Administrative identity" }, keys: ["administrationName", "sigle", "mainMission"] },
+    { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   projectProgram: [
-    { title: "Identification du projet / Project Identification", keys: ["projectProgramName", "sigle", "mainMission"] },
-    { title: "Siège & Coordonnées / Head Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
+    { title: { fr: "Identification du projet", en: "Project identification" }, keys: ["projectProgramName", "sigle", "mainMission"] },
+    { title: { fr: "Siège et contact", en: "Head office and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
   ],
   vocationalTraining: [
-    { title: "Identification du Centre (CFP) / VTC Identification", keys: ["centerName", "sigle", "taxNumber", "yearOfCreation", "cfpType", "educationSystem"] },
-    { title: "Situation opérationnelle / Operational Status", keys: ["functionalStatus", "nonFunctionalReason", "nonFunctionalReasonOther"] },
-    { title: "Localisation & Coordonnées / Location & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-    { title: "Direction & Promoteur / Direction & Promoter", keys: ["promoterName", "promoterSex", "promoterPhone1", "promoterPhone2"] },
+    { title: { fr: "Identification du centre", en: "Centre identification" }, keys: ["centerName", "sigle", "taxNumber", "yearOfCreation", "cfpType", "educationSystem"] },
+    { title: { fr: "Situation opérationnelle", en: "Operational status" }, keys: ["functionalStatus", "nonFunctionalReason", "nonFunctionalReasonOther"] },
+    { title: { fr: "Localisation et contact", en: "Location and contact" }, keys: ["address", "phone", "phone2", "poBox"] },
+    // Carries the "Promoteur / Directeur" the four promoter LABELS used to
+    // repeat in full, 33-37 characters each.
+    { title: { fr: "Promoteur / Directeur", en: "Promoter / Director" }, keys: ["promoterName", "promoterSex", "promoterPhone1", "promoterPhone2"] },
   ],
 };
 
 // Catch-all for a field the layout above does not place. It exists so that
 // adding a field to ENTITY_CONFIGS can never make it silently unreachable.
-export const UNMAPPED_GROUP_TITLE = "Informations complémentaires";
+export const UNMAPPED_GROUP_TITLE: LocalizedText = {
+  fr: "Informations complémentaires",
+  en: "Additional information",
+};
 
 // The groups, in render order, holding only the fields whose gate is open.
 // Field order inside a group follows ENTITY_CONFIGS' own order, not the
@@ -76,7 +82,10 @@ export function entityFieldGroups(
   const config = ENTITY_CONFIGS[entityType];
   const visible = (f: EntityField) => isFieldVisible(f, entityData, config.fields);
   const layout = ENTITY_SECTION_LAYOUT[entityType] ?? [
-    { title: "Informations générales / General Information", keys: config.fields.map((f) => f.key) },
+    {
+      title: { fr: "Informations générales", en: "General information" },
+      keys: config.fields.map((f) => f.key),
+    },
   ];
 
   const groups: EntityFieldGroup[] = [];

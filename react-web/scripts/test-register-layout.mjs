@@ -43,6 +43,26 @@ async function continueEnabled(page) {
   return (await el.getAttribute("aria-disabled")) !== "true";
 }
 
+// A context that never restores a draft.
+//
+// The wizard saves to sessionStorage and puts the answers back on the next
+// load, which is exactly what it should do -- and exactly what makes a
+// runner that walks seven entity types in one context land in section 4 on
+// its second pass instead of on the type list. The init script runs before
+// the page's own scripts on every navigation, so there is never a draft to
+// restore in the first place.
+async function newCleanContext(browser, options) {
+  const context = await browser.newContext(options);
+  await context.addInitScript(() => {
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* private mode / blocked storage: nothing to clear */
+    }
+  });
+  return context;
+}
+
 async function continueOn(page) {
   if (!(await continueEnabled(page))) return false;
   await page.click(".flow-continue-link");
@@ -575,6 +595,389 @@ async function runRail(browser) {
   await context.close();
 }
 
+
+// ── Labels: one line, one language, one column ───────────────────────────
+
+const ENTITY_TYPES = [
+  "enterprise",
+  "cooperative",
+  "ctd",
+  "ong",
+  "administration",
+  "projectProgram",
+  "vocationalTraining",
+];
+
+// Measured for every label in the section on screen: the rendered height of
+// the label against the height of one line of it. A label that wrapped is
+// two line boxes tall, which is the thing the subgrid layout exists to
+// prevent -- and which no screenshot would tell you about.
+const measureLabels = () => {
+  const out = [];
+  for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+    const label = field.querySelector(":scope > label");
+    if (!label) continue;
+    const r = label.getBoundingClientRect();
+    if (r.height === 0) continue;
+    const cs = getComputedStyle(label);
+    const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+    const padding = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    out.push({
+      // textContent includes the required marker ("*"), which is its own
+      // element; the asterisk is not part of the label's wording.
+      text: (label.childNodes.length ? label.textContent : "").replace(/\s*\*\s*$/, "").trim(),
+      lines: Math.round((r.height - padding) / lineHeight),
+      // Rounded: subpixel layout makes exact equality meaningless, and what
+      // matters is that every input starts on the same visible x.
+      labelRight: Math.round(r.right),
+      width: Math.round(r.width),
+    });
+  }
+  return out;
+};
+
+const measureInputWidths = () => {
+  const out = [];
+  for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+    const control = field.querySelector("input, select");
+    if (!control) continue;
+    const r = control.getBoundingClientRect();
+    if (r.width === 0) continue;
+    const hint = field.querySelector(".field-hint");
+    out.push({
+      id: control.id || "(anon)",
+      width: Math.round(r.width),
+      left: Math.round(r.left),
+      size: field.className.includes("field--short")
+        ? "short"
+        : field.className.includes("field--medium")
+          ? "medium"
+          : "full",
+      hintWidth: hint ? Math.round(hint.getBoundingClientRect().width) : null,
+    });
+  }
+  return out;
+};
+
+async function openEntitySection(page, type) {
+  await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
+  await page.waitForSelector(".flow-frame-scroll");
+  await page.click('input[name="entityType"][value="' + type + '"]');
+  await page.waitForTimeout(250);
+  await page.fill("#reg-first-name", "Emmanuel");
+  await page.fill("#reg-last-name", "Biya");
+  await page.selectOption("#reg-function", { index: 1 });
+  await page.fill("#reg-email", "labels." + Date.now() + "@example.cm");
+  await page.fill("#reg-phone1", "655000000");
+  await page.waitForTimeout(400);
+  // Required fields only -- the continue link is the path that never asks
+  // for an optional one.
+  const moved = await continueOn(page);
+  await page.waitForTimeout(250);
+  return moved;
+}
+
+async function runLabels(browser) {
+  for (const locale of ["fr", "en"]) {
+    const context = await newCleanContext(browser, {
+      viewport: { width: 1280, height: 800 },
+    });
+    // The active locale comes from the NEXT_LOCALE cookie, read server-side
+    // in src/i18n/request.ts; there is no /fr or /en path segment to use.
+    await context.addCookies([
+      { name: "NEXT_LOCALE", value: locale, url: BASE },
+    ]);
+    const page = await context.newPage();
+
+    console.log("\n\u2500\u2500 labels, locale=" + locale + " \u2500\u2500");
+
+    let bilingual = [];
+    let wrapped = [];
+    let columnsPerType = [];
+
+    for (const type of ENTITY_TYPES) {
+      const moved = await openEntitySection(page, type);
+      if (!moved) {
+        check(false, type + ": could not reach section 3 with required fields only");
+        continue;
+      }
+      const labels = await page.evaluate(measureLabels);
+      if (labels.length === 0) {
+        check(false, type + ": no labels measured");
+        continue;
+      }
+      for (const l of labels) {
+        // "/ " is the signature of the old combined strings
+        // ("Raison sociale/ Company name"). " / " with spaces on BOTH sides
+        // is legitimate -- "Projet / Programme" is one French name.
+        if (/[^ ]\/ /.test(l.text)) bilingual.push(type + ": " + l.text);
+        if (l.lines > 1) wrapped.push(type + ': "' + l.text + '" on ' + l.lines + " lines");
+      }
+      const rights = new Set(labels.map((l) => l.labelRight));
+      columnsPerType.push({ type, rights: [...rights], count: labels.length });
+    }
+
+    check(
+      bilingual.length === 0,
+      "no label carries both languages",
+      bilingual.slice(0, 4).join(" | ") || ENTITY_TYPES.length + " types checked"
+    );
+    check(
+      wrapped.length === 0,
+      "every label fits on one line at a 600px frame",
+      wrapped.slice(0, 4).join(" | ") || "none wrapped"
+    );
+    const multiColumn = columnsPerType.filter((c) => c.rights.length > 1);
+    check(
+      multiColumn.length === 0,
+      "the label column is one width for every field of a section",
+      multiColumn.map((c) => c.type + " has " + c.rights.length + " edges").join(", ") ||
+        columnsPerType.map((c) => c.type + "=" + c.rights[0] + "px").join(" ")
+    );
+
+    await context.close();
+  }
+}
+
+// ── Field widths (item 13) ───────────────────────────────────────────────
+
+async function runFieldWidths(browser) {
+  const context = await newCleanContext(browser, { viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  console.log("\n\u2500\u2500 field widths at a 600px frame \u2500\u2500");
+
+  await openEntitySection(page, "enterprise");
+  const widths = await page.evaluate(measureInputWidths);
+  check(widths.length > 0, "controls measured", widths.length + " controls");
+
+  const bySize = { short: [], medium: [], full: [] };
+  for (const w of widths) bySize[w.size].push(w);
+
+  check(
+    bySize.short.every((w) => w.width <= 220),
+    "short fields are at most 220px",
+    bySize.short.map((w) => w.id + "=" + w.width).join(", ") || "none"
+  );
+  check(
+    bySize.medium.every((w) => w.width <= 280),
+    "code fields are at most 280px",
+    bySize.medium.map((w) => w.id + "=" + w.width).join(", ") || "none"
+  );
+  check(
+    bySize.full.every((w) => w.width > 280),
+    "full fields take the whole column",
+    bySize.full.length ? bySize.full[0].id + "=" + bySize.full[0].width + "px" : "none"
+  );
+
+  // Left-aligned in column 2: every control starts on the same x whatever
+  // its width.
+  const lefts = new Set(widths.map((w) => w.left));
+  check(lefts.size === 1, "every control starts at the same x", [...lefts].join("/"));
+
+  // A hint under a capped control must not run wider than the control.
+  const overrunHints = widths.filter((w) => w.hintWidth !== null && w.hintWidth > w.width + 1);
+  check(
+    overrunHints.length === 0,
+    "hints span the same width as their control",
+    overrunHints.map((w) => w.id).join(", ") || "none overrun"
+  );
+
+  console.log(
+    "  MEASURED  " + widths.map((w) => w.id + " " + w.size + " " + w.width + "px").join(" | ")
+  );
+  await context.close();
+}
+
+// ── Required-only advance, per entity type (item 10) ─────────────────────
+
+async function runRequiredOnly(browser) {
+  const context = await newCleanContext(browser, { viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  console.log("\n\u2500\u2500 required-only advance, per entity type \u2500\u2500");
+
+  for (const type of ENTITY_TYPES) {
+    const moved = await openEntitySection(page, type);
+    if (!moved) {
+      check(false, type + ": Declarant did not advance on required fields alone");
+      continue;
+    }
+    // Fill section 3's required, visible fields and nothing else.
+    const filled = await page.evaluate(() => {
+      const touched = [];
+      for (const field of document.querySelectorAll(".flow-frame-scroll .field")) {
+        const control = field.querySelector("input, select");
+        if (!control) continue;
+        if (control.getAttribute("aria-required") !== "true") continue;
+        const set = (el, v) => {
+          const proto = el.tagName === "SELECT" ? HTMLSelectElement : HTMLInputElement;
+          Object.getOwnPropertyDescriptor(proto.prototype, "value").set.call(el, v);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        if (control.tagName === "SELECT") {
+          const opt = [...control.options].find((o) => o.value !== "");
+          if (opt) set(control, opt.value);
+        } else {
+          set(control, control.type === "number" ? "2020" : "Test");
+        }
+        touched.push(control.id);
+      }
+      return touched;
+    });
+    await page.waitForTimeout(500);
+
+    const untouchedOptional = await page.evaluate(() =>
+      [...document.querySelectorAll(".flow-frame-scroll .field")]
+        .map((f) => f.querySelector("input, select"))
+        .filter((c) => c && c.getAttribute("aria-required") !== "true")
+        .map((c) => ({ id: c.id, value: c.value }))
+    );
+    check(
+      untouchedOptional.every((c) => c.value === ""),
+      type + ": the optional fields were never touched",
+      untouchedOptional.map((c) => c.id).join(", ") || "none declared"
+    );
+
+    const enabled = await continueEnabled(page);
+    check(enabled, type + ": continue is available on required fields alone");
+    if (!enabled) continue;
+
+    await page.click(".flow-continue-link");
+    await page.waitForTimeout(400);
+    const landed = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
+    check(
+      landed === "reg-section-title-location",
+      type + ": continue advances to Localisation",
+      landed || ""
+    );
+    void filled;
+  }
+
+  await context.close();
+}
+
+// ── The four prompt triggers (item 11) ───────────────────────────────────
+
+const promptState = () => ({
+  notice: document.querySelector(".flow-missing-notice")?.textContent?.trim() ?? null,
+  invalid: [
+    ...document.querySelectorAll('.wizard-section:not([hidden]) [aria-invalid="true"]'),
+  ].map((e) => e.id),
+  errors: [...document.querySelectorAll(".wizard-section:not([hidden]) .field-error")].length,
+  focused: document.activeElement?.id ?? null,
+  describedBy: document.querySelector("#reg-first-name")?.getAttribute("aria-describedby") ?? null,
+});
+
+async function runPrompts(browser) {
+  const context = await newCleanContext(browser, { viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  console.log("\n\u2500\u2500 missing-field prompt triggers \u2500\u2500");
+
+  await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
+  await page.waitForSelector(".flow-frame-scroll");
+
+  // Nothing is flagged before a trigger fires.
+  let st = await page.evaluate(promptState);
+  check(
+    st.notice === null && st.invalid.length === 0 && st.errors === 0,
+    "no error is shown before any trigger fires"
+  );
+
+  // (b) the continue link, on an empty section 1.
+  await page.click(".flow-continue-link", { force: true });
+  await page.waitForTimeout(300);
+  st = await page.evaluate(promptState);
+  check(
+    st.notice !== null && /1 champ|1 required/i.test(st.notice),
+    "(b) continue on an empty section names the one thing missing",
+    st.notice || ""
+  );
+
+  await page.click('input[name="entityType"][value="enterprise"]');
+  await page.waitForTimeout(400);
+  st = await page.evaluate(promptState);
+  check(st.notice === null, "the notice clears when the section is satisfied");
+
+  // (d) a locked rail item.
+  await page.click(".progress-rail .progress-step-item:nth-child(5)", { force: true });
+  await page.waitForTimeout(300);
+  st = await page.evaluate(promptState);
+  check(
+    st.invalid.length === 5 && st.errors === 5,
+    "(d) a locked rail click flags every missing field",
+    st.invalid.join(", ")
+  );
+  check(st.focused === "reg-first-name", "it focuses the first one", st.focused || "");
+  check(
+    st.describedBy === "reg-first-name-error",
+    "and points the control at its own message",
+    st.describedBy || ""
+  );
+  check(
+    st.notice !== null && st.notice.includes(","),
+    "the notice lists them by name",
+    st.notice || ""
+  );
+  const stillHere = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
+  check(
+    stillHere === "reg-section-title-respondent",
+    "and does not navigate anywhere",
+    stillHere || ""
+  );
+
+  // Errors clear per field as each is fixed.
+  await page.fill("#reg-first-name", "Emmanuel");
+  await page.waitForTimeout(250);
+  st = await page.evaluate(promptState);
+  check(
+    st.invalid.length === 4 && !st.invalid.includes("reg-first-name"),
+    "fixing one field clears that field's error alone",
+    st.invalid.join(", ")
+  );
+
+  // (c) Enter on the section's last field.
+  await page.focus("#reg-phone2");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  st = await page.evaluate(promptState);
+  check(
+    st.invalid.length === 4,
+    "(c) Enter on the last field raises the prompt",
+    st.invalid.join(", ")
+  );
+
+  // (a) focus leaving the last field for somewhere outside the section.
+  await page.fill("#reg-last-name", "Biya");
+  await page.selectOption("#reg-function", { index: 1 });
+  await page.waitForTimeout(200);
+  await page.focus("#reg-phone2");
+  // Tabbing INSIDE the section must not trigger anything, so the control
+  // focused next is deliberately outside the form.
+  await page.evaluate(() => {
+    document.querySelector(".progress-rail .progress-step-item").focus();
+  });
+  await page.waitForTimeout(300);
+  st = await page.evaluate(promptState);
+  check(
+    st.invalid.includes("reg-email") && st.invalid.includes("reg-phone1"),
+    "(a) leaving the last field for outside the section raises the prompt",
+    st.invalid.join(", ")
+  );
+
+  // Finishing the section clears everything.
+  await page.fill("#reg-email", "prompt." + Date.now() + "@example.cm");
+  await page.fill("#reg-phone1", "655000000");
+  await page.waitForTimeout(700);
+  st = await page.evaluate(promptState);
+  check(
+    st.notice === null && st.invalid.length === 0,
+    "completing the section clears the notice and every flag",
+    st.notice || ""
+  );
+
+  await context.close();
+}
+
 async function main() {
   const browser = await chromium.launch();
   try {
@@ -582,6 +985,10 @@ async function main() {
       await runViewport(browser, vp);
     }
     await runRail(browser);
+    await runRequiredOnly(browser);
+    await runPrompts(browser);
+    await runLabels(browser);
+    await runFieldWidths(browser);
   } finally {
     await browser.close();
   }
