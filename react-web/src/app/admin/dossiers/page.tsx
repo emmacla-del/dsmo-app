@@ -380,63 +380,6 @@ function DossiersContent() {
       {/* ── Page Header matching Figma supervision/dossiers.png ── */}
       <AdminPageHeader
         breadcrumb={[{ label: "Supervision" }, { label: "Dossiers en instance" }]}
-        beforeTitle={
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link
-              href="/admin/pilotage"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 16px",
-                borderRadius: 6,
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                textDecoration: "none",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-              }}
-            >
-              Tableau de bord
-            </Link>
-            <Link
-              href="/admin/dossiers"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 16px",
-                borderRadius: 6,
-                background: "#1e6b3a",
-                color: "#ffffff",
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-                boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
-              }}
-            >
-              Dossiers en instance
-            </Link>
-            <Link
-              href="/admin/activite"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 16px",
-                borderRadius: 6,
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 500,
-                textDecoration: "none",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-              }}
-            >
-              Activité & alertes
-            </Link>
-          </div>
-        }
         title="Dossiers en Instance"
         subtitle="Instruction et suivi des dossiers de déclaration soumis"
         actions={
@@ -499,7 +442,6 @@ function DossiersContent() {
             </span>
           </div>
         }
-        hideTabs={true}
       />
 
       {/* ── 5-Column Filter Card (matching Figma) ── */}

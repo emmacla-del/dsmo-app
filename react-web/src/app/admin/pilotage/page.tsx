@@ -412,7 +412,6 @@ export default function PilotagePage() {
         breadcrumb={[{ label: "Supervision" }, { label: "Tableau de bord" }]}
         title="Observatoire National de l'Emploi"
         actions={<AdminHeaderActions />}
-        hideTabs={true}
       />
 
       {queuesQuery.isError && (
@@ -428,63 +427,6 @@ export default function PilotagePage() {
 
       <section aria-labelledby="dash-todo-title" style={{ marginBottom: 28 }}>
         <SectionLabel id="dash-todo-title" tone="green">À TRAITER</SectionLabel>
-
-        {/* 3 In-Page Sub-navigation Pills */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <Link
-            href="/admin/pilotage"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "6px 16px",
-              borderRadius: 6,
-              background: "#1e6b3a",
-              color: "#ffffff",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
-            }}
-          >
-            Tableau de bord
-          </Link>
-          <Link
-            href="/admin/dossiers"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "6px 16px",
-              borderRadius: 6,
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              color: "#374151",
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-            }}
-          >
-            Dossiers en instance
-          </Link>
-          <Link
-            href="/admin/activite"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "6px 16px",
-              borderRadius: 6,
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              color: "#374151",
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-            }}
-          >
-            Activité & alertes
-          </Link>
-        </div>
 
         <div className="cam-dash-kpis">
           <KpiTile
