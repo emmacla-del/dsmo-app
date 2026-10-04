@@ -1046,6 +1046,47 @@ body {
   color: var(--cam-text-muted);
 }
 
+/* ── A field a trigger has flagged ──
+   Driven by aria-invalid on the control itself rather than by a class on the
+   row: the attribute has to be there for assistive tech anyway, so making it
+   the style hook means the visual state and the announced state cannot come
+   apart. Both clear together the moment the field is filled, because neither
+   is stored -- see flaggedIds in register/page.tsx. */
+.cam-auth-page--wizard .cam-form-flow :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--cam-error);
+}
+
+.cam-auth-page--wizard .cam-form-flow :is(input, select, textarea)[aria-invalid="true"]:focus {
+  border-color: var(--cam-error);
+  box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.15);
+}
+
+/* Under the input, in the input column, where the hint would be. */
+.cam-auth-page--wizard .field-error {
+  font-size: var(--cam-field-hint-size);
+  font-weight: 600;
+  color: var(--cam-error);
+  line-height: 1.4;
+  margin: var(--cam-space-1) 0 0;
+}
+
+/* ── The missing-fields notice ──
+   Pinned to the bottom of the frame rather than placed in the scrolling
+   content: it reports fields that may be anywhere in a section taller than
+   the frame, so it has to stay on screen while the respondent scrolls to
+   them. It is a sibling of .flow-frame-scroll, so it adds no scroller and
+   the frame's own border still closes around it. */
+.cam-auth-page--wizard .flow-missing-notice {
+  flex: 0 0 auto;
+  background: var(--cam-error-bg);
+  border-top: var(--cam-border-width) solid var(--cam-error-border);
+  color: var(--cam-error);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: var(--cam-space-2) var(--cam-space-4);
+}
+
 /* Inline per-field status line (email availability, password confirmation).
    These used to repeat the same four inline declarations at each call site. */
 .cam-auth-page .field-status {
@@ -1273,6 +1314,14 @@ body {
 
 .cam-auth-page--wizard .flow-continue-link:hover {
   color: var(--cam-green-dark);
+}
+
+/* Deliberately NOT greyed out. The link stays legible and clickable while
+   the section is incomplete, because clicking it is how the respondent finds
+   out what is missing -- aria-disabled says "this will not advance you yet"
+   to assistive tech without taking the control away from anyone. */
+.cam-auth-page--wizard .flow-continue-link[aria-disabled="true"] {
+  cursor: pointer;
 }
 
 /* ── Screen-reader-only text ── */
@@ -1529,8 +1578,11 @@ body {
   cursor: pointer;
 }
 
-.cam-auth-page .progress-step-item:disabled {
-  cursor: default;
+/* A locked item still takes a click -- it answers "why can't I go there?"
+   by naming what the current section is missing -- so it keeps the pointer
+   rather than claiming to be inert. */
+.cam-auth-page .progress-step-item[aria-disabled="true"] {
+  cursor: pointer;
 }
 
 /* The connector between two circles. Green once the section behind it is
@@ -1652,7 +1704,7 @@ body {
   color: var(--cam-rail-upcoming);
 }
 
-.cam-auth-page .progress-step-item:not(:disabled):hover .progress-step-circle {
+.cam-auth-page .progress-step-item:not([aria-disabled="true"]):hover .progress-step-circle {
   border-color: var(--cam-green);
 }
 

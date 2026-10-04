@@ -82,7 +82,12 @@ export function RegistrationProgress({
               key={s.id}
               type="button"
               className={`progress-step-item is-${state}`}
-              disabled={!enabled}
+              // aria-disabled, never the `disabled` attribute. A locked step
+              // is a real question -- "why can't I go there?" -- and a
+              // disabled button swallows the click that asks it. The handler
+              // answers by naming what the current section still needs.
+              // Assistive tech is told it is unavailable either way.
+              aria-disabled={!enabled || undefined}
               aria-current={idx === activeIdx ? "step" : undefined}
               aria-label={`${name} — ${stateText}`}
               // Native tooltip rather than a custom popover: it is a

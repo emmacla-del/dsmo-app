@@ -41,6 +41,11 @@ import {
 } from "@/lib/register-entity-sections";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
+  lastFieldId,
+  missingRequiredFields,
+  type NameResolvers,
+} from "@/lib/register-required";
+import {
   REGISTER_DRAFT_SAVE_DEBOUNCE_MS,
   clearStoredDraft,
   draftHasData,
@@ -130,6 +135,13 @@ export default function RegisterPage() {
   // clickable, so the line explaining that appears when the first circle
   // turns green and never again after the respondent has used it.
   const [railHintDismissed, setRailHintDismissed] = useState(false);
+  // Item 11: the DOM ids of the fields a trigger has flagged. Only a FLAG is
+  // stored, never an error message -- whether a flagged field still shows one
+  // is re-derived from its value on every render, so an error clears the
+  // moment the field is filled without anything having to remember to clear
+  // it. Nothing is flagged until a trigger fires, which is what keeps errors
+  // off fields the respondent has not reached yet.
+  const [flaggedIds, setFlaggedIds] = useState<readonly string[]>([]);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
@@ -294,9 +306,11 @@ export default function RegisterPage() {
     const optionalPlaceholder = field.required
       ? undefined
       : t("registerPage.optionalPlaceholder");
+    const invalid = invalidProps(id);
     const controlProps = {
       id,
       "aria-required": field.required ? true : undefined,
+      ...invalid.control,
       value: entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
         setEntityField(field.key, e.target.value),
@@ -309,6 +323,8 @@ export default function RegisterPage() {
         label={field.label}
         required={field.required}
         hint={field.hint}
+        error={invalid.message}
+        errorId={`${id}-error`}
       >
         <div className="input-row">
           {field.kind === "select" ? (
@@ -471,10 +487,16 @@ export default function RegisterPage() {
       }
     } else if (fieldIndex < formFields.length - 1) {
       formFields[fieldIndex + 1].focus();
+    } else if (target.id && target.id === currentLastFieldId) {
+      // Trigger (c). Enter on the section's last field is the keyboard way of
+      // saying "done here": if something required is missing it says so, and
+      // if not it moves on, which is what the respondent asked for. Reading
+      // currentLastFieldId straight from the render closure is safe -- a
+      // keydown can only arrive after the component body has finished.
+      if (!promptMissing() && current < LAST_INDEX) {
+        advanceFrom(current);
+      }
     }
-    // On the last field, Enter does nothing. There is no next step to
-    // advance to, and the single submit button is deliberately reached
-    // on purpose rather than by pressing Enter in a text field.
   };
 
   const resolvedRegionName = regionName || regionsQuery.data?.find((r) => r.id === regionId)?.name;
@@ -625,7 +647,14 @@ export default function RegisterPage() {
     // respondent has shown they know the circles are controls, which is the
     // only thing the hint was there to say.
     setRailHintDismissed(true);
-    if (index < 0 || index > reached) return;
+    // Trigger (d): a locked item is a question, not a dead end. The rail
+    // renders it aria-disabled rather than disabled precisely so the click
+    // lands here and can say WHY it is locked.
+    if (index < 0 || index > reached) {
+      promptMissing();
+      return;
+    }
+    clearFlags();
     setAdvanceArmed(false);
     setCurrent(index);
     requestAnimationFrame(scrollFrameTop);
@@ -635,6 +664,7 @@ export default function RegisterPage() {
   function advanceFrom(index: number) {
     const next = Math.min(index + 1, LAST_INDEX);
     if (next === index) return;
+    clearFlags();
     setAdvanceArmed(false);
     setReached((prev) => Math.max(prev, next));
     setCurrent(next);
@@ -711,14 +741,87 @@ export default function RegisterPage() {
     requestAnimationFrame(() => frameScrollRef.current?.scrollTo({ top: 0 }));
   }, [frontierComplete, frontierImmediate, advanceArmed, reached]);
 
-  // Whether the section in hand offers the "continue" link. A frontier
-  // section that advances by itself never shows one -- it would be gone
-  // before it could be read -- but a section the respondent has navigated
-  // BACK to shows it, so the rail is not the only way forward.
-  const showContinueLink =
-    current < LAST_INDEX &&
-    completed[current] &&
-    !(current === reached && advancesImmediately(STEPS[current], entityType));
+  // ── Missing required fields ────────────────────────────────────────────
+  // The names a field is reported by. entityLabel is the one resolver that
+  // does not go through the catalogue: section 3's names come from the
+  // questionnaire's own field set.
+  const nameResolvers: NameResolvers = {
+    t: (key) => t(key),
+    entityLabel: (field) => field.label,
+  };
+
+  const currentStep = STEPS[current];
+  const currentLastFieldId = lastFieldId(currentStep, entityType, entityData);
+
+  // Re-derived every render from the values, never stored: a flagged field
+  // stops showing its error the moment it is filled, with nothing to clear.
+  const missingNow = missingRequiredFields(currentStep, regState, nameResolvers);
+  const shownErrors = missingNow.filter((f) => flaggedIds.includes(f.id));
+
+  // The four triggers in item 11 all call this. Returns true when it actually
+  // stopped something, so a caller can use it as a guard.
+  function promptMissing(): boolean {
+    const missing = missingRequiredFields(currentStep, regState, nameResolvers);
+    if (missing.length === 0) return false;
+    setFlaggedIds(missing.map((f) => f.id));
+    requestAnimationFrame(() => {
+      const first = document.getElementById(missing[0].id);
+      // The type list's "field" is a <fieldset>, which carries the id but
+      // cannot take focus, so the first radio stands in for it. Checking the
+      // element kind rather than the id keeps this true if another group
+      // field is ever added.
+      const focusable =
+        first instanceof HTMLInputElement ||
+        first instanceof HTMLSelectElement ||
+        first instanceof HTMLTextAreaElement
+          ? first
+          : firstEntityRadioRef.current;
+      // Default scroll behaviour on purpose: the frame scrolls the minimum
+      // needed to reveal the control, which on a long section 3 is the
+      // difference between an error message and a visible error message.
+      focusable?.focus();
+      if (first && first !== focusable) {
+        first.scrollIntoView({ block: "nearest" });
+      }
+    });
+    return true;
+  }
+
+  // Clearing happens per field as it is fixed, which the derivation above
+  // already does. This only drops the flags wholesale when the respondent
+  // moves to another section, so yesterday's errors do not greet them on
+  // their way back in.
+  function clearFlags() {
+    if (flaggedIds.length > 0) setFlaggedIds([]);
+  }
+
+  // Marks a control invalid and points it at its own message. Returns the
+  // message too, so the FormRow and the control cannot disagree about whether
+  // there is one.
+  function invalidProps(id: string) {
+    const invalid = shownErrors.some((f) => f.id === id);
+    if (!invalid) return { control: {}, message: undefined as string | undefined };
+    return {
+      control: { "aria-invalid": true, "aria-describedby": `${id}-error` },
+      message: t("registerPage.fieldRequiredError"),
+    };
+  }
+
+  // ── Continue ───────────────────────────────────────────────────────────
+  // Shown at the bottom of the section whenever that section is the furthest
+  // revealed one, complete or not. Styled as available and aria-disabled
+  // while incomplete: a control that vanishes until the form is correct
+  // cannot tell anyone what is wrong with the form, which is the one thing
+  // the respondent needs at that moment.
+  //
+  // It is also the required-only path forward. A section with optional fields
+  // auto-advances on a change to its LAST field -- and in every such section
+  // that last field is itself optional (phone2, poBox, promoterPhone2, the
+  // activity sector), so a respondent who fills only what is required never
+  // triggers it. This link is what they use instead, and it never asks them
+  // to touch an optional field.
+  const showContinueLink = current < LAST_INDEX && current === reached;
+  const continueBlocked = missingNow.length > 0;
 
   // ── Draft ──────────────────────────────────────────────────────────────
   const draftLoadedRef = useRef(false);
@@ -959,7 +1062,17 @@ export default function RegisterPage() {
               title={t("registerPage.entityTypeQuestion")}
             />
 
-            <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
+            {/* The id the missing-fields prompt points at. A radio group has
+                no single control to flag, so the group carries the id and the
+                prompt focuses the first radio through firstEntityRadioRef. */}
+            <fieldset
+              id="reg-entity-type"
+              aria-invalid={invalidProps("reg-entity-type").message ? true : undefined}
+              aria-describedby={
+                invalidProps("reg-entity-type").message ? "reg-entity-type-error" : undefined
+              }
+              style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}
+            >
               <legend
                 style={{
                   position: "absolute",
@@ -1023,6 +1136,12 @@ export default function RegisterPage() {
                   </span>
                 </label>
               ))}
+
+              {invalidProps("reg-entity-type").message && (
+                <p className="field-error" id="reg-entity-type-error">
+                  {invalidProps("reg-entity-type").message}
+                </p>
+              )}
             </fieldset>
           </>
         );
@@ -1037,7 +1156,7 @@ export default function RegisterPage() {
             />
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required>
+              <FormRow htmlFor="reg-first-name" label={t("registerPage.firstNameLabel")} required error={invalidProps("reg-first-name").message} errorId="reg-first-name-error">
                 <div className="input-row">
                   {/* type="text" is not a default to be left implicit: the
                       wizard's control rule selects input[type="text"], so an
@@ -1049,6 +1168,7 @@ export default function RegisterPage() {
                     id="reg-first-name"
                     type="text"
                     aria-required={true}
+                    {...invalidProps("reg-first-name").control}
                     value={respondent.firstName}
                     onChange={(e) => setRespondentField("firstName", e.target.value)}
                     placeholder={t("registerPage.firstNamePlaceholder")}
@@ -1056,12 +1176,13 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required>
+              <FormRow htmlFor="reg-last-name" label={t("registerPage.lastNameLabel")} required error={invalidProps("reg-last-name").message} errorId="reg-last-name-error">
                 <div className="input-row">
                   <input
                     id="reg-last-name"
                     type="text"
                     aria-required={true}
+                    {...invalidProps("reg-last-name").control}
                     value={respondent.lastName}
                     onChange={(e) => setRespondentField("lastName", e.target.value)}
                     placeholder={t("registerPage.lastNamePlaceholder")}
@@ -1069,11 +1190,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required>
+              <FormRow htmlFor="reg-function" label={t("registerPage.functionLabel")} required error={invalidProps("reg-function").message} errorId="reg-function-error">
                 <div className="input-row">
                   <select
                     id="reg-function"
                     aria-required={true}
+                    {...invalidProps("reg-function").control}
                     value={respondent.function}
                     onChange={(e) => setRespondentField("function", e.target.value)}
                   >
@@ -1091,11 +1213,15 @@ export default function RegisterPage() {
                 htmlFor="reg-email"
                 label={t("registerPage.professionalEmailLabel")}
                 required
+             
+                error={invalidProps("reg-email").message}
+                errorId="reg-email-error"
               >
                 <div className="input-row">
                   <input
                     id="reg-email"
                     aria-required={true}
+                    {...invalidProps("reg-email").control}
                     type="email"
                     value={respondent.email}
                     onChange={(e) => setRespondentField("email", e.target.value)}
@@ -1116,11 +1242,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required>
+              <FormRow htmlFor="reg-phone1" label={t("registerPage.phone1Label")} required error={invalidProps("reg-phone1").message} errorId="reg-phone1-error">
                 <div className="input-row">
                   <input
                     id="reg-phone1"
                     aria-required={true}
+                    {...invalidProps("reg-phone1").control}
                     type="tel"
                     value={respondent.phone1}
                     onChange={(e) => setRespondentField("phone1", e.target.value)}
@@ -1183,11 +1310,12 @@ export default function RegisterPage() {
             <p className="cascade-note">{t("registerPage.cascadeNote")}</p>
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required>
+              <FormRow htmlFor="reg-region" label={t("registerPage.regionLabel")} required error={invalidProps("reg-region").message} errorId="reg-region-error">
                 <div className="input-row">
                   <select
                     id="reg-region"
                     aria-required={true}
+                    {...invalidProps("reg-region").control}
                     value={regionId}
                     onChange={(e) => {
                       const id = e.target.value;
@@ -1223,11 +1351,15 @@ export default function RegisterPage() {
                 labelPrefix={<span className="cascade-arrow" aria-hidden="true">↳</span>}
                 gated={!regionId}
                 required
+             
+                error={invalidProps("reg-department").message}
+                errorId="reg-department-error"
               >
                 <div className="input-row">
                   <select
                     id="reg-department"
                     aria-required={true}
+                    {...invalidProps("reg-department").control}
                     value={departmentId}
                     disabled={!regionId}
                     onChange={(e) => {
@@ -1264,11 +1396,14 @@ export default function RegisterPage() {
                 // server has none for; the row says so instead of looking
                 // like an empty dropdown the respondent failed to use.
                 hint={subdivisionsStatus === "empty" ? t("registerPage.noSubdivisionHint") : undefined}
+                error={invalidProps("reg-subdivision").message}
+                errorId="reg-subdivision-error"
               >
                 <div className="input-row">
                   <select
                     id="reg-subdivision"
                     aria-required={true}
+                    {...invalidProps("reg-subdivision").control}
                     value={subdivisionId}
                     disabled={!departmentId || subdivisionsStatus === "empty"}
                     onChange={(e) => {
@@ -1293,11 +1428,12 @@ export default function RegisterPage() {
                 </div>
               </FormRow>
 
-              <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required>
+              <FormRow htmlFor="reg-area" label={t("registerPage.areaLabel")} required error={invalidProps("reg-area").message} errorId="reg-area-error">
                 <div className="input-row">
                   <select
                     id="reg-area"
                     aria-required={true}
+                    {...invalidProps("reg-area").control}
                     value={area}
                     onChange={(e) => {
                       armFromField(false);
@@ -1365,11 +1501,12 @@ export default function RegisterPage() {
             )}
 
             <div className="form-single-column">
-              <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required>
+              <FormRow htmlFor="reg-password" label={t("registerPage.passwordLabel")} required error={invalidProps("reg-password").message} errorId="reg-password-error">
                 <div className="input-row">
                   <input
                     id="reg-password"
                     aria-required={true}
+                    {...invalidProps("reg-password").control}
                     type={obscurePassword ? "password" : "text"}
                     value={password}
                     onChange={(e) => {
@@ -1431,11 +1568,15 @@ export default function RegisterPage() {
                 htmlFor="reg-confirm-password"
                 label={t("registerPage.confirmPasswordLabel")}
                 required
+             
+                error={invalidProps("reg-confirm-password").message}
+                errorId="reg-confirm-password-error"
               >
                 <div className="input-row">
                   <input
                     id="reg-confirm-password"
                     aria-required={true}
+                    {...invalidProps("reg-confirm-password").control}
                     type={obscureConfirm ? "password" : "text"}
                     value={confirmPassword}
                     onChange={(e) => {
@@ -1579,19 +1720,41 @@ export default function RegisterPage() {
                   className="wizard-section"
                   hidden={idx !== current}
                   aria-labelledby={`reg-section-title-${id}`}
+                  // Trigger (a): focus leaving the section's LAST field for
+                  // somewhere outside the section. Capture, because blur does
+                  // not bubble. relatedTarget is what distinguishes "moved on"
+                  // from "moved to another field in here" -- tabbing between
+                  // the section's own fields must never raise errors, and a
+                  // null relatedTarget (clicked the page chrome, switched
+                  // windows) is deliberately NOT treated as leaving.
+                  onBlurCapture={(e) => {
+                    if (idx !== current) return;
+                    if (!currentLastFieldId) return;
+                    if ((e.target as HTMLElement).id !== currentLastFieldId) return;
+                    const next = e.relatedTarget as HTMLElement | null;
+                    if (!next || e.currentTarget.contains(next)) return;
+                    promptMissing();
+                  }}
                 >
                   {renderSection(id)}
 
-                  {/* A text link, not a button bar: moving on is the normal
-                      consequence of finishing a section, and the sections
-                      that cannot move on by themselves are exactly the ones
-                      with an optional field still worth offering. */}
+                  {/* A text link, not a button bar. Present on the furthest
+                      revealed section whether or not it is complete: a
+                      control that disappears until the form is correct
+                      cannot tell anyone what is wrong with the form. */}
                   {idx === current && showContinueLink && (
                     <p className="flow-continue">
                       <button
                         type="button"
                         className="flow-continue-link"
-                        onClick={() => advanceFrom(current)}
+                        aria-disabled={continueBlocked || undefined}
+                        // Trigger (b). Never the `disabled` attribute: a
+                        // disabled button swallows the click, and the click
+                        // is how the respondent asks what is missing.
+                        onClick={() => {
+                          if (promptMissing()) return;
+                          advanceFrom(current);
+                        }}
                       >
                         {t("registerPage.continueToNextStep")}
                         <span aria-hidden="true"> →</span>
@@ -1602,6 +1765,19 @@ export default function RegisterPage() {
               ))}
             </form>
           </div>
+
+          {/* Pinned to the frame, not placed in the scrolling content: it
+              reports fields that may be anywhere in a section taller than the
+              frame, so it has to stay on screen while the respondent scrolls
+              to them. Outside .flow-frame-scroll, so it adds no scroller. */}
+          {shownErrors.length > 0 && (
+            <div className="flow-missing-notice" role="alert">
+              {t("registerPage.missingFieldsNotice", {
+                count: shownErrors.length,
+                names: shownErrors.map((f) => f.name).join(", "),
+              })}
+            </div>
+          )}
         </div>
       </div>
 

@@ -28,6 +28,8 @@ export function FormRow({
   label,
   required = false,
   hint,
+  error,
+  errorId,
   labelPrefix,
   labelId,
   gated = false,
@@ -41,6 +43,13 @@ export function FormRow({
   label: string;
   required?: boolean;
   hint?: string;
+  // "Champ obligatoire", shown only after a trigger has flagged this field --
+  // never while the respondent is still working through the section. The
+  // CONTROL carries aria-invalid and aria-describedby (the caller owns those,
+  // since the control is passed in as children); this renders the text they
+  // point at, in the input column where the eye already is.
+  error?: string;
+  errorId?: string;
   // Decoration before the label text -- the location step's cascade arrow.
   // Decorative only, so the caller is expected to mark it aria-hidden.
   labelPrefix?: ReactNode;
@@ -63,6 +72,11 @@ export function FormRow({
         )}
       </label>
       {children}
+      {error && (
+        <p className="field-error" id={errorId}>
+          {error}
+        </p>
+      )}
       {hint && <p className="field-hint">{hint}</p>}
     </div>
   );

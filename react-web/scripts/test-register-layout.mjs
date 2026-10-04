@@ -32,6 +32,24 @@ const FIELD_HEIGHT = 40;
 let failures = 0;
 let checks = 0;
 
+// The continue link is present on the furthest revealed section whether or
+// not that section is complete, and carries aria-disabled while it is not.
+// Playwright refuses to click an aria-disabled control, which is exactly the
+// distinction these helpers keep: continueOn() is "move on", clickBlocked()
+// is "ask what is missing".
+async function continueEnabled(page) {
+  const el = await page.$(".flow-continue-link");
+  if (!el) return false;
+  return (await el.getAttribute("aria-disabled")) !== "true";
+}
+
+async function continueOn(page) {
+  if (!(await continueEnabled(page))) return false;
+  await page.click(".flow-continue-link");
+  await page.waitForTimeout(300);
+  return true;
+}
+
 function check(ok, label, detail) {
   checks++;
   const suffix = detail ? " — " + detail : "";
@@ -204,7 +222,10 @@ const railStates = () =>
       label: labelEl ? labelEl.textContent.trim() : "",
       labelHidden: labelEl ? getComputedStyle(labelEl).display === "none" : true,
       cls: Array.from(b.classList).find((c) => c.indexOf("is-") === 0) || "",
-      disabled: b.disabled,
+      // aria-disabled, not the `disabled` property: a locked item still takes
+      // a click, which is how it gets to say what the current section is
+      // missing. See item 11 trigger (d).
+      disabled: b.getAttribute("aria-disabled") === "true",
       hasCheck: !!b.querySelector("svg"),
       ariaCurrent: b.getAttribute("aria-current"),
       ariaLabel: b.getAttribute("aria-label"),
@@ -261,9 +282,7 @@ async function runViewport(browser, vp) {
       await page.fill("#reg-phone1", "655000000");
       await page.fill("#reg-phone2", "233000000");
       await page.waitForTimeout(500);
-      if (await page.isVisible(".flow-continue-link")) {
-        await page.click(".flow-continue-link");
-      }
+      await continueOn(page);
       await page.waitForTimeout(300);
     }
     allControls.push(...(await page.evaluate(measureControls)));
@@ -419,7 +438,10 @@ async function runRail(browser) {
 
   let rail = await page.evaluate(railStates);
   check(rail.length === 6, "six rail items", String(rail.length));
-  check(rail.slice(1).every((r) => r.disabled), "every unrevealed item is disabled");
+  check(
+    rail.slice(1).every((r) => r.disabled),
+    "every unrevealed item is marked unavailable (aria-disabled)"
+  );
   check(rail.every((r) => !r.hasCheck), "no check mark before anything is answered");
   check(
     /verrouill|lock/i.test(rail[5].ariaLabel || ""),
@@ -495,8 +517,8 @@ async function runRail(browser) {
     rail[1].cls
   );
   check(
-    await page.isVisible(".flow-continue-link"),
-    "a complete section with optional fields offers the continue link"
+    await continueEnabled(page),
+    "a complete section with optional fields offers a working continue link"
   );
 
   // Optional field present and still usable: the proof the section did not
