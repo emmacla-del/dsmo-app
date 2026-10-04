@@ -80,14 +80,6 @@ const STATUS_OPTIONS = [
   { value: "REJECTED", label: "Rejeté uniquement" },
 ];
 
-const SECTIONS_LIST = [
-  { id: "ident", label: "Identification du Répondant" },
-  { id: "loc", label: "Localisation Administrative" },
-  { id: "struct", label: "Informations Structure" },
-  { id: "ops", label: "Données Opérationnelles" },
-  { id: "rh", label: "Ressources Humaines" },
-];
-
 // Icons matching Figma donnees/exports.png
 const IconFileCheck = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -202,11 +194,6 @@ export default function DiffusionPage() {
   // Scope mode radio: all | campaign | region | custom
   const [scopeMode, setScopeMode] = useState<"all" | "campaign" | "region" | "custom">("all");
 
-  // Sections selection
-  const [selectedSections, setSelectedSections] = useState<string[]>([
-    "ident", "loc", "struct", "ops", "rh",
-  ]);
-
   // Dropdown states
   const [selectedCampaign, setSelectedCampaign] = useState("");
 
@@ -316,12 +303,6 @@ export default function DiffusionPage() {
     if (!selectedRegion || selectedRegion === "Toutes") return [];
     return deptList.map((d) => ({ name: d }));
   }, [selectedRegion, deptList]);
-
-  const toggleSection = (id: string) => {
-    setSelectedSections((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
-  };
 
   const currentFilters = useMemo(() => {
     const filters: Record<string, any> = {};
@@ -730,51 +711,6 @@ export default function DiffusionPage() {
                     </div>
                     <span className={`text-sm ${isChecked ? "font-semibold text-slate-900" : "font-normal text-slate-700"}`}>
                       {scp.label}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 my-5" />
-
-          {/* Section 4: SECTIONS À INCLURE */}
-          <div className="mb-5">
-            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-3">
-              Sections à inclure
-            </div>
-            <div className="space-y-2.5">
-              {SECTIONS_LIST.map((sec) => {
-                const isChecked = selectedSections.includes(sec.id);
-                return (
-                  <label
-                    key={sec.id}
-                    className="flex items-center gap-3 cursor-pointer select-none group"
-                  >
-                    <div className="relative flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleSection(sec.id)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                          isChecked
-                            ? "border-[#006644] bg-[#006644] text-white"
-                            : "border-slate-300 bg-white group-hover:border-slate-400"
-                        }`}
-                      >
-                        {isChecked && (
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="1 4 3.5 6.5 9 1" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`text-sm ${isChecked ? "font-semibold text-slate-800" : "text-slate-600"}`}>
-                      {sec.label}
                     </span>
                   </label>
                 );

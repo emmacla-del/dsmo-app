@@ -69,13 +69,6 @@ const ACCOUNT_STATUSES = [
 
 const SERVER_FILTERABLE_STATUSES = ["ACTIVE", "PENDING_APPROVAL"];
 
-const SECTORS = [
-  { value: "ALL", label: "Tous" },
-  { value: "PRIMAIRE", label: "Secteur Primaire" },
-  { value: "SECONDAIRE", label: "Secteur Secondaire" },
-  { value: "TERTIAIRE", label: "Secteur Tertiaire" },
-];
-
 /**
  * One establishment row.
  *
@@ -120,7 +113,6 @@ export default function EtablissementsPage() {
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedRegion, setSelectedRegion] = useState("Toutes");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedSector, setSelectedSector] = useState("ALL");
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -458,7 +450,7 @@ export default function EtablissementsPage() {
 
       {/* Filter controls matching Figma */}
       <section style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 18, marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr 1.2fr 1.6fr", gap: 14, alignItems: "flex-end" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr 1.6fr", gap: 14, alignItems: "flex-end" }}>
           <div>
             <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
               TYPE D&apos;ÉTABLISSEMENT
@@ -493,18 +485,6 @@ export default function EtablissementsPage() {
               style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
             >
               {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", letterSpacing: "0.04em", marginBottom: 6 }}>
-              SECTEUR D&apos;ACTIVITÉ
-            </label>
-            <select
-              value={selectedSector}
-              onChange={(e) => setSelectedSector(e.target.value)}
-              style={{ width: "100%", height: 38, border: "1px solid #d1d5db", borderRadius: 6, padding: "0 10px", fontSize: 13, color: "#111827", background: "#ffffff" }}
-            >
-              {SECTORS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
           <div>
