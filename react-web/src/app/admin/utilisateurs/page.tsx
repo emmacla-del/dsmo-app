@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import {
@@ -190,7 +189,6 @@ export default function OnefopUsersPage() {
         breadcrumb={[{ label: "Administration" }, { label: "Utilisateurs & rôles" }]}
         title="Utilisateurs & rôles"
         subtitle="Gestion des accès, des rôles et des activités administratives"
-        hideTabs={true}
         actions={
           <button
             type="button"
@@ -214,64 +212,6 @@ export default function OnefopUsersPage() {
           </button>
         }
       />
-
-      {/* Subnav Pills matching Figma enclosed container */}
-      <div
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: 8,
-          padding: 6,
-          display: "flex",
-          gap: 6,
-          margin: "20px 0 24px",
-          width: "100%",
-          boxSizing: "border-box",
-        }}
-      >
-        <Link
-          href="/admin/utilisateurs"
-          style={{
-            padding: "8px 20px",
-            background: "#164e32",
-            color: "#ffffff",
-            borderRadius: 6,
-            fontWeight: 600,
-            fontSize: 13,
-            textDecoration: "none",
-          }}
-        >
-          Utilisateurs & rôles
-        </Link>
-        <Link
-          href="/admin/journal-audit"
-          style={{
-            padding: "8px 20px",
-            background: "transparent",
-            color: "#374151",
-            borderRadius: 6,
-            fontWeight: 500,
-            fontSize: 13,
-            textDecoration: "none",
-          }}
-        >
-          Journal d&apos;audit
-        </Link>
-        <Link
-          href="/admin/parametres"
-          style={{
-            padding: "8px 20px",
-            background: "transparent",
-            color: "#374151",
-            borderRadius: 6,
-            fontWeight: 500,
-            fontSize: 13,
-            textDecoration: "none",
-          }}
-        >
-          Paramètres
-        </Link>
-      </div>
 
       {toastMessage && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", padding: "12px 18px", borderRadius: 8, marginBottom: 20, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

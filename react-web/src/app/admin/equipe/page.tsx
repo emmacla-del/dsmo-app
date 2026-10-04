@@ -4,7 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { MONITORING_ROLES, hasRole } from "@/lib/roles";
+import { MONITORING_ROLES } from "@/lib/roles";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -138,40 +138,8 @@ function EquipeContent() {
         breadcrumb={[{ label: "Administration" }, { label: "Équipe" }]}
         title="Supervision de l'Équipe Territoriale"
         subtitle="Activité de terrain, couverture des ressorts et débit de traitement des administrateurs régionaux et départementaux."
-        hideTabs={true}
         actions={<AdminHeaderActions showCampaignPill={false} />}
       />
-
-      {/* ── Sub-navigation Tabs matching Administration Hub ── */}
-      <div className="flex items-center gap-2 mb-4">
-        {hasRole(user?.role, ["SUPER_ADMIN", "ADMIN_ONEFOP"]) && (
-          <Link
-            href="/admin/utilisateurs"
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-          >
-            Utilisateurs &amp; rôles
-          </Link>
-        )}
-        <span className="px-4 py-2 text-sm font-semibold text-white bg-[#164e32] rounded-lg shadow-xs cursor-default">
-          Équipe
-        </span>
-        {hasRole(user?.role, ["SUPER_ADMIN", "AUDITOR"]) && (
-          <Link
-            href="/admin/journal-audit"
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-          >
-            Journal d&apos;audit
-          </Link>
-        )}
-        {hasRole(user?.role, ["SUPER_ADMIN"]) && (
-          <Link
-            href="/admin/parametres"
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-          >
-            Paramètres
-          </Link>
-        )}
-      </div>
 
       {/* Notice / Feedback */}
       {notice && (
