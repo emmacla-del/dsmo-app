@@ -39,11 +39,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    try {
-      await this.$connect();
-    } catch (err: any) {
-      console.warn('⚠️ Prisma could not connect to database on startup:', err.message);
-    }
+    // Prisma connects lazily on the first query, so no eager connect is needed.
+    // The previous eager $connect ran during NestFactory.create, before
+    // app.listen, and stalled on Render when DIRECT_URL is unroutable
+    // (IPv6 direct endpoint, no IPv6 outbound on Render).
+    // Removing it lets the port bind immediately; the pooler URL in
+    // DATABASE_URL works fine once a query is issued.
   }
   async onModuleDestroy() {
     await this.$disconnect();
