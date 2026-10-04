@@ -26,6 +26,13 @@ export interface DirectoryUser {
   lastLoginAt?: string | null;
   submissionsCount?: number | null;
   perAgentTarget?: number | null;
+  // Phase 2 attribution (AuthService.listUsers): how the account was created
+  // and by whom. createdByName is resolved server-side from the createdBy
+  // relation, so a row renders a name without a second request. Both are null
+  // on a self-registration and on accounts that predate the tracking.
+  registrationMethod?: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
 }
 
 export interface ListUsersParams {
@@ -134,6 +141,10 @@ export interface CompanyRegistrationItem {
   rejectionReason: string | null;
   duplicateHints: string[];
   requiresCentralStructureCheck: boolean;
+  // Phase 2 attribution — see DirectoryUser above for the same three fields.
+  registrationMethod: string | null;
+  createdBy: string | null;
+  createdByName: string | null;
   // The corrections the company last sent, when that resubmission is newer
   // than the last complements request on the same file. null when the company
   // has not corrected anything since the reviewer last wrote to it.

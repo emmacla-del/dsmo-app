@@ -5,6 +5,7 @@ import {
   AUDIT_ROLES,
   CAMPAIGN_ROLES,
   DIRECTORY_ROLES,
+  MONITORING_ROLES,
   NATIONAL_ROLES,
   SETTINGS_ROLES,
   USER_ADMIN_ROLES,
@@ -87,6 +88,12 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
       { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
+      // Admin-assisted registration (Phase 2 of the territorial admin
+      // monitoring plan). Listed after Inscriptions so the hub keeps landing
+      // on the queue rather than on a blank form. Its path nests under
+      // /admin/inscriptions, and getAllowedRoles() takes the longest matching
+      // prefix, so this entry — not the queue's — gates it.
+      { label: "Nouvelle inscription", href: "/admin/inscriptions/nouvelle", allowedRoles: DIRECTORY_ROLES },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
       { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
       // Detail pages reached from Établissements. Listed so getAllowedRoles()
@@ -135,10 +142,13 @@ export const ADMIN_HUBS: AdminHub[] = [
     href: "/admin/utilisateurs",
     iconName: "settings",
     // Visible only if user role has at least one administrative permission
-    allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES],
-    matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit"],
+    allowedRoles: [...USER_ADMIN_ROLES, ...AUDIT_ROLES, ...MONITORING_ROLES],
+    matchPrefixes: ["/admin/parametres", "/admin/utilisateurs", "/admin/journal-audit", "/admin/equipe"],
     subRoutes: [
       { label: "Utilisateurs & rôles", href: "/admin/utilisateurs", allowedRoles: USER_ADMIN_ROLES },
+      // Territorial admin monitoring (Phase 4 of the territorial admin
+      // monitoring plan). REGIONAL_ADMIN reaches this hub through it alone.
+      { label: "Équipe", href: "/admin/equipe", allowedRoles: MONITORING_ROLES },
       { label: "Journal d'audit", href: "/admin/journal-audit", allowedRoles: AUDIT_ROLES },
       { label: "Paramètres", href: "/admin/parametres", allowedRoles: SETTINGS_ROLES },
     ],

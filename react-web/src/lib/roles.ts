@@ -96,6 +96,13 @@ export const USER_ADMIN_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEF
 export const AUDIT_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "AUDITOR"];
 
 /**
+ * Territorial admin monitoring (/admin/equipe) and the nudge action. Mirrors
+ * @Roles on GET /audit/actor-summary and POST /audit/nudge; a REGIONAL_ADMIN
+ * is narrowed to its own region server-side.
+ */
+export const MONITORING_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN"];
+
+/**
  * Roles whose authorized scope is the whole country, so no region or
  * department filter is applied to what they see. Must stay in step with
  * NATIONAL_ROLES in src/auth/territory.ts, which is the enforcing copy.

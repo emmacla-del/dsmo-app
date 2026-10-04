@@ -189,6 +189,7 @@ model User {
   distributionLists          DistributionList[]
   distributionLogs           DistributionLog[]
   notifications              Notification[]
+  userNotifications          UserNotification[]
   onefopSubmissions          OnefopSubmission[]
   approvedReports            Report[]           @relation("ReportApprovedBy")
   generatedReports           Report[]
@@ -552,6 +553,36 @@ model NotificationRecipient {
   @@index([notificationId])
   @@index([companyId])
   @@map("notification_recipients")
+}
+
+/// In-app notification addressed to ONE user, with read state.
+///
+/// Distinct from `Notification` above, which is an outbound-email audit log:
+/// per-campaign rather than per-user, no inbox, no read state. This is the
+/// inbox a user sees when they next log in — email delivery is unreliable on
+/// this deployment, so in-app is the channel, not a fallback.
+///
+/// `kind` is free text so a new notification type needs no migration
+/// (DECISION 3 ships NUDGE alone; APPROVAL/REJECTION/ASSIGNMENT come later).
+///
+/// Mirrors prisma/migrations/20261006120000_user_notifications/migration.sql.
+model UserNotification {
+  id        String    @id @default(uuid())
+  userId    String
+  /// 'NUDGE' | 'ASSIGNMENT' | 'APPROVAL' | …
+  kind      String
+  subject   String
+  body      String    @db.Text
+  /// Optional in-app link target, e.g. /admin/dossiers.
+  linkHref  String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("user_notifications")
 }
 
 model AuditLog {

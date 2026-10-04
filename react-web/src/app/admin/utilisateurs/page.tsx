@@ -18,6 +18,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { USER_ADMIN_ROLES, hasRole } from "@/lib/roles";
+import { registrationMethodLabel, registrationMethodTone } from "@/lib/inscriptions";
 
 const AGENTS_PAGE_SIZE = 50;
 
@@ -56,6 +57,22 @@ interface AgentItem {
   createdAt: string | null;
   lastLoginAt: string | null;
   submissionsCount: number | null;
+  // Phase 2 attribution. createdByName is resolved server-side; null on an
+  // account that self-registered or that predates the tracking.
+  registrationMethod: string | null;
+  createdByName: string | null;
+}
+
+/** The registration-method badge, or a dash for an account that predates tracking. */
+function MethodBadge({ method }: { method: string | null }) {
+  const label = registrationMethodLabel(method);
+  if (!label) return <span style={{ color: "#9ca3af" }}>{NOT_PROVIDED}</span>;
+  const tone = registrationMethodTone(method);
+  return (
+    <span style={{ fontSize: 11, background: tone.bg, color: tone.color, padding: "3px 9px", borderRadius: 9999, fontWeight: 600, whiteSpace: "nowrap" }}>
+      {label}
+    </span>
+  );
 }
 
 /** Initials from the parts of the name the record actually carries. */
@@ -154,6 +171,8 @@ export default function OnefopUsersPage() {
       createdAt: u.createdAt ?? null,
       lastLoginAt: u.lastLoginAt ? String(u.lastLoginAt) : null,
       submissionsCount: typeof u.submissionsCount === "number" ? u.submissionsCount : null,
+      registrationMethod: u.registrationMethod ?? null,
+      createdByName: u.createdByName ?? null,
     };
   });
 
@@ -329,13 +348,14 @@ export default function OnefopUsersPage() {
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Formulaires collectés</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Dernière connexion</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Compte créé le</th>
+                <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Enregistré par</th>
                 <th scope="col" style={{ padding: "14px 18px", fontWeight: 600 }}>Statut</th>
                 <th scope="col" style={{ padding: "14px 18px", textAlign: "right", fontWeight: 600 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               <DataStateRow
-                colSpan={9}
+                colSpan={10}
                 state={tableState}
                 resource="les agents ONEFOP"
                 error={agentsQuery.error}
@@ -404,6 +424,16 @@ export default function OnefopUsersPage() {
 
                   <td style={{ padding: "12px 18px", color: "#6b7280", fontSize: 12, whiteSpace: "nowrap" }}>
                     {stamp(agent.createdAt, false)}
+                  </td>
+
+                  {/* Who minted the account and how. An account created by an
+                      admin names that admin; one that self-registered carries
+                      the method badge alone. */}
+                  <td style={{ padding: "12px 18px", color: "#4b5563", fontSize: 12 }}>
+                    {agent.createdByName && (
+                      <div style={{ marginBottom: 3 }}>{agent.createdByName}</div>
+                    )}
+                    <MethodBadge method={agent.registrationMethod} />
                   </td>
 
                   <td style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>

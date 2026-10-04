@@ -1,12 +1,23 @@
 import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class RegisterCompanyDto {
+/**
+ * Every company-registration field except the password.
+ *
+ * Split out so the admin-assisted route can accept the same body without a
+ * password: there, the server generates a temporary password and hands it to
+ * the acting admin once (see AssistedRegistrationDto / adminRegisterCompany).
+ * An admin choosing a declarant's password is not a capability this platform
+ * grants, so the field is absent from that DTO rather than accepted and
+ * ignored — with ValidationPipe's whitelist, absent means rejected.
+ *
+ * class-validator reads decorators through the prototype chain, so both
+ * subclasses validate exactly these rules; there is no second copy of the
+ * field list to drift.
+ */
+export class CompanyRegistrationFieldsDto {
   @IsEmail()
   email!: string;
-
-  @IsString()
-  password!: string;
 
   @IsString()
   companyName!: string;
@@ -98,4 +109,10 @@ export class RegisterCompanyDto {
   @IsOptional() @IsString() promoterSex?: string;
   @IsOptional() @IsString() promoterPhone1?: string;
   @IsOptional() @IsString() promoterPhone2?: string;
+}
+
+/** The public POST /auth/register-company body: the fields plus a password. */
+export class RegisterCompanyDto extends CompanyRegistrationFieldsDto {
+  @IsString()
+  password!: string;
 }

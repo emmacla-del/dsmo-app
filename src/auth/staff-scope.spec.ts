@@ -237,8 +237,14 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
 
   it('ADMIN_ONEFOP creates ONEFOP field staff but cannot create its own rank', async () => {
     const field = { email: 'a@b.cm', firstName: 'A', lastName: 'B', role: 'REGIONAL_ADMIN', region: 'Littoral' };
-    await expect(service.adminCreateMinefopUser(field, 'ADMIN_ONEFOP')).resolves.toMatchObject({ user: { role: 'REGIONAL_ADMIN' } });
-    await expect(service.adminCreateMinefopUser(field, 'SUPER_ADMIN')).resolves.toMatchObject({ user: { role: 'REGIONAL_ADMIN' } });
+    await expect(service.adminCreateMinefopUser(field, 'ADMIN_ONEFOP', 'actor-1')).resolves.toMatchObject({ user: { role: 'REGIONAL_ADMIN' } });
+    // Phase 1: the created row carries its attribution.
+    expect(prisma.user.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ createdBy: 'actor-1', registrationMethod: 'ADMIN_CREATED' }),
+      }),
+    );
+    await expect(service.adminCreateMinefopUser(field, 'SUPER_ADMIN', 'actor-1')).resolves.toMatchObject({ user: { role: 'REGIONAL_ADMIN' } });
 
     // MINEFOP_FIELD_ROLES is the first gate and holds only the two field
     // roles, so ADMIN_ONEFOP is refused as a *target* whoever the actor is —
@@ -247,12 +253,12 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
     // creatable through this route at all.
     prisma.user.create.mockClear();
     const ownRank = { ...field, role: 'ADMIN_ONEFOP' };
-    await expect(service.adminCreateMinefopUser(ownRank, 'ADMIN_ONEFOP')).rejects.toThrow(BadRequestException);
-    await expect(service.adminCreateMinefopUser(ownRank, 'SUPER_ADMIN')).rejects.toThrow(BadRequestException);
+    await expect(service.adminCreateMinefopUser(ownRank, 'ADMIN_ONEFOP', 'actor-1')).rejects.toThrow(BadRequestException);
+    await expect(service.adminCreateMinefopUser(ownRank, 'SUPER_ADMIN', 'actor-1')).rejects.toThrow(BadRequestException);
 
     // And the roles with no management scope are refused before any write.
     for (const actor of ['REGIONAL_ADMIN', 'DIVISIONAL_ADMIN', 'AUDITOR', 'COMPANY']) {
-      await expect(service.adminCreateMinefopUser(field, actor)).rejects.toThrow(ForbiddenException);
+      await expect(service.adminCreateMinefopUser(field, actor, 'actor-1')).rejects.toThrow(ForbiddenException);
     }
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
@@ -275,7 +281,7 @@ describe('AuthService — D1 SUPER_ADMIN_ONEFOP create and reassign', () => {
 
   it('validates territory on adminCreateMinefopUser and stores canonical names', async () => {
     const dto = { email: 'div@minefop.cm', firstName: 'Div', lastName: 'Agent', role: 'DIVISIONAL_ADMIN', region: 'littoral', department: 'wouri' };
-    const res = await service.adminCreateMinefopUser(dto, 'ADMIN_ONEFOP');
+    const res = await service.adminCreateMinefopUser(dto, 'ADMIN_ONEFOP', 'actor-1');
     expect(res.user).toMatchObject({
       role: 'DIVISIONAL_ADMIN',
       region: 'Littoral',

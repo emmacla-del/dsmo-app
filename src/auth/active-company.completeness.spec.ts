@@ -146,6 +146,19 @@ describe('ActiveCompanyGuard completeness', () => {
       'AuthController.resendVerification': UNDER_REVIEW,
       // Prefill for the correction form. POST dsmo/company stays fully guarded.
       'DsmoController.getMyCompany': UNDER_REVIEW,
+      // The caller's own in-app inbox (Phase 3). ANY_STATUS for the same
+      // reason as getMe above: the inbox is where a blocked company is told
+      // what is wrong with its file, so withholding it at exactly the statuses
+      // that generate those messages would defeat the feature. REJECTED is
+      // deliberately included — Phase 3-full notifies on rejection.
+      //
+      // The exemption is narrower than it looks: isActive=false is still
+      // denied by the guard whatever this list says, and every route is
+      // scoped to req.user.id server-side, so a company reads its own inbox
+      // and nothing else. Class-level decorator, hence all three handlers.
+      'NotificationsController.list': 'ANY_STATUS',
+      'NotificationsController.unreadCount': 'ANY_STATUS',
+      'NotificationsController.markRead': 'ANY_STATUS',
     });
   });
 

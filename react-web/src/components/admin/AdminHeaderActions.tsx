@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { listCampaigns } from "@/lib/campaigns";
 import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
+import { NotificationBell } from "./NotificationBell";
 
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
 
@@ -137,33 +138,11 @@ export function AdminHeaderActions({
         </svg>
       </Link>
 
-      {/* Notification bell */}
-      {showBell && (
-        <Link
-          href="/admin/activite"
-          aria-label="Notifications"
-          title="Notifications et alertes de validation"
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            background: "none",
-            border: "none",
-            color: "#6b7280",
-            cursor: "pointer",
-            textDecoration: "none",
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-        </Link>
-      )}
+      {/* Notification bell — the caller's own in-app inbox (Phase 3). Opens a
+          preview panel; /admin/notifications is the full history. It
+          previously linked to /admin/activite, which is dossier alerts, not
+          notifications addressed to this user. */}
+      {showBell && <NotificationBell />}
 
       {/* Search element: text input box or compact button */}
       {showSearchInput ? (

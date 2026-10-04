@@ -358,7 +358,11 @@ export class NotificationService {
 
         const where: any = {};
         if (user.role === UserRole.DIVISIONAL_ADMIN) {
-            where.regionFilter = user.department;
+            // Was `where.regionFilter = user.department` — a department name
+            // matched against the region column, so a DIVISIONAL_ADMIN saw
+            // either nothing or another territory's notifications. The
+            // Notification model has a departmentFilter column for this.
+            where.departmentFilter = user.department;
         } else if (user.role === UserRole.REGIONAL_ADMIN) {
             where.regionFilter = user.region;
         }
