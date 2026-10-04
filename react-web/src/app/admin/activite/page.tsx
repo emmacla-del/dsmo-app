@@ -43,29 +43,6 @@ const CARD: React.CSSProperties = {
   borderRadius: 8,
 };
 
-const PILL: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "6px 16px",
-  borderRadius: 6,
-  background: "#ffffff",
-  border: "1px solid #e5e7eb",
-  color: "#374151",
-  fontSize: 13,
-  fontWeight: 500,
-  textDecoration: "none",
-  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
-};
-
-const PILL_ACTIVE: React.CSSProperties = {
-  ...PILL,
-  background: "#1e6b3a",
-  color: "#ffffff",
-  border: "none",
-  fontWeight: 600,
-  boxShadow: "0 1px 3px rgba(30, 107, 58, 0.2)",
-};
-
 const SELECT: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px",
@@ -218,17 +195,9 @@ function ActiviteContent() {
     <div className="cam-admin-page" style={{ maxWidth: 1440, margin: "0 auto" }}>
       <AdminPageHeader
         breadcrumb={[{ label: "Supervision" }, { label: "Activité & alertes" }]}
-        beforeTitle={
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link href="/admin/pilotage" style={PILL}>Tableau de bord</Link>
-            <Link href="/admin/dossiers" style={PILL}>Dossiers en instance</Link>
-            <Link href="/admin/activite" style={PILL_ACTIVE}>Activité &amp; alertes</Link>
-          </div>
-        }
         title="Activité Récente & Alertes"
         subtitle="Traçabilité des opérations d'instruction, journal d'événements et alertes de contrôle"
         actions={<AdminHeaderActions />}
-        hideTabs={true}
       />
 
       {/* ── Work-queue counters, all from pilotage/queues ── */}
