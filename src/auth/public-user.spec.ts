@@ -11,8 +11,6 @@ const SECRETS: Record<(typeof SECRET_USER_FIELDS)[number], unknown> = {
   twoFactorCodeExpires: new Date(),
   lastLoginAt: new Date(),
   approvedAt: new Date(),
-  createdBy: 'admin-1',
-  registrationMethod: 'SELF_REGISTRATION',
   tokenVersion: 0,
   registrationNumber: 'INS-2026-0847',
   assigneeId: 'agent-1',
@@ -33,6 +31,10 @@ function fullUser(): User {
     department: 'Mfoundi',
     isActive: true,
     status: 'ACTIVE',
+    // Phase 1 moved these two out of SECRET_USER_FIELDS and into the
+    // allowlist, so they belong on the public side of the fixture now.
+    createdBy: 'admin-1',
+    registrationMethod: 'SELF_REGISTRATION',
     ...SECRETS,
   } as unknown as User;
 }
@@ -57,6 +59,8 @@ describe('public user allowlist', () => {
       expect(out).not.toHaveProperty(secret);
     }
     expect(out).toMatchObject({ id: 'u1', email: 'agent@minefop.cm', role: 'DIVISIONAL_ADMIN', region: 'Centre' });
+    // And the two newly public attribution columns do come through.
+    expect(out).toMatchObject({ createdBy: 'admin-1', registrationMethod: 'SELF_REGISTRATION' });
   });
 
   it('withholds columns it does not know about', () => {

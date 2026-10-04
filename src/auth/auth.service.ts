@@ -430,6 +430,9 @@ export class AuthService {
           serviceCode: serviceCode ?? null,
           status: isMinefop ? 'PENDING_APPROVAL' : 'ACTIVE',
           isActive: !isMinefop,
+          // Phase 1: a public self-registration has no creating admin, so
+          // createdBy stays null — that absence is the signal, not a gap.
+          registrationMethod: 'SELF_REGISTRATION',
         },
       });
       return toPublicUser(user);
@@ -480,7 +483,7 @@ export class AuthService {
     poste?: string;
     serviceCode?: string;
     positionType?: string;
-  }, actorRole: string) {
+  }, actorRole: string, actorId: string) {
     if (!AuthService.MINEFOP_FIELD_ROLES.includes(dto.role)) {
       throw new BadRequestException('Rôle invalide pour la création directe');
     }
@@ -515,6 +518,10 @@ export class AuthService {
           status: 'ACTIVE',
           isActive: true,
           mustChangePassword: true,
+          // Phase 1: the admin who minted the account owns it on the
+          // attribution side — createdBy is the actor, not the target.
+          createdBy: actorId,
+          registrationMethod: 'ADMIN_CREATED',
         },
       });
       return { user: toPublicUser(user), temporaryPassword };
@@ -653,6 +660,8 @@ export class AuthService {
           status: 'PENDING_APPROVAL',
           isActive: true,
           emailVerified: false,
+          // Phase 1: public company registration — no creating admin.
+          registrationMethod: 'SELF_REGISTRATION',
         },
       });
 

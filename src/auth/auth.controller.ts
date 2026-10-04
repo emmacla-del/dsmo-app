@@ -182,7 +182,7 @@ export class AuthController {
     serviceCode?: string;
     positionType?: string;
   }) {
-    return this.authService.adminCreateMinefopUser(body, req.user.role);
+    return this.authService.adminCreateMinefopUser(body, req.user.role, req.user.id);
   }
 
   @Get('pending-minefop')
