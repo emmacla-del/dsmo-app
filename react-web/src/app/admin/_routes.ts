@@ -29,6 +29,13 @@ export interface AdminSubRoute {
   href: string;
   badgeKey?: "pending" | "inscriptions" | "anomalies";
   allowedRoles?: readonly UserRole[];
+  /**
+   * Gated but never rendered as a nav entry. A detail page reached from a list
+   * needs `allowedRoles` so getAllowedRoles() can gate it, but has no place in
+   * the sidebar or the sub-navigation tabs. Consumers that render sub-routes
+   * (navHubsFor, AdminPageHeader) filter these out.
+   */
+  hidden?: boolean;
 }
 
 export interface AdminHub {
@@ -40,17 +47,6 @@ export interface AdminHub {
   badgeKey?: "pending" | "inscriptions" | "anomalies";
   allowedRoles?: readonly UserRole[];
   subRoutes: AdminSubRoute[];
-}
-
-export interface AdminRoute {
-  label: string;
-  href: string | null;
-  allowedRoles?: readonly UserRole[];
-}
-
-export interface AdminRouteSection {
-  group: string;
-  items: AdminRoute[];
 }
 
 // ── Primary 6 Hubs Definition ────────────────────────────────────────────────
@@ -93,6 +89,12 @@ export const ADMIN_HUBS: AdminHub[] = [
       { label: "Inscriptions", href: "/admin/inscriptions", badgeKey: "inscriptions", allowedRoles: APPROVAL_ROLES },
       { label: "Établissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_ROLES },
       { label: "Annuaire", href: "/home/annuaire?tab=users", allowedRoles: DIRECTORY_ROLES },
+      // Detail pages reached from Établissements. Listed so getAllowedRoles()
+      // has roles to gate them with — unlisted, RequireAdminRole found no
+      // match and let any staff role through, AUDITOR included. `hidden`
+      // keeps them out of the sidebar and the sub-navigation tabs.
+      { label: "Détail établissement", href: "/admin/etablissement-detail", allowedRoles: DIRECTORY_ROLES, hidden: true },
+      { label: "Approbation établissement", href: "/admin/etablissement-detail/approbation", allowedRoles: DIRECTORY_ROLES, hidden: true },
     ],
   },
   {
@@ -156,16 +158,6 @@ export function hubsByKey(): Map<HubKey, AdminHub> {
   }
   return byKey;
 }
-
-/** Backward compatible sectioned routes structure */
-export const ADMIN_ROUTES: AdminRouteSection[] = ADMIN_HUBS.map((hub) => ({
-  group: hub.label,
-  items: hub.subRoutes.map((sub) => ({
-    label: sub.label,
-    href: sub.href,
-    allowedRoles: sub.allowedRoles,
-  })),
-}));
 
 /** True when a route with these allowedRoles may be shown to `role`. */
 export function isRoleAllowed(allowedRoles: readonly UserRole[] | undefined, role: UserRole | undefined): boolean {

@@ -30,9 +30,6 @@ export interface AdminSidebarProps {
   inscriptionsCount?: number;
   /** Badge count on "Contrôle Qualité" */
   anomaliesCount?: number;
-  /** Current locale for the FR | EN switcher */
-  locale?: "fr" | "en";
-  onLocaleChange?: (locale: "fr" | "en") => void;
   onLogout?: () => void;
 }
 
@@ -130,8 +127,6 @@ export function AdminSidebar({
   pendingCount = 0,
   inscriptionsCount = 0,
   anomaliesCount = 0,
-  locale = "fr",
-  onLocaleChange,
   onLogout,
 }: AdminSidebarProps) {
   const pathname = usePathname();
@@ -265,33 +260,8 @@ export function AdminSidebar({
         })}
       </nav>
 
-      {/* ── Footer: locale toggle + user card ── */}
+      {/* ── Footer: user card ── */}
       <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.1)", padding: "12px 16px" }}>
-        {/* FR | EN */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-          {(["fr", "en"] as const).map((l, i) => (
-            <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {i > 0 && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>|</span>}
-              <button
-                type="button"
-                onClick={() => onLocaleChange?.(l)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: "2px 4px",
-                  fontSize: 11,
-                  fontWeight: locale === l ? 700 : 400,
-                  color: locale === l ? "#fff" : "rgba(255,255,255,0.45)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {l.toUpperCase()}
-              </button>
-            </span>
-          ))}
-        </div>
-
         {/* User card */}
         {user && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

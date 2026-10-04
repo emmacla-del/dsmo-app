@@ -148,7 +148,7 @@ export function navHubsFor(role: string | null | undefined): AdminHub[] {
     const hub = byKey.get(key);
     if (!hub) return [];
 
-    const openable = hub.subRoutes.filter((sub) => isRoleAllowed(sub.allowedRoles, typedRole));
+    const openable = hub.subRoutes.filter((sub) => !sub.hidden && isRoleAllowed(sub.allowedRoles, typedRole));
     if (openable.length === 0) return [];
 
     return [{ ...hub, href: openable[0].href, subRoutes: openable }];

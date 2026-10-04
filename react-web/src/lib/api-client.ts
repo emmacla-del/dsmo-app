@@ -698,24 +698,6 @@ export function bulkRejectDeclarations(payload: { submissionIds: string[]; certi
   });
 }
 
-export function listAnomaliesRegistry(params: { submissionId?: string; status?: string; isBlocking?: boolean; limit?: number; offset?: number } = {}) {
-  const query = new URLSearchParams();
-  if (params.submissionId) query.set("submissionId", params.submissionId);
-  if (params.status) query.set("status", params.status);
-  if (params.isBlocking !== undefined) query.set("isBlocking", String(params.isBlocking));
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.offset) query.set("offset", String(params.offset));
-  const qs = query.toString();
-  return apiFetch<{ total: number; items: any[] }>(`/admin/questionnaires/anomalies/registry${qs ? `?${qs}` : ""}`);
-}
-
-export function resolveAnomaly(id: string, payload: { resolutionType: string; resolutionNote: string; evidenceUrl?: string }) {
-  return apiFetch<any>(`/admin/questionnaires/anomalies/${encodeURIComponent(id)}/resolve`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
-}
-
 export function getSpssManifest(filters: Record<string, any> = {}) {
   return apiFetch<{ sps: string }>("/data-management/export/submissions/spss/manifest", {
     method: "POST",
