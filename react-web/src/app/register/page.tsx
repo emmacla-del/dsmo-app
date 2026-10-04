@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -17,7 +17,6 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
-  REGISTRATION_STEPS,
   REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
@@ -31,10 +30,16 @@ import {
   type RegistrationStepId,
 } from "@/lib/register-constants";
 import {
+  advancesImmediately,
   isSectionComplete,
   type RegState,
   type SubdivisionsStatus,
 } from "@/lib/register-completeness";
+import {
+  entityFieldGroups,
+  lastEntityFieldKey,
+} from "@/lib/register-entity-sections";
+import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
   REGISTER_DRAFT_SAVE_DEBOUNCE_MS,
   clearStoredDraft,
@@ -54,7 +59,6 @@ import {
 } from "@/lib/password-strength";
 import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
-import { CollapsedSection } from "@/components/auth/CollapsedSection";
 import { FormRow } from "@/components/auth/FormRow";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
@@ -70,15 +74,14 @@ import { StepHeader } from "@/components/auth/StepHeader";
 const STEPS = REGISTRATION_STEP_IDS;
 const LAST_INDEX = STEPS.length - 1;
 
-// How long after the last keystroke the next section opens. A dropdown choice
-// is a finished decision and reveals at once; typing is not, so it waits for a
-// pause -- otherwise the page scrolls out from under someone who is still
-// filling the field that happened to complete the section.
-const REVEAL_TEXT_DELAY_MS = REGISTER_DRAFT_SAVE_DEBOUNCE_MS;
-
 // How long a reset notice stays on screen. Long enough to read a sentence,
 // short enough not to sit over the form the respondent went back to.
 const SNACKBAR_MS = 6000;
+
+// The last field of each section that has optional fields: changing it is
+// what tells the wizard the respondent is done with the section. Section 3's
+// own last field is data-driven (see lastEntityFieldKey).
+const LAST_RESPONDENT_FIELD: keyof RespondentState = "phone2";
 
 interface RespondentState {
   firstName: string;
@@ -111,73 +114,31 @@ const ENTITY_TYPE_OPTIONS: { type: EntityType; labelKey: string; hintKey?: strin
   { type: "vocationalTraining", labelKey: "registerPage.entityOptionVocationalTraining" },
 ];
 
-const ENTITY_SECTIONS: Record<EntityType, { title: string; keys: string[] }[]> = {
-  enterprise: [
-    { title: "Identité juridique / Legal Identity", keys: ["companyName", "legalStatus", "socialCapital", "parentCompany"] },
-    { title: "Fiscalité & Affiliation / Tax & Social", keys: ["taxNumber", "cnpsNumber"] },
-    { title: "Activité économique / Economic Activity", keys: ["mainActivity", "secondaryActivity", "branch"] },
-    { title: "Siège social & Coordonnées / Registered Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-  ],
-  cooperative: [
-    { title: "Identité de la coopérative / Cooperative Legal Identity", keys: ["cooperativeName", "cooperativeType", "yearOfCreation", "taxNumber"] },
-    { title: "Activité / Activity", keys: ["mainActivity", "branch"] },
-    { title: "Siège social & Coordonnées / Registered Office & Contact", keys: ["cooperativeHeadOffice", "phone", "phone2", "poBox"] },
-  ],
-  ctd: [
-    { title: "Identification de la CTD / RLA Identification", keys: ["ctdType", "ctdName", "yearOfCreation", "taxNumber"] },
-    { title: "Siège & Coordonnées / Head Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-  ],
-  ong: [
-    { title: "Enregistrement & Mission / NGO Registration & Mission", keys: ["ngoName", "registrationNumber", "taxNumber", "yearOfCreation", "mainMission"] },
-    { title: "Siège social & Coordonnées / Registered Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-  ],
-  administration: [
-    { title: "Identification administrative / Administrative Identity", keys: ["administrationName", "sigle", "mainMission"] },
-    { title: "Siège & Coordonnées / Head Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-  ],
-  projectProgram: [
-    { title: "Identification du projet / Project Identification", keys: ["projectProgramName", "sigle", "mainMission"] },
-    { title: "Siège & Coordonnées / Head Office & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-  ],
-  vocationalTraining: [
-    { title: "Identification du Centre (CFP) / VTC Identification", keys: ["centerName", "sigle", "taxNumber", "yearOfCreation", "cfpType", "educationSystem"] },
-    { title: "Situation opérationnelle / Operational Status", keys: ["functionalStatus", "nonFunctionalReason", "nonFunctionalReasonOther"] },
-    { title: "Localisation & Coordonnées / Location & Contact", keys: ["address", "phone", "phone2", "poBox"] },
-    { title: "Direction & Promoteur / Direction & Promoter", keys: ["promoterName", "promoterSex", "promoterPhone1", "promoterPhone2"] },
-  ],
-};
-
 export default function RegisterPage() {
   const t = useTranslations();
   const router = useRouter();
-  // `reached` is the highest revealed section index and replaces the old
-  // `step` cursor: sections 0..reached are all on the page at once, and a
-  // revealed section is never unmounted again.
+  // `reached` is the highest revealed section index: everything past it is
+  // locked on the rail. `current` is the one section the frame shows. Both
+  // are needed, and neither derives from the other -- the rail lets the
+  // respondent go back to an answered section without un-revealing the ones
+  // after it.
   const [reached, setReached] = useState(0);
+  const [current, setCurrent] = useState(0);
   const [certified, setCertified] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
-  // The one expanded non-review section. Completed sections other than this
-  // one show their collapsed line. It follows the respondent's focus, so a
-  // section is never pulled shut at the moment it happens to become valid --
-  // which would snatch away the optional fields (second phone, CNPS) they
-  // were about to fill.
-  const [expandedSection, setExpandedSection] = useState(0);
   const [pendingEntityType, setPendingEntityType] = useState<EntityType | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
-  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-  // Where a section sat before a collapse, so the view can be put back.
-  const anchorRef = useRef<{ index: number; top: number } | null>(null);
+  // Set once the respondent has changed the LAST field of a section that has
+  // optional fields -- the signal that they are done with it and the next one
+  // may open. Re-evaluated on every field change rather than latched, so
+  // going back to an earlier field in the same section disarms it again.
+  const [advanceArmed, setAdvanceArmed] = useState(false);
+  // The only scroll container on the page. A section change puts it back to
+  // the top; nothing else scrolls.
+  const frameScrollRef = useRef<HTMLDivElement>(null);
   // Set when a change must reach storage now rather than after the debounce.
   const forceSaveRef = useRef(false);
-  // Section to scroll to once the reveal has rendered. A ref, not state: the
-  // reveal already re-renders the page, and a second state update just to
-  // clear this one would be a cascading render for no visible effect.
-  const pendingScrollRef = useRef<number | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  // What last changed, so the reveal can be immediate for a choice and
-  // debounced for typing.
-  const lastInputKindRef = useRef<"choice" | "text">("choice");
   const [entityType, setEntityType] = useState<EntityType | null>(null);
   const firstEntityRadioRef = useRef<HTMLInputElement>(null);
   const [respondent, setRespondent] = useState<RespondentState>({
@@ -270,17 +231,25 @@ export default function RegisterPage() {
     return () => clearTimeout(handle);
   }, [respondent.email]);
 
-  function setEntityField(key: string, value: string, kind: "choice" | "text" = "text") {
-    lastInputKindRef.current = kind;
-    setEntityData((prev) => ({ ...prev, [key]: value }));
+  // ── Advance arming ─────────────────────────────────────────────────────
+  // A section with optional fields must not open the next one the instant its
+  // required fields are satisfied, or the optional ones (phone 2, CNPS) would
+  // be pulled away mid-entry. What says "I am done here" instead is a change
+  // to the section's LAST field. Every setter below reports which field it
+  // changed, so the flag is recomputed -- never latched: going back up to an
+  // earlier field in the same section disarms it again.
+  function armFromField(isLast: boolean) {
+    setAdvanceArmed(isLast);
   }
 
-  function setRespondentField(
-    key: keyof RespondentState,
-    value: string,
-    kind: "choice" | "text" = "text"
-  ) {
-    lastInputKindRef.current = kind;
+  function setEntityField(key: string, value: string) {
+    const next = { ...entityData, [key]: value };
+    armFromField(entityType ? lastEntityFieldKey(entityType, next) === key : false);
+    setEntityData(next);
+  }
+
+  function setRespondentField(key: keyof RespondentState, value: string) {
+    armFromField(key === LAST_RESPONDENT_FIELD);
     setRespondent((r) => ({ ...r, [key]: value }));
   }
 
@@ -314,7 +283,7 @@ export default function RegisterPage() {
       "aria-required": field.required ? true : undefined,
       value: entityData[field.key] ?? "",
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-        setEntityField(field.key, e.target.value, field.kind === "select" ? "choice" : "text"),
+        setEntityField(field.key, e.target.value),
     };
 
     return (
@@ -433,17 +402,21 @@ export default function RegisterPage() {
 
     setSubmitError(failure.message);
     // The failing section may not be revealed yet (a restored draft can reach
-    // review with an earlier gap), so open it before scrolling to it.
+    // review with an earlier gap), so open it before showing it.
     setReached((prev) => Math.max(prev, failure.index));
+    setCurrent(failure.index);
+    setAdvanceArmed(false);
     requestAnimationFrame(() => {
+      // The frame swaps to the failing section; put it back to the top so the
+      // error banner above the section is the first thing on screen, then let
+      // focusing the control scroll the frame the rest of the way if the
+      // field sits below the fold (section 3 runs to thirteen rows).
+      scrollFrameTop();
       const control = failure.focusId ? document.getElementById(failure.focusId) : null;
-      scrollToFailure(failure.index, control);
-      // preventScroll: scrollToFailure has already chosen where the page
-      // should land; focusing would otherwise fight it mid-animation.
       if (control) {
-        control.focus({ preventScroll: true });
+        control.focus();
       } else {
-        firstEntityRadioRef.current?.focus({ preventScroll: true });
+        firstEntityRadioRef.current?.focus();
       }
     });
   }
@@ -598,20 +571,10 @@ export default function RegisterPage() {
   // ── Progressive disclosure ─────────────────────────────────────────────
   const completed = STEPS.map((id) => isSectionComplete(id, regState));
 
-  // The section the respondent is working in: the first revealed one that is
-  // not finished, falling back to the furthest revealed. This is what the
-  // sticky header reports.
-  const currentIndex = (() => {
-    for (let i = 0; i <= reached; i++) {
-      if (!completed[i]) return i;
-    }
-    return reached;
-  })();
-
   const hasEnteredData = draftHasData(regState);
 
-  // regState plus the administrative names: the snapshot both the review card
-  // and the collapsed lines are built from.
+  // regState plus the administrative names: the snapshot the review card and
+  // the rail's per-section summaries are both built from.
   const summaryState: SummaryState = {
     ...regState,
     regionName: resolvedRegionName || "",
@@ -620,77 +583,39 @@ export default function RegisterPage() {
     sectorName: resolvedSectorName || "",
   };
 
-  function sectionLabelKey(id: RegistrationStepId): string {
-    return REGISTRATION_STEPS.find((s) => s.id === id)?.labelKey ?? id;
+  // One line per section for the rail's tooltips, from the same rows the
+  // review card prints. Derived at render time, never cached, so an edit
+  // elsewhere cannot leave a stale line on a circle.
+  const railSummaries = STEPS.map((id) =>
+    sectionSummary(summaryRows(id, summaryState, (k) => t(k)))
+  );
+
+  // ── Navigation ─────────────────────────────────────────────────────────
+  // The frame is the only scroll container, so "go to a section" is a scroll
+  // of that one element rather than of the document. Instant, not smooth: the
+  // frame's content is swapped at the same moment, so there is nothing to
+  // animate past.
+  function scrollFrameTop() {
+    frameScrollRef.current?.scrollTo({ top: 0 });
   }
 
-  function scrollToSection(index: number) {
-    sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Called by the rail. A locked section is not reachable -- the rail renders
+  // it as a disabled button, and this is the second line of that defence.
+  function goToSection(index: number) {
+    if (index < 0 || index > reached) return;
+    setAdvanceArmed(false);
+    setCurrent(index);
+    requestAnimationFrame(scrollFrameTop);
   }
 
-  // Brings a failed section into view, and the control that failed with it.
-  //
-  // One scroll, not two: a second smooth scroll on the same container
-  // cancels the first, so this chooses the target instead. The section's top
-  // is preferred, because seeing which section failed is the point -- but a
-  // required field can sit further down a section than one screen (entity
-  // info runs to thirteen rows), and in that case the control wins, since an
-  // error message about a field the respondent cannot see is useless.
-  function scrollToFailure(index: number, control: HTMLElement | null) {
-    const scroller = scrollRef.current;
-    const section = sectionRefs.current[index];
-    if (!section) return;
-    if (control && scroller) {
-      const reachableFromSectionTop =
-        control.getBoundingClientRect().bottom - section.getBoundingClientRect().top <=
-        scroller.clientHeight;
-      if (!reachableFromSectionTop) {
-        control.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
-      }
-    }
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  // ── Collapsing ─────────────────────────────────────────────────────────
-  // A section collapses only once the respondent is working somewhere else,
-  // and the review section never collapses: it is the summary, so there is
-  // nothing to summarise it into.
-  function isCollapsed(index: number): boolean {
-    if (STEPS[index] === "review") return false;
-    if (!completed[index]) return false;
-    return index !== expandedSection;
-  }
-
-  // Called when focus or a tap lands inside a section, and by "Modifier".
-  // Records where the section sits first, so the layout effect below can put
-  // the view back after the sections above it fold away.
-  function openSection(index: number) {
-    if (index === expandedSection) return;
-    const el = sectionRefs.current[index];
-    anchorRef.current = el ? { index, top: el.getBoundingClientRect().top } : null;
-    setExpandedSection(index);
-  }
-
-  // Collapsing the sections above the one in hand removes their height, which
-  // would otherwise slide the field under the respondent's cursor up the
-  // screen. Runs before paint, so the correction is never visible.
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current;
-    if (!anchor) return;
-    anchorRef.current = null;
-    const el = sectionRefs.current[anchor.index];
-    const scroller = scrollRef.current;
-    if (!el || !scroller) return;
-    const after = el.getBoundingClientRect().top;
-    scroller.scrollTop += after - anchor.top;
-  }, [expandedSection]);
-
-  function editSection(index: number) {
-    openSection(index);
-    // The anchor restore above keeps the view still; an explicit "Modifier"
-    // is a request to go there, so this one scrolls on purpose.
-    requestAnimationFrame(() => scrollToSection(index));
+  // Move forward from `index`, revealing the next section if it was locked.
+  function advanceFrom(index: number) {
+    const next = Math.min(index + 1, LAST_INDEX);
+    if (next === index) return;
+    setAdvanceArmed(false);
+    setReached((prev) => Math.max(prev, next));
+    setCurrent(next);
+    requestAnimationFrame(scrollFrameTop);
   }
 
   // ── Entity-type change ─────────────────────────────────────────────────
@@ -707,13 +632,18 @@ export default function RegisterPage() {
   }
 
   function applyEntityType(next: EntityType, clearEntityData: boolean) {
-    lastInputKindRef.current = "choice";
     if (clearEntityData) {
       setEntityData({});
-      // Re-gate entity info and everything after it. The respondent's own
-      // details, the location and the password are deliberately untouched:
-      // none of them depend on the entity type.
-      setReached((prev) => Math.min(prev, STEPS.indexOf("respondent")));
+      // Only section 3 is reset. The respondent's own details, the location
+      // and the password do not depend on the entity type, so they -- and
+      // the sections holding them -- stay exactly as they were; what changes
+      // is where the respondent now is, which is the section that just
+      // emptied.
+      const infoIndex = STEPS.indexOf("entityInfo");
+      setReached((prev) => Math.max(prev, infoIndex));
+      setCurrent(infoIndex);
+      setAdvanceArmed(false);
+      requestAnimationFrame(scrollFrameTop);
       setSnackbar(t("registerPage.entityChangeSnackbar", { step: t("registerPage.stepEntityInfo") }));
       forceSaveRef.current = true;
     } else {
@@ -728,36 +658,44 @@ export default function RegisterPage() {
     setSubmitError(null);
   }
 
-  // Reveal the next section once the furthest revealed one is complete.
-  const readyToReveal = reached < LAST_INDEX && completed[reached];
+  // ── Auto-advance ───────────────────────────────────────────────────────
+  // The frame moves on by itself only at the frontier: when the section being
+  // shown is also the furthest revealed one and it is complete. Going back to
+  // an answered section must never shove the respondent forward again, which
+  // is what `current === reached` guarantees.
+  //
+  // A section with no optional fields (the type list, the password) moves on
+  // the instant it is complete. One with optional fields waits for the
+  // respondent to say so, by changing its last field or following the
+  // "continue" link -- see armFromField.
+  const frontierComplete = current === reached && completed[reached];
+  const frontierImmediate = advancesImmediately(STEPS[reached], entityType);
 
   useEffect(() => {
-    if (!readyToReveal) return;
-    const delay = lastInputKindRef.current === "text" ? REVEAL_TEXT_DELAY_MS : 0;
-    const timer = setTimeout(() => {
-      pendingScrollRef.current = reached + 1;
-      setReached((prev) => (prev < LAST_INDEX ? prev + 1 : prev));
-    }, delay);
-    // Cancelled if the section stops being complete during the delay, which
-    // is what makes the debounce a debounce.
-    return () => clearTimeout(timer);
-  }, [readyToReveal, reached]);
+    if (!frontierComplete || reached >= LAST_INDEX) return;
+    if (!frontierImmediate && !advanceArmed) return;
+    const next = reached + 1;
+    // Advancing IS a state change derived from the answers, and no event
+    // carries it: completeness is recomputed from state after every keystroke
+    // rather than asserted by a Suivant button, so the moment a section
+    // becomes complete is a render, not a click. The three writes settle in
+    // one pass -- the guards above are false on the next run.
+    /* eslint-disable react-hooks/set-state-in-effect -- see above */
+    setAdvanceArmed(false);
+    setReached(next);
+    setCurrent(next);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    requestAnimationFrame(() => frameScrollRef.current?.scrollTo({ top: 0 }));
+  }, [frontierComplete, frontierImmediate, advanceArmed, reached]);
 
-  useEffect(() => {
-    const index = pendingScrollRef.current;
-    if (index === null) return;
-    pendingScrollRef.current = null;
-    const el = sectionRefs.current[index];
-    const scroller = scrollRef.current;
-    if (!el || !scroller) return;
-    // Only chase the new section if it opened below the middle of the form
-    // area. If it is already on screen, moving the page is the only thing the
-    // respondent would notice.
-    const midpoint = scroller.getBoundingClientRect().top + scroller.clientHeight / 2;
-    if (el.getBoundingClientRect().top > midpoint) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [reached]);
+  // Whether the section in hand offers the "continue" link. A frontier
+  // section that advances by itself never shows one -- it would be gone
+  // before it could be read -- but a section the respondent has navigated
+  // BACK to shows it, so the rail is not the only way forward.
+  const showContinueLink =
+    current < LAST_INDEX &&
+    completed[current] &&
+    !(current === reached && advancesImmediately(STEPS[current], entityType));
 
   // ── Draft ──────────────────────────────────────────────────────────────
   const draftLoadedRef = useRef(false);
@@ -791,21 +729,29 @@ export default function RegisterPage() {
     // Recomputed from the restored answers rather than taken from the draft
     // alone: the password is never stored, so security comes back incomplete
     // whatever position was saved.
-    setReached(
-      restoredReached(draft.step, {
-        entityType: draft.entityType,
-        respondent: draft.respondent,
-        emailAvailable: null,
-        entityData: draft.entityData,
-        regionId: draft.regionId,
-        departmentId: draft.departmentId,
-        subdivisionId: draft.subdivisionId,
-        subdivisionsStatus: "idle",
-        area: draft.area,
-        sectorId: draft.sectorId,
-        password: "",
-        confirmPassword: "",
-      })
+    const restoredState: RegState = {
+      entityType: draft.entityType,
+      respondent: draft.respondent,
+      emailAvailable: null,
+      entityData: draft.entityData,
+      regionId: draft.regionId,
+      departmentId: draft.departmentId,
+      subdivisionId: draft.subdivisionId,
+      subdivisionsStatus: "idle",
+      area: draft.area,
+      sectorId: draft.sectorId,
+      password: "",
+      confirmPassword: "",
+    };
+    const restored = restoredReached(draft.step, restoredState);
+    setReached(restored);
+    // Land on the first thing still missing rather than on the furthest
+    // section reached: with the password gone, that is almost always the
+    // security section, which is exactly where the work resumes.
+    setCurrent(
+      firstIncompleteWithin(STEPS, restored, (step) =>
+        isSectionComplete(step, restoredState)
+      )
     );
     setDraftRestored(true);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -1088,7 +1034,7 @@ export default function RegisterPage() {
                     id="reg-function"
                     aria-required={true}
                     value={respondent.function}
-                    onChange={(e) => setRespondentField("function", e.target.value, "choice")}
+                    onChange={(e) => setRespondentField("function", e.target.value)}
                   >
                     <option value="">{t("registerPage.selectPlaceholder")}</option>
                     {RESPONDENT_FUNCTION_OPTIONS.map((o) => (
@@ -1171,54 +1117,18 @@ export default function RegisterPage() {
               subtitle={t("registerPage.entityInfoSubtitle")}
             />
 
-            {/* Subsections per entity type */}
-            {(() => {
-              const sections = ENTITY_SECTIONS[entityType] ?? [
-                { title: "Informations générales / General Information", keys: config.fields.map((f) => f.key) },
-              ];
-
-              // Track rendered field keys to ensure all config fields are rendered
-              const renderedKeys = new Set<string>();
-
-              return (
-                <>
-                  {sections.map((sec, secIdx) => {
-                    const secFields = config.fields.filter(
-                      (f) => sec.keys.includes(f.key) && isFieldVisible(f)
-                    );
-                    if (secFields.length === 0) return null;
-
-                    secFields.forEach((f) => renderedKeys.add(f.key));
-
-                    return (
-                      <div key={secIdx}>
-                        <div className="admin-section-header">{sec.title}</div>
-                        <div className="form-single-column">
-                          {secFields.map(renderEntityField)}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Fallback for any field not explicitly mapped to a section */}
-                  {(() => {
-                    const remainingFields = config.fields.filter(
-                      (f) => !renderedKeys.has(f.key) && isFieldVisible(f)
-                    );
-                    if (remainingFields.length === 0) return null;
-
-                    return (
-                      <div>
-                        <div className="admin-section-header">Informations complémentaires</div>
-                        <div className="form-single-column">
-                          {remainingFields.map(renderEntityField)}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>
-              );
-            })()}
+            {/* The grouping and the field order both come from
+                entityFieldGroups, which is also what lastEntityFieldKey
+                reads: the field the wizard treats as "the last one in this
+                section" is by construction the last one rendered here. */}
+            {entityFieldGroups(entityType, entityData).map((group) => (
+              <div key={group.title}>
+                <div className="admin-section-header">{group.title}</div>
+                <div className="form-single-column">
+                  {group.fields.map(renderEntityField)}
+                </div>
+              </div>
+            ))}
           </>
         );
 
@@ -1244,7 +1154,7 @@ export default function RegisterPage() {
                     value={regionId}
                     onChange={(e) => {
                       const id = e.target.value;
-                      lastInputKindRef.current = "choice";
+                      armFromField(false);
                       // A new region invalidates the two fields below it.
                       // That already happened silently; now it says so,
                       // because a respondent who had answered them would
@@ -1285,7 +1195,7 @@ export default function RegisterPage() {
                     disabled={!regionId}
                     onChange={(e) => {
                       const id = e.target.value;
-                      lastInputKindRef.current = "choice";
+                      armFromField(false);
                       setDepartmentId(id);
                       setDepartmentName(departmentsQuery.data?.find((d) => d.id === id)?.name || "");
                       setSubdivisionId("");
@@ -1326,7 +1236,7 @@ export default function RegisterPage() {
                     disabled={!departmentId || subdivisionsStatus === "empty"}
                     onChange={(e) => {
                       const id = e.target.value;
-                      lastInputKindRef.current = "choice";
+                      armFromField(false);
                       setSubdivisionId(id);
                       setSubdivisionName(subdivisionsQuery.data?.find((s) => s.id === id)?.name || "");
                     }}
@@ -1353,7 +1263,7 @@ export default function RegisterPage() {
                     aria-required={true}
                     value={area}
                     onChange={(e) => {
-                      lastInputKindRef.current = "choice";
+                      armFromField(false);
                       setArea(e.target.value);
                     }}
                   >
@@ -1378,7 +1288,10 @@ export default function RegisterPage() {
                     value={sectorId}
                     onChange={(e) => {
                       const id = e.target.value;
-                      lastInputKindRef.current = "choice";
+                      // The activity sector is the section's last field, and
+                      // the only optional one: changing it says the
+                      // respondent is done with the location.
+                      armFromField(true);
                       setSectorId(id);
                       setSectorName(sectorsQuery.data?.find((s) => s.id === id)?.name || "");
                     }}
@@ -1414,7 +1327,6 @@ export default function RegisterPage() {
                     type={obscurePassword ? "password" : "text"}
                     value={password}
                     onChange={(e) => {
-                      lastInputKindRef.current = "text";
                       setPassword(e.target.value);
                     }}
                     placeholder="••••••••••••"
@@ -1481,7 +1393,6 @@ export default function RegisterPage() {
                     type={obscureConfirm ? "password" : "text"}
                     value={confirmPassword}
                     onChange={(e) => {
-                      lastInputKindRef.current = "text";
                       setConfirmPassword(e.target.value);
                     }}
                     placeholder="••••••••••••"
@@ -1519,15 +1430,14 @@ export default function RegisterPage() {
               subtitle={t("registerPage.reviewSubtitle")}
             />
 
-            {submitError && (
-              <div className="auth-error-box" role="alert" style={{ marginBottom: "14px" }}>
-                {submitError}
-              </div>
-            )}
+            {/* The error banner is NOT rendered here: a failure sends the
+                respondent to the section that failed, and an error message
+                left behind in the review would go with it. It lives at the
+                top of the frame instead -- see the main return below. */}
 
             <RegistrationReview
               state={summaryState}
-              onEdit={(targetStep) => editSection(STEPS.indexOf(targetStep))}
+              onEdit={(targetStep) => goToSection(STEPS.indexOf(targetStep))}
             />
 
             {/* The flow's single primary action, gated on an explicit
@@ -1559,102 +1469,113 @@ export default function RegisterPage() {
     }
   }
 
-  // One scrolling page of sections, revealed as each is completed.
+  // One screen, one frame, one section, one scrollbar.
+  //
+  // The page itself does not scroll: it is a 100dvh flex column of the
+  // national stripe, the header that carries the rail, and a body that gives
+  // every remaining pixel to a single bordered frame. The frame's inner
+  // region is the only scroll container on the route, so a long section
+  // scrolls inside the frame while the rail -- the navigation -- stays put
+  // without needing position: sticky to do it.
+  //
+  // Every revealed section stays MOUNTED and is merely hidden: a section the
+  // respondent has left keeps its state and its in-flight requests, and the
+  // email-availability check running when they moved on still lands.
   return (
     <main className="cam-auth-page cam-auth-page--wizard">
-      <div className="wrap-wide">
-        <AuthHeader />
+      <div className="flow-stripe" aria-hidden="true" />
 
-        <div className="card card--admin">
-          <div className="stripe" aria-hidden="true" />
-          {/* Sticky header: the rail stays put while the sections scroll under
-              it, so "which section am I in" survives a two-viewport form. */}
-          <div className="card-header">
-            <RegistrationProgress currentIndex={currentIndex} completed={completed} />
-          </div>
+      {/* Sticky by structure, not by position: this is a fixed-size row of
+          the page's flex column, so nothing can scroll underneath it. */}
+      <header className="flow-header">
+        <div className="flow-header-inner">
+          <AuthHeader />
+          <RegistrationProgress
+            currentIndex={current}
+            reached={reached}
+            completed={completed}
+            summaries={railSummaries}
+            onSelect={goToSection}
+          />
+        </div>
+      </header>
 
-          {/* The only scroll region in the flow, and the query container the
-              field layout measures (see globals.css) */}
-          <div className="card-body-scroll" ref={scrollRef}>
+      <div className="flow-body">
+        {/* The frame: the one bordered element on the page, and the query
+            container the side-by-side field layout measures. */}
+        <div className="flow-frame">
+          <div className="flow-frame-scroll" ref={frameScrollRef}>
             {draftRestored && (
               <div className="draft-restored-notice" role="status">
                 {t("registerPage.draftRestoredNotice")}
               </div>
             )}
 
+            {/* Above the section rather than inside the review: a failure
+                sends the respondent to the section that failed, and the
+                message has to travel with them. */}
+            {submitError && (
+              <div className="auth-error-box" role="alert">
+                {submitError}
+              </div>
+            )}
+
             <form
+              className="cam-form-flow"
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSubmitPress();
               }}
               onKeyDown={handleFormKeyDown}
             >
-              <div className="wizard-sections">
-                {STEPS.slice(0, reached + 1).map((id, idx) => {
-                  const collapsed = isCollapsed(idx);
-                  return (
-                    <section
-                      key={id}
-                      ref={(el) => {
-                        sectionRefs.current[idx] = el;
-                      }}
-                      className={[
-                        "wizard-section",
-                        collapsed ? "is-collapsed" : "",
-                        !collapsed && idx === currentIndex ? "is-current" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      aria-labelledby={collapsed ? undefined : `reg-section-title-${id}`}
-                      // Focus is what says "I am working here", and a tap
-                      // covers reaching a section without focusing a control.
-                      onFocusCapture={() => openSection(idx)}
-                      onPointerDownCapture={() => openSection(idx)}
-                    >
-                      {collapsed ? (
-                        <CollapsedSection
-                          title={t(`registerPage.${sectionLabelKey(id)}`)}
-                          // Derived here, at render time, from the same rows
-                          // the review card uses. Never cached.
-                          summary={sectionSummary(summaryRows(id, summaryState, (k) => t(k)))}
-                          editLabel={t("registerPage.editSectionButton")}
-                          completeLabel={t("registerPage.sectionCompleteLabel")}
-                          onEdit={() => editSection(idx)}
-                        />
-                      ) : (
-                        renderSection(id)
-                      )}
-                    </section>
-                  );
-                })}
-              </div>
-            </form>
-          </div>
+              {STEPS.slice(0, reached + 1).map((id, idx) => (
+                <section
+                  key={id}
+                  className="wizard-section"
+                  hidden={idx !== current}
+                  aria-labelledby={`reg-section-title-${id}`}
+                >
+                  {renderSection(id)}
 
-          <div className="card-footer">
-            <span className="create-account" style={{ display: "block" }}>
-              <a
-                href="/login"
-                onClick={(e) => {
-                  // An in-app navigation away from a part-filled form is
-                  // confirmable; see the dialog below.
-                  if (!hasEnteredData) return;
-                  e.preventDefault();
-                  setLeaveTo("/login");
-                }}
-              >
-                {reached === 0
-                  ? t("registerPage.alreadyRegisteredSignIn")
-                  : t("registerPage.backToSignInLink")}
-              </a>
-            </span>
+                  {/* A text link, not a button bar: moving on is the normal
+                      consequence of finishing a section, and the sections
+                      that cannot move on by themselves are exactly the ones
+                      with an optional field still worth offering. */}
+                  {idx === current && showContinueLink && (
+                    <p className="flow-continue">
+                      <button
+                        type="button"
+                        className="flow-continue-link"
+                        onClick={() => advanceFrom(current)}
+                      >
+                        {t("registerPage.continueToNextStep")}
+                        <span aria-hidden="true"> →</span>
+                      </button>
+                    </p>
+                  )}
+                </section>
+              ))}
+            </form>
           </div>
         </div>
       </div>
 
-      {/* Shell strip, not document flow: under the card's overflow: hidden a
-          trailing element inside .wrap-wide is clipped or pushed off-screen. */}
-      <div className="wizard-legal-line">
+      <div className="flow-footer">
+        <a
+          href="/login"
+          onClick={(e) => {
+            // An in-app navigation away from a part-filled form is
+            // confirmable; see the dialog below.
+            if (!hasEnteredData) return;
+            e.preventDefault();
+            setLeaveTo("/login");
+          }}
+        >
+          {reached === 0
+            ? t("registerPage.alreadyRegisteredSignIn")
+            : t("registerPage.backToSignInLink")}
+        </a>
+        <span className="flow-footer-sep" aria-hidden="true">·</span>
         {t("loginPage.needHelpText")}{" "}
         <a href="https://wa.me/237651965905" target="_blank" rel="noopener noreferrer">
           {t("loginPage.whatsappLink")}
