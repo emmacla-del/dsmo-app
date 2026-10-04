@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { REGISTRATION_STEPS, type RegistrationStepId } from "@/lib/register-constants";
+import { asUiLocale } from "@/lib/register-i18n";
 import { summaryRows, type SummaryState } from "@/lib/register-summary";
 
 // The official summary shown before submission.
@@ -28,13 +29,17 @@ export function RegistrationReview({
   onEdit: (step: RegistrationStepId) => void;
 }) {
   const t = useTranslations();
+  // The questionnaire half of these rows (field names, option answers, the
+  // entity type) is {fr, en} data rather than catalogue copy, so it needs the
+  // locale as well as the resolver.
+  const locale = asUiLocale(useLocale());
   const labelKeyFor = (step: RegistrationStepId) =>
     REGISTRATION_STEPS.find((s) => s.id === step)?.labelKey ?? step;
 
   return (
     <div style={{ marginTop: "12px" }}>
       {SUMMARISED_STEPS.map((step, index) => {
-        const rows = summaryRows(step, state, (key) => t(key));
+        const rows = summaryRows(step, state, (key) => t(key), locale);
         if (rows.length === 0) return null;
         const sectionTitle = t(`registerPage.${labelKeyFor(step)}`);
 

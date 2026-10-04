@@ -5,75 +5,123 @@ import { useTranslations } from "next-intl";
 // Shared with app/register/page.tsx: this rail used to carry its own copy of
 // the step list, which nothing kept in step with the page's navigation order.
 import { REGISTRATION_STEPS } from "@/lib/register-constants";
+import {
+  railItemEnabled,
+  railItemShowsCheck,
+  railItemState,
+  railStateLabelKey,
+} from "@/lib/register-rail";
 
 interface RegistrationProgressProps {
-  // Index of the section the respondent is working in.
+  // The section showing in the frame.
   currentIndex: number;
-  // Per-section completeness, same order as REGISTRATION_STEPS. A section's
-  // badge shows a checkmark from this, not from "is behind the cursor": on a
-  // single-page flow the respondent can be editing section 2 while 4 is
-  // already answered, and the rail has to say so.
+  // The furthest revealed section. Items past it are locked.
+  reached: number;
+  // Per-section completeness, same order as REGISTRATION_STEPS.
   completed: readonly boolean[];
+  // One line per section, derived by the caller from summaryRows() -- the
+  // same source the review card uses, so the rail's tooltip and the review
+  // can never disagree. Empty for a section with nothing answered.
+  summaries: readonly string[];
+  onSelect: (index: number) => void;
+  // One line under the rail, shown once the first section is behind the
+  // respondent and dropped for good on their first click. Null means "not
+  // now"; the caller owns both conditions, so this component stays a pure
+  // render of the state it is handed.
+  hint?: string | null;
 }
 
-export function RegistrationProgress({ currentIndex, completed }: RegistrationProgressProps) {
+// The rail IS the navigation.
+//
+// There is no Suivant/Retour pair and no collapsed summary line any more: the
+// six circles are what moves the respondent between sections, which is why
+// every item is a real <button> rather than a decorative <div> in a list. A
+// locked item is a disabled button, not a missing one -- "there are six steps
+// and I have reached three" is information worth keeping on screen.
+//
+// Every visual state comes from railItemState() so the circle, the label, the
+// tooltip and the accessible name cannot disagree about what a section is.
+export function RegistrationProgress({
+  currentIndex,
+  reached,
+  completed,
+  summaries,
+  onSelect,
+  hint = null,
+}: RegistrationProgressProps) {
   const t = useTranslations("registerPage");
   const total = REGISTRATION_STEPS.length;
   const activeIdx = Math.min(Math.max(currentIndex, 0), total - 1);
   const currentItem = REGISTRATION_STEPS[activeIdx];
 
-  function stateClass(idx: number): string {
-    if (completed[idx]) return "is-completed";
-    if (idx === activeIdx) return "is-current";
-    return "is-upcoming";
-  }
-
   return (
     <div className="registration-progress">
-      {/* The one line that always says where the respondent is. Announced on
-          change, because on a scrolling single-page flow the rail is the only
-          thing that reports the move from one section to the next. */}
+      {/* The one line that always says where the respondent is. Below 560px
+          the rail's labels are hidden, so this is the only thing naming the
+          step; it is announced on change for the same reason. */}
+      {/* Below 560px the rail's labels are hidden and this is the only thing
+          naming the step, which is also why it is announced on change. Above
+          that width the labels say it already, so CSS hides this rather than
+          printing the step's name twice. */}
       <p className="progress-caption" aria-live="polite">
         {t("stepIndicator", { current: activeIdx + 1, total })}
         {" — "}
         {t(currentItem.labelKey)}
       </p>
 
-      {/* Wide: numbered badges with their section names. */}
-      <div
-        className="progress-rail-desktop"
-        role="list"
-        aria-label={t("stepIndicator", { current: activeIdx + 1, total })}
-      >
-        {REGISTRATION_STEPS.map((s, idx) => (
-          <div
-            key={s.id}
-            className={`progress-step-item ${stateClass(idx)}`}
-            role="listitem"
-            aria-current={idx === activeIdx ? "step" : undefined}
-          >
-            <div className="progress-step-circle" aria-hidden="true">
-              {completed[idx] ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                idx + 1
-              )}
-            </div>
-            <span className="progress-step-label">{t(s.labelKey)}</span>
-          </div>
-        ))}
+      <div className="progress-rail" aria-label={t("railLabel")}>
+        {REGISTRATION_STEPS.map((s, idx) => {
+          const state = railItemState(idx, { currentIndex: activeIdx, reached, completed });
+          const enabled = railItemEnabled(state);
+          const name = t(s.labelKey);
+          const stateText = t(railStateLabelKey(state));
+          const summary = summaries[idx] ?? "";
+
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className={`progress-step-item is-${state}`}
+              // aria-disabled, never the `disabled` attribute. A locked step
+              // is a real question -- "why can't I go there?" -- and a
+              // disabled button swallows the click that asks it. The handler
+              // answers by naming what the current section still needs.
+              // Assistive tech is told it is unavailable either way.
+              aria-disabled={!enabled || undefined}
+              aria-current={idx === activeIdx ? "step" : undefined}
+              aria-label={`${name} — ${stateText}`}
+              // Native tooltip rather than a custom popover: it is a
+              // convenience on a control whose accessible name already says
+              // everything it says.
+              title={
+                state === "done" && summary
+                  ? `${name} — ${summary} ${t("railEditHint")}`
+                  : `${name} — ${stateText}`
+              }
+              onClick={() => onSelect(idx)}
+            >
+              <span className="progress-step-circle" aria-hidden="true">
+                {railItemShowsCheck(state) ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  idx + 1
+                )}
+              </span>
+              <span className="progress-step-label" aria-hidden="true">
+                {name}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Narrow: the same six states as discrete segments. Replaces a single
-          filled bar, which could only express "how far along" and never which
-          sections were actually answered. */}
-      <div className="progress-segments" aria-hidden="true">
-        {REGISTRATION_STEPS.map((s, idx) => (
-          <span key={s.id} className={`progress-segment ${stateClass(idx)}`} />
-        ))}
-      </div>
+      {hint && (
+        <p className="progress-rail-hint" role="status">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

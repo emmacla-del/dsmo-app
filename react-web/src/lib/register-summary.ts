@@ -25,7 +25,8 @@ import {
   isFieldVisible,
   type RegistrationStepId,
 } from "./register-constants";
-import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS } from "./register-options";
+import { AREA_OPTIONS, RESPONDENT_FUNCTION_OPTIONS, type RegisterOption } from "./register-options";
+import { localized, type UiLocale } from "./register-i18n";
 import type { RegState } from "./register-completeness";
 
 export interface SummaryRow {
@@ -44,14 +45,23 @@ export interface SummaryState extends RegState {
 
 export type TranslateFn = (key: string) => string;
 
+// The locale every questionnaire string is read in. Passed explicitly rather
+// than read from a hook: this module runs during render and must stay pure,
+// and the tests need to drive both languages without a React tree.
+
 // How many values a collapsed section shows before it stops.
 export const SECTION_SUMMARY_MAX_VALUES = 3;
 
 function optionLabel(
-  options: readonly { value: string; label: string }[],
-  value: string
+  options: readonly RegisterOption[],
+  value: string,
+  locale: UiLocale
 ): string {
-  return options.find((o) => o.value === value)?.label ?? value;
+  const option = options.find((o) => o.value === value);
+  // Falling back to the stored value, not to an empty cell: an answer the
+  // option list no longer recognises is still an answer the respondent gave,
+  // and the review must not silently drop it.
+  return option ? localized(option.label, locale) : value;
 }
 
 function row(label: string, value: string | undefined): SummaryRow | null {
@@ -66,14 +76,15 @@ function compact(rows: (SummaryRow | null)[]): SummaryRow[] {
 export function summaryRows(
   step: RegistrationStepId,
   state: SummaryState,
-  t: TranslateFn
+  t: TranslateFn,
+  locale: UiLocale
 ): SummaryRow[] {
   switch (step) {
     case "entityType":
       return compact([
         row(
           t("registerPage.summaryEntityTypeLabel"),
-          state.entityType ? ENTITY_CONFIGS[state.entityType].title : ""
+          state.entityType ? localized(ENTITY_CONFIGS[state.entityType].title, locale) : ""
         ),
       ]);
 
@@ -84,7 +95,7 @@ export function summaryRows(
         row(t("registerPage.summaryFullNameLabel"), fullName),
         row(
           t("registerPage.functionLabel"),
-          r.function ? optionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function) : ""
+          r.function ? optionLabel(RESPONDENT_FUNCTION_OPTIONS, r.function, locale) : ""
         ),
         row(t("registerPage.professionalEmailLabel"), r.email),
         row(t("registerPage.phone1Label"), r.phone1),
@@ -98,7 +109,7 @@ export function summaryRows(
       if (!state.entityType) return [];
       const config = ENTITY_CONFIGS[state.entityType];
       const rows: (SummaryRow | null)[] = [
-        row(t("registerPage.summaryEntityTypeLabel"), config.title),
+        row(t("registerPage.summaryEntityTypeLabel"), localized(config.title, locale)),
       ];
       for (const field of config.fields) {
         // A field whose gate has closed is not part of the declaration, even
@@ -107,7 +118,10 @@ export function summaryRows(
         if (!isFieldVisible(field, state.entityData, config.fields)) continue;
         const raw = state.entityData[field.key];
         rows.push(
-          row(field.label, field.options && raw ? optionLabel(field.options, raw) : raw)
+          row(
+            localized(field.label, locale),
+            field.options && raw ? optionLabel(field.options, raw, locale) : raw
+          )
         );
       }
       return compact(rows);
@@ -120,7 +134,7 @@ export function summaryRows(
         row(t("registerPage.subdivisionLabel"), state.subdivisionName),
         row(
           t("registerPage.areaLabel"),
-          state.area ? optionLabel(AREA_OPTIONS, state.area) : ""
+          state.area ? optionLabel(AREA_OPTIONS, state.area, locale) : ""
         ),
         row(t("registerPage.sectorLabel"), state.sectorName),
       ]);

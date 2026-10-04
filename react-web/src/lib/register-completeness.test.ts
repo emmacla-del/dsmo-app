@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   PASSWORD_MIN_STRENGTH,
+  advancesImmediately,
   isSectionComplete,
   type RegState,
   type SubdivisionsStatus,
@@ -207,8 +208,43 @@ test("security section enforces length, strength and the confirmation", () => {
   assert.equal(isSectionComplete("security", baseState({ password: "", confirmPassword: "" })), false);
 });
 
-test("review section has nothing of its own to complete", () => {
-  assert.equal(isSectionComplete("review", baseState()), true);
+test("review is never complete from field state alone", () => {
+  // It declares no required fields, so there is nothing for it to complete.
+  // Treating it as complete put a done checkmark on "Recapitulatif" before
+  // anything had been submitted.
+  assert.equal(isSectionComplete("review", baseState()), false);
+});
+
+test("advancesImmediately is true only for sections with no optional fields", () => {
+  const state = baseState();
+  assert.equal(advancesImmediately("entityType", state.entityType), true);
+  assert.equal(advancesImmediately("security", state.entityType), true);
+  // phone2 / sector make these wait for the respondent to move on.
+  assert.equal(advancesImmediately("respondent", state.entityType), false);
+  assert.equal(advancesImmediately("location", state.entityType), false);
+  assert.equal(advancesImmediately("review", state.entityType), false);
+});
+
+test("advancesImmediately reads entityInfo from the chosen type's field set", () => {
+  // Every type declared today has at least one optional field, so entityInfo
+  // waits for the respondent in all of them.
+  for (const type of [
+    "enterprise",
+    "cooperative",
+    "ctd",
+    "ong",
+    "administration",
+    "projectProgram",
+    "vocationalTraining",
+  ] as const) {
+    assert.equal(
+      advancesImmediately("entityInfo", type),
+      false,
+      `${type} has optional fields, so entityInfo must not advance by itself`
+    );
+  }
+  // With no type picked there is no field set to judge, so it waits.
+  assert.equal(advancesImmediately("entityInfo", null), false);
 });
 
 // ── Drift guard between the strength score and the rule tips ──────────────
