@@ -455,6 +455,8 @@ export interface OnefopSubmission {
   entityType?: string;
   quarterCode?: string;
   period?: string;
+  // What the list endpoint actually returns as the row timestamp.
+  submittedAt?: string;
   createdAt?: string;
   updatedAt?: string;
   [key: string]: unknown;

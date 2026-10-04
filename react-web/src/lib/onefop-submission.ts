@@ -63,13 +63,32 @@ export function supportsBackendSubmission(entityType: string): boolean {
   return SUBMIT_SUPPORTED.has(entityType);
 }
 
+/**
+ * The row POST /onefop/draft returns — a SubmissionDraft upsert
+ * (onefop.service.ts saveDraft). The model has no `id`: its primary key is
+ * @@unique([establishmentId, quarterCode]). No caller reads the body today;
+ * this type exists so a future one cannot reach for a field that is not there.
+ */
+export interface SavedDraft {
+  establishmentId: string;
+  quarterCode: string;
+  entityType: string;
+  draftData: unknown;
+  lastSavedAt: string;
+  savedByUserId: string | null;
+  completionScore: number | null;
+  missingFields: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function saveDraftToBackend(
   entityType: string,
   quarterCode: string,
   draftData: FormData,
   entity?: OnefopEntity | null,
 ) {
-  return apiFetch<{ id: string }>("/onefop/draft", {
+  return apiFetch<SavedDraft>("/onefop/draft", {
     method: "POST",
     body: JSON.stringify({
       quarterCode,

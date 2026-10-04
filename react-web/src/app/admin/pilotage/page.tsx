@@ -13,6 +13,7 @@ import { DataState } from "@/components/admin/DataState";
 import { count, rate, shortStamp, stamp, NOT_PROVIDED } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { getQualitySummary, type QualitySummary } from "@/lib/anomaly-registry";
+import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   APPROVED: { label: "Validé", color: "#007a5e", bg: "#e8f7f3" },
@@ -191,16 +192,18 @@ function RegionalCoverage({ rows, isDivisional }: { rows: { name: string; count:
   );
 }
 
-interface ActivitySubmissionItem {
+// The entity name is NOT a flat `companyName` on /admin/questionnaires items;
+// it is resolved from the per-entity detail relations — see resolveEntityName.
+type ActivitySubmissionItem = NamedSubmission & {
   id?: string;
   adminStatus?: string;
   status?: string;
   region?: string;
-  companyName?: string;
   submittedAt?: string;
   createdAt?: string;
-  rawData?: { enterprise?: { region?: string; companyName?: string } };
-}
+  // `region` is read off the same rawData blob the name resolver walks.
+  rawData?: NamedSubmission["rawData"] & { enterprise?: { region?: string | null } | null };
+};
 
 function RecentActivity({
   items,
@@ -247,7 +250,7 @@ function RecentActivity({
               ? STATUS_META[statusKey]
               : { label: statusKey || "En attente", color: "#6b7280", bg: "#f3f4f6" };
             const region = s.region || s.rawData?.enterprise?.region || null;
-            const name = s.companyName || s.rawData?.enterprise?.companyName || (s.id ? `Fiche #${s.id.slice(0, 8)}` : NOT_PROVIDED);
+            const name = resolveEntityName(s) ?? (s.id ? `Fiche #${s.id.slice(0, 8)}` : NOT_PROVIDED);
             return (
               <li key={s.id || idx} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
                 <span style={{ color: "#6b7280", fontSize: 12, minWidth: 42, fontVariantNumeric: "tabular-nums" }}>

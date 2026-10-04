@@ -134,7 +134,10 @@ function mapOnefop(s: OnefopSubmission, t: Translator): HistoryEntry {
     group,
     period,
     subtitle: `${label}${period !== "—" ? " · " + period : ""}`,
-    date: s.updatedAt ? new Date(s.updatedAt) : s.createdAt ? new Date(s.createdAt) : null,
+    // GET /onefop/submissions returns `submittedAt` (onefop.service.ts
+    // getSubmissions maps createdAt -> submittedAt); updatedAt/createdAt are
+    // kept as fallbacks only in case the shape changes.
+    date: s.submittedAt ? new Date(s.submittedAt) : s.updatedAt ? new Date(s.updatedAt) : s.createdAt ? new Date(s.createdAt) : null,
     raw: s,
   };
 }
