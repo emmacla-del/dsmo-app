@@ -696,6 +696,7 @@
     "thankYouTitle": "Merci pour votre participation",
     "confidentialityTitle": "Secret statistique & Protection des données",
     "confidentialityText": "Conformément à la Loi N° 91/023 du 16 décembre 1991, les renseignements recueillis sont couverts par le secret statistique et ne peuvent être utilisés qu'à des fins statistiques ou de planification nationale.",
+    "periodClosedTitle": "Période de déclaration fermée",
     "errorsBlockingSubmit": "Des erreurs de validation bloquent la soumission. Cliquez sur les sections concernées ci-dessous pour les corriger.",
     "incompleteWarning": "Attention : certaines sections ne sont pas encore complètes. Vous pouvez cliquer sur une section ci-dessous pour la corriger avant de soumettre.",
     "summaryHeader": "Récapitulatif des 9 sections",

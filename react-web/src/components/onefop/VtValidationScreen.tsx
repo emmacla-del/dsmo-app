@@ -17,6 +17,15 @@ interface VtValidationScreenProps {
   onSaveDraft?: () => void;
   onSubmitFinal?: () => void;
   isSubmitting?: boolean;
+  /**
+   * False only when the backend has confirmed the collection period is
+   * closed. Defaults to true so the submit button is never disabled while
+   * GET /onefop/active-quarter is still in flight — same convention as
+   * WizardShell's own canSubmit and ModernJobsWizard's.
+   */
+  canSubmit?: boolean;
+  /** The backend's reason for the closure, shown under the banner title. */
+  quarterStatusMessage?: string;
 }
 
 type SectionState = "notStarted" | "inProgress" | "done";
@@ -68,6 +77,8 @@ export function VtValidationScreen({
   onSaveDraft,
   onSubmitFinal,
   isSubmitting = false,
+  canSubmit = true,
+  quarterStatusMessage,
 }: VtValidationScreenProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -152,6 +163,36 @@ export function VtValidationScreen({
           }}
         >
           {t("vtValidationScreen.errorsBlockingSubmit")}
+        </div>
+      )}
+
+      {/* Collection period closed — warns here and disables the submit
+          button below, matching the treatment ModernJobsWizard already gives
+          non-VT flows. Rendered above the advisory banners because it is the
+          one condition the respondent cannot resolve by editing the form. */}
+      {!canSubmit && (
+        <div
+          style={{
+            background: "rgba(230, 81, 0, 0.08)",
+            border: "1px solid rgba(230, 81, 0, 0.3)",
+            borderRadius: "var(--cam-radius-md)",
+            padding: "14px 18px",
+            fontSize: "13.5px",
+            color: "var(--cam-text)",
+            marginBottom: "var(--cam-space-4)",
+            lineHeight: 1.4,
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
+          <span style={{ fontSize: "20px", lineHeight: 1 }}>🔒</span>
+          <div>
+            <div style={{ fontWeight: 700 }}>{t("vtValidationScreen.periodClosedTitle")}</div>
+            {quarterStatusMessage && (
+              <div style={{ marginTop: "2px", color: "var(--cam-text-muted)" }}>{quarterStatusMessage}</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -441,19 +482,19 @@ export function VtValidationScreen({
           <button
             type="button"
             onClick={onSubmitFinal}
-            disabled={isSubmitting || hasErrors}
+            disabled={isSubmitting || hasErrors || !canSubmit}
             style={{
               height: "var(--cam-form-field-height)",
               padding: "0 48px",
               borderRadius: "var(--cam-radius-sm)",
               fontSize: 15,
               fontWeight: 600,
-              cursor: isSubmitting || hasErrors ? "not-allowed" : "pointer",
+              cursor: isSubmitting || hasErrors || !canSubmit ? "not-allowed" : "pointer",
               border: "none",
               background: "var(--cam-green)",
               color: "#fff",
               fontFamily: "var(--cam-font-sans)",
-              opacity: isSubmitting || hasErrors ? 0.55 : 1,
+              opacity: isSubmitting || hasErrors || !canSubmit ? 0.55 : 1,
             }}
           >
             {isSubmitting ? (

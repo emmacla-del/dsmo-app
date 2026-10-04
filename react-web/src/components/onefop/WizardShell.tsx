@@ -228,6 +228,18 @@ export function WizardShell({
   // submit button is not disabled during the initial fetch.
   const canSubmit = supportsBackendSubmission(entityType) && (quarterQuery.data?.isOpen !== false);
 
+  // Shared by both terminal screens — ModernJobsWizard (non-VT) and
+  // VtValidationScreen — so a closed period reads identically whichever
+  // flow the respondent is in. Prefers the backend's own reason when it
+  // sends one.
+  const quarterStatusMessage =
+    quarterQuery.data?.isOpen === false
+      ? (quarterQuery.data?.message ||
+        (locale.startsWith("en")
+          ? "The submission period for this quarter is currently closed."
+          : "La période de soumission pour ce trimestre est actuellement fermée."))
+      : undefined;
+
   const submissionError =
     pdfMutation.isError || submitMutation.isError
       ? formatSubmissionError(
@@ -649,11 +661,7 @@ export function WizardShell({
           onCancel={onCancel}
           onSubmitFinal={() => setPreviewModalOpen(true)}
           canSubmit={canSubmit}
-          quarterStatusMessage={
-            quarterQuery.data?.isOpen === false
-              ? (quarterQuery.data?.message || (locale.startsWith("en") ? "The submission period for this quarter is currently closed." : "La période de soumission pour ce trimestre est actuellement fermée."))
-              : undefined
-          }
+          quarterStatusMessage={quarterStatusMessage}
           isSubmitting={submitMutation.isPending}
           submissionResult={submissionResult}
           submissionError={submissionError}
@@ -793,6 +801,8 @@ export function WizardShell({
                   onSaveDraft={onSaveNow ? () => onSaveNow() : undefined}
                   onSubmitFinal={() => setPreviewModalOpen(true)}
                   isSubmitting={submitMutation.isPending}
+                  canSubmit={canSubmit}
+                  quarterStatusMessage={quarterStatusMessage}
                 />
               </>
             )}
