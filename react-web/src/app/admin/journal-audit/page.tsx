@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { directoryRoleLabel } from "@/lib/user-directory";
@@ -214,29 +213,7 @@ export default function JournalAuditPage() {
       <AdminPageHeader
         breadcrumb={[{ label: "Administration" }, { label: "Journal d'audit" }]}
         title="Journal d'Audit Systémique"
-        hideTabs={true}
       />
-
-      {/* ── 3 Sub-navigation Tabs matching Figma ── */}
-      <div className="flex items-center gap-2 mb-4">
-        <Link
-          href="/admin/utilisateurs"
-          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-        >
-          Utilisateurs &amp; rôles
-        </Link>
-        <span
-          className="px-4 py-2 text-sm font-semibold text-white bg-[#164e32] rounded-lg shadow-xs cursor-default"
-        >
-          Journal d&apos;audit
-        </span>
-        <Link
-          href="/admin/parametres"
-          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
-        >
-          Paramètres
-        </Link>
-      </div>
 
       {/* ── Filter Bar matching Figma ── */}
       <section

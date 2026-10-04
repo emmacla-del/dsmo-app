@@ -27,7 +27,7 @@ import {
 } from "@/lib/audit-log";
 import { resolveDataState, stamp } from "@/lib/admin-data-state";
 import { listCampaigns } from "@/lib/campaigns";
-import { AUDIT_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+import { AUDIT_ROLES, SETTINGS_ROLES } from "@/lib/roles";
 
 const RECENT_AUDIT_LIMIT = 6;
 
@@ -215,7 +215,6 @@ function ParametresContent() {
             showSearchInput={true}
           />
         }
-        hideTabs={true}
       />
 
       {saveSuccess && (
@@ -227,29 +226,8 @@ function ParametresContent() {
       {/* ── 2-Column Layout matching Figma administration/parametres.png ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-        {/* ── Left Column: Sub-navigation container & advanced links ── */}
+        {/* ── Left Column: advanced configuration links ── */}
         <div className="lg:col-span-4 flex flex-col gap-5">
-          {/* Pill Container matching Figma exactly */}
-          <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-between shadow-xs">
-            <Link
-              href="/admin/utilisateurs"
-              className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 rounded-lg transition-colors whitespace-nowrap"
-            >
-              Utilisateurs &amp; rôles
-            </Link>
-            <Link
-              href="/admin/journal-audit"
-              className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 rounded-lg transition-colors whitespace-nowrap"
-            >
-              Journal d&apos;audit
-            </Link>
-            <span
-              className="px-4 py-2 text-xs font-semibold text-[#006644] bg-[#e6f4ea] rounded-lg cursor-default whitespace-nowrap"
-            >
-              Paramètres
-            </span>
-          </div>
-
           {/* Preserved Granular Configurations Section (Zero widget drop) */}
           <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
             <button
