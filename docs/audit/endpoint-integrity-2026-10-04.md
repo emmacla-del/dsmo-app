@@ -79,3 +79,72 @@ territory.
 - `/audit/actor-summary` coverage scope
 - `/admin/questionnaires` anomaly backfill gate
 - `/companies/stats` bucket overlap
+- Reinstate the type check in getDataStats (remove `const where: any`) or type territoryWhere's return against the accepting models — the current signature makes this whole class of bug invisible.
+
+## Correction — 2026-10-04
+
+Scope: endpoint #9, `GET /data-management/stats`, and only the `territoryWhere`
+shape claim in it. The original finding above is left as written; everything it
+says about `totals.users` bypassing `territoryWhere` stands and is unaffected by
+this correction.
+
+The follow-up investigation is a full audit of every `territoryWhere` caller
+against the generated Prisma `*WhereInput` types, and it supersedes this
+document on the points below. Treat it as the source of truth for the
+`territoryWhere` shape analysis; what follows is its summary.
+
+### What the original finding got wrong
+
+The trigger condition as written — "`territoryWhere` emits `regionId`, a column
+`Declaration` does not have → Prisma validation error (500) for any regional
+admin with `regionId` set" — is inaccurate in its second half.
+
+**There is no `User.regionId` column.** `model User` declares `region`,
+`department` and `subdivision` as nullable strings and no `*Id` columns at all;
+no migration under `prisma/migrations/` adds one. `territoryFromUser`
+(`src/auth/territory.ts:61-69`) therefore reads `user?.regionId ?? null` off an
+object that can never carry it, and the `regionId` branch at `territory.ts:108`
+is dead on every HTTP path. A regional admin "with `regionId` set" is not a
+reachable state.
+
+### The endpoint does NOT 500 today
+
+What a `REGIONAL_ADMIN` actually receives from `territoryWhere` is either
+`{ region: { equals, mode: 'insensitive' } }` or `NO_ROWS` = `{ id: { in: [] } }`.
+Both are valid against `DeclarationWhereInput`, which accepts `id`, `region` and
+`division`. No role that can reach this route produces a shape `Declaration`
+rejects.
+
+### The shape mismatch is real, and the break-in path is `department`
+
+`getDataStats` (`src/data-management/data-management.service.ts:572-607`) builds
+one `where` from `territoryWhere` and hands the same object to six queries
+across three models. `Company` and `OnefopSubmission` declare all six territory
+columns; `Declaration` declares only `region` (and names its second tier
+`division`, not `department`). So `regionId`, `departmentId` and `department`
+are all invalid there. It is the only caller of `territoryWhere` whose target
+model is shape-incompatible — every other caller queries `Company` or
+`OnefopSubmission`, and `pilotage-scope.ts` never passes the object to Prisma.
+
+Three independent gates keep this latent:
+
+| Gate | Where | Effect |
+|---|---|---|
+| G1 | `model User` has no `regionId`/`departmentId` | the id branches never fire |
+| G2 | `jwt.strategy.ts:155-163` returns only `{id, email, role, region, department, status, isActive}` | `req.user` carries no `*Id` even if G1 were lifted |
+| G3 | `@Roles(SUPER_ADMIN, ADMIN_ONEFOP, REGIONAL_ADMIN)` on `data-management.controller.ts:55`, enforced by `roles.guard.ts:36` | `DIVISIONAL_ADMIN` is refused before the handler, so the `{region, department}` branch never reaches `Declaration` |
+
+The realistic break-in path is **G3, via the `department` key, not `regionId`**.
+Adding `DIVISIONAL_ADMIN` to that `@Roles` list is an ordinary one-line parity
+change — the role is already on `/companies/stats` through `DIRECTORY_ROLES` and
+on every `admin-questionnaires` route — and it makes the endpoint a live 500 on
+`Unknown argument 'department'`, with `regionId` playing no part. Lifting G1/G2
+by resolving staff accounts to canonical territory ids would separately make it
+a live 500 on `regionId`; that machinery already exists for `Company`
+(`resolveAndValidateTerritory`), and `pilotage-scope.ts` exists specifically to
+compensate for its absence on staff accounts.
+
+None of these three gates is documented as load-bearing for this, and
+`getDataStats` declares `const where: any`, which erases the mismatch at compile
+time. That is the actual defect: not a live 500, but a shape contract held only
+by coincidence and invisible to the type checker.
