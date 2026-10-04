@@ -105,6 +105,15 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
               <div style={{ fontSize: "11px", color: "var(--cam-text-muted)" }}>
                 {quarterQuery.data?.label ?? quarterQuery.data?.code ?? "Campagne en cours"}
               </div>
+              {/* A closed period must not read as the live campaign. The
+                  badge otherwise shows the round's label either way, which
+                  is the one always-visible place a respondent would still
+                  infer the campaign is collecting. */}
+              {quarterQuery.data?.isOpen === false && (
+                <div style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--cam-warning)", marginTop: 1 }}>
+                  Période fermée
+                </div>
+              )}
             </div>
           </div>
           {user && (

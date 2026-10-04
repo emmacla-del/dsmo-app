@@ -29,7 +29,10 @@ export class OnefopService {
         if (!isDraft) {
             const activeQuarter = await this.getActiveQuarter();
             if (!activeQuarter.isOpen) {
-                console.warn('⚠️ [TESTING MODE] Submission allowed while quarter is closed.');
+                throw new ForbiddenException(
+                    activeQuarter.message ??
+                    "La période de collecte n'est pas ouverte aux soumissions.",
+                );
             }
         }
 
@@ -264,7 +267,7 @@ export class OnefopService {
         // a round is only flipped to CLOSED by a daily cron that can miss its
         // firing (e.g. Render free-tier idle spin-down), so a round can sit
         // OPEN past its own deadline.
-        let round = await this.prisma.submissionRound.findFirst({
+        const openRound = await this.prisma.submissionRound.findFirst({
             where: {
                 module: 'ONEFOP',
                 status: { in: ['OPEN', 'EXTENDED'] },
@@ -273,7 +276,16 @@ export class OnefopService {
             orderBy: { openedAt: 'desc' },
         });
 
-        // For testing purposes: if no strictly active round exists, fall back to the latest round
+        // No genuinely open round: fall back to the most recent one so the
+        // respondent can still be told *which* period is closed, and so
+        // `code` stays populated. `code` is not cosmetic — it is the draft
+        // key on both the server (OnefopDraft) and the client (IndexedDB via
+        // useOnefopDraft), and the Save-draft button is disabled when it is
+        // missing. Returning a null code here would lock respondents out of
+        // saving work in progress and silently re-key existing drafts, which
+        // is worse than the closed period itself. Drafts stay writable while
+        // closed by design: only the final filing is gated (see submitForm).
+        let round = openRound;
         if (!round) {
             round = await this.prisma.submissionRound.findFirst({
                 where: { module: 'ONEFOP' },
@@ -281,11 +293,25 @@ export class OnefopService {
             });
         }
 
+        // Reported to the respondent verbatim (ActiveQuarter.message in
+        // react-web/src/lib/onefop-submission.ts). French to match `labelFr`,
+        // which is the only other human-readable string on this payload.
+        const closedMessage = (r: { deadline: Date; labelFr: string }) =>
+            r.deadline < new Date()
+                ? `La période de collecte « ${r.labelFr} » est close depuis le ${r.deadline.toLocaleDateString('fr-FR')}.`
+                : `La période de collecte « ${r.labelFr} » n'est pas ouverte aux soumissions.`;
+
         if (!round) {
             const now = new Date();
             const currentYear = now.getFullYear();
             const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
             const quarterCode = `${currentYear}-T${currentQuarter}`;
+            // Deliberately still open: this branch is only reached when the
+            // SubmissionRound table holds no ONEFOP round whatsoever, i.e. a
+            // fresh or local database that has never run a campaign. It is an
+            // explicit test affordance (note the label), and the honesty fix
+            // below is scoped to real rounds. Flipping this to false would
+            // make a seed-less environment unable to submit at all.
             return {
                 isOpen: true,
                 code: quarterCode,
@@ -295,8 +321,10 @@ export class OnefopService {
                 periodEnd: new Date(currentYear, currentQuarter * 3, 0),
             };
         }
+        const isOpen = round.id === openRound?.id;
         return {
-            isOpen: true,
+            isOpen,
+            ...(isOpen ? {} : { message: closedMessage(round) }),
             code: round.quarterCode,
             label: round.labelFr,
             deadline: round.deadline,

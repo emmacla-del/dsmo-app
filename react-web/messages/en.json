@@ -696,6 +696,7 @@
     "thankYouTitle": "Thank you for your participation",
     "confidentialityTitle": "Statistical Secrecy & Data Protection",
     "confidentialityText": "In accordance with Law No. 91/023 of 16 December 1991, the information collected is protected by statistical confidentiality and will only be used for statistical or national planning purposes.",
+    "periodClosedTitle": "Declaration period closed",
     "errorsBlockingSubmit": "Validation errors are blocking submission. Click the affected sections below to correct them.",
     "incompleteWarning": "Note: some sections are not yet complete. You can click any section below to review and complete it before final submission.",
     "summaryHeader": "Summary of the 9 sections",
