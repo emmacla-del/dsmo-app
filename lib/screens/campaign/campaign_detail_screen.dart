@@ -404,6 +404,10 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
     final l10n = context.l10n;
     final color = _statusColor(status);
     final creator = _campaign['creator'] as Map<String, dynamic>?;
+    // 'periodicity' is the current key; 'type' is the legacy alias the
+    // backend still emits alongside it.
+    final periodicity =
+        (_campaign['periodicity'] ?? _campaign['type']) as String?;
     String? creatorLabel;
     if (creator != null) {
       final fullName =
@@ -435,8 +439,8 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           ],
           _infoRow(
               l10n.typeLabel,
-              campaignTypeLabels[_campaign['type']]?.of(context.loc) ??
-                  (_campaign['type'] as String? ?? '—')),
+              campaignTypeLabels[periodicity]?.of(context.loc) ??
+                  (periodicity ?? '—')),
           _infoRow(
               l10n.collectionLabel,
               collectionTypeLabels[_campaign['collectionType']]?.of(context.loc) ??
