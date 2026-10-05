@@ -53,16 +53,29 @@ export const PilotageAuditAction = {
   CAMPAIGN_QUOTA_DELETE: 'CAMPAIGN_QUOTA_DELETE',
   CENTRAL_INSCRIPTION_TARGET_UPSERT: 'CENTRAL_INSCRIPTION_TARGET_UPSERT',
   CENTRAL_INSCRIPTION_TARGET_DELETE: 'CENTRAL_INSCRIPTION_TARGET_DELETE',
-  CENTRAL_CAMPAIGN_QUOTA_UPSERT: 'CENTRAL_CAMPAIGN_QUOTA_UPSERT',
-  CENTRAL_CAMPAIGN_QUOTA_DELETE: 'CENTRAL_CAMPAIGN_QUOTA_DELETE',
 } as const;
 
 type ScopeKey = { year: number } | { campaignId: string };
 type ScopedDelegate = 'territoryTarget' | 'campaignQuota';
-type CentralDelegate = 'centralInscriptionTarget' | 'centralCampaignQuota';
+/**
+ * Only CentralInscriptionTarget remains. CentralCampaignQuota left this union
+ * when the ADMINISTRATION cohort target moved into CampaignQuota behind
+ * scopeKind; applyCentral and this alias retire together in Phase 4, with the
+ * year-scoped inscription endpoints.
+ */
+type CentralDelegate = 'centralInscriptionTarget';
 
 interface StoredRow {
   id: string;
+  /**
+   * Non-null although CampaignQuota.regionId is nullable in the schema. The
+   * cast below discards Prisma's type, so this is a claim, not a check: it
+   * holds because replaceScoped only ever queries with a concrete regionId
+   * (see the findMany in its region loop). That same concrete regionId is
+   * what keeps the ADMINISTRATION row — regionId NULL — out of `existing`,
+   * and therefore out of the delete loop that would otherwise remove it as
+   * an unwanted row.
+   */
   regionId: string;
   departmentId: string | null;
   inscriptionTarget?: number;
@@ -220,11 +233,18 @@ export class PilotageService {
     const campaign = await this.requireOnefopCampaign(campaignId);
     const { scope, regions } = await this.loadGrid(territory, (current) =>
       this.prisma.campaignQuota
-        .findMany({ where: { campaignId, ...regionFilter(current) } })
-        .then((rows) => rows.map((row) => ({ regionId: row.regionId, departmentId: row.departmentId, target: row.submissionTarget }))),
+        .findMany({ where: { campaignId, scopeKind: 'TERRITORIAL', ...regionFilter(current) } })
+        .then((rows) =>
+          rows
+            .filter(hasRegion)
+            .map((row) => ({ regionId: row.regionId, departmentId: row.departmentId, target: row.submissionTarget })),
+        ),
     );
     const central = scope.kind === 'national'
-      ? await this.prisma.centralCampaignQuota.findUnique({ where: { campaignId } })
+      ? await this.prisma.campaignQuota.findFirst({
+          where: { campaignId, scopeKind: 'ADMINISTRATION' },
+          select: { submissionTarget: true },
+        })
       : null;
     return {
       campaign: campaignSummary(campaign),
@@ -240,13 +260,15 @@ export class PilotageService {
     const campaign = await this.requireOnefopCampaign(campaignId);
     const { scope, regions } = await this.loadGrid(territory, (current) =>
       this.prisma.campaignQuota
-        .findMany({ where: { campaignId, ...regionFilter(current) } })
+        .findMany({ where: { campaignId, scopeKind: 'TERRITORIAL', ...regionFilter(current) } })
         .then((rows) =>
-          rows.map((row) => ({
-            regionId: row.regionId,
-            departmentId: row.departmentId,
-            target: row.submissionTarget,
-          })),
+          rows
+            .filter(hasRegion)
+            .map((row) => ({
+              regionId: row.regionId,
+              departmentId: row.departmentId,
+              target: row.submissionTarget,
+            })),
         ),
     );
 
@@ -275,7 +297,10 @@ export class PilotageService {
     const national = scope.kind === 'national';
     const [centralQuota, companies, submissions] = await Promise.all([
       national
-        ? this.prisma.centralCampaignQuota.findUnique({ where: { campaignId } })
+        ? this.prisma.campaignQuota.findFirst({
+            where: { campaignId, scopeKind: 'ADMINISTRATION' },
+            select: { submissionTarget: true },
+          })
         : Promise.resolve(null),
       this.prisma.company.findMany({
         where: companyWhere(scope),
@@ -573,9 +598,65 @@ export class PilotageService {
       tx, actorId, { campaignId }, parsed.entries, parsed.clearedRegionIds, 'campaignQuota', 'submissionTarget', 'CampaignQuota',
       PilotageAuditAction.CAMPAIGN_QUOTA_UPSERT, PilotageAuditAction.CAMPAIGN_QUOTA_DELETE,
     );
-    await this.applyCentral(
-      tx, actorId, { campaignId }, 'centralCampaignQuota', 'submissionTarget', parsed.central, 'CentralCampaignQuota',
-      PilotageAuditAction.CENTRAL_CAMPAIGN_QUOTA_UPSERT, PilotageAuditAction.CENTRAL_CAMPAIGN_QUOTA_DELETE,
+    await this.writeAdministrationQuota(tx, actorId, campaignId, parsed.central);
+  }
+
+  /**
+   * Writes the campaign's ADMINISTRATION quota: the target for the ministry
+   * cohort, which answers as one national respondent group and is excluded
+   * from every territorial bucket in getCampaignReturns.
+   *
+   * Symmetric to applyCentral, which still serves CentralInscriptionTarget,
+   * but writes into CampaignQuota rather than the deprecated
+   * CentralCampaignQuota. The row carries no region and no department; one per
+   * campaign, enforced by campaign_quotas_administration_uidx, with the shape
+   * enforced by campaign_quotas_scope_shape.
+   */
+  private async writeAdministrationQuota(
+    tx: Prisma.TransactionClient,
+    actorId: string,
+    campaignId: string,
+    value: number | null | undefined,
+  ): Promise<void> {
+    if (value === undefined) return;
+    const where = { campaignId, scopeKind: 'ADMINISTRATION' } as const;
+    const details = { campaignId, scopeKind: 'ADMINISTRATION' };
+    const existing = await tx.campaignQuota.findFirst({ where });
+    if (value === null) {
+      if (!existing) return;
+      await tx.campaignQuota.delete({ where: { id: existing.id } });
+      await writeAudit(
+        tx, actorId, PilotageAuditAction.CAMPAIGN_QUOTA_DELETE, 'CampaignQuota',
+        existing.id, existing.submissionTarget, null, details,
+      );
+      return;
+    }
+    if (existing && existing.submissionTarget === value) return;
+    if (existing) {
+      await tx.campaignQuota.update({
+        where: { id: existing.id },
+        data: { submissionTarget: value, updatedBy: actorId },
+      });
+      await writeAudit(
+        tx, actorId, PilotageAuditAction.CAMPAIGN_QUOTA_UPSERT, 'CampaignQuota',
+        existing.id, existing.submissionTarget, value, details,
+      );
+      return;
+    }
+    const created = await tx.campaignQuota.create({
+      data: {
+        campaignId,
+        scopeKind: 'ADMINISTRATION',
+        regionId: null,
+        departmentId: null,
+        submissionTarget: value,
+        createdBy: actorId,
+        updatedBy: actorId,
+      },
+    });
+    await writeAudit(
+      tx, actorId, PilotageAuditAction.CAMPAIGN_QUOTA_UPSERT, 'CampaignQuota',
+      created.id, null, value, details,
     );
   }
 
@@ -604,7 +685,7 @@ export class PilotageService {
 
     const table = tx[delegate] as unknown as ScopedTable;
     for (const [regionId, desired] of byRegion) {
-      const existing = await table.findMany({ where: { ...scope, regionId } });
+      const existing = await table.findMany({ where: { ...scope, regionId, ...scopedWhere(delegate) } });
       const wanted = new Set(desired.map((entry) => entry.departmentId));
       for (const row of existing) {
         if (wanted.has(row.departmentId)) continue;
@@ -624,7 +705,7 @@ export class PilotageService {
           const previous = numberOrNull(current[field]);
           await table.update({
             where: { id: current.id },
-            data: { [field]: entry.target, updatedBy: actorId },
+            data: { [field]: entry.target, updatedBy: actorId, ...scopedWhere(delegate) },
           });
           await writeAudit(tx, actorId, upsertAction, resourceType, current.id, previous, entry.target, details);
         } else {
@@ -636,6 +717,7 @@ export class PilotageService {
               [field]: entry.target,
               createdBy: actorId,
               updatedBy: actorId,
+              ...scopedWhere(delegate),
             },
           });
           await writeAudit(tx, actorId, upsertAction, resourceType, created.id, null, entry.target, details);
@@ -769,6 +851,42 @@ export class PilotageService {
 
 function requireActor(actorId: string): void {
   if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException();
+}
+
+/**
+ * The scopeKind discriminator for the campaign-quota table, written out rather
+ * than left to the column default.
+ *
+ * CampaignQuota holds both TERRITORIAL rows and the one ADMINISTRATION row per
+ * campaign, so every territorial read and write has to say which it means.
+ * TerritoryTarget has no such column. Sending the value explicitly on create
+ * and update — instead of relying on @default(TERRITORIAL) — keeps the row the
+ * ORM returns identical to the row the database stores, which a default the
+ * client never sends does not.
+ */
+function scopedWhere(delegate: ScopedDelegate): { scopeKind?: 'TERRITORIAL' } {
+  return delegate === 'campaignQuota' ? { scopeKind: 'TERRITORIAL' } : {};
+}
+
+/**
+ * Narrows a quota row to one that carries a region.
+ *
+ * CampaignQuota.regionId is nullable only to admit the single ADMINISTRATION
+ * row per campaign, which targets the ministry cohort and belongs to no
+ * territory.
+ *
+ * This predicate is the load-bearing guard, not the `scopeKind: 'TERRITORIAL'`
+ * filter on the queries: campaign_quotas_scope_shape makes regionId NULL
+ * equivalent to scopeKind = ADMINISTRATION, so narrowing on the region alone
+ * already excludes the cohort row. The two are redundant on purpose. This one
+ * is enforced by the compiler, because loadGrid's callback demands
+ * `regionId: string` and nothing else can satisfy it; the scopeKind filter
+ * narrows the query at the database and states the intent at the call site.
+ * Removing this predicate is a type error. Removing that filter is not, which
+ * is why the guard lives here.
+ */
+function hasRegion<T extends { regionId: string | null }>(row: T): row is T & { regionId: string } {
+  return row.regionId !== null;
 }
 
 function regionFilter(scope: TargetScope): { regionId?: string } {

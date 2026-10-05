@@ -5,7 +5,13 @@ import { PrismaService } from '../prisma/prisma.service';
 
 interface TargetRow {
   id: string;
-  regionId: string;
+  /**
+   * The campaign-quota table also holds the ADMINISTRATION cohort row, which
+   * belongs to no territory. match() is strict equality, so a TERRITORIAL
+   * fixture that omits scopeKind is invisible to the service's filtered reads.
+   */
+  scopeKind?: 'TERRITORIAL' | 'ADMINISTRATION';
+  regionId: string | null;
   departmentId: string | null;
   inscriptionTarget?: number;
   submissionTarget?: number;
@@ -46,6 +52,9 @@ function createHarness() {
         rows.filter((row) => match(row, where)),
       ),
       findUnique: jest.fn(async ({ where }: { where: Record<string, unknown> }) =>
+        rows.find((row) => match(row, where)) ?? null,
+      ),
+      findFirst: jest.fn(async ({ where }: { where?: Record<string, unknown> } = {}) =>
         rows.find((row) => match(row, where)) ?? null,
       ),
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -309,10 +318,19 @@ describe('PilotageService writes', () => {
       entries: [{ regionId: 'r-littoral', departmentId: 'd-wouri', submissionTarget: 4 }],
       central: { submissionTarget: 9 },
     });
-    expect(harness.campaignQuotas[0]).toMatchObject({ campaignId: 'camp-1', submissionTarget: 4, departmentId: 'd-wouri' });
-    expect(harness.centralQuotas[0]).toMatchObject({ submissionTarget: 9 });
-    expect(harness.audits.map((row) => row.action).sort()).toEqual(['CAMPAIGN_QUOTA_UPSERT', 'CENTRAL_CAMPAIGN_QUOTA_UPSERT']);
+    expect(harness.campaignQuotas[0]).toMatchObject({
+      campaignId: 'camp-1', scopeKind: 'TERRITORIAL', submissionTarget: 4, departmentId: 'd-wouri',
+    });
+    // The central key now lands in CampaignQuota as the ADMINISTRATION row,
+    // not in the deprecated CentralCampaignQuota table.
+    expect(harness.campaignQuotas[1]).toMatchObject({
+      campaignId: 'camp-1', scopeKind: 'ADMINISTRATION', regionId: null, departmentId: null, submissionTarget: 9,
+    });
+    expect(harness.centralQuotas).toHaveLength(0);
+    expect(harness.audits.map((row) => row.action).sort()).toEqual(['CAMPAIGN_QUOTA_UPSERT', 'CAMPAIGN_QUOTA_UPSERT']);
     expect(result.campaign).toMatchObject({ id: 'camp-1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    // The response keeps its shape: central is still { submissionTarget } | null.
+    expect(result.central).toEqual({ submissionTarget: 9 });
     const littoral = asRegions(result.regions).find((region) => region.name === 'Littoral');
     expect(littoral).toMatchObject({ mode: 'DEPARTMENT', submissionTarget: 4 });
 
@@ -322,7 +340,106 @@ describe('PilotageService writes', () => {
     await expect(harness.service.getCampaignQuotas(national, 'dsmo'))
       .rejects.toThrow('Les objectifs de campagne concernent uniquement les campagnes ONEFOP.');
     await expect(harness.service.getCampaignQuotas(national, 'missing')).rejects.toBeInstanceOf(NotFoundException);
-    expect(harness.campaignQuotas).toHaveLength(1);
+    expect(harness.campaignQuotas).toHaveLength(2);
+  });
+
+  it('writes the central key as one ADMINISTRATION row and never touches CentralCampaignQuota', async () => {
+    const harness = createHarness();
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+
+    await harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [],
+      central: { submissionTarget: 12 },
+    });
+
+    const administration = harness.campaignQuotas.filter((row) => row.scopeKind === 'ADMINISTRATION');
+    expect(administration).toHaveLength(1);
+    expect(administration[0]).toMatchObject({
+      campaignId: 'camp-1', regionId: null, departmentId: null, submissionTarget: 12,
+      createdBy: 'actor-1', updatedBy: 'actor-1',
+    });
+
+    // The deprecated table keeps its delegate — campaign.service still reads
+    // the relation for its delete-blocker — but pilotage must not write it.
+    expect(harness.centralQuotas).toHaveLength(0);
+    const centralDelegate = harness.prisma.centralCampaignQuota as Record<string, jest.Mock>;
+    expect(centralDelegate.create).not.toHaveBeenCalled();
+    expect(centralDelegate.update).not.toHaveBeenCalled();
+    expect(centralDelegate.delete).not.toHaveBeenCalled();
+
+    // The retired audit actions must not reappear under a new writer.
+    const actions = harness.audits.map((row) => row.action);
+    expect(actions).toEqual(['CAMPAIGN_QUOTA_UPSERT']);
+    expect(actions.some((action) => String(action).startsWith('CENTRAL_CAMPAIGN_QUOTA'))).toBe(false);
+    expect(harness.audits[0]).toMatchObject({
+      resourceType: 'CampaignQuota',
+      previousValue: null,
+      newValue: '12',
+    });
+  });
+
+  it('deletes the ADMINISTRATION row when central is null, and leaves territorial rows alone', async () => {
+    const harness = createHarness();
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    harness.campaignQuotas.push(
+      { id: 'q-terr', campaignId: 'camp-1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: null, submissionTarget: 30 },
+      { id: 'q-adm', campaignId: 'camp-1', scopeKind: 'ADMINISTRATION', regionId: null, departmentId: null, submissionTarget: 7 },
+    );
+
+    const result = await harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
+      entries: [],
+      central: null,
+    });
+
+    expect(harness.campaignQuotas.map((row) => row.id)).toEqual(['q-terr']);
+    expect(result.central).toBeNull();
+    const centre = asRegions(result.regions).find((region) => region.name === 'Centre');
+    expect(centre).toMatchObject({ mode: 'REGION', submissionTarget: 30 });
+    expect(harness.audits).toEqual([
+      expect.objectContaining({
+        action: 'CAMPAIGN_QUOTA_DELETE',
+        resourceType: 'CampaignQuota',
+        resourceId: 'q-adm',
+        previousValue: '7',
+        newValue: null,
+      }),
+    ]);
+  });
+
+  it('reads the ADMINISTRATION row as central at national scope only', async () => {
+    const harness = createHarness();
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    harness.campaignQuotas.push({
+      id: 'q-adm', campaignId: 'camp-1', scopeKind: 'ADMINISTRATION',
+      regionId: null, departmentId: null, submissionTarget: 44,
+    });
+
+    await expect(harness.service.getCampaignQuotas(national, 'camp-1'))
+      .resolves.toMatchObject({ central: { submissionTarget: 44 } });
+    await expect(harness.service.getCampaignQuotas(regional, 'camp-1'))
+      .resolves.toMatchObject({ central: null });
+    await expect(harness.service.getCampaignQuotas(divisional, 'camp-1'))
+      .resolves.toMatchObject({ central: null });
+  });
+
+  it('keeps the ADMINISTRATION row out of the territorial grid at national scope', async () => {
+    // regionFilter() returns {} for national scope, so national is the only
+    // scope where the cohort row is a candidate for the grid at all. Two
+    // things exclude it — the scopeKind filter on the query and the hasRegion
+    // predicate on the rows — and either alone suffices, so this test pins the
+    // outcome rather than one mechanism. It fails only if both go.
+    const harness = createHarness();
+    harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
+    harness.campaignQuotas.push(
+      { id: 'q-terr', campaignId: 'camp-1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
+      { id: 'q-adm', campaignId: 'camp-1', scopeKind: 'ADMINISTRATION', regionId: null, departmentId: null, submissionTarget: 99 },
+    );
+
+    const quotas = await harness.service.getCampaignQuotas(national, 'camp-1');
+    expect(asRegions(quotas.regions).map((region) => region.name)).toEqual(['Centre', 'Littoral']);
+    const centre = asRegions(quotas.regions).find((region) => region.name === 'Centre');
+    expect(centre).toMatchObject({ mode: 'DEPARTMENT', submissionTarget: 10 });
+    expect(quotas.central).toEqual({ submissionTarget: 99 });
   });
 
   it("clears a region's inscription targets back to UNSET, auditing each deleted row", async () => {
@@ -354,7 +471,7 @@ describe('PilotageService writes', () => {
     const harness = createHarness();
     harness.campaigns.push({ id: 'camp-1', name: 'Collecte', code: 'C1', collectionType: 'ONEFOP', status: 'DRAFT' });
     harness.campaignQuotas.push(
-      { id: 'q-centre', campaignId: 'camp-1', regionId: 'r-centre', departmentId: null, submissionTarget: 50, createdBy: 'old', updatedBy: 'old' },
+      { id: 'q-centre', campaignId: 'camp-1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: null, submissionTarget: 50, createdBy: 'old', updatedBy: 'old' },
     );
     const result = await harness.service.putCampaignQuotas('actor-1', national, 'camp-1', {
       entries: [{ regionId: 'r-centre', clear: true }],
@@ -715,8 +832,8 @@ describe('PilotageService.getCampaignReturns', () => {
     harness.campaigns.push(campaign('c1'));
     // Quotas: Mfoundi = 10, Lékié = 5 -> Centre quota = 15
     harness.campaignQuotas.push(
-      { id: 'q1', campaignId: 'c1', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
-      { id: 'q2', campaignId: 'c1', regionId: 'r-centre', departmentId: 'd-lekie', submissionTarget: 5 },
+      { id: 'q1', campaignId: 'c1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
+      { id: 'q2', campaignId: 'c1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: 'd-lekie', submissionTarget: 5 },
     );
     // Active registered companies in Mfoundi (2) and Lékié (1)
     harness.companies.push(
@@ -834,10 +951,38 @@ describe('PilotageService.getCampaignReturns', () => {
     expect(centre.responseRate).toBe(1); // 3 / 3
   });
 
+  it('keeps the ADMINISTRATION row out of the territorial grid', async () => {
+    // As in the quotas-grid test: national scope is the only scope where the
+    // cohort row could reach `regions`, and the scopeKind filter and the
+    // hasRegion predicate each exclude it on their own. What matters here is
+    // the consequence if both were ever dropped — a nameless region row that
+    // also lands in the quota-backed subtotals behind gap, quotaRate and
+    // onTimeRate.
+    const harness = createHarness();
+    harness.campaigns.push(campaign('c1'));
+    harness.campaignQuotas.push({
+      id: 'q-adm', campaignId: 'c1', scopeKind: 'ADMINISTRATION',
+      regionId: null, departmentId: null, submissionTarget: 99,
+    });
+
+    const res = await harness.service.getCampaignReturns(national, 'c1');
+    expect(res.regions.map((region) => region.name)).toEqual(['Centre', 'Littoral']);
+    expect(res.regions.every((region) => region.quota === null)).toBe(true);
+    expect(res.central).toMatchObject({ quota: 99, received: 0 });
+    expect(res.totals.quota).toBe(99);
+  });
+
   it('routes formType === ADMINISTRATION to central bucket and excludes from territorial quotas', async () => {
     const harness = createHarness();
     harness.campaigns.push(campaign('c1'));
-    harness.centralQuotas.push({ id: 'cq1', campaignId: 'c1', submissionTarget: 50 });
+    harness.campaignQuotas.push({
+      id: 'cq1',
+      campaignId: 'c1',
+      scopeKind: 'ADMINISTRATION',
+      regionId: null,
+      departmentId: null,
+      submissionTarget: 50,
+    });
     // Registered central administration in stock
     harness.companies.push(
       registeredCompany('admin-comp-1', 'r-centre', 'd-mfoundi', OnefopEntityType.ADMINISTRATION),
@@ -878,8 +1023,8 @@ describe('PilotageService.getCampaignReturns', () => {
     const harness = createHarness();
     harness.campaigns.push(campaign('c1'));
     harness.campaignQuotas.push(
-      { id: 'q1', campaignId: 'c1', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
-      { id: 'q3', campaignId: 'c1', regionId: 'r-littoral', departmentId: 'd-wouri', submissionTarget: 20 },
+      { id: 'q1', campaignId: 'c1', scopeKind: 'TERRITORIAL', regionId: 'r-centre', departmentId: 'd-mfoundi', submissionTarget: 10 },
+      { id: 'q3', campaignId: 'c1', scopeKind: 'TERRITORIAL', regionId: 'r-littoral', departmentId: 'd-wouri', submissionTarget: 20 },
     );
     harness.onefopSubmissions.push(
       {
@@ -951,6 +1096,7 @@ describe('PilotageService.getCampaignReturns', () => {
     harness.campaignQuotas.push({
       id: 'q1',
       campaignId: 'c1',
+      scopeKind: 'TERRITORIAL',
       regionId: 'r-centre',
       departmentId: 'd-mfoundi',
       submissionTarget: 10,
@@ -1070,6 +1216,7 @@ describe('PilotageService.getCampaignReturns', () => {
     harness.campaignQuotas.push({
       id: 'q-region',
       campaignId: 'c1',
+      scopeKind: 'TERRITORIAL',
       regionId: 'r-centre',
       departmentId: null,
       submissionTarget: 20,

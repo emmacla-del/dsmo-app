@@ -2387,6 +2387,16 @@ enum CampaignPurpose {
   REGISTRATION
 }
 
+// Which cohort a CampaignQuota row targets. TERRITORIAL rows carry a
+// region (and optionally a department); the ADMINISTRATION row carries
+// neither — ministries answer the questionnaire as one national cohort,
+// not as a territory, and their returns are excluded from territorial
+// buckets in PilotageService.getCampaignReturns.
+enum CampaignQuotaScope {
+  TERRITORIAL
+  ADMINISTRATION
+}
+
 enum SubmissionStatus {
   PENDING
   SUBMITTED
@@ -2504,21 +2514,41 @@ model TerritoryTarget {
   @@map("territory_targets")
 }
 
+// The unified quota table. A row is either TERRITORIAL — one per region,
+// or one per department — or the single ADMINISTRATION row for the campaign,
+// which holds the target for the ministry cohort and carries no region or
+// department at all. Cohort is the permanent granularity for ADMINISTRATION:
+// per-ministry targets, should they ever arrive, would be a new scopeKind
+// value, not a nullable ministry column.
+//
+// Four invariants below are hand-written SQL in
+// 20261008120000_campaign_quota_scope_kind, not Prisma attributes, because
+// Prisma can express neither WHERE on @@unique nor CHECK constraints:
+//
+//   - one ADMINISTRATION row per campaign
+//   - one TERRITORIAL region-level row per (campaign, region)
+//   - one TERRITORIAL department row per (campaign, region, department)
+//   - the scope shape: ADMINISTRATION => regionId and departmentId both NULL;
+//     TERRITORIAL => regionId NOT NULL
+//
+// regionId is nullable only to admit the ADMINISTRATION row. Every reader
+// that treats it as non-null must first narrow on scopeKind.
 model CampaignQuota {
-  id               String       @id @default(uuid())
+  id               String             @id @default(uuid())
   campaignId       String
-  regionId         String
+  scopeKind        CampaignQuotaScope @default(TERRITORIAL)
+  regionId         String?
   departmentId     String?
   submissionTarget Int
   createdBy        String
   updatedBy        String
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  campaign         DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  region           Region       @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  department       Department?  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  createdByUser    User         @relation("CampaignQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updatedByUser    User         @relation("CampaignQuotaUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  campaign         DataCampaign       @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  region           Region?            @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  department       Department?        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdByUser    User               @relation("CampaignQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updatedByUser    User               @relation("CampaignQuotaUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
 
   @@index([campaignId])
   @@index([regionId])
