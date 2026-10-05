@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from '../questionnaires/eligibility-engine.service';
 import {
@@ -13,7 +14,7 @@ import {
     resolveExportPartition,
     type OnefopExportFilters,
 } from './spss/export-filters';
-import { Territory, territoryWhere, territoryWhereForExport } from '../auth/territory';
+import { Territory, territoryWhere, territoryWhereForDeclaration, territoryWhereForExport } from '../auth/territory';
 import { SAV_NCASES_OFFSET, SavWriter, type SavVariable } from './spss/sav-writer';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
@@ -570,7 +571,14 @@ export class DataManagementService {
     }
 
     async getDataStats(territory?: Territory) {
-        const where: any = territoryWhere(territory);
+        // Three models, three where shapes. Company and OnefopSubmission both
+        // declare every column territoryWhere can emit; Declaration declares
+        // neither regionId nor departmentId and calls the second tier
+        // `division`, so it gets the narrowed builder. Typed rather than
+        // `any` so a future key mismatch fails the build instead of 500-ing.
+        const companyWhere = territoryWhere(territory) as Prisma.CompanyWhereInput;
+        const onefopWhere = territoryWhere(territory) as Prisma.OnefopSubmissionWhereInput;
+        const declarationWhere: Prisma.DeclarationWhereInput = territoryWhereForDeclaration(territory);
         const [
             totalCompanies,
             totalDeclarations,
@@ -580,28 +588,28 @@ export class DataManagementService {
             onefopByStatus,
             companiesByRegion,
         ] = await Promise.all([
-            this.prisma.company.count({ where }),
-            this.prisma.declaration.count({ where }),
-            this.prisma.onefopSubmission.count({ where }),
+            this.prisma.company.count({ where: companyWhere }),
+            this.prisma.declaration.count({ where: declarationWhere }),
+            this.prisma.onefopSubmission.count({ where: onefopWhere }),
             territory?.region
                 ? this.prisma.user.count({ where: { region: territory.region } })
                 : this.prisma.user.count(),
 
             this.prisma.declaration.groupBy({
                 by: ['status'],
-                where,
+                where: declarationWhere,
                 _count: true,
             }),
 
             this.prisma.onefopSubmission.groupBy({
                 by: ['status'],
-                where,
+                where: onefopWhere,
                 _count: true,
             }),
 
             this.prisma.company.groupBy({
                 by: ['region'],
-                where,
+                where: companyWhere,
                 _count: true,
                 orderBy: { _count: { region: 'desc' } },
             }),
